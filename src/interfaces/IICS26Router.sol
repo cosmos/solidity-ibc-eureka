@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25;
 
+import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+
 // @title ICS26 Router Interface
 // @notice IICS26Router is an interface for the IBC Eureka router
-interface IICS26Router {
+interface IICS26Router is IICS26RouterMsgs {
     // @notice Returns the address of the admin
     // @dev This should be satisfied by openzeppelin's Ownable contract
     // @dev address(0) is returned if the router has no admin
