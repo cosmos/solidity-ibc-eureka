@@ -5,12 +5,14 @@ pragma solidity >=0.8.25;
 // @notice IICS02Client is an interface for the IBC Eureka client router
 interface IICS02Client {
     // @notice Counterparty client information.
-    // @custom:spec https://github.com/cosmos/ibc/blob/67fe813f7e4ec603a7c5dec35bc654f3b012afda/spec/micro/README.md?plain=1#L91
+    // @custom:spec
+    // https://github.com/cosmos/ibc/blob/67fe813f7e4ec603a7c5dec35bc654f3b012afda/spec/micro/README.md?plain=1#L91
     struct CounterpartyInfo {
         /// The client identifier of the counterparty chain.
-        string client_id;
-        // The merkle path prefix of the counterparty is omitted for now.
+        string clientId;
     }
+
+    // NOTE: The merkle path prefix of the counterparty is omitted for now.
 
     // @notice Returns the counterparty client information given the client identifier.
     // @param clientId The client identifier

@@ -8,8 +8,8 @@ interface ILightClient {
     // @dev Should be used in the constructor of the light client contract
     struct MsgInitialize {
         /// Initial client state
-        bytes client_state;
+        bytes clientState;
         /// Initial consensus state
-        bytes consensus_state;
+        bytes consensusState;
     }
 }
