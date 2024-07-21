@@ -5,9 +5,10 @@ pragma solidity >=0.8.25;
 // @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router {
     // @notice Returns the address of the admin
-    // @dev May be the burn address if no admin is set.
+    // @dev This should be satisfied by openzeppelin's Ownable contract
+    // @dev address(0) is returned if the router has no admin
     // @return The address of the admin
-    function getAdmin() external view returns (address);
+    function owner() external view returns (address);
 
     // @notice Returns the address of the IBC application given the port identifier
     // @param portId The port identifier
