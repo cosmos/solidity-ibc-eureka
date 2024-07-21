@@ -11,7 +11,6 @@
   },
   "devDependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",
-    "prettier": "^3.0.0",
     "solhint": "^3.6.2"
   },
   "keywords": [
@@ -27,10 +26,8 @@
   "scripts": {
     "clean": "rm -rf cache out",
     "build": "forge build",
-    "lint": "bun run lint:sol && bun run prettier:check",
+    "lint": "bun run lint:sol",
     "lint:sol": "forge fmt --check && bun solhint {script,src,test}/**/*.sol",
-    "prettier:check": "prettier --check \"**/*.{json,md,yml}\" --ignore-path \".prettierignore\"",
-    "prettier:write": "prettier --write \"**/*.{json,md,yml}\" --ignore-path \".prettierignore\"",
     "test": "forge test",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
