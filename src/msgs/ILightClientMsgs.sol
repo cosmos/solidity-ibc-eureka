@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25;
 
-import {IICS02ClientMsgs} from "./IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
 interface ILightClientMsgs {
     /// @notice The key-value pair.

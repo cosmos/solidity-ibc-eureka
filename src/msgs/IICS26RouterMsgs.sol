@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25;
 
-import {IICS02ClientMsgs} from "./IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
 interface IICS26RouterMsgs {
     // @notice Packet struct
@@ -51,7 +51,7 @@ interface IICS26RouterMsgs {
     }
 
     // @notice Message for acknowledging packets, submitted by relayer
-    struct MsgAcknowledgement {
+    struct MsgAckPacket {
         /// The packet to be acknowledged
         Packet packet;
         /// The acknowledgement
@@ -63,7 +63,7 @@ interface IICS26RouterMsgs {
     }
 
     // @notice Message for timing out packets, submitted by relayer
-    struct MsgTimeout {
+    struct MsgTimeoutPacket {
         /// The packet to be timed out
         Packet packet;
         /// The proof of the packet commitment
@@ -71,5 +71,4 @@ interface IICS26RouterMsgs {
         /// The proof height
         IICS02ClientMsgs.Height proofHeight;
     }
-
 }
