@@ -12,6 +12,14 @@ interface IICS02Client {
         string clientId;
     }
 
+    /// @notice Height of the counterparty chain
+    struct Height {
+        /// Previously known as "epoch"
+        uint32 revision_number;
+        /// The height of a block
+        uint32 revision_height;
+    }
+
     // NOTE: The merkle path prefix of the counterparty is omitted for now.
 
     // @notice Returns the counterparty client information given the client identifier.
