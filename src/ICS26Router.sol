@@ -82,8 +82,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
 
         IBCStore.commitPacket(packet);
 
-        // TODO: emit events
-
+        emit SendPacket(packet);
         return sequence;
     }
 
