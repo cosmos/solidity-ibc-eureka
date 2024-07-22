@@ -32,4 +32,20 @@ interface IICS02Client is IICS02ClientMsgs {
     // @param clientId The client identifier
     // @param counterpartyInfo The counterparty client information
     function addCounterparty(string calldata clientId, CounterpartyInfo calldata counterpartyInfo) external;
+
+    // @notice Updates the client given the client identifier.
+    // @param clientId The client identifier
+    // @param updateMsg The update message
+    // @return The result of the update operation
+    function routeUpdateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
+        external
+        returns (ILightClient.UpdateResult);
+
+    // @notice Submits misbehaviour to the client with the given client identifier.
+    // @param clientId The client identifier
+    // @param misbehaviourMsg The misbehaviour message
+    function routeMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
 }
