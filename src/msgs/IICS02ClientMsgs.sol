@@ -13,9 +13,9 @@ interface IICS02ClientMsgs {
     /// @notice Height of the counterparty chain
     struct Height {
         /// Previously known as "epoch"
-        uint32 revision_number;
+        uint32 revisionNumber;
         /// The height of a block
-        uint32 revision_height;
+        uint32 revisionHeight;
     }
 
     // NOTE: The merkle path prefix of the counterparty is omitted for now.

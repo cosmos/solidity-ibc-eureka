@@ -35,7 +35,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable {
     // @return The sequence number of the packet
     function sendPacket(MsgSendPacket calldata msg_) external returns (uint32) {
         // TODO: implement
-        // IIBCApp app = IIBCApp(apps[msg.sourcePort]);
+        IIBCApp app = IIBCApp(apps[msg_.sourcePort]);
         return 0;
     }
 

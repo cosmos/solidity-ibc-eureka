@@ -8,10 +8,11 @@ import { ICS24Host } from "./ICS24Host.sol";
 abstract contract IBCStore is IIBCStore {
     // Commitments
     // keccak256(IBC-compatible-store-path) => keccak256(IBC-compatible-commitment)
+    // solhint-disable-next-line named-parameters-mapping
     mapping(bytes32 => bytes32) internal commitments;
 
     // Next sequence sends for a given port and channel pair
-    mapping(string => mapping(string => uint32)) internal nextSequenceSends;
+    mapping(string portId => mapping(string channelId => uint32)) internal nextSequenceSends;
 
     // @notice Gets the commitment for a given path.
     function getCommitment(bytes32 hashedPath) public view returns (bytes32) {
@@ -33,7 +34,8 @@ abstract contract IBCStore is IIBCStore {
     // @notice Commits a packet
     // @param packet The packet to commit
     // @custom:spec
-    // https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/modules/core/04-channel/types/packet.go#L38
+    // https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
+    // modules/core/04-channel/types/packet.go#L38
     function commitPacket(IICS26RouterMsgs.Packet calldata packet) internal {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
         require(commitments[path] == 0, "commitment exists");
