@@ -75,10 +75,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
             data: msg_.data
         });
 
-        IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback = IIBCAppCallbacks.OnSendPacketCallback({
-            packet: packet,
-            sender: msg.sender
-        });
+        IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback =
+            IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender });
 
         app.onSendPacket(sendPacketCallback); // TODO: do not allow reentrancy
 

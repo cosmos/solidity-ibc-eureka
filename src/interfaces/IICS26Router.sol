@@ -35,4 +35,15 @@ interface IICS26Router is IICS26RouterMsgs {
     // @notice Timeouts a packet
     // @param msg The message for timing out packets
     function timeoutPacket(MsgTimeoutPacket calldata msg) external;
+
+    // --------------------- Events --------------------- //
+
+    // @notice Emitted when a packet is sent
+    event SendPacket(Packet msg);
+    // @notice Emitted when a packet is received
+    event RecvPacket(Packet msg);
+    // @notice Emitted when a packet is acknowledged
+    event WriteAcknowledgement(Packet msg, bytes acknowledgement);
+    // @notice Emitted when a packet is timed out
+    event TimeoutPacket(Packet msg);
 }
