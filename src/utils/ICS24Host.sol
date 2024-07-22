@@ -19,8 +19,8 @@ library ICS24Host {
         keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
     function packetCommitmentPathCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -33,8 +33,8 @@ library ICS24Host {
     }
 
     function packetAcknowledgementCommitmentPathCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -46,8 +46,8 @@ library ICS24Host {
     }
 
     function packetReceiptCommitmentPathCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -62,8 +62,8 @@ library ICS24Host {
     // Key generators for Commitment mapping
 
     function packetCommitmentKeyCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -74,8 +74,8 @@ library ICS24Host {
     }
 
     function packetAcknowledgementCommitmentKeyCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -86,8 +86,8 @@ library ICS24Host {
     }
 
     function packetReceiptCommitmentKeyCalldata(
-        string calldata portId,
-        string calldata channelId,
+        string memory portId,
+        string memory channelId,
         uint64 sequence
     )
         internal
@@ -98,7 +98,7 @@ library ICS24Host {
     }
 
     // @notice Get the packet commitment bytes.
-    function packetCommitmentBytes32(IICS26RouterMsgs.Packet calldata packet) internal pure returns (bytes32) {
+    function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
                 uint64(packet.timeoutTimestamp),
@@ -112,7 +112,7 @@ library ICS24Host {
     }
 
     // @notice Get the packet receipt commitment bytes.
-    function packetAcknowledgementCommitmentBytes32(bytes calldata ack) internal pure returns (bytes32) {
+    function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
         return sha256(ack);
     }
 }

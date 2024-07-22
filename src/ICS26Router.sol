@@ -9,6 +9,7 @@ import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
+import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 
 contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     mapping(string => IIBCApp) private apps;
@@ -57,8 +58,35 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         string memory counterPartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
 
         // TODO: validate all identifiers
+        if (msg_.timeoutTimestamp <= block.timestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp);
+        }
 
-        return 0;
+        uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
+
+        Packet memory packet = Packet({
+            sequence: sequence,
+            timeoutTimestamp: msg_.timeoutTimestamp,
+            sourcePort: msg_.sourcePort,
+            sourceChannel: msg_.sourceChannel,
+            destPort: msg_.destPort,
+            destChannel: counterPartyId,
+            version: msg_.version,
+            data: msg_.data
+        });
+
+        IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback = IIBCAppCallbacks.OnSendPacketCallback({
+            packet: packet,
+            sender: msg.sender
+        });
+
+        app.onSendPacket(sendPacketCallback); // TODO: do not allow reentrancy
+
+        IBCStore.commitPacket(packet);
+
+        // TODO: emit events
+
+        return sequence;
     }
 
     // @notice Receives a packet

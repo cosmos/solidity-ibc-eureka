@@ -7,4 +7,7 @@ interface IICS26RouterErrors {
 
     /// @param portId port identifier
     error IBCInvalidPortIdentifier(string portId);
+
+    /// @param timeoutTimestamp timeout timestamp in seconds
+    error IBCInvalidTimeoutTimestamp(uint32 timeoutTimestamp);
 }

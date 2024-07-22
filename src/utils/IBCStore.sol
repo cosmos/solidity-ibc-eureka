@@ -37,7 +37,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     // @custom:spec
     // https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
     // modules/core/04-channel/types/packet.go#L38
-    function commitPacket(IICS26RouterMsgs.Packet calldata packet) internal {
+    function commitPacket(IICS26RouterMsgs.Packet memory packet) internal {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketCommitmentAlreadyExists(
@@ -51,7 +51,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
 
     // @notice Deletes a packet commitment
     // @param packet The packet whose commitment to delete
-    function deletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal {
+    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
         if (commitments[path] == 0) {
             revert IBCPacketCommitmentNotFound(
@@ -63,7 +63,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     }
 
     // @notice Sets a packet receipt
-    function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal {
+    function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) internal {
         bytes32 path =
             ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
@@ -76,7 +76,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     }
 
     // @notice Commits a packet acknowledgement
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes calldata ack) internal {
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) internal {
         bytes32 path =
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
