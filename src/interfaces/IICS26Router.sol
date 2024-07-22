@@ -2,6 +2,7 @@
 pragma solidity >=0.8.25;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { IIBCApp } from "./IIBCApp.sol";
 
 // @title ICS26 Router Interface
 // @notice IICS26Router is an interface for the IBC Eureka router
@@ -15,7 +16,7 @@ interface IICS26Router is IICS26RouterMsgs {
     // @notice Returns the address of the IBC application given the port identifier
     // @param portId The port identifier
     // @return The address of the IBC application contract
-    function getIBCApp(string calldata portId) external view returns (address);
+    function getIBCApp(string calldata portId) external view returns (IIBCApp);
 
     // @notice Adds an IBC application to the router
     // @dev Only the admin can submit non-empty port identifiers. The default port identifier

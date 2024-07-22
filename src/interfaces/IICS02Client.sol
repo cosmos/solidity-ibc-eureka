@@ -2,6 +2,7 @@
 pragma solidity >=0.8.25;
 
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClient } from "./ILightClient.sol";
 
 // @title ICS02 Light Client Router Interface
 // @notice IICS02Client is an interface for the IBC Eureka client router
@@ -19,7 +20,7 @@ interface IICS02Client is IICS02ClientMsgs {
     // @notice Returns the address of the client contract given the client identifier.
     // @param clientId The client identifier
     // @return The address of the client contract
-    function getClient(string calldata clientId) external view returns (address);
+    function getClient(string calldata clientId) external view returns (ILightClient);
 
     // @notice Adds a client to the client router.
     // @param clientType The client type, e.g., "07-tendermint".
