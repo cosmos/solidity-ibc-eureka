@@ -4,7 +4,7 @@ pragma solidity >=0.8.25;
 import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
 interface IICS26RouterMsgs {
-    // @notice Packet struct
+    /// @notice Packet struct
     struct Packet {
         /// The sequence number of the packet. Each packet transmitted in a channel
         uint32 sequence;
@@ -24,7 +24,7 @@ interface IICS26RouterMsgs {
         bytes data;
     }
 
-    // @notice Message for sending packets
+    /// @notice Message for sending packets
     struct MsgSendPacket {
         /// The source port identifier
         string sourcePort;
@@ -40,7 +40,7 @@ interface IICS26RouterMsgs {
         string version;
     }
 
-    // @notice Message for receiving packets, submitted by relayer
+    /// @notice Message for receiving packets, submitted by relayer
     struct MsgRecvPacket {
         /// The packet to be received
         Packet packet;
@@ -50,7 +50,7 @@ interface IICS26RouterMsgs {
         IICS02ClientMsgs.Height proofHeight;
     }
 
-    // @notice Message for acknowledging packets, submitted by relayer
+    /// @notice Message for acknowledging packets, submitted by relayer
     struct MsgAckPacket {
         /// The packet to be acknowledged
         Packet packet;
@@ -62,7 +62,7 @@ interface IICS26RouterMsgs {
         IICS02ClientMsgs.Height proofHeight;
     }
 
-    // @notice Message for timing out packets, submitted by relayer
+    /// @notice Message for timing out packets, submitted by relayer
     struct MsgTimeoutPacket {
         /// The packet to be timed out
         Packet packet;

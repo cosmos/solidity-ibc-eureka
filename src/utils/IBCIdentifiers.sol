@@ -4,8 +4,8 @@ pragma solidity >=0.8.25;
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
-// @title IBC Identifiers
-// @notice Utilities for validating IBC identifiers
+/// @title IBC Identifiers
+/// @notice Utilities for validating IBC identifiers
 library IBCIdentifiers {
     /**
      * @dev validatePortIdentifier validates a port identifier string
@@ -14,8 +14,8 @@ library IBCIdentifiers {
      *     - `.`, `_`, `+`, `-`, `#`
      *     - `[`, `]`, `<`, `>`
      */
-    // @custom:url https://github.com/hyperledger-labs/yui-ibc-solidity/blob/49d88ae8151a92e086e6ca7d27a2d3651889edff/
-    // contracts/core/26-router/IBCModuleManager.sol#L123
+    /// @custom:url https://github.com/hyperledger-labs/yui-ibc-solidity/blob/49d88ae8151a92e086e6ca7d27a2d3651889edff/
+    /// contracts/core/26-router/IBCModuleManager.sol#L123
     function validatePortIdentifier(bytes memory portId) internal pure returns (bool) {
         if (portId.length < 2 || portId.length > 128) {
             return false;

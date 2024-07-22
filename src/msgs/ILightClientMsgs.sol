@@ -10,8 +10,8 @@ interface ILightClientMsgs {
         bytes value;
     }
 
-    // @notice Initializes the light client with a trusted client state and consensus state
-    // @dev Should be used in the constructor of the light client contract
+    /// @notice Initializes the light client with a trusted client state and consensus state
+    /// @dev Should be used in the constructor of the light client contract
     struct MsgInitialize {
         /// Initial client state
         bytes clientState;
@@ -19,10 +19,10 @@ interface ILightClientMsgs {
         bytes consensusState;
     }
 
-    // @notice Message for querying the (non)membership of the key-value pairs in the Merkle root at a given height.
-    // @dev If a value is empty, then we are querying for non-membership.
-    // @dev The proof may differ depending on the client implementation and whether
-    // `batchVerifyMembership` or `updateClientAndBatchVerifyMembership` is called.
+    /// @notice Message for querying the (non)membership of the key-value pairs in the Merkle root at a given height.
+    /// @dev If a value is empty, then we are querying for non-membership.
+    /// @dev The proof may differ depending on the client implementation and whether
+    /// `batchVerifyMembership` or `updateClientAndBatchVerifyMembership` is called.
     struct MsgBatchMembership {
         /// The proof
         bytes proof;
@@ -32,7 +32,7 @@ interface ILightClientMsgs {
         KVPair[] keyValues;
     }
 
-    /// The result of an update operation
+    /// @notice The result of an update operation
     enum UpdateResult {
         /// The update was successful
         Update,

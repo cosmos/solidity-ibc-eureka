@@ -15,26 +15,26 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     // Next sequence sends for a given port and channel pair
     mapping(string portId => mapping(string channelId => uint32)) internal nextSequenceSends;
 
-    // @notice Gets the commitment for a given path.
+    /// @notice Gets the commitment for a given path.
     function getCommitment(bytes32 hashedPath) public view returns (bytes32) {
         return commitments[hashedPath];
     }
 
-    // @notice Get the next sequence to send for a given port and channel pair.
+    /// @notice Get the next sequence to send for a given port and channel pair.
     function getNextSequenceSend(string calldata portId, string calldata channelId) public view returns (uint32) {
         return nextSequenceSends[portId][channelId];
     }
 
-    // @notice Gets and increments the next sequence to send for a given port and channel pair.
+    /// @notice Gets and increments the next sequence to send for a given port and channel pair.
     function nextSequenceSend(string calldata portId, string calldata channelId) internal returns (uint32) {
         uint32 seq = nextSequenceSends[portId][channelId] + 1;
         nextSequenceSends[portId][channelId] = seq;
         return seq;
     }
 
-    // @notice Commits a packet
-    // @param packet The packet to commit
-    // @custom:spec
+    /// @notice Commits a packet
+    /// @param packet The packet to commit
+    /// @custom:spec
     // https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
     // modules/core/04-channel/types/packet.go#L38
     function commitPacket(IICS26RouterMsgs.Packet memory packet) internal {
@@ -49,8 +49,8 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
         commitments[path] = commitment;
     }
 
-    // @notice Deletes a packet commitment
-    // @param packet The packet whose commitment to delete
+    /// @notice Deletes a packet commitment
+    /// @param packet The packet whose commitment to delete
     function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
         if (commitments[path] == 0) {
@@ -62,7 +62,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
         delete commitments[path];
     }
 
-    // @notice Sets a packet receipt
+    /// @notice Sets a packet receipt
     function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) internal {
         bytes32 path =
             ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);
@@ -75,7 +75,7 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
         commitments[path] = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
     }
 
-    // @notice Commits a packet acknowledgement
+    /// @notice Commits a packet acknowledgement
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) internal {
         bytes32 path =
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);

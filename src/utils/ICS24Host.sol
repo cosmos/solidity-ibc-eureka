@@ -97,7 +97,7 @@ library ICS24Host {
         return keccak256(packetReceiptCommitmentPathCalldata(portId, channelId, sequence));
     }
 
-    // @notice Get the packet commitment bytes.
+    /// @notice Get the packet commitment bytes.
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
@@ -111,7 +111,7 @@ library ICS24Host {
         );
     }
 
-    // @notice Get the packet receipt commitment bytes.
+    /// @notice Get the packet receipt commitment bytes.
     function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
         return sha256(ack);
     }

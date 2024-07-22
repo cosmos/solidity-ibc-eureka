@@ -19,17 +19,17 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         ics02Client = IICS02Client(ics02Client_);
     }
 
-    // @notice Returns the address of the IBC application given the port identifier
-    // @param portId The port identifier
-    // @return The address of the IBC application contract
+    /// @notice Returns the address of the IBC application given the port identifier
+    /// @param portId The port identifier
+    /// @return The address of the IBC application contract
     function getIBCApp(string calldata portId) external view returns (IIBCApp) {
         return apps[portId];
     }
 
-    // @notice Adds an IBC application to the router
-    // @dev Only the admin can submit non-empty port identifiers
-    // @param portId The port identifier
-    // @param app The address of the IBC application contract
+    /// @notice Adds an IBC application to the router
+    /// @dev Only the admin can submit non-empty port identifiers
+    /// @param portId The port identifier
+    /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external {
         string memory newPortId;
         if (bytes(portId).length != 0) {
@@ -49,9 +49,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         apps[newPortId] = IIBCApp(app);
     }
 
-    // @notice Sends a packet
-    // @param msg The message for sending packets
-    // @return The sequence number of the packet
+    /// @notice Sends a packet
+    /// @param msg_ The message for sending packets
+    /// @return The sequence number of the packet
     function sendPacket(MsgSendPacket calldata msg_) external returns (uint32) {
         IIBCApp app = IIBCApp(apps[msg_.sourcePort]);
 
@@ -87,22 +87,22 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         return sequence;
     }
 
-    // @notice Receives a packet
-    // @param msg The message for receiving packets
+    /// @notice Receives a packet
+    /// @param msg_ The message for receiving packets
     function recvPacket(MsgRecvPacket calldata msg_) external {
         // TODO: implement
         // IIBCApp app = IIBCApp(apps[msg.packet.destPort]);
     }
 
-    // @notice Acknowledges a packet
-    // @param msg The message for acknowledging packets
+    /// @notice Acknowledges a packet
+    /// @param msg_ The message for acknowledging packets
     function ackPacket(MsgAckPacket calldata msg_) external {
         // TODO: implement
         // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
     }
 
-    // @notice Timeouts a packet
-    // @param msg The message for timing out packets
+    /// @notice Timeouts a packet
+    /// @param msg_ The message for timing out packets
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external {
         // TODO: implement
         // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
