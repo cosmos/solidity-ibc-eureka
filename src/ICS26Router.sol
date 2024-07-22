@@ -5,9 +5,12 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
+import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 
-contract ICS26Router is IICS26Router, IBCStore, Ownable {
+contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     mapping(string => IIBCApp) private apps;
     IICS02Client private ics02Client;
 
@@ -27,15 +30,34 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable {
     // @param portId The port identifier
     // @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external {
-        // TODO: implement
+        string memory newPortId;
+        if (bytes(portId).length != 0) {
+            Ownable._checkOwner();
+            newPortId = portId;
+        } else {
+            newPortId = Strings.toHexString(app);
+        }
+
+        if (apps[newPortId] != IIBCApp(address(0))) {
+            revert IBCPortAlreadyExists(newPortId);
+        }
+        if (!IBCIdentifiers.validatePortIdentifier(bytes(newPortId))) {
+            revert IBCInvalidPortIdentifier(newPortId);
+        }
+
+        apps[newPortId] = IIBCApp(app);
     }
 
     // @notice Sends a packet
     // @param msg The message for sending packets
     // @return The sequence number of the packet
     function sendPacket(MsgSendPacket calldata msg_) external returns (uint32) {
-        // TODO: implement
-        // IIBCApp app = IIBCApp(apps[msg_.sourcePort]);
+        IIBCApp app = IIBCApp(apps[msg_.sourcePort]);
+
+        string memory counterPartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
+
+        // TODO: validate all identifiers
+
         return 0;
     }
 
