@@ -10,4 +10,8 @@ interface IICS26RouterErrors {
 
     /// @param timeoutTimestamp timeout timestamp in seconds
     error IBCInvalidTimeoutTimestamp(uint32 timeoutTimestamp);
+
+    /// @param expected expected counterparty identifier
+    /// @param actual actual counterparty identifier
+    error IBCInvalidCounterparty(string expected, string actual);
 }

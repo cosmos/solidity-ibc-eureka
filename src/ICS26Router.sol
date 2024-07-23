@@ -10,6 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
 
 contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     mapping(string => IIBCApp) private apps;
@@ -53,9 +54,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
     function sendPacket(MsgSendPacket calldata msg_) external returns (uint32) {
-        IIBCApp app = IIBCApp(apps[msg_.sourcePort]);
+        IIBCApp app = apps[msg_.sourcePort];
 
-        string memory counterPartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
+        string memory counterpartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
@@ -70,7 +71,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
             sourcePort: msg_.sourcePort,
             sourceChannel: msg_.sourceChannel,
             destPort: msg_.destPort,
-            destChannel: counterPartyId,
+            destChannel: counterpartyId,
             version: msg_.version,
             data: msg_.data
         });
@@ -90,7 +91,19 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     /// @param msg_ The message for receiving packets
     function recvPacket(MsgRecvPacket calldata msg_) external {
         // TODO: implement
-        // IIBCApp app = IIBCApp(apps[msg.packet.destPort]);
+        IIBCApp app = apps[msg_.packet.destPort];
+
+        string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.destChannel).clientId;
+        if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
+            revert IBCInvalidCounterparty(counterpartyId, msg_.packet.sourceChannel);
+        }
+
+        bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
+            msg_.packet.sourcePort,
+            msg_.packet.sourceChannel,
+            msg_.packet.sequence
+        );
+        bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
     }
 
     /// @notice Acknowledges a packet
