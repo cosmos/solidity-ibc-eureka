@@ -36,14 +36,27 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors {
         return clients[clientId];
     }
 
-    function addClient(string calldata clientType, CounterpartyInfo calldata counterpartyInfo, address client) external returns (string memory) {
+    function addClient(
+        string calldata clientType,
+        CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        returns (string memory)
+    {
         string memory clientId = getNextClientId(clientType);
         clients[clientId] = ILightClient(client);
         counterpartyInfos[clientId] = counterpartyInfo;
         return clientId;
     }
 
-    function updateClient(string calldata clientId, bytes calldata updateMsg) external returns (ILightClient.UpdateResult) {
+    function updateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
+        external
+        returns (ILightClient.UpdateResult)
+    {
         return clients[clientId].updateClient(updateMsg);
     }
 

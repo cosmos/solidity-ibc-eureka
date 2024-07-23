@@ -22,7 +22,13 @@ interface IICS02Client is IICS02ClientMsgs {
     /// @param counterpartyInfo The counterparty client information
     /// @param client The address of the client contract
     /// @return The client identifier
-    function addClient(string calldata clientType, CounterpartyInfo calldata counterpartyInfo, address client) external returns (string memory);
+    function addClient(
+        string calldata clientType,
+        CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        returns (string memory);
 
     /// @notice Updates the client given the client identifier.
     /// @param clientId The client identifier

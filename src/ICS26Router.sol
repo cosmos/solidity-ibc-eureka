@@ -11,10 +11,12 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
+import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
+contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, ReentrancyGuard {
     mapping(string => IIBCApp) private apps;
     IICS02Client private ics02Client;
 
@@ -55,14 +57,12 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     /// @notice Sends a packet
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
-    function sendPacket(MsgSendPacket calldata msg_) external returns (uint32) {
-        IIBCApp app = apps[msg_.sourcePort];
-
+    function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp);
+            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
         }
 
         uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
@@ -81,7 +81,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback =
             IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender });
 
-        app.onSendPacket(sendPacketCallback); // TODO: do not allow reentrancy
+        apps[msg_.sourcePort].onSendPacket(sendPacketCallback);
 
         IBCStore.commitPacket(packet);
 
@@ -91,7 +91,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
 
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
-    function recvPacket(MsgRecvPacket calldata msg_) external {
+    function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
         // TODO: implement
         IIBCApp app = apps[msg_.packet.destPort];
 
@@ -101,24 +101,52 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
         }
 
         bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
-            msg_.packet.sourcePort,
-            msg_.packet.sourceChannel,
-            msg_.packet.sequence
+            msg_.packet.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
         );
         bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
+
+        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
+            proof: msg_.proofCommitment,
+            proofHeight: msg_.proofHeight,
+            kvPair: ILightClientMsgs.KVPair({ path: commitmentPath, value: abi.encodePacked(commitmentBz) })
+        });
+
+        uint32 proofTimestamp = ics02Client.getClient(msg_.packet.destChannel).verifyMembership(membershipMsg);
+        if (msg_.packet.timeoutTimestamp <= proofTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(proofTimestamp, msg_.packet.timeoutTimestamp);
+        }
+        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
+        }
+
+        bytes memory ack =
+            app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
+        if (ack.length == 0) {
+            revert IBCAsyncAcknowledgementNotSupported();
+        }
+
+        writeAcknowledgement(msg_.packet, ack);
+
+        emit RecvPacket(msg_.packet);
     }
 
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
-    function ackPacket(MsgAckPacket calldata msg_) external {
+    function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
         // TODO: implement
         // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
     }
 
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
-    function timeoutPacket(MsgTimeoutPacket calldata msg_) external {
+    function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
         // TODO: implement
         // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
+    }
+
+    /// @notice Writes a packet acknowledgement and emits an event
+    function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
+        IBCStore.commitPacketAcknowledgement(packet, ack);
+        emit WriteAcknowledgement(packet, ack);
     }
 }

@@ -9,9 +9,11 @@ interface IICS26RouterErrors {
     error IBCInvalidPortIdentifier(string portId);
 
     /// @param timeoutTimestamp timeout timestamp in seconds
-    error IBCInvalidTimeoutTimestamp(uint32 timeoutTimestamp);
+    error IBCInvalidTimeoutTimestamp(uint256 timeoutTimestamp, uint256 comparedTimestamp);
 
     /// @param expected expected counterparty identifier
     /// @param actual actual counterparty identifier
     error IBCInvalidCounterparty(string expected, string actual);
+
+    error IBCAsyncAcknowledgementNotSupported();
 }
