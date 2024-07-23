@@ -12,6 +12,8 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 
+/// @title IBC Eureka Router
+/// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors {
     mapping(string => IIBCApp) private apps;
     IICS02Client private ics02Client;

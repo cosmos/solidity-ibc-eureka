@@ -42,4 +42,12 @@ library IBCIdentifiers {
         }
         return true;
     }
+
+    /// @notice validateClientType checks if the client type is allowed
+    function validateClientType(string memory clientType) internal pure returns (bool) {
+        if (keccak256(bytes(clientType)) == keccak256("07-tendermint")) {
+            return true;
+        }
+        return false;
+    }
 }

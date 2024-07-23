@@ -12,11 +12,6 @@ interface IICS02Client is IICS02ClientMsgs {
     /// @return The counterparty client information
     function getCounterparty(string calldata clientId) external view returns (CounterpartyInfo memory);
 
-    /// @notice Returns the creator of the client given the client identifier.
-    /// @param clientId The client identifier
-    /// @return The address of the client creator
-    function getCreator(string calldata clientId) external view returns (address);
-
     /// @notice Returns the address of the client contract given the client identifier.
     /// @param clientId The client identifier
     /// @return The address of the client contract
@@ -24,20 +19,16 @@ interface IICS02Client is IICS02ClientMsgs {
 
     /// @notice Adds a client to the client router.
     /// @param clientType The client type, e.g., "07-tendermint".
+    /// @param counterpartyInfo The counterparty client information
     /// @param client The address of the client contract
     /// @return The client identifier
-    function addClient(string calldata clientType, address client) external returns (string memory);
-
-    /// @notice Adds a counterparty to the client router.
-    /// @param clientId The client identifier
-    /// @param counterpartyInfo The counterparty client information
-    function addCounterparty(string calldata clientId, CounterpartyInfo calldata counterpartyInfo) external;
+    function addClient(string calldata clientType, CounterpartyInfo calldata counterpartyInfo, address client) external returns (string memory);
 
     /// @notice Updates the client given the client identifier.
     /// @param clientId The client identifier
     /// @param updateMsg The update message
     /// @return The result of the update operation
-    function routeUpdateClient(
+    function updateClient(
         string calldata clientId,
         bytes calldata updateMsg
     )
@@ -47,5 +38,5 @@ interface IICS02Client is IICS02ClientMsgs {
     /// @notice Submits misbehaviour to the client with the given client identifier.
     /// @param clientId The client identifier
     /// @param misbehaviourMsg The misbehaviour message
-    function routeMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
 }
