@@ -12,16 +12,8 @@ interface ILightClient is ILightClientMsgs {
     function updateClient(bytes calldata updateMsg) external returns (UpdateResult);
 
     /// @notice Querying the (non)membership of the key-value pairs
-    /// @return The timestamp of the verification height in the counterparty chain, e.g., unix timestamp in seconds.
-    function batchVerifyMembership(MsgBatchMembership calldata batchVerifyMsg) external view returns (uint32);
-
-    /// @notice Updating the client and querying the (non)membership of the key-value pairs on the updated consensus
-    // state.
-    /// @return The timestamp of the verification height in the counterparty chain
-    // and the result of the update operation.
-    function updateClientAndBatchVerifyMembership(MsgBatchMembership calldata batchVerifyMsg)
-        external
-        returns (uint32, UpdateResult);
+    /// @return The unix timestamp of the verification height in the counterparty chain in seconds.
+    function verifyMembership(MsgMembership calldata msg_) external view returns (uint32);
 
     /// @notice Misbehaviour handling, moves the light client to the frozen state if misbehaviour is detected
     /// @param misbehaviourMsg The misbehaviour message
