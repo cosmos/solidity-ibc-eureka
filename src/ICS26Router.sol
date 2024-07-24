@@ -92,7 +92,6 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        // TODO: implement
         IIBCApp app = apps[msg_.packet.destPort];
 
         string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.destChannel).clientId;
@@ -111,10 +110,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             kvPair: ILightClientMsgs.KVPair({ path: commitmentPath, value: abi.encodePacked(commitmentBz) })
         });
 
-        uint32 proofTimestamp = ics02Client.getClient(msg_.packet.destChannel).verifyMembership(membershipMsg);
-        if (msg_.packet.timeoutTimestamp <= proofTimestamp) {
-            revert IBCInvalidTimeoutTimestamp(proofTimestamp, msg_.packet.timeoutTimestamp);
-        }
+        ics02Client.getClient(msg_.packet.destChannel).verifyMembership(membershipMsg);
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
