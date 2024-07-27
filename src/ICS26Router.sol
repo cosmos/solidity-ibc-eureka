@@ -123,6 +123,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
         writeAcknowledgement(msg_.packet, ack);
 
+        IBCStore.setPacketReceipt(msg_.packet);
+
         emit RecvPacket(msg_.packet);
     }
 
@@ -170,8 +172,37 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        // TODO: implement
-        // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
+        IIBCApp app = IIBCApp(apps[msg_.packet.sourcePort]);
+
+        string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.sourceChannel).clientId;
+        if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
+            revert IBCInvalidCounterparty(counterpartyId, msg_.packet.destChannel);
+        }
+
+        // this will revert if the packet commitment does not exist
+        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
+            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+        }
+
+        bytes memory receiptPath = ICS24Host.packetReceiptCommitmentPathCalldata(
+            msg_.packet.destPort, msg_.packet.destChannel, msg_.packet.sequence
+        );
+        ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
+            proof: msg_.proofTimeout,
+            proofHeight: msg_.proofHeight,
+            kvPair: ILightClientMsgs.KVPair({ path: receiptPath, value: bytes("") })
+        });
+
+        uint32 counterpartyTimestamp =
+            ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(nonMembershipMsg);
+        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
+        }
+
+        app.onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
+
+        emit TimeoutPacket(msg_.packet);
     }
 
     /// @notice Writes a packet acknowledgement and emits an event
