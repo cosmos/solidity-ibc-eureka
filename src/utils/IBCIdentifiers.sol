@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25;
 
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
-
 /// @title IBC Identifiers
 /// @notice Utilities for validating IBC identifiers
 library IBCIdentifiers {
