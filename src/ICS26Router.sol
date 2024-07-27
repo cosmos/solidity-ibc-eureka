@@ -151,12 +151,18 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofAcked,
             proofHeight: msg_.proofHeight,
-            kvPair: ILightClientMsgs.KVPair({path: commitmentPath, value: abi.encodePacked(commitmentBz)})
+            kvPair: ILightClientMsgs.KVPair({ path: commitmentPath, value: abi.encodePacked(commitmentBz) })
         });
 
         ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(membershipMsg);
 
-        app.onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback({packet: msg_.packet, acknowledgement: msg_.acknowledgement, relayer: msg.sender}));
+        app.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: msg_.packet,
+                acknowledgement: msg_.acknowledgement,
+                relayer: msg.sender
+            })
+        );
 
         emit AckPacket(msg_.packet, msg_.acknowledgement);
     }
