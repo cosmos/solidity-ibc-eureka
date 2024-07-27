@@ -129,8 +129,36 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        // TODO: implement
-        // IIBCApp app = IIBCApp(apps[msg.packet.sourcePort]);
+        IIBCApp app = IIBCApp(apps[msg_.packet.sourcePort]);
+
+        string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.sourceChannel).clientId;
+        if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
+            revert IBCInvalidCounterparty(counterpartyId, msg_.packet.destChannel);
+        }
+
+        // this will revert if the packet commitment does not exist
+        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
+            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+        }
+
+        bytes memory commitmentPath = ICS24Host.packetAcknowledgementCommitmentPathCalldata(
+            msg_.packet.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
+        );
+        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
+
+        // verify the packet acknowledgement
+        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
+            proof: msg_.proofAcked,
+            proofHeight: msg_.proofHeight,
+            kvPair: ILightClientMsgs.KVPair({path: commitmentPath, value: abi.encodePacked(commitmentBz)})
+        });
+
+        ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(membershipMsg);
+
+        app.onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback({packet: msg_.packet, acknowledgement: msg_.acknowledgement, relayer: msg.sender}));
+
+        emit AckPacket(msg_.packet, msg_.acknowledgement);
     }
 
     /// @notice Timeouts a packet

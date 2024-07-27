@@ -16,4 +16,6 @@ interface IICS26RouterErrors {
     error IBCInvalidCounterparty(string expected, string actual);
 
     error IBCAsyncAcknowledgementNotSupported();
+
+    error IBCPacketCommitmentMismatch(bytes32 expected, bytes32 actual);
 }
