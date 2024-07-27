@@ -17,7 +17,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     mapping(string => uint32) private nextClientSeq;
 
     /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) {}
+    constructor(address owner_) Ownable(owner_) { }
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
@@ -64,12 +64,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return clientId;
     }
 
-    function migrateClient(
-        string calldata subjectClientId,
-        string calldata substituteClientId
-    )
-        external onlyOwner
-    {
+    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner {
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
 
