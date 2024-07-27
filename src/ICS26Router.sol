@@ -110,7 +110,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             kvPair: ILightClientMsgs.KVPair({ path: commitmentPath, value: abi.encodePacked(commitmentBz) })
         });
 
-        ics02Client.getClient(msg_.packet.destChannel).verifyMembership(membershipMsg);
+        ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
@@ -156,7 +156,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             kvPair: ILightClientMsgs.KVPair({ path: commitmentPath, value: abi.encodePacked(commitmentBz) })
         });
 
-        ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(membershipMsg);
+        ics02Client.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         app.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -194,8 +194,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             kvPair: ILightClientMsgs.KVPair({ path: receiptPath, value: bytes("") })
         });
 
-        uint32 counterpartyTimestamp =
-            ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(nonMembershipMsg);
+        uint32 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }
