@@ -30,6 +30,15 @@ interface IICS02Client is IICS02ClientMsgs {
         external
         returns (string memory);
 
+    /// @notice Migrate the underlying client of the subject client to the substitute client.
+    /// @dev This is a privilaged operation, only the owner of ICS02Client can call this function.
+    /// @param subjectClientId The client identifier of the subject client
+    /// @param substituteClientId The client identifier of the substitute client
+    function migrateClient(
+        string calldata subjectClientId,
+        string calldata substituteClientId
+    ) external;
+
     /// @notice Updates the client given the client identifier.
     /// @param clientId The client identifier
     /// @param updateMsg The update message
@@ -45,4 +54,9 @@ interface IICS02Client is IICS02ClientMsgs {
     /// @param clientId The client identifier
     /// @param misbehaviourMsg The misbehaviour message
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
+
+    /// @notice Upgrades the client with the given client identifier.
+    /// @param clientId The client identifier
+    /// @param upgradeMsg The upgrade message
+    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external;
 }

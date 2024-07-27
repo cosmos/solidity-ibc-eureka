@@ -6,14 +6,18 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ICS02Client is IICS02Client, IICS02ClientErrors {
+contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     /// @dev clientId => counterpartyInfo
     mapping(string => CounterpartyInfo) private counterpartyInfos;
     /// @dev clientId => client
     mapping(string => ILightClient) private clients;
     /// @dev clientType => nextClientSeq
     mapping(string => uint32) private nextClientSeq;
+
+    /// @param owner_ The owner of the contract
+    constructor(address owner_) Ownable(owner_) {}
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
@@ -28,12 +32,22 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors {
         return string.concat(clientType, "-", Strings.toString(seq));
     }
 
-    function getCounterparty(string calldata clientId) external view returns (CounterpartyInfo memory) {
-        return counterpartyInfos[clientId];
+    function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
+        CounterpartyInfo memory counterpartyInfo = counterpartyInfos[clientId];
+        if (bytes(counterpartyInfo.clientId).length == 0) {
+            revert IBCClientNotFound(clientId);
+        }
+
+        return counterpartyInfo;
     }
 
-    function getClient(string calldata clientId) external view returns (ILightClient) {
-        return clients[clientId];
+    function getClient(string calldata clientId) public view returns (ILightClient) {
+        ILightClient client = clients[clientId];
+        if (client == ILightClient(address(0))) {
+            revert IBCClientNotFound(clientId);
+        }
+
+        return client;
     }
 
     function addClient(
@@ -50,6 +64,24 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors {
         return clientId;
     }
 
+    function migrateClient(
+        string calldata subjectClientId,
+        string calldata substituteClientId
+    )
+        external
+    {
+        Ownable._checkOwner(); // Ensure caller is the owner
+
+        getClient(subjectClientId); // Ensure subject client exists
+        ILightClient substituteClient = getClient(substituteClientId);
+
+        getCounterparty(subjectClientId); // Ensure subject client's counterparty exists
+        CounterpartyInfo memory substituteCounterpartyInfo = getCounterparty(substituteClientId);
+
+        counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
+        clients[subjectClientId] = substituteClient;
+    }
+
     function updateClient(
         string calldata clientId,
         bytes calldata updateMsg
@@ -57,10 +89,14 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors {
         external
         returns (ILightClient.UpdateResult)
     {
-        return clients[clientId].updateClient(updateMsg);
+        return getClient(clientId).updateClient(updateMsg);
     }
 
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
-        clients[clientId].misbehaviour(misbehaviourMsg);
+        getClient(clientId).misbehaviour(misbehaviourMsg);
+    }
+
+    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
+        getClient(clientId).upgradeClient(upgradeMsg);
     }
 }
