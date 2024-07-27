@@ -68,10 +68,8 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         string calldata subjectClientId,
         string calldata substituteClientId
     )
-        external
+        external onlyOwner
     {
-        Ownable._checkOwner(); // Ensure caller is the owner
-
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
 
