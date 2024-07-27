@@ -191,17 +191,16 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
-            kvPair: ILightClientMsgs.KVPair({ path: receiptPath, value: bytes('') })
+            kvPair: ILightClientMsgs.KVPair({ path: receiptPath, value: bytes("") })
         });
 
-        uint32 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(nonMembershipMsg);
+        uint32 counterpartyTimestamp =
+            ics02Client.getClient(msg_.packet.sourceChannel).verifyMembership(nonMembershipMsg);
         if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }
 
-        app.onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender })
-        );
+        app.onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
 
         emit TimeoutPacket(msg_.packet);
     }
