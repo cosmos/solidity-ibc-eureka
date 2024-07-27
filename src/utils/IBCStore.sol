@@ -49,17 +49,19 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
         commitments[path] = commitment;
     }
 
-    /// @notice Deletes a packet commitment
+    /// @notice Deletes a packet commitment and reverts if it does not exist
     /// @param packet The packet whose commitment to delete
-    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal {
+    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal returns (bytes32) {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
-        if (commitments[path] == 0) {
+        bytes32 commitment = commitments[path];
+        if (commitment == 0) {
             revert IBCPacketCommitmentNotFound(
                 ICS24Host.packetCommitmentPathCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence)
             );
         }
 
         delete commitments[path];
+        return commitment;
     }
 
     /// @notice Sets a packet receipt

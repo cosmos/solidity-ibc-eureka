@@ -42,8 +42,10 @@ interface IICS26Router is IICS26RouterMsgs {
     event SendPacket(Packet packet);
     /// @notice Emitted when a packet is received
     event RecvPacket(Packet packet);
-    /// @notice Emitted when a packet is acknowledged
+    /// @notice Emitted when a packet acknowledgement is written
     event WriteAcknowledgement(Packet packet, bytes acknowledgement);
     /// @notice Emitted when a packet is timed out
     event TimeoutPacket(Packet packet);
+    /// @notice Emitted when a packet is acknowledged
+    event AckPacket(Packet packet, bytes acknowledgement);
 }
