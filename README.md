@@ -27,12 +27,28 @@ Note that OpenZeppelin Contracts is pre-installed, so you can follow that as an 
 
 This is a list of the most frequently needed commands.
 
+### Install Dependencies
+
+Install the dependencies:
+
+```sh
+$ bun install
+```
+
 ### Build
 
-Build the contracts:
+Build/compile the contracts:
 
 ```sh
 $ forge build
+```
+
+### Test
+
+Run the tests:
+
+```sh
+$ forge test
 ```
 
 ### Clean
@@ -41,22 +57,6 @@ Delete the build artifacts and cache directories:
 
 ```sh
 $ forge clean
-```
-
-### Compile
-
-Compile the contracts:
-
-```sh
-$ forge build
-```
-
-### Coverage
-
-Get a test coverage report:
-
-```sh
-$ forge coverage
 ```
 
 ### Deploy
@@ -97,12 +97,12 @@ Lint the contracts:
 $ bun run lint
 ```
 
-### Test
+### Coverage
 
-Run the tests:
+Get a test coverage report:
 
 ```sh
-$ forge test
+$ forge coverage
 ```
 
 Generate test coverage and output result to the terminal:

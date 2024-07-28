@@ -35,7 +35,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
         CounterpartyInfo memory counterpartyInfo = counterpartyInfos[clientId];
         if (bytes(counterpartyInfo.clientId).length == 0) {
-            revert IBCClientNotFound(clientId);
+            revert IBCCounterpartyClientNotFound(clientId);
         }
 
         return counterpartyInfo;

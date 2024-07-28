@@ -18,4 +18,6 @@ interface IICS26RouterErrors {
     error IBCAsyncAcknowledgementNotSupported();
 
     error IBCPacketCommitmentMismatch(bytes32 expected, bytes32 actual);
+
+    error IBCAppNotFound(string portId);
 }

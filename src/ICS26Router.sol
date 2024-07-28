@@ -58,7 +58,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        string memory counterpartyId = ics02Client.getCounterparty(msg_.sourcePort).clientId;
+        string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
@@ -81,7 +81,11 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback =
             IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender });
 
-        apps[msg_.sourcePort].onSendPacket(sendPacketCallback);
+        IIBCApp app = apps[msg_.sourcePort];
+        if (app == IIBCApp(address(0))) {
+            revert IBCAppNotFound(msg_.sourcePort);
+        }
+        app.onSendPacket(sendPacketCallback);
 
         IBCStore.commitPacket(packet);
 

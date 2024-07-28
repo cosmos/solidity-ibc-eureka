@@ -18,3 +18,7 @@ yarn.lock
 !broadcast
 broadcast/*
 broadcast/*/31337/
+
+# ide files
+.idea/
+*.iml

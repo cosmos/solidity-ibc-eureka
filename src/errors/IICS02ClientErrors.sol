@@ -7,4 +7,7 @@ interface IICS02ClientErrors {
 
     /// @param clientId client identifier
     error IBCClientNotFound(string clientId);
+
+    /// @param counterpartyClientId counterparty client identifier
+    error IBCCounterpartyClientNotFound(string counterpartyClientId);
 }
