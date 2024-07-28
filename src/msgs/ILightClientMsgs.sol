@@ -4,12 +4,6 @@ pragma solidity >=0.8.25;
 import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
 interface ILightClientMsgs {
-    /// @notice The key-value pair.
-    struct KVPair {
-        bytes path;
-        bytes value;
-    }
-
     /// @notice Message for querying the (non)membership of the key-value pairs in the Merkle root at a given height.
     /// @dev If a value is empty, then we are querying for non-membership.
     /// @dev The proof may differ depending on the client implementation and whether
@@ -19,8 +13,10 @@ interface ILightClientMsgs {
         bytes proof;
         /// Height of the proof
         IICS02ClientMsgs.Height proofHeight;
-        /// The key-value pairs
-        KVPair kvPair;
+        /// Path of the value in the Merkle tree
+        bytes path;
+        /// Value in the Merkle tree
+        bytes value;
     }
 
     /// @notice The result of an update operation
