@@ -15,7 +15,7 @@ interface ILightClient is ILightClientMsgs {
     /// @dev Notice that this message is not view, as it may update the client state for caching purposes.
     /// @param msg_ The membership message
     /// @return The unix timestamp of the verification height in the counterparty chain in seconds.
-    function membership(MsgMembership calldata msg_) external returns (uint32);
+    function membership(MsgMembership calldata msg_) external returns (uint256);
 
     /// @notice Misbehaviour handling, moves the light client to the frozen state if misbehaviour is detected
     /// @param misbehaviourMsg The misbehaviour message
