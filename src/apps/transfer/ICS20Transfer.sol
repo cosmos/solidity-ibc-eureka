@@ -8,9 +8,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IICS20Transfer} from "./IICS20Transfer.sol";
+import { IICS20Transfer } from "./IICS20Transfer.sol";
 
-    using SafeERC20 for IERC20;
+using SafeERC20 for IERC20;
 
 /*
  * Things not handled yet:
@@ -77,7 +77,15 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
 
-        emit ICS20Acknowledgement(data.sender, data.receiver, data.erc20ContractAddress, data.amount, data.memo, msg_.acknowledgement, isSuccessAck);
+        emit ICS20Acknowledgement(
+            data.sender,
+            data.receiver,
+            data.erc20ContractAddress,
+            data.amount,
+            data.memo,
+            msg_.acknowledgement,
+            isSuccessAck
+        );
     }
 
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external override onlyOwner nonReentrant {

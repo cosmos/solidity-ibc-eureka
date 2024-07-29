@@ -19,7 +19,15 @@ interface IICS20Transfer {
     /// @param memo The memo field of the packet
     /// @param acknowledgement The acknowledgement data
     /// @param success Whether the acknowledgement received was a success or error
-    event ICS20Acknowledgement(address sender, string receiver, address tokenContract, uint256 amount, string memo, bytes acknowledgement, bool success);
+    event ICS20Acknowledgement(
+        address sender,
+        string receiver,
+        address tokenContract,
+        uint256 amount,
+        string memo,
+        bytes acknowledgement,
+        bool success
+    );
 
     /// @notice Called after handling a timeout in onTimeoutPacket
     /// @param sender The sender of the packet

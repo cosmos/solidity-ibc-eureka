@@ -158,7 +158,9 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON, true);
+        emit IICS20Transfer.ICS20Acknowledgement(
+            sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON, true
+        );
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,
@@ -195,7 +197,9 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON, false);
+        emit IICS20Transfer.ICS20Acknowledgement(
+            sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON, false
+        );
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,
@@ -272,10 +276,7 @@ contract ICS20TransferTest is Test {
         vm.expectEmit();
         emit IICS20Transfer.ICS20Timeout(sender, address(erc20), "memo");
         ics20Transfer.onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({
-                packet: packet,
-                relayer: makeAddr("relayer")
-            })
+            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
 
         // Transfer should be reverted
@@ -291,10 +292,7 @@ contract ICS20TransferTest is Test {
         packet.data = data;
         vm.expectRevert(bytes(""));
         ics20Transfer.onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({
-                packet: packet,
-                relayer: makeAddr("relayer")
-            })
+            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
 
         // Test invalid contract
@@ -302,10 +300,7 @@ contract ICS20TransferTest is Test {
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidTokenContract.selector, "invalid"));
         ics20Transfer.onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({
-                packet: packet,
-                relayer: makeAddr("relayer")
-            })
+            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
 
         // Test invalid sender
@@ -313,10 +308,7 @@ contract ICS20TransferTest is Test {
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidSender.selector, "invalid"));
         ics20Transfer.onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({
-                packet: packet,
-                relayer: makeAddr("relayer")
-            })
+            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
     }
 }
