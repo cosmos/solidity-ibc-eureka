@@ -17,7 +17,6 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Quite a bit of validation
  * - Receiving packets
- * - Acknowledgement and timeout handling
  */
 contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
     string public constant ICS20_VERSION = "ics20-1";
@@ -80,20 +79,7 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
     {
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
             ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
-
-            (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
-            if (!tokenContractConvertSuccess) {
-                revert ICS20InvalidTokenContract(data.denom);
-            }
-
-            (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
-            if (!senderConvertSuccess) {
-                revert ICS20InvalidSender(data.sender);
-            }
-
-            // TODO: Handle prefixed denoms (source chain is not the source) and mint
-
-            _transferFrom(address(this), sender, tokenContract, data.amount);
+            _refundTokens(data);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
@@ -101,21 +87,30 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         // TODO: Emit event
     }
 
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata) external override onlyOwner nonReentrant {
-        // TODO: Implement
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external override onlyOwner nonReentrant {
+        ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        _refundTokens(data);
+    }
+
+    function _refundTokens(ICS20Lib.PacketData memory data) internal {
+        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
+        if (!tokenContractConvertSuccess) {
+            revert ICS20InvalidTokenContract(data.denom);
+        }
+
+        (address refundee, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
+        if (!senderConvertSuccess) {
+            revert ICS20InvalidSender(data.sender);
+        }
+
+        IERC20(tokenContract).safeTransfer(refundee, data.amount);
     }
 
     function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
         // we snapshot our current balance of this token
         uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
 
-        if (sender == address(this)) {
-            // TODO: Is there any risk here?
-            // Would it be safer to use allowance and transferFrom even when the sender is this contract?
-            IERC20(tokenContract).safeTransfer(receiver, amount);
-        } else {
-            IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
-        }
+        IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
 
         // check what this particular ERC20 implementation actually gave us, since it doesn't
         // have to be at all related to the _amount
