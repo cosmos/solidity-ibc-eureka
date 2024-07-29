@@ -15,17 +15,17 @@ interface IICS20Errors {
     /// @param tokenContract Address of the token contract
     error ICS20InvalidTokenContract(string tokenContract);
 
-    /// @param channelId Channel identifier
-    error ICS20EscrowAddressNotFound(string channelId);
     /// @param version Version string
     error ICS20UnexpectedVersion(string version);
+
+    /// @param channelId Channel identifier
+    error ICS20EscrowAddressNotFound(string channelId);
     /// @param sender Address of the sender
     error ICS20BankNotAdminRole(address sender);
     /// @param sender Address of the sender
     error ICS20BankNotMintRole(address sender);
     /// @param sender Address of the sender
     error ICS20BankNotBurnRole(address sender);
-
     /// @param tokenContract Address of the token contract
     /// @param from Address from which tokens are being transferred
     /// @param to Address to which tokens are being transferred

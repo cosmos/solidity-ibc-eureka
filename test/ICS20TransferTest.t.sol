@@ -41,7 +41,7 @@ contract ICS20TransferTest is Test {
             sourceChannel: "sourceChannel",
             destPort: "destinationPort",
             destChannel: "destinationChannel",
-            version: "version",
+            version: ics20Transfer.ICS20_VERSION(),
             data: data
         });
     }
@@ -116,6 +116,11 @@ contract ICS20TransferTest is Test {
         data = ICS20Lib.marshalJSON("invalid", defaultAmount, senderStr, receiver, "memo");
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidTokenContract.selector, "invalid"));
+        ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
+
+        // Test invalid version
+        packet.version = "invalid";
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedVersion.selector, "invalid"));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
     }
 }

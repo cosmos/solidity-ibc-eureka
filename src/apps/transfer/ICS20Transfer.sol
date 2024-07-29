@@ -13,7 +13,6 @@ using SafeERC20 for IERC20;
 
 /*
  * Things not handled yet:
- * - permission control (anyone can currently call the functions)
  * - Prefixed denoms (source chain is not the source) and the burning of tokens related to that
  * - Separate escrow balance tracking
  * - Quite a bit of validation
@@ -21,15 +20,20 @@ using SafeERC20 for IERC20;
  * - Acknowledgement and timeout handling
  */
 contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
+    string public constant ICS20_VERSION = "ics20-1";
+
     event LogICS20Transfer(uint256 amount, address tokenContract, address sender, string receiver);
 
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
 
     function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
+        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20_VERSION))) {
+            revert IICS20Errors.ICS20UnexpectedVersion(msg_.packet.version);
+        }
+
         ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
 
-        // TODO: Verify version
         // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data
 
         if (data.amount == 0) {

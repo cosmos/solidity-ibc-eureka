@@ -63,7 +63,7 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             data: data,
             timeoutTimestamp: uint32(block.timestamp) + 1000,
-            version: "version"
+            version: ics20Transfer.ICS20_VERSION()
         });
         uint32 sequence = ics26Router.sendPacket(packet);
         assertEq(sequence, 1);
@@ -77,7 +77,7 @@ contract IntegrationTest is Test {
             sourceChannel: clientIdentifier,
             destPort: "transfer",
             destChannel: counterpartyClient,
-            version: "version",
+            version: ics20Transfer.ICS20_VERSION(),
             data: data
         });
         assertEq(commitment, ICS24Host.packetCommitmentBytes32(expectedPacket));
@@ -102,7 +102,7 @@ contract IntegrationTest is Test {
             data: data,
             timeoutTimestamp: uint32(block.timestamp) + 1000,
             sequence: 1,
-            version: "version"
+            version: ics20Transfer.ICS20_VERSION()
         });
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, sender));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
