@@ -18,6 +18,10 @@ interface IICS20Errors {
     /// @param version Version string
     error ICS20UnexpectedVersion(string version);
 
+    /// @param expected Expected balance of the ERC20 token for ICS20Transfer
+    /// @param actual Actual balance of the ERC20 token for ICS20Transfer
+    error ICS20UnexpectedERC20Balance(uint256 expected, uint256 actual);
+
     /// @param channelId Channel identifier
     error ICS20EscrowAddressNotFound(string channelId);
     /// @param sender Address of the sender

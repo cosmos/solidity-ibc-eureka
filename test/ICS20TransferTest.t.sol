@@ -7,7 +7,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { ICS20Transfer } from "../src/apps/transfer/ICS20Transfer.sol";
-import { TestERC20 } from "./TestERC20.sol";
+import { TestERC20, MalfunctioningERC20 } from "./TestERC20.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../src/apps/transfer/ICS20Lib.sol";
 import { IICS20Errors } from "../src/apps/transfer/IICS20Errors.sol";
@@ -121,6 +121,19 @@ contract ICS20TransferTest is Test {
         // Test invalid version
         packet.version = "invalid";
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedVersion.selector, "invalid"));
+        ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
+        // Reset version
+        packet.version = ics20Transfer.ICS20_VERSION();
+
+        // Test malfunctioning transfer
+        MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
+        malfunctioningERC20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        malfunctioningERC20.approve(address(ics20Transfer), defaultAmount);
+        string memory malfuncERC20AddressStr = ICS20Lib.addressToHexString(address(malfunctioningERC20));
+        data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        packet.data = data;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
     }
 }

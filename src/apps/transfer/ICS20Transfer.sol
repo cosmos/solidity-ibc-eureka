@@ -29,7 +29,7 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
 
     function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20_VERSION))) {
-            revert IICS20Errors.ICS20UnexpectedVersion(msg_.packet.version);
+            revert ICS20UnexpectedVersion(msg_.packet.version);
         }
 
         ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
@@ -37,28 +37,46 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data
 
         if (data.amount == 0) {
-            revert IICS20Errors.ICS20InvalidAmount(data.amount);
+            revert ICS20InvalidAmount(data.amount);
         }
 
         // TODO: Handle prefixed denoms (source chain is not the source) and burn
 
         (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
         if (!senderConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidSender(data.sender);
+            revert ICS20InvalidSender(data.sender);
         }
         if (msg_.sender != sender) {
-            revert IICS20Errors.ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
+            revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
         (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
         if (!tokenContractConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidTokenContract(data.denom);
+            revert ICS20InvalidTokenContract(data.denom);
         }
 
-        IERC20(tokenContract).safeTransferFrom(sender, address(this), data.amount);
+        _transferFrom(sender, address(this), tokenContract, data.amount);
 
         // TODO: Rename and make this event better, just used for some debugging up until now
         emit LogICS20Transfer(data.amount, tokenContract, sender, data.receiver);
+    }
+
+    function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
+        // we snapshot our current balance of this token
+        uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
+
+        // check what this particular ERC20 implementation actually gave us, since it doesn't
+        // have to be at all related to the _amount
+        uint256 actualEndingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        uint256 expectedEndingBalance = ourStartingBalance + amount;
+        // a very strange ERC20 may trigger this condition, if we didn't have this we would
+        // underflow, so it's mostly just an error message printer
+        if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
+            revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
+        }
     }
 
     function onRecvPacket(OnRecvPacketCallback calldata)
