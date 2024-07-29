@@ -8,20 +8,20 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IICS20Transfer} from "./IICS20Transfer.sol";
 
-using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20;
 
 /*
  * Things not handled yet:
  * - Prefixed denoms (source chain is not the source) and the burning of tokens related to that
  * - Separate escrow balance tracking
+ * - Related to escrow ^: invariant checking (where to implement that)?
  * - Quite a bit of validation
  * - Receiving packets
  */
-contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
+contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
     string public constant ICS20_VERSION = "ics20-1";
-
-    event LogICS20Transfer(uint256 amount, address tokenContract, address sender, string receiver);
 
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
@@ -31,9 +31,9 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
             revert ICS20UnexpectedVersion(msg_.packet.version);
         }
 
-        ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
 
-        // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data
+        // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data, could be done in unwrapping?
 
         if (data.amount == 0) {
             revert ICS20InvalidAmount(data.amount);
@@ -41,23 +41,13 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
 
         // TODO: Handle prefixed denoms (source chain is not the source) and burn
 
-        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
-        if (!senderConvertSuccess) {
-            revert ICS20InvalidSender(data.sender);
-        }
-        if (msg_.sender != sender) {
-            revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
+        if (msg_.sender != data.sender) {
+            revert ICS20MsgSenderIsNotPacketSender(msg_.sender, data.sender);
         }
 
-        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
-        if (!tokenContractConvertSuccess) {
-            revert ICS20InvalidTokenContract(data.denom);
-        }
+        _transferFrom(data.sender, address(this), data.erc20ContractAddress, data.amount);
 
-        _transferFrom(sender, address(this), tokenContract, data.amount);
-
-        // TODO: Rename and make this event better, just used for some debugging up until now
-        emit LogICS20Transfer(data.amount, tokenContract, sender, data.receiver);
+        emit ICS20Transfer(data.sender, data.receiver, data.erc20ContractAddress, data.amount, data.memo);
     }
 
     function onRecvPacket(OnRecvPacketCallback calldata)
@@ -77,33 +67,29 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         onlyOwner
         nonReentrant
     {
+        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
+        bool isSuccessAck = true;
+
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
+            isSuccessAck = false;
             _refundTokens(data);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
 
-        // TODO: Emit event
+        emit ICS20Acknowledgement(data.sender, data.receiver, data.erc20ContractAddress, data.amount, data.memo, msg_.acknowledgement, isSuccessAck);
     }
 
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external override onlyOwner nonReentrant {
-        ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
         _refundTokens(data);
+
+        emit ICS20Timeout(data.sender, data.erc20ContractAddress, data.memo);
     }
 
-    function _refundTokens(ICS20Lib.PacketData memory data) internal {
-        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
-        if (!tokenContractConvertSuccess) {
-            revert ICS20InvalidTokenContract(data.denom);
-        }
-
-        (address refundee, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
-        if (!senderConvertSuccess) {
-            revert ICS20InvalidSender(data.sender);
-        }
-
-        IERC20(tokenContract).safeTransfer(refundee, data.amount);
+    function _refundTokens(UnwrappedFungibleTokenPacketData memory data) internal {
+        address refundee = data.sender;
+        IERC20(data.erc20ContractAddress).safeTransfer(refundee, data.amount);
     }
 
     function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
@@ -122,5 +108,27 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
             revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
         }
+    }
+
+    function _unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
+
+        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.denom);
+        if (!tokenContractConvertSuccess) {
+            revert ICS20InvalidTokenContract(packetData.denom);
+        }
+
+        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.sender);
+        if (!senderConvertSuccess) {
+            revert ICS20InvalidSender(packetData.sender);
+        }
+
+        return UnwrappedFungibleTokenPacketData({
+            erc20ContractAddress: tokenContract,
+            amount: packetData.amount,
+            sender: sender,
+            receiver: packetData.receiver,
+            memo: packetData.memo
+        });
     }
 }

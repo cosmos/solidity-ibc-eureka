@@ -9,7 +9,7 @@ library ICS20Lib {
      * @dev PacketData is defined in
      * [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
      */
-    struct PacketData {
+    struct PacketDataJSON {
         string denom;
         string sender;
         string receiver;
@@ -17,8 +17,8 @@ library ICS20Lib {
         string memo;
     }
 
-    bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
-    bytes internal constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
+    bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
+    bytes public constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
     uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
@@ -38,7 +38,7 @@ library ICS20Lib {
      * @dev marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
      *      `memo` field is omitted if it is empty.
      */
-    function marshalUnsafeJSON(PacketData memory data) internal pure returns (bytes memory) {
+    function marshalUnsafeJSON(PacketDataJSON memory data) internal pure returns (bytes memory) {
         if (bytes(data.memo).length == 0) {
             return marshalJSON(data.denom, data.amount, data.sender, data.receiver);
         } else {
@@ -104,8 +104,8 @@ library ICS20Lib {
     /**
      * @dev unmarshalJSON unmarshals JSON bytes into PacketData.
      */
-    function unmarshalJSON(bytes calldata bz) internal pure returns (PacketData memory) {
-        PacketData memory pd;
+    function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
+        PacketDataJSON memory pd;
         uint256 pos = 0;
 
         unchecked {
