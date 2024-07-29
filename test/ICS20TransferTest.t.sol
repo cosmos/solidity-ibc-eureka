@@ -136,4 +136,114 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
     }
+
+    function test_success_onAcknowledgementPacketWithSuccessAck() public {
+        erc20.mint(sender, defaultAmount);
+
+        vm.prank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        uint256 senderBalanceBefore = erc20.balanceOf(sender);
+        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceBefore, defaultAmount);
+        assertEq(contractBalanceBefore, 0);
+
+        vm.expectEmit();
+        emit ICS20Transfer.LogICS20Transfer(defaultAmount, address(erc20), sender, receiver);
+
+        ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
+
+        uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
+        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceAfterSend, 0);
+        assertEq(contractBalanceAfterSend, defaultAmount);
+
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: packet,
+                acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+
+        // Nothing should change
+        uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
+        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceAfterAck, 0);
+        assertEq(contractBalanceAfterAck, defaultAmount);
+    }
+
+    function test_success_onAcknowledgementPacketWithFailedAck() public {
+        erc20.mint(sender, defaultAmount);
+
+        vm.prank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        uint256 senderBalanceBefore = erc20.balanceOf(sender);
+        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceBefore, defaultAmount);
+        assertEq(contractBalanceBefore, 0);
+
+        vm.expectEmit();
+        emit ICS20Transfer.LogICS20Transfer(defaultAmount, address(erc20), sender, receiver);
+
+        ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
+
+        uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
+        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceAfterSend, 0);
+        assertEq(contractBalanceAfterSend, defaultAmount);
+
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: packet,
+                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+
+        // Transfer should be reverted
+        uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
+        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceAfterAck, defaultAmount);
+        assertEq(contractBalanceAfterAck, 0);
+    }
+
+    function test_failure_onAcknowledgementPacket() public {
+        // Test invalid data
+        data = bytes("invalid");
+        packet.data = data;
+        vm.expectRevert(bytes(""));
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: packet,
+                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+
+        // Test invalid contract
+        data = ICS20Lib.marshalJSON("invalid", defaultAmount, senderStr, receiver, "memo");
+        packet.data = data;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidTokenContract.selector, "invalid"));
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: packet,
+                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+
+        // Test invalid sender
+        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, "invalid", receiver, "memo");
+        packet.data = data;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidSender.selector, "invalid"));
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                packet: packet,
+                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+    }
 }

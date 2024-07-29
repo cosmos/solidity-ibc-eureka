@@ -16,7 +16,7 @@ contract TestERC20 is ERC20 {
 contract MalfunctioningERC20 is TestERC20 {
     // _update is doing nothing so that a transfer seems to have gone through,
     // but the internal state of the ERC20 contract is not updated - i.e. no transfer really happened
-    function _update(address from, address to, uint256 value) internal override virtual {
+    function _update(address from, address to, uint256 value) internal virtual override {
         // Do nothing 😱
     }
 }

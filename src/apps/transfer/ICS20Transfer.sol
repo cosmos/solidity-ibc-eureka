@@ -61,24 +61,6 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         emit LogICS20Transfer(data.amount, tokenContract, sender, data.receiver);
     }
 
-    function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
-        // we snapshot our current balance of this token
-        uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
-
-        IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
-
-        // check what this particular ERC20 implementation actually gave us, since it doesn't
-        // have to be at all related to the _amount
-        uint256 actualEndingBalance = IERC20(tokenContract).balanceOf(receiver);
-
-        uint256 expectedEndingBalance = ourStartingBalance + amount;
-        // a very strange ERC20 may trigger this condition, if we didn't have this we would
-        // underflow, so it's mostly just an error message printer
-        if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
-            revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
-        }
-    }
-
     function onRecvPacket(OnRecvPacketCallback calldata)
         external
         override
@@ -90,16 +72,60 @@ contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
         return "";
     }
 
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata)
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)
         external
         override
         onlyOwner
         nonReentrant
     {
-        // TODO: Implement
+        if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
+            ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
+
+            (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
+            if (!tokenContractConvertSuccess) {
+                revert ICS20InvalidTokenContract(data.denom);
+            }
+
+            (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(data.sender);
+            if (!senderConvertSuccess) {
+                revert ICS20InvalidSender(data.sender);
+            }
+
+            // TODO: Handle prefixed denoms (source chain is not the source) and mint
+
+            _transferFrom(address(this), sender, tokenContract, data.amount);
+        }
+
+        // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
+
+        // TODO: Emit event
     }
 
     function onTimeoutPacket(OnTimeoutPacketCallback calldata) external override onlyOwner nonReentrant {
         // TODO: Implement
+    }
+
+    function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
+        // we snapshot our current balance of this token
+        uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        if (sender == address(this)) {
+            // TODO: Is there any risk here?
+            // Would it be safer to use allowance and transferFrom even when the sender is this contract?
+            IERC20(tokenContract).safeTransfer(receiver, amount);
+        } else {
+            IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
+        }
+
+        // check what this particular ERC20 implementation actually gave us, since it doesn't
+        // have to be at all related to the _amount
+        uint256 actualEndingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        uint256 expectedEndingBalance = ourStartingBalance + amount;
+        // a very strange ERC20 may trigger this condition, if we didn't have this we would
+        // underflow, so it's mostly just an error message printer
+        if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
+            revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
+        }
     }
 }
