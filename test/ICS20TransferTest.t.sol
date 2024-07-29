@@ -9,6 +9,8 @@ import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { ICS20Transfer } from "../src/apps/transfer/ICS20Transfer.sol";
 import { TestERC20 } from "./TestERC20.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { ICS20Lib } from "../src/apps/transfer/ICS20Lib.sol";
+import { IICS20Errors } from "../src/apps/transfer/IICS20Errors.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;

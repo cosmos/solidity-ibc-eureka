@@ -5,12 +5,19 @@ pragma solidity >=0.8.25 <0.9.0;
 
 import { Test } from "forge-std/src/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
+import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ILightClient } from "../src/interfaces/ILightClient.sol";
+import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { ICS20Transfer } from "../src/apps/transfer/ICS20Transfer.sol";
 import { TestERC20 } from "./TestERC20.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
+import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./DummyLightClient.sol";
+import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ICS20Lib } from "../src/apps/transfer/ICS20Lib.sol";
+import { ICS24Host } from "../src/utils/ICS24Host.sol";
 
 contract IntegrationTest is Test {
     IICS02Client public ics02Client;

@@ -2,9 +2,10 @@
 pragma solidity >=0.8.25;
 
 import { IIBCApp } from "../../interfaces/IIBCApp.sol";
-import "./ICS20Lib.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IICS20Errors } from "./IICS20Errors.sol";
+import { ICS20Lib } from "./ICS20Lib.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -19,7 +20,7 @@ using SafeERC20 for IERC20;
  * - Receiving packets
  * - Acknowledgement and timeout handling
  */
-contract ICS20Transfer is IIBCApp, Ownable, ReentrancyGuard {
+contract ICS20Transfer is IIBCApp, IICS20Errors, Ownable, ReentrancyGuard {
     event LogICS20Transfer(uint256 amount, address tokenContract, address sender, string receiver);
 
     /// @param owner_ The owner of the contract

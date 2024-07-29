@@ -17,8 +17,8 @@ library ICS20Lib {
         string memo;
     }
 
-    bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes('{"result":"AQ=="}');
-    bytes internal constant FAILED_ACKNOWLEDGEMENT_JSON = bytes('{"error":"failed"}');
+    bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
+    bytes internal constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
     uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
@@ -61,17 +61,17 @@ library ICS20Lib {
         returns (bytes memory)
     {
         return abi.encodePacked(
-            '{"amount":"',
+            "{\"amount\":\"",
             Strings.toString(amount),
-            '","denom":"',
+            "\",\"denom\":\"",
             escapedDenom,
-            '","memo":"',
+            "\",\"memo\":\"",
             escapedMemo,
-            '","receiver":"',
+            "\",\"receiver\":\"",
             escapedReceiver,
-            '","sender":"',
+            "\",\"sender\":\"",
             escapedSender,
-            '"}'
+            "\"}"
         );
     }
 
@@ -89,15 +89,15 @@ library ICS20Lib {
         returns (bytes memory)
     {
         return abi.encodePacked(
-            '{"amount":"',
+            "{\"amount\":\"",
             Strings.toString(amount),
-            '","denom":"',
+            "\",\"denom\":\"",
             escapedDenom,
-            '","receiver":"',
+            "\",\"receiver\":\"",
             escapedReceiver,
-            '","sender":"',
+            "\",\"sender\":\"",
             escapedSender,
-            '"}'
+            "\"}"
         );
     }
 
@@ -109,29 +109,31 @@ library ICS20Lib {
         uint256 pos = 0;
 
         unchecked {
-            if (bytes32(bz[pos:pos + 11]) != bytes32('{"amount":"')) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32('{"amount":"'), bytes32(bz[pos:pos + 11]));
+            if (bytes32(bz[pos:pos + 11]) != bytes32("{\"amount\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]));
             }
             (pd.amount, pos) = parseUint256String(bz, pos + 11);
-            if (bytes32(bz[pos:pos + 10]) != bytes32(',"denom":"')) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"denom":"'), bytes32(bz[pos:pos + 10]));
+            if (bytes32(bz[pos:pos + 10]) != bytes32(",\"denom\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"denom\":\""), bytes32(bz[pos:pos + 10]));
             }
             (pd.denom, pos) = parseString(bz, pos + 10);
 
             if (uint256(uint8(bz[pos + 2])) == CHAR_M) {
-                if (bytes32(bz[pos:pos + 9]) != bytes32(',"memo":"')) {
-                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"memo":"'), bytes32(bz[pos:pos + 9]));
+                if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
+                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
                 }
                 (pd.memo, pos) = parseString(bz, pos + 9);
             }
 
-            if (bytes32(bz[pos:pos + 13]) != bytes32(',"receiver":"')) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"receiver":"'), bytes32(bz[pos:pos + 13]));
+            if (bytes32(bz[pos:pos + 13]) != bytes32(",\"receiver\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(
+                    pos, bytes32(",\"receiver\":\""), bytes32(bz[pos:pos + 13])
+                );
             }
             (pd.receiver, pos) = parseString(bz, pos + 13);
 
-            if (bytes32(bz[pos:pos + 11]) != bytes32(',"sender":"')) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"sender":"'), bytes32(bz[pos:pos + 11]));
+            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"sender\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]));
             }
             (pd.sender, pos) = parseString(bz, pos + 11);
 
