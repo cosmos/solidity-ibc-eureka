@@ -7,19 +7,19 @@ import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 /// @notice IIBCApp is an interface for the IBC Eureka application
 interface IIBCApp is IIBCAppCallbacks {
     /// @notice Called when a packet is to be sent to the counterparty chain.
-    /// @param msg The callback message
-    function onSendPacket(OnSendPacketCallback calldata msg) external;
+    /// @param msg_ The callback message
+    function onSendPacket(OnSendPacketCallback calldata msg_) external;
 
     /// @notice Called when a packet is received from the counterparty chain.
-    /// @param msg The callback message
+    /// @param msg_ The callback message
     /// @return The acknowledgement data
-    function onRecvPacket(OnRecvPacketCallback calldata msg) external returns (bytes memory);
+    function onRecvPacket(OnRecvPacketCallback calldata msg_) external returns (bytes memory);
 
     /// @notice Called when a packet acknowledgement is received from the counterparty chain.
-    /// @param msg The callback message
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg) external;
+    /// @param msg_ The callback message
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external;
 
     /// @notice Called when a packet is timed out.
-    /// @param msg The callback message
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg) external;
+    /// @param msg_ The callback message
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external;
 }

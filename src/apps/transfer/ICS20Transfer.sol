@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25;
 
-import {IIBCApp} from "../../interfaces/IIBCApp.sol";
+import { IIBCApp } from "../../interfaces/IIBCApp.sol";
 import "./ICS20Lib.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 using SafeERC20 for IERC20;
 
@@ -17,11 +19,14 @@ using SafeERC20 for IERC20;
  * - Receiving packets
  * - Acknowledgement and timeout handling
  */
-contract ICS20Transfer is IIBCApp {
+contract ICS20Transfer is IIBCApp, Ownable, ReentrancyGuard {
     event LogICS20Transfer(uint256 amount, address tokenContract, address sender, string receiver);
 
-    function onSendPacket(OnSendPacketCallback calldata msg) external override {
-        ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg.packet.data);
+    /// @param owner_ The owner of the contract
+    constructor(address owner_) Ownable(owner_) { }
+
+    function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
+        ICS20Lib.PacketData memory data = ICS20Lib.unmarshalJSON(msg_.packet.data);
 
         // TODO: Verify version
         // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data
@@ -36,8 +41,8 @@ contract ICS20Transfer is IIBCApp {
         if (!senderConvertSuccess) {
             revert IICS20Errors.ICS20InvalidSender(data.sender);
         }
-        if (msg.sender != sender) {
-            revert IICS20Errors.ICS20MsgSenderIsNotPacketSender(msg.sender, sender);
+        if (msg_.sender != sender) {
+            revert IICS20Errors.ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
         (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(data.denom);
@@ -51,15 +56,27 @@ contract ICS20Transfer is IIBCApp {
         emit LogICS20Transfer(data.amount, tokenContract, sender, data.receiver);
     }
 
-    function onRecvPacket(OnRecvPacketCallback calldata msg) external override returns (bytes memory) {
-        revert("not implemented");
+    function onRecvPacket(OnRecvPacketCallback calldata)
+        external
+        override
+        onlyOwner
+        nonReentrant
+        returns (bytes memory)
+    {
+        // TODO: Implement
+        return "";
     }
 
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg) external override {
-        revert("not implemented");
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata)
+        external
+        override
+        onlyOwner
+        nonReentrant
+    {
+        // TODO: Implement
     }
 
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg) external override {
-        revert("not implemented");
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata) external override onlyOwner nonReentrant {
+        // TODO: Implement
     }
 }

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.25;
 
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IICS20Errors} from "./IICS20Errors.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IICS20Errors } from "./IICS20Errors.sol";
 
 library ICS20Lib {
     /**
-     * @dev PacketData is defined in [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
+     * @dev PacketData is defined in
+     * [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
      */
     struct PacketData {
         string denom;
@@ -54,7 +55,11 @@ library ICS20Lib {
         string memory escapedSender,
         string memory escapedReceiver,
         string memory escapedMemo
-    ) internal pure returns (bytes memory) {
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(
             '{"amount":"',
             Strings.toString(amount),
@@ -78,7 +83,11 @@ library ICS20Lib {
         uint256 amount,
         string memory escapedSender,
         string memory escapedReceiver
-    ) internal pure returns (bytes memory) {
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(
             '{"amount":"',
             Strings.toString(amount),
