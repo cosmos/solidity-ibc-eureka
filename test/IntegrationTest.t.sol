@@ -104,7 +104,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_sendICS20PacketFromICSContract() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Packet();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -129,7 +129,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_failedCounterpartyAckForICS20Packet() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Packet();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -155,7 +155,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_timeoutICS20Packet() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Packet();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         // make light client return timestamp that is after our timeout
         lightClient.setMembershipResult(msgSendPacket.timeoutTimestamp + 1);
@@ -182,7 +182,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceAfterTimeout, 0);
     }
 
-    function _sendICS20Packet() internal returns (IICS26RouterMsgs.Packet memory) {
+    function _sendICS20Transfer() internal returns (IICS26RouterMsgs.Packet memory) {
         erc20.mint(sender, defaultAmount);
         vm.startPrank(sender);
         erc20.approve(address(ics20Transfer), defaultAmount);
