@@ -9,8 +9,11 @@ import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
-    mapping(string clientId => CounterpartyInfo counterpartyInfo) private counterpartyInfos;
-    mapping(string clientId => ILightClient lightClient) private clients;
+    /// @dev clientId => counterpartyInfo
+    mapping(string clientId => CounterpartyInfo info) private counterpartyInfos;
+    /// @dev clientId => light client contract
+    mapping(string clientId => ILightClient client) private clients;
+    /// @dev clientType => nextClientSeq
     mapping(string clientType => uint32 nextClientSeq) private nextClientSeq;
 
     /// @param owner_ The owner of the contract

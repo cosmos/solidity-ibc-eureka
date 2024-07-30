@@ -17,7 +17,9 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, ReentrancyGuard {
-    mapping(string portId => IIBCApp ibcApp) private apps;
+    /// @dev portId => IBC Application contract
+    mapping(string portId => IIBCApp app) private apps;
+    /// @dev ICS02Client contract
     IICS02Client private ics02Client;
 
     constructor(address ics02Client_, address owner) Ownable(owner) {
