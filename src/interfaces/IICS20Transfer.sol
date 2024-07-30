@@ -2,8 +2,9 @@
 pragma solidity >=0.8.25;
 
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 
-interface IICS20Transfer {
+interface IICS20Transfer is IICS20TransferMsgs {
     /// @notice Called when a packet is handled in onSendPacket and a transfer has been initiated
     /// @param packetData The transfer packet data
     event ICS20Transfer(ICS20Lib.UnwrappedFungibleTokenPacketData packetData);
@@ -20,4 +21,9 @@ interface IICS20Transfer {
     /// @notice Called after handling a timeout in onTimeoutPacket
     /// @param packetData The transfer packet data
     event ICS20Timeout(ICS20Lib.UnwrappedFungibleTokenPacketData packetData);
+
+    /// @notice Send a transfer
+    /// @param msg The message for sending a transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransfer(SendTransferMsg calldata msg) external returns (uint32 sequence);
 }

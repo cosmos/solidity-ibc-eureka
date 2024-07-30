@@ -9,6 +9,8 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
+import { IICS26Router } from "./interfaces/IICS26Router.sol";
+import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 
 using SafeERC20 for IERC20;
 
@@ -16,12 +18,36 @@ using SafeERC20 for IERC20;
  * Things not handled yet:
  * - Prefixed denoms (source chain is not the source) and the burning of tokens related to that
  * - Separate escrow balance tracking
- * - Related to escrow ^: invariant checking (where to implement that)?
+ * - Related to escrow ^: invariant checking (where to implement that?)
  * - Receiving packets
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
+
+    function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
+        IICS26Router ibcRouter = IICS26Router(owner());
+
+        string memory sender = ICS20Lib.addressToHexString(msg.sender);
+        string memory sourcePort = ICS20Lib.addressToHexString(address(this));
+        bytes memory packetData;
+        if (bytes(msg_.memo).length == 0) {
+            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
+        } else {
+            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver, msg_.memo);
+        }
+
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
+            sourcePort: sourcePort,
+            sourceChannel: msg_.sourceChannel,
+            destPort: msg_.destPort,
+            data: packetData,
+            timeoutTimestamp: msg_.timeoutTimestamp, // TODO: Default timestamp?
+            version: ICS20Lib.ICS20_VERSION
+        });
+
+        return ibcRouter.sendPacket(msgSendPacket);
+    }
 
     function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
@@ -38,7 +64,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         // TODO: Handle prefixed denoms (source chain is not the source) and burn
 
-        if (msg_.sender != packetData.sender) {
+        // The packet sender has to be either the packet data sender or the contract itself
+        // The scenarios are either the sender sent the packet directly to the router (msg_.sender == packetData.sender)
+        // or sender used the sendTransfer function, which makes this contract the sender (msg_.sender == address(this))
+        if (msg_.sender != packetData.sender && msg_.sender != address(this)) {
             revert ICS20MsgSenderIsNotPacketSender(msg_.sender, packetData.sender);
         }
 
