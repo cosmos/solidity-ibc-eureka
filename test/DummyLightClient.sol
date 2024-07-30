@@ -8,13 +8,15 @@ import { ILightClient } from "../src/interfaces/ILightClient.sol";
 contract DummyLightClient is ILightClient {
     UpdateResult public updateResult;
     uint32 public membershipResult;
+    bytes public latestUpdateMsg;
 
     constructor(UpdateResult updateResult_, uint32 membershipResult_) {
         updateResult = updateResult_;
         membershipResult = membershipResult_;
     }
 
-    function updateClient(bytes calldata) external view returns (UpdateResult) {
+    function updateClient(bytes calldata updateMsg) external returns (UpdateResult) {
+        latestUpdateMsg = updateMsg;
         return updateResult;
     }
 
@@ -25,4 +27,13 @@ contract DummyLightClient is ILightClient {
     function misbehaviour(bytes calldata misbehaviourMsg) external { }
 
     function upgradeClient(bytes calldata upgradeMsg) external { }
+
+    // custom functions to return values we want
+    function setUpdateResult(UpdateResult updateResult_) external {
+        updateResult = updateResult_;
+    }
+
+    function setMembershipResult(uint32 membershipResult_) external {
+        membershipResult = membershipResult_;
+    }
 }

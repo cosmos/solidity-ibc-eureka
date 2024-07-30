@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.25;
 
+// solhint-disable no-inline-assembly
+
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS20Errors } from "./IICS20Errors.sol";
 
@@ -120,6 +122,7 @@ library ICS20Lib {
 
             if (uint256(uint8(bz[pos + 2])) == CHAR_M) {
                 if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
+                    // solhint-disable-next-line max-line-length
                     revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
                 }
                 (pd.memo, pos) = parseString(bz, pos + 9);
