@@ -7,11 +7,11 @@
     "url": "https://github.com/srdtrk"
   },
   "dependencies": {
+    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
     "@openzeppelin/contracts": "^5.0.1"
   },
   "devDependencies": {
-    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
-    "solhint": "^3.6.2"
+    "solhint": "^5.0.2"
   },
   "keywords": [
     "blockchain",
@@ -27,7 +27,7 @@
     "clean": "rm -rf cache out",
     "build": "forge build",
     "lint": "bun run lint:sol",
-    "lint:sol": "forge fmt --check && bun solhint {script,src,test}/**/*.sol",
+    "lint:sol": "forge fmt --check && bun solhint '{script,src,test}/**/*.sol'",
     "test": "forge test",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
