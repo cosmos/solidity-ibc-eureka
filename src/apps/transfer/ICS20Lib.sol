@@ -6,6 +6,7 @@ pragma solidity >=0.8.25;
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS20Errors } from "./IICS20Errors.sol";
 
+// This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
     /**
      * @dev PacketData is defined in
