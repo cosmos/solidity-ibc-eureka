@@ -4,7 +4,7 @@ pragma solidity >=0.8.25;
 // solhint-disable no-inline-assembly
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { IICS20Errors } from "./IICS20Errors.sol";
+import { IICS20Errors } from "../errors/IICS20Errors.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
@@ -19,6 +19,17 @@ library ICS20Lib {
         uint256 amount;
         string memo;
     }
+
+    /// @notice Convenience type used after unmarshalling the packet data and converting addresses
+    struct UnwrappedFungibleTokenPacketData {
+        address erc20ContractAddress;
+        uint256 amount;
+        address sender;
+        string receiver;
+        string memo;
+    }
+
+    string public constant ICS20_VERSION = "ics20-1";
 
     bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
     bytes public constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
@@ -343,5 +354,27 @@ library ICS20Lib {
      */
     function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
         return keccak256(a) == keccak256(b);
+    }
+
+    function unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
+
+        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.denom);
+        if (!tokenContractConvertSuccess) {
+            revert IICS20Errors.ICS20InvalidTokenContract(packetData.denom);
+        }
+
+        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.sender);
+        if (!senderConvertSuccess) {
+            revert IICS20Errors.ICS20InvalidSender(packetData.sender);
+        }
+
+        return UnwrappedFungibleTokenPacketData({
+            erc20ContractAddress: tokenContract,
+            amount: packetData.amount,
+            sender: sender,
+            receiver: packetData.receiver,
+            memo: packetData.memo
+        });
     }
 }

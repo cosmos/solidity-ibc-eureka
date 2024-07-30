@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
-import { IIBCApp } from "../../interfaces/IIBCApp.sol";
-import { IICS20Errors } from "./IICS20Errors.sol";
-import { ICS20Lib } from "./ICS20Lib.sol";
+import { IIBCApp } from "./interfaces/IIBCApp.sol";
+import { IICS20Errors } from "./errors/IICS20Errors.sol";
+import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { IICS20Transfer } from "./IICS20Transfer.sol";
+import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 
 using SafeERC20 for IERC20;
 
@@ -20,33 +20,31 @@ using SafeERC20 for IERC20;
  * - Receiving packets
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
-    string public constant ICS20_VERSION = "ics20-1";
-
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
 
     function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
-        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20_VERSION))) {
+        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             revert ICS20UnexpectedVersion(msg_.packet.version);
         }
 
-        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
+        ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
 
         // TODO: Maybe have a "ValidateBasic" type of function that checks the packet data, could be done in unwrapping?
 
-        if (data.amount == 0) {
-            revert ICS20InvalidAmount(data.amount);
+        if (packetData.amount == 0) {
+            revert ICS20InvalidAmount(packetData.amount);
         }
 
         // TODO: Handle prefixed denoms (source chain is not the source) and burn
 
-        if (msg_.sender != data.sender) {
-            revert ICS20MsgSenderIsNotPacketSender(msg_.sender, data.sender);
+        if (msg_.sender != packetData.sender) {
+            revert ICS20MsgSenderIsNotPacketSender(msg_.sender, packetData.sender);
         }
 
-        _transferFrom(data.sender, address(this), data.erc20ContractAddress, data.amount);
+        _transferFrom(packetData.sender, address(this), packetData.erc20ContractAddress, packetData.amount);
 
-        emit ICS20Transfer(data.sender, data.receiver, data.erc20ContractAddress, data.amount, data.memo);
+        emit ICS20Transfer(packetData);
     }
 
     function onRecvPacket(OnRecvPacketCallback calldata)
@@ -66,40 +64,34 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         onlyOwner
         nonReentrant
     {
-        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
+        ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
         bool isSuccessAck = true;
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
             isSuccessAck = false;
-            _refundTokens(data);
+            _refundTokens(packetData);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
 
-        emit ICS20Acknowledgement(
-            data.sender,
-            data.receiver,
-            data.erc20ContractAddress,
-            data.amount,
-            data.memo,
-            msg_.acknowledgement,
-            isSuccessAck
-        );
+        emit ICS20Acknowledgement(packetData, msg_.acknowledgement, isSuccessAck);
     }
 
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external override onlyOwner nonReentrant {
-        UnwrappedFungibleTokenPacketData memory data = _unwrapPacketData(msg_.packet.data);
-        _refundTokens(data);
+        ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
+        _refundTokens(packetData);
 
-        emit ICS20Timeout(data.sender, data.erc20ContractAddress, data.memo);
+        emit ICS20Timeout(packetData);
     }
 
-    function _refundTokens(UnwrappedFungibleTokenPacketData memory data) internal {
+    // TODO: Implement escrow balance tracking
+    function _refundTokens(ICS20Lib.UnwrappedFungibleTokenPacketData memory data) internal {
         address refundee = data.sender;
         IERC20(data.erc20ContractAddress).safeTransfer(refundee, data.amount);
     }
 
-    function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) internal {
+    // TODO: Implement escrow balance tracking
+    function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) private {
         // we snapshot our current balance of this token
         uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
 
@@ -115,27 +107,5 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
             revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
         }
-    }
-
-    function _unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
-
-        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.denom);
-        if (!tokenContractConvertSuccess) {
-            revert ICS20InvalidTokenContract(packetData.denom);
-        }
-
-        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.sender);
-        if (!senderConvertSuccess) {
-            revert ICS20InvalidSender(packetData.sender);
-        }
-
-        return UnwrappedFungibleTokenPacketData({
-            erc20ContractAddress: tokenContract,
-            amount: packetData.amount,
-            sender: sender,
-            receiver: packetData.receiver,
-            memo: packetData.memo
-        });
     }
 }

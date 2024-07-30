@@ -6,15 +6,15 @@ pragma solidity >=0.8.25 <0.9.0;
 import { Test } from "forge-std/src/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
-import { ICS20Transfer } from "../src/apps/transfer/ICS20Transfer.sol";
-import { IICS20Transfer } from "../src/apps/transfer/IICS20Transfer.sol";
+import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { TestERC20 } from "./TestERC20.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
-import { ICS20Lib } from "../src/apps/transfer/ICS20Lib.sol";
+import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
 
 contract IntegrationTest is Test {
@@ -58,7 +58,7 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             data: data,
             timeoutTimestamp: uint32(block.timestamp) + 1000,
-            version: ics20Transfer.ICS20_VERSION()
+            version: ICS20Lib.ICS20_VERSION
         });
     }
 
@@ -72,9 +72,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON, true
-        );
+        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON, true);
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -99,9 +97,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            sender, receiver, address(erc20), defaultAmount, "memo", ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON, false
-        );
+        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON, false);
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -129,7 +125,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Timeout(sender, address(erc20), "memo");
+        emit IICS20Transfer.ICS20Timeout(_getPacketData());
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -156,7 +152,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceBefore, 0);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(sender, receiver, address(erc20), defaultAmount, "memo");
+        emit IICS20Transfer.ICS20Transfer(_getPacketData());
         uint32 sequence = ics26Router.sendPacket(msgSendPacket);
         assertEq(sequence, 1);
 
@@ -186,6 +182,16 @@ contract IntegrationTest is Test {
             destChannel: counterpartyClient, // If we test with something else, we need to add this to the args
             version: _msgSendPacket.version,
             data: _msgSendPacket.data
+        });
+    }
+
+    function _getPacketData() internal view returns (ICS20Lib.UnwrappedFungibleTokenPacketData memory) {
+        return ICS20Lib.UnwrappedFungibleTokenPacketData({
+            sender: sender,
+            receiver: receiver,
+            erc20ContractAddress: address(erc20),
+            amount: defaultAmount,
+            memo: "memo"
         });
     }
 }
