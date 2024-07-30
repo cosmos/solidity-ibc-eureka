@@ -17,7 +17,6 @@ using SafeERC20 for IERC20;
  * - Prefixed denoms (source chain is not the source) and the burning of tokens related to that
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that)?
- * - Quite a bit of validation
  * - Receiving packets
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {

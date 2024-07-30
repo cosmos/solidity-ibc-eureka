@@ -35,6 +35,7 @@ interface IICS20Transfer {
     /// @param memo The memo field of the packet
     event ICS20Timeout(address sender, address tokenContract, string memo);
 
+    /// @notice Convenience type used after unmarshalling the packet data and converting addresses
     struct UnwrappedFungibleTokenPacketData {
         address erc20ContractAddress;
         uint256 amount;
