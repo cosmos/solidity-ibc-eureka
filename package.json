@@ -7,7 +7,7 @@
     "url": "https://github.com/srdtrk"
   },
   "dependencies": {
-    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.1",
     "@openzeppelin/contracts": "^5.0.1"
   },
   "devDependencies": {

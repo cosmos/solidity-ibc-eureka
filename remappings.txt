@@ -1,4 +1,4 @@
-forge-std/=node_modules/forge-std/
+forge-std/=node_modules/forge-std/src/
 @openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 @cosmos/sp1-ics07-tendermint/=node_modules/@cosmos/sp1-ics07-tendermint/contracts/src/
 solidity-ibc/=src/

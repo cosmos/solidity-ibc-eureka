@@ -3,7 +3,7 @@ pragma solidity >=0.8.25 <0.9.0;
 
 // solhint-disable gas-custom-errors,max-line-length
 
-import { Test } from "forge-std/src/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { IBCIdentifiers } from "../src/utils/IBCIdentifiers.sol";
 
 contract IBCIdentifiersTest is Test {

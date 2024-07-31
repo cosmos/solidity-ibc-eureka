@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25 <0.9.0;
 
+import { stdJson } from "forge-std/StdJson.sol";
 import { BaseScript } from "./Base.s.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
 import { SP1Verifier } from "@sp1-contracts/v1.0.1/SP1Verifier.sol";
