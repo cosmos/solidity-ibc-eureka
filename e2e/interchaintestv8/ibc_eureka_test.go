@@ -34,13 +34,19 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 
-	ics07Contract *sp1ics07tendermint.Contract
+	// nolint: unused
+	sp1Ics07Contract *sp1ics07tendermint.Contract
+	// nolint: unused
 	ics02Contract *ics02client.Contract
+	// nolint: unused
 	ics26Contract *ics26router.Contract
+	// nolint: unused
 	ics20Contract *ics20transfer.Contract
+	// nolint: unused
 	erc20Contract *erc20.Contract
 
-	// The latest height of client state
+	// The latest height of sp1 ics07 client state
+	// nolint: unused
 	latestHeight uint32
 }
 
