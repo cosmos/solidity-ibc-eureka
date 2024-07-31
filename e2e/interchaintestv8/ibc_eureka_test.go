@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -34,6 +34,7 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 
+	ics07Contract *sp1ics07tendermint.Contract
 	ics02Contract *ics02client.Contract
 	ics26Contract *ics26router.Contract
 	ics20Contract *ics20transfer.Contract
@@ -77,20 +78,17 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(operator.RunGenesis(
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+			"-o", "e2e/artifacts/genesis.json",
 		))
 
-		stdout, _, err := eth.ForgeScript(ctx, s.UserA.KeyName(), ethereum.ForgeScriptOpts{
+		_, _, err := eth.ForgeScript(ctx, s.UserA.KeyName(), ethereum.ForgeScriptOpts{
 			ContractRootDir:  ".",
-			SolidityContract: "contracts/script/IbcEureka.s.sol",
+			SolidityContract: "script/E2ETestDeploy.s.sol",
 			RawOptions:       []string{"--json"},
 		})
 		s.Require().NoError(err)
 
-		contractAddress := s.GetEthAddressFromStdout(string(stdout))
-		s.Require().NotEmpty(contractAddress)
-		s.Require().True(ethcommon.IsHexAddress(contractAddress))
-
-		os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
+		// os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
