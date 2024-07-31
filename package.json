@@ -13,7 +13,7 @@
   "devDependencies": {
     "solhint": "^5.0.2",
     "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#64ad2b9f09cfe640e8c387037809298d8f1c16fa",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.0.1",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.0.1"
   },
   "keywords": [
     "blockchain",
@@ -26,6 +26,7 @@
   ],
   "private": true,
   "scripts": {
+    "lint:sol": "forge fmt --check && bun solhint '{script,src,test}/**/*.sol'",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }

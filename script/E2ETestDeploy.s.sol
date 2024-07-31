@@ -24,24 +24,11 @@ contract E2ETestDeploy is Script {
 
         // TODO: Implement the deployment script here.
         SP1Verifier verifier = new SP1Verifier();
-        SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
-            0,
-            0,
-            0,
-            address(verifier),
-            bytes(""),
-            0
-        );
+        SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(0, 0, 0, address(verifier), bytes(""), 0);
 
         vm.stopBroadcast();
 
-        return (
-            address(ics07Tendermint),
-            address(0),
-            address(0),
-            address(0),
-            address(0)
-        );
+        return (address(ics07Tendermint), address(0), address(0), address(0), address(0));
     }
 
     function loadGenesis(string memory fileName) public view returns (SP1ICS07TendermintGenesisJson memory) {
