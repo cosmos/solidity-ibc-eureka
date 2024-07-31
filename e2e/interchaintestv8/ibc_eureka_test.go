@@ -20,6 +20,10 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -29,6 +33,11 @@ type IbcEurekaTestSuite struct {
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
+
+	ics02Contract *ics02client.Contract
+	ics26Contract *ics26router.Contract
+	ics20Contract *ics20transfer.Contract
+	erc20Contract *erc20.Contract
 
 	// The latest height of client state
 	latestHeight uint32

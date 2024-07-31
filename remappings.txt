@@ -1,2 +1,5 @@
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 forge-std/=node_modules/forge-std/
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+@cosmos/sp1-ics07-tendermint/=node_modules/@cosmos/sp1-ics07-tendermint/contracts/src/
+solidity-ibc/=src/
+@sp1-contracts/=node_modules/sp1-contracts/contracts/src/
