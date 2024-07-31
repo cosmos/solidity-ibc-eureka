@@ -1,3 +1,5 @@
+set dotenv-load
+
 operator_bin := if arch() == "x86_64" {
 	if os() == "linux" {
 		"./e2e/artifacts/linux-x86_64/operator"
