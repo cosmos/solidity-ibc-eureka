@@ -30,7 +30,10 @@ test-foundry:
 
 # Run forge fmt and bun solhint
 lint:
+	@echo "Linting the Solidity code..."
 	forge fmt --check && bun solhint '{script,src,test}/**/*.sol'
+	@echo "Linting the Go code..."
+	cd e2e/interchaintestv8 && golangci-lint run --fix
 
 # Generate the ABI files for the contracts
 generate-abi:
@@ -45,3 +48,9 @@ generate-abi:
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out e2e/interchaintestv8/types/ics26router/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out e2e/interchaintestv8/types/sp1ics07tendermint/contract.go
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
+
+# Run the e2e tests
+test-e2e testname:
+	just clean
+	@echo "Running {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run=TestWithIbcEurekaTestSuite/{{testname}} -timeout 40m
