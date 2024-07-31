@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
 interface IICS02ClientErrors {
@@ -7,4 +7,7 @@ interface IICS02ClientErrors {
 
     /// @param clientId client identifier
     error IBCClientNotFound(string clientId);
+
+    /// @param counterpartyClientId counterparty client identifier
+    error IBCCounterpartyClientNotFound(string counterpartyClientId);
 }

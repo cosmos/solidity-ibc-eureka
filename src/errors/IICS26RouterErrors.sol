@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
 interface IICS26RouterErrors {
@@ -18,4 +18,6 @@ interface IICS26RouterErrors {
     error IBCAsyncAcknowledgementNotSupported();
 
     error IBCPacketCommitmentMismatch(bytes32 expected, bytes32 actual);
+
+    error IBCAppNotFound(string portId);
 }
