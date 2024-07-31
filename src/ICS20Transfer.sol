@@ -114,7 +114,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     // TODO: Implement escrow balance tracking
-    function _refundTokens(ICS20Lib.UnwrappedFungibleTokenPacketData memory data) internal {
+    function _refundTokens(ICS20Lib.UnwrappedFungibleTokenPacketData memory data) private {
         address refundee = data.sender;
         IERC20(data.erc20ContractAddress).safeTransfer(refundee, data.amount);
     }
