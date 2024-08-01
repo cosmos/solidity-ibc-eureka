@@ -95,7 +95,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		})
 		s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
 
-		// os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
+		deployedContracts := s.GetEthContractsFromDeployOutput(string(stdout))
+		os.Setenv(testvalues.EnvKeySP1ICS07TendermintContractAddress, deployedContracts.Ics07Tendermint)
+		os.Setenv(testvalues.EnvKeyICS02ClientContractAddress, deployedContracts.Ics02Client)
+		os.Setenv(testvalues.EnvKeyICS26RouterContractAddress, deployedContracts.Ics26Router)
+		os.Setenv(testvalues.EnvKeyICS20TransferContractAddress, deployedContracts.Ics20Transfer)
+		os.Setenv(testvalues.EnvKeyERC20ContractAddress, deployedContracts.Erc20)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
@@ -116,5 +121,11 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 	_, _ = s.ChainA, s.ChainB
 
 	s.Require().True(s.Run("Verify deployment", func() {
+		// Verify that the contracts have been deployed
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySP1ICS07TendermintContractAddress))
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS02ClientContractAddress))
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS26RouterContractAddress))
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS20TransferContractAddress))
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyERC20ContractAddress))
 	}))
 }

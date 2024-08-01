@@ -2,8 +2,9 @@ package e2esuite
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"regexp"
+	"strings"
 
 	"cosmossdk.io/math"
 
@@ -15,6 +16,23 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 )
+
+type ForgeScriptReturnValues struct {
+	InternalType string `json:"internal_type"`
+	Value        string `json:"value"`
+}
+
+type ForgeDeployOutput struct {
+	Returns map[string]ForgeScriptReturnValues `json:"returns"`
+}
+
+type DeployedContracts struct {
+	Ics07Tendermint string `json:"ics07Tendermint"`
+	Ics02Client     string `json:"ics02Client"`
+	Ics26Router     string `json:"ics26Router"`
+	Ics20Transfer   string `json:"ics20Transfer"`
+	Erc20           string `json:"erc20"`
+}
 
 // FundAddressChainB sends funds to the given address on Chain B.
 // The amount sent is 1,000,000,000 of the chain's denom.
@@ -69,15 +87,32 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	s.Require().NoError(err)
 }
 
-func (s *TestSuite) GetEthAddressFromStdout(stdout string) string {
-	// Define the regular expression pattern
-	re := regexp.MustCompile(`"value":"(0x[0-9a-fA-F]+)"`)
+func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContracts {
+	// Extract the JSON part using regex
+	re := regexp.MustCompile(`\{.*\}`)
+	jsonPart := re.FindString(stdout)
 
-	// Find the first match
-	matches := re.FindStringSubmatch(stdout)
-	if len(matches) <= 1 {
-		s.FailNow(fmt.Sprintf("no match found in stdout: %s", stdout))
-	}
-	// Extract the value
-	return matches[1]
+	var returns ForgeDeployOutput
+	err := json.Unmarshal([]byte(jsonPart), &returns)
+	s.Require().NoError(err)
+
+	// Extract the embedded JSON string
+	s.Require().Len(returns.Returns, 1)
+	embeddedJsonStr := returns.Returns["0"].Value
+
+	// Unescape and remove surrounding quotes
+	embeddedJsonStr = strings.ReplaceAll(embeddedJsonStr, `\"`, `"`)
+	embeddedJsonStr = strings.Trim(embeddedJsonStr, `"`)
+
+	var embeddedContracts DeployedContracts
+	err = json.Unmarshal([]byte(embeddedJsonStr), &embeddedContracts)
+	s.Require().NoError(err)
+
+	s.Require().NotEmpty(embeddedContracts.Erc20)
+	s.Require().NotEmpty(embeddedContracts.Ics02Client)
+	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
+	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
+	s.Require().NotEmpty(embeddedContracts.Ics26Router)
+
+	return embeddedContracts
 }

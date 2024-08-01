@@ -14,25 +14,34 @@ const (
 	// StartingTokenAmount is the amount of tokens to give to each user at the start of the test.
 	StartingTokenAmount int64 = 10_000_000_000
 
-	// Address of the SP1ICS07Tendermint contract.
-	EnvKeyContractAddress = "CONTRACT_ADDRESS"
-	// Tendermint RPC URL.
+	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
-	// Ethereum RPC URL.
+	// EnvKeyEthRPC Ethereum RPC URL.
 	EnvKeyEthRPC = "RPC_URL"
-	// Private key used to submit transactions by the operator.
+	// EnvKeyPrivateKey Private key used to submit transactions by the operator.
 	EnvKeyPrivateKey = "PRIVATE_KEY"
-	// The prover type (local|network|mock).
+	// EnvKeySp1Prover The prover type (local|network|mock).
 	EnvKeySp1Prover = "SP1_PROVER"
-	// Private key for the prover network.
+	// EnvKeySp1PrivateKey Private key for the prover network.
 	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
+
+	// EnvKeySP1ICS07TendermintContractAddress Address of the SP1ICS07Tendermint contract.
+	EnvKeySP1ICS07TendermintContractAddress = "SP1_ICS07_TENDERMINT_CONTRACT_ADDRESS"
+	// EnvKeyICS02ClientContractAddress Address of the ICS02Client contract.
+	EnvKeyICS02ClientContractAddress = "ICS02_CLIENT_CONTRACT_ADDRESS"
+	// EnvKeyICS26RouterContractAddress Address of the ICS26Router contract.
+	EnvKeyICS26RouterContractAddress = "ICS26_ROUTER_CONTRACT_ADDRESS"
+	// EnvKeyICS20TransferContractAddress Address of the ICS20Transfer contract.
+	EnvKeyICS20TransferContractAddress = "ICS20_TRANSFER_CONTRACT_ADDRESS"
+	// EnvKeyERC20ContractAddress Address of the ERC20 contract.
+	EnvKeyERC20ContractAddress = "ERC20_CONTRACT_ADDRESS"
 )
 
 var (
-	// Maximum period to deposit on a proposal.
+	// MaxDepositPeriod Maximum period to deposit on a proposal.
 	// This value overrides the default value in the gov module using the `modifyGovV1AppState` function.
 	MaxDepositPeriod = time.Second * 10
-	// Duration of the voting period.
+	// VotingPeriod Duration of the voting period.
 	// This value overrides the default value in the gov module using the `modifyGovV1AppState` function.
 	VotingPeriod = time.Second * 30
 
