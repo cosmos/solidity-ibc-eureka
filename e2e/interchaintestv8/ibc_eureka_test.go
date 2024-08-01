@@ -36,11 +36,12 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 
-	sp1Ics07Contract *sp1ics07tendermint.Contract
-	ics02Contract    *ics02client.Contract
-	ics26Contract    *ics26router.Contract
-	ics20Contract    *ics20transfer.Contract
-	erc20Contract    *erc20.Contract
+	deployedContractAddresses e2esuite.DeployedContracts
+	sp1Ics07Contract          *sp1ics07tendermint.Contract
+	ics02Contract             *ics02client.Contract
+	ics26Contract             *ics26router.Contract
+	ics20Contract             *ics20transfer.Contract
+	erc20Contract             *erc20.Contract
 
 	// The latest height of sp1 ics07 client state
 	// nolint: unused
@@ -94,16 +95,16 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		client, err := ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
 
-		deployedContracts := s.GetEthContractsFromDeployOutput(string(stdout))
-		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(deployedContracts.Ics07Tendermint), client)
+		s.deployedContractAddresses = s.GetEthContractsFromDeployOutput(string(stdout))
+		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics07Tendermint), client)
 		s.Require().NoError(err)
-		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(deployedContracts.Ics02Client), client)
+		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics02Client), client)
 		s.Require().NoError(err)
-		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(deployedContracts.Ics26Router), client)
+		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics26Router), client)
 		s.Require().NoError(err)
-		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(deployedContracts.Ics20Transfer), client)
+		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics20Transfer), client)
 		s.Require().NoError(err)
-		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(deployedContracts.Erc20), client)
+		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Erc20), client)
 		s.Require().NoError(err)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
