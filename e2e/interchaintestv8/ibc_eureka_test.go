@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -87,12 +88,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			"-o", "e2e/artifacts/genesis.json",
 		))
 
-		_, _, err := eth.ForgeScript(ctx, s.UserA.KeyName(), ethereum.ForgeScriptOpts{
+		stdout, stderr, err := eth.ForgeScript(ctx, s.UserA.KeyName(), ethereum.ForgeScriptOpts{
 			ContractRootDir:  ".",
 			SolidityContract: "script/E2ETestDeploy.s.sol",
 			RawOptions:       []string{"--json"},
 		})
-		s.Require().NoError(err)
+		s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
 
 		// os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
 

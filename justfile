@@ -1,20 +1,20 @@
 set dotenv-load
 
-operator_bin := if arch() == "x86_64" {
-	if os() == "linux" {
-		"./e2e/artifacts/linux-x86_64/operator"
-	} else {
-		error("unsupported OS")
-	}
-} else if arch() == "aarch64" {
-	if os() == "macos" {
-		"./e2e/artifacts/darwin-aarch64/operator"
-	} else {
-		error("unsupported OS")
-	}
-} else {
-	error("unsupported architecture")
-}
+#operator_bin := if arch() == "x86_64" {
+#	if os() == "linux" {
+#		"./e2e/artifacts/linux-x86_64/operator"
+#	} else {
+#		error("unsupported OS")
+#	}
+#} else if arch() == "aarch64" {
+#	if os() == "macos" {
+#		"./e2e/artifacts/darwin-aarch64/operator"
+#	} else {
+#		error("unsupported OS")
+#	}
+#} else {
+#	error("unsupported architecture")
+#}
 
 # Build the contracts using `forge build`
 build:
