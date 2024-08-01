@@ -22,14 +22,15 @@ contract ICS02ClientTest is Test {
 
     function test_ICS02Client() public {
         string memory counterpartyClient = "42-dummy-01";
-        string memory clientIdentifier = ics02Client.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient), address(lightClient)
-        );
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient);
+        vm.expectEmit();
+        emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
+        string memory clientIdentifier = ics02Client.addClient("07-tendermint", counterpartyInfo, address(lightClient));
 
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
         assertNotEq(address(fetchedLightClient), address(0), "client not found");
 
-        IICS02Client.CounterpartyInfo memory counterpartyInfo = ics02Client.getCounterparty(clientIdentifier);
         assertEq(counterpartyInfo.clientId, counterpartyClient, "counterpartyInfo not found");
 
         bytes memory updateMsg = "testUpdateMsg";

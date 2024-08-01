@@ -8,12 +8,18 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
+	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
@@ -132,5 +138,73 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().NotNil(s.ics26Contract)
 		s.Require().NotNil(s.ics20Contract)
 		s.Require().NotNil(s.erc20Contract)
+	}))
+}
+
+func (s *IbcEurekaTestSuite) TestICS20Transfer() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+
+	eth, simd := s.ChainA, s.ChainB
+	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+
+	var simdClientID, ethClientID string
+
+	s.Require().True(s.Run("Add client on Cosmos side", func() {
+		ethHeight, err := eth.Height(ctx)
+		s.Require().NoError(err)
+
+		clientState := mock.ClientState{
+			LatestHeight: clienttypes.NewHeight(1, uint64(ethHeight)),
+		}
+		clientStateAny, err := clienttypes.PackClientState(&clientState)
+		s.Require().NoError(err)
+		consensusState := mock.ConsensusState{
+			Timestamp: uint64(time.Now().UnixNano()),
+		}
+		consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
+		s.Require().NoError(err)
+
+		res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:      clientStateAny,
+			ConsensusState:   consensusStateAny,
+			Signer:           simdRelayerUser.FormattedAddress(),
+			CounterpartyId:   "",
+			MerklePathPrefix: nil,
+		})
+		s.Require().NoError(err)
+
+		simdClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
+		s.Require().NoError(err)
+		s.Require().Equal("00-mock-0", simdClientID)
+	}))
+
+	s.Require().True(s.Run("Add client on Ethereum side", func() {
+		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
+			ClientId: simdClientID,
+		}
+		lightClientAddress := ethcommon.HexToAddress(s.deployedContractAddresses.Ics07Tendermint)
+		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.key), "07-tendermint", counterpartyInfo, lightClientAddress)
+		s.Require().NoError(err)
+
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		event, err := e2esuite.GetEvent[ics02client.ContractICS02ClientAdded](receipt, s.ics02Contract.ParseICS02ClientAdded)
+		s.Require().NoError(err)
+		s.Require().Equal("07-tendermint-0", event.ClientId)
+		s.Require().Equal(simdClientID, event.CounterpartyInfo.ClientId)
+		ethClientID = event.ClientId
+	}))
+
+	s.Require().True(s.Run("Register counterparty on Cosmos side", func() {
+		merklePathPrefix := commitmenttypes.NewMerklePath([]byte{0x1})
+
+		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgProvideCounterparty{
+			ClientId:         simdClientID,
+			CounterpartyId:   ethClientID,
+			MerklePathPrefix: &merklePathPrefix,
+			Signer:           simdRelayerUser.FormattedAddress(),
+		})
+		s.Require().NoError(err)
 	}))
 }
