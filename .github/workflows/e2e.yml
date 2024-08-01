@@ -1,0 +1,69 @@
+name: e2e
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**.go'
+      - '**.toml'
+      - '**.lock'
+      - '**.mod'
+      - '**.sum'
+      - '**.sol'
+      - '.github/workflows/e2e.yml'
+env:
+  FOUNDRY_PROFILE: ci
+permissions:
+  contents: read
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.22"
+          cache-dependency-path: 'e2e/interchaintestv8/go.sum'
+
+      - uses: actions/checkout@v4
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3.7.0
+        with:
+          version: v1.59
+          args: --timeout 5m
+          working-directory: e2e/interchaintestv8
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          # List your tests here
+          - TestWithIbcEurekaTestSuite/TestDeploy
+    name: ${{ matrix.test }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22"
+          check-latest: true
+          cache-dependency-path: "e2e/interchaintestv8/go.sum"
+
+      - name: "Install Bun"
+        uses: "oven-sh/setup-bun@v2"
+
+      - name: "Install the Node.js dependencies"
+        run: bun install
+
+      - name: Run Tests
+        env:
+          SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+        run: |
+          cd e2e/interchaintestv8
+          go test -v -mod=readonly . -run=${{ matrix.test }} -timeout 40m

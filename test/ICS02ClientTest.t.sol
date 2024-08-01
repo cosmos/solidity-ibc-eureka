@@ -3,7 +3,7 @@ pragma solidity >=0.8.25 <0.9.0;
 
 // solhint-disable custom-errors,max-line-length
 
-import { Test } from "forge-std/src/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
