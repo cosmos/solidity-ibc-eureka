@@ -3,8 +3,6 @@ package e2esuite
 import (
 	"testing"
 
-	"testing"
-
 	"github.com/stretchr/testify/require"
 )
 
