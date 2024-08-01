@@ -52,7 +52,7 @@ jobs:
           cache-dependency-path: |
              e2e/interchaintestv8/go.sum
       - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v1"
+        uses: "oven-sh/setup-bun@v2"
       - name: "Install the Node.js dependencies"
         run: bun install
       - name: Run Tests
