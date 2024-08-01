@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
@@ -35,16 +36,11 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 
-	// nolint: unused
 	sp1Ics07Contract *sp1ics07tendermint.Contract
-	// nolint: unused
-	ics02Contract *ics02client.Contract
-	// nolint: unused
-	ics26Contract *ics26router.Contract
-	// nolint: unused
-	ics20Contract *ics20transfer.Contract
-	// nolint: unused
-	erc20Contract *erc20.Contract
+	ics02Contract    *ics02client.Contract
+	ics26Contract    *ics26router.Contract
+	ics20Contract    *ics20transfer.Contract
+	erc20Contract    *erc20.Contract
 
 	// The latest height of sp1 ics07 client state
 	// nolint: unused
@@ -95,12 +91,20 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		})
 		s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
 
+		client, err := ethclient.Dial(eth.GetHostRPCAddress())
+		s.Require().NoError(err)
+
 		deployedContracts := s.GetEthContractsFromDeployOutput(string(stdout))
-		os.Setenv(testvalues.EnvKeySP1ICS07TendermintContractAddress, deployedContracts.Ics07Tendermint)
-		os.Setenv(testvalues.EnvKeyICS02ClientContractAddress, deployedContracts.Ics02Client)
-		os.Setenv(testvalues.EnvKeyICS26RouterContractAddress, deployedContracts.Ics26Router)
-		os.Setenv(testvalues.EnvKeyICS20TransferContractAddress, deployedContracts.Ics20Transfer)
-		os.Setenv(testvalues.EnvKeyERC20ContractAddress, deployedContracts.Erc20)
+		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(deployedContracts.Ics07Tendermint), client)
+		s.Require().NoError(err)
+		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(deployedContracts.Ics02Client), client)
+		s.Require().NoError(err)
+		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(deployedContracts.Ics26Router), client)
+		s.Require().NoError(err)
+		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(deployedContracts.Ics20Transfer), client)
+		s.Require().NoError(err)
+		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(deployedContracts.Erc20), client)
+		s.Require().NoError(err)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
@@ -122,10 +126,10 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 
 	s.Require().True(s.Run("Verify deployment", func() {
 		// Verify that the contracts have been deployed
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySP1ICS07TendermintContractAddress))
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS02ClientContractAddress))
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS26RouterContractAddress))
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyICS20TransferContractAddress))
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyERC20ContractAddress))
+		s.Require().NotNil(s.sp1Ics07Contract)
+		s.Require().NotNil(s.ics02Contract)
+		s.Require().NotNil(s.ics26Contract)
+		s.Require().NotNil(s.ics20Contract)
+		s.Require().NotNil(s.erc20Contract)
 	}))
 }
