@@ -25,7 +25,10 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "1.22"
-      - uses: actions/checkout@v3
+          cache-dependency-path: 'e2e/interchaintestv8/go.sum'
+
+      - uses: actions/checkout@v4
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3.7.0
         with:
@@ -44,17 +47,20 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.22"
           check-latest: true
-          cache-dependency-path: |
-             e2e/interchaintestv8/go.sum
+          cache-dependency-path: "e2e/interchaintestv8/go.sum"
+
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v2"
+
       - name: "Install the Node.js dependencies"
         run: bun install
+
       - name: Run Tests
         env:
           SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
