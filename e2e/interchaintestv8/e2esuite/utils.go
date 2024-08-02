@@ -5,15 +5,15 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	ethcommon "github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -143,7 +143,8 @@ func (s *TestSuite) GetRelayerUsers(ctx context.Context) (ibc.Wallet, ibc.Wallet
 	return ethUsers[0], cosmosUsers[0]
 }
 
-func GetEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log) (*T, error)) (event *T, err error) {
+// GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
+func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log) (*T, error)) (event *T, err error) {
 	for _, l := range receipt.Logs {
 		event, err = parseFn(*l)
 		if err == nil && event != nil {
