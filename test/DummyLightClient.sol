@@ -7,10 +7,10 @@ import { ILightClient } from "../src/interfaces/ILightClient.sol";
 
 contract DummyLightClient is ILightClient {
     UpdateResult public updateResult;
-    uint32 public membershipResult;
+    uint64 public membershipResult;
     bytes public latestUpdateMsg;
 
-    constructor(UpdateResult updateResult_, uint32 membershipResult_) {
+    constructor(UpdateResult updateResult_, uint64 membershipResult_) {
         updateResult = updateResult_;
         membershipResult = membershipResult_;
     }
@@ -33,7 +33,7 @@ contract DummyLightClient is ILightClient {
         updateResult = updateResult_;
     }
 
-    function setMembershipResult(uint32 membershipResult_) external {
+    function setMembershipResult(uint64 membershipResult_) external {
         membershipResult = membershipResult_;
     }
 }

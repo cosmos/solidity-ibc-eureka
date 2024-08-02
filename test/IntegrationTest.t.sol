@@ -52,20 +52,21 @@ contract IntegrationTest is Test {
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(Strings.toHexString(address(ics20Transfer)), address(ics20Transfer));
-        ics26Router.addIBCApp("", address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
 
         sender = makeAddr("sender");
         senderStr = Strings.toHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        uint64 nanoTimestamp = uint64((block.timestamp + 1000) * 1_000_000_000);
         msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourcePort: ics20AddressStr,
+            sourcePort: "transfer",
             sourceChannel: clientIdentifier,
             destPort: "transfer",
             data: data,
-            timeoutTimestamp: uint32(block.timestamp) + 1000,
+            timeoutTimestamp: nanoTimestamp,
             version: ICS20Lib.ICS20_VERSION
         });
     }
@@ -110,7 +111,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceAfter, defaultAmount);
     }
 
-    function test_success_sendICS20PacketFromICSContract() public {
+    function test_success_sendICS20PacketFromICS20Contract() public {
         IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
@@ -165,7 +166,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         // make light client return timestamp that is after our timeout
-        lightClient.setMembershipResult(msgSendPacket.timeoutTimestamp + 1);
+        lightClient.setMembershipResult(msgSendPacket.timeoutTimestamp + uint64(1_000_000_000));
 
         IICS26RouterMsgs.MsgTimeoutPacket memory timeoutMsg = IICS26RouterMsgs.MsgTimeoutPacket({
             packet: packet,
@@ -205,7 +206,7 @@ contract IntegrationTest is Test {
             receiver: receiver,
             sourceChannel: clientIdentifier,
             destPort: "transfer",
-            timeoutTimestamp: uint32(block.timestamp) + 1000,
+            timeoutTimestamp: uint64((block.timestamp + 1000) * 1_000_000_000),
             memo: "memo"
         });
 

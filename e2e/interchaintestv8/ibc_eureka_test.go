@@ -5,6 +5,11 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/testerc20"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -29,7 +34,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
@@ -51,7 +55,7 @@ type IbcEurekaTestSuite struct {
 	ics02Contract    *ics02client.Contract
 	ics26Contract    *ics26router.Contract
 	ics20Contract    *ics20transfer.Contract
-	erc20Contract    *erc20.Contract
+	erc20Contract    *testerc20.Contract
 
 	simdClientID string
 	ethClientID  string
@@ -131,7 +135,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), client)
 		s.Require().NoError(err)
-		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), client)
+		s.erc20Contract, err = testerc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), client)
 		s.Require().NoError(err)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
@@ -259,5 +263,114 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 			s.Require().NoError(err)
 			s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
 		}))
+	}))
+}
+
+func (s *IbcEurekaTestSuite) TestICS20Transfer() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+
+	_, simd := s.ChainA, s.ChainB
+
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	receiver := s.UserB
+	var packet ics26router.IICS26RouterMsgsPacket
+	var recvAck []byte
+
+	s.Require().True(s.Run("Mint some test erc20 tokens", func() {
+		tx, err := s.erc20Contract.Mint(s.GetTransactOpts(s.key), userAddress, transferAmount)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		balance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount, balance)
+	}))
+
+	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
+		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		allowance, err := s.erc20Contract.Allowance(nil, userAddress, ics20Address)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount, allowance)
+	}))
+
+	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).UnixNano())
+		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            s.contractAddresses.Erc20,
+			Amount:           transferAmount,
+			Receiver:         receiver.FormattedAddress(),
+			SourceChannel:    s.ethClientID,
+			DestPort:         "transfer",
+			TimeoutTimestamp: timeout,
+			Memo:             "testmemo",
+		}
+
+		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
+		s.Require().NoError(err)
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20ContractAddress.Hex()))
+		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
+		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
+		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
+		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
+
+		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
+		s.Require().NoError(err)
+		packet = sendPacketEvent.Packet
+		s.Require().Equal(uint32(0x1), packet.Sequence)
+		s.Require().Equal(timeout, packet.TimeoutTimestamp)
+		s.Require().Equal("transfer", packet.SourcePort)
+		s.Require().Equal(s.ethClientID, packet.SourceChannel)
+		s.Require().Equal("transfer", packet.DestPort)
+		s.Require().Equal(s.simdClientID, packet.DestChannel)
+		s.Require().Equal(transfertypes.Version, packet.Version)
+	}))
+
+	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
+
+	s.Require().True(s.Run("recvPacket on Cosmos side", func() {
+		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+			ClientId: s.simdClientID,
+		})
+		s.Require().NoError(err)
+		var clientState mock.ClientState
+		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
+		s.Require().NoError(err)
+
+		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgRecvPacket{
+			Packet: channeltypes.Packet{
+				Sequence:           uint64(packet.Sequence),
+				SourcePort:         packet.SourcePort,
+				SourceChannel:      packet.SourceChannel,
+				DestinationPort:    packet.DestPort,
+				DestinationChannel: packet.DestChannel,
+				Data:               packet.Data,
+				TimeoutHeight:      clienttypes.Height{},
+				TimeoutTimestamp:   packet.TimeoutTimestamp,
+			},
+			ProofCommitment: []byte("doesn't matter"),
+			ProofHeight:     clientState.LatestHeight,
+			Signer:          s.UserB.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+
+		recvAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
+		s.Require().NoError(err)
+		s.Require().NotNil(recvAck)
+
+		// TODO: Build denom (1000transfer/00-mock-0/0x9fe225014936b92a2fbe642055836ec8e9d0cd81)
 	}))
 }

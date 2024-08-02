@@ -14,6 +14,9 @@ const (
 	// StartingTokenAmount is the amount of tokens to give to each user at the start of the test.
 	StartingTokenAmount int64 = 10_000_000_000
 
+	// TransferAmount is the default amount of tokens to transfer between users.
+	TransferAmount int64 = 1_000
+
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.

@@ -14,8 +14,8 @@ interface IICS20TransferMsgs {
         string sourceChannel;
         /// The destination port on the counterparty chain
         string destPort;
-        /// The absolute timeout timestamp
-        uint32 timeoutTimestamp;
+        /// The absolute timeout timestamp in unix nano seconds
+        uint64 timeoutTimestamp;
         /// Optional memo
         string memo;
     }

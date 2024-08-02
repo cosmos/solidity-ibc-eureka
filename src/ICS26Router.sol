@@ -69,8 +69,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
-        if (msg_.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
+        uint64 nanoTimestamp = uint64(block.timestamp * 1_000_000_000);
+        if (msg_.timeoutTimestamp <= nanoTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, nanoTimestamp);
         }
 
         uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
@@ -124,8 +125,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         });
 
         ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
-        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
+        uint64 nanoTimestamp = uint64(block.timestamp * 1_000_000_000);
+        if (msg_.packet.timeoutTimestamp <= nanoTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, nanoTimestamp);
         }
 
         bytes memory ack =

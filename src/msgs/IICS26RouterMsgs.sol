@@ -9,7 +9,7 @@ interface IICS26RouterMsgs {
         /// The sequence number of the packet. Each packet transmitted in a channel
         uint32 sequence;
         /// Timeout timestamp in the counterparty chain, e.g., unix timestamp in seconds for tendermint.
-        uint32 timeoutTimestamp;
+        uint64 timeoutTimestamp;
         /// The source port identifier
         string sourcePort;
         /// The source channel identifier, this is a client id in IBC Eureka
@@ -35,7 +35,7 @@ interface IICS26RouterMsgs {
         /// The packet data
         bytes data;
         /// The timeout timestamp in the counterparty chain, e.g., unix timestamp in seconds for tendermint.
-        uint32 timeoutTimestamp;
+        uint64 timeoutTimestamp;
         /// The version of the packet data
         string version;
     }

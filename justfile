@@ -45,11 +45,13 @@ generate-abi:
 	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
 	jq '.abi' ./out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
+	jq '.abi' out/TestERC20.sol/TestERC20.json > abi/TestERC20.json
 	abigen --abi abi/ICS02Client.json --pkg ics02client --type Contract --out e2e/interchaintestv8/types/ics02client/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out e2e/interchaintestv8/types/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out e2e/interchaintestv8/types/ics26router/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out e2e/interchaintestv8/types/sp1ics07tendermint/contract.go
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
+	abigen --abi abi/TestERC20.json --pkg testerc20 --type Contract --out e2e/interchaintestv8/types/testerc20/contract.go
 
 # Run the e2e tests
 test-e2e testname:
