@@ -17,18 +17,19 @@ library ERC20CosmosCoinConversion {
     // NOTE that the refund of the remainder of the conversion should happen during the transfer.  
     function _convertERC20AmountToCosmosCoin(
         uint256 amount
-    ) internal pure returns (uint256 convertedAmount, uint256 remainder) {
+    ) internal pure returns (uint64 convertedAmount, uint256 remainder) {
         // TODO if we want to allow different decimals, we need to handle that here 
         uint256 factor = 10 ** (ERC20_DECIMALS - COSMOS_DECIMALS);
-        convertedAmount = amount / factor;
+        uint256 temp_convertedAmount; 
+        temp_convertedAmount = amount / factor;
         remainder = amount % factor;
-
+        convertedAmount=uint64(temp_convertedAmount);
         return (convertedAmount, remainder);
     }
 
     // Convert Cosmos coin amount to ERC20 token amount
     function _convertCosmosCoinAmountToERC20(
-        uint256 amount
+        uint64 amount
     ) internal pure returns (uint256) {
         uint256 factor = 10 ** (ERC20_DECIMALS - COSMOS_DECIMALS);
         return amount * factor;
