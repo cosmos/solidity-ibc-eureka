@@ -1,7 +1,7 @@
 # IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
-[gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/ci.yml/badge.svg
+[gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://opensource.org/licenses/MIT
