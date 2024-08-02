@@ -49,6 +49,9 @@ contract E2ETestDeploy is Script {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
+        // Wire Transfer app
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+
         vm.stopBroadcast();
 
         string memory json = "json";

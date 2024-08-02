@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
@@ -43,19 +44,16 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 
-	deployedContractAddresses e2esuite.DeployedContracts
-	sp1Ics07Contract          *sp1ics07tendermint.Contract
-	ics02Contract             *ics02client.Contract
-	ics26Contract             *ics26router.Contract
-	ics20Contract             *ics20transfer.Contract
-	erc20Contract             *erc20.Contract
+	contractAddresses e2esuite.DeployedContracts
+
+	sp1Ics07Contract *sp1ics07tendermint.Contract
+	ics02Contract    *ics02client.Contract
+	ics26Contract    *ics26router.Contract
+	ics20Contract    *ics20transfer.Contract
+	erc20Contract    *erc20.Contract
 
 	simdClientID string
 	ethClientID  string
-
-	// The latest height of sp1 ics07 client state
-	// nolint: unused
-	latestHeight uint32
 }
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
@@ -105,16 +103,16 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		client, err := ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
 
-		s.deployedContractAddresses = s.GetEthContractsFromDeployOutput(string(stdout))
-		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics07Tendermint), client)
+		s.contractAddresses = s.GetEthContractsFromDeployOutput(string(stdout))
+		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), client)
 		s.Require().NoError(err)
-		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics02Client), client)
+		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), client)
 		s.Require().NoError(err)
-		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics26Router), client)
+		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), client)
 		s.Require().NoError(err)
-		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Ics20Transfer), client)
+		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), client)
 		s.Require().NoError(err)
-		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.deployedContractAddresses.Erc20), client)
+		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), client)
 		s.Require().NoError(err)
 
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
@@ -151,16 +149,16 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().Equal("00-mock-0", s.simdClientID)
 	}))
 
-	s.Require().True(s.Run("Add client on EVM", func() {
+	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
 			ClientId: s.simdClientID,
 		}
-		lightClientAddress := ethcommon.HexToAddress(s.deployedContractAddresses.Ics07Tendermint)
+		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
 		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.key), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		event, err := e2esuite.GetEvmEvent[ics02client.ContractICS02ClientAdded](receipt, s.ics02Contract.ParseICS02ClientAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
 		s.Require().Equal(s.simdClientID, event.CounterpartyInfo.ClientId)
@@ -192,7 +190,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 
 	s.SetupSuite(ctx)
 
-	_, _ = s.ChainA, s.ChainB
+	_, simd := s.ChainA, s.ChainB
 
 	s.Require().True(s.Run("Verify deployment", func() {
 		// Verify that the contracts have been deployed
@@ -201,13 +199,38 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().NotNil(s.ics26Contract)
 		s.Require().NotNil(s.ics20Contract)
 		s.Require().NotNil(s.erc20Contract)
+
+		s.Require().True(s.Run("Verify SP1 Client", func() {
+			clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+			s.Require().NoError(err)
+
+			stakingParams, err := simd.StakingQueryParams(ctx)
+			s.Require().NoError(err)
+
+			s.Require().Equal(simd.Config().ChainID, clientState.ChainId)
+			s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Numerator), clientState.TrustLevel.Numerator)
+			s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Denominator), clientState.TrustLevel.Denominator)
+			s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
+			s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
+			s.Require().False(clientState.IsFrozen)
+			s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+			s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		}))
+
+		s.Require().True(s.Run("Verify ICS02 Client", func() {
+			clientAddress, err := s.ics02Contract.GetClient(nil, s.ethClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(s.contractAddresses.Ics07Tendermint, clientAddress.Hex())
+
+			counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, s.ethClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(s.simdClientID, counterpartyInfo.ClientId)
+		}))
+
+		s.Require().True(s.Run("Verify ICS26 Router", func() {
+			transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
+			s.Require().NoError(err)
+			s.Require().Equal(s.contractAddresses.Ics20Transfer, transferAddress.Hex())
+		}))
 	}))
-}
-
-func (s *IbcEurekaTestSuite) TestICS20Transfer() {
-	ctx := context.Background()
-
-	s.SetupSuite(ctx)
-
-	// eth, simd := s.ChainA, s.ChainB
 }
