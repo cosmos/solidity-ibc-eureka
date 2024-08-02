@@ -32,6 +32,7 @@ contract E2ETestDeploy is Script {
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
         vm.startBroadcast();
+        address deployerAddress = msg.sender; // This is being set in the e2e test
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1Verifier verifier = new SP1Verifier();
@@ -45,13 +46,13 @@ contract E2ETestDeploy is Script {
         );
 
         // Deploy IBC Eureka
-        ICS02Client ics02Client = new ICS02Client(address(this));
-        ICS26Router ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ICS02Client ics02Client = new ICS02Client(deployerAddress);
+        ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
         // Wire Transfer app
-        ics26Router.addIBCApp("", address(ics20Transfer));
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         vm.stopBroadcast();
 

@@ -31,7 +31,7 @@ contract ICS26RouterTest is Test {
     }
 
     function test_AddIBCAppUsingNamedPort() public {
-       ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));

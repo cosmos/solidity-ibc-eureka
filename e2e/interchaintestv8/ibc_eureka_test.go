@@ -42,7 +42,8 @@ type IbcEurekaTestSuite struct {
 	e2esuite.TestSuite
 
 	// The private key of a test account
-	key *ecdsa.PrivateKey
+	key      *ecdsa.PrivateKey
+	deployer ibc.Wallet
 
 	contractAddresses e2esuite.DeployedContracts
 
@@ -69,20 +70,35 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 		s.key, err = crypto.GenerateKey()
 		s.Require().NoError(err)
-		hexPrivateKey := hex.EncodeToString(crypto.FromECDSA(s.key))
-		address := crypto.PubkeyToAddress(s.key.PublicKey).Hex()
-		s.T().Logf("Generated key: %s", address)
+		testKeyAddress := crypto.PubkeyToAddress(s.key.PublicKey).Hex()
+
+		s.deployer, err = eth.BuildWallet(ctx, "deployer", "")
+		s.Require().NoError(err)
+
+		operatorKey, err := crypto.GenerateKey()
+		s.Require().NoError(err)
+		operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey).Hex()
 
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, "network")
-		os.Setenv(testvalues.EnvKeyPrivateKey, hexPrivateKey)
+		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 		// make sure that the SP1_PRIVATE_KEY is set.
 		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
 		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
 			Amount:  testvalues.StartingEthBalance,
-			Address: address,
+			Address: testKeyAddress,
+		}))
+
+		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
+			Amount:  testvalues.StartingEthBalance,
+			Address: s.deployer.FormattedAddress(),
+		}))
+
+		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
+			Amount:  testvalues.StartingEthBalance,
+			Address: operatorAddress,
 		}))
 	}))
 
@@ -93,10 +109,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			"-o", "e2e/artifacts/genesis.json",
 		))
 
-		stdout, stderr, err := eth.ForgeScript(ctx, s.UserA.KeyName(), ethereum.ForgeScriptOpts{
+		stdout, stderr, err := eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
 			ContractRootDir:  ".",
 			SolidityContract: "script/E2ETestDeploy.s.sol",
-			RawOptions:       []string{"--json"},
+			RawOptions: []string{
+				"--json",
+				"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
+			},
 		})
 		s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
 
@@ -218,6 +237,10 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		}))
 
 		s.Require().True(s.Run("Verify ICS02 Client", func() {
+			owner, err := s.ics02Contract.Owner(nil)
+			s.Require().NoError(err)
+			s.Require().Equal(strings.ToLower(s.deployer.FormattedAddress()), strings.ToLower(owner.Hex()))
+
 			clientAddress, err := s.ics02Contract.GetClient(nil, s.ethClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
@@ -228,7 +251,11 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		}))
 
 		s.Require().True(s.Run("Verify ICS26 Router", func() {
-			transferAddress, err := s.ics26Contract.GetIBCApp(nil, s.contractAddresses.Ics20Transfer)
+			owner, err := s.ics26Contract.Owner(nil)
+			s.Require().NoError(err)
+			s.Require().Equal(strings.ToLower(s.deployer.FormattedAddress()), strings.ToLower(owner.Hex()))
+
+			transferAddress, err := s.ics26Contract.GetIBCApp(nil, "transfer")
 			s.Require().NoError(err)
 			s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
 		}))
