@@ -9,15 +9,44 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract ERC20CosmosCoinConversionTest is Test {
     using ERC20CosmosCoinConversion for uint256;
+    /**
+    Problem Breakdown 
+    ERC20 to Cosmos Coin Conversion:
+    We are converting an ERC20 token amount to a Cosmos coin amount.
+    - ERC20 tokens typically use 18 decimals.
+    - Cosmos coins use 6 decimals. 
+    Example Conversion:
+    - Input: 1000000000000000001 (1 ERC20 token + 1 extra smallest unit, i.e., 1 Wei).
+    - Expected Converted Amount: 1000000 (1 ERC20 token should convert to 1,000,000 Cosmos coins).
+    - Expected Remainder: 1 (which is the remaining smallest unit that doesn't fit into the Cosmos coin format).
+    The reminder is what we espect to return to the user 
+    Detailed Explanation:
+    - Given 1000000000000000001 as input: 
+    Conversion Calculation:
+    - 1 ERC20 token = 1000000000000000000 (in Wei).
+    - Converting to Cosmos coin units involves dividing by 10^12 
+    (since ERC20 has 18 decimals and Cosmos has 6 decimals, the difference is 18 - 6 = 12). 
+    Mathematical Conversion:
+    - Converted Amount: 1000000000000000001 / 10^12 = 1000000 (Cosmos coins).
+    - Remainder: 1000000000000000001 % 10^12 = 1 (Wei remaining).
+     */
 
-    function testConvertERC20AmountToCosmosCoin() pure public {
-        (uint256 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(1000000000000000000); // 1 ERC20 token with 18 decimals
-        uint256 expectedConvertedAmount = 1000000; // 1 ERC20 token should convert to 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 0;
-
+    function testConvertERC20AmountToCosmosCoin_1() pure public {
+        (uint256 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(1000000000000000001); // 1 ERC20 token with 18 decimals
+        uint64 expectedConvertedAmount = 1000000; // 1 ERC20 token should convert to 1,000,000 Cosmos coins
+        uint256 expectedRemainder = 1;
         assertEq(convertedAmount, expectedConvertedAmount);
         assertEq(remainder, expectedRemainder);
     }
+
+    function testConvertERC20AmountToCosmosCoin_2() pure public {
+        (uint256 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(1000000000000000000); // 1 ERC20 token with 18 decimals
+        uint64 expectedConvertedAmount = 1000000; // 1 ERC20 token should convert to 1,000,000 Cosmos coins
+        uint256 expectedRemainder = 0;
+        assertEq(convertedAmount, expectedConvertedAmount);
+        assertEq(remainder, expectedRemainder);
+    }
+
 
     function testConvertCosmosCoinAmountToERC20() pure public {
         uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(1000000); // 1,000,000 Cosmos coins
