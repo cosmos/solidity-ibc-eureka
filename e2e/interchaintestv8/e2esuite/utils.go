@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -123,10 +124,15 @@ func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContr
 	s.Require().NoError(err)
 
 	s.Require().NotEmpty(embeddedContracts.Erc20)
+	s.Require().True(IsLowercase(embeddedContracts.Erc20))
 	s.Require().NotEmpty(embeddedContracts.Ics02Client)
+	s.Require().True(IsLowercase(embeddedContracts.Ics02Client))
 	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
+	s.Require().True(IsLowercase(embeddedContracts.Ics07Tendermint))
 	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
+	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
 	s.Require().NotEmpty(embeddedContracts.Ics26Router)
+	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
 
 	return embeddedContracts
 }
@@ -186,4 +192,13 @@ func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
 	s.Require().NoError(err)
 
 	return txOpts
+}
+
+func IsLowercase(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLower(r) && unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
 }

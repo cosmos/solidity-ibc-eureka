@@ -10,6 +10,7 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/TestERC20.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -55,11 +56,11 @@ contract E2ETestDeploy is Script {
         vm.stopBroadcast();
 
         string memory json = "json";
-        json.serialize("ics07Tendermint", address(ics07Tendermint));
-        json.serialize("ics02Client", address(ics02Client));
-        json.serialize("ics26Router", address(ics26Router));
-        json.serialize("ics20Transfer", address(ics20Transfer));
-        string memory finalJson = json.serialize("erc20", address(erc20));
+        json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
+        json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
+        json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
+        json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
     }

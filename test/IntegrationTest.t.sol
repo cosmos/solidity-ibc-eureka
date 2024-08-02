@@ -11,12 +11,14 @@ import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./TestERC20.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
+import { IICS26Router } from "../src/ICS26Router.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract IntegrationTest is Test {
     IICS02Client public ics02Client;
@@ -42,18 +44,21 @@ contract IntegrationTest is Test {
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0);
         ics20Transfer = new ICS20Transfer(address(ics26Router));
         erc20 = new TestERC20();
-        erc20AddressStr = ICS20Lib.addressToHexString(address(erc20));
+        erc20AddressStr = Strings.toHexString(address(erc20));
 
         clientIdentifier = ics02Client.addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient), address(lightClient)
         );
-        ics20AddressStr = ICS20Lib.addressToHexString(address(ics20Transfer));
+        ics20AddressStr = Strings.toHexString(address(ics20Transfer));
+
+        vm.expectEmit();
+        emit IICS26Router.IBCAppAdded(Strings.toHexString(address(ics20Transfer)), address(ics20Transfer));
         ics26Router.addIBCApp("", address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
 
         sender = makeAddr("sender");
-        senderStr = ICS20Lib.addressToHexString(sender);
+        senderStr = Strings.toHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
         msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
             sourcePort: ics20AddressStr,

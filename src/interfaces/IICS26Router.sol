@@ -7,6 +7,11 @@ import { IIBCApp } from "./IIBCApp.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router is IICS26RouterMsgs {
+    /// @notice Emitted when an IBC application is added to the router
+    /// @param portId The port identifier
+    /// @param app The address of the IBC application contract
+    event IBCAppAdded(string portId, address app);
+
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract

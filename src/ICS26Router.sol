@@ -57,6 +57,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidPortIdentifier(newPortId);
         }
 
+        emit IBCAppAdded(newPortId, app);
+
         apps[newPortId] = IIBCApp(app);
     }
 

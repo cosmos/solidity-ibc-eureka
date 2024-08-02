@@ -11,6 +11,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 using SafeERC20 for IERC20;
 
@@ -28,8 +29,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         IICS26Router ibcRouter = IICS26Router(owner());
 
-        string memory sender = ICS20Lib.addressToHexString(msg.sender);
-        string memory sourcePort = ICS20Lib.addressToHexString(address(this));
+        string memory sender = Strings.toHexString(msg.sender);
+        string memory sourcePort = Strings.toHexString(address(this));
         bytes memory packetData;
         if (bytes(msg_.memo).length == 0) {
             packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);

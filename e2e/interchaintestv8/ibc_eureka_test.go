@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,13 +119,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	/*
-		s.Require().True(s.Run("Register transfer module", func() {
-			_, err := s.ics26Contract.AddIBCApp(s.GetTransactOpts(s.key), "", ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer))
-			s.Require().NoError(err)
-		}))
-	*/
-
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 	s.Require().True(s.Run("Add client on Cosmos side", func() {
 		ethHeight, err := eth.Height(ctx)
@@ -226,7 +220,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().True(s.Run("Verify ICS02 Client", func() {
 			clientAddress, err := s.ics02Contract.GetClient(nil, s.ethClientID)
 			s.Require().NoError(err)
-			s.Require().Equal(s.contractAddresses.Ics07Tendermint, clientAddress.Hex())
+			s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
 			counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, s.ethClientID)
 			s.Require().NoError(err)
@@ -236,7 +230,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().True(s.Run("Verify ICS26 Router", func() {
 			transferAddress, err := s.ics26Contract.GetIBCApp(nil, s.contractAddresses.Ics20Transfer)
 			s.Require().NoError(err)
-			s.Require().Equal(s.contractAddresses.Ics20Transfer, transferAddress.Hex())
+			s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
 		}))
 	}))
 }

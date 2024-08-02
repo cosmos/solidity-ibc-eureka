@@ -12,6 +12,7 @@ import { TestERC20, MalfunctioningERC20 } from "./TestERC20.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -31,8 +32,8 @@ contract ICS20TransferTest is Test {
 
         sender = makeAddr("sender");
 
-        erc20AddressStr = ICS20Lib.addressToHexString(address(erc20));
-        senderStr = ICS20Lib.addressToHexString(sender);
+        erc20AddressStr = Strings.toHexString(address(erc20));
+        senderStr = Strings.toHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
 
         packet = IICS26RouterMsgs.Packet({
@@ -130,7 +131,7 @@ contract ICS20TransferTest is Test {
         malfunctioningERC20.mint(sender, defaultAmount);
         vm.prank(sender);
         malfunctioningERC20.approve(address(ics20Transfer), defaultAmount);
-        string memory malfuncERC20AddressStr = ICS20Lib.addressToHexString(address(malfunctioningERC20));
+        string memory malfuncERC20AddressStr = Strings.toHexString(address(malfunctioningERC20));
         data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, defaultAmount, senderStr, receiver, "memo");
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
