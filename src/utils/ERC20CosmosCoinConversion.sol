@@ -4,7 +4,6 @@ pragma solidity >=0.8.25;
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 library ERC20CosmosCoinConversion {
-    //using SafeERC20 for IERC20;
     // Using Constants for decimals
     // TODO In case we want to support flexibility we have to change these constant.
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this. 
@@ -23,10 +22,16 @@ library ERC20CosmosCoinConversion {
         uint256 temp_convertedAmount; 
         temp_convertedAmount = amount / factor;
         remainder = amount % factor;
+        // Ensure the converted amount fits into a uint64
+        // TODO Add custom error 
+        require(temp_convertedAmount <= ~uint64(0), "Converted amount exceeds uint64 limits");
+
         convertedAmount=uint64(temp_convertedAmount);
         return (convertedAmount, remainder);
     }
 
+
+    // Maybe unnecessary 
     // Convert Cosmos coin amount to ERC20 token amount
     function _convertCosmosCoinAmountToERC20(
         uint64 amount
@@ -34,7 +39,7 @@ library ERC20CosmosCoinConversion {
         uint256 factor = 10 ** (ERC20_DECIMALS - COSMOS_DECIMALS);
         return amount * factor;
     }
-
+/*
     // Convert ERC20 token name to Cosmos coin name
     function _convertERC20NameToCosmosCoin(
         string memory name, 
@@ -70,7 +75,7 @@ library ERC20CosmosCoinConversion {
         address contractAddress
     ) internal pure returns (
         string memory description,
-        uint32 denomUnitsCoin,
+        uint32 denomUnitsCoin, //  Consider creating a struct here. 
         uint32 denomUnitsERC20,
         string memory base,
         string memory display,
@@ -87,5 +92,5 @@ library ERC20CosmosCoinConversion {
         coinSymbol = symbol;
         return (description, denomUnitsCoin, denomUnitsERC20, base, display, coinName, coinSymbol);
     }
-
+*/
 }
