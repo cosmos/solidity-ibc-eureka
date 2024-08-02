@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
@@ -118,6 +117,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		_, err = ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
 	}))
+
+	/*
+		s.Require().True(s.Run("Register transfer module", func() {
+			_, err := s.ics26Contract.AddIBCApp(s.GetTransactOpts(s.key), "", ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer))
+			s.Require().NoError(err)
+		}))
+	*/
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 	s.Require().True(s.Run("Add client on Cosmos side", func() {
@@ -228,7 +234,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		}))
 
 		s.Require().True(s.Run("Verify ICS26 Router", func() {
-			transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
+			transferAddress, err := s.ics26Contract.GetIBCApp(nil, s.contractAddresses.Ics20Transfer)
 			s.Require().NoError(err)
 			s.Require().Equal(s.contractAddresses.Ics20Transfer, transferAddress.Hex())
 		}))

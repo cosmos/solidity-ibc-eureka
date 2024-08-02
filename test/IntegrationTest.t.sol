@@ -50,6 +50,8 @@ contract IntegrationTest is Test {
         ics20AddressStr = ICS20Lib.addressToHexString(address(ics20Transfer));
         ics26Router.addIBCApp("", address(ics20Transfer));
 
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
+
         sender = makeAddr("sender");
         senderStr = ICS20Lib.addressToHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
