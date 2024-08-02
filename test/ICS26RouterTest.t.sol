@@ -21,9 +21,22 @@ contract ICS26RouterTest is Test {
 
     function test_AddIBCAppUsingAddress() public {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        string memory ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(Strings.toHexString(address(ics20Transfer)), address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded(ics20AddressStr, address(ics20Transfer));
         ics26Router.addIBCApp("", address(ics20Transfer));
+
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
+    }
+
+    function test_AddIBCAppUsingNamedPort() public {
+       ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+
+        vm.expectEmit();
+        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
     }
 }
