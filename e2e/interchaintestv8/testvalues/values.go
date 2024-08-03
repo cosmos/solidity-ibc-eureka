@@ -18,8 +18,8 @@ const (
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.
 	EnvKeyEthRPC = "RPC_URL"
-	// EnvKeyPrivateKey Private key used to submit transactions by the operator.
-	EnvKeyPrivateKey = "PRIVATE_KEY"
+	// EnvKeyOperatorPrivateKey Private key used to submit transactions by the operator.
+	EnvKeyOperatorPrivateKey = "PRIVATE_KEY"
 	// EnvKeySp1Prover The prover type (local|network|mock).
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeySp1PrivateKey Private key for the prover network.

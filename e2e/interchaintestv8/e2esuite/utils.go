@@ -2,19 +2,34 @@ package e2esuite
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
+	"unicode"
 
-	"cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+
+	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type ForgeScriptReturnValues struct {
@@ -78,7 +93,7 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	err := chain.SendFunds(ctx, keyName, ibc.WalletAmount{
 		Address: address,
 		Denom:   chain.Config().Denom,
-		Amount:  math.NewInt(1_000_000_000),
+		Amount:  sdkmath.NewInt(1_000_000_000),
 	})
 	s.Require().NoError(err)
 
@@ -109,10 +124,81 @@ func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContr
 	s.Require().NoError(err)
 
 	s.Require().NotEmpty(embeddedContracts.Erc20)
+	s.Require().True(IsLowercase(embeddedContracts.Erc20))
 	s.Require().NotEmpty(embeddedContracts.Ics02Client)
+	s.Require().True(IsLowercase(embeddedContracts.Ics02Client))
 	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
+	s.Require().True(IsLowercase(embeddedContracts.Ics07Tendermint))
 	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
+	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
 	s.Require().NotEmpty(embeddedContracts.Ics26Router)
+	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
 
 	return embeddedContracts
+}
+
+// GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
+// on the two chains.
+func (s *TestSuite) GetRelayerUsers(ctx context.Context) (ibc.Wallet, ibc.Wallet) {
+	eth, simd := s.ChainA, s.ChainB
+
+	ethUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), testvalues.StartingEthBalance, eth)
+
+	cosmosUserFunds := sdkmath.NewInt(testvalues.StartingTokenAmount)
+	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, simd)
+
+	return ethUsers[0], cosmosUsers[0]
+}
+
+// GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
+func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log) (*T, error)) (event *T, err error) {
+	for _, l := range receipt.Logs {
+		event, err = parseFn(*l)
+		if err == nil && event != nil {
+			break
+		}
+	}
+
+	if event == nil {
+		err = fmt.Errorf("event not found")
+	}
+
+	return
+}
+
+func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumChain, hash ethcommon.Hash) *ethtypes.Receipt {
+	client, err := ethclient.Dial(chain.GetHostRPCAddress())
+	s.Require().NoError(err)
+
+	var receipt *ethtypes.Receipt
+	err = testutil.WaitForCondition(time.Second*10, time.Second, func() (bool, error) {
+		receipt, err = client.TransactionReceipt(ctx, hash)
+		if err != nil {
+			return false, nil
+		}
+
+		return receipt != nil, nil
+	})
+	s.Require().NoError(err)
+	return receipt
+}
+
+func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
+	chainIDStr, err := strconv.ParseInt(s.ChainA.Config().ChainID, 10, 64)
+	s.Require().NoError(err)
+	chainID := big.NewInt(chainIDStr)
+
+	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	s.Require().NoError(err)
+
+	return txOpts
+}
+
+func IsLowercase(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLower(r) && unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
 }

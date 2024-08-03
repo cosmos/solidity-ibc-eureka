@@ -61,6 +61,9 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         string memory clientId = getNextClientId(clientType);
         clients[clientId] = ILightClient(client);
         counterpartyInfos[clientId] = counterpartyInfo;
+
+        emit ICS02ClientAdded(clientId, counterpartyInfo);
+
         return clientId;
     }
 

@@ -7,6 +7,11 @@ import { ILightClient } from "./ILightClient.sol";
 /// @title ICS02 Light Client Router Interface
 /// @notice IICS02Client is an interface for the IBC Eureka client router
 interface IICS02Client is IICS02ClientMsgs {
+    /// @notice Emitted when a new client is added to the client router.
+    /// @param clientId The newly created client identifier
+    /// @param counterpartyInfo The counterparty client information, if provided
+    event ICS02ClientAdded(string clientId, CounterpartyInfo counterpartyInfo);
+
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
     /// @return The counterparty client information

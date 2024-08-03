@@ -10,6 +10,7 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/TestERC20.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -31,6 +32,7 @@ contract E2ETestDeploy is Script {
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
         vm.startBroadcast();
+        address deployerAddress = msg.sender; // This is being set in the e2e test
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1Verifier verifier = new SP1Verifier();
@@ -44,19 +46,22 @@ contract E2ETestDeploy is Script {
         );
 
         // Deploy IBC Eureka
-        ICS02Client ics02Client = new ICS02Client(address(this));
-        ICS26Router ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ICS02Client ics02Client = new ICS02Client(deployerAddress);
+        ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
+
+        // Wire Transfer app
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         vm.stopBroadcast();
 
         string memory json = "json";
-        json.serialize("ics07Tendermint", address(ics07Tendermint));
-        json.serialize("ics02Client", address(ics02Client));
-        json.serialize("ics26Router", address(ics26Router));
-        json.serialize("ics20Transfer", address(ics20Transfer));
-        string memory finalJson = json.serialize("erc20", address(erc20));
+        json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
+        json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
+        json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
+        json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
     }

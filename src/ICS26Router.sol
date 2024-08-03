@@ -30,7 +30,11 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
     function getIBCApp(string calldata portId) external view returns (IIBCApp) {
-        return apps[portId];
+        IIBCApp app = apps[portId];
+        if (app == IIBCApp(address(0))) {
+            revert IBCAppNotFound(portId);
+        }
+        return app;
     }
 
     /// @notice Adds an IBC application to the router
@@ -52,6 +56,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         if (!IBCIdentifiers.validatePortIdentifier(bytes(newPortId))) {
             revert IBCInvalidPortIdentifier(newPortId);
         }
+
+        emit IBCAppAdded(newPortId, app);
 
         apps[newPortId] = IIBCApp(app);
     }

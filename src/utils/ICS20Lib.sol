@@ -239,23 +239,6 @@ library ICS20Lib {
     }
 
     /**
-     * @dev addressToHexString converts an address to a hex string.
-     */
-    function addressToHexString(address addr) internal pure returns (string memory) {
-        uint256 localValue = uint256(uint160(addr));
-        bytes memory buffer = new bytes(42);
-        buffer[0] = "0";
-        buffer[1] = "x";
-        unchecked {
-            for (int256 i = 41; i >= 2; --i) {
-                buffer[uint256(i)] = HEX_DIGITS[localValue & 0xf];
-                localValue >>= 4;
-            }
-        }
-        return string(buffer);
-    }
-
-    /**
      * @dev hexStringToAddress converts a hex string to an address.
      */
     function hexStringToAddress(string memory addrHexString) internal pure returns (address, bool) {

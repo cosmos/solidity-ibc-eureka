@@ -499,6 +499,25 @@
   },
   {
     "type": "event",
+    "name": "IBCAppAdded",
+    "inputs": [
+      {
+        "name": "portId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "app",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
