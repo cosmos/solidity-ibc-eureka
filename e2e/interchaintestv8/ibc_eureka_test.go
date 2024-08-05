@@ -295,8 +295,6 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	receiver := s.UserB
-	var packet ics26router.IICS26RouterMsgsPacket
-	var recvAck []byte
 
 	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -310,8 +308,9 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
+	var packet ics26router.IICS26RouterMsgsPacket
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).UnixNano())
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
@@ -349,6 +348,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
 
+	var recvAck []byte
 	s.Require().True(s.Run("recvPacket on Cosmos side", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
@@ -367,7 +367,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 				DestinationChannel: packet.DestChannel,
 				Data:               packet.Data,
 				TimeoutHeight:      clienttypes.Height{},
-				TimeoutTimestamp:   packet.TimeoutTimestamp,
+				TimeoutTimestamp:   packet.TimeoutTimestamp * 1_000_000_000,
 			},
 			ProofCommitment: []byte("doesn't matter"),
 			ProofHeight:     clientState.LatestHeight,
@@ -404,7 +404,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
-		// This will be a non-membership proof since no packets have been sent
+		// This will be a membership proof since the acknowledgement is written
 		packetAckPath := ibchost.PacketAcknowledgementPath(packet.DestPort, packet.DestChannel, uint64(packet.Sequence))
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
 			uint64(trustedHeight), uint64(latestHeight), packetAckPath,
@@ -421,6 +421,101 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		}
 
 		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key), msg)
+		s.Require().NoError(err)
+
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+}
+
+func (s *IbcEurekaTestSuite) TestICS20Timeout() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+
+	eth, simd := s.ChainA, s.ChainB
+
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	receiver := s.UserB
+
+	var packet ics26router.IICS26RouterMsgsPacket
+	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
+		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		allowance, err := s.erc20Contract.Allowance(nil, userAddress, ics20Address)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount, allowance)
+	}))
+
+	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
+		timeout := uint64(time.Now().Add(1 * time.Minute).Unix())
+		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            s.contractAddresses.Erc20,
+			Amount:           transferAmount,
+			Receiver:         receiver.FormattedAddress(),
+			SourceChannel:    s.ethClientID,
+			DestPort:         "transfer",
+			TimeoutTimestamp: timeout,
+			Memo:             "testmemo",
+		}
+
+		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
+		s.Require().NoError(err)
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20ContractAddress.Hex()))
+		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
+		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
+		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
+		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
+
+		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
+		s.Require().NoError(err)
+		packet = sendPacketEvent.Packet
+		s.Require().Equal(uint32(1), packet.Sequence)
+		s.Require().Equal(timeout, packet.TimeoutTimestamp)
+		s.Require().Equal("transfer", packet.SourcePort)
+		s.Require().Equal(s.ethClientID, packet.SourceChannel)
+		s.Require().Equal("transfer", packet.DestPort)
+		s.Require().Equal(s.simdClientID, packet.DestChannel)
+		s.Require().Equal(transfertypes.Version, packet.Version)
+	}))
+
+	// sleep for 61 seconds to let the packet timeout
+	time.Sleep(61 * time.Second)
+
+	s.True(s.Run("timeoutPacket on Ethereum", func() {
+		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+
+		trustedHeight := clientState.LatestHeight.RevisionHeight
+		latestHeight, err := simd.Height(ctx)
+		s.Require().NoError(err)
+
+		// This will be a non-membership proof since no packets have been sent
+		packetReceiptPath := ibchost.PacketReceiptPath(packet.DestPort, packet.DestChannel, uint64(packet.Sequence))
+		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+			uint64(trustedHeight), uint64(latestHeight), packetReceiptPath,
+			"--trust-level", testvalues.DefaultTrustLevel.String(),
+			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		)
+		s.Require().NoError(err)
+
+		msg := ics26router.IICS26RouterMsgsMsgTimeoutPacket{
+			Packet:       packet,
+			ProofTimeout: ucAndMemProof,
+			ProofHeight:  *proofHeight,
+		}
+
+		tx, err := s.ics26Contract.TimeoutPacket(s.GetTransactOpts(s.key), msg)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
