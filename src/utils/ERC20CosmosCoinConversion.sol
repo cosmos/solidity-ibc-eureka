@@ -56,7 +56,9 @@ library ERC20CosmosCoinConversion {
         // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function  
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress); 
         // TODO Add custom error?  
+        // Amount input validation
         require(amount!=0, "Requested conversion for the 0 amount"); 
+        // Ensure the amount respects the token's decimals
 
         uint256 temp_convertedAmount;
         uint256 factor;  
@@ -65,7 +67,6 @@ library ERC20CosmosCoinConversion {
             factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             temp_convertedAmount = amount / factor;
             remainder = amount % factor;
-            // Ensure the converted amount fits into a uint64
         }
         else{
             // Case ERC20 decimals <= DEFAULT_COSMOS_DECIMALS 
