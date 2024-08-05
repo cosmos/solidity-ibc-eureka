@@ -36,8 +36,8 @@
               },
               {
                 "name": "timeoutTimestamp",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourcePort",
@@ -218,8 +218,8 @@
               },
               {
                 "name": "timeoutTimestamp",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourcePort",
@@ -319,8 +319,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "version",
@@ -360,8 +360,8 @@
               },
               {
                 "name": "timeoutTimestamp",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourcePort",
@@ -453,8 +453,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourcePort",
@@ -552,8 +552,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourcePort",
@@ -607,8 +607,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourcePort",
@@ -662,8 +662,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourcePort",
@@ -717,8 +717,8 @@
           },
           {
             "name": "timeoutTimestamp",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourcePort",

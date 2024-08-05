@@ -11,6 +11,7 @@ import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/TestERC20.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -23,6 +24,8 @@ struct SP1ICS07TendermintGenesisJson {
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script {
     using stdJson for string;
+
+    string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
@@ -53,6 +56,11 @@ contract E2ETestDeploy is Script {
 
         // Wire Transfer app
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
+
+        // Mint some tokens
+        (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
+        require(ok, "invalid address");
+        erc20.mint(addr, 100_000_000_000);
 
         vm.stopBroadcast();
 

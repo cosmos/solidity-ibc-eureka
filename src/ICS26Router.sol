@@ -29,7 +29,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
-    function getIBCApp(string calldata portId) external view returns (IIBCApp) {
+    function getIBCApp(string calldata portId) public view returns (IIBCApp) {
         IIBCApp app = apps[portId];
         if (app == IIBCApp(address(0))) {
             revert IBCAppNotFound(portId);
@@ -69,8 +69,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
-        if (msg_.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
+        uint64 nanoTimestamp = uint64(block.timestamp * 1_000_000_000);
+        if (msg_.timeoutTimestamp <= nanoTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, nanoTimestamp);
         }
 
         uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
@@ -104,7 +105,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        IIBCApp app = apps[msg_.packet.destPort];
+        IIBCApp app = getIBCApp(msg_.packet.destPort);
 
         string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.destChannel).clientId;
         if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
@@ -124,8 +125,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         });
 
         ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
-        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
+        uint64 nanoTimestamp = uint64(block.timestamp * 1_000_000_000);
+        if (msg_.packet.timeoutTimestamp <= nanoTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, nanoTimestamp);
         }
 
         bytes memory ack =
@@ -144,7 +146,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        IIBCApp app = IIBCApp(apps[msg_.packet.sourcePort]);
+        IIBCApp app = getIBCApp(msg_.packet.sourcePort);
 
         string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.sourceChannel).clientId;
         if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
@@ -158,7 +160,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         }
 
         bytes memory commitmentPath = ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-            msg_.packet.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
+            msg_.packet.destPort, msg_.packet.destChannel, msg_.packet.sequence
         );
         bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
 
@@ -186,7 +188,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        IIBCApp app = IIBCApp(apps[msg_.packet.sourcePort]);
+        IIBCApp app = getIBCApp(msg_.packet.sourcePort);
 
         string memory counterpartyId = ics02Client.getCounterparty(msg_.packet.sourceChannel).clientId;
         if (keccak256(bytes(counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {

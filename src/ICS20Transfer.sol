@@ -30,7 +30,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         IICS26Router ibcRouter = IICS26Router(owner());
 
         string memory sender = Strings.toHexString(msg.sender);
-        string memory sourcePort = Strings.toHexString(address(this));
+        string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
         if (bytes(msg_.memo).length == 0) {
             packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);

@@ -42,6 +42,7 @@ jobs:
         test:
           # List your tests here
           - TestWithIbcEurekaTestSuite/TestDeploy
+          - TestWithIbcEurekaTestSuite/TestICS20Transfer
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     steps:
