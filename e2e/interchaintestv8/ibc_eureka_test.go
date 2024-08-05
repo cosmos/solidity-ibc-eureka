@@ -5,10 +5,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/testerc20"
 	"math/big"
 	"os"
 	"strconv"
@@ -19,10 +15,13 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
@@ -34,6 +33,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
@@ -46,7 +46,9 @@ type IbcEurekaTestSuite struct {
 	e2esuite.TestSuite
 
 	// The private key of a test account
-	key      *ecdsa.PrivateKey
+	key *ecdsa.PrivateKey
+	// The private key of the faucet account of interchaintest
+	faucet   *ecdsa.PrivateKey
 	deployer ibc.Wallet
 
 	contractAddresses e2esuite.DeployedContracts
@@ -55,7 +57,7 @@ type IbcEurekaTestSuite struct {
 	ics02Contract    *ics02client.Contract
 	ics26Contract    *ics26router.Contract
 	ics20Contract    *ics20transfer.Contract
-	erc20Contract    *testerc20.Contract
+	erc20Contract    *erc20.Contract
 
 	simdClientID string
 	ethClientID  string
@@ -82,6 +84,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		operatorKey, err := crypto.GenerateKey()
 		s.Require().NoError(err)
 		operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey).Hex()
+
+		// get faucet private key from string
+		s.faucet, err = crypto.HexToECDSA(testvalues.FaucetPrivateKey)
+		s.Require().NoError(err)
 
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
@@ -135,11 +141,15 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), client)
 		s.Require().NoError(err)
-		s.erc20Contract, err = testerc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), client)
+		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), client)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Fund address with ERC20", func() {
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.StartingTokenAmount))
 		s.Require().NoError(err)
 
-		_, err = ethclient.Dial(eth.GetHostRPCAddress())
-		s.Require().NoError(err)
+		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
 	}))
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
@@ -263,6 +273,12 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 			s.Require().NoError(err)
 			s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
 		}))
+
+		s.Require().True(s.Run("Verify ERC20 Genesis", func() {
+			userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingTokenAmount, userBalance.Int64())
+		}))
 	}))
 }
 
@@ -280,7 +296,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	var recvAck []byte
 
 	s.Require().True(s.Run("Mint some test erc20 tokens", func() {
-		tx, err := s.erc20Contract.Mint(s.GetTransactOpts(s.key), userAddress, transferAmount)
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.key), userAddress, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)

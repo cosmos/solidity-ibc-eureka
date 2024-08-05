@@ -27,6 +27,10 @@ const (
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeySp1PrivateKey Private key for the prover network.
 	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
+
+	// FaucetPrivateKey is the private key of the faucet account.
+	// '0x' prefix is trimmed.
+	FaucetPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 )
 
 var (
