@@ -19,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -295,17 +297,6 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	var packet ics26router.IICS26RouterMsgsPacket
 	var recvAck []byte
 
-	s.Require().True(s.Run("Mint some test erc20 tokens", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.key), userAddress, transferAmount)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		balance, err := s.erc20Contract.BalanceOf(nil, userAddress)
-		s.Require().NoError(err)
-		s.Require().Equal(transferAmount, balance)
-	}))
-
 	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
@@ -346,7 +337,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
 		packet = sendPacketEvent.Packet
-		s.Require().Equal(uint32(0x1), packet.Sequence)
+		s.Require().Equal(uint32(1), packet.Sequence)
 		s.Require().Equal(timeout, packet.TimeoutTimestamp)
 		s.Require().Equal("transfer", packet.SourcePort)
 		s.Require().Equal(s.ethClientID, packet.SourceChannel)
@@ -387,6 +378,20 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().NoError(err)
 		s.Require().NotNil(recvAck)
 
-		// TODO: Build denom (1000transfer/00-mock-0/0x9fe225014936b92a2fbe642055836ec8e9d0cd81)
+		s.Require().True(s.Run("Verify balances", func() {
+			ibcDenom := transfertypes.ParseDenomTrace(
+				fmt.Sprintf("%s/%s/%s", transfertypes.PortID, "00-mock-0", s.contractAddresses.Erc20),
+			).IBCDenom()
+
+			// Check the balance of UserB
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: s.UserB.FormattedAddress(),
+				Denom:   ibcDenom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.TransferAmount, resp.Balance.Amount.Int64())
+			s.Require().Equal(ibcDenom, resp.Balance.Denom)
+		}))
 	}))
 }
