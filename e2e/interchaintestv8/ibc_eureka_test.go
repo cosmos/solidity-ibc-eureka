@@ -25,6 +25,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	ibchost "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
@@ -289,7 +290,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 	s.SetupSuite(ctx)
 
-	_, simd := s.ChainA, s.ChainB
+	eth, simd := s.ChainA, s.ChainB
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
@@ -301,7 +302,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := s.erc20Contract.Allowance(nil, userAddress, ics20Address)
@@ -323,7 +324,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, s.ChainA, tx.Hash())
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
@@ -393,5 +394,36 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			s.Require().Equal(testvalues.TransferAmount, resp.Balance.Amount.Int64())
 			s.Require().Equal(ibcDenom, resp.Balance.Denom)
 		}))
+	}))
+
+	s.True(s.Run("acknowledgePacket on Ethereum side", func() {
+		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+
+		trustedHeight := clientState.LatestHeight.RevisionHeight
+		latestHeight, err := simd.Height(ctx)
+		s.Require().NoError(err)
+
+		// This will be a non-membership proof since no packets have been sent
+		packetAckPath := ibchost.PacketAcknowledgementPath(packet.DestPort, packet.DestChannel, uint64(packet.Sequence))
+		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+			uint64(trustedHeight), uint64(latestHeight), packetAckPath,
+			"--trust-level", testvalues.DefaultTrustLevel.String(),
+			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		)
+		s.Require().NoError(err)
+
+		msg := ics26router.IICS26RouterMsgsMsgAckPacket{
+			Packet:          packet,
+			Acknowledgement: recvAck,
+			ProofAcked:      ucAndMemProof,
+			ProofHeight:     *proofHeight,
+		}
+
+		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key), msg)
+		s.Require().NoError(err)
+
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
 }
