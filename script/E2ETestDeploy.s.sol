@@ -56,7 +56,7 @@ contract E2ETestDeploy is Script {
 
         // Wire Transfer app
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
-    
+
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "invalid address");
