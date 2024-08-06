@@ -34,6 +34,7 @@ library ERC20CosmosCoinAmountConversion {
             return DEFAULT_ERC20_DECIMALS;
         }
     }
+
     // Convert ERC20 tokens decimals to Cosmos decimals units
     // NOTE that the refund to the user of the remainder of the conversion should happen during the transfer.
     /**
@@ -44,7 +45,6 @@ library ERC20CosmosCoinAmountConversion {
      * @return convertedAmount The amount converted to uint64 supported by cosmos coins
      * @return remainder The remainder of the conversion
      */
-
     function _convertERC20AmountToCosmosCoin(
         address tokenAddress,
         uint256 amount
