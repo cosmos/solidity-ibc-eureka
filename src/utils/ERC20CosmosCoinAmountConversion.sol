@@ -57,7 +57,7 @@ library ERC20CosmosCoinAmountConversion {
         // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
         // TODO write an ADR for this?
-        require(tokenDecimals >= 6, "ERC20 Tokens with less than 6 decimals are not supported");
+        require(tokenDecimals >= 6, "ERC20 with less than 6 decimals are not supported");
         // TODO Add custom error?
         // Amount input validation
         require(amount != 0, "Requested conversion for the 0 amount");
@@ -86,6 +86,7 @@ library ERC20CosmosCoinAmountConversion {
         }
         // TODO Add custom error?
         // ~uint64(0) is the max value supported by uint64
+        // Probably this check can be removed - cannot think a way to trigger this
         require(temp_convertedAmount <= ~uint64(0), "Converted amount exceeds uint64 limits");
         // At this point we should be sure that we are not loosing precision
         convertedAmount = uint64(temp_convertedAmount);
@@ -113,7 +114,7 @@ library ERC20CosmosCoinAmountConversion {
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
         // Ensure the token has at least 6 decimals
-        require(tokenDecimals >= 6, "ERC20 Tokens with less than 6 decimals are not supported");
+        require(tokenDecimals >= 6, "ERC20 with less than 6 decimals are not supported");
         // Amount is not 0
         require(amount != 0, "Requested conversion for the 0 amount");
         uint256 factor;
