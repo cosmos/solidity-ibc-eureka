@@ -453,7 +453,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 	}))
 
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
-		timeout := uint64(time.Now().Add(1 * time.Minute).Unix())
+		timeout := uint64(time.Now().Add(45 * time.Second).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
@@ -489,8 +489,8 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(transfertypes.Version, packet.Version)
 	}))
 
-	// sleep for 61 seconds to let the packet timeout
-	time.Sleep(61 * time.Second)
+	// sleep for 60 seconds to let the packet timeout
+	time.Sleep(60 * time.Second)
 
 	s.True(s.Run("timeoutPacket on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
