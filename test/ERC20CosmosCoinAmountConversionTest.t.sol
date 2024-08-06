@@ -3,7 +3,7 @@ pragma solidity >=0.8.25 <0.9.0;
 
 // solhint-disable custom-errors,max-line-length
 import { Test } from "forge-std/Test.sol";
-import { ERC20CosmosCoinConversion } from "../src/utils/ERC20CosmosCoinConversion.sol";
+import { ERC20CosmosCoinAmountConversion } from "../src/utils/ERC20CosmosCoinAmountConversion.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -31,7 +31,7 @@ contract MockERC20Metadata is ERC20 {
     }
 }
 
-contract ERC20CosmosCoinConversionTest is Test {
+contract ERC20CosmosCoinAmountConversionTest is Test {
     
     // Instance of the MockERC20 contract
     MockERC20 private mockERC20;
@@ -70,7 +70,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20TokenAmountToCosmosCoin_1() public view {
         uint256 amount = 1000000000000000001; // 1.000000000000000001 ERC20 tokens
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -85,7 +85,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20AmountToCosmosCoin_2() public view {
         uint256 amount = 1000000100000000001; // 1.000000100000000001 ERC20 tokens
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -99,7 +99,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20AmountToCosmosCoin_3() public view {
         uint256 amount = 1000000000000000000; // 1.000000000000000000 ERC20 tokens
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -113,7 +113,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20AmountToCosmosCoin_4() public view {
         uint256 amount = 1; // 1 smallest unit of ERC20 tokens
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 0;
@@ -127,7 +127,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20AmountToCosmosCoin_5() public view {
         uint256 amount = 999999999999; // Less than 1 smallest unit of Cosmos coins
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 0;
@@ -141,7 +141,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertMockERC20AmountToCosmosCoin_6() public view {
         uint256 amount = 999999999999999999; 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(mockERC20), amount);
 
         // Expected values for default 18 decimals
         uint64 expectedConvertedAmount = 999999;
@@ -160,7 +160,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 1000000000000000001; // 1.000000000000000001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -177,7 +177,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
         uint256 amount = 100000010000000000000000000000000000000000000000000000000000000000000000000001; 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -197,7 +197,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 100000000000000001; // 1.00000000000000001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -216,7 +216,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 1000000100001; // 1.000000000001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -235,7 +235,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 10000001; // 1.0000001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,000 Cosmos coins
@@ -254,7 +254,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 1000001; // 1.000001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000001; // 1,000,001 Cosmos coins
@@ -276,7 +276,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 10000001111; // 1000.0001111 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000111; // 1000,000,111 Cosmos coins
@@ -291,7 +291,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertCosmosCoinAmountToERC20_SameDecimals() public {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
         uint64 cosmosAmount = 1000000; // 1 Cosmos coin
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 convertedAmount = ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
         uint256 expectedAmount = 1000000; // 1 ERC20 token with 6 decimals
 
         assertEq(convertedAmount, expectedAmount, "Conversion mismatch for same decimals");
@@ -301,7 +301,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(18);
         uint64 cosmosAmount = 1000000; // 1 Cosmos coin
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 convertedAmount = ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
         uint256 expectedAmount = 1000000000000000000; // 1 ERC20 token with 18 decimals
 
         assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
@@ -310,7 +310,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertCosmosCoinAmountToERC20_2() public {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(7);
         uint64 cosmosAmount = 1000000; // 1 Cosmos coin
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 convertedAmount = ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
         uint256 expectedAmount = 10000000; // 1 ERC20 token with 9 decimals
 
         assertEq(convertedAmount, expectedAmount, "Conversion mismatch for 9 decimals");
@@ -320,7 +320,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(77);
         uint64 cosmosAmount = 1000000; // 1 Cosmos coin
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 convertedAmount = ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
         uint256 expectedAmount = 100000000000000000000000000000000000000000000000000000000000000000000000000000; // 1 ERC20 token with 18 decimals
 
         assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
@@ -332,13 +332,13 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint64 cosmosAmount = 1000000; // 1 Cosmos coin
 
         vm.expectRevert();
-        ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
     }
 
 /*
     // This should be always ok, convering smaller type uint64 into uint256
     function testConvertCosmosCoinAmountToERC20() pure public {
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(1000000); // 1,000,000 Cosmos coins
+        uint256 convertedAmount = ERC20CosmosCoinAmountConversion._convertCosmosCoinAmountToERC20(1000000); // 1,000,000 Cosmos coins
         uint256 expectedConvertedAmount = 1000000000000000000; // Should convert to 1 ERC20 token
         assertEq(convertedAmount, expectedConvertedAmount);
     }
@@ -347,7 +347,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertERC20NameToCosmosCoin() pure public {
         string memory name = "Token";
         string memory channel = "123";
-        string memory convertedName = ERC20CosmosCoinConversion._convertERC20NameToCosmosCoin(name, channel);
+        string memory convertedName = ERC20CosmosCoinAmountConversion._convertERC20NameToCosmosCoin(name, channel);
         string memory expectedName = "Token channel-123";
 
         assertEq(convertedName, expectedName);
@@ -356,7 +356,7 @@ contract ERC20CosmosCoinConversionTest is Test {
     function testConvertERC20SymbolToCosmosCoin() pure public {
         string memory symbol = "TKN";
         string memory channel = "123";
-        string memory convertedSymbol = ERC20CosmosCoinConversion._convertERC20SymbolToCosmosCoin(symbol, channel);
+        string memory convertedSymbol = ERC20CosmosCoinAmountConversion._convertERC20SymbolToCosmosCoin(symbol, channel);
         string memory expectedSymbol = "ibcTKN-123";
 
         assertEq(convertedSymbol, expectedSymbol);
@@ -367,7 +367,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         string memory symbol = "TKN";
         uint8 decimals = 18;
 
-        (string memory erc20Name, string memory erc20Symbol, uint8 erc20Decimals) = ERC20CosmosCoinConversion._convertCosmosCoinToERC20Details(name, symbol, decimals);
+        (string memory erc20Name, string memory erc20Symbol, uint8 erc20Decimals) = ERC20CosmosCoinAmountConversion._convertCosmosCoinToERC20Details(name, symbol, decimals);
 
         assertEq(erc20Name, name);
         assertEq(erc20Symbol, symbol);
@@ -388,7 +388,7 @@ contract ERC20CosmosCoinConversionTest is Test {
             string memory display,
             string memory coinName,
             string memory coinSymbol
-        ) = ERC20CosmosCoinConversion._convertERC20ToCosmosCoinMetadata(name, symbol, decimals, contractAddress);
+        ) = ERC20CosmosCoinAmountConversion._convertERC20ToCosmosCoinMetadata(name, symbol, decimals, contractAddress);
 
         string memory expectedDescription = string.concat("Cosmos coin token representation of ", Strings.toHexString(contractAddress));
         string memory expectedBase = string.concat("erc20/", Strings.toHexString(contractAddress));
@@ -412,7 +412,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 100001; // 1.00001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000010; // 1,000,010 Cosmos coins
@@ -431,7 +431,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 1001; // 1.001 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1001000; // 1,000,010 Cosmos coins
@@ -450,7 +450,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 11; // 1.1 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1100000; // 1,000,010 Cosmos coins
@@ -469,7 +469,7 @@ contract ERC20CosmosCoinConversionTest is Test {
         uint256 amount = 1; // 1 ERC20 tokens
 
         // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinAmountConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
 
         // Expected values for 18 decimals
         uint64 expectedConvertedAmount = 1000000; // 1,000,010 Cosmos coins

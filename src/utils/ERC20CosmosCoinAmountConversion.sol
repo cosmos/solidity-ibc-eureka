@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20Metadata
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-library ERC20CosmosCoinConversion {
+library ERC20CosmosCoinAmountConversion {
     // Using Constants for decimals
     uint8 constant DEFAULT_ERC20_DECIMALS = 18; 
     // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
@@ -36,7 +36,6 @@ library ERC20CosmosCoinConversion {
             return DEFAULT_ERC20_DECIMALS;
         }
     }
-
     // Convert ERC20 tokens decimals to Cosmos decimals units  
     // NOTE that the refund to the user of the remainder of the conversion should happen during the transfer.  
     /**
@@ -130,59 +129,4 @@ library ERC20CosmosCoinConversion {
 
         return convertedAmount;
     }
-
-/* TODOs.. 
-    // Convert ERC20 token name to Cosmos coin name
-    function _convertERC20NameToCosmosCoin(
-        string memory name, 
-        string memory channel
-    ) internal pure returns (string memory) {
-        // TODO check About string(abi.encodePacked https://medium.com/coinmonks/abi-encode-abi-encodepacked-and-abi-decode-in-solidity-42c19336a589
-        // vs string.concat 
-        return string(abi.encodePacked(name, " channel-", channel));
-    }
-
-    // Convert ERC20 token symbol to Cosmos coin symbol
-    function _convertERC20SymbolToCosmosCoin(
-        string memory symbol, 
-        string memory channel
-    ) internal pure returns (string memory) {
-        return string(abi.encodePacked("ibc", symbol, "-", channel));
-    }
-
-    // Convert Cosmos coin metadata to ERC20 token details
-    function _convertCosmosCoinToERC20Details(
-        string memory name,
-        string memory symbol,
-        uint8 decimals
-    ) internal pure returns (string memory, string memory, uint8) {
-        return (name, symbol, decimals);
-    }
-
-    // Convert ERC20 token details to Cosmos coin metadata
-    function _convertERC20ToCosmosCoinMetadata(
-        string memory name,
-        string memory symbol,
-        uint8 decimals,
-        address contractAddress
-    ) internal pure returns (
-        string memory description,
-        uint32 denomUnitsCoin, //  Consider creating a struct here. 
-        uint32 denomUnitsERC20,
-        string memory base,
-        string memory display,
-        string memory coinName,
-        string memory coinSymbol
-    ) {
-        description = string.concat("Cosmos coin token representation of ", Strings.toHexString(contractAddress));
-        denomUnitsCoin = 6;
-        denomUnitsERC20 = uint32(decimals);
-
-        base = string.concat("erc20/", Strings.toHexString(contractAddress));
-        display = name;
-        coinName = name;
-        coinSymbol = symbol;
-        return (description, denomUnitsCoin, denomUnitsERC20, base, display, coinName, coinSymbol);
-    }
-*/
 }
