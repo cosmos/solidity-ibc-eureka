@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	sdkmath "cosmossdk.io/math"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	abci "github.com/cometbft/cometbft/abci/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math/big"
 	"os"
 	"strconv"
@@ -23,7 +20,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -357,7 +359,6 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, ics20TransferBalance)
 		}))
-
 	}))
 
 	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
@@ -511,8 +512,8 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			Data:   []byte(packetCommitmentPath),
 			Prove:  true,
 		})
-		_ = err
-		_ = storeProofResp
+		s.Require().NoError(err)
+		s.Require().Equal(uint32(0), storeProofResp.Code)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
 			uint64(trustedHeight), uint64(latestHeight), packetCommitmentPath,
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
@@ -523,7 +524,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
 			Packet: ics26router.IICS26RouterMsgsPacket{
 				Sequence:         uint32(returnPacket.Sequence),
-				TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000, // Nano to seconds
+				TimeoutTimestamp: returnPacket.TimeoutTimestamp,
 				SourcePort:       returnPacket.SourcePort,
 				SourceChannel:    returnPacket.SourceChannel,
 				DestPort:         returnPacket.DestinationPort,
@@ -569,12 +570,12 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          returnPacket,
 			Acknowledgement: returnWriteAckEvent.Acknowledgement,
-			ProofAcked:      []byte("doesn't matter"),
+			ProofAcked:      []byte("doesn't matter"), // Because mock light client
 			ProofHeight:     clienttypes.Height{},
 			Signer:          s.UserB.FormattedAddress(),
 		})
 		s.Require().NoError(err)
-		s.Require().Equal(0, txResp.Code)
+		s.Require().Equal(uint32(0), txResp.Code)
 	}))
 }
 

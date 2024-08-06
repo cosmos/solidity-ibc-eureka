@@ -123,21 +123,28 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             value: abi.encodePacked(commitmentBz)
         });
 
-        try ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg) {
-        } catch (bytes memory reason)  {
+        // solhint-disable-next-line no-empty-blocks
+        try ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg) { }
+        catch (bytes memory reason) {
             revert IBCMembershipProofVerificationFailed(msg_.packet, membershipMsg, reason);
         }
-        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
+
+        uint64 timeoutTimestamp = msg_.packet.timeoutTimestamp;
+        if (!ICS24Host.isTimestampInSeconds(timeoutTimestamp)) {
+            timeoutTimestamp = uint64(timeoutTimestamp / 1_000_000_000);
+        }
+        if (timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
 
-        try app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender })) returns (bytes memory ack) {
+        try app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender }))
+        returns (bytes memory ack) {
             if (ack.length == 0) {
                 revert IBCAsyncAcknowledgementNotSupported();
             }
 
             writeAcknowledgement(msg_.packet, ack);
-        } catch (bytes memory reason)  {
+        } catch (bytes memory reason) {
             revert IBCPacketHandlingFailed(msg_.packet, reason);
         }
 

@@ -25,6 +25,8 @@ struct SP1ICS07TendermintGenesisJson {
 contract E2ETestDeploy is Script {
     using stdJson for string;
 
+    error E2EInvalidAddress(string addr);
+
     string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
     function run() public returns (string memory) {
@@ -59,7 +61,9 @@ contract E2ETestDeploy is Script {
 
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
-        require(ok, "invalid address");
+        if (!ok) {
+            revert E2EInvalidAddress(E2E_FAUCET);
+        }
         erc20.mint(addr, 100_000_000_000);
 
         vm.stopBroadcast();

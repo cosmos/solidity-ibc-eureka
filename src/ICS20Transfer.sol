@@ -104,12 +104,13 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         bytes memory denom = bytes(packetData.denom);
         if (
             denom.length >= denomPrefix.length
-            && ICS20Lib.equal(ICS20Lib.slice(denom, 0, denomPrefix.length), denomPrefix)
+                && ICS20Lib.equal(ICS20Lib.slice(denom, 0, denomPrefix.length), denomPrefix)
         ) {
             // sender chain is not the source, unescrow tokens
             // TODO: Implement escrow balance tracking
 
-            string memory unprefixedDenom = string(ICS20Lib.slice(denom, denomPrefix.length, denom.length - denomPrefix.length));
+            string memory unprefixedDenom =
+                string(ICS20Lib.slice(denom, denomPrefix.length, denom.length - denomPrefix.length));
             (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(unprefixedDenom);
             if (!tokenContractConvertSuccess) {
                 return ICS20Lib.errorAck(abi.encodePacked("invalid token contract: ", unprefixedDenom));
@@ -120,7 +121,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // sender chain is the source, mint vouchers
             // TODO: Implement escrow balance tracking
             // TODO: Implement creating (new erc20 contracts), looking up and minting of vouchers
-            revert(string(denomPrefix));
+            // solhint-disable-next-line
+            revert("not supported: sender denom is source");
         }
 
         emit ICS20ReceiveTransfer(packetData);

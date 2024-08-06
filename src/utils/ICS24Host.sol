@@ -11,6 +11,9 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
+    // TODO: Figure out what a reasonable threshold is for the timestamp, how long into the future and still be safe
+    uint256 public constant SECONDS_THRESHOLD = 7_952_338_800; // The year of our lord 2222
+
     enum PacketReceipt {
         NONE,
         SUCCESSFUL
@@ -100,16 +103,23 @@ library ICS24Host {
 
     /// @notice Get the packet commitment bytes.
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
+        // Since we expect all packet commitments to be in nanoseconds, we need to convert the timestamp to nanoseconds
+        // If the timestamp is already in nanoseconds, we don't need to do anything
+        uint64 timestamp = packet.timeoutTimestamp;
+        if (isTimestampInSeconds(timestamp)) {
+            timestamp = SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000);
+        }
+
         return sha256(
-            abi.encodePacked(
-                SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
-                uint64(0),
-                uint64(0),
-                sha256(packet.data),
-                packet.destPort,
-                packet.destChannel
-            )
+            abi.encodePacked(timestamp, uint64(0), uint64(0), sha256(packet.data), packet.destPort, packet.destChannel)
         );
+    }
+
+    /// @notice Checks if a timestamp is in seconds or nanoseconds
+    /// @param timestamp The timestamp to check
+    /// @return isSeconds True if the timestamp is in seconds, false if in nanoseconds
+    function isTimestampInSeconds(uint64 timestamp) internal pure returns (bool isSeconds) {
+        return timestamp < SECONDS_THRESHOLD;
     }
 
     /// @notice Get the packet receipt commitment bytes.

@@ -56,10 +56,9 @@ contract ICS26RouterTest is Test {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
-        uint64 nanoTimestamp = uint64((block.timestamp + 1000) * 1_000_000_000);
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            timeoutTimestamp: nanoTimestamp,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
             sourcePort: "transfer",
             sourceChannel: counterpartyClientID,
             destPort: "transfer",
@@ -72,7 +71,7 @@ contract ICS26RouterTest is Test {
             packet: packet,
             proofCommitment: "0x", // doesn't matter
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
-        });
+         });
 
         bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
             msgRecvPacket.packet.sourcePort, msgRecvPacket.packet.sourceChannel, msgRecvPacket.packet.sequence
@@ -86,7 +85,10 @@ contract ICS26RouterTest is Test {
         });
         vm.expectRevert(
             abi.encodeWithSelector(
-                IICS26RouterErrors.IBCMembershipProofVerificationFailed.selector, packet, expectedMsgMembership, abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector, "membership should fail")
+                IICS26RouterErrors.IBCMembershipProofVerificationFailed.selector,
+                packet,
+                expectedMsgMembership,
+                abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector, "membership should fail")
             )
         );
         ics26Router.recvPacket(msgRecvPacket);

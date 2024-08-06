@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
-import {IICS26RouterMsgs} from "../msgs/IICS26RouterMsgs.sol";
-import {ILightClientMsgs} from "../msgs/ILightClientMsgs.sol";
+import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 interface IICS26RouterErrors {
     /// @param portId port identifier
@@ -24,7 +24,9 @@ interface IICS26RouterErrors {
 
     error IBCAppNotFound(string portId);
 
-    error IBCMembershipProofVerificationFailed(IICS26RouterMsgs.Packet packet, ILightClientMsgs.MsgMembership membershipMsg, bytes reason);
+    error IBCMembershipProofVerificationFailed(
+        IICS26RouterMsgs.Packet packet, ILightClientMsgs.MsgMembership membershipMsg, bytes reason
+    );
 
     error IBCPacketHandlingFailed(IICS26RouterMsgs.Packet packet, bytes reason);
 }

@@ -341,7 +341,9 @@ contract ICS20TransferTest is Test {
         packet.sourcePort = newSourcePort;
         packet.sourceChannel = newSourceChannel;
 
-        bytes memory ack = ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        bytes memory ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
         assertEq(string(ack), "{\"result\":\"AQ==\"}");
 
         // the tokens should have been transferred back again
@@ -352,12 +354,15 @@ contract ICS20TransferTest is Test {
     }
 
     function test_failure_onRecvPacket() public {
-        string memory ibcDenom = string(abi.encodePacked(packet.sourcePort, "/", packet.sourceChannel, "/", erc20AddressStr));
+        string memory ibcDenom =
+            string(abi.encodePacked(packet.sourcePort, "/", packet.sourceChannel, "/", erc20AddressStr));
         packet.data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiver, senderStr, "memo");
 
         // test invalid version
         packet.version = "invalid";
-        bytes memory ack = ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        bytes memory ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
         assertEq(string(ack), "{\"error\":\"unexpected version: invalid\"}");
         // Reset version
         packet.version = ICS20Lib.ICS20_VERSION;
@@ -366,26 +371,44 @@ contract ICS20TransferTest is Test {
         data = bytes("invalid");
         packet.data = data;
         vm.expectRevert(bytes(""));
-        ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
 
         // test invalid amount
         data = ICS20Lib.marshalJSON(ibcDenom, 0, receiver, senderStr, "memo");
         packet.data = data;
-        ack = ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
         assertEq(string(ack), "{\"error\":\"invalid amount: 0\"}");
 
-        // test denom is not erc20 address
-        string memory invalidErc20Denom = string(abi.encodePacked(packet.sourcePort, "/", packet.sourceChannel, "/invalid"));
+        // test receiver chain is source, but denom is not erc20 address
+        string memory invalidErc20Denom =
+            string(abi.encodePacked(packet.sourcePort, "/", packet.sourceChannel, "/invalid"));
         data = ICS20Lib.marshalJSON(invalidErc20Denom, defaultAmount, receiver, senderStr, "memo");
         packet.data = data;
-        ack = ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
         assertEq(string(ack), "{\"error\":\"invalid token contract: invalid\"}");
 
         // test invalid receiver
         data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiver, "invalid", "memo");
         packet.data = data;
-        ack = ics20Transfer.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") }));
+        ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
         assertEq(string(ack), "{\"error\":\"invalid receiver: invalid\"}");
+
+        // just to document current limitations: sender chain is the source is not supported
+        string memory sourceDenom = "uatom";
+        data = ICS20Lib.marshalJSON(sourceDenom, defaultAmount, receiver, senderStr, "memo");
+        packet.data = data;
+        vm.expectRevert(bytes("not supported: sender denom is source"));
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
     }
 
     function _getPacketData() internal view returns (ICS20Lib.UnwrappedFungibleTokenPacketData memory) {

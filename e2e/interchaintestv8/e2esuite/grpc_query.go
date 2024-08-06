@@ -3,7 +3,6 @@ package e2esuite
 import (
 	"context"
 	"fmt"
-	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/gogoproto/proto"
 	"google.golang.org/grpc"
@@ -12,6 +11,8 @@ import (
 
 	msgv1 "cosmossdk.io/api/cosmos/msg/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 )
