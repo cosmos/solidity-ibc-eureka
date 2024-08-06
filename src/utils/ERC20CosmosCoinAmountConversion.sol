@@ -102,8 +102,8 @@ library ERC20CosmosCoinAmountConversion {
      * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
      */
     function _convertCosmosCoinAmountToERC20(
-        uint64 amount,
-        address tokenAddress
+        address tokenAddress,
+        uint64 amount
     )
         internal
         view
