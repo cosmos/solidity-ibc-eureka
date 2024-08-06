@@ -265,7 +265,145 @@ contract ERC20CosmosCoinConversionTest is Test {
         assertEq(remainder, expectedRemainder, "Remainder mismatch");
     }
 
-/* Keeping this tests commented here, for now, in case we then decide to support < than 6 decimals 
+    function testConvertMockERC20MetadataAmountToCosmosCoin_10() public  {
+        uint8 decimals = 7; 
+        // Deploy the ERC20 token with metadata (custom decimals)
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
+        
+        // Interesting: https://ethereum.stackexchange.com/questions/135557/covert-erc-20-tokens-with-different-decimals-to-amount-to-wei
+        // Note that using this 10000001111 an input the decimals will be counted starting from last digit, the rest will be counted
+        // as the entire part   
+        uint256 amount = 10000001111; // 1000.0001111 ERC20 tokens
+
+        // Call the conversion function
+        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata), amount);
+
+        // Expected values for 18 decimals
+        uint64 expectedConvertedAmount = 1000000111; // 1000,000,111 Cosmos coins
+        uint256 expectedRemainder = 1;
+
+        // Assertions
+        assertEq(decimals, customMockERC20Metadata.decimals(), "Decimals mismatch");
+        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
+        assertEq(remainder, expectedRemainder, "Remainder mismatch");
+    }
+        
+    function testConvertCosmosCoinAmountToERC20_SameDecimals() public {
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
+        uint64 cosmosAmount = 1000000; // 1 Cosmos coin
+        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 expectedAmount = 1000000; // 1 ERC20 token with 6 decimals
+
+        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for same decimals");
+    }
+
+    function testConvertCosmosCoinAmountToERC20_1() public {
+        
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(18);
+        uint64 cosmosAmount = 1000000; // 1 Cosmos coin
+        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 expectedAmount = 1000000000000000000; // 1 ERC20 token with 18 decimals
+
+        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
+    }
+
+    function testConvertCosmosCoinAmountToERC20_2() public {
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(7);
+        uint64 cosmosAmount = 1000000; // 1 Cosmos coin
+        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 expectedAmount = 10000000; // 1 ERC20 token with 9 decimals
+
+        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for 9 decimals");
+    }
+
+    function testConvertCosmosCoinAmountToERC20_3() public {
+        
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(77);
+        uint64 cosmosAmount = 1000000; // 1 Cosmos coin
+        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+        uint256 expectedAmount = 100000000000000000000000000000000000000000000000000000000000000000000000000000; // 1 ERC20 token with 18 decimals
+
+        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
+    }
+
+
+    function testConvertCosmosCoinAmountToERC20_LessThanSixDecimals() public {
+        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(5);
+        uint64 cosmosAmount = 1000000; // 1 Cosmos coin
+
+        vm.expectRevert();
+        ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(cosmosAmount, address(customMockERC20Metadata));
+    }
+
+/*
+    // This should be always ok, convering smaller type uint64 into uint256
+    function testConvertCosmosCoinAmountToERC20() pure public {
+        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(1000000); // 1,000,000 Cosmos coins
+        uint256 expectedConvertedAmount = 1000000000000000000; // Should convert to 1 ERC20 token
+        assertEq(convertedAmount, expectedConvertedAmount);
+    }
+
+/*
+    function testConvertERC20NameToCosmosCoin() pure public {
+        string memory name = "Token";
+        string memory channel = "123";
+        string memory convertedName = ERC20CosmosCoinConversion._convertERC20NameToCosmosCoin(name, channel);
+        string memory expectedName = "Token channel-123";
+
+        assertEq(convertedName, expectedName);
+    }
+
+    function testConvertERC20SymbolToCosmosCoin() pure public {
+        string memory symbol = "TKN";
+        string memory channel = "123";
+        string memory convertedSymbol = ERC20CosmosCoinConversion._convertERC20SymbolToCosmosCoin(symbol, channel);
+        string memory expectedSymbol = "ibcTKN-123";
+
+        assertEq(convertedSymbol, expectedSymbol);
+    }
+
+    function testConvertCosmosCoinToERC20Details() pure public {
+        string memory name = "Token";
+        string memory symbol = "TKN";
+        uint8 decimals = 18;
+
+        (string memory erc20Name, string memory erc20Symbol, uint8 erc20Decimals) = ERC20CosmosCoinConversion._convertCosmosCoinToERC20Details(name, symbol, decimals);
+
+        assertEq(erc20Name, name);
+        assertEq(erc20Symbol, symbol);
+        assertEq(erc20Decimals, decimals);
+    }
+
+    function testConvertERC20ToCosmosCoinMetadata() view public {
+        string memory name = "Token";
+        string memory symbol = "TKN";
+        uint8 decimals = 18;
+        address contractAddress = address(this);
+
+        (
+            string memory description,
+            uint32 denomUnitsCoin,
+            uint32 denomUnitsERC20,
+            string memory base,
+            string memory display,
+            string memory coinName,
+            string memory coinSymbol
+        ) = ERC20CosmosCoinConversion._convertERC20ToCosmosCoinMetadata(name, symbol, decimals, contractAddress);
+
+        string memory expectedDescription = string.concat("Cosmos coin token representation of ", Strings.toHexString(contractAddress));
+        string memory expectedBase = string.concat("erc20/", Strings.toHexString(contractAddress));
+
+        assertEq(description, expectedDescription);
+        assertEq(denomUnitsCoin, 6);
+        assertEq(denomUnitsERC20, decimals);
+        assertEq(base, expectedBase);
+        assertEq(display, name);
+        assertEq(coinName, name);
+        assertEq(coinSymbol, symbol);
+    }
+    */
+
+   /* Keeping this tests commented here, for now, in case we then decide to support < than 6 decimals 
     function testConvertMockERC20MetadataAmountToCosmosCoin_6() public  {
         uint8 decimals = 5; 
         // Deploy the ERC20 token with metadata (custom decimals)
@@ -342,94 +480,4 @@ contract ERC20CosmosCoinConversionTest is Test {
         assertEq(remainder, expectedRemainder, "Remainder mismatch");
     }
 */
-    function testConvertMockERC20MetadataAmountToCosmosCoin_10() public  {
-        uint8 decimals = 7; 
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata_1 = new MockERC20Metadata(decimals);
-        
-        // Interesting: https://ethereum.stackexchange.com/questions/135557/covert-erc-20-tokens-with-different-decimals-to-amount-to-wei
-        // Note that using this 10000001111 an input the decimals will be counted starting from last digit, the rest will be counted
-        // as the entire part   
-        uint256 amount = 10000001111; // 1000.0001111 ERC20 tokens
-
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = ERC20CosmosCoinConversion._convertERC20AmountToCosmosCoin(address(customMockERC20Metadata_1), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1000000111; // 1000,000,111 Cosmos coins
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(decimals, customMockERC20Metadata_1.decimals(), "Decimals mismatch");
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-/*
-    // This should be always ok, convering smaller type uint64 into uint256
-    function testConvertCosmosCoinAmountToERC20() pure public {
-        uint256 convertedAmount = ERC20CosmosCoinConversion._convertCosmosCoinAmountToERC20(1000000); // 1,000,000 Cosmos coins
-        uint256 expectedConvertedAmount = 1000000000000000000; // Should convert to 1 ERC20 token
-        assertEq(convertedAmount, expectedConvertedAmount);
-    }
-
-/*
-    function testConvertERC20NameToCosmosCoin() pure public {
-        string memory name = "Token";
-        string memory channel = "123";
-        string memory convertedName = ERC20CosmosCoinConversion._convertERC20NameToCosmosCoin(name, channel);
-        string memory expectedName = "Token channel-123";
-
-        assertEq(convertedName, expectedName);
-    }
-
-    function testConvertERC20SymbolToCosmosCoin() pure public {
-        string memory symbol = "TKN";
-        string memory channel = "123";
-        string memory convertedSymbol = ERC20CosmosCoinConversion._convertERC20SymbolToCosmosCoin(symbol, channel);
-        string memory expectedSymbol = "ibcTKN-123";
-
-        assertEq(convertedSymbol, expectedSymbol);
-    }
-
-    function testConvertCosmosCoinToERC20Details() pure public {
-        string memory name = "Token";
-        string memory symbol = "TKN";
-        uint8 decimals = 18;
-
-        (string memory erc20Name, string memory erc20Symbol, uint8 erc20Decimals) = ERC20CosmosCoinConversion._convertCosmosCoinToERC20Details(name, symbol, decimals);
-
-        assertEq(erc20Name, name);
-        assertEq(erc20Symbol, symbol);
-        assertEq(erc20Decimals, decimals);
-    }
-
-    function testConvertERC20ToCosmosCoinMetadata() view public {
-        string memory name = "Token";
-        string memory symbol = "TKN";
-        uint8 decimals = 18;
-        address contractAddress = address(this);
-
-        (
-            string memory description,
-            uint32 denomUnitsCoin,
-            uint32 denomUnitsERC20,
-            string memory base,
-            string memory display,
-            string memory coinName,
-            string memory coinSymbol
-        ) = ERC20CosmosCoinConversion._convertERC20ToCosmosCoinMetadata(name, symbol, decimals, contractAddress);
-
-        string memory expectedDescription = string.concat("Cosmos coin token representation of ", Strings.toHexString(contractAddress));
-        string memory expectedBase = string.concat("erc20/", Strings.toHexString(contractAddress));
-
-        assertEq(description, expectedDescription);
-        assertEq(denomUnitsCoin, 6);
-        assertEq(denomUnitsERC20, decimals);
-        assertEq(base, expectedBase);
-        assertEq(display, name);
-        assertEq(coinName, name);
-        assertEq(coinSymbol, symbol);
-    }
-    */
 }
