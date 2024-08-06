@@ -12,10 +12,8 @@ library ERC20CosmosCoinConversion {
     // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
     // TODO Do we want to support flexibility for cosmos coin decimals?  
     uint8 constant DEFAULT_COSMOS_DECIMALS = 6;
-
+    
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this. 
-    // TODO revisit this to see if we missed something important 
-    // Potential problems that may arise: https://detectors.auditbase.com/decimals-erc20-standard-solidity
     /**
      * @notice Gets the decimals of a token if it extends the IERC20 standard using IERC20Metadata
      * @param tokenAddress The address of the token contract
@@ -30,6 +28,7 @@ library ERC20CosmosCoinConversion {
         require(tokenAddress!= address(this), "Address cannot be the contract itself");
         
         // If the tokens extends the IERC20 it should be using IERC20Metadata which supports the decimals() call 
+        // Why this? -->  https://detectors.auditbase.com/decimals-erc20-standard-solidity
         try IERC20Metadata(tokenAddress).decimals() returns (uint8 decimals) {
             return decimals;
         } catch {
@@ -55,11 +54,13 @@ library ERC20CosmosCoinConversion {
         // Note if we want to allow different cosmos decimals, we need to handle that here too 
         // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function  
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress); 
+        // TODO write an ADR for this? 
+        require (tokenDecimals>=6, "ERC20 Tokens with less than 6 decimals are not supported"); 
         // TODO Add custom error?  
         // Amount input validation
         require(amount!=0, "Requested conversion for the 0 amount"); 
         // Ensure the amount respects the token's decimals
-
+        // Handle the case where the input amount exceeds the token's precision
         uint256 temp_convertedAmount;
         uint256 factor;  
         // Case ERC20 decimals are bigger than cosmos decimals
@@ -68,10 +69,10 @@ library ERC20CosmosCoinConversion {
             temp_convertedAmount = amount / factor;
             remainder = amount % factor;
         }
-        else{
-            // Case ERC20 decimals <= DEFAULT_COSMOS_DECIMALS 
-            // Note that we need to handle the case < and == differently 
-            if(tokenDecimals < DEFAULT_COSMOS_DECIMALS){
+        else if(tokenDecimals < DEFAULT_COSMOS_DECIMALS){
+            // Keeping this code here until final team decision is made. 
+            // Restricting the support for decimals >= 6 this part will never be executed.  
+            // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS 
             // Note we need to amplify the decimals 
             factor = 10 ** (DEFAULT_COSMOS_DECIMALS - tokenDecimals);
             temp_convertedAmount = amount * factor;
@@ -79,10 +80,10 @@ library ERC20CosmosCoinConversion {
             }
             else {
             // Case ERC20 decimals == DEFAULT_COSMOS_DECIMALS --> Amount will fit the uint64
+            // Note that we need to handle the case < and == differently 
             temp_convertedAmount = amount; 
             remainder=0;
             }
-        } 
         // TODO Add custom error?  
         // ~uint64(0) is the max value supported by uint64 
         require(temp_convertedAmount <= ~uint64(0), "Converted amount exceeds uint64 limits");
@@ -92,13 +93,42 @@ library ERC20CosmosCoinConversion {
     }
 
 
-    // TODO Rework considering the flexibility of ERC20 decimals 
     // Convert Cosmos coin amount to ERC20 token amount
+    // Assuming that we support only ERC20.decimlas()>=6
+    /**
+     * @notice Convert the uint64 Cosmos coin amount into ERC20 token amount uint256
+     * @param tokenAddress The address of the token contract
+     * @param amount The amount to be converted
+     * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
+     */
     function _convertCosmosCoinAmountToERC20(
-        uint64 amount
-    ) internal pure returns (uint256) {
-        uint256 factor = 10 ** (DEFAULT_ERC20_DECIMALS - DEFAULT_COSMOS_DECIMALS);
-        return amount * factor;
+        uint64 amount,
+        address tokenAddress
+    ) internal view returns (uint256 convertedAmount) {
+        // Get the token decimals
+        // address input validation perfomed in the _getERC20TokenDecimals
+        uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
+        
+        // Ensure the token has at least 6 decimals
+        require(tokenDecimals >= 6, "ERC20 Tokens with less than 6 decimals are not supported");
+        // Amount is not 0 
+        require(amount != 0, "Requested conversion for the 0 amount");
+        uint256 factor;
+        
+        // Case ERC20 decimals are bigger than cosmos decimals
+        if(tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
+            factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
+            // uint256 = uint64 * uint256 that should be ok
+            convertedAmount = amount * factor;
+        } else if(tokenDecimals < DEFAULT_COSMOS_DECIMALS) {
+            // TODO if we decide to support this case. It will require handling the loss of precision 
+            // in the go side 
+        } else {
+            // Case ERC20 decimals == DEFAULT_COSMOS_DECIMALS
+            convertedAmount = amount;
+        }
+
+        return convertedAmount;
     }
 
 /* TODOs.. 
