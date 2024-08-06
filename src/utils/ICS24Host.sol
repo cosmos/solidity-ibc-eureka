@@ -3,6 +3,7 @@ pragma solidity >=0.8.25;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 // @title ICS24 Host Path Generators
 // @notice ICS24Host is a library that provides commitment path generators for ICS24 host requirements.
@@ -101,7 +102,7 @@ library ICS24Host {
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
-                uint64(packet.timeoutTimestamp),
+                SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
                 uint64(0),
                 uint64(0),
                 sha256(packet.data),

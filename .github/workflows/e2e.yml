@@ -43,6 +43,7 @@ jobs:
           # List your tests here
           - TestWithIbcEurekaTestSuite/TestDeploy
           - TestWithIbcEurekaTestSuite/TestICS20Transfer
+          - TestWithIbcEurekaTestSuite/TestICS20Timeout
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     steps:

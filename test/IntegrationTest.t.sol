@@ -60,13 +60,12 @@ contract IntegrationTest is Test {
         sender = makeAddr("sender");
         senderStr = Strings.toHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
-        uint64 nanoTimestamp = uint64((block.timestamp + 1000) * 1_000_000_000);
         msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
             sourcePort: "transfer",
             sourceChannel: clientIdentifier,
             destPort: "transfer",
             data: data,
-            timeoutTimestamp: nanoTimestamp,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
             version: ICS20Lib.ICS20_VERSION
         });
     }
@@ -166,7 +165,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
         // make light client return timestamp that is after our timeout
-        lightClient.setMembershipResult(msgSendPacket.timeoutTimestamp + uint64(1_000_000_000), false);
+        lightClient.setMembershipResult(msgSendPacket.timeoutTimestamp + 1, false);
 
         IICS26RouterMsgs.MsgTimeoutPacket memory timeoutMsg = IICS26RouterMsgs.MsgTimeoutPacket({
             packet: packet,
@@ -223,7 +222,7 @@ contract IntegrationTest is Test {
         data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, backSender, backReceiverStr, "backmemo");
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            timeoutTimestamp: uint64((block.timestamp + 1000) * 1_000_000_000),
+            timeoutTimestamp: uint64(block.timestamp + 1000),
             sourcePort: "transfer",
             sourceChannel: counterpartyClient,
             destPort: "transfer",
@@ -277,7 +276,7 @@ contract IntegrationTest is Test {
             receiver: receiver,
             sourceChannel: clientIdentifier,
             destPort: "transfer",
-            timeoutTimestamp: uint64((block.timestamp + 1000) * 1_000_000_000),
+            timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "memo"
         });
 
