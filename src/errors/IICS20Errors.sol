@@ -9,6 +9,9 @@ interface IICS20Errors {
     /// @param sender Address whose tokens are being transferred
     error ICS20InvalidSender(string sender);
 
+    /// @param receiver Address receiving the tokens
+    error ICS20InvalidReceiver(string receiver);
+
     /// @param amount Amount of tokens being transferred
     error ICS20InvalidAmount(uint256 amount);
 

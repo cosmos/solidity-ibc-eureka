@@ -77,15 +77,55 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Transfer(packetData);
     }
 
-    function onRecvPacket(OnRecvPacketCallback calldata)
+    function onRecvPacket(OnRecvPacketCallback calldata msg_)
         external
         override
         onlyOwner
         nonReentrant
         returns (bytes memory)
     {
-        // TODO: Implement
-        return "";
+        // TODO Emit error event
+        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
+            return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.packet.version));
+        }
+
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        if (packetData.amount == 0) {
+            return ICS20Lib.errorAck(abi.encodePacked("invalid amount: 0"));
+        }
+
+        (address receiver, bool receiverConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.receiver);
+        if (!receiverConvertSuccess) {
+            return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
+        }
+
+        // TODO: Handle non-contract denoms (destination chain is not source)
+        bytes memory denomPrefix = ICS20Lib.getDenomPrefix(msg_.packet.sourcePort, msg_.packet.sourceChannel);
+        bytes memory denom = bytes(packetData.denom);
+        if (
+            denom.length >= denomPrefix.length
+            && ICS20Lib.equal(ICS20Lib.slice(denom, 0, denomPrefix.length), denomPrefix)
+        ) {
+            // sender chain is not the source, unescrow tokens
+            // TODO: Implement escrow balance tracking
+
+            string memory unprefixedDenom = string(ICS20Lib.slice(denom, denomPrefix.length, denom.length - denomPrefix.length));
+            (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(unprefixedDenom);
+            if (!tokenContractConvertSuccess) {
+                return ICS20Lib.errorAck(abi.encodePacked("invalid token contract: ", unprefixedDenom));
+            }
+
+            IERC20(tokenContract).safeTransfer(receiver, packetData.amount);
+        } else {
+            // sender chain is the source, mint vouchers
+            // TODO: Implement escrow balance tracking
+            // TODO: Implement creating (new erc20 contracts), looking up and minting of vouchers
+            revert(string(denomPrefix));
+        }
+
+        emit ICS20ReceiveTransfer(packetData);
+
+        return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)

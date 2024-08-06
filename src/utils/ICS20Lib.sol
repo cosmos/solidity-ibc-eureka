@@ -75,16 +75,16 @@ library ICS20Lib {
         returns (bytes memory)
     {
         return abi.encodePacked(
-            "{\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"denom\":\"",
+            "{\"denom\":\"",
             escapedDenom,
-            "\",\"memo\":\"",
-            escapedMemo,
-            "\",\"receiver\":\"",
-            escapedReceiver,
+            "\",\"amount\":\"",
+            Strings.toString(amount),
             "\",\"sender\":\"",
             escapedSender,
+            "\",\"receiver\":\"",
+            escapedReceiver,
+            "\",\"memo\":\"",
+            escapedMemo,
             "\"}"
         );
     }
@@ -103,14 +103,14 @@ library ICS20Lib {
         returns (bytes memory)
     {
         return abi.encodePacked(
-            "{\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"denom\":\"",
+            "{\"denom\":\"",
             escapedDenom,
-            "\",\"receiver\":\"",
-            escapedReceiver,
+            "\",\"amount\":\"",
+            Strings.toString(amount),
             "\",\"sender\":\"",
             escapedSender,
+            "\",\"receiver\":\"",
+            escapedReceiver,
             "\"}"
         );
     }
@@ -119,26 +119,25 @@ library ICS20Lib {
      * @dev unmarshalJSON unmarshals JSON bytes into PacketData.
      */
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
+        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
         PacketDataJSON memory pd;
         uint256 pos = 0;
 
         unchecked {
-            if (bytes32(bz[pos:pos + 11]) != bytes32("{\"amount\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]));
-            }
-            (pd.amount, pos) = parseUint256String(bz, pos + 11);
-            if (bytes32(bz[pos:pos + 10]) != bytes32(",\"denom\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"denom\":\""), bytes32(bz[pos:pos + 10]));
+            if (bytes32(bz[pos:pos + 10]) != bytes32("{\"denom\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"denom\":\""), bytes32(bz[pos:pos + 10]));
             }
             (pd.denom, pos) = parseString(bz, pos + 10);
 
-            if (uint256(uint8(bz[pos + 2])) == CHAR_M) {
-                if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
-                    // solhint-disable-next-line max-line-length
-                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
-                }
-                (pd.memo, pos) = parseString(bz, pos + 9);
+            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"amount\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]));
             }
+            (pd.amount, pos) = parseUint256String(bz, pos + 11);
+
+            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"sender\":\"")) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]));
+            }
+            (pd.sender, pos) = parseString(bz, pos + 11);
 
             if (bytes32(bz[pos:pos + 13]) != bytes32(",\"receiver\":\"")) {
                 revert IICS20Errors.ICS20JSONUnexpectedBytes(
@@ -147,10 +146,13 @@ library ICS20Lib {
             }
             (pd.receiver, pos) = parseString(bz, pos + 13);
 
-            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"sender\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]));
+            if (uint256(uint8(bz[pos + 2])) == CHAR_M) {
+                if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
+                    // solhint-disable-next-line max-line-length
+                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
+                }
+                (pd.memo, pos) = parseString(bz, pos + 9);
             }
-            (pd.sender, pos) = parseString(bz, pos + 11);
 
             if (pos != bz.length - 1 || uint256(uint8(bz[pos])) != CHAR_CLOSING_BRACE) {
                 revert IICS20Errors.ICS20JSONClosingBraceNotFound(pos, bz[pos]);
@@ -359,5 +361,13 @@ library ICS20Lib {
             receiver: packetData.receiver,
             memo: packetData.memo
         });
+    }
+
+    function errorAck(bytes memory reason) internal pure returns (bytes memory) {
+        return abi.encodePacked("{\"error\":\"", reason, "\"}");
+    }
+
+    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
+        return abi.encodePacked(port, "/", channel, "/");
     }
 }

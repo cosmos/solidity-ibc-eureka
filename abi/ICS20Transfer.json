@@ -87,7 +87,7 @@
     "name": "onRecvPacket",
     "inputs": [
       {
-        "name": "",
+        "name": "msg_",
         "type": "tuple",
         "internalType": "struct IIBCAppCallbacks.OnRecvPacketCallback",
         "components": [
@@ -432,6 +432,46 @@
   },
   {
     "type": "event",
+    "name": "ICS20ReceiveTransfer",
+    "inputs": [
+      {
+        "name": "packetData",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "components": [
+          {
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sender",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "receiver",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "memo",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ICS20Timeout",
     "inputs": [
       {
@@ -596,6 +636,17 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20InvalidReceiver",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },

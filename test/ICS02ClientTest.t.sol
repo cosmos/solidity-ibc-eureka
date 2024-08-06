@@ -16,7 +16,7 @@ contract ICS02ClientTest is Test {
     DummyLightClient public lightClient;
 
     function setUp() public {
-        lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0);
+        lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         ics02Client = new ICS02Client(address(this));
     }
 
