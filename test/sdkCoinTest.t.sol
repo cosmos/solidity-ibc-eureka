@@ -5,6 +5,8 @@ pragma solidity >=0.8.25 <0.9.0;
 import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IIErrors } from "../src/errors/IIErrors.sol";
+import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 
 // Discuss - Do we want to move mock contract to a mock folder?
 // Mock ERC20 token without the decimals function overridden
@@ -336,30 +338,28 @@ contract SdkCoinTest is Test {
     /////////////////////////////////////////////////////
     // Tests triggering reverts conditions
 
+    /////////////////////////////////////////////////////
+    // Tests triggering reverts conditions
+
     function testConvertERC20toSdkCoinAmount_ZeroAddress() public {
         uint256 evmAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert("Address cannot be the zero address");
+        vm.expectRevert(abi.encodeWithSelector(IIErrors.ZeroAddress.selector, address(0)));
         SdkCoin._convertERC20AmountToSdkCoin(address(0), evmAmount);
     }
 
     function testConvertSdkCoinAmountToERC20_ZeroAddress() public {
         uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert("Address cannot be the zero address");
+        vm.expectRevert(abi.encodeWithSelector(IIErrors.ZeroAddress.selector, address(0)));
         SdkCoin._convertSdkCoinAmountToERC20(address(0), cosmosAmount);
-    }
-
-    function testAddressThis() public {
-        vm.expectRevert("Address cannot be the contract itself");
-        SdkCoin._getERC20TokenDecimals(address(this));
     }
 
     function testConvertERC20toSdkCoinAmount_LessThanSixDecimals() public {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(5);
         uint256 evmAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert("ERC20 with less than 6 decimals are not supported");
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5)));
         SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), evmAmount);
     }
 
@@ -367,13 +367,13 @@ contract SdkCoinTest is Test {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(5);
         uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert("ERC20 with less than 6 decimals are not supported");
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5)));
         SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
     }
 
-    // Note that using vm.expectRevert("Requested conversion for the zero amount");
+    // Note that using vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0));
     // both the zero amount tests are failing with this message:
-    // [FAIL. Reason: revert: Requested conversion for the 0 amount]
+    // [FAIL. Reason: ZeroAmountUint64(0)]
     // Super wired, because is exactly what is expected
     // I guess with custom error refactor switching to solidity 0.8.26 this should be solved
     // For now to make test pass added testFail and removed the vm expect revert.
@@ -381,7 +381,7 @@ contract SdkCoinTest is Test {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
         uint64 cosmosAmount = 0; // 1 Cosmos coin
 
-        //vm.expectRevert("Requested conversion for the zero amount");
+        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0));
         SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
     }
 
@@ -389,7 +389,7 @@ contract SdkCoinTest is Test {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
         uint256 evmAmount = 0; // 1 Cosmos coin
 
-        //vm.expectRevert("Requested conversion for the 0 amount");
+        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint256.selector, 0));
         SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), evmAmount);
     }
 }

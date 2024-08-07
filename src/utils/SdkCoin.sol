@@ -4,6 +4,8 @@ pragma solidity >=0.8.25;
 // https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20Metadata
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IIErrors } from "../errors/IIErrors.sol";
+import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
 library SdkCoin {
     // Using Constants for decimals
@@ -20,12 +22,9 @@ library SdkCoin {
      */
     function _getERC20TokenDecimals(address tokenAddress) internal view returns (uint8) {
         // Input validation
-        // TODO Add custom error?
-        require(tokenAddress != address(0), "Address cannot be the zero address");
-        // TODO Reason about this check - Remember it as a good practice but what real protections give us?
-        // TODO Add custom error?
-        require(tokenAddress != address(this), "Address cannot be the contract itself");
-
+        if (tokenAddress == address(0x0)) {
+            revert IIErrors.ZeroAddress(tokenAddress);
+        }
         // If the tokens extends the IERC20 it should be using IERC20Metadata which supports the decimals() call
         // Why this? -->  https://detectors.auditbase.com/decimals-erc20-standard-solidity
         try IERC20Metadata(tokenAddress).decimals() returns (uint8 decimals) {
@@ -52,20 +51,24 @@ library SdkCoin {
     )
         internal
         view
-        returns (uint64 convertedAmount, uint256 remainder)
+        returns (uint64, uint256)
     {
         // Note if we want to allow different cosmos decimals, we need to handle that here too
         // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
-        // TODO write an ADR for this?
-        require(tokenDecimals >= 6, "ERC20 with less than 6 decimals are not supported");
-        // TODO Add custom error?
+
+        if (tokenDecimals < 6) {
+            revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
+        }
         // Amount input validation
-        require(amount != 0, "Requested conversion for the 0 amount");
+        if (amount == 0) {
+            revert IIErrors.ZeroAmountUint256(amount);
+        }
         // Ensure the amount respects the token's decimals
         // Handle the case where the input amount exceeds the token's precision
         uint256 temp_convertedAmount;
         uint256 factor;
+        uint256 remainder;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
@@ -76,10 +79,9 @@ library SdkCoin {
             remainder = 0;
         } else {
             // revert as this is unreachable
-            revert(); //Unsupported();
+            revert IIErrors.Unsupported();
         }
-        convertedAmount = SafeCast.toUint64(temp_convertedAmount);
-        return (convertedAmount, remainder);
+        return (SafeCast.toUint64(temp_convertedAmount), remainder);
     }
 
     // Convert Cosmos coin amount to ERC20 token amount
@@ -90,24 +92,21 @@ library SdkCoin {
      * @param amount The amount to be converted
      * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
      */
-    function _convertSdkCoinAmountToERC20(
-        address tokenAddress,
-        uint64 amount
-    )
-        internal
-        view
-        returns (uint256 convertedAmount)
-    {
+    function _convertSdkCoinAmountToERC20(address tokenAddress, uint64 amount) internal view returns (uint256) {
         // Get the token decimals
         // address input validation perfomed in the _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
         // Ensure the token has at least 6 decimals
-        require(tokenDecimals >= 6, "ERC20 with less than 6 decimals are not supported");
-        // Amount is not 0
-        require(amount != 0, "Requested conversion for the 0 amount");
+        if (tokenDecimals < 6) {
+            revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
+        }
+        // Amount input validation
+        if (amount == 0) {
+            revert IIErrors.ZeroAmountUint64(amount);
+        }
         uint256 factor;
-
+        uint256 convertedAmount;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
