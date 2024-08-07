@@ -50,7 +50,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ibcRouter.sendPacket(msgSendPacket);
     }
 
-    function onSendPacket(OnSendPacketCallback calldata msg_) external override onlyOwner nonReentrant {
+    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             revert ICS20UnexpectedVersion(msg_.packet.version);
         }
@@ -79,7 +79,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     function onRecvPacket(OnRecvPacketCallback calldata msg_)
         external
-        override
         onlyOwner
         nonReentrant
         returns (bytes memory)
@@ -107,7 +106,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
                 && ICS20Lib.equal(ICS20Lib.slice(denom, 0, denomPrefix.length), denomPrefix)
         ) {
             // sender chain is not the source, unescrow tokens
-            // TODO: Implement escrow balance tracking
+            // TODO: Implement escrow balance tracking (#6)
 
             string memory unprefixedDenom =
                 string(ICS20Lib.slice(denom, denomPrefix.length, denom.length - denomPrefix.length));
@@ -119,10 +118,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             IERC20(tokenContract).safeTransfer(receiver, packetData.amount);
         } else {
             // sender chain is the source, mint vouchers
-            // TODO: Implement escrow balance tracking
+            // TODO: Implement escrow balance tracking (#6)
             // TODO: Implement creating (new erc20 contracts), looking up and minting of vouchers
-            // solhint-disable-next-line
-            revert("not supported: sender denom is source");
+            revert ICS20UnsupportedFeature("sender denom is source");
         }
 
         emit ICS20ReceiveTransfer(packetData);
@@ -132,7 +130,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)
         external
-        override
         onlyOwner
         nonReentrant
     {
@@ -149,7 +146,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Acknowledgement(packetData, msg_.acknowledgement, isSuccessAck);
     }
 
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external override onlyOwner nonReentrant {
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
         _refundTokens(packetData);
 

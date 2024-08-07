@@ -25,6 +25,9 @@ interface IICS20Errors {
     /// @param actual Actual balance of the ERC20 token for ICS20Transfer
     error ICS20UnexpectedERC20Balance(uint256 expected, uint256 actual);
 
+    /// @param feature Unsupported feature
+    error ICS20UnsupportedFeature(string feature);
+
     // ICS20Lib Errors:
 
     /// @param position position in packet data bytes
