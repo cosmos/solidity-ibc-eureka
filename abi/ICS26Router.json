@@ -822,6 +822,103 @@
   },
   {
     "type": "error",
+    "name": "IBCMembershipProofVerificationFailed",
+    "inputs": [
+      {
+        "name": "packet",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.Packet",
+        "components": [
+          {
+            "name": "sequence",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sourcePort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "membershipMsg",
+        "type": "tuple",
+        "internalType": "struct ILightClientMsgs.MsgMembership",
+        "components": [
+          {
+            "name": "proof",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "proofHeight",
+            "type": "tuple",
+            "internalType": "struct IICS02ClientMsgs.Height",
+            "components": [
+              {
+                "name": "revisionNumber",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "revisionHeight",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "path",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "value",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "reason",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCPacketAcknowledgementAlreadyExists",
     "inputs": [
       {
@@ -864,6 +961,64 @@
     "inputs": [
       {
         "name": "path",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCPacketHandlingFailed",
+    "inputs": [
+      {
+        "name": "packet",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.Packet",
+        "components": [
+          {
+            "name": "sequence",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sourcePort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "reason",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -917,6 +1072,22 @@
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

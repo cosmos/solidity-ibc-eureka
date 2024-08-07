@@ -5,10 +5,14 @@ pragma solidity >=0.8.25 <0.9.0;
 
 import { Test } from "forge-std/Test.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
+import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
+import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { DummyLightClient } from "./DummyLightClient.sol";
+import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 
 contract ICS26RouterTest is Test {
     ICS02Client public ics02Client;
@@ -38,5 +42,36 @@ contract ICS26RouterTest is Test {
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
+    }
+
+    function test_RecvPacketWithFailedMembershipVerification() public {
+        string memory counterpartyClientID = "42-dummy-01";
+        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
+        string memory clientIdentifier = ics02Client.addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClientID), address(lightClient)
+        );
+
+        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            sourcePort: "transfer",
+            sourceChannel: counterpartyClientID,
+            destPort: "transfer",
+            destChannel: clientIdentifier,
+            version: "ics20-1",
+            data: "0x"
+        });
+
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = IICS26RouterMsgs.MsgRecvPacket({
+            packet: packet,
+            proofCommitment: "0x", // doesn't matter
+            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
+         });
+
+        vm.expectRevert();
+        ics26Router.recvPacket(msgRecvPacket);
     }
 }

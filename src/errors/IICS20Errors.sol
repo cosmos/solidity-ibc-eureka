@@ -9,6 +9,9 @@ interface IICS20Errors {
     /// @param sender Address whose tokens are being transferred
     error ICS20InvalidSender(string sender);
 
+    /// @param receiver Address receiving the tokens
+    error ICS20InvalidReceiver(string receiver);
+
     /// @param amount Amount of tokens being transferred
     error ICS20InvalidAmount(uint256 amount);
 
@@ -21,6 +24,9 @@ interface IICS20Errors {
     /// @param expected Expected balance of the ERC20 token for ICS20Transfer
     /// @param actual Actual balance of the ERC20 token for ICS20Transfer
     error ICS20UnexpectedERC20Balance(uint256 expected, uint256 actual);
+
+    /// @param feature Unsupported feature
+    error ICS20UnsupportedFeature(string feature);
 
     // ICS20Lib Errors:
 

@@ -5,6 +5,8 @@ pragma solidity >=0.8.25 <0.9.0;
     This script is used for local testing with SP1_PROVER=mock.
 */
 
+// solhint-disable gas-custom-errors,custom-errors
+
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";

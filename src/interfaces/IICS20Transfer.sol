@@ -9,6 +9,8 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @param packetData The transfer packet data
     event ICS20Transfer(ICS20Lib.UnwrappedFungibleTokenPacketData packetData);
 
+    event ICS20ReceiveTransfer(ICS20Lib.PacketDataJSON packetData);
+
     // TODO: If we want error and/or success result in the event (resp.Result), parsing the acknowledgement is needed
     /// @notice Called after handling acknowledgement in onAcknowledgementPacket
     /// @param packetData The transfer packet data

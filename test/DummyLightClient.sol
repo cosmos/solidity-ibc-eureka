@@ -8,11 +8,15 @@ import { ILightClient } from "../src/interfaces/ILightClient.sol";
 contract DummyLightClient is ILightClient {
     UpdateResult public updateResult;
     uint64 public membershipResult;
+    bool public membershipShouldFail;
     bytes public latestUpdateMsg;
 
-    constructor(UpdateResult updateResult_, uint64 membershipResult_) {
+    error MembershipShouldFail(string reason);
+
+    constructor(UpdateResult updateResult_, uint64 membershipResult_, bool membershipShouldFail_) {
         updateResult = updateResult_;
         membershipResult = membershipResult_;
+        membershipShouldFail = membershipShouldFail_;
     }
 
     function updateClient(bytes calldata updateMsg) external returns (UpdateResult) {
@@ -21,6 +25,9 @@ contract DummyLightClient is ILightClient {
     }
 
     function membership(MsgMembership calldata) external view returns (uint256) {
+        if (membershipShouldFail) {
+            revert MembershipShouldFail("membership should fail");
+        }
         return membershipResult;
     }
 
@@ -33,7 +40,8 @@ contract DummyLightClient is ILightClient {
         updateResult = updateResult_;
     }
 
-    function setMembershipResult(uint64 membershipResult_) external {
+    function setMembershipResult(uint64 membershipResult_, bool shouldFail) external {
         membershipResult = membershipResult_;
+        membershipShouldFail = shouldFail;
     }
 }
