@@ -77,6 +77,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 	eth, simd := s.ChainA, s.ChainB
 
+	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -96,9 +97,20 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.faucet, err = crypto.HexToECDSA(testvalues.FaucetPrivateKey)
 		s.Require().NoError(err)
 
+		prover = os.Getenv(testvalues.EnvKeySp1Prover)
+		switch prover {
+		case "":
+			prover = testvalues.EnvValueSp1Prover_Network
+		case testvalues.EnvValueSp1Prover_Mock:
+			s.T().Logf("Using mock prover")
+		case testvalues.EnvValueSp1Prover_Network:
+		default:
+			s.Require().Fail("invalid prover type: %s", prover)
+		}
+
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
-		os.Setenv(testvalues.EnvKeySp1Prover, "network")
+		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 		// make sure that the SP1_PRIVATE_KEY is set.
 		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
@@ -126,15 +138,35 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			"-o", "e2e/artifacts/genesis.json",
 		))
 
-		stdout, stderr, err := eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
-			ContractRootDir:  ".",
-			SolidityContract: "script/E2ETestDeploy.s.sol",
-			RawOptions: []string{
-				"--json",
-				"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
-			},
-		})
-		s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
+		var (
+			stdout []byte
+			stderr []byte
+			err    error
+		)
+		switch prover {
+		case testvalues.EnvValueSp1Prover_Mock:
+			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
+				ContractRootDir:  ".",
+				SolidityContract: "script/MockE2ETestDeploy.s.sol",
+				RawOptions: []string{
+					"--json",
+					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
+				},
+			})
+			s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
+		case testvalues.EnvValueSp1Prover_Network:
+			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
+				ContractRootDir:  ".",
+				SolidityContract: "script/E2ETestDeploy.s.sol",
+				RawOptions: []string{
+					"--json",
+					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
+				},
+			})
+			s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
+		default:
+			s.Require().Fail("invalid prover type: %s", prover)
+		}
 
 		client, err := ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
