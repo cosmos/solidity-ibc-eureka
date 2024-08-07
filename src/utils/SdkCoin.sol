@@ -3,6 +3,7 @@ pragma solidity >=0.8.25;
 
 // https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20Metadata
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 library SdkCoin {
     // Using Constants for decimals
@@ -45,7 +46,7 @@ library SdkCoin {
      * @return convertedAmount The amount converted to uint64 supported by cosmos coins
      * @return remainder The remainder of the conversion
      */
-    function _convertERC20AmountToCosmosCoin(
+    function _convertERC20AmountToSdkCoin(
         address tokenAddress,
         uint256 amount
     )
@@ -75,7 +76,7 @@ library SdkCoin {
             remainder = 0;
         } else {
             // revert as this is unreachable
-            revert Unsupported();
+            revert(); //Unsupported();
         }
         convertedAmount = SafeCast.toUint64(temp_convertedAmount);
         return (convertedAmount, remainder);
@@ -89,7 +90,7 @@ library SdkCoin {
      * @param amount The amount to be converted
      * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
      */
-    function _convertCosmosCoinAmountToERC20(
+    function _convertSdkCoinAmountToERC20(
         address tokenAddress,
         uint64 amount
     )
