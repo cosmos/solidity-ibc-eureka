@@ -333,4 +333,38 @@ contract SdkCoinTest is Test {
             }
         }
     }
+
+/*
+    These functions convert ERC20 token amount <-> Cosmos SDK coin amount, taking into account the ERC20 token's decimals.
+    This ensures that the amount adheres to the token's precision and handles various cases where the ERC20 token's decimals differ
+    from the default Cosmos decimals.
+
+    For this specific context, fuzz testing should be only used in combination with invariant testing. Here’s why:
+
+    Fuzz testing involves generating random inputs to test the function, which can help uncover unexpected bugs. However, for these
+    specific functions, fuzz testing alone is less effective due to the following reasons:
+    1. Computing the expected values for these conversions requires manual thinking. Using a standard conversion function 
+       to calculate expected values for random inputs negates the need for this library and makes the 
+       fuzz testing process pointless.
+    2. Directly replicating the function's logic in tests to calculate expected outputs results in tautological testing. 
+       This means the test simply mirrors the implementation, providing no real verification and thus no added value.
+    3. Fuzz testing could be eventually useful to trigger failure scenarios, but these are already covered by table testing. 
+
+    Instead, combining fuzz testing with invariant testing is more appropriate since it focuses on properties and conditions 
+    that must always hold true for the function's outputs. This approach is more meaningful for validation of these functions 
+    as it does not require computing expected values.
+    
+    By focusing on invariants, we can ensure that the core properties of the conversion logic are always upheld, providing stronger
+    guarantees of correctness. Overall, this combined approach ensures thorough testing by leveraging the strengths of 
+    both fuzz testing and invariant testing, leading to more reliable and accurate validation of the conversion functions.
+
+    Example invariant properties that we may use are: 
+    - If `tokenDecimals == DEFAULT_COSMOS_DECIMALS`, the converted amount should equal the input amount, and 
+      the remainder should be 0.
+    - In the case ERC20 -> SdkCoin the converted amount should always be <= to the input amount. If less 
+      the remainder should be > 0.
+    - In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount. 
+    - For non-zero inputs, the remainder should be less than the factor used for conversion. (e.g., the divisor).
+*/
+
 }
