@@ -103,23 +103,9 @@ library ICS24Host {
 
     /// @notice Get the packet commitment bytes.
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
-        // Since we expect all packet commitments to be in nanoseconds, we need to convert the timestamp to nanoseconds
-        // If the timestamp is already in nanoseconds, we don't need to do anything
-        uint64 timestamp = packet.timeoutTimestamp;
-        if (isTimestampInSeconds(timestamp)) {
-            timestamp = SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000);
-        }
-
         return sha256(
-            abi.encodePacked(timestamp, uint64(0), uint64(0), sha256(packet.data), packet.destPort, packet.destChannel)
+            abi.encodePacked(SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000), uint64(0), uint64(0), sha256(packet.data), packet.destPort, packet.destChannel)
         );
-    }
-
-    /// @notice Checks if a timestamp is in seconds or nanoseconds
-    /// @param timestamp The timestamp to check
-    /// @return isSeconds True if the timestamp is in seconds, false if in nanoseconds
-    function isTimestampInSeconds(uint64 timestamp) internal pure returns (bool isSeconds) {
-        return timestamp < SECONDS_THRESHOLD;
     }
 
     /// @notice Get the packet receipt commitment bytes.

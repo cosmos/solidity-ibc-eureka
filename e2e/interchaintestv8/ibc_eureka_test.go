@@ -25,8 +25,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -445,7 +443,8 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 	var returnPacket channeltypes.Packet
 	s.Require().True(s.Run("Transfer back", func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).UnixNano())
+		// We need the timeout to be a whole number of seconds to be received by eth
+		timeout := uint64(time.Now().Add(30*time.Minute).Unix() * 1_000_000_000)
 		ibcCoin := sdk.NewCoin(ibcDenom, sdkmath.NewIntFromBigInt(transferAmount))
 
 		msgTransfer := transfertypes.MsgTransfer{
@@ -506,14 +505,6 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().NoError(err)
 
 		packetCommitmentPath := ibchost.PacketCommitmentPath(returnPacket.SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
-		storeProofResp, err := e2esuite.ABCIQuery(ctx, simd, &abci.RequestQuery{
-			Path:   "store/ibc/key",
-			Height: latestHeight - 1, // ?
-			Data:   []byte(packetCommitmentPath),
-			Prove:  true,
-		})
-		s.Require().NoError(err)
-		s.Require().Equal(uint32(0), storeProofResp.Code)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
 			uint64(trustedHeight), uint64(latestHeight), packetCommitmentPath,
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
@@ -524,7 +515,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
 			Packet: ics26router.IICS26RouterMsgsPacket{
 				Sequence:         uint32(returnPacket.Sequence),
-				TimeoutTimestamp: returnPacket.TimeoutTimestamp,
+				TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000,
 				SourcePort:       returnPacket.SourcePort,
 				SourceChannel:    returnPacket.SourceChannel,
 				DestPort:         returnPacket.DestinationPort,
