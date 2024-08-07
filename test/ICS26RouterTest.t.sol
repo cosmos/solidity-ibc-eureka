@@ -8,13 +8,11 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
-import { IICS26RouterErrors } from "../src/errors/IICS26RouterErrors.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { DummyLightClient } from "./DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
-import { ICS24Host } from "../src/utils/ICS24Host.sol";
 
 contract ICS26RouterTest is Test {
     ICS02Client public ics02Client;

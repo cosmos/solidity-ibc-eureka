@@ -20,7 +20,6 @@ import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract IntegrationTest is Test {
     IICS02Client public ics02Client;
