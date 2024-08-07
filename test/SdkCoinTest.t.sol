@@ -33,362 +33,286 @@ contract MockERC20Metadata is ERC20 {
 contract SdkCoinTest is Test {
     // Instance of the MockERC20 contract
     MockERC20 private mockERC20;
-    MockERC20Metadata private mockERC20Metadata;
 
     function setUp() public {
         // Deploy the mock ERC20 tokens
         mockERC20 = new MockERC20();
-        mockERC20Metadata = new MockERC20Metadata(18);
     }
 
-    /////////////////////////////////////////////////////
-    // Tests for MockERC20 - Standard Tokens implementation without decimals --> decimals = 18
-
-    /**
-     * Problem Breakdown
-     * ERC20 to Cosmos Coin Conversion:
-     * We are converting an ERC20 token amount to a Cosmos coin amount.
-     * - ERC20 standard use 18 decimals.
-     * - Cosmos coins use 6 decimals.
-     * Example Conversion:
-     * - Input: 1000000000000000001 (1 ERC20 token + 1 extra smallest unit, i.e., 1 Wei).
-     * - Expected Converted Amount: 1000000 (1 ERC20 token should convert to 1,000,000 Cosmos coins).
-     * - Expected Remainder: 1 (which is the remaining smallest unit that doesn't fit into the Cosmos coin format).
-     * The Remainder is what we espect to return to the user
-     * Detailed Explanation:
-     * - Given 1000000000000000001 as input:
-     * Conversion Calculation:
-     * - 1 ERC20 token = 1000000000000000000 (in Wei).
-     * - Converting to Cosmos coin units involves dividing by 10^12
-     * (since ERC20 has 18 decimals and Cosmos has 6 decimals, the difference is 18 - 6 = 12).
-     * Mathematical Conversion:
-     * - Converted Amount: 1000000000000000001 / 10^12 = 1000000 (Cosmos coins).
-     * - Remainder: 1000000000000000001 % 10^12 = 1 (Wei remaining).
-     */
-    function testConvertMockERC20TokenAmountToSdkCoin_1() public view {
-        uint256 amount = 1_000_000_000_000_000_001; // 1.000000000000000001 ERC20 tokens
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
-
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
+    struct ConvertSdkCoinTestCase {
+        string m;
+        uint256 amount;
+        uint64 expectedConvertedAmount;
+        uint256 expectedRemainder;
     }
 
-    function testConvertMockERC20AmountToSdkCoin_2() public view {
-        uint256 amount = 1_000_000_100_000_000_001; // 1.000000100000000001 ERC20 tokens
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
+    function testConvertMockERC20AmountToSdkCoin() public view {
+        ConvertSdkCoinTestCase[] memory testCases = new ConvertSdkCoinTestCase[](6);
+      
+        testCases[0] = ConvertSdkCoinTestCase({
+            m: "1.000000000000000001 ERC20 tokens",
+            amount: 1_000_000_000_000_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 1
+        });
 
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 100_000_000_001;
+        testCases[1] = ConvertSdkCoinTestCase({
+            m: "1.000000100000000001 ERC20 tokens",
+            amount: 1_000_000_100_000_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 100_000_000_001
+        });
 
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
+        testCases[2] = ConvertSdkCoinTestCase({
+            m: "1.000000000000000000 ERC20 tokens",
+            amount: 1_000_000_000_000_000_000,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 0
+        });
 
-    function testConvertMockERC20AmountToSdkCoin_3() public view {
-        uint256 amount = 1_000_000_000_000_000_000; // 1.000000000000000000 ERC20 tokens
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
+        testCases[3] = ConvertSdkCoinTestCase({
+            m: "1 smallest unit of ERC20 tokens",
+            amount: 1,
+            expectedConvertedAmount: 0,
+            expectedRemainder: 1
+        });
 
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 0;
+        testCases[4] = ConvertSdkCoinTestCase({
+            m: "Less than 1 smallest unit of Cosmos coins",
+            amount: 999_999_999_999,
+            expectedConvertedAmount: 0,
+            expectedRemainder: 999_999_999_999
+        });
 
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
+        testCases[5] = ConvertSdkCoinTestCase({
+            m: "999.999999999999999999 ERC20 tokens",
+            amount: 999_999_999_999_999_999,
+            expectedConvertedAmount: 999_999,
+            expectedRemainder: 999_999_999_999
+        });
 
-    function testConvertMockERC20AmountToSdkCoin_4() public view {
-        uint256 amount = 1; // 1 smallest unit of ERC20 tokens
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
+        for (uint256 i = 0; i < testCases.length; i++) {
+            ConvertSdkCoinTestCase memory tc = testCases[i];
+            (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), tc.amount);
 
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 0;
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20AmountToSdkCoin_5() public view {
-        uint256 amount = 999_999_999_999; // Less than 1 smallest unit of Cosmos coins
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
-
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 0;
-        uint256 expectedRemainder = 999_999_999_999;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20AmountToSdkCoin_6() public view {
-        uint256 amount = 999_999_999_999_999_999;
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), amount);
-
-        // Expected values for default 18 decimals
-        uint64 expectedConvertedAmount = 999_999;
-        uint256 expectedRemainder = 999_999_999_999;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
+            // Assertions
+            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+            assertEq(remainder, tc.expectedRemainder, string(abi.encodePacked("Remainder mismatch: ", tc.m)));
+        }
     }
 
     /////////////////////////////////////////////////////
     // Tests for MockERC20Metadata - Extended Tokens Standard implementation with decimals
+    struct ConvertSdkCoinMetadataTestCase {
+        string m;
+        uint8 decimals;
+        uint256 amount;
+        uint64 expectedConvertedAmount;
+        uint256 expectedRemainder;
+    }
+
     function testConvertMockERC20MetadataAmountToSdkCoin() public {
-        uint8 decimals = 18;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-        uint256 amount = 1_000_000_000_000_000_001; // 1.000000000000000001 ERC20 tokens
+        ConvertSdkCoinMetadataTestCase [] memory testCases = new ConvertSdkCoinMetadataTestCase[](7);
 
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
+        testCases[0] = ConvertSdkCoinMetadataTestCase({
+            m: "1.000000000000000001 ERC20 tokens with 18 decimals",
+            decimals: 18,
+            amount: 1_000_000_000_000_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 1
+        });
 
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 1;
+        testCases[1] = ConvertSdkCoinMetadataTestCase({
+            m: "1.000000000000000001 ERC20 tokens with 77 decimals",
+            decimals: 77,
+            amount: 100_000_010_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 10_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001
+        });
 
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
+        testCases[2] = ConvertSdkCoinMetadataTestCase({
+            m: "1.00000000000000001 ERC20 tokens with 17 decimals",
+            decimals: 17,
+            amount: 100_000_000_000_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 1
+        });
 
-    function testConvertMockERC20MetadataAmountToSdkCoin_1() public {
-        uint8 decimals = 77;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-        uint256 amount =
-            100_000_010_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001;
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
+        testCases[3] = ConvertSdkCoinMetadataTestCase({
+            m: "1.000000000001 ERC20 tokens with 12 decimals",
+            decimals: 12,
+            amount: 1_000_000_100_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 100_001
+        });
 
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder =
-            10_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001;
+        testCases[4] = ConvertSdkCoinMetadataTestCase({
+            m: "1.0000001 ERC20 tokens with 7 decimals",
+            decimals: 7,
+            amount: 10_000_001,
+            expectedConvertedAmount: 1_000_000,
+            expectedRemainder: 1
+        });
 
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
+        testCases[5] = ConvertSdkCoinMetadataTestCase({
+            m: "1.000001 ERC20 tokens with 6 decimals",
+            decimals: 6,
+            amount: 1_000_001,
+            expectedConvertedAmount: 1_000_001,
+            expectedRemainder: 0
+        });
 
-    function testConvertMockERC20MetadataAmountToSdkCoin_2() public {
-        uint8 decimals = 17;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
+        testCases[6] = ConvertSdkCoinMetadataTestCase({
+            m: "1000.0001111 ERC20 tokens with 7 decimals",
+            decimals: 7,
+            amount: 10_000_001_111,
+            expectedConvertedAmount: 1_000_000_111,
+            expectedRemainder: 1
+        });
 
-        uint256 amount = 100_000_000_000_000_001; // 1.00000000000000001 ERC20 tokens
+        for (uint256 i = 0; i < testCases.length; i++) {
+            ConvertSdkCoinMetadataTestCase memory tc = testCases[i];
+            MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
+            (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), tc.amount);
 
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20MetadataAmountToSdkCoin_3() public {
-        uint8 decimals = 12;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-
-        uint256 amount = 1_000_000_100_001; // 1.000000000001 ERC20 tokens
-
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 100_001;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20MetadataAmountToSdkCoin_4() public {
-        uint8 decimals = 7;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-
-        uint256 amount = 10_000_001; // 1.0000001 ERC20 tokens
-
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000; // 1,000,000 Cosmos coins
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20MetadataAmountToSdkCoin_5() public {
-        uint8 decimals = 6;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-
-        uint256 amount = 1_000_001; // 1.000001 ERC20 tokens
-
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_001; // 1,000,001 Cosmos coins
-        uint256 expectedRemainder = 0;
-
-        // Assertions
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertMockERC20MetadataAmountToSdkCoin_10() public {
-        uint8 decimals = 7;
-        // Deploy the ERC20 token with metadata (custom decimals)
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(decimals);
-
-        // Interesting:
-        // https://ethereum.stackexchange.com/questions/135557/covert-erc-20-tokens-with-different-decimals-to-amount-to-wei
-        // Note that using this 10000001111 an input the decimals will be counted starting from last digit, the rest
-        // will be counted
-        // as the entire part
-        uint256 amount = 10_000_001_111; // 1000.0001111 ERC20 tokens
-
-        // Call the conversion function
-        (uint64 convertedAmount, uint256 remainder) =
-            SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), amount);
-
-        // Expected values for 18 decimals
-        uint64 expectedConvertedAmount = 1_000_000_111; // 1000,000,111 Cosmos coins
-        uint256 expectedRemainder = 1;
-
-        // Assertions
-        assertEq(decimals, customMockERC20Metadata.decimals(), "Decimals mismatch");
-        assertEq(convertedAmount, expectedConvertedAmount, "Converted amount mismatch");
-        assertEq(remainder, expectedRemainder, "Remainder mismatch");
-    }
-
-    function testConvertSdkCoinAmountToERC20_SameDecimals() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
-        uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-        uint256 expectedAmount = 1_000_000; // 1 ERC20 token with 6 decimals
-
-        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for same decimals");
-    }
-
-    function testConvertSdkCoinAmountToERC20_1() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(18);
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
-        uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-        uint256 expectedAmount = 1_000_000_000_000_000_000; // 1 ERC20 token with 18 decimals
-
-        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
-    }
-
-    function testConvertSdkCoinAmountToERC20_2() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(7);
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
-        uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-        uint256 expectedAmount = 10_000_000; // 1 ERC20 token with 9 decimals
-
-        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for 9 decimals");
-    }
-
-    function testConvertSdkCoinAmountToERC20_3() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(77);
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
-        uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-        uint256 expectedAmount =
-            100_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000; // 1
-            // ERC20 token with 18 decimals
-
-        assertEq(convertedAmount, expectedAmount, "Conversion mismatch for higher decimals");
+            // Assertions
+            assertEq(customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m)));
+            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+            assertEq(remainder, tc.expectedRemainder, string(abi.encodePacked("Remainder mismatch: ", tc.m)));
+        }
     }
 
     /////////////////////////////////////////////////////
-    // Tests triggering reverts conditions
+    // Tests for SdkCoin to ERC20Metadata - Extended Tokens Standard implementation with decimals
+    
+    struct ConvertSdkCoinToERC20TestCase {
+        string m;
+        uint8 decimals;
+        uint64 cosmosAmount;
+        uint256 expectedConvertedAmount;
+    }
+
+    function testConvertSdkCoinAmountToERC20() public {
+        ConvertSdkCoinToERC20TestCase [] memory testCases = new ConvertSdkCoinToERC20TestCase[](4);
+
+        testCases[0] = ConvertSdkCoinToERC20TestCase({
+            m: "1 Cosmos coin to ERC20 token with 6 decimals",
+            decimals: 6,
+            cosmosAmount: 1_000_000,
+            expectedConvertedAmount: 1_000_000
+        });
+
+        testCases[1] = ConvertSdkCoinToERC20TestCase({
+            m: "1 Cosmos coin to ERC20 token with 18 decimals",
+            decimals: 18,
+            cosmosAmount: 1_000_000,
+            expectedConvertedAmount: 1_000_000_000_000_000_000
+        });
+
+        testCases[2] = ConvertSdkCoinToERC20TestCase({
+            m: "1 Cosmos coin to ERC20 token with 7 decimals",
+            decimals: 7,
+            cosmosAmount: 1_000_000,
+            expectedConvertedAmount: 10_000_000
+        });
+
+        testCases[3] = ConvertSdkCoinToERC20TestCase({
+            m: "1 Cosmos coin to ERC20 token with 77 decimals",
+            decimals: 77,
+            cosmosAmount: 1_000_000,
+            expectedConvertedAmount: 100_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000
+        });
+
+        for (uint256 i = 0; i < testCases.length; i++) {
+            ConvertSdkCoinToERC20TestCase memory tc = testCases[i];
+            MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
+            uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), tc.cosmosAmount);
+
+            // Assertions
+            assertEq(customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m)));
+            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+        }
+    }
+
 
     /////////////////////////////////////////////////////
     // Tests triggering reverts conditions
-
-    function testConvertERC20toSdkCoinAmount_ZeroAddress() public {
-        uint256 evmAmount = 1_000_000; // 1 Cosmos coin
-
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
-        SdkCoin._convertERC20AmountToSdkCoin(address(0), evmAmount);
+  
+    struct RevertTestCase {
+        string m;
+        address tokenAddress;
+        uint8 decimals;
+        uint256 evmAmount;
+        uint64 cosmosAmount;
+        bytes expectedRevertSelector;
     }
 
-    function testConvertSdkCoinAmountToERC20_ZeroAddress() public {
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
+    function testRevertConditions() public {
+         RevertTestCase [] memory testCases = new RevertTestCase[](6);
 
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
-        SdkCoin._convertSdkCoinAmountToERC20(address(0), cosmosAmount);
-    }
+        testCases[0] = RevertTestCase({
+            m: "Zero address for ERC20 to SdkCoin conversion",
+            tokenAddress: address(0),
+            decimals: 0,
+            evmAmount: 1_000_000,
+            cosmosAmount: 0,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0))
+        });
 
-    function testConvertERC20toSdkCoinAmount_LessThanSixDecimals() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(5);
-        uint256 evmAmount = 1_000_000; // 1 Cosmos coin
+        testCases[1] = RevertTestCase({
+            m: "Zero address for SdkCoin to ERC20 conversion",
+            tokenAddress: address(0),
+            decimals: 0,
+            evmAmount: 0,
+            cosmosAmount: 1_000_000,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0))
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5)));
-        SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), evmAmount);
-    }
+        testCases[2] = RevertTestCase({
+            m: "Less than six decimals for ERC20 to SdkCoin conversion",
+            tokenAddress: address(new MockERC20Metadata(5)),
+            decimals: 5,
+            evmAmount: 1_000_000,
+            cosmosAmount: 0,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5))
+        });
 
-    function testConvertSdkCoinAmountToERC20_LessThanSixDecimals() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(5);
-        uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
+        testCases[3] = RevertTestCase({
+            m: "Less than six decimals for SdkCoin to ERC20 conversion",
+            tokenAddress: address(new MockERC20Metadata(5)),
+            decimals: 5,
+            evmAmount: 0,
+            cosmosAmount: 1_000_000,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5))
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5)));
-        SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-    }
+        testCases[4] = RevertTestCase({
+            m: "Zero amount for SdkCoin to ERC20 conversion",
+            tokenAddress: address(new MockERC20Metadata(6)),
+            decimals: 6,
+            evmAmount: 0,
+            cosmosAmount: 0,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAmountUint64.selector, uint64(0))
+        });
 
-    // Note that using vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0))
-    // both the zero amount tests are failing with this message:
-    // [FAIL. Reason: ZeroAmountUint64(0)]
-    // Super wired, because is exactly what is expected
-    // I guess with custom error refactor switching to solidity 0.8.26 this should be solved
-    // For now to make test pass added testFail and removed the vm expect revert.
-    function testFailConvertSdkCoinAmountToERC20_ZeroAmount() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
-        uint64 cosmosAmount = 0; // 1 Cosmos coin
+        testCases[5] = RevertTestCase({
+            m: "Zero amount for ERC20 to SdkCoin conversion",
+            tokenAddress: address(new MockERC20Metadata(6)),
+            decimals: 6,
+            evmAmount: 0,
+            cosmosAmount: 0,
+            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAmountUint256.selector, uint256(0))
+        });
 
-        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0));
-        SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
-    }
+        for (uint256 i = 0; i < testCases.length; i++) {
+            RevertTestCase memory tc = testCases[i];
 
-    function testFailConvertERC20toSdkCoinAmount_ZeroAmount() public {
-        MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
-        uint256 evmAmount = 0; // 1 Cosmos coin
-
-        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint256.selector, 0));
-        SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), evmAmount);
+            vm.expectRevert(tc.expectedRevertSelector);
+            if (tc.evmAmount != 0) {
+                SdkCoin._convertERC20AmountToSdkCoin(tc.tokenAddress, tc.evmAmount);
+            } else {
+                SdkCoin._convertSdkCoinAmountToERC20(tc.tokenAddress, tc.cosmosAmount);
+            }
+        }
     }
 }
