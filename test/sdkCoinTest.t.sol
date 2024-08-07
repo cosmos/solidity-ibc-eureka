@@ -371,7 +371,7 @@ contract SdkCoinTest is Test {
         SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
     }
 
-    // Note that using vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0));
+    // Note that using vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0))
     // both the zero amount tests are failing with this message:
     // [FAIL. Reason: ZeroAmountUint64(0)]
     // Super wired, because is exactly what is expected
