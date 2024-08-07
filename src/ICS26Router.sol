@@ -128,7 +128,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
 
-        bytes memory ack = app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
+        bytes memory ack =
+            app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
         if (ack.length == 0) {
             revert IBCAsyncAcknowledgementNotSupported();
         }

@@ -104,7 +104,14 @@ library ICS24Host {
     /// @notice Get the packet commitment bytes.
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
-            abi.encodePacked(SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000), uint64(0), uint64(0), sha256(packet.data), packet.destPort, packet.destChannel)
+            abi.encodePacked(
+                SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
+                uint64(0),
+                uint64(0),
+                sha256(packet.data),
+                packet.destPort,
+                packet.destChannel
+            )
         );
     }
 
