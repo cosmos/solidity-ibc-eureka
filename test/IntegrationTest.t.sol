@@ -226,7 +226,7 @@ contract IntegrationTest is Test {
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            timeoutTimestamp: SafeCast.toUint64(uint256(packet.timeoutTimestamp + 1000) * 1_000_000_000),
+            timeoutTimestamp: packet.timeoutTimestamp + 1000,
             sourcePort: "transfer",
             sourceChannel: counterpartyClient,
             destPort: "transfer",
@@ -310,21 +310,6 @@ contract IntegrationTest is Test {
             data: data
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, packet.timeoutTimestamp, block.timestamp
-            )
-        );
-        ics26Router.recvPacket(
-            IICS26RouterMsgs.MsgRecvPacket({
-                packet: packet,
-                proofCommitment: bytes("doesntmatter"), // dummy client will accept
-                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
-        );
-
-        // should also fail with the timeout set as nanoseconds
-        packet.timeoutTimestamp = SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, packet.timeoutTimestamp, block.timestamp

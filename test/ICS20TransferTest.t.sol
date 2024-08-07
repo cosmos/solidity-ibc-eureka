@@ -405,7 +405,7 @@ contract ICS20TransferTest is Test {
         string memory sourceDenom = "uatom";
         data = ICS20Lib.marshalJSON(sourceDenom, defaultAmount, receiver, senderStr, "memo");
         packet.data = data;
-        vm.expectRevert(bytes("not supported: sender denom is source"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnsupportedFeature.selector, "sender denom is source"));
         ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );

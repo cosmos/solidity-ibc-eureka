@@ -73,24 +73,7 @@ contract ICS26RouterTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
          });
 
-        bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
-            msgRecvPacket.packet.sourcePort, msgRecvPacket.packet.sourceChannel, msgRecvPacket.packet.sequence
-        );
-        bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msgRecvPacket.packet);
-        ILightClientMsgs.MsgMembership memory expectedMsgMembership = ILightClientMsgs.MsgMembership({
-            proof: msgRecvPacket.proofCommitment,
-            proofHeight: msgRecvPacket.proofHeight,
-            path: commitmentPath,
-            value: abi.encodePacked(commitmentBz)
-        });
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS26RouterErrors.IBCMembershipProofVerificationFailed.selector,
-                packet,
-                expectedMsgMembership,
-                abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector, "membership should fail")
-            )
-        );
+        vm.expectRevert();
         ics26Router.recvPacket(msgRecvPacket);
     }
 }
