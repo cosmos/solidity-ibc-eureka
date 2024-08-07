@@ -2,18 +2,18 @@
 pragma solidity >=0.8.25 <0.9.0;
 
 /*
-    This script is used for end-to-end testing with SP1_PROVER=network.
+    This script is used for local testing with SP1_PROVER=mock.
 */
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v1.0.1/SP1Verifier.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/TestERC20.sol";
+import { AcceptAllSP1Verifier } from "../test/AcceptAllSP1Verifier.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
@@ -26,7 +26,7 @@ struct SP1ICS07TendermintGenesisJson {
 }
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script {
+contract MockE2ETestDeploy is Script {
     using stdJson for string;
 
     string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
@@ -42,7 +42,7 @@ contract E2ETestDeploy is Script {
         address deployerAddress = msg.sender; // This is being set in the e2e test
 
         // Deploy the SP1 ICS07 Tendermint light client
-        SP1Verifier verifier = new SP1Verifier();
+        AcceptAllSP1Verifier verifier = new AcceptAllSP1Verifier();
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             genesis.updateClientVkey,
             genesis.membershipVkey,

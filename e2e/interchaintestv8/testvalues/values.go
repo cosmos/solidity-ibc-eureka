@@ -28,6 +28,11 @@ const (
 	// EnvKeySp1PrivateKey Private key for the prover network.
 	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
 
+	// EnvValueSp1Prover_Network is the prover type for the network prover.
+	EnvValueSp1Prover_Network = "network"
+	// EnvValueSp1Prover_Mock is the prover type for the mock prover.
+	EnvValueSp1Prover_Mock = "mock"
+
 	// FaucetPrivateKey is the private key of the faucet account.
 	// '0x' prefix is trimmed.
 	FaucetPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
