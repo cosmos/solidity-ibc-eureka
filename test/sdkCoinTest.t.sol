@@ -5,7 +5,6 @@ pragma solidity >=0.8.25 <0.9.0;
 import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { IIErrors } from "../src/errors/IIErrors.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 
 // Discuss - Do we want to move mock contract to a mock folder?
@@ -344,14 +343,14 @@ contract SdkCoinTest is Test {
     function testConvertERC20toSdkCoinAmount_ZeroAddress() public {
         uint256 evmAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert(abi.encodeWithSelector(IIErrors.ZeroAddress.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
         SdkCoin._convertERC20AmountToSdkCoin(address(0), evmAmount);
     }
 
     function testConvertSdkCoinAmountToERC20_ZeroAddress() public {
         uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert(abi.encodeWithSelector(IIErrors.ZeroAddress.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
         SdkCoin._convertSdkCoinAmountToERC20(address(0), cosmosAmount);
     }
 

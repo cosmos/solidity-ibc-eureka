@@ -4,7 +4,6 @@ pragma solidity >=0.8.25;
 // https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20Metadata
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { IIErrors } from "../errors/IIErrors.sol";
 import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
 library SdkCoin {
@@ -23,7 +22,7 @@ library SdkCoin {
     function _getERC20TokenDecimals(address tokenAddress) internal view returns (uint8) {
         // Input validation
         if (tokenAddress == address(0x0)) {
-            revert IIErrors.ZeroAddress(tokenAddress);
+            revert IISdkCoinErrors.ZeroAddress(tokenAddress);
         }
         // If the tokens extends the IERC20 it should be using IERC20Metadata which supports the decimals() call
         // Why this? -->  https://detectors.auditbase.com/decimals-erc20-standard-solidity
@@ -62,7 +61,7 @@ library SdkCoin {
         }
         // Amount input validation
         if (amount == 0) {
-            revert IIErrors.ZeroAmountUint256(amount);
+            revert IISdkCoinErrors.ZeroAmountUint256(amount);
         }
         // Ensure the amount respects the token's decimals
         // Handle the case where the input amount exceeds the token's precision
@@ -79,7 +78,7 @@ library SdkCoin {
             remainder = 0;
         } else {
             // revert as this is unreachable
-            revert IIErrors.Unsupported();
+            revert IISdkCoinErrors.Unsupported();
         }
         return (SafeCast.toUint64(temp_convertedAmount), remainder);
     }
@@ -103,7 +102,7 @@ library SdkCoin {
         }
         // Amount input validation
         if (amount == 0) {
-            revert IIErrors.ZeroAmountUint64(amount);
+            revert IISdkCoinErrors.ZeroAmountUint64(amount);
         }
         uint256 factor;
         uint256 convertedAmount;
