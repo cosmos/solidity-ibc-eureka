@@ -4,7 +4,7 @@ pragma solidity >=0.8.25;
 // https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20Metadata
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-library ERC20CosmosCoinAmountConversion {
+library SdkCoin {
     // Using Constants for decimals
     uint8 constant DEFAULT_ERC20_DECIMALS = 18;
     // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
@@ -70,26 +70,14 @@ library ERC20CosmosCoinAmountConversion {
             factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             temp_convertedAmount = amount / factor;
             remainder = amount % factor;
-        } else if (tokenDecimals < DEFAULT_COSMOS_DECIMALS) {
-            // Keeping this code here until final team decision is made.
-            // Restricting the support for decimals >= 6 this part will never be executed.
-            // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS
-            // Note we need to amplify the decimals
-            factor = 10 ** (DEFAULT_COSMOS_DECIMALS - tokenDecimals);
-            temp_convertedAmount = amount * factor;
-            remainder = 0;
-        } else {
-            // Case ERC20 decimals == DEFAULT_COSMOS_DECIMALS --> Amount will fit the uint64
-            // Note that we need to handle the case < and == differently
+        } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
             temp_convertedAmount = amount;
             remainder = 0;
+        } else {
+            // revert as this is unreachable
+            revert Unsupported();
         }
-        // TODO Add custom error?
-        // ~uint64(0) is the max value supported by uint64
-        // Probably this check can be removed - cannot think a way to trigger this
-        require(temp_convertedAmount <= ~uint64(0), "Converted amount exceeds uint64 limits");
-        // At this point we should be sure that we are not loosing precision
-        convertedAmount = uint64(temp_convertedAmount);
+        convertedAmount = SafeCast.toUint64(temp_convertedAmount);
         return (convertedAmount, remainder);
     }
 
