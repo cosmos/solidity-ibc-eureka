@@ -77,12 +77,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Transfer(packetData);
     }
 
-    function onRecvPacket(OnRecvPacketCallback calldata msg_)
-        external
-        onlyOwner
-        nonReentrant
-        returns (bytes memory)
-    {
+    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // TODO Emit error event
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.packet.version));
@@ -128,11 +123,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)
-        external
-        onlyOwner
-        nonReentrant
-    {
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
         bool isSuccessAck = true;
 
