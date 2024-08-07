@@ -48,7 +48,7 @@ contract SdkCoinTest is Test {
 
     function testConvertMockERC20AmountToSdkCoin() public view {
         ConvertSdkCoinTestCase[] memory testCases = new ConvertSdkCoinTestCase[](6);
-      
+
         testCases[0] = ConvertSdkCoinTestCase({
             m: "1.000000000000000001 ERC20 tokens",
             amount: 1_000_000_000_000_000_001,
@@ -93,10 +93,15 @@ contract SdkCoinTest is Test {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             ConvertSdkCoinTestCase memory tc = testCases[i];
-            (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), tc.amount);
+            (uint64 convertedAmount, uint256 remainder) =
+                SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), tc.amount);
 
             // Assertions
-            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+            assertEq(
+                convertedAmount,
+                tc.expectedConvertedAmount,
+                string(abi.encodePacked("Converted amount mismatch: ", tc.m))
+            );
             assertEq(remainder, tc.expectedRemainder, string(abi.encodePacked("Remainder mismatch: ", tc.m)));
         }
     }
@@ -112,7 +117,7 @@ contract SdkCoinTest is Test {
     }
 
     function testConvertMockERC20MetadataAmountToSdkCoin() public {
-        ConvertSdkCoinMetadataTestCase [] memory testCases = new ConvertSdkCoinMetadataTestCase[](7);
+        ConvertSdkCoinMetadataTestCase[] memory testCases = new ConvertSdkCoinMetadataTestCase[](7);
 
         testCases[0] = ConvertSdkCoinMetadataTestCase({
             m: "1.000000000000000001 ERC20 tokens with 18 decimals",
@@ -173,18 +178,25 @@ contract SdkCoinTest is Test {
         for (uint256 i = 0; i < testCases.length; i++) {
             ConvertSdkCoinMetadataTestCase memory tc = testCases[i];
             MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
-            (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), tc.amount);
+            (uint64 convertedAmount, uint256 remainder) =
+                SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), tc.amount);
 
             // Assertions
-            assertEq(customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m)));
-            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+            assertEq(
+                customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m))
+            );
+            assertEq(
+                convertedAmount,
+                tc.expectedConvertedAmount,
+                string(abi.encodePacked("Converted amount mismatch: ", tc.m))
+            );
             assertEq(remainder, tc.expectedRemainder, string(abi.encodePacked("Remainder mismatch: ", tc.m)));
         }
     }
 
     /////////////////////////////////////////////////////
     // Tests for SdkCoin to ERC20Metadata - Extended Tokens Standard implementation with decimals
-    
+
     struct ConvertSdkCoinToERC20TestCase {
         string m;
         uint8 decimals;
@@ -193,7 +205,7 @@ contract SdkCoinTest is Test {
     }
 
     function testConvertSdkCoinAmountToERC20() public {
-        ConvertSdkCoinToERC20TestCase [] memory testCases = new ConvertSdkCoinToERC20TestCase[](4);
+        ConvertSdkCoinToERC20TestCase[] memory testCases = new ConvertSdkCoinToERC20TestCase[](4);
 
         testCases[0] = ConvertSdkCoinToERC20TestCase({
             m: "1 Cosmos coin to ERC20 token with 6 decimals",
@@ -226,18 +238,24 @@ contract SdkCoinTest is Test {
         for (uint256 i = 0; i < testCases.length; i++) {
             ConvertSdkCoinToERC20TestCase memory tc = testCases[i];
             MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
-            uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), tc.cosmosAmount);
+            uint256 convertedAmount =
+                SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), tc.cosmosAmount);
 
             // Assertions
-            assertEq(customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m)));
-            assertEq(convertedAmount, tc.expectedConvertedAmount, string(abi.encodePacked("Converted amount mismatch: ", tc.m)));
+            assertEq(
+                customMockERC20Metadata.decimals(), tc.decimals, string(abi.encodePacked("Decimals mismatch: ", tc.m))
+            );
+            assertEq(
+                convertedAmount,
+                tc.expectedConvertedAmount,
+                string(abi.encodePacked("Converted amount mismatch: ", tc.m))
+            );
         }
     }
 
-
     /////////////////////////////////////////////////////
     // Tests triggering reverts conditions
-  
+
     struct RevertTestCase {
         string m;
         address tokenAddress;
@@ -248,7 +266,7 @@ contract SdkCoinTest is Test {
     }
 
     function testRevertConditions() public {
-         RevertTestCase [] memory testCases = new RevertTestCase[](6);
+        RevertTestCase[] memory testCases = new RevertTestCase[](6);
 
         testCases[0] = RevertTestCase({
             m: "Zero address for ERC20 to SdkCoin conversion",
