@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.25 <0.9.0;
 
+// solhint-disable gas-custom-errors,custom-errors
+
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
@@ -24,8 +26,6 @@ struct SP1ICS07TendermintGenesisJson {
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script {
     using stdJson for string;
-
-    error E2EInvalidAddress(string addr);
 
     string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
@@ -61,9 +61,8 @@ contract E2ETestDeploy is Script {
 
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
-        if (!ok) {
-            revert E2EInvalidAddress(E2E_FAUCET);
-        }
+        require(ok, "failed to parse faucet address");
+
         erc20.mint(addr, 100_000_000_000);
 
         vm.stopBroadcast();
