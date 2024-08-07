@@ -6,7 +6,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
-library SdkCoin {
+library SdkCoin is IISdkCoinErrors {
     // Using Constants for decimals
     uint8 constant DEFAULT_ERC20_DECIMALS = 18;
     // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
@@ -66,7 +66,6 @@ library SdkCoin {
         // Ensure the amount respects the token's decimals
         // Handle the case where the input amount exceeds the token's precision
         uint256 temp_convertedAmount;
-        uint256 factor;
         uint256 remainder;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
@@ -78,7 +77,7 @@ library SdkCoin {
             remainder = 0;
         } else {
             // revert as this is unreachable
-            revert IISdkCoinErrors.Unsupported();
+            revert Unsupported();
         }
         return (SafeCast.toUint64(temp_convertedAmount), remainder);
     }
@@ -104,7 +103,6 @@ library SdkCoin {
         if (amount == 0) {
             revert IISdkCoinErrors.ZeroAmountUint64(amount);
         }
-        uint256 factor;
         uint256 convertedAmount;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
