@@ -6,7 +6,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
-library SdkCoin is IISdkCoinErrors {
+library SdkCoin {
     // Using Constants for decimals
     uint8 constant DEFAULT_ERC20_DECIMALS = 18;
     // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
@@ -69,7 +69,7 @@ library SdkCoin is IISdkCoinErrors {
         uint256 remainder;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
-            factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
+            uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             temp_convertedAmount = amount / factor;
             remainder = amount % factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
@@ -77,7 +77,7 @@ library SdkCoin is IISdkCoinErrors {
             remainder = 0;
         } else {
             // revert as this is unreachable
-            revert Unsupported();
+            revert IISdkCoinErrors.Unsupported();
         }
         return (SafeCast.toUint64(temp_convertedAmount), remainder);
     }
@@ -106,15 +106,17 @@ library SdkCoin is IISdkCoinErrors {
         uint256 convertedAmount;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
-            factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
+            uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             // uint256 = uint64 * uint256 that should be ok
             convertedAmount = amount * factor;
-        } else if (tokenDecimals < DEFAULT_COSMOS_DECIMALS) {
+        } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
+            convertedAmount = amount;
+        } else {
+            // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS
             // TODO if we decide to support this case. It will require handling the loss of precision
             // in the go side
-        } else {
-            // Case ERC20 decimals == DEFAULT_COSMOS_DECIMALS
-            convertedAmount = amount;
+            // revert as this is unreachable
+            revert IISdkCoinErrors.Unsupported();
         }
 
         return convertedAmount;
