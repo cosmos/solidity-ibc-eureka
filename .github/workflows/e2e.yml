@@ -12,6 +12,7 @@ on:
       - '**.sum'
       - '**.sol'
       - '.github/workflows/e2e.yml'
+      - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
 permissions:

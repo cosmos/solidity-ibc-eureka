@@ -10,7 +10,7 @@ pragma solidity >=0.8.25 <0.9.0;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v1.0.1/SP1Verifier.sol";
+import { SP1Verifier } from "@sp1-contracts/v1.1.0/SP1Verifier.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
