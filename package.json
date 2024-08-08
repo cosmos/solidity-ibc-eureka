@@ -12,8 +12,8 @@
   },
   "devDependencies": {
     "solhint": "^5.0.2",
-    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#dfba448b5f6bd08e2917e7ddeca3aaed78f9ad7f",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.0.1"
+    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#f3a6849ebdf8365dd6c73dd6f4b8d22f7eaae595",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.1.0"
   },
   "keywords": [
     "blockchain",
