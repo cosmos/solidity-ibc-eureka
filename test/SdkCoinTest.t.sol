@@ -7,64 +7,23 @@ import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { MockERC20 } from "../test/mock/MockERC20.sol";
+import { MockERC20Metadata } from "../test/mock/MockERC20Metadata.sol";
 
 /*
     This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
     considering the differences in decimals. The testing strategy is twofold:
 
-1. **Table Testing**: This involves manually computing expected scenarios and failure conditions to ensure comprehensive
-       coverage. It verifies that the conversion functions behave correctly across a wide range of predefined cases,
-       including edge cases and common scenarios.
-
-2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
-       uncover unexpected bugs and edge cases, while invariant testing ensures that core properties and conditions 
-       always hold true for the function's outputs. This approach provides robust validation without the need to 
-manually compute expected values for each input, enhancing the overall reliability and accuracy of the conversion
-functions.*/
-
-// Discuss - Do we want to move mock contract to a mock folder?
-// Mock ERC20 token without the decimals function overridden
-contract MockERC20 is ERC20 {
-    constructor() ERC20("BaseToken", "BTK") {
-        _mint(msg.sender, 100_000_000_000_000_000_000); // Mint some tokens for testing
-    }
-}
-
-// Discuss - Do we want to move mock contract to a mock folder?
-// Mock ERC20 token with the decimals function overridden
-contract MockERC20Metadata is ERC20 {
-    uint8 private _decimals;
-
-    constructor(uint8 decimals_) ERC20("MetadataToken", "MTK") {
-        _decimals = decimals_;
-        _mint(msg.sender, 100_000_000_000_000_000_000); // Mint some tokens for testing
-    }
-
-    function decimals() public view override returns (uint8) {
-        return _decimals;
-    }
-}
-
-/*
-    Table testing involves creating a set of predefined test cases with specific inputs and expected outputs. Each 
-    test case is manually computed to cover various scenarios, including normal operation, edge cases, and potential 
+1. **Table Testing**: This involves creating a set of predefined test cases with specific inputs and expected outputs. 
+Each test case is manually computed to cover various scenarios, including normal operation, edge cases, and potential 
     failure conditions. By explicitly defining the expected outcomes for these specific inputs, table testing allows us 
     to ensure that the conversion functions handle all possible scenarios correctly and robustly.
 
-    The benefits of table testing include:
-    - **Predictability**: By knowing the expected output for a given input, we can easily verify the correctness of 
-      the function's behavior.
-    - **Comprehensive Coverage**: We can systematically cover a wide range of scenarios, including edge cases that 
-      might be missed by random input generation.
-    - **Failure Scenarios**: Table testing allows us to explicitly define and test for failure conditions, ensuring 
-      that the functions handle errors gracefully and as expected.
-    - **Documentation**: Table tests serve as documentation of the function's expected behavior across different 
-      scenarios, providing clarity and insight into the function's operation.
-
-    In summary, table testing provides a solid foundation for verifying the correctness of our conversion functions, 
-    ensuring that they perform accurately and reliably in a controlled set of predefined scenarios before moving on to 
-    more dynamic testing approaches.
-*/
+2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
+uncover unexpected bugs and edge cases, while invariant testing ensures that core properties and conditions always hold
+true 
+for thefunction's outputs given random inputs . This approach provides robust validation without the need to manually 
+    compute expected values for each input, enhancing the overall reliability and accuracy of the conversion functions.*/
 
 contract SdkCoinTest is Test, IISdkCoinErrors {
     // Instance of the MockERC20 contract
@@ -369,19 +328,8 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         }
     }
 
-    /*
-    We now provide the invariant testing for the conversion functions, which includes fuzz testing. In our testing
-    approach, we focus on invariant testing, which offers several benefits:
-
-    - Fuzz testing, as part of invariant testing, generates random inputs to test the functions, helping uncover
-    unexpected bugs and edge cases.
-    - Invariant testing ensures that core properties and conditions that must always hold true for the function's
-    outputs are consistently upheld, providing more meaningful and robust validation.
-
-    This combined approach ensures we can effectively test without manually computing expected values for each input. 
-    It guarantees that the core properties of the conversion logic are maintained, leading to more reliable and accurate 
-    validation of the conversion functions.
-    */
+    ///////////////////////////////////////
+    // We now provide the invariant testing for the conversion functions, which includes fuzz testing.
 
     ///////////////////////////////////////
     // Invariants:
