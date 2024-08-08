@@ -12,15 +12,15 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
     This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
     considering the differences in decimals. The testing strategy is twofold:
 
-    1. **Table Testing**: This involves manually computing expected scenarios and failure conditions to ensure comprehensive
+1. **Table Testing**: This involves manually computing expected scenarios and failure conditions to ensure comprehensive
        coverage. It verifies that the conversion functions behave correctly across a wide range of predefined cases,
        including edge cases and common scenarios.
 
-    2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
+2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
        uncover unexpected bugs and edge cases, while invariant testing ensures that core properties and conditions 
        always hold true for the function's outputs. This approach provides robust validation without the need to 
-       manually compute expected values for each input, enhancing the overall reliability and accuracy of the conversion functions.
-*/
+manually compute expected values for each input, enhancing the overall reliability and accuracy of the conversion
+functions.*/
 
 // Discuss - Do we want to move mock contract to a mock folder?
 // Mock ERC20 token without the decimals function overridden
