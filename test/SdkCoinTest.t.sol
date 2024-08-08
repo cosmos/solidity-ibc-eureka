@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 // Discuss - Do we want to move mock contract to a mock folder?
 // Mock ERC20 token without the decimals function overridden
@@ -366,5 +367,74 @@ contract SdkCoinTest is Test {
     - In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount. 
     - For non-zero inputs, the remainder should be less than the factor used for conversion. (e.g., the divisor).
 */
+
+    
+ // Invariant test: If `tokenDecimals == DEFAULT_COSMOS_DECIMALS`, the converted amount should equal the input amount, and the remainder should be 0.
+function testInvariantEqualDecimals(uint256 amount) public {
+    // Skip test for zero amount or overflow conditions
+    uint64 maxUint64 = type(uint64).max;
+    if (amount == 0 || amount > maxUint64) {
+        return;
+    }
+
+    address tokenAddress = address(new MockERC20Metadata(6));
+    uint8 tokenDecimals = SdkCoin._getERC20TokenDecimals(address(tokenAddress));
+
+    if (tokenDecimals == SdkCoin.DEFAULT_COSMOS_DECIMALS) {
+        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
+        assertEq(convertedAmount, SafeCast.toUint64(amount), "Converted amount should equal input amount");
+        assertEq(remainder, 0, "Remainder should be 0");
+    }
+}
+
+// Invariant test: In the case ERC20 -> SdkCoin the converted amount should always be <= to the input amount. If less, the remainder should be > 0.
+function testInvariantERC20ToSdkCoin(uint256 amount) public {
+    // Skip test for zero amount or overflow conditions
+    uint64 maxUint64 = type(uint64).max;
+    if (amount == 0 || amount > maxUint64) {
+        return;
+    }
+
+    address tokenAddress = address(new MockERC20Metadata(6));
+
+    (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
+    assertTrue(convertedAmount <= amount, "Converted amount should be <= input amount");
+    if (convertedAmount < amount) {
+        assertTrue(remainder > 0, "Remainder should be > 0");
+    }
+}
+
+// Invariant test: In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount.
+function testInvariantSdkCoinToERC20(uint64 amount) public {
+    // Skip test for zero amount
+    if (amount == 0) {
+        return;
+    }
+
+    address tokenAddress = address(new MockERC20Metadata(18));
+
+    uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(tokenAddress), amount);
+    assertTrue(convertedAmount >= amount, "Converted amount should be >= input amount");
+}
+
+// Invariant test: For non-zero inputs, the remainder should be less than the factor used for conversion.
+function testInvariantRemainder(uint256 amount) public {
+    // Skip test for zero amount or overflow conditions
+    uint64 maxUint64 = type(uint64).max;
+    if (amount == 0 || amount > maxUint64) {
+        return;
+    }
+
+    address tokenAddress = address(new MockERC20Metadata(6));
+
+    uint8 tokenDecimals = SdkCoin._getERC20TokenDecimals(address(tokenAddress));
+    if (tokenDecimals > SdkCoin.DEFAULT_COSMOS_DECIMALS) {
+        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
+        uint256 factor = 10 ** (tokenDecimals - SdkCoin.DEFAULT_COSMOS_DECIMALS);
+        assertTrue(remainder < factor, "Remainder should be less than conversion factor");
+    }
+}
+
+
 
 }
