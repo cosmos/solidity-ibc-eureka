@@ -8,6 +8,20 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+/*
+    This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
+    considering the differences in decimals. The testing strategy is twofold:
+
+    1. **Table Testing**: This involves manually computing expected scenarios and failure conditions to ensure comprehensive
+       coverage. It verifies that the conversion functions behave correctly across a wide range of predefined cases,
+       including edge cases and common scenarios.
+
+    2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
+       uncover unexpected bugs and edge cases, while invariant testing ensures that core properties and conditions 
+       always hold true for the function's outputs. This approach provides robust validation without the need to 
+       manually compute expected values for each input, enhancing the overall reliability and accuracy of the conversion functions.
+*/
+
 // Discuss - Do we want to move mock contract to a mock folder?
 // Mock ERC20 token without the decimals function overridden
 contract MockERC20 is ERC20 {
@@ -31,7 +45,28 @@ contract MockERC20Metadata is ERC20 {
     }
 }
 
-contract SdkCoinTest is Test {
+/*
+    Table testing involves creating a set of predefined test cases with specific inputs and expected outputs. Each 
+    test case is manually computed to cover various scenarios, including normal operation, edge cases, and potential 
+    failure conditions. By explicitly defining the expected outcomes for these specific inputs, table testing allows us 
+    to ensure that the conversion functions handle all possible scenarios correctly and robustly.
+
+    The benefits of table testing include:
+    - **Predictability**: By knowing the expected output for a given input, we can easily verify the correctness of 
+      the function's behavior.
+    - **Comprehensive Coverage**: We can systematically cover a wide range of scenarios, including edge cases that 
+      might be missed by random input generation.
+    - **Failure Scenarios**: Table testing allows us to explicitly define and test for failure conditions, ensuring 
+      that the functions handle errors gracefully and as expected.
+    - **Documentation**: Table tests serve as documentation of the function's expected behavior across different 
+      scenarios, providing clarity and insight into the function's operation.
+
+    In summary, table testing provides a solid foundation for verifying the correctness of our conversion functions, 
+    ensuring that they perform accurately and reliably in a controlled set of predefined scenarios before moving on to 
+    more dynamic testing approaches.
+*/
+
+contract SdkCoinTest is Test, IISdkCoinErrors {
     // Instance of the MockERC20 contract
     MockERC20 private mockERC20;
 
@@ -275,7 +310,7 @@ contract SdkCoinTest is Test {
             decimals: 0,
             evmAmount: 1_000_000,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0))
+            expectedRevertSelector: abi.encodeWithSelector(ZeroAddress.selector, address(0))
         });
 
         testCases[1] = RevertTestCase({
@@ -284,7 +319,7 @@ contract SdkCoinTest is Test {
             decimals: 0,
             evmAmount: 0,
             cosmosAmount: 1_000_000,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0))
+            expectedRevertSelector: abi.encodeWithSelector(ZeroAddress.selector, address(0))
         });
 
         testCases[2] = RevertTestCase({
@@ -293,7 +328,7 @@ contract SdkCoinTest is Test {
             decimals: 5,
             evmAmount: 1_000_000,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5))
+            expectedRevertSelector: abi.encodeWithSelector(UnsupportedTokenDecimals.selector, uint8(5))
         });
 
         testCases[3] = RevertTestCase({
@@ -302,7 +337,7 @@ contract SdkCoinTest is Test {
             decimals: 5,
             evmAmount: 0,
             cosmosAmount: 1_000_000,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.UnsupportedTokenDecimals.selector, uint8(5))
+            expectedRevertSelector: abi.encodeWithSelector(UnsupportedTokenDecimals.selector, uint8(5))
         });
 
         testCases[4] = RevertTestCase({
@@ -311,16 +346,15 @@ contract SdkCoinTest is Test {
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAmountUint64.selector, uint64(0))
+            expectedRevertSelector: abi.encodeWithSelector(ZeroAmountUint64.selector, uint64(0))
         });
-
         testCases[5] = RevertTestCase({
             m: "Zero amount for ERC20 to SdkCoin conversion",
             tokenAddress: address(new MockERC20Metadata(6)),
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(IISdkCoinErrors.ZeroAmountUint256.selector, uint256(0))
+            expectedRevertSelector: abi.encodeWithSelector(ZeroAmountUint256.selector, uint256(0))
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
@@ -335,106 +369,210 @@ contract SdkCoinTest is Test {
         }
     }
 
-/*
-    These functions convert ERC20 token amount <-> Cosmos SDK coin amount, taking into account the ERC20 token's decimals.
-    This ensures that the amount adheres to the token's precision and handles various cases where the ERC20 token's decimals differ
-    from the default Cosmos decimals.
+    /*
+    We now provide the invariant testing for the conversion functions, which includes fuzz testing. In our testing
+    approach, we focus on invariant testing, which offers several benefits:
 
-    For this specific context, fuzz testing should be only used in combination with invariant testing. Here’s why:
+    - Fuzz testing, as part of invariant testing, generates random inputs to test the functions, helping uncover
+    unexpected bugs and edge cases.
+    - Invariant testing ensures that core properties and conditions that must always hold true for the function's
+    outputs are consistently upheld, providing more meaningful and robust validation.
 
-    Fuzz testing involves generating random inputs to test the function, which can help uncover unexpected bugs. However, for these
-    specific functions, fuzz testing alone is less effective due to the following reasons:
-    1. Computing the expected values for these conversions requires manual thinking. Using a standard conversion function 
-       to calculate expected values for random inputs negates the need for this library and makes the 
-       fuzz testing process pointless.
-    2. Directly replicating the function's logic in tests to calculate expected outputs results in tautological testing. 
-       This means the test simply mirrors the implementation, providing no real verification and thus no added value.
-    3. Fuzz testing could be eventually useful to trigger failure scenarios, but these are already covered by table testing. 
+    This combined approach ensures we can effectively test without manually computing expected values for each input. 
+    It guarantees that the core properties of the conversion logic are maintained, leading to more reliable and accurate 
+    validation of the conversion functions.
+    */
 
-    Instead, combining fuzz testing with invariant testing is more appropriate since it focuses on properties and conditions 
-    that must always hold true for the function's outputs. This approach is more meaningful for validation of these functions 
-    as it does not require computing expected values.
-    
-    By focusing on invariants, we can ensure that the core properties of the conversion logic are always upheld, providing stronger
-    guarantees of correctness. Overall, this combined approach ensures thorough testing by leveraging the strengths of 
-    both fuzz testing and invariant testing, leading to more reliable and accurate validation of the conversion functions.
+    ///////////////////////////////////////
+    // Invariants:
 
-    Example invariant properties that we may use are: 
-    - If `tokenDecimals == DEFAULT_COSMOS_DECIMALS`, the converted amount should equal the input amount, and 
-      the remainder should be 0.
-    - In the case ERC20 -> SdkCoin the converted amount should always be <= to the input amount. If less 
-      the remainder should be > 0.
-    - In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount. 
-    - For non-zero inputs, the remainder should be less than the factor used for conversion. (e.g., the divisor).
-*/
-
-    
- // Invariant test: If `tokenDecimals == DEFAULT_COSMOS_DECIMALS`, the converted amount should equal the input amount, and the remainder should be 0.
-function testInvariantEqualDecimals(uint256 amount) public {
-    // Skip test for zero amount or overflow conditions
-    uint64 maxUint64 = type(uint64).max;
-    if (amount == 0 || amount > maxUint64) {
-        return;
+    /**
+     * @notice Assert that the remainder is zero
+     * @notice This function ensures that the remainder is zero for certain conditions
+     * @param remainder The remainder value to be checked
+     */
+    function invariant_ERC20toSdkCoin_RemainderIsZero(uint256 remainder) internal pure {
+        // Assert that the remainder is zero with a custom error message
+        if (remainder != 0) {
+            revert RemainderIsNotZero(remainder);
+        }
     }
 
-    address tokenAddress = address(new MockERC20Metadata(6));
-    uint8 tokenDecimals = SdkCoin._getERC20TokenDecimals(address(tokenAddress));
-
-    if (tokenDecimals == SdkCoin.DEFAULT_COSMOS_DECIMALS) {
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
-        assertEq(convertedAmount, SafeCast.toUint64(amount), "Converted amount should equal input amount");
-        assertEq(remainder, 0, "Remainder should be 0");
-    }
-}
-
-// Invariant test: In the case ERC20 -> SdkCoin the converted amount should always be <= to the input amount. If less, the remainder should be > 0.
-function testInvariantERC20ToSdkCoin(uint256 amount) public {
-    // Skip test for zero amount or overflow conditions
-    uint64 maxUint64 = type(uint64).max;
-    if (amount == 0 || amount > maxUint64) {
-        return;
-    }
-
-    address tokenAddress = address(new MockERC20Metadata(6));
-
-    (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
-    assertTrue(convertedAmount <= amount, "Converted amount should be <= input amount");
-    if (convertedAmount < amount) {
-        assertTrue(remainder > 0, "Remainder should be > 0");
-    }
-}
-
-// Invariant test: In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount.
-function testInvariantSdkCoinToERC20(uint64 amount) public {
-    // Skip test for zero amount
-    if (amount == 0) {
-        return;
+    /**
+     * @notice Validate the remainder based on the given factor
+     * @notice This function checks if the remainder is correctly calculated based on whether the amount is an exact
+     * multiple of the factor
+     * @param amount The amount to be converted
+     * @param remainder The remainder of the conversion
+     * @param factor The factor used in the conversion
+     */
+    function invariant_ERC20toSdkCoin_RemainderByFactor(
+        uint256 amount,
+        uint256 remainder,
+        uint256 factor
+    )
+        internal
+        pure
+    {
+        // Check if the amount is not an exact multiple of the factor
+        if (amount % factor != 0 && remainder == 0) {
+            // If the amount is not an exact multiple of the factor, the remainder should not be zero
+            // Revert with an error if the remainder is zero in this case
+            revert RemainderIsNotBiggerThanZero(remainder);
+        } else if (amount % factor == 0 && remainder != 0) {
+            // Check if the amount is an exact multiple of the factor
+            // If the amount is an exact multiple of the factor, the remainder should be zero
+            // Revert with an error if the remainder is not zero in this case
+            revert RemainderIsNotZero(remainder);
+        }
     }
 
-    address tokenAddress = address(new MockERC20Metadata(18));
-
-    uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(tokenAddress), amount);
-    assertTrue(convertedAmount >= amount, "Converted amount should be >= input amount");
-}
-
-// Invariant test: For non-zero inputs, the remainder should be less than the factor used for conversion.
-function testInvariantRemainder(uint256 amount) public {
-    // Skip test for zero amount or overflow conditions
-    uint64 maxUint64 = type(uint64).max;
-    if (amount == 0 || amount > maxUint64) {
-        return;
+    /**
+     * @notice Invariant check to ensure the converted amount equals the input amount
+     * @notice Given random inputs, this check ensures that the converted amount equals the input amount for ERC20 to
+     * Cosmos coin conversion
+     * @param convertedAmount The converted amount to be checked
+     * @param amount The original amount of ERC20 tokens
+     */
+    function invariant_ERC20toSdkCoin_ConvertedAmountEqualsInput(
+        uint64 convertedAmount,
+        uint256 amount
+    )
+        internal
+        pure
+    {
+        if (convertedAmount != SafeCast.toUint64(amount)) {
+            revert ConvertedAmountNotEqualInput(convertedAmount, amount);
+        }
     }
 
-    address tokenAddress = address(new MockERC20Metadata(6));
-
-    uint8 tokenDecimals = SdkCoin._getERC20TokenDecimals(address(tokenAddress));
-    if (tokenDecimals > SdkCoin.DEFAULT_COSMOS_DECIMALS) {
-        (uint64 convertedAmount, uint256 remainder) = SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
-        uint256 factor = 10 ** (tokenDecimals - SdkCoin.DEFAULT_COSMOS_DECIMALS);
-        assertTrue(remainder < factor, "Remainder should be less than conversion factor");
+    /**
+     * @notice Invariant check to ensure the converted amount is greater than or equal to the input amount
+     * @notice Given random inputs, this check ensures that the converted amount is greater than or equal to the input
+     * amount for Cosmos coin to ERC20 conversion
+     * @param convertedAmount The converted amount to be checked
+     * @param amount The original amount of Cosmos coins
+     */
+    function invariant_SdkCointoERC20_ConvertedAmountBiggerOrEqualThanInput(
+        uint256 convertedAmount,
+        uint64 amount
+    )
+        internal
+        pure
+    {
+        if (convertedAmount < amount) {
+            revert ConvertedAmountNotBiggerThanOrEqualInput(convertedAmount, amount);
+        }
     }
-}
 
+    /////////////////////////////////////
+    // Let's define the assertions functions that use our invariants
+    /**
+     * @notice Assert invariants for ERC20 to Cosmos coin conversion when token decimals are equal to Cosmos decimals
+     * @notice Given random inputs, this function applies invariant checking to ensure the converted amount equals the
+     * input amount and the remainder is zero
+     * @param convertedAmount The converted amount to be checked
+     * @param amount The original amount of ERC20 tokens
+     * @param remainder The remainder of the conversion
+     */
+    function assertInvariants_ERC20toSdkCoin_EqualDecimals(
+        uint64 convertedAmount,
+        uint256 amount,
+        uint256 remainder
+    )
+        internal
+        pure
+    {
+        invariant_ERC20toSdkCoin_ConvertedAmountEqualsInput(convertedAmount, amount);
+        invariant_ERC20toSdkCoin_RemainderIsZero(remainder);
+    }
 
+    /**
+     * @notice Assert invariants for ERC20 to Cosmos coin conversion when ERC20 token decimals are greater than Cosmos
+     * decimals
+     * @notice This function ensures that the remainder and converted amount are correctly calculated when the token
+     * decimals are larger than the Cosmos decimals
+     * @param convertedAmount The amount converted to uint64 supported by Cosmos coins
+     * @param amount The original amount of ERC20 tokens
+     * @param remainder The remainder of the conversion
+     * @param factor The factor used for conversion based on the difference in decimals
+     */
+    function assertInvariants_ERC20toSdkCoin_BiggerDecimals(
+        uint64 convertedAmount,
+        uint256 amount,
+        uint256 remainder,
+        uint256 factor
+    )
+        internal
+        pure
+    {
+        if (convertedAmount == amount) {
+            invariant_ERC20toSdkCoin_RemainderIsZero(remainder);
+        } else if (convertedAmount < SafeCast.toUint64(amount)) {
+            invariant_ERC20toSdkCoin_RemainderByFactor(amount, remainder, factor);
+        }
+    }
 
+    // Invariants Tests
+    // Invariant test: ERC20 -> SdkCoin with tokenDecimals == DEFAULT_COSMOS_DECIMALS,
+    // the converted amount should always be == to the input amount, and the remainder should be 0.
+    /**
+     * @notice Invariant test for ERC20 to Cosmos coin conversion when token decimals are equal to Cosmos decimals
+     * @notice Given random inputs, this test applies invariant checking to ensure the converted amount equals the input
+     * amount and the remainder is zero
+     * @param amount The amount of ERC20 tokens to be converted
+     */
+    function testInvariant_ERC20toSdkCoin_EqualDecimals(uint256 amount) public {
+        // Skip test for zero amount or overflow conditions
+        if (amount == 0 || amount > ~uint64(0)) {
+            // These conditions will revert and are expected behaviours that have already been covered in table testing
+            return;
+        }
+        address tokenAddress = address(new MockERC20Metadata(6));
+        (uint64 convertedAmount, uint256 remainder) =
+            SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
+        assertInvariants_ERC20toSdkCoin_EqualDecimals(convertedAmount, amount, remainder);
+    }
+
+    // Invariant test: In the case ERC20 -> SdkCoin with tokenDecimals > DEFAULT_COSMOS_DECIMALS
+    // the converted amount should always be <= to the input amount. If less, the remainder should be > 0.
+    /**
+     * @notice Invariant test for ERC20 to Cosmos coin conversion with token decimals greater than Cosmos decimals
+     * @notice Given random inputs, this test applies invariant checking previously defined
+     * @param amount The amount of ERC20 tokens to be converted
+     * @param decimals The number of decimals of the ERC20 token
+     */
+    function testInvariant_ERC20ToSdkCoin_BiggerDecimals(uint256 amount, uint8 decimals) public {
+        // Inputs constraints
+        if (amount == 0 || amount > ~uint64(0) || decimals <= 6 || decimals > 77) {
+            // These conditions will revert and are expected behaviours that have already been covered in table testing
+            return;
+        }
+        address tokenAddress = address(new MockERC20Metadata(decimals));
+        uint256 factor = 10 ** (decimals - SdkCoin.DEFAULT_COSMOS_DECIMALS);
+
+        (uint64 convertedAmount, uint256 remainder) =
+            SdkCoin._convertERC20AmountToSdkCoin(address(tokenAddress), amount);
+        assertInvariants_ERC20toSdkCoin_BiggerDecimals(convertedAmount, amount, remainder, factor);
+    }
+
+    // Invariant test: In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount.
+    function testInvariant_SdkCoinToERC20(uint64 amount, uint8 decimals) public {
+        // Inputs constraints
+        if (amount == 0 || amount > ~uint64(0) || decimals < 6 || decimals > 77) {
+            // These conditions will revert and are expected behaviours that have already been covered in table testing
+            return;
+        }
+
+        uint256 factor = 10 ** (decimals - SdkCoin.DEFAULT_COSMOS_DECIMALS);
+        // Ensure the multiplication will not overflow given the random inputs
+        if (amount > ~uint256(0) / factor) {
+            // Skip the test case as it would cause an overflow that will be catched by built-in checks
+            return;
+        }
+        address tokenAddress = address(new MockERC20Metadata(decimals));
+
+        uint256 convertedAmount = SdkCoin._convertSdkCoinAmountToERC20(address(tokenAddress), amount);
+        invariant_SdkCointoERC20_ConvertedAmountBiggerOrEqualThanInput(convertedAmount, amount);
+    }
 }

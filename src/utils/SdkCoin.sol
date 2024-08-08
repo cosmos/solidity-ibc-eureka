@@ -56,7 +56,7 @@ library SdkCoin {
         // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
-        if (tokenDecimals < 6) {
+        if (tokenDecimals < 6 || tokenDecimals > 77) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
         // Amount input validation
@@ -70,6 +70,7 @@ library SdkCoin {
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
+            // Solidity version > 0.8 includes built in overflows/underflows checks
             temp_convertedAmount = amount / factor;
             remainder = amount % factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
@@ -95,8 +96,8 @@ library SdkCoin {
         // address input validation perfomed in the _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
-        // Ensure the token has at least 6 decimals
-        if (tokenDecimals < 6) {
+        // Ensure the token has at least 6 decimals and max 77
+        if (tokenDecimals < 6 || tokenDecimals > 77) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
         // Amount input validation
@@ -108,13 +109,15 @@ library SdkCoin {
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             // uint256 = uint64 * uint256 that should be ok
+            // Solidity version > 0.8 includes built in overflows/underflows checks
             convertedAmount = amount * factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
+            // uint256 = uint64 should be ok
             convertedAmount = amount;
         } else {
             // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS
             // TODO if we decide to support this case. It will require handling the loss of precision
-            // in the go side
+            // in the go side. Note that potentially we can retrieve the ERC20 decimals using cross-chain queries
             // revert as this is unreachable
             revert IISdkCoinErrors.Unsupported();
         }
