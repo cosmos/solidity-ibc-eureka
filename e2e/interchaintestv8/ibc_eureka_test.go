@@ -364,7 +364,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20ContractAddress.Hex()))
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
 		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
@@ -645,7 +645,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20ContractAddress.Hex()))
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
 		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)

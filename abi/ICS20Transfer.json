@@ -386,17 +386,22 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedFungibleTokenPacketData",
+        "internalType": "struct ICS20Lib.SendPacketData",
         "components": [
           {
-            "name": "erc20ContractAddress",
-            "type": "address",
-            "internalType": "address"
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
           },
           {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "receiverChainIsSource",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "erc20Contract",
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "sender",
@@ -407,6 +412,11 @@
             "name": "receiver",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "memo",
@@ -438,12 +448,22 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.ReceivePacketData",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "senderChainIsSource",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "erc20Contract",
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "sender",
@@ -452,8 +472,8 @@
           },
           {
             "name": "receiver",
-            "type": "string",
-            "internalType": "string"
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "amount",
@@ -478,17 +498,22 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedFungibleTokenPacketData",
+        "internalType": "struct ICS20Lib.SendPacketData",
         "components": [
           {
-            "name": "erc20ContractAddress",
-            "type": "address",
-            "internalType": "address"
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
           },
           {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "receiverChainIsSource",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "erc20Contract",
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "sender",
@@ -499,6 +524,11 @@
             "name": "receiver",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "memo",
@@ -518,17 +548,22 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedFungibleTokenPacketData",
+        "internalType": "struct ICS20Lib.SendPacketData",
         "components": [
           {
-            "name": "erc20ContractAddress",
-            "type": "address",
-            "internalType": "address"
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
           },
           {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "receiverChainIsSource",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "erc20Contract",
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "sender",
@@ -539,6 +574,11 @@
             "name": "receiver",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "memo",
@@ -625,6 +665,17 @@
         "name": "length",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20DenomNotFound",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },
@@ -795,6 +846,17 @@
     "inputs": [
       {
         "name": "version",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20UnsupportedFeature",
+    "inputs": [
+      {
+        "name": "feature",
         "type": "string",
         "internalType": "string"
       }

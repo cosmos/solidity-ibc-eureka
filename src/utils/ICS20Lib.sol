@@ -9,7 +9,7 @@ import { IICS20Errors } from "../errors/IICS20Errors.sol";
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
     /**
-     * @dev PacketData is defined in
+     * @dev PacketDataJSON is defined in
      * [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
      */
     struct PacketDataJSON {
@@ -20,12 +20,25 @@ library ICS20Lib {
         string memo;
     }
 
-    /// @notice Convenience type used after unmarshalling the packet data and converting addresses
-    struct UnwrappedFungibleTokenPacketData {
-        address erc20ContractAddress;
-        uint256 amount;
+    /// @dev SendPacketData is a type used to represent the data needed to send a packet.
+    struct SendPacketData {
+        string denom;
+        bool receiverChainIsSource;
+        address erc20Contract;
         address sender;
         string receiver;
+        uint256 amount;
+        string memo;
+    }
+
+    /// @dev SendPacketData is a type used to represent the data needed to send a packet.
+    struct ReceivePacketData {
+        string denom;
+        bool senderChainIsSource;
+        address erc20Contract;
+        string sender;
+        address receiver;
+        uint256 amount;
         string memo;
     }
 
@@ -119,7 +132,7 @@ library ICS20Lib {
      * @dev unmarshalJSON unmarshals JSON bytes into PacketData.
      */
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
-        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
+        // TODO: #22 Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
         PacketDataJSON memory pd;
         uint256 pos = 0;
 
@@ -341,32 +354,26 @@ library ICS20Lib {
         return keccak256(a) == keccak256(b);
     }
 
-    function unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
-
-        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.denom);
-        if (!tokenContractConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidTokenContract(packetData.denom);
+    /**
+     * @dev hasPrefix returns true if the byte array has the given prefix.
+     */
+    function hasPrefix(bytes memory denomBz, bytes memory prefix) internal pure returns (bool) {
+        if (denomBz.length < prefix.length) {
+            return false;
         }
-
-        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.sender);
-        if (!senderConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidSender(packetData.sender);
-        }
-
-        return UnwrappedFungibleTokenPacketData({
-            erc20ContractAddress: tokenContract,
-            amount: packetData.amount,
-            sender: sender,
-            receiver: packetData.receiver,
-            memo: packetData.memo
-        });
+        return equal(slice(denomBz, 0, prefix.length), prefix);
     }
 
+    /**
+     * @dev errorAck returns an error acknowledgement JSON.
+     */
     function errorAck(bytes memory reason) internal pure returns (bytes memory) {
         return abi.encodePacked("{\"error\":\"", reason, "\"}");
     }
 
+    /**
+     * @dev getDenomPrefix returns the prefix of a denomination with a port and channel.
+     */
     function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
         return abi.encodePacked(port, "/", channel, "/");
     }

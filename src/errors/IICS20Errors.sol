@@ -25,6 +25,10 @@ interface IICS20Errors {
     /// @param actual Actual balance of the ERC20 token for ICS20Transfer
     error ICS20UnexpectedERC20Balance(uint256 expected, uint256 actual);
 
+    /// @notice this error happens when the denom has no foreign ibcERC20 contract (i.e. we don't know this denom)
+    /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
+    error ICS20DenomNotFound(string denom);
+
     /// @param feature Unsupported feature
     error ICS20UnsupportedFeature(string feature);
 
