@@ -11,9 +11,6 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
-    // TODO: Figure out what a reasonable threshold is for the timestamp, how long into the future and still be safe
-    uint256 public constant SECONDS_THRESHOLD = 7_952_338_800; // The year of our lord 2222
-
     enum PacketReceipt {
         NONE,
         SUCCESSFUL
