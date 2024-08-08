@@ -10,21 +10,23 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { MockERC20 } from "../test/mock/MockERC20.sol";
 import { MockERC20Metadata } from "../test/mock/MockERC20Metadata.sol";
 
-/*
-    This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
-    considering the differences in decimals. The testing strategy is twofold:
-
-1. **Table Testing**: This involves creating a set of predefined test cases with specific inputs and expected outputs. 
-Each test case is manually computed to cover various scenarios, including normal operation, edge cases, and potential 
-    failure conditions. By explicitly defining the expected outcomes for these specific inputs, table testing allows us 
-    to ensure that the conversion functions handle all possible scenarios correctly and robustly.
-
-2. **Invariant Testing**: This combines fuzz testing with invariant testing. Fuzz testing generates random inputs to 
-uncover unexpected bugs and edge cases, while invariant testing ensures that core properties and conditions always hold
-true 
-for thefunction's outputs given random inputs . This approach provides robust validation without the need to manually 
-    compute expected values for each input, enhancing the overall reliability and accuracy of the conversion functions.*/
-
+/**
+ * This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
+ * considering the differences in decimals. The testing strategy is twofold:
+ *
+ * 1. Table Testing:
+ *    - Involves creating a set of predefined test cases with specific inputs and expected outputs.
+ *    - Each test case is manually computed to cover various scenarios, including normal operation, edge cases,
+ *      and potential failure conditions.
+ *
+ * 2. Invariant Testing:
+ *    - Combines fuzz testing with invariant testing.
+ *    - Fuzz testing generates random inputs to uncover unexpected bugs and edge cases.
+ *    - Invariant testing ensures that core properties and conditions always hold true for the function's outputs
+ *      given random inputs.
+ *    - This approach provides robust validation without the need to manually compute expected values for each input,
+ *      enhancing the overall reliability and accuracy of the conversion functions.
+ */
 contract SdkCoinTest is Test, IISdkCoinErrors {
     // Instance of the MockERC20 contract
     MockERC20 private mockERC20;
@@ -34,52 +36,52 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         mockERC20 = new MockERC20();
     }
 
-    struct ConvertSdkCoinTestCase {
+    struct ERC20toSdkCoin_ConvertTestCase {
         string m;
         uint256 amount;
         uint64 expectedConvertedAmount;
         uint256 expectedRemainder;
     }
 
-    function testConvertMockERC20AmountToSdkCoin() public view {
-        ConvertSdkCoinTestCase[] memory testCases = new ConvertSdkCoinTestCase[](6);
+    function test_ERC20toSdkCoin_ConvertAmount() public view {
+        ERC20toSdkCoin_ConvertTestCase[] memory testCases = new ERC20toSdkCoin_ConvertTestCase[](6);
 
-        testCases[0] = ConvertSdkCoinTestCase({
+        testCases[0] = ERC20toSdkCoin_ConvertTestCase({
             m: "1.000000000000000001 ERC20 tokens",
             amount: 1_000_000_000_000_000_001,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 1
         });
 
-        testCases[1] = ConvertSdkCoinTestCase({
+        testCases[1] = ERC20toSdkCoin_ConvertTestCase({
             m: "1.000000100000000001 ERC20 tokens",
             amount: 1_000_000_100_000_000_001,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 100_000_000_001
         });
 
-        testCases[2] = ConvertSdkCoinTestCase({
+        testCases[2] = ERC20toSdkCoin_ConvertTestCase({
             m: "1.000000000000000000 ERC20 tokens",
             amount: 1_000_000_000_000_000_000,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 0
         });
 
-        testCases[3] = ConvertSdkCoinTestCase({
+        testCases[3] = ERC20toSdkCoin_ConvertTestCase({
             m: "1 smallest unit of ERC20 tokens",
             amount: 1,
             expectedConvertedAmount: 0,
             expectedRemainder: 1
         });
 
-        testCases[4] = ConvertSdkCoinTestCase({
+        testCases[4] = ERC20toSdkCoin_ConvertTestCase({
             m: "Less than 1 smallest unit of Cosmos coins",
             amount: 999_999_999_999,
             expectedConvertedAmount: 0,
             expectedRemainder: 999_999_999_999
         });
 
-        testCases[5] = ConvertSdkCoinTestCase({
+        testCases[5] = ERC20toSdkCoin_ConvertTestCase({
             m: "999.999999999999999999 ERC20 tokens",
             amount: 999_999_999_999_999_999,
             expectedConvertedAmount: 999_999,
@@ -87,7 +89,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            ConvertSdkCoinTestCase memory tc = testCases[i];
+            ERC20toSdkCoin_ConvertTestCase memory tc = testCases[i];
             (uint64 convertedAmount, uint256 remainder) =
                 SdkCoin._convertERC20AmountToSdkCoin(address(mockERC20), tc.amount);
 
@@ -103,7 +105,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
     /////////////////////////////////////////////////////
     // Tests for MockERC20Metadata - Extended Tokens Standard implementation with decimals
-    struct ConvertSdkCoinMetadataTestCase {
+    struct ERC20MetadataToSdkCoin_ConvertTestCase {
         string m;
         uint8 decimals;
         uint256 amount;
@@ -111,10 +113,10 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         uint256 expectedRemainder;
     }
 
-    function testConvertMockERC20MetadataAmountToSdkCoin() public {
-        ConvertSdkCoinMetadataTestCase[] memory testCases = new ConvertSdkCoinMetadataTestCase[](7);
+    function test_ERC20MetadataToSdkCoin_ConvertAmount() public {
+        ERC20MetadataToSdkCoin_ConvertTestCase[] memory testCases = new ERC20MetadataToSdkCoin_ConvertTestCase[](7);
 
-        testCases[0] = ConvertSdkCoinMetadataTestCase({
+        testCases[0] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.000000000000000001 ERC20 tokens with 18 decimals",
             decimals: 18,
             amount: 1_000_000_000_000_000_001,
@@ -122,7 +124,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 1
         });
 
-        testCases[1] = ConvertSdkCoinMetadataTestCase({
+        testCases[1] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.000000000000000001 ERC20 tokens with 77 decimals",
             decimals: 77,
             amount: 100_000_010_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001,
@@ -130,7 +132,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 10_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001
         });
 
-        testCases[2] = ConvertSdkCoinMetadataTestCase({
+        testCases[2] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.00000000000000001 ERC20 tokens with 17 decimals",
             decimals: 17,
             amount: 100_000_000_000_000_001,
@@ -138,7 +140,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 1
         });
 
-        testCases[3] = ConvertSdkCoinMetadataTestCase({
+        testCases[3] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.000000000001 ERC20 tokens with 12 decimals",
             decimals: 12,
             amount: 1_000_000_100_001,
@@ -146,7 +148,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 100_001
         });
 
-        testCases[4] = ConvertSdkCoinMetadataTestCase({
+        testCases[4] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.0000001 ERC20 tokens with 7 decimals",
             decimals: 7,
             amount: 10_000_001,
@@ -154,7 +156,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 1
         });
 
-        testCases[5] = ConvertSdkCoinMetadataTestCase({
+        testCases[5] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1.000001 ERC20 tokens with 6 decimals",
             decimals: 6,
             amount: 1_000_001,
@@ -162,7 +164,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             expectedRemainder: 0
         });
 
-        testCases[6] = ConvertSdkCoinMetadataTestCase({
+        testCases[6] = ERC20MetadataToSdkCoin_ConvertTestCase({
             m: "1000.0001111 ERC20 tokens with 7 decimals",
             decimals: 7,
             amount: 10_000_001_111,
@@ -171,7 +173,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            ConvertSdkCoinMetadataTestCase memory tc = testCases[i];
+            ERC20MetadataToSdkCoin_ConvertTestCase memory tc = testCases[i];
             MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
             (uint64 convertedAmount, uint256 remainder) =
                 SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), tc.amount);
@@ -192,38 +194,38 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
     /////////////////////////////////////////////////////
     // Tests for SdkCoin to ERC20Metadata - Extended Tokens Standard implementation with decimals
 
-    struct ConvertSdkCoinToERC20TestCase {
+    struct SdkCoinToERC20_ConvertTestCase {
         string m;
         uint8 decimals;
         uint64 cosmosAmount;
         uint256 expectedConvertedAmount;
     }
 
-    function testConvertSdkCoinAmountToERC20() public {
-        ConvertSdkCoinToERC20TestCase[] memory testCases = new ConvertSdkCoinToERC20TestCase[](4);
+    function test_SdkCoinToERC20Metadata_ConvertAmount() public {
+        SdkCoinToERC20_ConvertTestCase[] memory testCases = new SdkCoinToERC20_ConvertTestCase[](4);
 
-        testCases[0] = ConvertSdkCoinToERC20TestCase({
+        testCases[0] = SdkCoinToERC20_ConvertTestCase({
             m: "1 Cosmos coin to ERC20 token with 6 decimals",
             decimals: 6,
             cosmosAmount: 1_000_000,
             expectedConvertedAmount: 1_000_000
         });
 
-        testCases[1] = ConvertSdkCoinToERC20TestCase({
+        testCases[1] = SdkCoinToERC20_ConvertTestCase({
             m: "1 Cosmos coin to ERC20 token with 18 decimals",
             decimals: 18,
             cosmosAmount: 1_000_000,
             expectedConvertedAmount: 1_000_000_000_000_000_000
         });
 
-        testCases[2] = ConvertSdkCoinToERC20TestCase({
+        testCases[2] = SdkCoinToERC20_ConvertTestCase({
             m: "1 Cosmos coin to ERC20 token with 7 decimals",
             decimals: 7,
             cosmosAmount: 1_000_000,
             expectedConvertedAmount: 10_000_000
         });
 
-        testCases[3] = ConvertSdkCoinToERC20TestCase({
+        testCases[3] = SdkCoinToERC20_ConvertTestCase({
             m: "1 Cosmos coin to ERC20 token with 77 decimals",
             decimals: 77,
             cosmosAmount: 1_000_000,
@@ -231,7 +233,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            ConvertSdkCoinToERC20TestCase memory tc = testCases[i];
+            SdkCoinToERC20_ConvertTestCase memory tc = testCases[i];
             MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(tc.decimals);
             uint256 convertedAmount =
                 SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), tc.cosmosAmount);
@@ -461,9 +463,9 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         }
     }
 
+    //////////////////////////////////////
     // Invariants Tests
     // Invariant test: ERC20 -> SdkCoin with tokenDecimals == DEFAULT_COSMOS_DECIMALS,
-    // the converted amount should always be == to the input amount, and the remainder should be 0.
     /**
      * @notice Invariant test for ERC20 to Cosmos coin conversion when token decimals are equal to Cosmos decimals
      * @notice Given random inputs, this test applies invariant checking to ensure the converted amount equals the input
@@ -482,13 +484,15 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         assertInvariants_ERC20toSdkCoin_EqualDecimals(convertedAmount, amount, remainder);
     }
 
-    // Invariant test: In the case ERC20 -> SdkCoin with tokenDecimals > DEFAULT_COSMOS_DECIMALS
-    // the converted amount should always be <= to the input amount. If less, the remainder should be > 0.
+    // Invariant test: ERC20 -> SdkCoin with tokenDecimals > DEFAULT_COSMOS_DECIMALS
     /**
      * @notice Invariant test for ERC20 to Cosmos coin conversion with token decimals greater than Cosmos decimals
      * @notice Given random inputs, this test applies invariant checking previously defined
      * @param amount The amount of ERC20 tokens to be converted
      * @param decimals The number of decimals of the ERC20 token
+     * Requirements:
+     * - `amount` must be greater than 0 and less than or equal to the maximum uint64 value.
+     * - `decimals` must be greater than the default Cosmos decimals (6) and less than or equal to 77.
      */
     function testInvariant_ERC20ToSdkCoin_BiggerDecimals(uint256 amount, uint8 decimals) public {
         // Inputs constraints
@@ -504,7 +508,21 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         assertInvariants_ERC20toSdkCoin_BiggerDecimals(convertedAmount, amount, remainder, factor);
     }
 
-    // Invariant test: In the case SdkCoin -> ERC20 the converted amount should always be >= to the input amount.
+    // Invariant test: SdkCoin -> ERC20
+    /**
+ * @notice Tests the conversion of Cosmos SDK coin amounts to ERC20 token amounts with varying decimals.
+ * @dev This function validates the invariant that the converted ERC20 token amount is always greater than or equal to the input Cosmos SDK coin amount.
+ * 
+ * @param amount The amount of Cosmos SDK coins to be converted.
+ * @param decimals The number of decimals for the ERC20 token.
+ * 
+ * Requirements:
+ * - `amount` must be greater than 0 and less than or equal to the maximum uint64 value.
+ * - `decimals` must be between 6 and 77 (inclusive).
+ * - The multiplication of `amount` and the conversion factor must not overflow.
+ * 
+ * The function will skip test cases that do not meet these requirements.
+ */ 
     function testInvariant_SdkCoinToERC20(uint64 amount, uint8 decimals) public {
         // Inputs constraints
         if (amount == 0 || amount > ~uint64(0) || decimals < 6 || decimals > 77) {
