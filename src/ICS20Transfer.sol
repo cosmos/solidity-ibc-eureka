@@ -26,6 +26,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
 
+    /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         IICS26Router ibcRouter = IICS26Router(owner());
 
@@ -50,6 +51,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ibcRouter.sendPacket(msgSendPacket);
     }
 
+    /// @inheritdoc IIBCApp
     function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             revert ICS20UnexpectedVersion(msg_.packet.version);
@@ -77,6 +79,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Transfer(packetData);
     }
 
+    /// @inheritdoc IIBCApp
     function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // TODO Emit error event
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
@@ -123,6 +126,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
+    /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
         bool isSuccessAck = true;
@@ -137,6 +141,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Acknowledgement(packetData, msg_.acknowledgement, isSuccessAck);
     }
 
+    /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
         _refundTokens(packetData);
