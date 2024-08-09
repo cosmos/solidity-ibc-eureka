@@ -40,7 +40,7 @@ contract IntegrationTest is Test {
     string public receiver = "someReceiver";
     bytes public data;
     IICS26RouterMsgs.MsgSendPacket public msgSendPacket;
-    ICS20Lib.SendPacketData public expectedDefaultSendPacketData;
+    ICS20Lib.UnwrappedPacketData public expectedDefaultSendPacketData;
 
     function setUp() public {
         ics02Client = new ICS02Client(address(this));
@@ -73,11 +73,11 @@ contract IntegrationTest is Test {
             version: ICS20Lib.ICS20_VERSION
         });
 
-        expectedDefaultSendPacketData = ICS20Lib.SendPacketData({
+        expectedDefaultSendPacketData = ICS20Lib.UnwrappedPacketData({
             denom: erc20AddressStr,
-            receiverChainIsSource: false,
+            originatorChainIsSource: true,
             erc20Contract: address(erc20),
-            sender: sender,
+            sender: senderStr,
             receiver: receiver,
             amount: defaultAmount,
             memo: "memo"
@@ -254,12 +254,12 @@ contract IntegrationTest is Test {
         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.ReceivePacketData({
+            ICS20Lib.UnwrappedPacketData({
                 denom: erc20AddressStr, // Because unwrapped now
-                senderChainIsSource: false,
+                originatorChainIsSource: false,
                 erc20Contract: address(erc20),
                 sender: backSender,
-                receiver: backReceiver,
+                receiver: backReceiverStr,
                 amount: defaultAmount,
                 memo: "backmemo"
             })
@@ -316,12 +316,12 @@ contract IntegrationTest is Test {
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.ReceivePacketData({
+            ICS20Lib.UnwrappedPacketData({
                 denom: ibcDenom,
-                senderChainIsSource: true,
+                originatorChainIsSource: false,
                 erc20Contract: address(0), // This one we don't know yet
                 sender: senderAddrStr,
-                receiver: receiverAddr,
+                receiver: receiverAddrStr,
                 amount: defaultAmount,
                 memo: "memo"
             })
@@ -353,8 +353,8 @@ contract IntegrationTest is Test {
         Vm.Log memory receiveTransferLog = entries[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (ICS20Lib.ReceivePacketData memory receivePacketData) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.ReceivePacketData));
+        (ICS20Lib.UnwrappedPacketData memory receivePacketData) =
+            abi.decode(receiveTransferLog.data, (ICS20Lib.UnwrappedPacketData));
         assertEq(receivePacketData.denom, ibcDenom);
 
         IERC20 ibcERC20 = IERC20(receivePacketData.erc20Contract);
@@ -392,11 +392,11 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.SendPacketData({
+            ICS20Lib.UnwrappedPacketData({
                 denom: ibcDenom,
-                receiverChainIsSource: true,
+                originatorChainIsSource: false,
                 erc20Contract: address(ibcERC20),
-                sender: backSender,
+                sender: backSenderStr,
                 receiver: backReceiverStr,
                 amount: defaultAmount,
                 memo: "backmemo"

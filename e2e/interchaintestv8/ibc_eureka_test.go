@@ -367,7 +367,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
-		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
+		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
 		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
 
@@ -671,7 +671,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
 	}))
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
-	var ethReceiveTransferPacket ics20transfer.ICS20LibReceivePacketData
+	var ethReceiveTransferPacket ics20transfer.ICS20LibUnwrappedPacketData
 	var ibcDenom string
 	var ibcERC20Contract *erc20.Contract
 	s.Require().True(s.Run("Receive packet on Ethereum side", func() {
@@ -721,11 +721,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
 		ibcDenom = ethReceiveTransferPacket.Denom
 		// TODO: Change to IBCDenom ?
 		s.Require().Equal(fmt.Sprintf("%s/%s/%s", sendPacket.DestinationPort, sendPacket.DestinationChannel, transferCoin.Denom), ibcDenom)
-		s.Require().True(ethReceiveTransferPacket.SenderChainIsSource)
+		s.Require().True(ethReceiveTransferPacket.OriginatorChainIsSource)
 		s.Require().Equal(transferAmount, ethReceiveTransferPacket.Amount)
 		s.Require().NotNil(ethReceiveTransferPacket.Erc20Contract)
 		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveTransferPacket.Sender)
-		s.Require().Equal(userAddress, ethReceiveTransferPacket.Receiver)
+		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
 		s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
 
 		s.True(s.Run("Verify balances", func() {
@@ -798,7 +798,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
 		s.Require().NoError(err)
 		s.Require().Equal(ethReceiveTransferPacket.Erc20Contract, transferEvent.PacketData.Erc20Contract)
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
-		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
+		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(s.UserB.FormattedAddress(), transferEvent.PacketData.Receiver)
 		s.Require().Equal(returnMemo, transferEvent.PacketData.Memo)
 

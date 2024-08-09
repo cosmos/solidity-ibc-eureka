@@ -7,13 +7,9 @@ interface IICS20Errors {
     /// @param packetSender Address of the packet sender
     error ICS20MsgSenderIsNotPacketSender(address msgSender, address packetSender);
 
-    /// @notice Invalid sender address
-    /// @param sender Address whose tokens are being transferred
-    error ICS20InvalidSender(string sender);
-
-    /// @notice Invalid receiver address
-    /// @param receiver Address receiving the tokens
-    error ICS20InvalidReceiver(string receiver);
+    /// @notice Invalid address
+    /// @param addr Address of the sender or receiver
+    error ICS20InvalidAddress(string addr);
 
     /// @notice Invalid transfer amount
     /// @param amount Amount of tokens being transferred

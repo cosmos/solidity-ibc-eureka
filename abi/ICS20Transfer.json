@@ -386,7 +386,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.SendPacketData",
+        "internalType": "struct ICS20Lib.UnwrappedPacketData",
         "components": [
           {
             "name": "denom",
@@ -394,7 +394,7 @@
             "internalType": "string"
           },
           {
-            "name": "receiverChainIsSource",
+            "name": "originatorChainIsSource",
             "type": "bool",
             "internalType": "bool"
           },
@@ -405,8 +405,8 @@
           },
           {
             "name": "sender",
-            "type": "address",
-            "internalType": "address"
+            "type": "string",
+            "internalType": "string"
           },
           {
             "name": "receiver",
@@ -442,7 +442,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.ReceivePacketData",
+        "internalType": "struct ICS20Lib.UnwrappedPacketData",
         "components": [
           {
             "name": "denom",
@@ -450,7 +450,7 @@
             "internalType": "string"
           },
           {
-            "name": "senderChainIsSource",
+            "name": "originatorChainIsSource",
             "type": "bool",
             "internalType": "bool"
           },
@@ -466,8 +466,8 @@
           },
           {
             "name": "receiver",
-            "type": "address",
-            "internalType": "address"
+            "type": "string",
+            "internalType": "string"
           },
           {
             "name": "amount",
@@ -492,7 +492,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.SendPacketData",
+        "internalType": "struct ICS20Lib.UnwrappedPacketData",
         "components": [
           {
             "name": "denom",
@@ -500,7 +500,7 @@
             "internalType": "string"
           },
           {
-            "name": "receiverChainIsSource",
+            "name": "originatorChainIsSource",
             "type": "bool",
             "internalType": "bool"
           },
@@ -511,8 +511,8 @@
           },
           {
             "name": "sender",
-            "type": "address",
-            "internalType": "address"
+            "type": "string",
+            "internalType": "string"
           },
           {
             "name": "receiver",
@@ -542,7 +542,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.SendPacketData",
+        "internalType": "struct ICS20Lib.UnwrappedPacketData",
         "components": [
           {
             "name": "denom",
@@ -550,7 +550,7 @@
             "internalType": "string"
           },
           {
-            "name": "receiverChainIsSource",
+            "name": "originatorChainIsSource",
             "type": "bool",
             "internalType": "bool"
           },
@@ -561,8 +561,8 @@
           },
           {
             "name": "sender",
-            "type": "address",
-            "internalType": "address"
+            "type": "string",
+            "internalType": "string"
           },
           {
             "name": "receiver",
@@ -675,34 +675,23 @@
   },
   {
     "type": "error",
+    "name": "ICS20InvalidAddress",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS20InvalidAmount",
     "inputs": [
       {
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20InvalidReceiver",
-    "inputs": [
-      {
-        "name": "receiver",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20InvalidSender",
-    "inputs": [
-      {
-        "name": "sender",
-        "type": "string",
-        "internalType": "string"
       }
     ]
   },

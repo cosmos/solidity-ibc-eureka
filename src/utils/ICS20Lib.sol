@@ -26,29 +26,18 @@ library ICS20Lib {
 
     /// @notice Convenience type used after unmarshalling the packet data and converting addresses
     /// @param denom The denom of the token
-    /// @param receiverChainIsSource True if sending chain is source of token
-    /// @param erc20ContractAddress The address of the ERC20 contract
+    /// @param originatorChainIsSource True if origniating chain is source of token
+    /// @param erc20Contract The address of the ERC20 contract
     /// @param amount The amount of tokens
     /// @param sender The sender of the tokens
     /// @param receiver The receiver of the tokens
     /// @param memo Optional memo
-    struct SendPacketData {
+    struct UnwrappedPacketData {
         string denom;
-        bool receiverChainIsSource;
-        address erc20Contract;
-        address sender;
-        string receiver;
-        uint256 amount;
-        string memo;
-    }
-
-    /// @dev SendPacketData is a type used to represent the data needed to send a packet.
-    struct ReceivePacketData {
-        string denom;
-        bool senderChainIsSource;
+        bool originatorChainIsSource;
         address erc20Contract;
         string sender;
-        address receiver;
+        string receiver;
         uint256 amount;
         string memo;
     }
@@ -325,6 +314,17 @@ library ICS20Lib {
         return (address(uint160(addr)), true);
     }
 
+    /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
+    /// @param addrHexString hex address string
+    /// @return address the converted address
+    function mustHexStringToAddress(string memory addrHexString) internal pure returns (address) {
+        (address addr, bool success) = hexStringToAddress(addrHexString);
+        if (!success) {
+            revert IICS20Errors.ICS20InvalidAddress(addrHexString);
+        }
+        return addr;
+    }
+
     /// @notice slice returns a slice of the original bytes from `start` to `start + length`.
     /// @dev This is a copy from https://github.com/GNSPS/solidity-bytes-utils/blob/v0.8.0/contracts/BytesLib.sol
     /// @param _bytes bytes
@@ -402,9 +402,10 @@ library ICS20Lib {
         return keccak256(a) == keccak256(b);
     }
 
-    /**
-     * @dev hasPrefix returns true if the byte array has the given prefix.
-     */
+    /// @notice hasPrefix checks a denom for a prefix
+    /// @param denomBz the denom to check
+    /// @param prefix the prefix to check with
+    /// @return true if `denomBz` has the prefix `prefix`
     function hasPrefix(bytes memory denomBz, bytes memory prefix) internal pure returns (bool) {
         if (denomBz.length < prefix.length) {
             return false;
@@ -419,11 +420,11 @@ library ICS20Lib {
         return abi.encodePacked("{\"error\":\"", reason, "\"}");
     }
 
-    /// @notice getDenomPrefix returns the prefix for a denom.
-    /// @param portId Port identifier
-    /// @param channelId Channel identifier
+    /// @notice getDenomPrefix returns an ibc path prefix
+    /// @param port Port
+    /// @param channel Channel
     /// @return Denom prefix
-    function getDenomPrefix(string calldata portId, string calldata channelId) internal pure returns (bytes memory) {
-        return abi.encodePacked(portId, "/", channelId, "/");
+    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
+        return abi.encodePacked(port, "/", channel, "/");
     }
 }

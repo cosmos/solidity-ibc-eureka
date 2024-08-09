@@ -27,7 +27,7 @@ contract ICS20TransferTest is Test {
     uint256 public defaultAmount = 100;
     bytes public data;
     IICS26RouterMsgs.Packet public packet;
-    ICS20Lib.SendPacketData public expectedDefaultSendPacketData;
+    ICS20Lib.UnwrappedPacketData public expectedDefaultSendPacketData;
 
     function setUp() public {
         ics20Transfer = new ICS20Transfer(address(this));
@@ -50,11 +50,11 @@ contract ICS20TransferTest is Test {
             data: data
         });
 
-        expectedDefaultSendPacketData = ICS20Lib.SendPacketData({
+        expectedDefaultSendPacketData = ICS20Lib.UnwrappedPacketData({
             denom: erc20AddressStr,
-            receiverChainIsSource: false,
+            originatorChainIsSource: true,
             erc20Contract: address(erc20),
-            sender: sender,
+            sender: senderStr,
             receiver: receiver,
             amount: defaultAmount,
             memo: "memo"
@@ -114,7 +114,7 @@ contract ICS20TransferTest is Test {
         // test invalid sender
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, "invalid", receiver, "memo");
         packet.data = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidSender.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
 
         // test msg sender is not packet sender
@@ -257,7 +257,7 @@ contract ICS20TransferTest is Test {
         // test invalid sender
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, "invalid", receiver, "memo");
         packet.data = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidSender.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,
@@ -320,7 +320,7 @@ contract ICS20TransferTest is Test {
         // test invalid sender
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, "invalid", receiver, "memo");
         packet.data = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidSender.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
@@ -352,7 +352,7 @@ contract ICS20TransferTest is Test {
         string memory ibcDenom = string(abi.encodePacked(newSourcePort, "/", newSourceChannel, "/", erc20AddressStr));
 
         string memory backSenderStr = receiver;
-        address backReceiver = sender;
+        string memory backReceiverStr = senderStr;
         bytes memory receiveData = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiver, senderStr, "memo");
         packet.data = receiveData;
         packet.destPort = packet.sourcePort;
@@ -362,12 +362,12 @@ contract ICS20TransferTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.ReceivePacketData({
+            ICS20Lib.UnwrappedPacketData({
                 denom: erc20AddressStr,
-                senderChainIsSource: false,
+                originatorChainIsSource: false,
                 erc20Contract: address(erc20),
                 sender: backSenderStr,
-                receiver: backReceiver,
+                receiver: backReceiverStr,
                 amount: defaultAmount,
                 memo: "memo"
             })
@@ -402,12 +402,12 @@ contract ICS20TransferTest is Test {
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.ReceivePacketData({
+            ICS20Lib.UnwrappedPacketData({
                 denom: ibcDenom,
-                senderChainIsSource: true,
+                originatorChainIsSource: true,
                 erc20Contract: address(0), // unknown
                 sender: senderAddrStr,
-                receiver: receiverAddr,
+                receiver: receiverAddrStr,
                 amount: defaultAmount,
                 memo: "memo"
             })
@@ -423,8 +423,8 @@ contract ICS20TransferTest is Test {
         assertEq(entries.length, 4);
         Vm.Log memory receiveTransferLog = entries[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
-        (ICS20Lib.ReceivePacketData memory receivePacketData) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.ReceivePacketData));
+        (ICS20Lib.UnwrappedPacketData memory receivePacketData) =
+            abi.decode(receiveTransferLog.data, (ICS20Lib.UnwrappedPacketData));
         IERC20 ibcERC20 = IERC20(receivePacketData.erc20Contract);
 
         // finally, verify balances have been updated as expected
@@ -467,10 +467,10 @@ contract ICS20TransferTest is Test {
             string(abi.encodePacked(packet.sourcePort, "/", packet.sourceChannel, "/invalid"));
         data = ICS20Lib.marshalJSON(invalidErc20Denom, defaultAmount, receiver, senderStr, "memo");
         packet.data = data;
-        ack = ics20Transfer.onRecvPacket(
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidTokenContract.selector, "invalid"));
+        ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
-        assertEq(string(ack), "{\"error\":\"invalid token contract: invalid\"}");
 
         // test invalid receiver
         data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiver, "invalid", "memo");
