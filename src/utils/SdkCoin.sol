@@ -7,11 +7,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
 library SdkCoin {
-    // Using Constants for decimals
-    uint8 constant DEFAULT_ERC20_DECIMALS = 18;
-    // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
-    // TODO Do we want to support flexibility for cosmos coin decimals?
-    uint8 constant DEFAULT_COSMOS_DECIMALS = 6;
+    /// @notice Default value for ERC20 decimals if the token does not implement the decimals() function
+    uint8 public constant DEFAULT_ERC20_DECIMALS = 18;
+    /// @notice Default value for Cosmos coin decimals
+    /// @dev https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
+    uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
 
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this.
     /**
@@ -21,8 +21,8 @@ library SdkCoin {
      */
     function _getERC20TokenDecimals(address tokenAddress) internal view returns (uint8) {
         // Input validation
-        if (tokenAddress == address(0x0)) {
-            revert IISdkCoinErrors.ZeroAddress(tokenAddress);
+        if (tokenAddress == address(0)) {
+            revert IISdkCoinErrors.InvalidAddress(tokenAddress);
         }
         // If the tokens extends the IERC20 it should be using IERC20Metadata which supports the decimals() call
         // Why this? -->  https://detectors.auditbase.com/decimals-erc20-standard-solidity
@@ -63,8 +63,9 @@ library SdkCoin {
 
         // Ensure the provided amount is not zero, as zero is an invalid amount
         if (amount == 0) {
-            revert IISdkCoinErrors.ZeroAmountUint256(amount);
+            revert IISdkCoinErrors.InvalidAmount(amount);
         }
+
         // Note that for values of amount > ~uint64(0) which is the max value of uint64 type
         // The function will revert automatically for the safeCast conversion function. No need to check it here.
 
@@ -115,7 +116,7 @@ library SdkCoin {
         }
         // Amount input validation
         if (amount == 0) {
-            revert IISdkCoinErrors.ZeroAmountUint64(amount);
+            revert IISdkCoinErrors.InvalidAmount(amount);
         }
         uint256 convertedAmount;
         // Case ERC20 decimals are bigger than cosmos decimals

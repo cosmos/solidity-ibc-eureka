@@ -32,6 +32,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return string.concat(clientType, "-", Strings.toString(seq));
     }
 
+    /// @inheritdoc IICS02Client
     function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
         CounterpartyInfo memory counterpartyInfo = counterpartyInfos[clientId];
         if (bytes(counterpartyInfo.clientId).length == 0) {
@@ -41,6 +42,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return counterpartyInfo;
     }
 
+    /// @inheritdoc IICS02Client
     function getClient(string calldata clientId) public view returns (ILightClient) {
         ILightClient client = clients[clientId];
         if (client == ILightClient(address(0))) {
@@ -50,6 +52,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return client;
     }
 
+    /// @inheritdoc IICS02Client
     function addClient(
         string calldata clientType,
         CounterpartyInfo calldata counterpartyInfo,
@@ -67,6 +70,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return clientId;
     }
 
+    /// @inheritdoc IICS02Client
     function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner {
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
@@ -78,6 +82,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         clients[subjectClientId] = substituteClient;
     }
 
+    /// @inheritdoc IICS02Client
     function updateClient(
         string calldata clientId,
         bytes calldata updateMsg
@@ -88,10 +93,12 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return getClient(clientId).updateClient(updateMsg);
     }
 
+    /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
     }
 
+    /// @inheritdoc IICS02Client
     function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
         getClient(clientId).upgradeClient(upgradeMsg);
     }

@@ -29,6 +29,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
+    /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
         IIBCApp app = apps[portId];
         if (app == IIBCApp(address(0))) {
@@ -41,6 +42,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @dev Only the admin can submit non-empty port identifiers
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
+    /// @inheritdoc IICS26Router
     function addIBCApp(string calldata portId, address app) external {
         string memory newPortId;
         if (bytes(portId).length != 0) {
@@ -65,6 +67,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @notice Sends a packet
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
+    /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
@@ -103,6 +106,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
+    /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
         IIBCApp app = getIBCApp(msg_.packet.destPort);
 
@@ -143,6 +147,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
+    /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
         IIBCApp app = getIBCApp(msg_.packet.sourcePort);
 
@@ -185,6 +190,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
+    /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
         IIBCApp app = getIBCApp(msg_.packet.sourcePort);
 
@@ -220,6 +226,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     }
 
     /// @notice Writes a packet acknowledgement and emits an event
+    /// @param packet The packet to acknowledge
+    /// @param ack The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
         IBCStore.commitPacketAcknowledgement(packet, ack);
         emit WriteAcknowledgement(packet, ack);

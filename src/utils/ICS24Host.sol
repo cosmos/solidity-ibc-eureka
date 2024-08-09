@@ -11,14 +11,21 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
+    /// @notice Packet receipt types
     enum PacketReceipt {
         NONE,
         SUCCESSFUL
     }
 
+    /// @notice successful packet receipt
     bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 =
         keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
+    /// @notice Generator for the path of a packet commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The full path of the packet commitment
     function packetCommitmentPathCalldata(
         string memory portId,
         string memory channelId,
@@ -33,6 +40,11 @@ library ICS24Host {
         );
     }
 
+    /// @notice Generator for the path of a packet acknowledgement commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The full path of the packet acknowledgement commitment
     function packetAcknowledgementCommitmentPathCalldata(
         string memory portId,
         string memory channelId,
@@ -46,6 +58,11 @@ library ICS24Host {
             abi.encodePacked("acks/ports/", portId, "/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
+    /// @notice Generator for the path of a packet receipt commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The full path of the packet receipt commitment
     function packetReceiptCommitmentPathCalldata(
         string memory portId,
         string memory channelId,
@@ -62,6 +79,11 @@ library ICS24Host {
 
     // Key generators for Commitment mapping
 
+    /// @notice Generator for the key of a packet commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The keccak256 hash of the packet commitment path
     function packetCommitmentKeyCalldata(
         string memory portId,
         string memory channelId,
@@ -74,6 +96,11 @@ library ICS24Host {
         return keccak256(packetCommitmentPathCalldata(portId, channelId, sequence));
     }
 
+    /// @notice Generator for the key of a packet acknowledgement commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The keccak256 hash of the packet acknowledgement commitment path
     function packetAcknowledgementCommitmentKeyCalldata(
         string memory portId,
         string memory channelId,
@@ -86,6 +113,11 @@ library ICS24Host {
         return keccak256(packetAcknowledgementCommitmentPathCalldata(portId, channelId, sequence));
     }
 
+    /// @notice Generator for the key of a packet receipt commitment
+    /// @param portId The port identifier
+    /// @param channelId The channel identifier
+    /// @param sequence The sequence number
+    /// @return The keccak256 hash of the packet receipt commitment path
     function packetReceiptCommitmentKeyCalldata(
         string memory portId,
         string memory channelId,
@@ -99,6 +131,8 @@ library ICS24Host {
     }
 
     /// @notice Get the packet commitment bytes.
+    /// @param packet The packet to get the commitment for
+    /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
@@ -112,7 +146,9 @@ library ICS24Host {
         );
     }
 
-    /// @notice Get the packet receipt commitment bytes.
+    /// @notice Get the packet acknowledgement commitment bytes.
+    /// @param ack The acknowledgement to get the commitment for
+    /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
         return sha256(ack);
     }

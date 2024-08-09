@@ -8,10 +8,14 @@ import { IICS20Errors } from "../errors/IICS20Errors.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
-    /**
-     * @dev PacketData is defined in
-     * [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
-     */
+    /// @notice PacketDataJSON is the JSON representation of a fungible token transfer packet.
+    /// @dev PacketData is defined in
+    /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
+    /// @param denom The denomination of the token
+    /// @param sender The sender of the token
+    /// @param receiver The receiver of the token
+    /// @param amount The amount of tokens
+    /// @param memo Optional memo
     struct PacketDataJSON {
         string denom;
         string sender;
@@ -21,6 +25,11 @@ library ICS20Lib {
     }
 
     /// @notice Convenience type used after unmarshalling the packet data and converting addresses
+    /// @param erc20ContractAddress The address of the ERC20 contract
+    /// @param amount The amount of tokens
+    /// @param sender The sender of the tokens
+    /// @param receiver The receiver of the tokens
+    /// @param memo Optional memo
     struct UnwrappedFungibleTokenPacketData {
         address erc20ContractAddress;
         uint256 amount;
@@ -29,29 +38,44 @@ library ICS20Lib {
         string memo;
     }
 
+    /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
 
+    /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
+    /// @notice FAILED_ACKNOWLEDGEMENT_JSON is the JSON bytes for a failed acknowledgement.
     bytes public constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
+    /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
+    /// @notice CHAR_DOUBLE_QUOTE is the ASCII value for double quote.
     uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
+    /// @notice CHAR_SLASH is the ASCII value for slash.
     uint256 private constant CHAR_SLASH = 0x2f;
+    /// @notice CHAR_BACKSLASH is the ASCII value for backslash.
     uint256 private constant CHAR_BACKSLASH = 0x5c;
+    /// @notice CHAR_F is the ASCII value for 'f'.
     uint256 private constant CHAR_F = 0x66;
+    /// @notice CHAR_R is the ASCII value for 'r'.
     uint256 private constant CHAR_R = 0x72;
+    /// @notice CHAR_N is the ASCII value for 'n'.
     uint256 private constant CHAR_N = 0x6e;
+    /// @notice CHAR_B is the ASCII value for 'b'.
     uint256 private constant CHAR_B = 0x62;
+    /// @notice CHAR_T is the ASCII value for 't'.
     uint256 private constant CHAR_T = 0x74;
+    /// @notice CHAR_CLOSING_BRACE is the ASCII value for closing brace '}'.
     uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
+    /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
 
+    /// @notice HEX_DIGITS are the hex digits.
     bytes16 private constant HEX_DIGITS = "0123456789abcdef";
 
-    /**
-     * @dev marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
-     *      `memo` field is omitted if it is empty.
-     */
+    /// @notice marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
+    /// @dev `memo` field is omitted if it is empty. TODO: Consider if this should be changed.
+    /// @param data PacketData to marshal
+    /// @return Marshalled JSON bytes
     function marshalUnsafeJSON(PacketDataJSON memory data) internal pure returns (bytes memory) {
         if (bytes(data.memo).length == 0) {
             return marshalJSON(data.denom, data.amount, data.sender, data.receiver);
@@ -60,9 +84,13 @@ library ICS20Lib {
         }
     }
 
-    /**
-     * @dev marshalJSON marshals PacketData into JSON bytes with escaping.
-     */
+    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
+    /// @param escapedDenom Escaped denom
+    /// @param amount Amount
+    /// @param escapedSender Escaped sender
+    /// @param escapedReceiver Escaped receiver
+    /// @param escapedMemo Escaped memo
+    /// @return Marshalled JSON bytes
     function marshalJSON(
         string memory escapedDenom,
         uint256 amount,
@@ -89,9 +117,12 @@ library ICS20Lib {
         );
     }
 
-    /**
-     * @dev marshalJSON marshals PacketData into JSON bytes with escaping.
-     */
+    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
+    /// @param escapedDenom Escaped denom
+    /// @param amount Amount
+    /// @param escapedSender Escaped sender
+    /// @param escapedReceiver Escaped receiver
+    /// @return Marshalled JSON bytes
     function marshalJSON(
         string memory escapedDenom,
         uint256 amount,
@@ -115,9 +146,9 @@ library ICS20Lib {
         );
     }
 
-    /**
-     * @dev unmarshalJSON unmarshals JSON bytes into PacketData.
-     */
+    /// @notice unmarshalJSON unmarshals JSON bytes into PacketData.
+    /// @param bz JSON bytes
+    /// @return Unmarshalled PacketData
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
         // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
         PacketDataJSON memory pd;
@@ -162,10 +193,12 @@ library ICS20Lib {
         return pd;
     }
 
-    /**
-     * @dev parseUint256String parses `bz` from a position `pos` to produce a uint256.
-     */
-    function parseUint256String(bytes calldata bz, uint256 pos) internal pure returns (uint256, uint256) {
+    /// @notice parseUint256String parses `bz` from a position `pos` to produce a uint256.
+    /// @param bz bytes
+    /// @param pos position in the bytes
+    /// @return ret uint256 value
+    /// @return pos position after parsing
+    function parseUint256String(bytes calldata bz, uint256 pos) private pure returns (uint256, uint256) {
         uint256 ret = 0;
         unchecked {
             for (; pos < bz.length; pos++) {
@@ -182,10 +215,12 @@ library ICS20Lib {
         }
     }
 
-    /**
-     * @dev parseString parses `bz` from a position `pos` to produce a string.
-     */
-    function parseString(bytes calldata bz, uint256 pos) internal pure returns (string memory, uint256) {
+    /// @notice parseString parses `bz` from a position `pos` to produce a string.
+    /// @param bz bytes
+    /// @param pos position in the bytes
+    /// @return string value
+    /// @return pos position after parsing
+    function parseString(bytes calldata bz, uint256 pos) private pure returns (string memory, uint256) {
         unchecked {
             for (uint256 i = pos; i < bz.length; i++) {
                 uint256 c = uint256(uint8(bz[i]));
@@ -206,7 +241,10 @@ library ICS20Lib {
         revert IICS20Errors.ICS20JSONStringUnclosed(bz, pos);
     }
 
-    function isEscapedJSONString(string calldata s) internal pure returns (bool) {
+    /// @notice isEscapedJSONString checks if a string is escaped JSON.
+    /// @param s string
+    /// @return true if the string is escaped JSON
+    function isEscapedJSONString(string calldata s) private pure returns (bool) {
         bytes memory bz = bytes(s);
         unchecked {
             for (uint256 i = 0; i < bz.length; i++) {
@@ -228,7 +266,10 @@ library ICS20Lib {
         return true;
     }
 
-    function isEscapeNeededString(bytes memory bz) internal pure returns (bool) {
+    /// @notice isEscapeNeededString checks if a string needs to be escaped.
+    /// @param bz bytes
+    /// @return true if the string needs to be escaped
+    function isEscapeNeededString(bytes memory bz) private pure returns (bool) {
         unchecked {
             for (uint256 i = 0; i < bz.length; i++) {
                 uint256 c = uint256(uint8(bz[i]));
@@ -240,9 +281,10 @@ library ICS20Lib {
         return false;
     }
 
-    /**
-     * @dev hexStringToAddress converts a hex string to an address.
-     */
+    /// @notice hexStringToAddress converts a hex string to an address.
+    /// @param addrHexString hex address string
+    /// @return address value
+    /// @return true if the conversion was successful
     function hexStringToAddress(string memory addrHexString) internal pure returns (address, bool) {
         bytes memory addrBytes = bytes(addrHexString);
         if (addrBytes.length != 42) {
@@ -268,10 +310,12 @@ library ICS20Lib {
         return (address(uint160(addr)), true);
     }
 
-    /**
-     * @dev slice returns a slice of the original bytes from `start` to `start + length`.
-     *      This is a copy from https://github.com/GNSPS/solidity-bytes-utils/blob/v0.8.0/contracts/BytesLib.sol
-     */
+    /// @notice slice returns a slice of the original bytes from `start` to `start + length`.
+    /// @dev This is a copy from https://github.com/GNSPS/solidity-bytes-utils/blob/v0.8.0/contracts/BytesLib.sol
+    /// @param _bytes bytes
+    /// @param _start start index
+    /// @param _length length
+    /// @return sliced bytes
     function slice(bytes memory _bytes, uint256 _start, uint256 _length) internal pure returns (bytes memory) {
         if (_length + 31 < _length) {
             revert IICS20Errors.ICS20BytesSliceOverflow(_length);
@@ -334,13 +378,18 @@ library ICS20Lib {
         return tempBytes;
     }
 
-    /**
-     * @dev equal returns true if two byte arrays are equal.
-     */
+    /// @notice equal returns true if two byte arrays are equal.
+    /// @param a bytes
+    /// @param b bytes
+    /// @return true if the byte arrays are equal
     function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
+        // TODO: consider removing this function and using OpenZeppelin's Bytes library
         return keccak256(a) == keccak256(b);
     }
 
+    /// @notice unwrapPacketData unmarshals packet data and converts addresses.
+    /// @param data Packet data
+    /// @return UnwrappedFungibleTokenPacketData
     function unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
 
@@ -363,11 +412,18 @@ library ICS20Lib {
         });
     }
 
+    /// @notice errorAck returns an error acknowledgement.
+    /// @param reason Error reason
+    /// @return Error acknowledgement
     function errorAck(bytes memory reason) internal pure returns (bytes memory) {
         return abi.encodePacked("{\"error\":\"", reason, "\"}");
     }
 
-    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
-        return abi.encodePacked(port, "/", channel, "/");
+    /// @notice getDenomPrefix returns the prefix for a denom.
+    /// @param portId Port identifier
+    /// @param channelId Channel identifier
+    /// @return Denom prefix
+    function getDenomPrefix(string calldata portId, string calldata channelId) internal pure returns (bytes memory) {
+        return abi.encodePacked(portId, "/", channelId, "/");
     }
 }

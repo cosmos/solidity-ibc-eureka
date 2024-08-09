@@ -8,14 +8,14 @@ interface ILightClientMsgs {
     /// @dev If a value is empty, then we are querying for non-membership.
     /// @dev The proof may differ depending on the client implementation and whether
     /// `batchVerifyMembership` or `updateClientAndBatchVerifyMembership` is called.
+    /// @param proof The proof
+    /// @param proofHeight The height of the proof
+    /// @param path The path of the value in the Merkle tree
+    /// @param value The value in the Merkle tree
     struct MsgMembership {
-        /// The proof
         bytes proof;
-        /// Height of the proof
         IICS02ClientMsgs.Height proofHeight;
-        /// Path of the value in the Merkle tree
         bytes path;
-        /// Value in the Merkle tree
         bytes value;
     }
 
