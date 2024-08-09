@@ -7,11 +7,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IISdkCoinErrors } from "../errors/IISdkCoinErrors.sol";
 
 library SdkCoin {
-    // Using Constants for decimals
-    uint8 constant DEFAULT_ERC20_DECIMALS = 18;
-    // https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
-    // TODO Do we want to support flexibility for cosmos coin decimals?
-    uint8 constant DEFAULT_COSMOS_DECIMALS = 6;
+    /// @notice Default value for ERC20 decimals if the token does not implement the decimals() function
+    uint8 public constant DEFAULT_ERC20_DECIMALS = 18;
+    /// @notice Default value for Cosmos coin decimals
+    /// @dev https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
+    uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
 
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this.
     /**
@@ -65,21 +65,21 @@ library SdkCoin {
         }
         // Ensure the amount respects the token's decimals
         // Handle the case where the input amount exceeds the token's precision
-        uint256 temp_convertedAmount;
+        uint256 tempConvertedAmount;
         uint256 remainder;
         // Case ERC20 decimals are bigger than cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
-            temp_convertedAmount = amount / factor;
+            tempConvertedAmount = amount / factor;
             remainder = amount % factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
-            temp_convertedAmount = amount;
+            tempConvertedAmount = amount;
             remainder = 0;
         } else {
             // revert as this is unreachable
             revert IISdkCoinErrors.Unsupported();
         }
-        return (SafeCast.toUint64(temp_convertedAmount), remainder);
+        return (SafeCast.toUint64(tempConvertedAmount), remainder);
     }
 
     // Convert Cosmos coin amount to ERC20 token amount
