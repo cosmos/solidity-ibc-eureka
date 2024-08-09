@@ -420,12 +420,6 @@
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
-      },
-      {
-        "name": "success",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -794,7 +788,23 @@
     "name": "ICS20UnexpectedVersion",
     "inputs": [
       {
+        "name": "expected",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "version",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20UnsupportedFeature",
+    "inputs": [
+      {
+        "name": "feature",
         "type": "string",
         "internalType": "string"
       }
