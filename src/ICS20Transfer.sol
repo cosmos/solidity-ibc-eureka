@@ -129,16 +129,13 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.UnwrappedFungibleTokenPacketData memory packetData = ICS20Lib.unwrapPacketData(msg_.packet.data);
-        bool isSuccessAck = true;
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            isSuccessAck = false;
             _refundTokens(packetData);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
-
-        emit ICS20Acknowledgement(packetData, msg_.acknowledgement, isSuccessAck);
+        emit ICS20Acknowledgement(packetData, msg_.acknowledgement);
     }
 
     /// @inheritdoc IIBCApp

@@ -161,7 +161,7 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON, true);
+        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,
@@ -198,7 +198,7 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON, false);
+        emit IICS20Transfer.ICS20Acknowledgement(_getPacketData(), ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,

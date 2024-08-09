@@ -5,16 +5,16 @@ interface IICS02ClientMsgs {
     /// @notice Counterparty client information.
     /// @custom:spec
     /// https://github.com/cosmos/ibc/blob/67fe813f7e4ec603a7c5dec35bc654f3b012afda/spec/micro/README.md?plain=1#L91
+    /// @param clientId The client identifier from the counterparty chain.
     struct CounterpartyInfo {
-        /// The client identifier of the counterparty chain.
         string clientId;
     }
 
     /// @notice Height of the counterparty chain
+    /// @param revisionNumber The revision number of the counterparty chain
+    /// @param revisionHeight The height of the counterparty chain
     struct Height {
-        /// Previously known as "epoch"
         uint32 revisionNumber;
-        /// The height of a block
         uint32 revisionHeight;
     }
 
