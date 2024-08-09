@@ -226,6 +226,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     }
 
     /// @notice Writes a packet acknowledgement and emits an event
+    /// @param packet The packet to acknowledge
+    /// @param ack The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
         IBCStore.commitPacketAcknowledgement(packet, ack);
         emit WriteAcknowledgement(packet, ack);

@@ -343,14 +343,14 @@ contract SdkCoinTest is Test {
     function testConvertERC20toSdkCoinAmount_ZeroAddress() public {
         uint256 evmAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.InvalidAddress.selector, address(0)));
         SdkCoin._convertERC20AmountToSdkCoin(address(0), evmAmount);
     }
 
     function testConvertSdkCoinAmountToERC20_ZeroAddress() public {
         uint64 cosmosAmount = 1_000_000; // 1 Cosmos coin
 
-        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.ZeroAddress.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.InvalidAddress.selector, address(0)));
         SdkCoin._convertSdkCoinAmountToERC20(address(0), cosmosAmount);
     }
 
@@ -370,17 +370,11 @@ contract SdkCoinTest is Test {
         SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
     }
 
-    // Note that using vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0))
-    // both the zero amount tests are failing with this message:
-    // [FAIL. Reason: ZeroAmountUint64(0)]
-    // Super wired, because is exactly what is expected
-    // I guess with custom error refactor switching to solidity 0.8.26 this should be solved
-    // For now to make test pass added testFail and removed the vm expect revert.
     function testFailConvertSdkCoinAmountToERC20_ZeroAmount() public {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
         uint64 cosmosAmount = 0; // 1 Cosmos coin
 
-        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint64.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.InvalidAmount.selector, 0));
         SdkCoin._convertSdkCoinAmountToERC20(address(customMockERC20Metadata), cosmosAmount);
     }
 
@@ -388,7 +382,7 @@ contract SdkCoinTest is Test {
         MockERC20Metadata customMockERC20Metadata = new MockERC20Metadata(6);
         uint256 evmAmount = 0; // 1 Cosmos coin
 
-        //vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAmountUint256.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IISdkCoinErrors.InvalidAmount.selector, 0));
         SdkCoin._convertERC20AmountToSdkCoin(address(customMockERC20Metadata), evmAmount);
     }
 }

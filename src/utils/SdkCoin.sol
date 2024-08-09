@@ -21,8 +21,8 @@ library SdkCoin {
      */
     function _getERC20TokenDecimals(address tokenAddress) internal view returns (uint8) {
         // Input validation
-        if (tokenAddress == address(0x0)) {
-            revert IISdkCoinErrors.ZeroAddress(tokenAddress);
+        if (tokenAddress == address(0)) {
+            revert IISdkCoinErrors.InvalidAddress(tokenAddress);
         }
         // If the tokens extends the IERC20 it should be using IERC20Metadata which supports the decimals() call
         // Why this? -->  https://detectors.auditbase.com/decimals-erc20-standard-solidity
@@ -61,7 +61,7 @@ library SdkCoin {
         }
         // Amount input validation
         if (amount == 0) {
-            revert IISdkCoinErrors.ZeroAmountUint256(amount);
+            revert IISdkCoinErrors.InvalidAmount(amount);
         }
         // Ensure the amount respects the token's decimals
         // Handle the case where the input amount exceeds the token's precision
@@ -101,7 +101,7 @@ library SdkCoin {
         }
         // Amount input validation
         if (amount == 0) {
-            revert IISdkCoinErrors.ZeroAmountUint64(amount);
+            revert IISdkCoinErrors.InvalidAmount(amount);
         }
         uint256 convertedAmount;
         // Case ERC20 decimals are bigger than cosmos decimals
