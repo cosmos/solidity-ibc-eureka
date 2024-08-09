@@ -4,7 +4,6 @@ pragma solidity >=0.8.25 <0.9.0;
 // solhint-disable custom-errors,max-line-length
 import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { MockERC20 } from "../test/mock/MockERC20.sol";
