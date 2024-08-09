@@ -29,6 +29,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
 
+    /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         IICS26Router ibcRouter = IICS26Router(owner());
 
@@ -53,9 +54,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ibcRouter.sendPacket(msgSendPacket);
     }
 
+    /// @inheritdoc IIBCApp
     function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
-            revert ICS20UnexpectedVersion(msg_.packet.version);
+            revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.packet.version);
         }
 
         ICS20Lib.SendPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
@@ -82,6 +84,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Transfer(packetData);
     }
 
+    /// @inheritdoc IIBCApp
     function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
@@ -108,20 +111,19 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
+    /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.SendPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
-        bool isSuccessAck = true;
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            isSuccessAck = false;
             _refundTokens(packetData);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
-
-        emit ICS20Acknowledgement(packetData, msg_.acknowledgement, isSuccessAck);
+        emit ICS20Acknowledgement(packetData, msg_.acknowledgement);
     }
 
+    /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.SendPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
         _refundTokens(packetData);
@@ -129,13 +131,18 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         emit ICS20Timeout(packetData);
     }
 
-    // TODO: Implement escrow balance tracking (#6)
+    /// @notice Refund the tokens to the sender
+    /// @param data The packet data
     function _refundTokens(ICS20Lib.SendPacketData memory data) private {
         address refundee = data.sender;
         IERC20(data.erc20Contract).safeTransfer(refundee, data.amount);
     }
 
-    // TODO: Implement escrow balance tracking (#6)
+    /// @notice Transfer tokens from sender to receiver
+    /// @param sender The sender of the tokens
+    /// @param receiver The receiver of the tokens
+    /// @param tokenContract The address of the token contract
+    /// @param amount The amount of tokens to transfer
     function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) private {
         // we snapshot our current balance of this token
         uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);

@@ -18,8 +18,8 @@ interface IICS26Router is IICS26RouterMsgs {
     function getIBCApp(string calldata portId) external view returns (IIBCApp);
 
     /// @notice Adds an IBC application to the router
-    /// @dev Only the admin can submit non-empty port identifiers. The default port identifier
-    // is the address of the IBC application contract.
+    /// @dev Only the admin can submit non-empty port identifiers.
+    /// @dev The default port identifier is the address of the IBC application contract.
     /// @param portId The port identifier, only admin can submit non-empty port identifiers.
     /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external;
@@ -44,13 +44,20 @@ interface IICS26Router is IICS26RouterMsgs {
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when a packet is sent
+    /// @param packet The sent packet
     event SendPacket(Packet packet);
     /// @notice Emitted when a packet is received
+    /// @param packet The received packet
     event RecvPacket(Packet packet);
     /// @notice Emitted when a packet acknowledgement is written
+    /// @param packet The packet that was acknowledged
+    /// @param acknowledgement The acknowledgement data
     event WriteAcknowledgement(Packet packet, bytes acknowledgement);
     /// @notice Emitted when a packet is timed out
+    /// @param packet The packet that was timed out
     event TimeoutPacket(Packet packet);
     /// @notice Emitted when a packet is acknowledged
+    /// @param packet The packet that was acknowledged
+    /// @param acknowledgement The acknowledgement data
     event AckPacket(Packet packet, bytes acknowledgement);
 }

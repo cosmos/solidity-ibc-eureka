@@ -8,12 +8,13 @@
   },
   "dependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.9.1",
-    "@openzeppelin/contracts": "^5.0.1"
+    "@openzeppelin/contracts": "^5.0.2"
   },
   "devDependencies": {
-    "solhint": "^5.0.2",
+    "solhint": "^5.0.3",
     "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#f3a6849ebdf8365dd6c73dd6f4b8d22f7eaae595",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.1.0"
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.1.0",
+    "@defi-wonderland/natspec-smells": "^1.1.4"
   },
   "keywords": [
     "blockchain",
@@ -26,7 +27,7 @@
   ],
   "private": true,
   "scripts": {
-    "lint:sol": "forge fmt --check && bun solhint '{script,src,test}/**/*.sol'",
+    "lint:sol": "forge fmt --check && bun solhint '{script,src,test}/**/*.sol' && bun natspec-smells --include 'src/**/*.sol'",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }

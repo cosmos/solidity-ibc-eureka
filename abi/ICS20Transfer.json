@@ -430,12 +430,6 @@
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
-      },
-      {
-        "name": "success",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -844,6 +838,11 @@
     "type": "error",
     "name": "ICS20UnexpectedVersion",
     "inputs": [
+      {
+        "name": "expected",
+        "type": "string",
+        "internalType": "string"
+      },
       {
         "name": "version",
         "type": "string",

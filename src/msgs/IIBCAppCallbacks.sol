@@ -4,40 +4,38 @@ pragma solidity >=0.8.25;
 import { IICS26RouterMsgs } from "./IICS26RouterMsgs.sol";
 
 interface IIBCAppCallbacks {
-    /// OnSendPacket is called when a packet send request is received by the router.
-    /// The packet send is cancelled if the callback response is an error.
+    /// @notice Callback message for sending a packet.
+    /// @dev The packet send is cancelled if the callback response is an error.
+    /// @param packet The packet to be sent
+    /// @param sender The sender of the packet
     struct OnSendPacketCallback {
-        /// The packet to be sent
         IICS26RouterMsgs.Packet packet;
-        /// The sender of the packet
         address sender;
     }
 
-    /// Called when a packet is sent to this IBC application.
+    /// @notice Callback message for receiving a packet.
+    /// @param packet The packet to be received
+    /// @param relayer The relayer of this message
     struct OnRecvPacketCallback {
-        /// The packet to be received
         IICS26RouterMsgs.Packet packet;
-        /// The relayer of this message
         address relayer;
     }
 
-    /// Called when a packet is to be acknowledged by this IBC application.
-    /// This callback need not be responded with data.
+    /// @notice Callback message for acknowledging a packet.
+    /// @param packet The packet to be acknowledged
+    /// @param acknowledgement The acknowledgement
+    /// @param relayer The relayer of this message
     struct OnAcknowledgementPacketCallback {
-        /// The packet to be acknowledged
         IICS26RouterMsgs.Packet packet;
-        /// The acknowledgement
         bytes acknowledgement;
-        /// The relayer of this message
         address relayer;
     }
 
-    /// Called when a packet is to be timed out by this IBC application.
-    /// This callback need not be responded with data.
+    /// @notice Called when a packet is to be timed out by this IBC application.
+    /// @param packet The packet to be timed out
+    /// @param relayer The relayer of this message
     struct OnTimeoutPacketCallback {
-        /// The packet to be timed out
         IICS26RouterMsgs.Packet packet;
-        /// The relayer of this message
         address relayer;
     }
 }
