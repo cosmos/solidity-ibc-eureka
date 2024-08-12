@@ -12,11 +12,7 @@ import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-<<<<<<< HEAD
-import { IBCERC20 } from "./utils/IBCERC20.sol";
-=======
 import { SdkCoin } from "./utils/SdkCoin.sol";
->>>>>>> 3246b22 (add skeleton)
 
 using SafeERC20 for IERC20;
 
@@ -43,23 +39,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
-        uint64 memory _cosmosAmount; 
-
-        (address memory _contractAddress, bool memory success) = ICS20Lib.hexStringToAddress(msg_.denom); 
-        if(success){
-            uint256 memory _remainder;
-            (_cosmosAmount, _remainder)=SdkCoin._ERC20ToSdkCoin_ConvertAmount(_contractAddress,msg_.amount); 
-            if(_remainder > 0){
-                // TODO Implement refund to user
-            }     
-        }else {
-            revert; // TODO Write Error    
-        }
 
         if (bytes(msg_.memo).length == 0) {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, _cosmosAmount, sender, msg_.receiver);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
         } else {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, _cosmosAmount, sender, msg_.receiver, msg_.memo);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver, msg_.memo);
         }
 
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
@@ -95,8 +79,23 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
+        (uint64 _sdkCoinAmount, uint256 _remainder) =
+            SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20ContractAddress, packetData.amount);
+        // Check if the uint256 representation of the sdkCoin amount matches the original packet amount minus the
+        // remainder
+        // This ensures that the conversion is accurate and that there are no unexpected discrepancies
+        // between the SDK coin amount and the original amount. If they do not match, the transaction
+        // is reverted to prevent any potential errors or loss of funds.
+        if (packetData.amount - _remainder != uint256(_sdkCoinAmount)) {
+            revert InvalidAmountConversion((packetData.amount - _remainder), uint256(_sdkCoinAmount)); 
+        }
+        // Transfer the packetData.amount minus the remainder from the sender to this contract,
+        // This step moves the correct amount of tokens, adjusted for any precision differences,
+        // from the user's account to the contract's account.
+        // The remainder is left in the sender's account, ensuring they aren't overcharged
+        // due to any rounding or precision issues in the conversion process.
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
+        _transferFrom(packetData.sender, address(this), packetData.erc20ContractAddress, packetData.amount - _remainder);
 
         if (!packetData.originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
@@ -104,6 +103,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             IBCERC20 ibcERC20Contract = IBCERC20(packetData.erc20Contract);
             ibcERC20Contract.burn(packetData.amount);
         }
+
 
         emit ICS20Transfer(packetData);
     }

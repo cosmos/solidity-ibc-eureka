@@ -74,4 +74,9 @@ interface IICS20Errors {
     /// @param start start index
     /// @param end end index
     error ICS20BytesSliceOutOfBounds(uint256 length, uint256 start, uint256 end);
+
+    /// @notice Reverts when the amount after conversion does not match the expected value.
+    /// @param amount The actual amount after conversion minus the remainder.
+    /// @param expectedAmount The expected sdkCoin amount (as uint256).
+    error InvalidAmountConversion(uint256 amount, uint256 expectedAmount);
 }
