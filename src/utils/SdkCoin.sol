@@ -131,7 +131,7 @@ library SdkCoin {
             convertedAmount = amount;
         } else {
             // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS
-            // Note that if we decide to support this case, it will require handling the loss of precision
+            // NOTE: If we decide to support this case, it will require handling the loss of precision
             // in the go side. Potentially we can retrieve the ERC20 decimals using cross-chain queries
 
             // revert as this is unreachable
