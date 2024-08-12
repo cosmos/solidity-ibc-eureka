@@ -12,6 +12,11 @@ library SdkCoin {
     /// @notice Default value for Cosmos coin decimals
     /// @dev https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
     uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
+    /// @notice Minimum value supported for ERC20 tokens decimals 
+    uint private constant MIN_SUPPORTED_DECIMALS = 6;
+    /// @notice Maxiumum value supported for ERC20 tokens decimals 
+    uint private constant MAX_SUPPORTED_DECIMALS = 77;
+
 
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this.
     /**
@@ -57,7 +62,7 @@ library SdkCoin {
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
         // Ensure the token's decimals are within the supported range
-        if (tokenDecimals < 6 || tokenDecimals > 77) {
+        if (tokenDecimals < MIN_SUPPORTED_DECIMALS || tokenDecimals > MAX_SUPPORTED_DECIMALS) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
 
@@ -110,8 +115,8 @@ library SdkCoin {
         // address input validation perfomed in the _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
-        // Ensure the token has at least 6 decimals and max 77
-        if (tokenDecimals < 6 || tokenDecimals > 77) {
+        // Ensure the token has at least MIN_SUPPORTED_DECIMALS decimals and max MAX_SUPPORTED_DECIMALS
+        if (tokenDecimals < MIN_SUPPORTED_DECIMALS || tokenDecimals > MAX_SUPPORTED_DECIMALS) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
         // Amount input validation
