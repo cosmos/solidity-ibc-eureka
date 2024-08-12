@@ -12,11 +12,10 @@ library SdkCoin {
     /// @notice Default value for Cosmos coin decimals
     /// @dev https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
     uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
-    /// @notice Minimum value supported for ERC20 tokens decimals 
-    uint private constant MIN_SUPPORTED_DECIMALS = 6;
-    /// @notice Maxiumum value supported for ERC20 tokens decimals 
-    uint private constant MAX_SUPPORTED_DECIMALS = 77;
-
+    /// @notice Minimum value supported for ERC20 tokens decimals
+    uint256 private constant MIN_SUPPORTED_DECIMALS = 6;
+    /// @notice Maxiumum value supported for ERC20 tokens decimals
+    uint256 private constant MAX_SUPPORTED_DECIMALS = 77;
 
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this.
     /**
