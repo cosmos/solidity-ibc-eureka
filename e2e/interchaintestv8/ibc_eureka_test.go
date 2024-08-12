@@ -948,7 +948,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
-		s.Require().Equal(userAddress, transferEvent.PacketData.Sender)
+		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
 		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
 

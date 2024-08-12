@@ -47,7 +47,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     function testFuzz_success_Burn(uint256 startingAmount, uint256 burnAmount) public {
-        vm.assume(startingAmount >= burnAmount);
+        burnAmount = bound(burnAmount, 0, startingAmount);
         ibcERC20.mint(startingAmount);
         assertEq(ibcERC20.balanceOf(address(this)), startingAmount);
 
@@ -64,7 +64,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     function testFuzz_unauthorized_Burn(uint256 startingAmount, uint256 burnAmount) public {
-        vm.assume(startingAmount >= burnAmount);
+        burnAmount = bound(burnAmount, 0, startingAmount);
         ibcERC20.mint(startingAmount);
         assertEq(ibcERC20.balanceOf(address(this)), startingAmount);
 
