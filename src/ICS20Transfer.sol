@@ -80,12 +80,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // Note: uint64 _sdkCoinAmount returned by SdkCoin._ERC20ToSdkCoin_ConvertAmount is discarded because it won't
-        // be used here.
-        // The transfer function still requires an uint256.
+        // be used here. Recall that the _transferFrom function requires an uint256.
         (, uint256 _remainder) =
             SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20ContractAddress, packetData.amount);
 
-        // Transfer the packetData.amount minus the remainder from the sender to this contract,
+        // Transfer the packetData.amount minus the remainder from the sender to this contract.
         // This step moves the correct amount of tokens, adjusted for any precision differences,
         // from the user's account to the contract's account.
         // The remainder is left in the sender's account, ensuring they aren't overcharged
