@@ -26,6 +26,11 @@ import { TestERC20, TestERC20Metadata } from "./TestERC20.sol";
  *      enhancing the overall reliability and accuracy of the conversion functions.
  */
 contract SdkCoinTest is Test, IISdkCoinErrors {
+    
+    // Testing constants
+    uint8 constant MIN_SUPPORTED_DECIMALS = 6; 
+    uint8 constant MAX_SUPPORTED_DECIMALS = 77;
+
     // Instance of the MockERC20 contract
     TestERC20 private testERC20;
 
@@ -140,8 +145,8 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         testCases[1] = ERC20MetadataToSdkCoin_ConvertTestCase({
-            m: "1.000000000000000001 ERC20 tokens with 77 decimals",
-            decimals: 77,
+            m: "1.000000000000000001 ERC20 tokens with MAX_SUPPORTED_DECIMALS",
+            decimals: MAX_SUPPORTED_DECIMALS,
             amount: 100_000_010_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 10_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_001
@@ -172,8 +177,8 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         testCases[5] = ERC20MetadataToSdkCoin_ConvertTestCase({
-            m: "1.000001 ERC20 tokens with 6 decimals",
-            decimals: 6,
+            m: "1.000001 ERC20 tokens with MIN_SUPPORTED_DECIMALS",
+            decimals: MIN_SUPPORTED_DECIMALS,
             amount: 1_000_001,
             expectedConvertedAmount: 1_000_001,
             expectedRemainder: 0
@@ -224,10 +229,10 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      *      conversion function `_SdkCoinToERC20_ConvertAmount` correctly calculates the equivalent ERC20 token amount.
      *
      * The test cases cover the following scenarios:
-     * - 1 SdkCoin to an ERC20 token with 6 decimals
+     * - 1 SdkCoin to an ERC20 token with MIN_SUPPORTED_DECIMALS
      * - 1 SdkCoin to an ERC20 token with 18 decimals
      * - 1 SdkCoin to an ERC20 token with 7 decimals
-     * - 1 SdkCoin to an ERC20 token with 77 decimals
+     * - 1 SdkCoin to an ERC20 token with MAX_SUPPORTED_DECIMALS 
      *
      * The function asserts that:
      * - The decimals in the mock ERC20 metadata match the expected decimals.
@@ -237,8 +242,8 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         SdkCoinToERC20_ConvertTestCase[] memory testCases = new SdkCoinToERC20_ConvertTestCase[](4);
 
         testCases[0] = SdkCoinToERC20_ConvertTestCase({
-            m: "1 SdkCoin to ERC20 token with 6 decimals",
-            decimals: 6,
+            m: "1 SdkCoin to ERC20 token with MIN_SUPPORTED_DECIMALS",
+            decimals: MIN_SUPPORTED_DECIMALS,
             cosmosAmount: 1_000_000,
             expectedConvertedAmount: 1_000_000
         });
@@ -258,8 +263,8 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         testCases[3] = SdkCoinToERC20_ConvertTestCase({
-            m: "1 SdkCoin to ERC20 token with 77 decimals",
-            decimals: 77,
+            m: "1 SdkCoin to ERC20 token with MAX_SUPPORTED_DECIMALS decimals",
+            decimals: MAX_SUPPORTED_DECIMALS,
             cosmosAmount: 1_000_000,
             expectedConvertedAmount: 100_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000_000
         });
@@ -289,15 +294,6 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
     /////////////////////////////////////////////////////
     // Tests triggering reverts conditions
-
-    struct RevertTestCase {
-        string m;
-        address tokenAddress;
-        uint8 decimals;
-        uint256 evmAmount;
-        uint64 cosmosAmount;
-        bytes expectedRevertSelector;
-    }
 
     /**
      * @notice Tests various revert conditions for ERC20 to SdkCoin and SdkCoin to ERC20 conversion functions.
@@ -364,16 +360,16 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         testCases[4] = RevertTestCase({
             m: "Zero amount for SdkCoin to ERC20 conversion",
-            tokenAddress: address(new TestERC20Metadata(6)),
-            decimals: 6,
+            tokenAddress: address(new TestERC20Metadata(MIN_SUPPORTED_DECIMALS)),
+            decimals: MIN_SUPPORTED_DECIMALS,
             evmAmount: 0,
             cosmosAmount: 0,
             expectedRevertSelector: abi.encodeWithSelector(InvalidAmount.selector, uint256(0))
         });
         testCases[5] = RevertTestCase({
             m: "Zero amount for ERC20 to SdkCoin conversion",
-            tokenAddress: address(new TestERC20Metadata(6)),
-            decimals: 6,
+            tokenAddress: address(new TestERC20Metadata(MIN_SUPPORTED_DECIMALS)),
+            decimals: MIN_SUPPORTED_DECIMALS,
             evmAmount: 0,
             cosmosAmount: 0,
             expectedRevertSelector: abi.encodeWithSelector(InvalidAmount.selector, uint256(0))
@@ -389,6 +385,16 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
                 SdkCoin._SdkCoinToERC20_ConvertAmount(tc.tokenAddress, tc.cosmosAmount);
             }
         }
+    }
+
+    //solhint-disable-next-line contract-name-camelcase
+    struct RevertTestCase {
+        string m;
+        address tokenAddress;
+        uint8 decimals;
+        uint256 evmAmount;
+        uint64 cosmosAmount;
+        bytes expectedRevertSelector;
     }
 
     ///////////////////////////////////////
@@ -541,7 +547,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
-        address tokenAddress = address(new TestERC20Metadata(6));
+        address tokenAddress = address(new TestERC20Metadata(MIN_SUPPORTED_DECIMALS));
         (uint64 convertedAmount, uint256 remainder) =
             SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(tokenAddress), amount);
         assertInvariants_ERC20toSdkCoin_EqualDecimals(convertedAmount, amount, remainder);
@@ -555,11 +561,12 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      * @param decimals The number of decimals of the ERC20 token
      * Requirements:
      * - `amount` must be greater than 0 and less than or equal to the maximum uint64 value.
-     * - `decimals` must be greater than the default Cosmos decimals (6) and less than or equal to 77.
+     * - `decimals` must be greater than MIN_SUPPORTED_DECIMALS, which are equals to DEFAULT_COSMOS_DECIMALS,  
+     * and less than or equal to MAX_SUPPORTED_DECIMALS.
      */
     function testInvariant_ERC20ToSdkCoin_BiggerDecimals(uint256 amount, uint8 decimals) public {
         // Inputs constraints
-        if (amount == 0 || amount > ~uint64(0) || decimals <= 6 || decimals > 77) {
+        if (amount == 0 || amount > ~uint64(0) || decimals <= MIN_SUPPORTED_DECIMALS || decimals > MAX_SUPPORTED_DECIMALS) {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
@@ -582,14 +589,14 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      *
      * Requirements:
      * - `amount` must be greater than 0 and less than or equal to the maximum uint64 value.
-     * - `decimals` must be between 6 and 77 (inclusive).
+     * - `decimals` must be between MIN_SUPPORTED_DECIMALS and MAX_SUPPORTED_DECIMALS (inclusive).
      * - The multiplication of `amount` and the conversion factor must not overflow.
      *
      * The function will skip test cases that do not meet these requirements.
      */
     function testInvariant_SdkCoinToERC20(uint64 amount, uint8 decimals) public {
         // Inputs constraints
-        if (amount == 0 || decimals < 6 || decimals > 77) {
+        if (amount == 0 || decimals < MIN_SUPPORTED_DECIMALS || decimals > MAX_SUPPORTED_DECIMALS) {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
