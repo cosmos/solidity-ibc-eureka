@@ -33,7 +33,7 @@ test-foundry:
 # Run forge fmt and bun solhint
 lint:
 	@echo "Linting the Solidity code..."
-	forge fmt --check && bun solhint '{script,src,test}/**/*.sol' && bun natspec-smells --include 'src/**/*.sol'
+	forge fmt --check && bun solhint -w 0 '{script,src,test}/**/*.sol' && bun natspec-smells --include 'src/**/*.sol'
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run --fix
 
