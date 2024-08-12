@@ -12,7 +12,11 @@ import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+<<<<<<< HEAD
 import { IBCERC20 } from "./utils/IBCERC20.sol";
+=======
+import { SdkCoin } from "./utils/SdkCoin.sol";
+>>>>>>> 3246b22 (add skeleton)
 
 using SafeERC20 for IERC20;
 
@@ -39,10 +43,23 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
+        uint64 memory _cosmosAmount; 
+
+        (address memory _contractAddress, bool memory success) = ICS20Lib.hexStringToAddress(msg_.denom); 
+        if(success){
+            uint256 memory _remainder;
+            (_cosmosAmount, _remainder)=SdkCoin._ERC20ToSdkCoin_ConvertAmount(_contractAddress,msg_.amount); 
+            if(_remainder > 0){
+                // TODO Implement refund to user
+            }     
+        }else {
+            revert; // TODO Write Error    
+        }
+
         if (bytes(msg_.memo).length == 0) {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, _cosmosAmount, sender, msg_.receiver);
         } else {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver, msg_.memo);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, _cosmosAmount, sender, msg_.receiver, msg_.memo);
         }
 
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
