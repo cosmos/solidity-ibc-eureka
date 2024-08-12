@@ -6,8 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { MockERC20 } from "../test/mock/MockERC20.sol";
-import { MockERC20Metadata } from "../test/mock/MockERC20Metadata.sol";
+import { TestERC20, TestERC20Metadata } from "./TestERC20.sol";
 
 /**
  * This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,
@@ -28,11 +27,11 @@ import { MockERC20Metadata } from "../test/mock/MockERC20Metadata.sol";
  */
 contract SdkCoinTest is Test, IISdkCoinErrors {
     // Instance of the MockERC20 contract
-    MockERC20 private mockERC20;
+    TestERC20 private testERC20;
 
     function setUp() public {
         // Deploy the mock ERC20 tokens
-        mockERC20 = new MockERC20();
+        testERC20 = new TestERC20();
     }
 
     /**
@@ -106,7 +105,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         for (uint256 i = 0; i < testCases.length; i++) {
             ERC20ToSdkCoin_ConvertTestCase memory tc = testCases[i];
             (uint64 convertedAmount, uint256 remainder) =
-                SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(mockERC20), tc.amount);
+                SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(testERC20), tc.amount);
 
             // Assertions
             assertEq(
@@ -190,7 +189,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             ERC20MetadataToSdkCoin_ConvertTestCase memory tc = testCases[i];
-            MockERC20Metadata mockERC20Metadata = new MockERC20Metadata(tc.decimals);
+            TestERC20Metadata mockERC20Metadata = new TestERC20Metadata(tc.decimals);
             (uint64 convertedAmount, uint256 remainder) =
                 SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(mockERC20Metadata), tc.amount);
 
@@ -267,7 +266,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         for (uint256 i = 0; i < testCases.length; i++) {
             SdkCoinToERC20_ConvertTestCase memory tc = testCases[i];
-            MockERC20Metadata mockERC20Metadata = new MockERC20Metadata(tc.decimals);
+            TestERC20Metadata mockERC20Metadata = new TestERC20Metadata(tc.decimals);
             uint256 convertedAmount = SdkCoin._SdkCoinToERC20_ConvertAmount(address(mockERC20Metadata), tc.cosmosAmount);
 
             // Assertions
@@ -347,7 +346,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         testCases[2] = RevertTestCase({
             m: "Less than six decimals for ERC20 to SdkCoin conversion",
-            tokenAddress: address(new MockERC20Metadata(5)),
+            tokenAddress: address(new TestERC20Metadata(5)),
             decimals: 5,
             evmAmount: 1_000_000,
             cosmosAmount: 0,
@@ -356,7 +355,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         testCases[3] = RevertTestCase({
             m: "Less than six decimals for SdkCoin to ERC20 conversion",
-            tokenAddress: address(new MockERC20Metadata(5)),
+            tokenAddress: address(new TestERC20Metadata(5)),
             decimals: 5,
             evmAmount: 0,
             cosmosAmount: 1_000_000,
@@ -365,7 +364,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
 
         testCases[4] = RevertTestCase({
             m: "Zero amount for SdkCoin to ERC20 conversion",
-            tokenAddress: address(new MockERC20Metadata(6)),
+            tokenAddress: address(new TestERC20Metadata(6)),
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
@@ -373,7 +372,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
         testCases[5] = RevertTestCase({
             m: "Zero amount for ERC20 to SdkCoin conversion",
-            tokenAddress: address(new MockERC20Metadata(6)),
+            tokenAddress: address(new TestERC20Metadata(6)),
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
@@ -542,7 +541,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
-        address tokenAddress = address(new MockERC20Metadata(6));
+        address tokenAddress = address(new TestERC20Metadata(6));
         (uint64 convertedAmount, uint256 remainder) =
             SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(tokenAddress), amount);
         assertInvariants_ERC20toSdkCoin_EqualDecimals(convertedAmount, amount, remainder);
@@ -564,7 +563,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
-        address tokenAddress = address(new MockERC20Metadata(decimals));
+        address tokenAddress = address(new TestERC20Metadata(decimals));
         uint256 factor = 10 ** (decimals - SdkCoin.DEFAULT_COSMOS_DECIMALS);
 
         (uint64 convertedAmount, uint256 remainder) =
@@ -601,7 +600,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             // Skip the test case as it would cause an overflow that will be catched by built-in checks
             return;
         }
-        address tokenAddress = address(new MockERC20Metadata(decimals));
+        address tokenAddress = address(new TestERC20Metadata(decimals));
 
         uint256 convertedAmount = SdkCoin._SdkCoinToERC20_ConvertAmount(address(tokenAddress), amount);
         invariant_SdkCointoERC20_ConvertedAmountBiggerOrEqualThanInput(convertedAmount, amount);
