@@ -35,13 +35,6 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         mockERC20 = new MockERC20();
     }
 
-    struct ERC20toSdkCoin_ConvertTestCase {
-        string m;
-        uint256 amount;
-        uint64 expectedConvertedAmount;
-        uint256 expectedRemainder;
-    }
-
     /**
      * @notice Tests the conversion of ERC20 token amounts to SdkCoin amounts, ensuring that the conversion function
      *         accurately handles the conversion and calculates any remainder.
@@ -66,44 +59,44 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      *
      */
     function test_ERC20toSdkCoin_ConvertAmount() public view {
-        ERC20toSdkCoin_ConvertTestCase[] memory testCases = new ERC20toSdkCoin_ConvertTestCase[](6);
+        ERC20ToSdkCoin_ConvertTestCase[] memory testCases = new ERC20ToSdkCoin_ConvertTestCase[](6);
 
-        testCases[0] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[0] = ERC20ToSdkCoin_ConvertTestCase({
             m: "1.000000000000000001 ERC20 tokens",
             amount: 1_000_000_000_000_000_001,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 1
         });
 
-        testCases[1] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[1] = ERC20ToSdkCoin_ConvertTestCase({
             m: "1.000000100000000001 ERC20 tokens",
             amount: 1_000_000_100_000_000_001,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 100_000_000_001
         });
 
-        testCases[2] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[2] = ERC20ToSdkCoin_ConvertTestCase({
             m: "1.000000000000000000 ERC20 tokens",
             amount: 1_000_000_000_000_000_000,
             expectedConvertedAmount: 1_000_000,
             expectedRemainder: 0
         });
 
-        testCases[3] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[3] = ERC20ToSdkCoin_ConvertTestCase({
             m: "1 smallest unit of ERC20 tokens",
             amount: 1,
             expectedConvertedAmount: 0,
             expectedRemainder: 1
         });
 
-        testCases[4] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[4] = ERC20ToSdkCoin_ConvertTestCase({
             m: "Less than 1 smallest unit of SdkCoin",
             amount: 999_999_999_999,
             expectedConvertedAmount: 0,
             expectedRemainder: 999_999_999_999
         });
 
-        testCases[5] = ERC20toSdkCoin_ConvertTestCase({
+        testCases[5] = ERC20ToSdkCoin_ConvertTestCase({
             m: "999.999999999999999999 ERC20 tokens",
             amount: 999_999_999_999_999_999,
             expectedConvertedAmount: 999_999,
@@ -111,7 +104,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
-            ERC20toSdkCoin_ConvertTestCase memory tc = testCases[i];
+            ERC20ToSdkCoin_ConvertTestCase memory tc = testCases[i];
             (uint64 convertedAmount, uint256 remainder) =
                 SdkCoin._ERC20ToSdkCoin_ConvertAmount(address(mockERC20), tc.amount);
 
@@ -125,15 +118,16 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         }
     }
 
-    /////////////////////////////////////////////////////
-    // Tests for MockERC20Metadata - Extended Tokens Standard implementation with decimals
-    struct ERC20MetadataToSdkCoin_ConvertTestCase {
+    //solhint-disable-next-line contract-name-camelcase
+    struct ERC20ToSdkCoin_ConvertTestCase {
         string m;
-        uint8 decimals;
         uint256 amount;
         uint64 expectedConvertedAmount;
         uint256 expectedRemainder;
     }
+
+    /////////////////////////////////////////////////////
+    // Tests for MockERC20Metadata - Extended Tokens Standard implementation with decimals
 
     function test_ERC20MetadataToSdkCoin_ConvertAmount() public {
         ERC20MetadataToSdkCoin_ConvertTestCase[] memory testCases = new ERC20MetadataToSdkCoin_ConvertTestCase[](7);
@@ -211,15 +205,17 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
         }
     }
 
-    /////////////////////////////////////////////////////
-    // Tests for SdkCoin to ERC20Metadata - Extended Tokens Standard implementation with decimals
-
-    struct SdkCoinToERC20_ConvertTestCase {
+    //solhint-disable-next-line contract-name-camelcase
+    struct ERC20MetadataToSdkCoin_ConvertTestCase {
         string m;
         uint8 decimals;
-        uint64 cosmosAmount;
-        uint256 expectedConvertedAmount;
+        uint256 amount;
+        uint64 expectedConvertedAmount;
+        uint256 expectedRemainder;
     }
+
+    /////////////////////////////////////////////////////
+    // Tests for SdkCoin to ERC20Metadata - Extended Tokens Standard implementation with decimals
 
     /**
      * @notice Tests the conversion of SdkCoin amounts to ERC20 token amounts based on different decimal places.
@@ -282,6 +278,14 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
                 string(abi.encodePacked("Converted amount mismatch: ", tc.m))
             );
         }
+    }
+
+    //solhint-disable-next-line contract-name-camelcase
+    struct SdkCoinToERC20_ConvertTestCase {
+        string m;
+        uint8 decimals;
+        uint64 cosmosAmount;
+        uint256 expectedConvertedAmount;
     }
 
     /////////////////////////////////////////////////////

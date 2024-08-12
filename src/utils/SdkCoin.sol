@@ -70,7 +70,7 @@ library SdkCoin {
         // The function will revert automatically for the safeCast conversion function. No need to check it here.
 
         // Variables to store the converted amount and any remainder
-        uint256 temp_convertedAmount;
+        uint256 tempConvertedAmount;
         uint256 remainder;
 
         // Case where ERC20 token decimals are greater than the default cosmos decimals
@@ -80,13 +80,13 @@ library SdkCoin {
 
             // Solidity version > 0.8 includes built-in overflow/underflow checks
             // Scale down the amount by the factor to adjust for the difference in decimals
-            temp_convertedAmount = amount / factor;
+            tempConvertedAmount = amount / factor;
 
             // Calculate any remainder that cannot be represented in the target decimal format
             remainder = amount % factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
             // If the token decimals match the cosmos decimals, no conversion is necessary
-            temp_convertedAmount = amount;
+            tempConvertedAmount = amount;
             remainder = 0;
         } else {
             // This case should be unreachable because of the earlier check for minimum token decimals
@@ -94,7 +94,7 @@ library SdkCoin {
         }
 
         // Return the converted amount cast to uint64 and any remainder
-        return (SafeCast.toUint64(temp_convertedAmount), remainder);
+        return (SafeCast.toUint64(tempConvertedAmount), remainder);
     }
 
     // Convert Cosmos coin amount to ERC20 token amount
