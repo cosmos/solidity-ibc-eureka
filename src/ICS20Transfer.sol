@@ -178,7 +178,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @notice Unwrap the packet data for sending, including finding the correct erc20 contract to use
     /// @param packet The packet to unwrap
     /// @return The unwrapped packet data
-    function _unwrapSendPacketData(IICS26RouterMsgs.Packet calldata packet)
+    function _unwrapSendPacketData(
+        IICS26RouterMsgs.Packet calldata packet
+    )
         private
         view
         returns (ICS20Lib.UnwrappedPacketData memory)
@@ -216,7 +218,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @notice Unwrap the packet data for receiving, including finding or instantiating the erc20 contract to use
     /// @param packet The packet to unwrap
     /// @return The unwrapped packet data
-    function _unwrapReceivePacketData(IICS26RouterMsgs.Packet calldata packet)
+    function _unwrapReceivePacketData(
+        IICS26RouterMsgs.Packet calldata packet
+    )
         private
         returns (ICS20Lib.UnwrappedPacketData memory)
     {
