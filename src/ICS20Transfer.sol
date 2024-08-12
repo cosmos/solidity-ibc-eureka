@@ -18,10 +18,8 @@ using SafeERC20 for IERC20;
 
 /*
  * Things not handled yet:
- * - Prefixed denoms (source chain is not the source) and the burning of tokens related to that
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
- * - Receiving packets
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
@@ -203,16 +201,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         receivePacketData.originatorChainIsSource = !ICS20Lib.hasPrefix(bytes(packetData.denom), denomPrefix);
         if (receivePacketData.originatorChainIsSource) {
             // we are the source of this token, so we unwrap and look for the token contract address
-            receivePacketData.erc20Contract = address(_foreignDenomContracts[packetData.denom]);
-            if (receivePacketData.erc20Contract == address(0)) {
-                // this denom is not created by us, so we expect the denom to be a token contract address
-                bool tokenContractConvertSuccess;
-                (receivePacketData.erc20Contract, tokenContractConvertSuccess) =
-                    ICS20Lib.hexStringToAddress(packetData.denom);
-                if (!tokenContractConvertSuccess) {
-                    revert ICS20InvalidTokenContract(packetData.denom);
-                }
-            }
+            receivePacketData.erc20Contract = findOrExtractERC20Address(packetData.denom);
         } else {
             // receiving chain is source of the token, so we will find the address in the mapping
             receivePacketData.erc20Contract = address(_foreignDenomContracts[packetData.denom]);
@@ -251,35 +240,56 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         receivePacketData.originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, denomPrefix);
 
         if (receivePacketData.originatorChainIsSource) {
-            // we are not the source of this token, so we add a denom trace and find or create a token contract
+            // we are not the source of this token, so we add a denom trace and find or create a new token contract
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(packet.destPort, packet.destChannel);
             receivePacketData.denom = string(abi.encodePacked(newDenomPrefix, packetData.denom));
 
-            // check if denom already has a contract
-            receivePacketData.erc20Contract = address(_foreignDenomContracts[receivePacketData.denom]);
-            if (receivePacketData.erc20Contract == address(0)) {
-                // nothing exists, so we create new erc20 contract and register it in the mapping
-                IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)));
-                _foreignDenomContracts[receivePacketData.denom] = ibcERC20;
-                receivePacketData.erc20Contract = address(ibcERC20);
-            }
+            receivePacketData.erc20Contract = findOrCreateERC20Address(receivePacketData.denom);
         } else {
-            // we are the source of this token, so we unwrap and look for the token contract address
+            // we are the source of this token, so we unwrap the denom and find the token contract
+            // either in the mapping or by converting the denom to an address
             receivePacketData.denom =
                 string(ICS20Lib.slice(denomBz, denomPrefix.length, denomBz.length - denomPrefix.length));
 
-            receivePacketData.erc20Contract = address(_foreignDenomContracts[receivePacketData.denom]);
-            if (receivePacketData.erc20Contract == address(0)) {
-                // this denom is not created by us, so we expect the denom to be a token contract address
-                bool tokenContractConvertSuccess;
-                (receivePacketData.erc20Contract, tokenContractConvertSuccess) =
-                    ICS20Lib.hexStringToAddress(receivePacketData.denom);
-                if (!tokenContractConvertSuccess) {
-                    revert ICS20InvalidTokenContract(receivePacketData.denom);
-                }
-            }
+            receivePacketData.erc20Contract = findOrExtractERC20Address(receivePacketData.denom);
         }
 
         return receivePacketData;
+    }
+
+    /// @notice Finds a contract in the foreign mapping, or expects the denom to be a token contract address
+    /// @notice This function will never return address(0)
+    /// @param denom The denom to find or extract the address from
+    /// @return The address of the contract
+    function findOrExtractERC20Address(string memory denom) internal view returns (address) {
+        // check if denom already has a foreign registered contract
+        address erc20Contract = address(_foreignDenomContracts[denom]);
+        if (erc20Contract == address(0)) {
+            // this denom is not created by us, so we expect the denom to be a token contract address
+            bool convertSuccess;
+            (erc20Contract, convertSuccess) = ICS20Lib.hexStringToAddress(denom);
+            if (!convertSuccess) {
+                revert ICS20InvalidTokenContract(denom);
+            }
+        }
+
+        return erc20Contract;
+    }
+
+    /// @notice Finds a contract in the foreign mapping, or creates a new IBCERC20 contract
+    /// @notice This function will never return address(0)
+    /// @param denom The denom to find or create the contract for
+    /// @return The address of the erc20 contract
+    function findOrCreateERC20Address(string memory denom) internal returns (address) {
+        // check if denom already has a foreign registered contract
+        address erc20Contract = address(_foreignDenomContracts[denom]);
+        if (erc20Contract == address(0)) {
+            // nothing exists, so we create new erc20 contract and register it in the mapping
+            IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)));
+            _foreignDenomContracts[denom] = ibcERC20;
+            erc20Contract = address(ibcERC20);
+        }
+
+        return erc20Contract;
     }
 }

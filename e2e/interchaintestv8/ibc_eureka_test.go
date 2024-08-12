@@ -60,7 +60,6 @@ type IbcEurekaTestSuite struct {
 
 	contractAddresses e2esuite.DeployedContracts
 
-	ethClient        *ethclient.Client
 	sp1Ics07Contract *sp1ics07tendermint.Contract
 	ics02Contract    *ics02client.Contract
 	ics26Contract    *ics26router.Contract
@@ -169,19 +168,19 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		s.ethClient, err = ethclient.Dial(eth.GetHostRPCAddress())
+		ethClient, err := ethclient.Dial(eth.GetHostRPCAddress())
 		s.Require().NoError(err)
 
 		s.contractAddresses = s.GetEthContractsFromDeployOutput(string(stdout))
-		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), s.ethClient)
+		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), ethClient)
 		s.Require().NoError(err)
-		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), s.ethClient)
+		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), ethClient)
 		s.Require().NoError(err)
-		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), s.ethClient)
+		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), ethClient)
 		s.Require().NoError(err)
-		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), s.ethClient)
+		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), ethClient)
 		s.Require().NoError(err)
-		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), s.ethClient)
+		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
 	}))
 
@@ -603,7 +602,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
+func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
@@ -729,7 +728,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
 		s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
 
 		s.True(s.Run("Verify balances", func() {
-			ibcERC20Contract, err = erc20.NewContract(ethReceiveTransferPacket.Erc20Contract, s.ethClient)
+			ethClient, err := ethclient.Dial(eth.GetHostRPCAddress())
+			s.Require().NoError(err)
+			ibcERC20Contract, err = erc20.NewContract(ethReceiveTransferPacket.Erc20Contract, ethClient)
 			s.Require().NoError(err)
 
 			userBalance, err := ibcERC20Contract.BalanceOf(nil, userAddress)
@@ -849,7 +850,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferWithForeignCoin() {
 				TimeoutTimestamp:   returnPacket.TimeoutTimestamp * 1_000_000_000,
 			},
 			ProofCommitment: []byte("doesn't matter"),
-			ProofHeight:     clientState.LatestHeight,
+			ProofHeight:     clienttypes.Height{},
 			Signer:          s.UserB.FormattedAddress(),
 		})
 		s.Require().NoError(err)
