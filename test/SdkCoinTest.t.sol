@@ -26,9 +26,8 @@ import { TestERC20, TestERC20Metadata } from "./TestERC20.sol";
  *      enhancing the overall reliability and accuracy of the conversion functions.
  */
 contract SdkCoinTest is Test, IISdkCoinErrors {
-    
     // Testing constants
-    uint8 constant MIN_SUPPORTED_DECIMALS = 6; 
+    uint8 constant MIN_SUPPORTED_DECIMALS = 6;
     uint8 constant MAX_SUPPORTED_DECIMALS = 77;
 
     // Instance of the MockERC20 contract
@@ -232,7 +231,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      * - 1 SdkCoin to an ERC20 token with MIN_SUPPORTED_DECIMALS
      * - 1 SdkCoin to an ERC20 token with 18 decimals
      * - 1 SdkCoin to an ERC20 token with 7 decimals
-     * - 1 SdkCoin to an ERC20 token with MAX_SUPPORTED_DECIMALS 
+     * - 1 SdkCoin to an ERC20 token with MAX_SUPPORTED_DECIMALS
      *
      * The function asserts that:
      * - The decimals in the mock ERC20 metadata match the expected decimals.
@@ -561,12 +560,15 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
      * @param decimals The number of decimals of the ERC20 token
      * Requirements:
      * - `amount` must be greater than 0 and less than or equal to the maximum uint64 value.
-     * - `decimals` must be greater than MIN_SUPPORTED_DECIMALS, which are equals to DEFAULT_COSMOS_DECIMALS,  
+     * - `decimals` must be greater than MIN_SUPPORTED_DECIMALS, which are equals to DEFAULT_COSMOS_DECIMALS,
      * and less than or equal to MAX_SUPPORTED_DECIMALS.
      */
     function testInvariant_ERC20ToSdkCoin_BiggerDecimals(uint256 amount, uint8 decimals) public {
         // Inputs constraints
-        if (amount == 0 || amount > ~uint64(0) || decimals <= MIN_SUPPORTED_DECIMALS || decimals > MAX_SUPPORTED_DECIMALS) {
+        if (
+            amount == 0 || amount > ~uint64(0) || decimals <= MIN_SUPPORTED_DECIMALS
+                || decimals > MAX_SUPPORTED_DECIMALS
+        ) {
             // These conditions will revert and are expected behaviours that have already been covered in table testing
             return;
         }
