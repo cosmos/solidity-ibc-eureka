@@ -27,8 +27,8 @@ import { TestERC20, TestERC20Metadata } from "./TestERC20.sol";
  */
 contract SdkCoinTest is Test, IISdkCoinErrors {
     // Testing constants
-    uint8 constant MIN_SUPPORTED_DECIMALS = 6;
-    uint8 constant MAX_SUPPORTED_DECIMALS = 77;
+    uint8 private constant MIN_SUPPORTED_DECIMALS = 6;
+    uint8 private constant MAX_SUPPORTED_DECIMALS = 77;
 
     // Instance of the MockERC20 contract
     TestERC20 private testERC20;
