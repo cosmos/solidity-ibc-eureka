@@ -12,6 +12,10 @@ library SdkCoin {
     /// @notice Default value for Cosmos coin decimals
     /// @dev https://docs.cosmos.network/v0.50/build/architecture/adr-024-coin-metadata
     uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
+    /// @notice Minimum value supported for ERC20 tokens decimals
+    uint256 private constant MIN_SUPPORTED_DECIMALS = 6;
+    /// @notice Maxiumum value supported for ERC20 tokens decimals
+    uint256 private constant MAX_SUPPORTED_DECIMALS = 77;
 
     // Note that ERC20 standard use 18 decimals by default. Custom ERC20 implementation may decide to change this.
     /**
@@ -44,7 +48,7 @@ library SdkCoin {
      * @return convertedAmount The amount converted to uint64 supported by cosmos coins
      * @return remainder The remainder of the conversion
      */
-    function _convertERC20AmountToSdkCoin(
+    function _ERC20ToSdkCoin_ConvertAmount(
         address tokenAddress,
         uint256 amount
     )
@@ -52,33 +56,48 @@ library SdkCoin {
         view
         returns (uint64, uint256)
     {
-        // Note if we want to allow different cosmos decimals, we need to handle that here too
-        // Note that tokenAddress input validations are executed in the _getERC20TokenDecimals function
+        // Retrieve the number of decimals the ERC20 token uses
+        // Note that input validations for the tokenAddress are performed within _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
-        if (tokenDecimals < 6) {
+        // Ensure the token's decimals are within the supported range
+        if (tokenDecimals < MIN_SUPPORTED_DECIMALS || tokenDecimals > MAX_SUPPORTED_DECIMALS) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
-        // Amount input validation
+
+        // Ensure the provided amount is not zero, as zero is an invalid amount
         if (amount == 0) {
             revert IISdkCoinErrors.InvalidAmount(amount);
         }
-        // Ensure the amount respects the token's decimals
-        // Handle the case where the input amount exceeds the token's precision
+
+        // Note that for values of amount > ~uint64(0) which is the max value of uint64 type
+        // The function will revert automatically for the safeCast conversion function. No need to check it here.
+
+        // Variables to store the converted amount and any remainder
         uint256 tempConvertedAmount;
         uint256 remainder;
-        // Case ERC20 decimals are bigger than cosmos decimals
+
+        // Case where ERC20 token decimals are greater than the default cosmos decimals
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
+            // Calculate the factor by which to scale down the amount
             uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
+
+            // Solidity version > 0.8 includes built-in overflow/underflow checks
+            // Scale down the amount by the factor to adjust for the difference in decimals
             tempConvertedAmount = amount / factor;
+
+            // Calculate any remainder that cannot be represented in the target decimal format
             remainder = amount % factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
+            // If the token decimals match the cosmos decimals, no conversion is necessary
             tempConvertedAmount = amount;
             remainder = 0;
         } else {
-            // revert as this is unreachable
+            // This case should be unreachable because of the earlier check for minimum token decimals
             revert IISdkCoinErrors.Unsupported();
         }
+
+        // Return the converted amount cast to uint64 and any remainder
         return (SafeCast.toUint64(tempConvertedAmount), remainder);
     }
 
@@ -90,13 +109,13 @@ library SdkCoin {
      * @param amount The amount to be converted
      * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
      */
-    function _convertSdkCoinAmountToERC20(address tokenAddress, uint64 amount) internal view returns (uint256) {
+    function _SdkCoinToERC20_ConvertAmount(address tokenAddress, uint64 amount) internal view returns (uint256) {
         // Get the token decimals
         // address input validation perfomed in the _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
 
-        // Ensure the token has at least 6 decimals
-        if (tokenDecimals < 6) {
+        // Ensure the token has at least MIN_SUPPORTED_DECIMALS decimals and max MAX_SUPPORTED_DECIMALS
+        if (tokenDecimals < MIN_SUPPORTED_DECIMALS || tokenDecimals > MAX_SUPPORTED_DECIMALS) {
             revert IISdkCoinErrors.UnsupportedTokenDecimals(tokenDecimals);
         }
         // Amount input validation
@@ -108,13 +127,17 @@ library SdkCoin {
         if (tokenDecimals > DEFAULT_COSMOS_DECIMALS) {
             uint256 factor = 10 ** (tokenDecimals - DEFAULT_COSMOS_DECIMALS);
             // uint256 = uint64 * uint256 that should be ok
+            // Solidity version > 0.8 includes built in overflows/underflows checks
+            // This multiplication will overflow if amount > (~uint256(0) / factor)
             convertedAmount = amount * factor;
         } else if (tokenDecimals == DEFAULT_COSMOS_DECIMALS) {
+            // uint256 = uint64 should be ok
             convertedAmount = amount;
         } else {
             // Case ERC20 decimals < DEFAULT_COSMOS_DECIMALS
-            // TODO if we decide to support this case. It will require handling the loss of precision
-            // in the go side
+            // NOTE: If we decide to support this case, it will require handling the loss of precision
+            // in the go side. Potentially we can retrieve the ERC20 decimals using cross-chain queries
+
             // revert as this is unreachable
             revert IISdkCoinErrors.Unsupported();
         }

@@ -20,3 +20,16 @@ contract MalfunctioningERC20 is TestERC20 {
         // Do nothing 😱
     }
 }
+
+// Test contract to deploy ERC20 with different decimals value
+contract TestERC20Metadata is ERC20 {
+    uint8 private _decimals;
+
+    constructor(uint8 decimals_) ERC20("MetadataToken", "MTK") {
+        _decimals = decimals_;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
+}
