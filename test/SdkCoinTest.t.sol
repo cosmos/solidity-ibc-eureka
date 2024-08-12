@@ -329,7 +329,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             decimals: 0,
             evmAmount: 1_000_000,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(ZeroAddress.selector, address(0))
+            expectedRevertSelector: abi.encodeWithSelector(InvalidAddress.selector, address(0))
         });
 
         testCases[1] = RevertTestCase({
@@ -338,7 +338,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             decimals: 0,
             evmAmount: 0,
             cosmosAmount: 1_000_000,
-            expectedRevertSelector: abi.encodeWithSelector(ZeroAddress.selector, address(0))
+            expectedRevertSelector: abi.encodeWithSelector(InvalidAddress.selector, address(0))
         });
 
         testCases[2] = RevertTestCase({
@@ -365,7 +365,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(ZeroAmountUint64.selector, uint64(0))
+            expectedRevertSelector: abi.encodeWithSelector(InvalidAmount.selector, uint256(0))
         });
         testCases[5] = RevertTestCase({
             m: "Zero amount for ERC20 to SdkCoin conversion",
@@ -373,7 +373,7 @@ contract SdkCoinTest is Test, IISdkCoinErrors {
             decimals: 6,
             evmAmount: 0,
             cosmosAmount: 0,
-            expectedRevertSelector: abi.encodeWithSelector(ZeroAmountUint256.selector, uint256(0))
+            expectedRevertSelector: abi.encodeWithSelector(InvalidAmount.selector, uint256(0))
         });
 
         for (uint256 i = 0; i < testCases.length; i++) {
