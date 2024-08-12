@@ -154,7 +154,7 @@ library ICS20Lib {
     /// @param bz JSON bytes
     /// @return Unmarshalled PacketData
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
-        // TODO: #22 Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
+        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount, etc) (#22)
         PacketDataJSON memory pd;
         uint256 pos = 0;
 
