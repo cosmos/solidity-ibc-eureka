@@ -106,7 +106,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // transfer the tokens to us (requires the allowance to be set)
             _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
         }
-        // TODO: take into account the conversion if happened.
+        // DISCUSSION: do events take into account automatically the new amount? 
         emit ICS20Transfer(packetData);
     }
 
@@ -132,12 +132,12 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // TODO: Implement escrow balance tracking (#6)
         if (packetData.originatorChainIsSource) {
             // sender is source, so we mint vouchers
-            // NOTE: The unwrap function already created a new contract if it didn't exist already
+            // NOTE: The unwrap function already created a new contract with 6 decimals if it didn't exist already
             IBCERC20(packetData.erc20Contract).mint(packetData.amount);
             // transfer the tokens to the receiver
             IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
         } else {
-            // receiving back tokens
+            // receiving back tokens that were originated from native EVM tokens. 
             // Use SdkCoin._SdkCoinToERC20_ConvertAmount to account for proper decimals conversions.
             (uint256 _convertedAmount) =
                 SdkCoin._SdkCoinToERC20_ConvertAmount(packetData.erc20Contract, SafeCast.toUint64(packetData.amount));
