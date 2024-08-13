@@ -386,8 +386,58 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterReceive, 0);
     }
 
-    function test_success_onRecvPacketWithForeignDenom() public {
+    function test_success_onRecvPacketWithForeignBaseDenom() public {
         string memory foreignDenom = "uatom";
+
+        string memory senderAddrStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
+        address receiverAddr = makeAddr("receiver_of_foreign_denom");
+        string memory receiverAddrStr = Strings.toHexString(receiverAddr);
+        bytes memory receiveData =
+            ICS20Lib.marshalJSON(foreignDenom, defaultAmount, senderAddrStr, receiverAddrStr, "memo");
+        packet.data = receiveData;
+        packet.destPort = "transfer";
+        packet.destChannel = "dest-channel";
+        packet.sourcePort = "transfer";
+        packet.sourceChannel = "source-channel";
+
+        string memory expectedFullDenomPath =
+            string(abi.encodePacked(packet.destPort, "/", packet.destChannel, "/", foreignDenom));
+        string memory ibcDenom = ICS20Lib.toIBCDenom(expectedFullDenomPath);
+
+        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
+        ICS20Lib.UnwrappedPacketData memory receivePacketData;
+        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData); // we check these values later
+        vm.recordLogs();
+        bytes memory ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
+        );
+        assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+
+        // find and extract data from the ICS20ReceiveTransfer event
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 4);
+        Vm.Log memory receiveTransferLog = entries[3];
+        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+
+        receivePacketData = abi.decode(receiveTransferLog.data, (ICS20Lib.UnwrappedPacketData));
+        assertEq(receivePacketData.ibcDenom, ibcDenom);
+        assertEq(receivePacketData.fullDenomPath, expectedFullDenomPath);
+        assertEq(receivePacketData.originatorChainIsSource, true);
+        assertNotEq(receivePacketData.erc20Address, address(0));
+        assertEq(receivePacketData.sender, senderAddrStr);
+        assertEq(receivePacketData.receiver, receiverAddrStr);
+        assertEq(receivePacketData.amount, defaultAmount);
+        assertEq(receivePacketData.memo, "memo");
+
+        IERC20 ibcERC20 = IERC20(receivePacketData.erc20Address);
+
+        // finally, verify balances have been updated as expected
+        assertEq(ibcERC20.totalSupply(), defaultAmount);
+        assertEq(ibcERC20.balanceOf(receiverAddr), defaultAmount);
+    }
+
+    function test_success_onRecvPacketWithForeignIBCDenom() public {
+        string memory foreignDenom = "transfer/channel-42/uatom";
 
         string memory senderAddrStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         address receiverAddr = makeAddr("receiver_of_foreign_denom");
