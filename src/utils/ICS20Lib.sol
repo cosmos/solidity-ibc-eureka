@@ -5,6 +5,7 @@ pragma solidity >=0.8.25;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
+import "forge-std/console.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
@@ -426,5 +427,162 @@ library ICS20Lib {
     /// @return Denom prefix
     function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
         return abi.encodePacked(port, "/", channel, "/");
+    }
+
+    function toIBCDenom(string memory denom) public pure returns (string memory) {
+        return string(abi.encodePacked("ibc/", sha256(bytes(denom))));
+    }
+
+    struct Hop {
+        string port;
+        string channel;
+    }
+
+    struct Denom {
+        string base;
+        Hop[] trace;
+    }
+
+    function extractDenomFromPath(bytes memory fullPath) internal pure returns (Denom memory) {
+        bytes[] memory split = splitPath(fullPath);
+        if (split.length == 1) {
+            return Denom(string(split[0]), new Hop[](0));
+        }
+
+        Hop[] memory traces = new Hop[](split.length/2); // max length
+        string memory base;
+
+        uint256 hopsFound = 0;
+        uint256 length = split.length;
+        for (uint256 i = 0; i < length; i += 2) {
+            if (i < length-1 && length > 2 && isValidChannelID(split[i+1])) {
+                traces[i/2] = Hop(string(split[i]), string(split[i+1]));
+                hopsFound++;
+            } else {
+                base = string(split[i]);
+                for (uint256 j = i+1; j < length; j++) {
+                    base = string(abi.encodePacked(base, "/", split[j]));
+                }
+                break;
+            }
+        }
+
+        Hop[] memory finalTraces = new Hop[](hopsFound);
+        for (uint256 i = 0; i < hopsFound; i++) {
+            finalTraces[i] = traces[i];
+        }
+
+        return Denom(base, finalTraces);
+    }
+
+    function splitPath(bytes memory path) internal pure returns (bytes[] memory) {
+        // split the path by "/"
+        // call splitPath recursively on the rest of the path
+        uint256 i = 0;
+        for (i = 0; i < path.length; i++) {
+            if (path[i] == "/") {
+                break;
+            }
+        }
+
+        if (i == path.length) {
+            bytes[] memory r = new bytes[](1);
+            r[0] = path;
+            return r;
+        }
+
+        bytes memory first = slice(path, 0, i);
+        bytes memory second = slice(path, i+1, path.length - i - 1);
+
+        bytes[] memory rest = splitPath(second);
+        bytes[] memory result = new bytes[](rest.length + 1);
+        result[0] = first;
+        for (i = 0; i < rest.length; i++) {
+            result[i+1] = rest[i];
+        }
+
+        return result;
+    }
+
+    function isValidChannelID(bytes memory channelID) internal pure returns (bool) {
+        // Must be in the format: channel-{N} or {N}-{clientID}-{N}
+        uint256 length = channelID.length;
+        uint256 i = 0;
+        // Check for regular channel identifier
+        if (length > 8 && channelID[0] == "c" && channelID[1] == "h" && channelID[2] == "a" && channelID[3] == "n" && channelID[4] == "n" && channelID[5] == "e" && channelID[6] == "l" && channelID[7] == "-") {
+            // 8-{length-1} should now be a number
+
+            for (i = 8; i < length; i++) {
+                if (!isNumber(channelID[i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // check for clientID channel identifier
+        bool foundDash = false;
+        i = 0;
+        for (; i < length; i++) {
+            if (i != 0 && channelID[i] == "-") {
+                foundDash = true;
+                break;
+            }
+
+            if (!isNumber(channelID[i])) {
+                return false;
+            }
+        }
+
+        if (!foundDash) {
+            return false;
+        }
+
+        if (i == length-1) {
+            return false;
+        }
+
+        foundDash = false;
+        i++;
+        uint256 start = i;
+        for (; i < length; i++) {
+            if (i != start && channelID[i] == "-") {
+                foundDash = true;
+                break;
+            }
+
+            if (!isChar(channelID[i])) {
+                return false;
+            }
+        }
+
+        if (!foundDash) {
+            return false;
+        }
+
+        if (i == length-1) {
+            return false;
+        }
+
+        i++;
+        // The rest should be numbers
+        for (; i < length; i++) {
+            if (!isNumber(channelID[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function isNumber(bytes1 c) internal pure returns (bool) {
+        uint256 n = uint256(uint8(c));
+        return n >= 48 && n <= 57; // 0-9
+    }
+
+    function isChar(bytes1 c) internal pure returns (bool) {
+        uint256 n = uint256(uint8(c));
+        return (n >= 65 && n <= 90) || (n >= 97 && n <= 122); // A-Z or a-z
     }
 }

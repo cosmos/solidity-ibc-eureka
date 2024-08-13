@@ -9,6 +9,7 @@ import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     // TODO: Figure out naming and symbol for IBC denoms
     constructor(IICS20Transfer owner_) ERC20("IBC Token", "IBC") Ownable(address(owner_)) { }
+    // constructor(IICS20Transfer owner_, string memory name, string memory symbol) ERC20(name, symbol) Ownable(address(owner_)) { }
 
     /// @inheritdoc IIBCERC20
     function mint(uint256 amount) external onlyOwner {
