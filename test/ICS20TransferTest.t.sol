@@ -24,7 +24,10 @@ contract ICS20TransferTest is Test {
     address public sender;
     string public senderStr;
     string public receiver = "receiver";
-    uint256 public defaultAmount = 100;
+
+    uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder 
+    uint256 public expectedRemainder = 100_000_000_001; 
+    uint256 public expectedConvertedAmount= 1_000_000_000_000_000_000; // the uint256 representation of the uint64 sdkCoin amount 
     bytes public data;
     IICS26RouterMsgs.Packet public packet;
     ICS20Lib.UnwrappedPacketData public expectedDefaultSendPacketData;
@@ -78,8 +81,8 @@ contract ICS20TransferTest is Test {
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfter, 0);
-        assertEq(contractBalanceAfter, defaultAmount);
+        assertEq(senderBalanceAfter, expectedRemainder); // remainder 
+        assertEq(contractBalanceAfter, expectedConvertedAmount);
     }
 
     function test_failure_onSendPacket() public {
