@@ -34,7 +34,10 @@ contract IntegrationTest is Test {
     string public erc20AddressStr;
     string public counterpartyClient = "42-dummy-01";
 
-    uint256 public defaultAmount = 1000;
+    uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder 
+    uint256 public expectedRemainder = 100_000_000_001; 
+    uint256 public expectedConvertedAmount= 1_000_000_000_000_000_000; // the uint256 representation of the uint64 sdkCoin amount 
+    uint256 public defaultSdkCoinAmount=1_000_000;
     address public sender;
     string public senderStr;
     string public receiver = "someReceiver";
@@ -122,8 +125,8 @@ contract IntegrationTest is Test {
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfter, 0);
-        assertEq(contractBalanceAfter, defaultAmount);
+        assertEq(senderBalanceAfter, expectedRemainder);
+        assertEq(contractBalanceAfter, expectedConvertedAmount);
     }
 
     function test_success_sendICS20PacketFromICS20Contract() public {
@@ -149,8 +152,8 @@ contract IntegrationTest is Test {
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfter, 0);
-        assertEq(contractBalanceAfter, defaultAmount);
+        assertEq(senderBalanceAfter, expectedRemainder);
+        assertEq(contractBalanceAfter, expectedConvertedAmount);
     }
 
     function test_success_failedCounterpartyAckForICS20Packet() public {
@@ -231,15 +234,15 @@ contract IntegrationTest is Test {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterSend, 0);
-        assertEq(contractBalanceAfterSend, defaultAmount);
+        assertEq(senderBalanceAfterSend, expectedRemainder);
+        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
 
         // Send back
         string memory backSender = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         address backReceiver = sender;
         string memory backReceiverStr = senderStr;
         string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
-        data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, backSender, backReceiverStr, "backmemo");
+        data = ICS20Lib.marshalJSON(ibcDenom, defaultSdkCoinAmount, backSender, backReceiverStr, "backmemo");
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         packet = IICS26RouterMsgs.Packet({
@@ -260,7 +263,7 @@ contract IntegrationTest is Test {
                 erc20Contract: address(erc20),
                 sender: backSender,
                 receiver: backReceiverStr,
-                amount: defaultAmount,
+                amount: defaultSdkCoinAmount,
                 memo: "backmemo"
             })
         );
@@ -439,14 +442,14 @@ contract IntegrationTest is Test {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterSend, 0);
-        assertEq(contractBalanceAfterSend, defaultAmount);
+        assertEq(senderBalanceAfterSend, expectedRemainder);
+        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
 
         // Send back
         string memory backSender = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory backReceiverStr = senderStr;
         string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
-        data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, backSender, backReceiverStr, "backmemo");
+        data = ICS20Lib.marshalJSON(ibcDenom, defaultSdkCoinAmount, backSender, backReceiverStr, "backmemo");
 
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
         packet = IICS26RouterMsgs.Packet({
