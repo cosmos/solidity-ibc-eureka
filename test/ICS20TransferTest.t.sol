@@ -214,8 +214,8 @@ contract ICS20TransferTest is Test {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterSend, 0);
-        assertEq(contractBalanceAfterSend, defaultAmount);
+        assertEq(senderBalanceAfterSend, expectedRemainder);
+        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
