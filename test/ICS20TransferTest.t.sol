@@ -175,8 +175,8 @@ contract ICS20TransferTest is Test {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterSend, 0);
-        assertEq(contractBalanceAfterSend, defaultAmount);
+        assertEq(senderBalanceAfterSend, expectedRemainder);
+        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(
@@ -193,8 +193,8 @@ contract ICS20TransferTest is Test {
         // Nothing should change
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
         uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterAck, 0);
-        assertEq(contractBalanceAfterAck, defaultAmount);
+        assertEq(senderBalanceAfterAck, expectedRemainder);
+        assertEq(contractBalanceAfterAck, expectedConvertedAmount);
     }
 
     function test_success_onAcknowledgementPacketWithFailedAck() public {
