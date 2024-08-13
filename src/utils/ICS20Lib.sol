@@ -25,17 +25,19 @@ library ICS20Lib {
     }
 
     /// @notice Convenience type used after unmarshalling the packet data and converting addresses
-    /// @param denom The denom of the token
+    /// @param ibcDenom The ibc denom of the token
+    /// @param fullDenomPath The full denom path of the token
     /// @param originatorChainIsSource True if origniating chain is source of token
-    /// @param erc20Contract The address of the ERC20 contract
+    /// @param erc20Address The address of the ERC20 contract
     /// @param amount The amount of tokens
     /// @param sender The sender of the tokens
     /// @param receiver The receiver of the tokens
     /// @param memo Optional memo
     struct UnwrappedPacketData {
-        string denom;
+        string ibcDenom;
+        string fullDenomPath;
         bool originatorChainIsSource;
-        address erc20Contract;
+        address erc20Address;
         string sender;
         string receiver;
         uint256 amount;
@@ -44,6 +46,9 @@ library ICS20Lib {
 
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
+
+    /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
+    string public constant IBC_DENOM_PREFIX = "ibc/";
 
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
@@ -72,9 +77,6 @@ library ICS20Lib {
     uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
-
-    /// @notice HEX_DIGITS are the hex digits.
-    bytes16 private constant HEX_DIGITS = "0123456789abcdef";
 
     /// @notice marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
     /// @dev `memo` field is omitted if it is empty. TODO: Consider if this should be changed.
@@ -426,5 +428,34 @@ library ICS20Lib {
     /// @return Denom prefix
     function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
         return abi.encodePacked(port, "/", channel, "/");
+    }
+
+    /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
+    /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
+    /// @notice that the denom passed in is a full denom path with trace and base denom
+    /// @param fullDenomPath full denom path with trace and base denom
+    /// @return IBC denom in the format ibc/hash(trace+base_denom)
+    function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
+        string memory hash = toHexHash(fullDenomPath);
+        return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
+    }
+
+    /// @notice toHexHash converts a string to an all uppercase hex hash (without the 0x prefix)
+    /// @param str string to convert
+    /// @return uppercase hex hash without 0x prefix
+    function toHexHash(string memory str) public pure returns (string memory) {
+        bytes memory hexBz = bytes(Strings.toHexString(uint256(sha256(bytes(str)))));
+        bytes memory hash = new bytes(hexBz.length - 2); // we skip the 0x prefix
+
+        for (uint256 i = 2; i < hexBz.length; i++) {
+            // if lowercase a-z, convert to uppercase
+            if (hexBz[i] >= 0x61 && hexBz[i] <= 0x7A) {
+                hash[i - 2] = bytes1(uint8(hexBz[i]) - 32);
+            } else {
+                hash[i - 2] = hexBz[i];
+            }
+        }
+
+        return string(hash);
     }
 }

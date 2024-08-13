@@ -74,9 +74,10 @@ contract IntegrationTest is Test {
         });
 
         expectedDefaultSendPacketData = ICS20Lib.UnwrappedPacketData({
-            denom: erc20AddressStr,
+            ibcDenom: erc20AddressStr,
+            fullDenomPath: erc20AddressStr,
             originatorChainIsSource: true,
-            erc20Contract: address(erc20),
+            erc20Address: address(erc20),
             sender: senderStr,
             receiver: receiver,
             amount: defaultAmount,
@@ -255,9 +256,10 @@ contract IntegrationTest is Test {
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
             ICS20Lib.UnwrappedPacketData({
-                denom: erc20AddressStr, // Because unwrapped now
+                ibcDenom: erc20AddressStr, // Because unwrapped now
+                fullDenomPath: erc20AddressStr,
                 originatorChainIsSource: false,
-                erc20Contract: address(erc20),
+                erc20Address: address(erc20),
                 sender: backSender,
                 receiver: backReceiverStr,
                 amount: defaultAmount,
@@ -311,21 +313,13 @@ contract IntegrationTest is Test {
             data: receiveData
         });
 
-        string memory ibcDenom =
+        string memory expectedFullDenomPath =
             string(abi.encodePacked(receivePacket.destPort, "/", receivePacket.destChannel, "/", foreignDenom));
+        string memory ibcDenom = ICS20Lib.toIBCDenom(expectedFullDenomPath);
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.UnwrappedPacketData({
-                denom: ibcDenom,
-                originatorChainIsSource: false,
-                erc20Contract: address(0), // This one we don't know yet
-                sender: senderAddrStr,
-                receiver: receiverAddrStr,
-                amount: defaultAmount,
-                memo: "memo"
-            })
-        );
+        ICS20Lib.UnwrappedPacketData memory receivePacketData;
+        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData); // we check these values later
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         vm.expectEmit();
@@ -353,11 +347,17 @@ contract IntegrationTest is Test {
         Vm.Log memory receiveTransferLog = entries[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (ICS20Lib.UnwrappedPacketData memory receivePacketData) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.UnwrappedPacketData));
-        assertEq(receivePacketData.denom, ibcDenom);
+        receivePacketData = abi.decode(receiveTransferLog.data, (ICS20Lib.UnwrappedPacketData));
+        assertEq(receivePacketData.ibcDenom, ibcDenom);
+        assertEq(receivePacketData.fullDenomPath, expectedFullDenomPath);
+        assertEq(receivePacketData.originatorChainIsSource, true);
+        assertNotEq(receivePacketData.erc20Address, address(0));
+        assertEq(receivePacketData.sender, senderAddrStr);
+        assertEq(receivePacketData.receiver, receiverAddrStr);
+        assertEq(receivePacketData.amount, defaultAmount);
+        assertEq(receivePacketData.memo, "memo");
 
-        IERC20 ibcERC20 = IERC20(receivePacketData.erc20Contract);
+        IERC20 ibcERC20 = IERC20(receivePacketData.erc20Address);
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiverAddr), defaultAmount);
 
@@ -387,15 +387,16 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
-            data: ICS20Lib.marshalJSON(ibcDenom, defaultAmount, backSenderStr, backReceiverStr, "backmemo")
+            data: ICS20Lib.marshalJSON(expectedFullDenomPath, defaultAmount, backSenderStr, backReceiverStr, "backmemo")
         });
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
             ICS20Lib.UnwrappedPacketData({
-                denom: ibcDenom,
+                ibcDenom: ibcDenom,
+                fullDenomPath: expectedFullDenomPath,
                 originatorChainIsSource: false,
-                erc20Contract: address(ibcERC20),
+                erc20Address: address(ibcERC20),
                 sender: backSenderStr,
                 receiver: backReceiverStr,
                 amount: defaultAmount,

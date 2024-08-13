@@ -364,7 +364,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Address.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
@@ -568,6 +568,18 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
+		receiveEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
+		s.Require().NoError(err)
+		ethReceiveData := receiveEvent.PacketData
+		s.Require().Equal(s.contractAddresses.Erc20, ethReceiveData.IbcDenom)
+		s.Require().Equal(s.contractAddresses.Erc20, ethReceiveData.FullDenomPath)
+		s.Require().False(ethReceiveData.OriginatorChainIsSource)
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(ethReceiveData.Erc20Address.Hex()))
+		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveData.Sender)
+		s.Require().Equal(strings.ToLower(userAddress.Hex()), ethReceiveData.Receiver)
+		s.Require().Equal(transferAmount, ethReceiveData.Amount)
+		s.Require().Equal("backmemo", ethReceiveData.Memo)
+
 		s.True(s.Run("Verify balances", func() {
 			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
 			s.Require().NoError(err)
@@ -717,12 +729,16 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.Require().NoError(err)
 
 		ethReceiveTransferPacket = ethReceiveTransferEvent.PacketData
-		ibcDenom = ethReceiveTransferPacket.Denom
-		// TODO: Change to IBCDenom ?
-		s.Require().Equal(fmt.Sprintf("%s/%s/%s", sendPacket.DestinationPort, sendPacket.DestinationChannel, transferCoin.Denom), ibcDenom)
+		ibcDenom = ethReceiveTransferPacket.IbcDenom
+		expectedDenom := transfertypes.DenomTrace{
+			Path:      fmt.Sprintf("%s/%s", sendPacket.DestinationPort, sendPacket.DestinationChannel),
+			BaseDenom: transferCoin.Denom,
+		}
+		s.Require().Equal(expectedDenom.GetFullDenomPath(), ethReceiveTransferPacket.FullDenomPath)
+		s.Require().Equal(expectedDenom.IBCDenom(), ethReceiveTransferPacket.IbcDenom)
 		s.Require().True(ethReceiveTransferPacket.OriginatorChainIsSource)
 		s.Require().Equal(transferAmount, ethReceiveTransferPacket.Amount)
-		s.Require().NotNil(ethReceiveTransferPacket.Erc20Contract)
+		s.Require().NotNil(ethReceiveTransferPacket.Erc20Address)
 		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveTransferPacket.Sender)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
 		s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
@@ -730,7 +746,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.True(s.Run("Verify balances", func() {
 			ethClient, err := ethclient.Dial(eth.GetHostRPCAddress())
 			s.Require().NoError(err)
-			ibcERC20Contract, err = erc20.NewContract(ethReceiveTransferPacket.Erc20Contract, ethClient)
+			ibcERC20Contract, err = erc20.NewContract(ethReceiveTransferPacket.Erc20Address, ethClient)
 			s.Require().NoError(err)
 
 			userBalance, err := ibcERC20Contract.BalanceOf(nil, userAddress)
@@ -797,7 +813,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
-		s.Require().Equal(ethReceiveTransferPacket.Erc20Contract, transferEvent.PacketData.Erc20Contract)
+		s.Require().Equal(ethReceiveTransferPacket.Erc20Address, transferEvent.PacketData.Erc20Address)
+		s.Require().Equal(ethReceiveTransferPacket.FullDenomPath, transferEvent.PacketData.FullDenomPath)
+		s.Require().Equal(ethReceiveTransferPacket.IbcDenom, transferEvent.PacketData.IbcDenom)
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(s.UserB.FormattedAddress(), transferEvent.PacketData.Receiver)
@@ -946,7 +964,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Contract.Hex()))
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.PacketData.Erc20Address.Hex()))
 		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
