@@ -7,13 +7,9 @@ interface IICS20Errors {
     /// @param packetSender Address of the packet sender
     error ICS20MsgSenderIsNotPacketSender(address msgSender, address packetSender);
 
-    /// @notice Invalid sender address
-    /// @param sender Address whose tokens are being transferred
-    error ICS20InvalidSender(string sender);
-
-    /// @notice Invalid receiver address
-    /// @param receiver Address receiving the tokens
-    error ICS20InvalidReceiver(string receiver);
+    /// @notice Invalid address
+    /// @param addr Address of the sender or receiver
+    error ICS20InvalidAddress(string addr);
 
     /// @notice Invalid transfer amount
     /// @param amount Amount of tokens being transferred
@@ -32,6 +28,10 @@ interface IICS20Errors {
     /// @param expected Expected balance of the ERC20 token for ICS20Transfer
     /// @param actual Actual balance of the ERC20 token for ICS20Transfer
     error ICS20UnexpectedERC20Balance(uint256 expected, uint256 actual);
+
+    /// @notice this error happens when the denom has no foreign ibcERC20 contract (i.e. we don't know this denom)
+    /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
+    error ICS20DenomNotFound(string denom);
 
     /// @notice Unsupported feature
     /// @param feature Unsupported feature

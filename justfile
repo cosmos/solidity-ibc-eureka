@@ -55,4 +55,4 @@ generate-abi:
 test-e2e testname:
 	just clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run=TestWithIbcEurekaTestSuite/{{testname}} -timeout 40m
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m

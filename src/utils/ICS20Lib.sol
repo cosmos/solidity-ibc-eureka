@@ -25,16 +25,20 @@ library ICS20Lib {
     }
 
     /// @notice Convenience type used after unmarshalling the packet data and converting addresses
-    /// @param erc20ContractAddress The address of the ERC20 contract
+    /// @param denom The denom of the token
+    /// @param originatorChainIsSource True if origniating chain is source of token
+    /// @param erc20Contract The address of the ERC20 contract
     /// @param amount The amount of tokens
     /// @param sender The sender of the tokens
     /// @param receiver The receiver of the tokens
     /// @param memo Optional memo
-    struct UnwrappedFungibleTokenPacketData {
-        address erc20ContractAddress;
-        uint256 amount;
-        address sender;
+    struct UnwrappedPacketData {
+        string denom;
+        bool originatorChainIsSource;
+        address erc20Contract;
+        string sender;
         string receiver;
+        uint256 amount;
         string memo;
     }
 
@@ -150,7 +154,7 @@ library ICS20Lib {
     /// @param bz JSON bytes
     /// @return Unmarshalled PacketData
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
-        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount, etc)
+        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount...) (#22)
         PacketDataJSON memory pd;
         uint256 pos = 0;
 
@@ -310,6 +314,17 @@ library ICS20Lib {
         return (address(uint160(addr)), true);
     }
 
+    /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
+    /// @param addrHexString hex address string
+    /// @return address the converted address
+    function mustHexStringToAddress(string memory addrHexString) internal pure returns (address) {
+        (address addr, bool success) = hexStringToAddress(addrHexString);
+        if (!success) {
+            revert IICS20Errors.ICS20InvalidAddress(addrHexString);
+        }
+        return addr;
+    }
+
     /// @notice slice returns a slice of the original bytes from `start` to `start + length`.
     /// @dev This is a copy from https://github.com/GNSPS/solidity-bytes-utils/blob/v0.8.0/contracts/BytesLib.sol
     /// @param _bytes bytes
@@ -387,29 +402,15 @@ library ICS20Lib {
         return keccak256(a) == keccak256(b);
     }
 
-    /// @notice unwrapPacketData unmarshals packet data and converts addresses.
-    /// @param data Packet data
-    /// @return UnwrappedFungibleTokenPacketData
-    function unwrapPacketData(bytes calldata data) internal pure returns (UnwrappedFungibleTokenPacketData memory) {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(data);
-
-        (address tokenContract, bool tokenContractConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.denom);
-        if (!tokenContractConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidTokenContract(packetData.denom);
+    /// @notice hasPrefix checks a denom for a prefix
+    /// @param denomBz the denom to check
+    /// @param prefix the prefix to check with
+    /// @return true if `denomBz` has the prefix `prefix`
+    function hasPrefix(bytes memory denomBz, bytes memory prefix) internal pure returns (bool) {
+        if (denomBz.length < prefix.length) {
+            return false;
         }
-
-        (address sender, bool senderConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.sender);
-        if (!senderConvertSuccess) {
-            revert IICS20Errors.ICS20InvalidSender(packetData.sender);
-        }
-
-        return UnwrappedFungibleTokenPacketData({
-            erc20ContractAddress: tokenContract,
-            amount: packetData.amount,
-            sender: sender,
-            receiver: packetData.receiver,
-            memo: packetData.memo
-        });
+        return equal(slice(denomBz, 0, prefix.length), prefix);
     }
 
     /// @notice errorAck returns an error acknowledgement.
@@ -419,11 +420,11 @@ library ICS20Lib {
         return abi.encodePacked("{\"error\":\"", reason, "\"}");
     }
 
-    /// @notice getDenomPrefix returns the prefix for a denom.
-    /// @param portId Port identifier
-    /// @param channelId Channel identifier
+    /// @notice getDenomPrefix returns an ibc path prefix
+    /// @param port Port
+    /// @param channel Channel
     /// @return Denom prefix
-    function getDenomPrefix(string calldata portId, string calldata channelId) internal pure returns (bytes memory) {
-        return abi.encodePacked(portId, "/", channelId, "/");
+    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
+        return abi.encodePacked(port, "/", channel, "/");
     }
 }
