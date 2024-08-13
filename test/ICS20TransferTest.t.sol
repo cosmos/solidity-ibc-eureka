@@ -28,6 +28,8 @@ contract ICS20TransferTest is Test {
     uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder 
     uint256 public expectedRemainder = 100_000_000_001; 
     uint256 public expectedConvertedAmount= 1_000_000_000_000_000_000; // the uint256 representation of the uint64 sdkCoin amount 
+    uint256 public defaultSdkCoinAmount=1_000_000;
+
     bytes public data;
     IICS26RouterMsgs.Packet public packet;
     ICS20Lib.UnwrappedPacketData public expectedDefaultSendPacketData;
@@ -35,6 +37,7 @@ contract ICS20TransferTest is Test {
     function setUp() public {
         ics20Transfer = new ICS20Transfer(address(this));
         erc20 = new TestERC20();
+        //metadataErc20 = new TestERC20Metadata(6);
 
         sender = makeAddr("sender");
 
@@ -348,9 +351,9 @@ contract ICS20TransferTest is Test {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfterSend, 0);
-        assertEq(contractBalanceAfterSend, defaultAmount);
-
+        assertEq(senderBalanceAfterSend, expectedRemainder);
+        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        
         // Send back (onRecv)
         string memory newSourcePort = packet.destPort;
         string memory newSourceChannel = packet.destChannel;
@@ -358,13 +361,13 @@ contract ICS20TransferTest is Test {
 
         string memory backSenderStr = receiver;
         string memory backReceiverStr = senderStr;
-        bytes memory receiveData = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiver, senderStr, "memo");
+        bytes memory receiveData = ICS20Lib.marshalJSON(ibcDenom, defaultSdkCoinAmount, receiver, senderStr, "memo");
         packet.data = receiveData;
         packet.destPort = packet.sourcePort;
         packet.destChannel = packet.sourceChannel;
         packet.sourcePort = newSourcePort;
         packet.sourceChannel = newSourceChannel;
-
+        
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
             ICS20Lib.UnwrappedPacketData({
@@ -373,7 +376,7 @@ contract ICS20TransferTest is Test {
                 erc20Contract: address(erc20),
                 sender: backSenderStr,
                 receiver: backReceiverStr,
-                amount: defaultAmount,
+                amount: defaultSdkCoinAmount, // Note that event still emit the unconverted amount 
                 memo: "memo"
             })
         );
@@ -381,12 +384,13 @@ contract ICS20TransferTest is Test {
             IIBCAppCallbacks.OnRecvPacketCallback({ packet: packet, relayer: makeAddr("relayer") })
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
-
+        
         // the tokens should have been transferred back again
         uint256 senderBalanceAfterReceive = erc20.balanceOf(sender);
         uint256 contractBalanceAfterReceive = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterReceive, defaultAmount);
         assertEq(contractBalanceAfterReceive, 0);
+        
     }
 
     function test_success_onRecvPacketWithForeignDenom() public {

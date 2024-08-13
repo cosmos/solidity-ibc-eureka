@@ -14,6 +14,7 @@ import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { SdkCoin } from "./utils/SdkCoin.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 using SafeERC20 for IERC20;
 
@@ -23,6 +24,7 @@ using SafeERC20 for IERC20;
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
+
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _foreignDenomContracts;
 
@@ -80,27 +82,32 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
-        // Note: uint64 _sdkCoinAmount returned by SdkCoin._ERC20ToSdkCoin_ConvertAmount is discarded because it won't
-        // be used here. Recall that the _transferFrom function requires an uint256.
-        (, uint256 _remainder) =
-            SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20Contract, packetData.amount);
-
-        // Transfer the packetData.amount minus the remainder from the sender to this contract.
-        // This step moves the correct amount of tokens, adjusted for any precision differences,
-        // from the user's account to the contract's account.
-        // The remainder is left in the sender's account, ensuring they aren't overcharged
-        // due to any rounding or precision issues in the conversion process.
-        // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
 
         if (!packetData.originatorChainIsSource) {
+            // NOTE: Here we transfer the packetData.amount since the receiver chain is source that means that tokens that 
+            // we are sending have arrived before from the receiving chain. The packetData.amount already took into 
+            // consideration the conversion, since an ERC20 contract has been created with 6 decimals. 
+            _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
             // receiver chain is source: burn the vouchers
             // TODO: Implement escrow balance tracking (#6)
             IBCERC20 ibcERC20Contract = IBCERC20(packetData.erc20Contract);
             ibcERC20Contract.burn(packetData.amount);
+        }else {
+            // We are sending out native EVM ERC20 tokens. We need to take into account the conversion 
+            // NOTE: uint64 _sdkCoinAmount returned by SdkCoin._ERC20ToSdkCoin_ConvertAmount is discarded because it won't
+            // be used here. Recall that the _transferFrom function requires an uint256.
+            (, uint256 _remainder) =
+                SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20Contract, packetData.amount);
+
+            // Transfer the packetData.amount minus the remainder from the sender to this contract.
+            // This step moves the correct amount of tokens, adjusted for any precision differences,
+            // from the user's account to the contract's account.
+            // The remainder is left in the sender's account, ensuring they aren't overcharged
+            // due to any rounding or precision issues in the conversion process.
+            // transfer the tokens to us (requires the allowance to be set)
+            _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
         }
-
-
+        // TODO: take into account the conversion if happened. 
         emit ICS20Transfer(packetData);
     }
 
@@ -128,11 +135,18 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // sender is source, so we mint vouchers
             // NOTE: The unwrap function already created a new contract if it didn't exist already
             IBCERC20(packetData.erc20Contract).mint(packetData.amount);
+            // transfer the tokens to the receiver
+            IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
+        } else {
+            // receiving back tokens
+            // Use SdkCoin._SdkCoinToERC20_ConvertAmount to account for proper decimals conversions. 
+            (uint256 _convertedAmount) =
+            SdkCoin._SdkCoinToERC20_ConvertAmount(packetData.erc20Contract, SafeCast.toUint64(packetData.amount));
+         
+            IERC20(packetData.erc20Contract).safeTransfer(receiver, _convertedAmount);
         }
 
-        // transfer the tokens to the receiver
-        IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
-
+        // Note the event don't take into account the conversion
         emit ICS20ReceiveTransfer(packetData);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
