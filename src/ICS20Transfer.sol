@@ -106,7 +106,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // transfer the tokens to us (requires the allowance to be set)
             _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
         }
-        // DISCUSSION: do events take into account automatically the new amount? 
+        // DISCUSSION: do events take into account automatically the new amount?
         emit ICS20Transfer(packetData);
     }
 
@@ -137,7 +137,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // transfer the tokens to the receiver
             IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
         } else {
-            // receiving back tokens that were originated from native EVM tokens. 
+            // receiving back tokens that were originated from native EVM tokens.
             // Use SdkCoin._SdkCoinToERC20_ConvertAmount to account for proper decimals conversions.
             (uint256 _convertedAmount) =
                 SdkCoin._SdkCoinToERC20_ConvertAmount(packetData.erc20Contract, SafeCast.toUint64(packetData.amount));
