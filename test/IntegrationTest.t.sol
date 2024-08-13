@@ -34,10 +34,11 @@ contract IntegrationTest is Test {
     string public erc20AddressStr;
     string public counterpartyClient = "42-dummy-01";
 
-    uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder 
-    uint256 public expectedRemainder = 100_000_000_001; 
-    uint256 public expectedConvertedAmount= 1_000_000_000_000_000_000; // the uint256 representation of the uint64 sdkCoin amount 
-    uint256 public defaultSdkCoinAmount=1_000_000;
+    uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder
+    uint256 public expectedRemainder = 100_000_000_001;
+    uint256 public expectedConvertedAmount = 1_000_000_000_000_000_000; // the uint256 representation of the uint64
+        // sdkCoin amount
+    uint256 public defaultSdkCoinAmount = 1_000_000;
     address public sender;
     string public senderStr;
     string public receiver = "someReceiver";
