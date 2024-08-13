@@ -81,7 +81,7 @@ contract ICS20TransferTest is Test {
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceAfter, expectedRemainder); // remainder 
+        assertEq(senderBalanceAfter, expectedRemainder);
         assertEq(contractBalanceAfter, expectedConvertedAmount);
     }
 
@@ -89,7 +89,7 @@ contract ICS20TransferTest is Test {
         // test missing approval
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, defaultAmount
+                IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, expectedConvertedAmount
             )
         );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
@@ -98,7 +98,7 @@ contract ICS20TransferTest is Test {
         vm.prank(sender);
         erc20.approve(address(ics20Transfer), defaultAmount);
         vm.expectRevert(
-            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, defaultAmount)
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, expectedConvertedAmount)
         );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
 
@@ -152,7 +152,9 @@ contract ICS20TransferTest is Test {
         string memory malfuncERC20AddressStr = Strings.toHexString(address(malfunctioningERC20));
         data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, defaultAmount, senderStr, receiver, "memo");
         packet.data = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, expectedConvertedAmount, 0)
+        );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
     }
 
