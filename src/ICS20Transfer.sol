@@ -12,6 +12,7 @@ import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { SdkCoin } from "./utils/SdkCoin.sol";
 
 using SafeERC20 for IERC20;
@@ -82,7 +83,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // Note: uint64 _sdkCoinAmount returned by SdkCoin._ERC20ToSdkCoin_ConvertAmount is discarded because it won't
         // be used here. Recall that the _transferFrom function requires an uint256.
         (, uint256 _remainder) =
-            SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20ContractAddress, packetData.amount);
+            SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20Contract, packetData.amount);
 
         // Transfer the packetData.amount minus the remainder from the sender to this contract.
         // This step moves the correct amount of tokens, adjusted for any precision differences,
@@ -90,7 +91,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // The remainder is left in the sender's account, ensuring they aren't overcharged
         // due to any rounding or precision issues in the conversion process.
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(packetData.sender, address(this), packetData.erc20ContractAddress, packetData.amount - _remainder);
+        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
 
         if (!packetData.originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
@@ -159,11 +160,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @notice Refund the tokens to the sender
     /// @param data The packet data
-    function _refundTokens(ICS20Lib.UnwrappedFungibleTokenPacketData memory data) private {
+    function _refundTokens(ICS20Lib.UnwrappedPacketData memory data) private {
         address refundee = ICS20Lib.mustHexStringToAddress(data.sender);
         (, uint256 _remainder) =
-            SdkCoin._ERC20ToSdkCoin_ConvertAmount(data.erc20ContractAddress, data.amount);
-        IERC20(data.erc20ContractAddress).safeTransfer(refundee, data.amount - _remainder);
+            SdkCoin._ERC20ToSdkCoin_ConvertAmount(data.erc20Contract, data.amount);
+        IERC20(data.erc20Contract).safeTransfer(refundee, data.amount - _remainder);
     }
 
     /// @notice Transfer tokens from sender to receiver
