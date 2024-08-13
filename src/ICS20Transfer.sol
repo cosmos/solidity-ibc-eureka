@@ -159,9 +159,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @notice Refund the tokens to the sender
     /// @param data The packet data
-    function _refundTokens(ICS20Lib.UnwrappedPacketData memory data) private {
+    function _refundTokens(ICS20Lib.UnwrappedFungibleTokenPacketData memory data) private {
         address refundee = ICS20Lib.mustHexStringToAddress(data.sender);
-        IERC20(data.erc20Contract).safeTransfer(refundee, data.amount);
+        (, uint256 _remainder) =
+            SdkCoin._ERC20ToSdkCoin_ConvertAmount(data.erc20ContractAddress, data.amount);
+        IERC20(data.erc20ContractAddress).safeTransfer(refundee, data.amount - _remainder);
     }
 
     /// @notice Transfer tokens from sender to receiver
