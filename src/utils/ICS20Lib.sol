@@ -444,18 +444,21 @@ library ICS20Lib {
     /// @param str string to convert
     /// @return uppercase hex hash without 0x prefix
     function toHexHash(string memory str) public pure returns (string memory) {
-        bytes memory hexBz = bytes(Strings.toHexString(uint256(sha256(bytes(str)))));
-        bytes memory hash = new bytes(hexBz.length - 2); // we skip the 0x prefix
+        bytes32 hash = sha256(bytes(str));
+        bytes memory hexBz = bytes(Strings.toHexString(uint256(hash)));
+
+        // next we remove the `0x` prefix and uppercase the hash string
+        bytes memory finalHex = new bytes(hexBz.length - 2); // we skip the 0x prefix
 
         for (uint256 i = 2; i < hexBz.length; i++) {
             // if lowercase a-z, convert to uppercase
             if (hexBz[i] >= 0x61 && hexBz[i] <= 0x7A) {
-                hash[i - 2] = bytes1(uint8(hexBz[i]) - 32);
+                finalHex[i - 2] = bytes1(uint8(hexBz[i]) - 32);
             } else {
-                hash[i - 2] = hexBz[i];
+                finalHex[i - 2] = hexBz[i];
             }
         }
 
-        return string(hash);
+        return string(finalHex);
     }
 }
