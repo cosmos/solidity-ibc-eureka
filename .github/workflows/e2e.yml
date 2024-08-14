@@ -78,10 +78,6 @@ jobs:
           command: install
           args: --git https://github.com/cosmos/sp1-ics07-tendermint sp1-ics07-tendermint-operator --bin operator --locked
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features
       - name: Run Tests
         env:
           SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
