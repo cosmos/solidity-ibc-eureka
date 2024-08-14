@@ -30,7 +30,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) { }
 
-    /// @inheritdoc IICS20Transfer
+        /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         if (msg_.amount == 0) {
             revert ICS20InvalidAmount(msg_.amount);
@@ -41,7 +41,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
-
         if (bytes(msg_.memo).length == 0) {
             packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
         } else {
@@ -81,32 +80,16 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
+        // transfer the tokens to us (requires the allowance to be set)
+        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
+
         if (!packetData.originatorChainIsSource) {
-            // NOTE: Here we transfer the packetData.amount since the receiver chain is source that means that tokens
-            // that
-            // we are sending have arrived before from the receiving chain. The packetData.amount already took into
-            // consideration the conversion, since an ERC20 contract has been created with 6 decimals.
-            _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
             // receiver chain is source: burn the vouchers
             // TODO: Implement escrow balance tracking (#6)
             IBCERC20 ibcERC20Contract = IBCERC20(packetData.erc20Contract);
             ibcERC20Contract.burn(packetData.amount);
-        } else {
-            // We are sending out native EVM ERC20 tokens. We need to take into account the conversion
-            // NOTE: uint64 _sdkCoinAmount returned by SdkCoin._ERC20ToSdkCoin_ConvertAmount is discarded because it
-            // won't
-            // be used here. Recall that the _transferFrom function requires an uint256.
-            (, uint256 _remainder) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(packetData.erc20Contract, packetData.amount);
-
-            // Transfer the packetData.amount minus the remainder from the sender to this contract.
-            // This step moves the correct amount of tokens, adjusted for any precision differences,
-            // from the user's account to the contract's account.
-            // The remainder is left in the sender's account, ensuring they aren't overcharged
-            // due to any rounding or precision issues in the conversion process.
-            // transfer the tokens to us (requires the allowance to be set)
-            _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount - _remainder);
         }
-        // DISCUSSION: do events take into account automatically the new amount?
+
         emit ICS20Transfer(packetData);
     }
 
