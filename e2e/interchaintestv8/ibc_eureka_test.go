@@ -135,8 +135,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(operator.RunGenesis(
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", "e2e/artifacts/genesis.json",
+			"-o", "e2e/genesis.json",
 		))
+
+		s.T().Cleanup(func() {
+			_ = os.Remove("e2e/genesis.json")
+		})
 
 		var (
 			stdout []byte

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -23,14 +22,7 @@ type membershipFixture struct {
 }
 
 func BinaryPath() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "e2e/artifacts/darwin-aarch64/operator"
-	case "linux":
-		return "e2e/artifacts/linux-x86_64/operator"
-	default:
-		panic("unsupported OS")
-	}
+	return "operator"
 }
 
 // RunGenesis is a function that runs the genesis script to generate genesis.json
