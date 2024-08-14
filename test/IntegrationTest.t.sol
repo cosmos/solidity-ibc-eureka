@@ -35,8 +35,9 @@ contract IntegrationTest is Test {
     string public counterpartyClient = "42-dummy-01";
 
     uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder
+    uint256 public evmConvertedAmount = 1_000_000_000_000_000_000;
     uint256 public expectedRemainder = 100_000_000_001;
-    uint256 public expectedConvertedAmount = 1_000_000_000_000_000_000; // the uint256 representation of the uint64
+    uint256 public expectedConvertedAmount = 1_000_000; // the uint256 representation of the uint64
         // sdkCoin amount
     uint256 public defaultSdkCoinAmount = 1_000_000;
     address public sender;
@@ -67,7 +68,7 @@ contract IntegrationTest is Test {
 
         sender = makeAddr("sender");
         senderStr = Strings.toHexString(sender);
-        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        data = ICS20Lib.marshalJSON(erc20AddressStr, expectedConvertedAmount, senderStr, receiver, "memo");
         msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
             sourcePort: "transfer",
             sourceChannel: clientIdentifier,
@@ -83,7 +84,7 @@ contract IntegrationTest is Test {
             erc20Contract: address(erc20),
             sender: senderStr,
             receiver: receiver,
-            amount: defaultAmount,
+            amount: expectedConvertedAmount,
             memo: "memo"
         });
     }
@@ -127,7 +128,7 @@ contract IntegrationTest is Test {
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfter, expectedRemainder);
-        assertEq(contractBalanceAfter, expectedConvertedAmount);
+        assertEq(contractBalanceAfter, evmConvertedAmount);
     }
 
     function test_success_sendICS20PacketFromICS20Contract() public {
@@ -154,7 +155,7 @@ contract IntegrationTest is Test {
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfter, expectedRemainder);
-        assertEq(contractBalanceAfter, expectedConvertedAmount);
+        assertEq(contractBalanceAfter, evmConvertedAmount);
     }
 
     function test_success_failedCounterpartyAckForICS20Packet() public {
@@ -236,7 +237,7 @@ contract IntegrationTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         // Send back
         string memory backSender = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
@@ -301,7 +302,7 @@ contract IntegrationTest is Test {
         address receiverAddr = makeAddr("receiver_of_foreign_denom");
         string memory receiverAddrStr = Strings.toHexString(receiverAddr);
         bytes memory receiveData =
-            ICS20Lib.marshalJSON(foreignDenom, defaultAmount, senderAddrStr, receiverAddrStr, "memo");
+            ICS20Lib.marshalJSON(foreignDenom, expectedConvertedAmount, senderAddrStr, receiverAddrStr, "memo");
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
@@ -317,7 +318,7 @@ contract IntegrationTest is Test {
 
         string memory ibcDenom =
             string(abi.encodePacked(receivePacket.destPort, "/", receivePacket.destChannel, "/", foreignDenom));
-
+        
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(
             ICS20Lib.UnwrappedPacketData({
@@ -326,7 +327,7 @@ contract IntegrationTest is Test {
                 erc20Contract: address(0), // This one we don't know yet
                 sender: senderAddrStr,
                 receiver: receiverAddrStr,
-                amount: defaultAmount,
+                amount: expectedConvertedAmount,
                 memo: "memo"
             })
         );
@@ -362,9 +363,9 @@ contract IntegrationTest is Test {
         assertEq(receivePacketData.denom, ibcDenom);
 
         IERC20 ibcERC20 = IERC20(receivePacketData.erc20Contract);
-        assertEq(ibcERC20.totalSupply(), defaultAmount);
-        assertEq(ibcERC20.balanceOf(receiverAddr), defaultAmount);
-
+        assertEq(ibcERC20.totalSupply(), expectedConvertedAmount);
+        assertEq(ibcERC20.balanceOf(receiverAddr), expectedConvertedAmount);
+        
         // Send out again
         address backSender = receiverAddr;
         string memory backSenderStr = receiverAddrStr;
@@ -375,7 +376,7 @@ contract IntegrationTest is Test {
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             denom: ibcDenom,
-            amount: defaultAmount,
+            amount: expectedConvertedAmount,
             receiver: backReceiverStr,
             sourceChannel: clientIdentifier,
             destPort: "transfer",
@@ -391,9 +392,10 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
-            data: ICS20Lib.marshalJSON(ibcDenom, defaultAmount, backSenderStr, backReceiverStr, "backmemo")
+            data: ICS20Lib.marshalJSON(ibcDenom, expectedConvertedAmount, backSenderStr, backReceiverStr, "backmemo")
         });
 
+        
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
             ICS20Lib.UnwrappedPacketData({
@@ -402,12 +404,15 @@ contract IntegrationTest is Test {
                 erc20Contract: address(ibcERC20),
                 sender: backSenderStr,
                 receiver: backReceiverStr,
-                amount: defaultAmount,
+                amount: expectedConvertedAmount,
                 memo: "backmemo"
             })
         );
+        
+        
         vm.expectEmit();
         emit IICS26Router.SendPacket(expectedPacketSent);
+        
         vm.prank(backSender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, expectedPacketSent.sequence);
@@ -417,6 +422,7 @@ contract IntegrationTest is Test {
         );
         bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
+        
     }
 
     function test_failure_receiveICS20PacketHasTimedOut() public {
@@ -444,13 +450,13 @@ contract IntegrationTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         // Send back
         string memory backSender = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory backReceiverStr = senderStr;
         string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
-        data = ICS20Lib.marshalJSON(ibcDenom, defaultSdkCoinAmount, backSender, backReceiverStr, "backmemo");
+        data = ICS20Lib.marshalJSON(ibcDenom, expectedConvertedAmount, backSender, backReceiverStr, "backmemo");
 
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
         packet = IICS26RouterMsgs.Packet({
