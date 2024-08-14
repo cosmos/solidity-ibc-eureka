@@ -15,7 +15,7 @@ const (
 	StartingTokenAmount int64 = 10_000_000_000
 
 	// TransferAmount is the default amount of tokens to transfer between users.
-	TransferAmount int64 = 1_000
+	TransferAmount int64 = 1_000_000
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
