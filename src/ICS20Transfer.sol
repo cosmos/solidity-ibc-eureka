@@ -41,10 +41,12 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
-        
+
         (address _contractAddress, bool success) = ICS20Lib.hexStringToAddress(msg_.denom);
-        
-        (uint64 _sdkCoinAmount, uint256 _remainder) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(_contractAddress, msg_.amount);
+        if(!success){
+            _contractAddress=findOrCreateERC20Address(msg_.denom);
+        }
+        (uint64 _sdkCoinAmount,) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(_contractAddress, msg_.amount);
         
         if (bytes(msg_.memo).length == 0) {
             packetData = ICS20Lib.marshalJSON(msg_.denom, _sdkCoinAmount, sender, msg_.receiver);
@@ -126,15 +128,16 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // NOTE: The unwrap function already created a new contract with 6 decimals if it didn't exist already
             IBCERC20(packetData.erc20Contract).mint(packetData.amount);
             // transfer the tokens to the receiver
-            IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
-        } else {
+           // IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
+       }
+       //  else {
             // receiving back tokens that were originated from native EVM tokens.
             // Use SdkCoin._SdkCoinToERC20_ConvertAmount to account for proper decimals conversions.
             (uint256 _convertedAmount) =
                 SdkCoin._SdkCoinToERC20_ConvertAmount(packetData.erc20Contract, SafeCast.toUint64(packetData.amount));
 
             IERC20(packetData.erc20Contract).safeTransfer(receiver, _convertedAmount);
-        }
+        //}
 
         // Note the event don't take into account the conversion
         emit ICS20ReceiveTransfer(packetData);

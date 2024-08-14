@@ -327,7 +327,7 @@ contract IntegrationTest is Test {
                 erc20Contract: address(0), // This one we don't know yet
                 sender: senderAddrStr,
                 receiver: receiverAddrStr,
-                amount: expectedConvertedAmount,
+                amount: expectedConvertedAmount, // the sdkCoin amount 
                 memo: "memo"
             })
         );
@@ -372,7 +372,7 @@ contract IntegrationTest is Test {
         string memory backReceiverStr = senderAddrStr;
 
         vm.prank(backSender);
-        ibcERC20.approve(address(ics20Transfer), defaultAmount);
+        ibcERC20.approve(address(ics20Transfer), expectedConvertedAmount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             denom: ibcDenom,
@@ -383,7 +383,7 @@ contract IntegrationTest is Test {
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "backmemo"
         });
-
+        // //Strings.toHexString(uint256(uint160(address(ibcERC20))), 20),
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
@@ -409,12 +409,12 @@ contract IntegrationTest is Test {
             })
         );
         
-        
         vm.expectEmit();
         emit IICS26Router.SendPacket(expectedPacketSent);
         
         vm.prank(backSender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        
         assertEq(sequence, expectedPacketSent.sequence);
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
