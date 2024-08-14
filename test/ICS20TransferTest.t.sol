@@ -26,8 +26,9 @@ contract ICS20TransferTest is Test {
     string public receiver = "receiver";
 
     uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder
+    uint256 public evmConvertedAmount = 1_000_000_000_000_000_000;
     uint256 public expectedRemainder = 100_000_000_001;
-    uint256 public expectedConvertedAmount = 1_000_000_000_000_000_000; // the uint256 representation of the uint64
+    uint256 public expectedConvertedAmount = 1_000_000; // the uint256 representation of the uint64
         // sdkCoin amount
     uint256 public defaultSdkCoinAmount = 1_000_000;
 
@@ -44,7 +45,7 @@ contract ICS20TransferTest is Test {
 
         erc20AddressStr = Strings.toHexString(address(erc20));
         senderStr = Strings.toHexString(sender);
-        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        data = ICS20Lib.marshalJSON(erc20AddressStr, expectedConvertedAmount, senderStr, receiver, "memo");
 
         packet = IICS26RouterMsgs.Packet({
             sequence: 0,
@@ -63,7 +64,7 @@ contract ICS20TransferTest is Test {
             erc20Contract: address(erc20),
             sender: senderStr,
             receiver: receiver,
-            amount: defaultAmount,
+            amount: expectedConvertedAmount,
             memo: "memo"
         });
     }
@@ -72,6 +73,7 @@ contract ICS20TransferTest is Test {
         erc20.mint(sender, defaultAmount);
 
         vm.prank(sender);
+        // TODO Reduce approval to what is required : evmConvertedAmount
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
@@ -86,59 +88,65 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfter, expectedRemainder);
-        assertEq(contractBalanceAfter, expectedConvertedAmount);
+        assertEq(contractBalanceAfter, evmConvertedAmount);
     }
 
     function test_failure_onSendPacket() public {
         // test missing approval
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, expectedConvertedAmount
+                IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, evmConvertedAmount
             )
         );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
         // test insufficient balance
         vm.prank(sender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
+        erc20.approve(address(ics20Transfer), evmConvertedAmount);
         vm.expectRevert(
-            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, expectedConvertedAmount)
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, evmConvertedAmount)
         );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
+        
         // test invalid amount
         data = ICS20Lib.marshalJSON(erc20AddressStr, 0, senderStr, receiver, "memo");
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
+        
         // test invalid data
         data = bytes("invalid");
         packet.data = data;
         vm.expectRevert(bytes(""));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
+        
         // test invalid sender
-        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, "invalid", receiver, "memo");
+        data = ICS20Lib.marshalJSON(erc20AddressStr, expectedConvertedAmount, "invalid", receiver, "memo");
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
+        
         // test msg sender is not packet sender
-        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        data = ICS20Lib.marshalJSON(erc20AddressStr, expectedConvertedAmount, senderStr, receiver, "memo");
         packet.data = data;
         address someoneElse = makeAddr("someoneElse");
         vm.expectRevert(
             abi.encodeWithSelector(IICS20Errors.ICS20MsgSenderIsNotPacketSender.selector, someoneElse, sender)
         );
+        
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: someoneElse }));
-
+        
+        
         // test invalid token contract
-        data = ICS20Lib.marshalJSON("invalid", defaultAmount, senderStr, receiver, "memo");
+        data = ICS20Lib.marshalJSON("invalid", expectedConvertedAmount, senderStr, receiver, "memo");
         packet.data = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidTokenContract.selector, "invalid"));
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
-
+        
         // test invalid version
         packet.version = "invalid";
         vm.expectRevert(
@@ -147,19 +155,21 @@ contract ICS20TransferTest is Test {
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
         // Reset version
         packet.version = ICS20Lib.ICS20_VERSION;
-
+        
+        
         // test malfunctioning transfer
         MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
         malfunctioningERC20.mint(sender, defaultAmount);
         vm.prank(sender);
         malfunctioningERC20.approve(address(ics20Transfer), defaultAmount);
         string memory malfuncERC20AddressStr = Strings.toHexString(address(malfunctioningERC20));
-        data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, defaultAmount, senderStr, receiver, "memo");
+        data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, expectedConvertedAmount, senderStr, receiver, "memo");
         packet.data = data;
         vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, expectedConvertedAmount, 0)
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, evmConvertedAmount, 0)
         );
         ics20Transfer.onSendPacket(IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: sender }));
+        
     }
 
     function test_success_onAcknowledgementPacketWithSuccessAck() public {
@@ -180,7 +190,7 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(
@@ -198,7 +208,7 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
         uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterAck, expectedRemainder);
-        assertEq(contractBalanceAfterAck, expectedConvertedAmount);
+        assertEq(contractBalanceAfterAck, evmConvertedAmount);
     }
 
     function test_success_onAcknowledgementPacketWithFailedAck() public {
@@ -219,7 +229,7 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
@@ -294,7 +304,7 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Timeout(expectedDefaultSendPacketData);
@@ -353,7 +363,7 @@ contract ICS20TransferTest is Test {
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
         uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfterSend, expectedRemainder);
-        assertEq(contractBalanceAfterSend, expectedConvertedAmount);
+        assertEq(contractBalanceAfterSend, evmConvertedAmount);
 
         // Send back (onRecv)
         string memory newSourcePort = packet.destPort;
@@ -377,7 +387,7 @@ contract ICS20TransferTest is Test {
                 erc20Contract: address(erc20),
                 sender: backSenderStr,
                 receiver: backReceiverStr,
-                amount: defaultSdkCoinAmount, // Note that event still emit the unconverted amount
+                amount: expectedConvertedAmount, // Note that event still emit the unconverted amount
                 memo: "memo"
             })
         );

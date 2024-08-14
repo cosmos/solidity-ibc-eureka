@@ -41,10 +41,15 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
+        
+        (address _contractAddress, bool success) = ICS20Lib.hexStringToAddress(msg_.denom);
+        
+        (uint64 _sdkCoinAmount, uint256 _remainder) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(_contractAddress, msg_.amount);
+        
         if (bytes(msg_.memo).length == 0) {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, _sdkCoinAmount, sender, msg_.receiver);
         } else {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver, msg_.memo);
+            packetData = ICS20Lib.marshalJSON(msg_.denom, _sdkCoinAmount, sender, msg_.receiver, msg_.memo);
         }
 
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
@@ -80,14 +85,17 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20MsgSenderIsNotPacketSender(msg_.sender, sender);
         }
 
+        (uint256 _convertedAmount) =
+                SdkCoin._SdkCoinToERC20_ConvertAmount(packetData.erc20Contract, SafeCast.toUint64(packetData.amount));
+
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
+        _transferFrom(sender, address(this), packetData.erc20Contract, _convertedAmount);
 
         if (!packetData.originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
             // TODO: Implement escrow balance tracking (#6)
             IBCERC20 ibcERC20Contract = IBCERC20(packetData.erc20Contract);
-            ibcERC20Contract.burn(packetData.amount);
+            ibcERC20Contract.burn(_convertedAmount);
         }
 
         emit ICS20Transfer(packetData);
@@ -158,8 +166,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param data The packet data
     function _refundTokens(ICS20Lib.UnwrappedPacketData memory data) private {
         address refundee = ICS20Lib.mustHexStringToAddress(data.sender);
-        (, uint256 _remainder) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(data.erc20Contract, data.amount);
-        IERC20(data.erc20Contract).safeTransfer(refundee, data.amount - _remainder);
+        (uint256 _convertedAmount) =
+                SdkCoin._SdkCoinToERC20_ConvertAmount(data.erc20Contract, SafeCast.toUint64(data.amount));
+        IERC20(data.erc20Contract).safeTransfer(refundee, _convertedAmount);
     }
 
     /// @notice Transfer tokens from sender to receiver
