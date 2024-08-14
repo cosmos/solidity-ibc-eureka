@@ -24,26 +24,6 @@ library ICS20Lib {
         string memo;
     }
 
-    /// @notice Convenience type used after unmarshalling the packet data and converting addresses
-    /// @param ibcDenom The ibc denom of the token
-    /// @param fullDenomPath The full denom path of the token
-    /// @param originatorChainIsSource True if origniating chain is source of token
-    /// @param erc20Address The address of the ERC20 contract
-    /// @param amount The amount of tokens
-    /// @param sender The sender of the tokens
-    /// @param receiver The receiver of the tokens
-    /// @param memo Optional memo
-    struct UnwrappedPacketData {
-        string ibcDenom;
-        string fullDenomPath;
-        bool originatorChainIsSource;
-        address erc20Address;
-        string sender;
-        string receiver;
-        uint256 amount;
-        string memo;
-    }
-
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
 
