@@ -318,7 +318,7 @@ contract IntegrationTest is Test {
 
         string memory ibcDenom =
             string(abi.encodePacked(receivePacket.destPort, "/", receivePacket.destChannel, "/", foreignDenom));
-        
+
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(
             ICS20Lib.UnwrappedPacketData({
@@ -327,7 +327,7 @@ contract IntegrationTest is Test {
                 erc20Contract: address(0), // This one we don't know yet
                 sender: senderAddrStr,
                 receiver: receiverAddrStr,
-                amount: expectedConvertedAmount, // the sdkCoin amount 
+                amount: expectedConvertedAmount, // the sdkCoin amount
                 memo: "memo"
             })
         );
@@ -365,7 +365,7 @@ contract IntegrationTest is Test {
         IERC20 ibcERC20 = IERC20(receivePacketData.erc20Contract);
         assertEq(ibcERC20.totalSupply(), expectedConvertedAmount);
         assertEq(ibcERC20.balanceOf(receiverAddr), expectedConvertedAmount);
-        
+
         // Send out again
         address backSender = receiverAddr;
         string memory backSenderStr = receiverAddrStr;
@@ -395,7 +395,6 @@ contract IntegrationTest is Test {
             data: ICS20Lib.marshalJSON(ibcDenom, expectedConvertedAmount, backSenderStr, backReceiverStr, "backmemo")
         });
 
-        
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
             ICS20Lib.UnwrappedPacketData({
@@ -408,13 +407,13 @@ contract IntegrationTest is Test {
                 memo: "backmemo"
             })
         );
-        
+
         vm.expectEmit();
         emit IICS26Router.SendPacket(expectedPacketSent);
-        
+
         vm.prank(backSender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
-        
+
         assertEq(sequence, expectedPacketSent.sequence);
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -422,7 +421,6 @@ contract IntegrationTest is Test {
         );
         bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
-        
     }
 
     function test_failure_receiveICS20PacketHasTimedOut() public {
