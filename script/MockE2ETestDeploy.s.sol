@@ -82,7 +82,7 @@ contract MockE2ETestDeploy is Script {
 
     function loadGenesis(string memory fileName) public view returns (SP1ICS07TendermintGenesisJson memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/e2e/artifacts/", fileName);
+        string memory path = string.concat(root, "/e2e/", fileName);
         string memory json = vm.readFile(path);
         bytes memory trustedClientState = json.readBytes(".trustedClientState");
         bytes memory trustedConsensusState = json.readBytes(".trustedConsensusState");
