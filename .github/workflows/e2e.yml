@@ -51,20 +51,37 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.22"
           check-latest: true
           cache-dependency-path: "e2e/interchaintestv8/go.sum"
-
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v2"
-
       - name: "Install the Node.js dependencies"
         run: bun install
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install SP1 toolchain
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up 
+          ~/.sp1/bin/cargo-prove prove --version
+      - name: Install operator
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --git https://github.com/cosmos/sp1-ics07-tendermint sp1-ics07-tendermint-operator --bin operator --locked
 
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
       - name: Run Tests
         env:
           SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
