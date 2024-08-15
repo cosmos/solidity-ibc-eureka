@@ -78,13 +78,13 @@ jobs:
           key: ${{ runner.os }}-operator-${{ env.SP1_OPERATOR_REV }}
 
       - name: Install SP1 toolchain
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache-operator.outputs.cache-hit != 'true'
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install operator
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
           command: install
