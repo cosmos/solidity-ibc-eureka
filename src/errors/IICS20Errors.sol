@@ -15,10 +15,6 @@ interface IICS20Errors {
     /// @param amount Amount of tokens being transferred
     error ICS20InvalidAmount(uint256 amount);
 
-    /// @notice Invalid ERC20 token contract
-    /// @param tokenContract Address of the token contract
-    error ICS20InvalidTokenContract(string tokenContract);
-
     /// @notice Unexpected packet data version
     /// @param expected expected version of the packet data
     /// @param version actual version of the packet data

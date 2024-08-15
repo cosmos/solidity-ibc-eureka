@@ -34,15 +34,24 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20InvalidAmount(msg_.amount);
         }
 
-        IICS26Router ibcRouter = IICS26Router(owner());
+        string memory fullDenomPath = msg_.denom;
+        // if the denom is an ibc denom, we need to find the full denom path
+        if (ICS20Lib.hasPrefix(bytes(fullDenomPath), bytes(ICS20Lib.IBC_DENOM_PREFIX))) {
+            IBCERC20 ibcERC20Contract = _foreignDenomContracts[fullDenomPath];
+            if (address(ibcERC20Contract) == address(0)) {
+                revert ICS20DenomNotFound(fullDenomPath);
+            }
+
+            fullDenomPath = ibcERC20Contract.fullDenomPath();
+        }
 
         string memory sender = Strings.toHexString(msg.sender);
         string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
         bytes memory packetData;
         if (bytes(msg_.memo).length == 0) {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver);
+            packetData = ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, sender, msg_.receiver);
         } else {
-            packetData = ICS20Lib.marshalJSON(msg_.denom, msg_.amount, sender, msg_.receiver, msg_.memo);
+            packetData = ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, sender, msg_.receiver, msg_.memo);
         }
 
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
@@ -54,7 +63,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             version: ICS20Lib.ICS20_VERSION
         });
 
-        return ibcRouter.sendPacket(msgSendPacket);
+        return IICS26Router(owner()).sendPacket(msgSendPacket);
     }
 
     /// @inheritdoc IIBCApp
@@ -63,7 +72,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.packet.version);
         }
 
-        ICS20Lib.UnwrappedPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
 
         if (packetData.amount == 0) {
             revert ICS20InvalidAmount(packetData.amount);
@@ -79,16 +88,17 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(this), packetData.erc20Contract, packetData.amount);
+        (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
+        _transferFrom(sender, address(this), erc20Address, packetData.amount);
 
-        if (!packetData.originatorChainIsSource) {
+        if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
             // TODO: Implement escrow balance tracking (#6)
-            IBCERC20 ibcERC20Contract = IBCERC20(packetData.erc20Contract);
+            IBCERC20 ibcERC20Contract = IBCERC20(erc20Address);
             ibcERC20Contract.burn(packetData.amount);
         }
 
-        emit ICS20Transfer(packetData);
+        emit ICS20Transfer(packetData, erc20Address);
     }
 
     /// @inheritdoc IIBCApp
@@ -99,7 +109,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.packet.version));
         }
 
-        ICS20Lib.UnwrappedPacketData memory packetData = _unwrapReceivePacketData(msg_.packet);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(msg_.packet, packetData);
 
         if (packetData.amount == 0) {
             return ICS20Lib.errorAck("invalid amount: 0");
@@ -111,26 +122,27 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // TODO: Implement escrow balance tracking (#6)
-        if (packetData.originatorChainIsSource) {
+        if (originatorChainIsSource) {
             // sender is source, so we mint vouchers
-            // NOTE: The unwrap function already created a new contract if it didn't exist already
-            IBCERC20(packetData.erc20Contract).mint(packetData.amount);
+            // NOTE: getReceiveTokenContractAndSource has already created a new contract if it didn't exist already
+            IBCERC20(erc20Address).mint(packetData.amount);
         }
 
         // transfer the tokens to the receiver
-        IERC20(packetData.erc20Contract).safeTransfer(receiver, packetData.amount);
+        IERC20(erc20Address).safeTransfer(receiver, packetData.amount);
 
-        emit ICS20ReceiveTransfer(packetData);
+        emit ICS20ReceiveTransfer(packetData, erc20Address);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.UnwrappedPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            _refundTokens(packetData);
+            (address erc20Address,) = getSendERC20AddressAndSource(msg_.packet, packetData);
+            _refundTokens(packetData, erc20Address);
         }
 
         // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
@@ -139,17 +151,19 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.UnwrappedPacketData memory packetData = _unwrapSendPacketData(msg_.packet);
-        _refundTokens(packetData);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        (address erc20Address,) = getSendERC20AddressAndSource(msg_.packet, packetData);
+        _refundTokens(packetData, erc20Address);
 
         emit ICS20Timeout(packetData);
     }
 
     /// @notice Refund the tokens to the sender
-    /// @param data The packet data
-    function _refundTokens(ICS20Lib.UnwrappedPacketData memory data) private {
-        address refundee = ICS20Lib.mustHexStringToAddress(data.sender);
-        IERC20(data.erc20Contract).safeTransfer(refundee, data.amount);
+    /// @param packetData The packet data
+    /// @param erc20Address The address of the ERC20 contract
+    function _refundTokens(ICS20Lib.PacketDataJSON memory packetData, address erc20Address) private {
+        address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
+        IERC20(erc20Address).safeTransfer(refundee, packetData.amount);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -158,7 +172,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param tokenContract The address of the token contract
     /// @param amount The amount of tokens to transfer
     function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) private {
-        // we snapshot our current balance of this token
+        // we snapshot current balance of this token
         uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
 
         IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
@@ -175,122 +189,85 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
     }
 
-    /// @notice Unwrap the packet data for sending, including finding the correct erc20 contract to use
-    /// @param packet The packet to unwrap
-    /// @return The unwrapped packet data
-    function _unwrapSendPacketData(
-        IICS26RouterMsgs.Packet calldata packet
+    /// @notice For a send packet, get the ERC20 address for the token and whether the originator chain is the source
+    /// @param packet The ICS26 packet
+    /// @param packetData The unmarshalled packet data
+    /// @return The ERC20 address for the token in the packetData
+    /// @return Whether the originator (i.e. us) chain of the packet is the source of the token
+    function getSendERC20AddressAndSource(
+        IICS26RouterMsgs.Packet calldata packet,
+        ICS20Lib.PacketDataJSON memory packetData
     )
         private
         view
-        returns (ICS20Lib.UnwrappedPacketData memory)
+        returns (address, bool)
     {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(packet.data);
-        ICS20Lib.UnwrappedPacketData memory receivePacketData = ICS20Lib.UnwrappedPacketData({
-            denom: packetData.denom,
-            originatorChainIsSource: false,
-            erc20Contract: address(0),
-            sender: packetData.sender,
-            receiver: packetData.receiver,
-            amount: packetData.amount,
-            memo: packetData.memo
-        });
+        bytes memory denomBz = bytes(packetData.denom);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
+        bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
-        // if the denom is NOT prefixed by the port and channel on which we are sending the token,
-        // then the we are the the source of the token
-        // otherwise the receiving chain is the source (i.e we need to burn when sending, or mint when refunding)
-        bytes memory denomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
-        receivePacketData.originatorChainIsSource = !ICS20Lib.hasPrefix(bytes(packetData.denom), denomPrefix);
-        if (receivePacketData.originatorChainIsSource) {
-            // we are the source of this token, so we unwrap and look for the token contract address
-            receivePacketData.erc20Contract = findOrExtractERC20Address(packetData.denom);
+        address erc20Address;
+        if (originatorChainIsSource) {
+            // we are the source of this token, so the denom should be the contract address
+            erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);
         } else {
-            // receiving chain is source of the token, so we will find the address in the mapping
-            receivePacketData.erc20Contract = address(_foreignDenomContracts[packetData.denom]);
-            if (receivePacketData.erc20Contract == address(0)) {
+            // receiving chain is source of the token, so we've received and mapped this token before
+            string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
+            erc20Address = address(_foreignDenomContracts[ibcDenom]);
+            if (erc20Address == address(0)) {
                 revert ICS20DenomNotFound(packetData.denom);
             }
         }
-
-        return receivePacketData;
+        return (erc20Address, originatorChainIsSource);
     }
 
-    /// @notice Unwrap the packet data for receiving, including finding or instantiating the erc20 contract to use
-    /// @param packet The packet to unwrap
-    /// @return The unwrapped packet data
-    function _unwrapReceivePacketData(
-        IICS26RouterMsgs.Packet calldata packet
+    /// @notice For a receive packet, get the ERC20 address for the token and whether the originator chain is the source
+    /// @param packet The ICS26 packet
+    /// @param packetData The unmarshalled packet data
+    /// @return The ERC20 address for the token in the packetData
+    /// @return Whether the originator (i.e. the counterparty) chain of the packet is the source of the token
+    function getReceiveERC20AddressAndSource(
+        IICS26RouterMsgs.Packet calldata packet,
+        ICS20Lib.PacketDataJSON memory packetData
     )
         private
-        returns (ICS20Lib.UnwrappedPacketData memory)
+        returns (address, bool)
     {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(packet.data);
-        ICS20Lib.UnwrappedPacketData memory receivePacketData = ICS20Lib.UnwrappedPacketData({
-            denom: "",
-            originatorChainIsSource: false,
-            erc20Contract: address(0),
-            sender: packetData.sender,
-            receiver: packetData.receiver,
-            amount: packetData.amount,
-            memo: packetData.memo
-        });
-
         bytes memory denomBz = bytes(packetData.denom);
-        // NOTE: We use sourcePort and sourceChannel here, because the counterparty
-        // chain would have prefixed with DestPort and DestChannel when originally
-        // receiving this token.
-        bytes memory denomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
+        bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
-        receivePacketData.originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, denomPrefix);
-
-        if (receivePacketData.originatorChainIsSource) {
-            // we are not the source of this token, so we add a denom trace and find or create a new token contract
+        address erc20Address;
+        if (originatorChainIsSource) {
+            // we are not the source of this token: we add a denom trace and find or create a new token contract
+            string memory baseDenom = packetData.denom;
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(packet.destPort, packet.destChannel);
-            receivePacketData.denom = string(abi.encodePacked(newDenomPrefix, packetData.denom));
+            string memory fullDenomPath = string(abi.encodePacked(newDenomPrefix, baseDenom));
 
-            receivePacketData.erc20Contract = findOrCreateERC20Address(receivePacketData.denom);
+            erc20Address = findOrCreateERC20Address(fullDenomPath, baseDenom);
         } else {
-            // we are the source of this token, so we unwrap the denom and find the token contract
-            // either in the mapping or by converting the denom to an address
-            receivePacketData.denom =
-                string(ICS20Lib.slice(denomBz, denomPrefix.length, denomBz.length - denomPrefix.length));
-
-            receivePacketData.erc20Contract = findOrExtractERC20Address(receivePacketData.denom);
+            // we are the source of this token: we remove the source prefix and expect the denom to be an erc20 address
+            string memory erc20AddressStr =
+                string(ICS20Lib.slice(denomBz, sourceDenomPrefix.length, denomBz.length - sourceDenomPrefix.length));
+            erc20Address = ICS20Lib.mustHexStringToAddress(erc20AddressStr);
         }
 
-        return receivePacketData;
-    }
-
-    /// @notice Finds a contract in the foreign mapping, or expects the denom to be a token contract address
-    /// @notice This function will never return address(0)
-    /// @param denom The denom to find or extract the address from
-    /// @return The address of the contract
-    function findOrExtractERC20Address(string memory denom) internal view returns (address) {
-        // check if denom already has a foreign registered contract
-        address erc20Contract = address(_foreignDenomContracts[denom]);
-        if (erc20Contract == address(0)) {
-            // this denom is not created by us, so we expect the denom to be a token contract address
-            bool convertSuccess;
-            (erc20Contract, convertSuccess) = ICS20Lib.hexStringToAddress(denom);
-            if (!convertSuccess) {
-                revert ICS20InvalidTokenContract(denom);
-            }
-        }
-
-        return erc20Contract;
+        return (erc20Address, originatorChainIsSource);
     }
 
     /// @notice Finds a contract in the foreign mapping, or creates a new IBCERC20 contract
     /// @notice This function will never return address(0)
-    /// @param denom The denom to find or create the contract for
+    /// @param fullDenomPath The full path denom to find or create the contract for
+    /// @param base The base denom of the token, used when creating a new IBCERC20 contract
     /// @return The address of the erc20 contract
-    function findOrCreateERC20Address(string memory denom) internal returns (address) {
+    function findOrCreateERC20Address(string memory fullDenomPath, string memory base) internal returns (address) {
         // check if denom already has a foreign registered contract
-        address erc20Contract = address(_foreignDenomContracts[denom]);
+        string memory ibcDenom = ICS20Lib.toIBCDenom(fullDenomPath);
+        address erc20Contract = address(_foreignDenomContracts[ibcDenom]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)));
-            _foreignDenomContracts[denom] = ibcERC20;
+            IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)), ibcDenom, base, fullDenomPath);
+            _foreignDenomContracts[ibcDenom] = ibcERC20;
             erc20Contract = address(ibcERC20);
         }
 

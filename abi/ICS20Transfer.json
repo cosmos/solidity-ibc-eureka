@@ -386,22 +386,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -442,22 +432,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -480,6 +460,12 @@
             "internalType": "string"
           }
         ]
+      },
+      {
+        "name": "erc20Address",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -492,22 +478,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -542,22 +518,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -580,6 +546,12 @@
             "internalType": "string"
           }
         ]
+      },
+      {
+        "name": "erc20Address",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -692,17 +664,6 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20InvalidTokenContract",
-    "inputs": [
-      {
-        "name": "tokenContract",
-        "type": "string",
-        "internalType": "string"
       }
     ]
   },
