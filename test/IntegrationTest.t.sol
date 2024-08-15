@@ -543,7 +543,7 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
-            data: ICS20Lib.marshalJSON(foreignDenom, largeAmount, senderStr, receiverStr, "memo")
+            data: ICS20Lib.marshalJSON(foreignDenom, largeAmount, senderStr, receiverStr, "")
         });
 
         string memory expectedFullDenomPath =
@@ -585,7 +585,7 @@ contract IntegrationTest is Test {
         assertEq(packetData.sender, senderStr);
         assertEq(packetData.receiver, receiverStr);
         assertEq(packetData.amount, largeAmount);
-        assertEq(packetData.memo, "memo");
+        assertEq(packetData.memo, "");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -613,7 +613,7 @@ contract IntegrationTest is Test {
             sourceChannel: clientIdentifier,
             destPort: "transfer",
             timeoutTimestamp: uint64(block.timestamp + 1000),
-            memo: "backmemo"
+            memo: ""
         });
 
         vm.expectEmit();
@@ -623,7 +623,7 @@ contract IntegrationTest is Test {
                 sender: senderStr,
                 receiver: receiverStr,
                 amount: largeAmount,
-                memo: "backmemo"
+                memo: ""
             }),
             erc20Address
         );
@@ -637,7 +637,7 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
-            data: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "backmemo")
+            data: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "")
         });
         emit IICS26Router.SendPacket(expectedPacketSent);
 

@@ -360,7 +360,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			SourceChannel:    s.ethClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
-			Memo:             "testmemo",
+			Memo:             "",
 		}
 
 		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
@@ -374,7 +374,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(sdkTransferAmount, transferEvent.PacketData.Amount) // converted from erc20 amount to sdk coin amount
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
-		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
+		s.Require().Equal("", transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -515,7 +515,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			Receiver:         strings.ToLower(userAddress.Hex()),
 			TimeoutHeight:    clienttypes.Height{},
 			TimeoutTimestamp: timeout,
-			Memo:             "backmemo",
+			Memo:             "",
 			DestPort:         transfertypes.PortID,
 			DestChannel:      s.ethClientID,
 		}
@@ -540,7 +540,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(sdkTransferAmount.String(), transferPacketData.Amount)
 		s.Require().Equal(s.UserB.FormattedAddress(), transferPacketData.Sender)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), transferPacketData.Receiver)
-		s.Require().Equal("backmemo", transferPacketData.Memo)
+		s.Require().Equal("", transferPacketData.Memo)
 
 		s.Require().True(s.Run("Verify balances", func() {
 			// Check the balance of UserB
@@ -604,7 +604,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveData.Sender)
 		s.Require().Equal(strings.ToLower(userAddress.Hex()), ethReceiveData.Receiver)
 		s.Require().Equal(sdkTransferAmount, ethReceiveData.Amount) // the amount transferred the user on the evm side is converted, but the packet doesn't change
-		s.Require().Equal("backmemo", ethReceiveData.Memo)
+		s.Require().Equal("", ethReceiveData.Memo)
 
 		s.True(s.Run("Verify balances", func() {
 			// User balance should be back to the starting point

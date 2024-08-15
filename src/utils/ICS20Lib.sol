@@ -125,7 +125,8 @@ library ICS20Lib {
             }
             (pd.receiver, pos) = parseString(bz, pos + 13);
 
-            if (uint256(uint8(bz[pos + 2])) == CHAR_M) {
+            // check if the memo field is present, if not, we leave it empty
+            if (pos != bz.length - 1 && uint256(uint8(bz[pos + 2])) == CHAR_M) {
                 if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
                     // solhint-disable-next-line max-line-length
                     revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
