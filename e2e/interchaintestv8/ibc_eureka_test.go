@@ -43,8 +43,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibcerc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sdkics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
@@ -64,7 +64,7 @@ type IbcEurekaTestSuite struct {
 	sp1Ics07Contract *sp1ics07tendermint.Contract
 	ics02Contract    *ics02client.Contract
 	ics26Contract    *ics26router.Contract
-	ics20Contract    *ics20transfer.Contract
+	ics20Contract    *sdkics20transfer.Contract
 	erc20Contract    *erc20.Contract
 
 	simdClientID string
@@ -183,7 +183,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), ethClient)
 		s.Require().NoError(err)
-		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), ethClient)
+		s.ics20Contract, err = sdkics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), ethClient)
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
@@ -353,7 +353,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	var sendPacket ics26router.IICS26RouterMsgsPacket
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           erc20TransferAmount,
 			Receiver:         receiver.FormattedAddress(),
@@ -709,7 +709,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 	}))
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
-	var ethReceiveTransferPacket ics20transfer.ICS20LibPacketDataJSON
+	var ethReceiveTransferPacket sdkics20transfer.ICS20LibPacketDataJSON
 	var denomOnEthereum transfertypes.DenomTrace
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
@@ -834,7 +834,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 	returnMemo := "testreturnmemo"
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            ibcERC20Address,
 			Amount:           sdkTransferAmount,
 			Receiver:         s.UserB.FormattedAddress(),
@@ -983,7 +983,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
 		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
 			Receiver:         receiver.FormattedAddress(),

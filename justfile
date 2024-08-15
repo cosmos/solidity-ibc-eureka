@@ -26,12 +26,12 @@ generate-abi:
 	just build
 	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
 	jq '.abi' out/ICS02Client.sol/ICS02Client.json > abi/ICS02Client.json   
-	jq '.abi' out/SdkICS20Transfer.sol.sol/SdkICS20Transfer.sol.json > abi/SdkICS20Transfer.sol.json
+	jq '.abi' out/SdkICS20Transfer.sol/SdkICS20Transfer.json > abi/SdkICS20Transfer.json
 	jq '.abi' ./out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
 	abigen --abi abi/ICS02Client.json --pkg ics02client --type Contract --out e2e/interchaintestv8/types/ics02client/contract.go
-	abigen --abi abi/SdkICS20Transfer.sol.json --pkg ics20transfer --type Contract --out e2e/interchaintestv8/types/ics20transfer/contract.go
+	abigen --abi abi/SdkICS20Transfer.json --pkg sdkics20transfer --type Contract --out e2e/interchaintestv8/types/sdkics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out e2e/interchaintestv8/types/ics26router/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out e2e/interchaintestv8/types/sp1ics07tendermint/contract.go
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
