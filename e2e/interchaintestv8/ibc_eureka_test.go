@@ -389,7 +389,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.True(s.Run("Verify balances", func() {
 			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(big.NewInt(testvalues.StartingTokenAmount-testvalues.TransferAmount), userBalance)
+			s.Require().Equal(testvalues.StartingTokenAmount-testvalues.TransferAmount, userBalance.Int64())
 			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, ics20TransferBalance)
@@ -444,6 +444,16 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(testvalues.TransferAmount, resp.Balance.Amount.Int64())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+
+			// Check the balance of the ICS20Transfer contract
+			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
+
+			// Check the balance of the sender
+			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingTokenAmount-testvalues.TransferAmount, userBalance.Int64())
 		}))
 	}))
 
@@ -476,6 +486,18 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		s.Require().True(s.Run("Verify balances", func() {
+			// Check the balance of the ICS20Transfer contract
+			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
+
+			// Check the balance of the sender
+			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingTokenAmount-testvalues.TransferAmount, userBalance.Int64())
+		}))
 	}))
 
 	var returnPacket channeltypes.Packet
@@ -955,7 +977,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 	}))
 
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
-		timeout := uint64(time.Now().Add(45 * time.Second).Unix())
+		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
@@ -989,10 +1011,23 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal("transfer", packet.DestPort)
 		s.Require().Equal(s.simdClientID, packet.DestChannel)
 		s.Require().Equal(transfertypes.Version, packet.Version)
+
+		s.Require().True(s.Run("Verify balances", func() {
+			// Check the balance of the ICS20Transfer contract
+			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
+
+			// Check the balance of the sender
+			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingTokenAmount-testvalues.TransferAmount, userBalance.Int64())
+		}))
 	}))
 
-	// sleep for 60 seconds to let the packet timeout
-	time.Sleep(60 * time.Second)
+	// sleep for 45 seconds to let the packet timeout
+	time.Sleep(45 * time.Second)
 
 	s.True(s.Run("timeoutPacket on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
@@ -1022,5 +1057,18 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		s.Require().True(s.Run("Verify balances", func() {
+			// Check the balance of the ICS20Transfer contract
+			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(int64(0), ics20Bal.Int64())
+
+			// Check the balance of the sender
+			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingTokenAmount, userBalance.Int64())
+		}))
 	}))
 }

@@ -30,6 +30,9 @@ library ICS20Lib {
     /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
     string public constant IBC_DENOM_PREFIX = "ibc/";
 
+    /// @notice DEFAULT_PORT_ID is the default port id for ICS20.
+    string public constant DEFAULT_PORT_ID = "transfer";
+
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
     /// @notice FAILED_ACKNOWLEDGEMENT_JSON is the JSON bytes for a failed acknowledgement.
@@ -57,18 +60,6 @@ library ICS20Lib {
     uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
-
-    /// @notice marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
-    /// @dev `memo` field is omitted if it is empty. TODO: Consider if this should be changed.
-    /// @param data PacketData to marshal
-    /// @return Marshalled JSON bytes
-    function marshalUnsafeJSON(PacketDataJSON memory data) internal pure returns (bytes memory) {
-        if (bytes(data.memo).length == 0) {
-            return marshalJSON(data.denom, data.amount, data.sender, data.receiver);
-        } else {
-            return marshalJSON(data.denom, data.amount, data.sender, data.receiver, data.memo);
-        }
-    }
 
     /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
     /// @param escapedDenom Escaped denom
@@ -99,35 +90,6 @@ library ICS20Lib {
             escapedReceiver,
             "\",\"memo\":\"",
             escapedMemo,
-            "\"}"
-        );
-    }
-
-    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
-    /// @param escapedDenom Escaped denom
-    /// @param amount Amount
-    /// @param escapedSender Escaped sender
-    /// @param escapedReceiver Escaped receiver
-    /// @return Marshalled JSON bytes
-    function marshalJSON(
-        string memory escapedDenom,
-        uint256 amount,
-        string memory escapedSender,
-        string memory escapedReceiver
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(
-            "{\"denom\":\"",
-            escapedDenom,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"sender\":\"",
-            escapedSender,
-            "\",\"receiver\":\"",
-            escapedReceiver,
             "\"}"
         );
     }
@@ -380,7 +342,6 @@ library ICS20Lib {
     /// @param b bytes
     /// @return true if the byte arrays are equal
     function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
-        // TODO: consider removing this function and using OpenZeppelin's Bytes library
         return keccak256(a) == keccak256(b);
     }
 
