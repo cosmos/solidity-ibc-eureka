@@ -54,7 +54,8 @@ contract ICS20LibTest is Test {
         assertEq(packetData.memo, "");
 
         // Test with a manual JSON string with memo
-        jsonBz = "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\",\"memo\":\"memo3\"}";
+        jsonBz =
+            "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\",\"memo\":\"memo3\"}";
         packetData = this.unmarshalJSON(jsonBz);
         assertEq(packetData.denom, "denom3");
         assertEq(packetData.amount, 43);
