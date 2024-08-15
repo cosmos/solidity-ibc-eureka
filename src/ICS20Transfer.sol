@@ -45,17 +45,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             fullDenomPath = ibcERC20Contract.fullDenomPath();
         }
 
-        string memory sender = Strings.toHexString(msg.sender);
-        string memory sourcePort = "transfer"; // TODO: Find a way to figure out the source port
-        bytes memory packetData;
-        if (bytes(msg_.memo).length == 0) {
-            packetData = ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, sender, msg_.receiver);
-        } else {
-            packetData = ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, sender, msg_.receiver, msg_.memo);
-        }
-
+        bytes memory packetData =
+            ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(msg.sender), msg_.receiver, msg_.memo);
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourcePort: sourcePort,
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: msg_.sourceChannel,
             destPort: msg_.destPort,
             data: packetData,
