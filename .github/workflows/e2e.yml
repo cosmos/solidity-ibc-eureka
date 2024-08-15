@@ -15,6 +15,7 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
+  SP1_OPERATOR_REV: b158cc84a50e6924904b48e0220785c1a5e10a98
 permissions:
   contents: read
 
@@ -67,16 +68,27 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+
+      - name: "Cache Operator"
+        id: cache-operator
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-operator-${{ env.SP1_OPERATOR_REV }}
+
       - name: Install SP1 toolchain
+        if: steps.cache-operator.outputs.cache-hit != 'true'
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install operator
+        if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --git https://github.com/cosmos/sp1-ics07-tendermint sp1-ics07-tendermint-operator --bin operator --locked
+          args: --git https://github.com/cosmos/sp1-ics07-tendermint --rev ${{ env.SP1_OPERATOR_REV }} sp1-ics07-tendermint-operator --bin operator --locked
 
       - name: Run Tests
         env:
