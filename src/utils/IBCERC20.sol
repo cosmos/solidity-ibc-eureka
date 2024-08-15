@@ -7,12 +7,28 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20, Ownable {
-    /// Default sdkCoin decimals. Used when deploying sdkCoin ERC20 representation.
-    // solhint-disable-next-line
+    /// @notice Default sdkCoin decimals. Used when deploying sdkCoin ERC20 representation.
     uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
-    // TODO: Figure out naming and symbol for IBC denoms
 
-    constructor(IICS20Transfer owner_) ERC20("IBC Token", "IBC") Ownable(address(owner_)) { }
+    /// @notice The full IBC denom path for this token
+    string private _fullDenomPath;
+
+    constructor(
+        IICS20Transfer owner_,
+        string memory ibcDenom_,
+        string memory baseDenom_,
+        string memory fullDenomPath_
+    )
+        ERC20(ibcDenom_, baseDenom_)
+        Ownable(address(owner_))
+    {
+        _fullDenomPath = fullDenomPath_;
+    }
+
+    /// @inheritdoc IIBCERC20
+    function fullDenomPath() public view returns (string memory) {
+        return _fullDenomPath;
+    }
 
     /// @inheritdoc IIBCERC20
     function mint(uint256 amount) external onlyOwner {

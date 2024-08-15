@@ -386,22 +386,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -442,22 +432,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -480,6 +460,12 @@
             "internalType": "string"
           }
         ]
+      },
+      {
+        "name": "erc20Address",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -492,22 +478,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -542,22 +518,12 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.UnwrappedPacketData",
+        "internalType": "struct ICS20Lib.PacketDataJSON",
         "components": [
           {
             "name": "denom",
             "type": "string",
             "internalType": "string"
-          },
-          {
-            "name": "originatorChainIsSource",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "erc20Contract",
-            "type": "address",
-            "internalType": "address"
           },
           {
             "name": "sender",
@@ -580,6 +546,12 @@
             "internalType": "string"
           }
         ]
+      },
+      {
+        "name": "erc20Address",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -697,17 +669,6 @@
   },
   {
     "type": "error",
-    "name": "ICS20InvalidTokenContract",
-    "inputs": [
-      {
-        "name": "tokenContract",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ICS20JSONClosingBraceNotFound",
     "inputs": [
       {
@@ -793,13 +754,8 @@
   },
   {
     "type": "error",
-    "name": "ICS20MsgSenderIsNotPacketSender",
+    "name": "ICS20UnauthorizedPacketSender",
     "inputs": [
-      {
-        "name": "msgSender",
-        "type": "address",
-        "internalType": "address"
-      },
       {
         "name": "packetSender",
         "type": "address",
@@ -852,6 +808,28 @@
   },
   {
     "type": "error",
+    "name": "InvalidAddress",
+    "inputs": [
+      {
+        "name": "_address",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidAmount",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -879,6 +857,22 @@
   },
   {
     "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SafeERC20FailedOperation",
     "inputs": [
       {
@@ -901,6 +895,22 @@
         "name": "length",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unsupported",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedTokenDecimals",
+    "inputs": [
+      {
+        "name": "decimals",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ]
   }

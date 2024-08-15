@@ -24,26 +24,14 @@ library ICS20Lib {
         string memo;
     }
 
-    /// @notice Convenience type used after unmarshalling the packet data and converting addresses
-    /// @param denom The denom of the token
-    /// @param originatorChainIsSource True if origniating chain is source of token
-    /// @param erc20Contract The address of the ERC20 contract
-    /// @param amount The amount of tokens
-    /// @param sender The sender of the tokens
-    /// @param receiver The receiver of the tokens
-    /// @param memo Optional memo
-    struct UnwrappedPacketData {
-        string denom;
-        bool originatorChainIsSource;
-        address erc20Contract;
-        string sender;
-        string receiver;
-        uint256 amount;
-        string memo;
-    }
-
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
+
+    /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
+    string public constant IBC_DENOM_PREFIX = "ibc/";
+
+    /// @notice DEFAULT_PORT_ID is the default port id for ICS20.
+    string public constant DEFAULT_PORT_ID = "transfer";
 
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
@@ -72,21 +60,6 @@ library ICS20Lib {
     uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
-
-    /// @notice HEX_DIGITS are the hex digits.
-    bytes16 private constant HEX_DIGITS = "0123456789abcdef";
-
-    /// @notice marshalUnsafeJSON marshals PacketData into JSON bytes without escaping.
-    /// @dev `memo` field is omitted if it is empty. TODO: Consider if this should be changed.
-    /// @param data PacketData to marshal
-    /// @return Marshalled JSON bytes
-    function marshalUnsafeJSON(PacketDataJSON memory data) internal pure returns (bytes memory) {
-        if (bytes(data.memo).length == 0) {
-            return marshalJSON(data.denom, data.amount, data.sender, data.receiver);
-        } else {
-            return marshalJSON(data.denom, data.amount, data.sender, data.receiver, data.memo);
-        }
-    }
 
     /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
     /// @param escapedDenom Escaped denom
@@ -117,35 +90,6 @@ library ICS20Lib {
             escapedReceiver,
             "\",\"memo\":\"",
             escapedMemo,
-            "\"}"
-        );
-    }
-
-    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
-    /// @param escapedDenom Escaped denom
-    /// @param amount Amount
-    /// @param escapedSender Escaped sender
-    /// @param escapedReceiver Escaped receiver
-    /// @return Marshalled JSON bytes
-    function marshalJSON(
-        string memory escapedDenom,
-        uint256 amount,
-        string memory escapedSender,
-        string memory escapedReceiver
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(
-            "{\"denom\":\"",
-            escapedDenom,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"sender\":\"",
-            escapedSender,
-            "\",\"receiver\":\"",
-            escapedReceiver,
             "\"}"
         );
     }
@@ -398,7 +342,6 @@ library ICS20Lib {
     /// @param b bytes
     /// @return true if the byte arrays are equal
     function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
-        // TODO: consider removing this function and using OpenZeppelin's Bytes library
         return keccak256(a) == keccak256(b);
     }
 
@@ -426,5 +369,37 @@ library ICS20Lib {
     /// @return Denom prefix
     function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
         return abi.encodePacked(port, "/", channel, "/");
+    }
+
+    /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
+    /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
+    /// @notice that the denom passed in is a full denom path with trace and base denom
+    /// @param fullDenomPath full denom path with trace and base denom
+    /// @return IBC denom in the format ibc/hash(trace+base_denom)
+    function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
+        string memory hash = toHexHash(fullDenomPath);
+        return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
+    }
+
+    /// @notice toHexHash converts a string to an all uppercase hex hash (without the 0x prefix)
+    /// @param str string to convert
+    /// @return uppercase hex hash without 0x prefix
+    function toHexHash(string memory str) public pure returns (string memory) {
+        bytes32 hash = sha256(bytes(str));
+        bytes memory hexBz = bytes(Strings.toHexString(uint256(hash)));
+
+        // next we remove the `0x` prefix and uppercase the hash string
+        bytes memory finalHex = new bytes(hexBz.length - 2); // we skip the 0x prefix
+
+        for (uint256 i = 2; i < hexBz.length; i++) {
+            // if lowercase a-z, convert to uppercase
+            if (hexBz[i] >= 0x61 && hexBz[i] <= 0x7A) {
+                finalHex[i - 2] = bytes1(uint8(hexBz[i]) - 32);
+            } else {
+                finalHex[i - 2] = hexBz[i];
+            }
+        }
+
+        return string(finalHex);
     }
 }
