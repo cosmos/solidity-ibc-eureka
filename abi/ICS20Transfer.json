@@ -669,6 +669,22 @@
   },
   {
     "type": "error",
+    "name": "ICS20InvalidAmountAfterConversion",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "convertedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS20JSONClosingBraceNotFound",
     "inputs": [
       {

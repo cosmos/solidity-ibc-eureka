@@ -66,7 +66,7 @@ contract MockE2ETestDeploy is Script {
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "invalid address");
-        erc20.mint(addr, 100_000_000_000);
+        erc20.mint(addr, 1_000_000_000_000_000_000);
 
         vm.stopBroadcast();
 

@@ -52,6 +52,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // in the cosmos world that consider the proper decimals conversions.
         (uint64 _sdkCoinAmount,) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(contractAddress, msg_.amount);
 
+        if (_sdkCoinAmount == 0) {
+            revert ICS20InvalidAmountAfterConversion(msg_.amount, _sdkCoinAmount);
+        }
+
         bytes memory packetData = ICS20Lib.marshalJSON(
             fullDenomPath, _sdkCoinAmount, Strings.toHexString(msg.sender), msg_.receiver, msg_.memo
         );

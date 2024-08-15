@@ -67,7 +67,7 @@ contract E2ETestDeploy is Script {
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "failed to parse faucet address");
 
-        erc20.mint(addr, 100_000_000_000);
+        erc20.mint(addr, 1_000_000_000_000_000_000);
 
         vm.stopBroadcast();
 

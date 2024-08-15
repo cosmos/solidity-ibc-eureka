@@ -14,6 +14,11 @@ interface IICS20Errors {
     /// @param amount Amount of tokens being transferred
     error ICS20InvalidAmount(uint256 amount);
 
+    /// @notice Invalid amount after conversion to sdk coin
+    /// @param amount sent in
+    /// @param convertedAmount amount after conversion
+    error ICS20InvalidAmountAfterConversion(uint256 amount, uint256 convertedAmount);
+
     /// @notice Unexpected packet data version
     /// @param expected expected version of the packet data
     /// @param version actual version of the packet data

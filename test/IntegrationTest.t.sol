@@ -90,21 +90,6 @@ contract IntegrationTest is Test {
         });
     }
 
-    function test_failure_sendICS20PacketDirectlyFromRouter() public {
-        // We don't allow sending packets directly through the router, only through ICS20Transfer sendTransfer
-        erc20.mint(sender, defaultAmount);
-        vm.startPrank(sender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
-
-        uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
-        assertEq(senderBalanceBefore, defaultAmount);
-        assertEq(contractBalanceBefore, 0);
-
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, sender));
-        ics26Router.sendPacket(msgSendPacket);
-    }
-
     function test_success_sendICS20PacketFromICS20Contract() public {
         IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
 
@@ -130,6 +115,21 @@ contract IntegrationTest is Test {
         uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
         assertEq(senderBalanceAfter, expectedRemainder);
         assertEq(contractBalanceAfter, evmConvertedAmount);
+    }
+
+    function test_failure_sendICS20PacketDirectlyFromRouter() public {
+        // We don't allow sending packets directly through the router, only through ICS20Transfer sendTransfer
+        erc20.mint(sender, defaultAmount);
+        vm.startPrank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        uint256 senderBalanceBefore = erc20.balanceOf(sender);
+        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        assertEq(senderBalanceBefore, defaultAmount);
+        assertEq(contractBalanceBefore, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, sender));
+        ics26Router.sendPacket(msgSendPacket);
     }
 
     function test_success_failedCounterpartyAckForICS20Packet() public {

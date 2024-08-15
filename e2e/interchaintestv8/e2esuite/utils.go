@@ -167,12 +167,12 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 }
 
 func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumChain, hash ethcommon.Hash) *ethtypes.Receipt {
-	client, err := ethclient.Dial(chain.GetHostRPCAddress())
+	ethClient, err := ethclient.Dial(chain.GetHostRPCAddress())
 	s.Require().NoError(err)
 
 	var receipt *ethtypes.Receipt
 	err = testutil.WaitForCondition(time.Second*10, time.Second, func() (bool, error) {
-		receipt, err = client.TransactionReceipt(ctx, hash)
+		receipt, err = ethClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil
 		}

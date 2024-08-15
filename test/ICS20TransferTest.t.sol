@@ -5,8 +5,10 @@ pragma solidity >=0.8.25 <0.9.0;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
+import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./TestERC20.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
@@ -67,6 +69,65 @@ contract ICS20TransferTest is Test {
         });
     }
 
+    function test_success_sendTransfer() public {
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: erc20AddressStr,
+            amount: defaultAmount,
+            receiver: receiverStr,
+            sourceChannel: packet.sourceChannel,
+            destPort: packet.sourcePort,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.prank(sender);
+        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        assertEq(sequence, 42);
+    }
+
+    function test_failure_sendTransfer() public {
+        // just to make sure it doesn't accidentally revert on the router call
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+
+        vm.startPrank(sender);
+
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: erc20AddressStr,
+            amount: defaultAmount,
+            receiver: receiverStr,
+            sourceChannel: packet.sourceChannel,
+            destPort: packet.sourcePort,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        // just to prove that it works with the unaltered transfer message
+        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        assertEq(sequence, 42);
+
+        // too small amount, resulting in a converted sdk coin that is 0
+        msgSendTransfer.amount = 999_999_999_999;
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmountAfterConversion.selector, msgSendTransfer.amount, 0)
+        );
+        ics20Transfer.sendTransfer(msgSendTransfer);
+
+        // initial amount is zero
+        msgSendTransfer.amount = 0;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
+        ics20Transfer.sendTransfer(msgSendTransfer);
+        // reset amount
+        msgSendTransfer.amount = defaultAmount;
+
+        // denom is not an address
+        msgSendTransfer.denom = "notanaddress";
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "notanaddress"));
+        ics20Transfer.sendTransfer(msgSendTransfer);
+        // reset denom
+        msgSendTransfer.denom = erc20AddressStr;
+    }
+
     function test_success_onSendPacket() public {
         erc20.mint(sender, defaultAmount);
 
@@ -91,6 +152,7 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfter, evmConvertedAmount);
     }
 
+    /// @dev to document the behaviour of the contract when calling onSendPacket directly
     function test_success_onSendPacketWithLargeAmount() public {
         uint256 largeAmount = 1_000_000_000_000_000_001;
         uint256 largeAmountEvmConverted = 1_000_000_000_000_000_001_000_000_000_000;
