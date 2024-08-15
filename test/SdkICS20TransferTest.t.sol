@@ -9,7 +9,7 @@ import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./TestERC20.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
@@ -19,7 +19,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract ICS20TransferTest is Test {
-    ICS20Transfer public ics20Transfer;
+    SdkICS20Transfer public ics20Transfer;
     TestERC20 public erc20;
     string public erc20AddressStr;
 
@@ -39,9 +39,8 @@ contract ICS20TransferTest is Test {
     ICS20Lib.PacketDataJSON public expectedDefaultSendPacketData;
 
     function setUp() public {
-        ics20Transfer = new ICS20Transfer(address(this));
+        ics20Transfer = new SdkICS20Transfer(address(this));
         erc20 = new TestERC20();
-        //metadataErc20 = new TestERC20Metadata(6);
 
         sender = makeAddr("sender");
 
@@ -132,8 +131,7 @@ contract ICS20TransferTest is Test {
         erc20.mint(sender, defaultAmount);
 
         vm.prank(sender);
-        // TODO Reduce approval to what is required : evmConvertedAmount
-        erc20.approve(address(ics20Transfer), defaultAmount);
+        erc20.approve(address(ics20Transfer), evmConvertedAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
         uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));

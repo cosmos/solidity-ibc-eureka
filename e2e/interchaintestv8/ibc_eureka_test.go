@@ -339,7 +339,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	receiver := s.UserB
 
-	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
+	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, erc20TransferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -446,7 +446,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			s.Require().Equal(sdkmath.NewIntFromBigInt(sdkTransferAmount), resp.Balance.Amount)
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 
-			// Check the balance of the ICS20Transfer contract
+			// Check the balance of the SdkICS20Transfer.sol contract
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.ERC20TransferAmount, ics20Bal.Int64())
@@ -489,7 +489,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the ICS20Transfer contract
+			// Check the balance of the SdkICS20Transfer.sol contract
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.ERC20TransferAmount, ics20Bal.Int64())
@@ -819,7 +819,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
 
-	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
+	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key), ics20Address, sdkTransferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -969,7 +969,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 	receiver := s.UserB
 
 	var packet ics26router.IICS26RouterMsgsPacket
-	s.Require().True(s.Run("Approve the ICS20Transfer contract to spend the erc20 tokens", func() {
+	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
@@ -1018,7 +1018,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(transfertypes.Version, packet.Version)
 
 		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the ICS20Transfer contract
+			// Check the balance of the SdkICS20Transfer.sol contract
 			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
@@ -1064,7 +1064,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the ICS20Transfer contract
+			// Check the balance of the SdkICS20Transfer.sol contract
 			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)

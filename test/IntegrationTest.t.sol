@@ -6,7 +6,7 @@ pragma solidity >=0.8.25 <0.9.0;
 import { Test } from "forge-std/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
@@ -29,7 +29,7 @@ contract IntegrationTest is Test {
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
-    ICS20Transfer public ics20Transfer;
+    SdkICS20Transfer public ics20Transfer;
     string public ics20AddressStr;
     TestERC20 public erc20;
     string public erc20AddressStr;
@@ -40,10 +40,15 @@ contract IntegrationTest is Test {
     address public receiver;
     string public receiverStr = "someReceiver";
 
+    /// @dev the default send amount for sendTransfer
     uint256 public defaultAmount = 1_000_000_100_000_000_001; // To account for a clear remainder
+    /// @dev the amount after converting an sdk amount to erc20 amount (for a native erc20 token with 18 decimals)
     uint256 public evmConvertedAmount = 1_000_000_000_000_000_000;
+    /// @dev the expected remainder after converting the erc20 default amount to sdk amount
     uint256 public expectedRemainder = 100_000_000_001;
+    /// @dev the expected converted amount after converting the default amount to sdk amount
     uint256 public expectedConvertedAmount = 1_000_000; // the uint256 representation of the uint64
+    /// @dev the default sdkCoin amount when sending from the sdk side
     uint256 public defaultSdkCoinAmount = 1_000_000; // sdkCoin amount
 
     bytes public data;
@@ -54,7 +59,7 @@ contract IntegrationTest is Test {
         ics02Client = new ICS02Client(address(this));
         ics26Router = new ICS26Router(address(ics02Client), address(this));
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ics20Transfer = new SdkICS20Transfer(address(ics26Router));
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 

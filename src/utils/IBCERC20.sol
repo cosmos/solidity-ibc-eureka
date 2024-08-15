@@ -40,7 +40,7 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
         _burn(owner(), amount);
     }
 
-    ///@inheritdoc ERC20
+    /// @inheritdoc ERC20
     function decimals() public pure override returns (uint8) {
         return DEFAULT_COSMOS_DECIMALS;
     }

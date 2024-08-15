@@ -23,7 +23,7 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
-contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
+contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _foreignDenomContracts;
 
@@ -50,6 +50,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         // Use the _sdkCoinAmount to populate the packetData with a uint256 representation of the uint64 supported
         // in the cosmos world that consider the proper decimals conversions.
+        // Since we just transfer the converted amount, we discard the remainder as it stays in the users account
         (uint64 _sdkCoinAmount,) = SdkCoin._ERC20ToSdkCoin_ConvertAmount(contractAddress, msg_.amount);
 
         if (_sdkCoinAmount == 0) {
@@ -95,7 +96,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
 
         // Use SdkCoin._SdkCoinToERC20_ConvertAmount to consider the proper decimals conversions.
-        (uint256 _convertedAmount) =
+        uint256 _convertedAmount =
             SdkCoin._SdkCoinToERC20_ConvertAmount(erc20Address, SafeCast.toUint64(packetData.amount));
 
         // transfer the tokens to us (requires the allowance to be set)
@@ -132,7 +133,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // Use SdkCoin._SdkCoinToERC20_ConvertAmount to consider the proper decimals conversions.
-        (uint256 _convertedAmount) =
+        uint256 _convertedAmount =
             SdkCoin._SdkCoinToERC20_ConvertAmount(erc20Address, SafeCast.toUint64(packetData.amount));
 
         // TODO: Implement escrow balance tracking (#6)
@@ -144,6 +145,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         // transfer the tokens to the receiver
         IERC20(erc20Address).safeTransfer(receiver, _convertedAmount);
+
         // Note the event don't take into account the conversion
         emit ICS20ReceiveTransfer(packetData, erc20Address);
 
