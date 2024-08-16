@@ -757,6 +757,10 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg))
+		}
+
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
@@ -1069,6 +1073,10 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg))
+		}
 
 		s.Require().True(s.Run("Verify balances", func() {
 			// Check the balance of the SdkICS20Transfer.sol contract

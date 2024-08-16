@@ -50,7 +50,13 @@ test-e2e testname:
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
 
+# Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures:
+	@echo "Generating fixtures... This may take a while."
 	just clean
 	@echo "Generating recvPacket and acknowledgePacket fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Transfer$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeSdkCoin$' -timeout 40m
+	@echo "Generating timeoutPacket fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Timeout$' -timeout 40m
