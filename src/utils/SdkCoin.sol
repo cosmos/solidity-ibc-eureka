@@ -102,7 +102,7 @@ library SdkCoin {
     }
 
     // Convert Cosmos coin amount to ERC20 token amount
-    // Assuming that we support only ERC20.decimlas()>=6
+    // Assuming that we support only ERC20.decimals()>=6
     /**
      * @notice Convert the uint64 Cosmos coin amount into ERC20 token amount uint256
      * @param tokenAddress The address of the token contract
