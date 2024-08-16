@@ -55,8 +55,8 @@ generate-fixtures:
 	@echo "Generating fixtures... This may take a while."
 	just clean
 	@echo "Generating recvPacket and acknowledgePacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Transfer$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Transfer$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeSdkCoin$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeSdkCoin$' -timeout 40m
 	@echo "Generating timeoutPacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Timeout$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Timeout$' -timeout 40m
