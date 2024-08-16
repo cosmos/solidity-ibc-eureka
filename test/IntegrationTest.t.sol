@@ -34,6 +34,7 @@ contract IntegrationTest is Test {
     TestERC20 public erc20;
     string public erc20AddressStr;
     string public counterpartyClient = "42-dummy-01";
+    bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     address public sender;
     string public senderStr;
@@ -64,7 +65,7 @@ contract IntegrationTest is Test {
         erc20AddressStr = Strings.toHexString(address(erc20));
 
         clientIdentifier = ics02Client.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient), address(lightClient)
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 

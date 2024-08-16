@@ -3,6 +3,7 @@ pragma solidity >=0.8.25;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 // @title ICS24 Host Path Generators
@@ -151,5 +152,19 @@ library ICS24Host {
     /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
         return sha256(ack);
+    }
+
+    /// @notice Create a prefixed path
+    /// @dev The path is appended to the last element of the prefix
+    /// @param merklePrefix The prefix
+    /// @param path The path to append
+    /// @return The prefixed path
+    function prefixedPath(bytes[] memory merklePrefix, bytes memory path) internal pure returns (bytes[] memory) {
+        if (merklePrefix.length == 0) {
+            revert IICS24HostErrors.InvalidMerklePrefix(merklePrefix);
+        }
+
+        merklePrefix[merklePrefix.length - 1] = abi.encodePacked(merklePrefix[merklePrefix.length - 1], path);
+        return merklePrefix;
     }
 }
