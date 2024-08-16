@@ -1,5 +1,8 @@
 set dotenv-load
 
+# Use the SP1_OPERATOR_REV environment variable if it is set, otherwise use a default commit hash
+sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', 'b158cc84a50e6924904b48e0220785c1a5e10a98')
+
 # Build the contracts using `forge build`
 build:
 	just clean
@@ -42,3 +45,7 @@ test-e2e testname:
 	just clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
+
+# Install the sp1-ics07-tendermint operator for use in the e2e tests
+install-operator:
+	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
