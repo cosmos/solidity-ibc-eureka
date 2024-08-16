@@ -7,7 +7,12 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20, Ownable {
-    // TODO: Figure out naming and symbol for IBC denoms
+    /// @notice Default sdkCoin decimals. Used when deploying sdkCoin ERC20 representation.
+    uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
+
+    /// @notice The full IBC denom path for this token
+    string private _fullDenomPath;
+
     constructor(
         IICS20Transfer owner_,
         string memory ibcDenom_,
@@ -19,9 +24,6 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     {
         _fullDenomPath = fullDenomPath_;
     }
-
-    /// @notice The full IBC denom path for this token
-    string private _fullDenomPath;
 
     /// @inheritdoc IIBCERC20
     function fullDenomPath() public view returns (string memory) {
@@ -36,5 +38,10 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     /// @inheritdoc IIBCERC20
     function burn(uint256 amount) external onlyOwner {
         _burn(owner(), amount);
+    }
+
+    /// @inheritdoc ERC20
+    function decimals() public pure override returns (uint8) {
+        return DEFAULT_COSMOS_DECIMALS;
     }
 }

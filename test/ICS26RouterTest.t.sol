@@ -9,7 +9,7 @@ import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { DummyLightClient } from "./DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
@@ -24,7 +24,7 @@ contract ICS26RouterTest is Test {
     }
 
     function test_AddIBCAppUsingAddress() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        SdkICS20Transfer ics20Transfer = new SdkICS20Transfer(address(ics26Router));
         string memory ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
@@ -35,7 +35,7 @@ contract ICS26RouterTest is Test {
     }
 
     function test_AddIBCAppUsingNamedPort() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        SdkICS20Transfer ics20Transfer = new SdkICS20Transfer(address(ics26Router));
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
@@ -51,7 +51,7 @@ contract ICS26RouterTest is Test {
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClientID), address(lightClient)
         );
 
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        SdkICS20Transfer ics20Transfer = new SdkICS20Transfer(address(ics26Router));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({

@@ -2,10 +2,9 @@
 pragma solidity >=0.8.25;
 
 interface IICS20Errors {
-    /// @notice Message sender is not the packet sender
-    /// @param msgSender Address of the message sender
-    /// @param packetSender Address of the packet sender
-    error ICS20MsgSenderIsNotPacketSender(address msgSender, address packetSender);
+    /// @notice Unauthorized packet sender
+    /// @param packetSender Address of the message sender
+    error ICS20UnauthorizedPacketSender(address packetSender);
 
     /// @notice Invalid address
     /// @param addr Address of the sender or receiver
@@ -14,6 +13,11 @@ interface IICS20Errors {
     /// @notice Invalid transfer amount
     /// @param amount Amount of tokens being transferred
     error ICS20InvalidAmount(uint256 amount);
+
+    /// @notice Invalid amount after conversion to sdk coin
+    /// @param amount sent in
+    /// @param convertedAmount amount after conversion
+    error ICS20InvalidAmountAfterConversion(uint256 amount, uint256 convertedAmount);
 
     /// @notice Unexpected packet data version
     /// @param expected expected version of the packet data
