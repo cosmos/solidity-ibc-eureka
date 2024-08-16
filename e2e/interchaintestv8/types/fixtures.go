@@ -17,7 +17,7 @@ type GenericFixture struct {
 	// Hex encoded bytes for sp1 genesis fixture
 	Sp1GenesisFixture string `json:"sp1_genesis_fixture"`
 	// Hex encoded bytes to be fed into the router contract
-	Msg string `json:"msgs"`
+	Msg string `json:"msg"`
 	// The contract address of the ERC20 token
 	Erc20Address string `json:"erc20_address"`
 }

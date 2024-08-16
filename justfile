@@ -49,3 +49,8 @@ test-e2e testname:
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
+
+generate-fixtures:
+	just clean
+	@echo "Generating recvPacket and acknowledgePacket fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20Transfer$' -timeout 40m
