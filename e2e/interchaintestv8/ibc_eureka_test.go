@@ -488,7 +488,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg))
+			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
 		}
 
 		s.Require().True(s.Run("Verify balances", func() {
@@ -575,17 +575,18 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		)
 		s.Require().NoError(err)
 
+		packet := ics26router.IICS26RouterMsgsPacket{
+			Sequence:         uint32(returnPacket.Sequence),
+			TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000,
+			SourcePort:       returnPacket.SourcePort,
+			SourceChannel:    returnPacket.SourceChannel,
+			DestPort:         returnPacket.DestinationPort,
+			DestChannel:      returnPacket.DestinationChannel,
+			Version:          transfertypes.Version,
+			Data:             returnPacket.Data,
+		}
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-			Packet: ics26router.IICS26RouterMsgsPacket{
-				Sequence:         uint32(returnPacket.Sequence),
-				TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000,
-				SourcePort:       returnPacket.SourcePort,
-				SourceChannel:    returnPacket.SourceChannel,
-				DestPort:         returnPacket.DestinationPort,
-				DestChannel:      returnPacket.DestinationChannel,
-				Version:          transfertypes.Version,
-				Data:             returnPacket.Data,
-			},
+			Packet:          packet,
 			ProofCommitment: ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
@@ -597,7 +598,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg))
+			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -736,17 +737,18 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		)
 		s.Require().NoError(err)
 
+		packet := ics26router.IICS26RouterMsgsPacket{
+			Sequence:         uint32(sendPacket.Sequence),
+			TimeoutTimestamp: sendPacket.TimeoutTimestamp / 1_000_000_000,
+			SourcePort:       sendPacket.SourcePort,
+			SourceChannel:    sendPacket.SourceChannel,
+			DestPort:         sendPacket.DestinationPort,
+			DestChannel:      sendPacket.DestinationChannel,
+			Version:          transfertypes.Version,
+			Data:             sendPacket.Data,
+		}
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-			Packet: ics26router.IICS26RouterMsgsPacket{
-				Sequence:         uint32(sendPacket.Sequence),
-				TimeoutTimestamp: sendPacket.TimeoutTimestamp / 1_000_000_000,
-				SourcePort:       sendPacket.SourcePort,
-				SourceChannel:    sendPacket.SourceChannel,
-				DestPort:         sendPacket.DestinationPort,
-				DestChannel:      sendPacket.DestinationChannel,
-				Version:          transfertypes.Version,
-				Data:             sendPacket.Data,
-			},
+			Packet:          packet,
 			ProofCommitment: ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
@@ -758,7 +760,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg))
+			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -992,8 +994,9 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
+	var timeout uint64
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
-		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
 		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
@@ -1075,7 +1078,7 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg))
+			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
 		}
 
 		s.Require().True(s.Run("Verify balances", func() {

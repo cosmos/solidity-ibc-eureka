@@ -19,19 +19,26 @@ type GenericFixture struct {
 	Sp1GenesisFixture string `json:"sp1_genesis_fixture"`
 	// Hex encoded bytes to be fed into the router contract
 	Msg string `json:"msg"`
+	// Hex encoded bytes for the IICS26RouterMsgsPacket in the context of this fixture
+	Packet string `json:"packet"`
 	// The contract address of the ERC20 token
 	Erc20Address string `json:"erc20_address"`
 	// The timestamp in seconds around the time of submitting the Msg to the router contract
 	Timestamp int64 `json:"timestamp"`
 }
 
-func generateFixture(erc20Address, methodName string, msg any) (GenericFixture, error) {
-	genesisBz, err := os.ReadFile(testvalues.Sp1GenesisFilePath)
+func generateFixture(erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) (GenericFixture, error) {
+	genesisBz, err := getGenesisFixture()
 	if err != nil {
 		return GenericFixture{}, err
 	}
 
 	ics26Abi, err := abi.JSON(strings.NewReader(ics26router.ContractMetaData.ABI))
+	if err != nil {
+		return GenericFixture{}, err
+	}
+
+	packetBz, err := abiEncodePacket(packet)
 	if err != nil {
 		return GenericFixture{}, err
 	}
@@ -47,13 +54,55 @@ func generateFixture(erc20Address, methodName string, msg any) (GenericFixture, 
 		Msg:               hex.EncodeToString(msgBz),
 		Erc20Address:      erc20Address,
 		Timestamp:         time.Now().Unix(),
+		Packet:            hex.EncodeToString(packetBz),
 	}
 	return fixture, nil
 }
 
+func getGenesisFixture() ([]byte, error) {
+	genesisBz, err := os.ReadFile(testvalues.Sp1GenesisFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Because the genesis json has line breaks and spaces, we need to unmarshal and marshal it again to get the compact version
+	var jsonData interface{}
+	if err := json.Unmarshal(genesisBz, &jsonData); err != nil {
+		return nil, err
+	}
+	compactGenesisBz, err := json.Marshal(jsonData)
+	if err != nil {
+		return nil, err
+	}
+
+	return compactGenesisBz, nil
+}
+
+func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
+	structType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "sequence", Type: "uint32"},
+		{Name: "timeoutTimestamp", Type: "uint64"},
+		{Name: "sourcePort", Type: "string"},
+		{Name: "sourceChannel", Type: "string"},
+		{Name: "destPort", Type: "string"},
+		{Name: "destChannel", Type: "string"},
+		{Name: "version", Type: "string"},
+		{Name: "data", Type: "bytes"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	args := abi.Arguments{
+		{Type: structType},
+	}
+
+	return args.Pack(packet)
+}
+
 // GenerateAndSaveFixture generates a fixture and saves it to a file
-func GenerateAndSaveFixture(fileName, erc20Address, methodName string, msg any) error {
-	fixture, err := generateFixture(erc20Address, methodName, msg)
+func GenerateAndSaveFixture(fileName, erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) error {
+	fixture, err := generateFixture(erc20Address, methodName, msg, packet)
 	if err != nil {
 		return err
 	}

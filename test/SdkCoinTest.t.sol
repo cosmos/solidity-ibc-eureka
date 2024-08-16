@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { SdkCoin } from "../src/utils/SdkCoin.sol";
 import { IISdkCoinErrors } from "../src/errors/IISdkCoinErrors.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { TestERC20, TestERC20Metadata } from "./TestERC20.sol";
+import { TestERC20, TestERC20Metadata } from "./mocks/TestERC20.sol";
 
 /**
  * This test file validates the conversion functions between ERC20 token amounts and Cosmos SDK coin amounts,

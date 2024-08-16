@@ -33,6 +33,19 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
+### Benchmarks
+
+Initial gas cost benchmarks below. More detailed and in-depth benchmarks are planned for the future.
+
+| **Function** |                                  **Context**                                  | **~Gas Cost** |
+|:---:|:-----------------------------------------------------------------------------:|:---:|
+| ICS20 sendTransfer |                   Initiating an IBC transfer with an ERC20                    | 230260 |
+| ICS20 recvPacket |          Receiving _back_ an ERC20 token (inc. SP1 proof and ICS07 )          | 602360 |
+| ICS20 recvPacket | Receiving a _new_ Cosmos token for the first time (inc. SP1 proof and ICS07 ) | 1503890 |
+| ICS20 ackPacket |                  Acknowledging the receipt of an IBC packet                   | 490400 |
+| ICS20 timeoutPacket |                           Timing out an IBC packet                            | 537888 |
+| SP1 verifyProof |                   Verifying the SP1 ICS07 Tendermint proof                    | 270200 |
+
 ## Requirements
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)

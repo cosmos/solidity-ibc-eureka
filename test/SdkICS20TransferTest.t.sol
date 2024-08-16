@@ -10,7 +10,7 @@ import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
-import { TestERC20, MalfunctioningERC20 } from "./TestERC20.sol";
+import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
