@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -20,6 +21,8 @@ type GenericFixture struct {
 	Msg string `json:"msg"`
 	// The contract address of the ERC20 token
 	Erc20Address string `json:"erc20_address"`
+	// The timestamp in seconds around the time of submitting the Msg to the router contract
+	Timestamp int64 `json:"timestamp"`
 }
 
 func generateFixture(erc20Address, methodName string, msg any) (GenericFixture, error) {
@@ -43,6 +46,7 @@ func generateFixture(erc20Address, methodName string, msg any) (GenericFixture, 
 		Sp1GenesisFixture: hex.EncodeToString(genesisBz),
 		Msg:               hex.EncodeToString(msgBz),
 		Erc20Address:      erc20Address,
+		Timestamp:         time.Now().Unix(),
 	}
 	return fixture, nil
 }
