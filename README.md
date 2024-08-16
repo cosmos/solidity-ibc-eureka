@@ -7,115 +7,75 @@
 [license]: https://opensource.org/licenses/MIT
 [license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
 
-A WIP IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic.
+This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic.
 
-## Installing Dependencies
+## Overview
 
-Foundry typically uses git submodules to manage dependencies, but this template uses Node.js packages because
-[submodules don't scale](https://twitter.com/PaulRBerg/status/1736695487057531328).
+`solidity-ibc-eureka` is an implementation of IBC in Solidity.
 
-This is how to install dependencies:
+### Project Structure
 
-1. Install the dependency using your preferred package manager, e.g. `bun install dependency-name`
-   - Use this syntax to install from GitHub: `bun install github:username/repo-name`
-2. Add a remapping for the dependency in [remappings.txt](./remappings.txt), e.g.
-   `dependency-name=node_modules/dependency-name`
+This project is structered as a [foundry](https://getfoundry.sh/) project with the following directories:
 
-Note that OpenZeppelin Contracts is pre-installed, so you can follow that as an example.
+- `src/`: Contains the Solidity contracts.
+- `test/`: Contains the Solidity tests.
+- `scripts/`: Contains the Solidity scripts.
+- `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+- `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 
-## Usage
+### Contracts
 
-This is a list of the most frequently needed commands.
+| **Contracts** | **Description** | **Status** |
+|:---:|:---:|:---:|
+| `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to `ICS02Client.sol` for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
+| `ICS02Client.sol` | IBC Eureka light client router resolves `clientId` for proof verification. It also stores the counterparty information for each client. | ✅ |
+| `SdkICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from `CosmosSDK`. | ✅ |
+| `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
+| `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
-### Install Dependencies
+## Requirements
 
-Install the dependencies:
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Bun](https://bun.sh/)
+- [Just](https://just.systems/man/en/)
+- [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint) (for end-to-end tests)
+
+Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
 ```sh
-$ bun install
+bun install
 ```
 
-### Build
-
-Build/compile the contracts:
+You also need to have the `sp1-ics07-tendermint` operator binary installed on your machine to run the end-to-end tests. You can install it by running the following command:
 
 ```sh
-$ forge build
+just install-operator
 ```
 
-### Test
+## End to End Testing
 
-Run the tests:
+There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/sp1_ics07_test.go). Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
+
+> [!NOTE]
+> If you are running on a Mac with an M chip, you will need to do the following:
+> - Set up Rosetta
+> - Enable Rosetta for Docker (in Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
+> - Pull the foundry image with the following command:
+> 
+>     ```sh
+>     docker pull --platform=linux/amd64 ghcr.io/foundry-rs/foundry:latest
+>     ```
+
+To run the tests, run the following command:
 
 ```sh
-$ forge test
+just test-e2e $TEST_NAME
 ```
 
-### Clean
-
-Delete the build artifacts and cache directories:
+Where `$TEST_NAME` is the name of the test you want to run, for example:
 
 ```sh
-$ forge clean
-```
-
-### Deploy
-
-Deploy to Anvil:
-
-```sh
-$ forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545
-```
-
-For this script to work, you need to have a `MNEMONIC` environment variable set to a valid
-[BIP39 mnemonic](https://iancoleman.io/bip39/).
-
-For instructions on how to deploy to a testnet or mainnet, check out the
-[Solidity Scripting](https://book.getfoundry.sh/tutorials/solidity-scripting.html) tutorial.
-
-### Format
-
-Format the contracts:
-
-```sh
-$ forge fmt
-```
-
-### Gas Usage
-
-Get a gas report:
-
-```sh
-$ forge test --gas-report
-```
-
-### Lint
-
-Lint the contracts:
-
-```sh
-$ bun run lint
-```
-
-### Coverage
-
-Get a test coverage report:
-
-```sh
-$ forge coverage
-```
-
-Generate test coverage and output result to the terminal:
-
-```sh
-$ bun run test:coverage
-```
-
-Generate test coverage with lcov report (you'll have to open the `./coverage/index.html` file in your browser, to do so
-simply copy paste the path):
-
-```sh
-$ bun run test:coverage:report
+just test-e2e TestDeploy
 ```
 
 ## License
