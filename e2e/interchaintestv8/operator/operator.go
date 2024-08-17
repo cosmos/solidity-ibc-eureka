@@ -48,14 +48,13 @@ func StartOperator(args ...string) error {
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
 	// nolint:gosec
-	cmd := exec.Command(BinaryPath(), args...)
-	cmd.Stdout = os.Stdout
-
-	// nolint:gosec
-	stdout, err := cmd.Output()
+	stdout, err := exec.Command(BinaryPath(), args...).Output()
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// NOTE: writing stdout to os.Stdout after execution due to how `.Output()` works
+	os.Stdout.Write(stdout)
 
 	// eliminate non-json characters
 	jsonStartIdx := strings.Index(string(stdout), "{")
