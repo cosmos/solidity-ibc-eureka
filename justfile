@@ -17,6 +17,10 @@ clean:
 test-foundry:
 	forge test -vvv
 
+# Run the benchmark tests
+test-benchmark:
+	forge test -vvv --gas-report --match-path test/BenchmarkTest.t.sol
+
 # Run forge fmt and bun solhint
 lint:
 	@echo "Linting the Solidity code..."
