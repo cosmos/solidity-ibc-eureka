@@ -31,12 +31,13 @@ var (
 
 // IICS02ClientMsgsCounterpartyInfo is an auto generated low-level Go binding around an user-defined struct.
 type IICS02ClientMsgsCounterpartyInfo struct {
-	ClientId string
+	ClientId     string
+	MerklePrefix [][]byte
 }
 
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addClient\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"name\":\"client\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractILightClient\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCounterparty\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"migrateClient\",\"inputs\":[{\"name\":\"subjectClientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"substituteClientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"submitMisbehaviour\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"misbehaviourMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"updateMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumILightClientMsgs.UpdateResult\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"upgradeMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ICS02ClientAdded\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"IBCClientNotFound\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCCounterpartyClientNotFound\",\"inputs\":[{\"name\":\"counterpartyClientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidClientType\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addClient\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]},{\"name\":\"client\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractILightClient\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCounterparty\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"migrateClient\",\"inputs\":[{\"name\":\"subjectClientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"substituteClientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"submitMisbehaviour\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"misbehaviourMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"updateMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumILightClientMsgs.UpdateResult\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"upgradeMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ICS02ClientAdded\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"IBCClientNotFound\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCCounterpartyClientNotFound\",\"inputs\":[{\"name\":\"counterpartyClientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidClientType\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -218,7 +219,7 @@ func (_Contract *ContractCallerSession) GetClient(clientId string) (common.Addre
 
 // GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
 //
-// Solidity: function getCounterparty(string clientId) view returns((string))
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
 func (_Contract *ContractCaller) GetCounterparty(opts *bind.CallOpts, clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
 	var out []interface{}
 	err := _Contract.contract.Call(opts, &out, "getCounterparty", clientId)
@@ -235,14 +236,14 @@ func (_Contract *ContractCaller) GetCounterparty(opts *bind.CallOpts, clientId s
 
 // GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
 //
-// Solidity: function getCounterparty(string clientId) view returns((string))
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
 func (_Contract *ContractSession) GetCounterparty(clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
 	return _Contract.Contract.GetCounterparty(&_Contract.CallOpts, clientId)
 }
 
 // GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
 //
-// Solidity: function getCounterparty(string clientId) view returns((string))
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
 func (_Contract *ContractCallerSession) GetCounterparty(clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
 	return _Contract.Contract.GetCounterparty(&_Contract.CallOpts, clientId)
 }
@@ -278,23 +279,23 @@ func (_Contract *ContractCallerSession) Owner() (common.Address, error) {
 	return _Contract.Contract.Owner(&_Contract.CallOpts)
 }
 
-// AddClient is a paid mutator transaction binding the contract method 0x10d42b42.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addClient(string clientType, (string) counterpartyInfo, address client) returns(string)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
 func (_Contract *ContractTransactor) AddClient(opts *bind.TransactOpts, clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "addClient", clientType, counterpartyInfo, client)
 }
 
-// AddClient is a paid mutator transaction binding the contract method 0x10d42b42.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addClient(string clientType, (string) counterpartyInfo, address client) returns(string)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
 func (_Contract *ContractSession) AddClient(clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
 	return _Contract.Contract.AddClient(&_Contract.TransactOpts, clientType, counterpartyInfo, client)
 }
 
-// AddClient is a paid mutator transaction binding the contract method 0x10d42b42.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addClient(string clientType, (string) counterpartyInfo, address client) returns(string)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
 func (_Contract *ContractTransactorSession) AddClient(clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
 	return _Contract.Contract.AddClient(&_Contract.TransactOpts, clientType, counterpartyInfo, client)
 }
@@ -499,9 +500,9 @@ type ContractICS02ClientAdded struct {
 	Raw              types.Log // Blockchain specific contextual infos
 }
 
-// FilterICS02ClientAdded is a free log retrieval operation binding the contract event 0x5b6a5414fc8a5b5308549639a56fb612ec68c94e1e910fa10b41105895818eb7.
+// FilterICS02ClientAdded is a free log retrieval operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS02ClientAdded(string clientId, (string) counterpartyInfo)
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
 func (_Contract *ContractFilterer) FilterICS02ClientAdded(opts *bind.FilterOpts) (*ContractICS02ClientAddedIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "ICS02ClientAdded")
@@ -511,9 +512,9 @@ func (_Contract *ContractFilterer) FilterICS02ClientAdded(opts *bind.FilterOpts)
 	return &ContractICS02ClientAddedIterator{contract: _Contract.contract, event: "ICS02ClientAdded", logs: logs, sub: sub}, nil
 }
 
-// WatchICS02ClientAdded is a free log subscription operation binding the contract event 0x5b6a5414fc8a5b5308549639a56fb612ec68c94e1e910fa10b41105895818eb7.
+// WatchICS02ClientAdded is a free log subscription operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS02ClientAdded(string clientId, (string) counterpartyInfo)
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
 func (_Contract *ContractFilterer) WatchICS02ClientAdded(opts *bind.WatchOpts, sink chan<- *ContractICS02ClientAdded) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "ICS02ClientAdded")
@@ -548,9 +549,9 @@ func (_Contract *ContractFilterer) WatchICS02ClientAdded(opts *bind.WatchOpts, s
 	}), nil
 }
 
-// ParseICS02ClientAdded is a log parse operation binding the contract event 0x5b6a5414fc8a5b5308549639a56fb612ec68c94e1e910fa10b41105895818eb7.
+// ParseICS02ClientAdded is a log parse operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS02ClientAdded(string clientId, (string) counterpartyInfo)
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
 func (_Contract *ContractFilterer) ParseICS02ClientAdded(log types.Log) (*ContractICS02ClientAdded, error) {
 	event := new(ContractICS02ClientAdded)
 	if err := _Contract.contract.UnpackLog(event, "ICS02ClientAdded", log); err != nil {
