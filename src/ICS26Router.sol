@@ -127,6 +127,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         });
 
         ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
+
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }

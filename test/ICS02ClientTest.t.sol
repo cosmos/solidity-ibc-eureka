@@ -9,7 +9,7 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ILightClient } from "../src/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
-import { DummyLightClient } from "./DummyLightClient.sol";
+import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 
 contract ICS02ClientTest is Test {
     IICS02Client public ics02Client;

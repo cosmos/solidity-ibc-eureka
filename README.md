@@ -78,6 +78,18 @@ Where `$TEST_NAME` is the name of the test you want to run, for example:
 just test-e2e TestDeploy
 ```
 
+## End to End Benchmarks
+
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~320,000 gas is used for each light client verification, and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 3 minutes 30 seconds. More granular and in-depth benchmarks are planned for the future.
+
+| **Contract** | **Method** | **Description** | **Gas** |
+|:---:|:---:|:---:|:---:|
+| `SdkICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 230,260 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 602,360 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,503,890 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 490,400 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 537,888 |
+
 ## License
 
 This project is licensed under MIT.

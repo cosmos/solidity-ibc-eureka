@@ -11,7 +11,7 @@ import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { DummyLightClient } from "./DummyLightClient.sol";
+import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 
 contract ICS26RouterTest is Test {

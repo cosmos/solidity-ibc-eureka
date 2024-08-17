@@ -40,6 +40,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibcerc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
@@ -52,6 +53,9 @@ import (
 // and can provide additional functionality
 type IbcEurekaTestSuite struct {
 	e2esuite.TestSuite
+
+	// Whether to generate fixtures for the solidity tests
+	generateFixtures bool
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -115,6 +119,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 		// make sure that the SP1_PRIVATE_KEY is set.
 		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+		if os.Getenv(testvalues.EnvKeyGenerateFixtures) == testvalues.EnvValueGenerateFixtures_True {
+			s.generateFixtures = true
+		}
 
 		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
 			Amount:  testvalues.StartingEthBalance,
@@ -136,12 +143,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(operator.RunGenesis(
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", "e2e/genesis.json",
+			"-o", testvalues.Sp1GenesisFilePath,
 		))
-
-		s.T().Cleanup(func() {
-			_ = os.Remove("e2e/genesis.json")
-		})
 
 		var (
 			stdout []byte
@@ -188,6 +191,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
 	}))
+
+	s.T().Cleanup(func() {
+		_ = os.Remove(testvalues.Sp1GenesisFilePath)
+	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.StartingERC20TokenAmount))
@@ -402,14 +409,6 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
 	s.Require().True(s.Run("recvPacket on Cosmos side", func() {
-		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
-			ClientId: s.simdClientID,
-		})
-		s.Require().NoError(err)
-		var clientState mock.ClientState
-		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
-		s.Require().NoError(err)
-
 		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgRecvPacket{
 			Packet: channeltypes.Packet{
 				Sequence:           uint64(sendPacket.Sequence),
@@ -422,7 +421,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 				TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
 			},
 			ProofCommitment: []byte("doesn't matter"),
-			ProofHeight:     clientState.LatestHeight,
+			ProofHeight:     clienttypes.Height{},
 			Signer:          s.UserB.FormattedAddress(),
 		})
 		s.Require().NoError(err)
@@ -487,6 +486,10 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
+		}
 
 		s.Require().True(s.Run("Verify balances", func() {
 			// Check the balance of the SdkICS20Transfer.sol contract
@@ -572,17 +575,18 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		)
 		s.Require().NoError(err)
 
+		packet := ics26router.IICS26RouterMsgsPacket{
+			Sequence:         uint32(returnPacket.Sequence),
+			TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000,
+			SourcePort:       returnPacket.SourcePort,
+			SourceChannel:    returnPacket.SourceChannel,
+			DestPort:         returnPacket.DestinationPort,
+			DestChannel:      returnPacket.DestinationChannel,
+			Version:          transfertypes.Version,
+			Data:             returnPacket.Data,
+		}
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-			Packet: ics26router.IICS26RouterMsgsPacket{
-				Sequence:         uint32(returnPacket.Sequence),
-				TimeoutTimestamp: returnPacket.TimeoutTimestamp / 1_000_000_000,
-				SourcePort:       returnPacket.SourcePort,
-				SourceChannel:    returnPacket.SourceChannel,
-				DestPort:         returnPacket.DestinationPort,
-				DestChannel:      returnPacket.DestinationChannel,
-				Version:          transfertypes.Version,
-				Data:             returnPacket.Data,
-			},
+			Packet:          packet,
 			ProofCommitment: ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
@@ -592,6 +596,10 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+		}
 
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
@@ -729,17 +737,18 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		)
 		s.Require().NoError(err)
 
+		packet := ics26router.IICS26RouterMsgsPacket{
+			Sequence:         uint32(sendPacket.Sequence),
+			TimeoutTimestamp: sendPacket.TimeoutTimestamp / 1_000_000_000,
+			SourcePort:       sendPacket.SourcePort,
+			SourceChannel:    sendPacket.SourceChannel,
+			DestPort:         sendPacket.DestinationPort,
+			DestChannel:      sendPacket.DestinationChannel,
+			Version:          transfertypes.Version,
+			Data:             sendPacket.Data,
+		}
 		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-			Packet: ics26router.IICS26RouterMsgsPacket{
-				Sequence:         uint32(sendPacket.Sequence),
-				TimeoutTimestamp: sendPacket.TimeoutTimestamp / 1_000_000_000,
-				SourcePort:       sendPacket.SourcePort,
-				SourceChannel:    sendPacket.SourceChannel,
-				DestPort:         sendPacket.DestinationPort,
-				DestChannel:      sendPacket.DestinationChannel,
-				Version:          transfertypes.Version,
-				Data:             sendPacket.Data,
-			},
+			Packet:          packet,
 			ProofCommitment: ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
@@ -749,6 +758,10 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+		}
 
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
@@ -981,8 +994,9 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
+	var timeout uint64
 	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
-		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
 		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
@@ -1062,6 +1076,10 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		if s.generateFixtures {
+			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
+		}
 
 		s.Require().True(s.Run("Verify balances", func() {
 			// Check the balance of the SdkICS20Transfer.sol contract
