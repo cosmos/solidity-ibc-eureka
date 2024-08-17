@@ -66,7 +66,9 @@ abstract contract FixtureTest is Test {
         );
 
         ics02Client.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(ics07Tendermint)
+            "07-tendermint",
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix),
+            address(ics07Tendermint)
         );
 
         ics20Transfer = new SdkICS20Transfer(address(ics26Router));
