@@ -33,19 +33,6 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
-### Benchmarks
-
-Initial gas cost benchmarks below. More detailed and in-depth benchmarks are planned for the future.
-
-| **Function** |                                  **Context**                                  | **~Gas Cost** |
-|:---:|:-----------------------------------------------------------------------------:|:---:|
-| ICS20 sendTransfer |                   Initiating an IBC transfer with an ERC20                    | 230260 |
-| ICS20 recvPacket |          Receiving _back_ an ERC20 token (inc. SP1 proof and ICS07 )          | 602360 |
-| ICS20 recvPacket | Receiving a _new_ Cosmos token for the first time (inc. SP1 proof and ICS07 ) | 1503890 |
-| ICS20 ackPacket |                  Acknowledging the receipt of an IBC packet                   | 490400 |
-| ICS20 timeoutPacket |                           Timing out an IBC packet                            | 537888 |
-| SP1 verifyProof |                   Verifying the SP1 ICS07 Tendermint proof                    | 270200 |
-
 ## Requirements
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
@@ -90,6 +77,18 @@ Where `$TEST_NAME` is the name of the test you want to run, for example:
 ```sh
 just test-e2e TestDeploy
 ```
+
+## End to End Benchmarks
+
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~320,000 gas is used for each light client verification, and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. More granular and in-depth benchmarks are planned for the future.
+
+| **Contract** | **Method** | **Description** | **Gas** |
+|:---:|:---:|:---:|:---:|
+| `SdkICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 230,260 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 602,360 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,503,890 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 490,400 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 537,888 |
 
 ## License
 
