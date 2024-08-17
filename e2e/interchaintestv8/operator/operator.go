@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -29,22 +30,29 @@ func BinaryPath() string {
 func RunGenesis(args ...string) error {
 	args = append([]string{"genesis"}, args...)
 	// nolint:gosec
-	return exec.Command(BinaryPath(), args...).Run()
+	cmd := exec.Command(BinaryPath(), args...)
+	cmd.Stdout = os.Stdout
+	return cmd.Run()
 }
 
 // StartOperator is a function that runs the operator
 func StartOperator(args ...string) error {
 	args = append([]string{"start"}, args...)
 	// nolint:gosec
-	return exec.Command(BinaryPath(), args...).Run()
+	cmd := exec.Command(BinaryPath(), args...)
+	cmd.Stdout = os.Stdout
+	return cmd.Run()
 }
 
 // UpdateClientAndMembershipProof is a function that generates an update client and membership proof
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
+	// nolint:gosec
+	cmd := exec.Command(BinaryPath(), args...)
+	cmd.Stdout = os.Stdout
 
 	// nolint:gosec
-	stdout, err := exec.Command(BinaryPath(), args...).Output()
+	stdout, err := cmd.Output()
 	if err != nil {
 		return nil, nil, err
 	}
