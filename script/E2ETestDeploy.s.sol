@@ -15,7 +15,7 @@ import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07Te
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
-import { TestERC20 } from "../test/TestERC20.sol";
+import { TestERC20 } from "../test/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
