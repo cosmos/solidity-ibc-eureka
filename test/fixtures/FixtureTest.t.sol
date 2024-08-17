@@ -15,7 +15,7 @@ import { SdkICS20Transfer } from "../../src/SdkICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
-contract FixtureTest is Test {
+abstract contract FixtureTest is Test {
     ICS02Client public ics02Client;
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
