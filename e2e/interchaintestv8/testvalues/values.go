@@ -35,7 +35,11 @@ const (
 	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
 	// EnvKeyGenerateFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateFixtures = "GENERATE_FIXTURES"
+	// The log level for the Rust logger.
+	EnvKeyRustLog = "RUST_LOG"
 
+	// Log level for the Rust logger.
+	EnvValueRustLog_Info = "info"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
 	// EnvValueSp1Prover_Mock is the prover type for the mock prover.

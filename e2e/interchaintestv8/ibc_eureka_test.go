@@ -113,6 +113,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
+		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
