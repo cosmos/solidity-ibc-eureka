@@ -197,11 +197,6 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidCounterparty(counterpartyId, msg_.packet.destChannel);
         }
 
-        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
-        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
-        }
-        
         // this will revert if the packet commitment does not exist
         bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
@@ -218,6 +213,11 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             value: bytes("")
         });
 
+        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
+        }
+        
         app.onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
 
         emit TimeoutPacket(msg_.packet);
