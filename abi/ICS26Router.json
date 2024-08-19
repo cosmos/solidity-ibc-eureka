@@ -893,6 +893,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidMerklePrefix",
+    "inputs": [
+      {
+        "name": "prefix",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {

@@ -17,4 +17,8 @@ interface IICS24HostErrors {
     /// @notice Packet acknowledgement already exists
     /// @param path commitment path
     error IBCPacketAcknowledgementAlreadyExists(bytes path);
+
+    /// @notice Merkle prefix is invalid
+    /// @param prefix The invalid prefix
+    error InvalidMerklePrefix(bytes[] prefix);
 }

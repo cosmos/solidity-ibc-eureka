@@ -8,7 +8,7 @@ import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     /// @notice Default sdkCoin decimals. Used when deploying sdkCoin ERC20 representation.
-    uint8 public constant DEFAULT_COSMOS_DECIMALS = 6;
+    uint8 private constant DEFAULT_COSMOS_DECIMALS = 6;
 
     /// @notice The full IBC denom path for this token
     string private _fullDenomPath;

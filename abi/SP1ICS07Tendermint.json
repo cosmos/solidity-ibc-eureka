@@ -121,8 +121,8 @@
             "components": [
               {
                 "name": "path",
-                "type": "bytes",
-                "internalType": "bytes"
+                "type": "bytes[]",
+                "internalType": "bytes[]"
               },
               {
                 "name": "value",
@@ -269,8 +269,8 @@
             "components": [
               {
                 "name": "path",
-                "type": "bytes",
-                "internalType": "bytes"
+                "type": "bytes[]",
+                "internalType": "bytes[]"
               },
               {
                 "name": "value",
@@ -532,8 +532,8 @@
           },
           {
             "name": "path",
-            "type": "bytes",
-            "internalType": "bytes"
+            "type": "bytes[]",
+            "internalType": "bytes[]"
           },
           {
             "name": "value",
@@ -692,8 +692,8 @@
     "inputs": [
       {
         "name": "path",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ]
   },
