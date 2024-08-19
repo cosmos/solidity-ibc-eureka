@@ -15,6 +15,8 @@ contract ICS02ClientTest is Test {
     IICS02Client public ics02Client;
     DummyLightClient public lightClient;
 
+    bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
+
     function setUp() public {
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         ics02Client = new ICS02Client(address(this));
@@ -23,7 +25,7 @@ contract ICS02ClientTest is Test {
     function test_ICS02Client() public {
         string memory counterpartyClient = "42-dummy-01";
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient);
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix);
         vm.expectEmit();
         emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
         string memory clientIdentifier = ics02Client.addClient("07-tendermint", counterpartyInfo, address(lightClient));

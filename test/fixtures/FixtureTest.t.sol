@@ -23,6 +23,7 @@ abstract contract FixtureTest is Test {
     SdkICS20Transfer public ics20Transfer;
 
     string public counterpartyClient = "00-mock-0";
+    bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     using stdJson for string;
 
@@ -65,7 +66,9 @@ abstract contract FixtureTest is Test {
         );
 
         ics02Client.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient), address(ics07Tendermint)
+            "07-tendermint",
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix),
+            address(ics07Tendermint)
         );
 
         ics20Transfer = new SdkICS20Transfer(address(ics26Router));

@@ -15,7 +15,7 @@ interface ILightClientMsgs {
     struct MsgMembership {
         bytes proof;
         IICS02ClientMsgs.Height proofHeight;
-        bytes path;
+        bytes[] path;
         bytes value;
     }
 

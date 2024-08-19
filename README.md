@@ -84,11 +84,11 @@ The contracts in this repository are benchmarked end-to-end using foundry. The f
 
 | **Contract** | **Method** | **Description** | **Gas** |
 |:---:|:---:|:---:|:---:|
-| `SdkICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 230,260 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 602,360 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,503,890 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 490,400 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 537,888 |
+| `SdkICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 241,674 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 620,758 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,521,712 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 508,261 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 555,121 |
 
 ## License
 

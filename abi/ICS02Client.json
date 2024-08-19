@@ -28,6 +28,11 @@
             "name": "clientId",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
           }
         ]
       },
@@ -85,6 +90,11 @@
             "name": "clientId",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
           }
         ]
       }
@@ -222,6 +232,11 @@
             "name": "clientId",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
           }
         ]
       }
