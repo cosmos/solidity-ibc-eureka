@@ -69,7 +69,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        IIBCApp app = getIBCApp(msg_.packet.destPort);
+        IIBCApp app = getIBCApp(msg_.sourcePort);
 
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
@@ -217,7 +217,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }
-        
+
         app.onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
 
         emit TimeoutPacket(msg_.packet);
