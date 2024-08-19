@@ -59,9 +59,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidPortIdentifier(newPortId);
         }
 
-        emit IBCAppAdded(newPortId, app);
-
         apps[newPortId] = IIBCApp(app);
+
+        emit IBCAppAdded(newPortId, app);
     }
 
     /// @notice Sends a packet
@@ -69,6 +69,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+        IIBCApp app = getIBCApp(msg_.packet.destPort);
+
         string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
@@ -91,11 +93,6 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
         IIBCAppCallbacks.OnSendPacketCallback memory sendPacketCallback =
             IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender });
-
-        IIBCApp app = apps[msg_.sourcePort];
-        if (app == IIBCApp(address(0))) {
-            revert IBCAppNotFound(msg_.sourcePort);
-        }
         app.onSendPacket(sendPacketCallback);
 
         IBCStore.commitPacket(packet);
@@ -115,6 +112,10 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidCounterparty(counterpartyId, msg_.packet.sourceChannel);
         }
 
+        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
+        }
+
         bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
             msg_.packet.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
         );
@@ -128,10 +129,6 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         });
 
         ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
-
-        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
-        }
 
         bytes memory ack =
             app.onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
@@ -200,6 +197,11 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidCounterparty(counterpartyId, msg_.packet.destChannel);
         }
 
+        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
+        }
+        
         // this will revert if the packet commitment does not exist
         bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
@@ -215,11 +217,6 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             path: receiptPath,
             value: bytes("")
         });
-
-        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
-        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
-        }
 
         app.onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender }));
 
