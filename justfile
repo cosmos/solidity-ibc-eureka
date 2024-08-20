@@ -14,8 +14,8 @@ clean:
 	-rm -rf cache out # ignore errors
 
 # Run the foundry tests
-test-foundry:
-	forge test -vvv
+test-foundry testname=".\\*":
+	forge test -vvv --match-test ^{{testname}}\(.\*\)\$
 
 # Run the benchmark tests
 test-benchmark:
