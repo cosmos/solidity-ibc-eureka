@@ -13,7 +13,7 @@ This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is 
 
 <!-- TOC -->
 
-- [IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license]](#ibc-eureka-in-solidity--github-actionsgha-badgegha-foundryfoundry-badgefoundry-license-mitlicense-badgelicense)
+- [IBC Eureka in Solidity](#ibc-eureka-in-solidity--github-actionsgha-badgegha-foundryfoundry-badgefoundry-license-mitlicense-badgelicense)
     - [Table of Contents](#table-of-contents)
     - [Overview](#overview)
         - [Project Structure](#project-structure)
