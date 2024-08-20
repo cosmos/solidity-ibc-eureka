@@ -9,23 +9,6 @@
 
 This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic.
 
-## Table of Contents
-
-<!-- TOC -->
-
-- [IBC Eureka in Solidity](#ibc-eureka-in-solidity--github-actionsgha-badgegha-foundryfoundry-badgefoundry-license-mitlicense-badgelicense)
-    - [Table of Contents](#table-of-contents)
-    - [Overview](#overview)
-        - [Project Structure](#project-structure)
-        - [Contracts](#contracts)
-    - [Requirements](#requirements)
-    - [End to End Testing](#end-to-end-testing)
-    - [End to End Benchmarks](#end-to-end-benchmarks)
-    - [License](#license)
-    - [Acknowledgements](#acknowledgements)
-
-<!-- /TOC -->
-
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
