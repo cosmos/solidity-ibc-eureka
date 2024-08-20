@@ -38,6 +38,7 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
+- [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html) (for end-to-end tests)
 - [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint) (for end-to-end tests)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
