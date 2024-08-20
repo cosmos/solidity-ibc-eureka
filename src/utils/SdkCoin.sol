@@ -48,7 +48,7 @@ library SdkCoin {
      * @return convertedAmount The amount converted to uint64 supported by cosmos coins
      * @return remainder The remainder of the conversion
      */
-    function _ERC20ToSdkCoin_ConvertAmount(
+    function convertAmountERC20ToSdkCoin(
         address tokenAddress,
         uint256 amount
     )
@@ -109,7 +109,7 @@ library SdkCoin {
      * @param amount The amount to be converted
      * @return convertedAmount The amount converted to uint256 supported by ERC20 tokens
      */
-    function _SdkCoinToERC20_ConvertAmount(address tokenAddress, uint64 amount) internal view returns (uint256) {
+    function convertAmountSdkCoinToERC20(address tokenAddress, uint64 amount) internal view returns (uint256) {
         // Get the token decimals
         // address input validation perfomed in the _getERC20TokenDecimals
         uint8 tokenDecimals = _getERC20TokenDecimals(tokenAddress);
