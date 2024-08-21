@@ -118,8 +118,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
-		// make sure that the SP1_PRIVATE_KEY is set.
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 		if os.Getenv(testvalues.EnvKeyGenerateFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateFixtures = true
 		}
@@ -164,6 +162,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			})
 			s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
 		case testvalues.EnvValueSp1Prover_Network:
+			// make sure that the SP1_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+
 			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
 				ContractRootDir:  ".",
 				SolidityContract: "script/E2ETestDeploy.s.sol",
