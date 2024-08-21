@@ -51,7 +51,7 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
         // Use the _sdkCoinAmount to populate the packetData with a uint256 representation of the uint64 supported
         // in the cosmos world that consider the proper decimals conversions.
         // Since we just transfer the converted amount, we discard the remainder as it stays in the users account
-        (uint64 _sdkCoinAmount,) = SdkCoin.convertAmountERC20ToSdkCoin(contractAddress, msg_.amount);
+        (uint64 _sdkCoinAmount,) = SdkCoin.convertAmountFromERC20(contractAddress, msg_.amount);
 
         if (_sdkCoinAmount == 0) {
             revert ICS20InvalidAmountAfterConversion(msg_.amount, _sdkCoinAmount);
@@ -95,9 +95,9 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
 
         (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
 
-        // Use SdkCoin.convertAmountSdkCoinToERC20 to consider the proper decimals conversions.
+        // Use SdkCoin.convertAmountToERC20 to consider the proper decimals conversions.
         uint256 _convertedAmount =
-            SdkCoin.convertAmountSdkCoinToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
+            SdkCoin.convertAmountToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
 
         // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(sender, address(this), erc20Address, _convertedAmount);
@@ -132,9 +132,9 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
             return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
         }
 
-        // Use SdkCoin.convertAmountSdkCoinToERC20 to consider the proper decimals conversions.
+        // Use SdkCoin.convertAmountToERC20 to consider the proper decimals conversions.
         uint256 _convertedAmount =
-            SdkCoin.convertAmountSdkCoinToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
+            SdkCoin.convertAmountToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
 
         // TODO: Implement escrow balance tracking (#6)
         if (originatorChainIsSource) {
@@ -179,9 +179,9 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
     /// @param erc20Address The address of the ERC20 contract
     function _refundTokens(ICS20Lib.PacketDataJSON memory packetData, address erc20Address) private {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
-        // Use SdkCoin.convertAmountSdkCoinToERC20 to consider the proper decimals conversions.
+        // Use SdkCoin.convertAmountToERC20 to consider the proper decimals conversions.
         (uint256 _convertedAmount) =
-            SdkCoin.convertAmountSdkCoinToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
+            SdkCoin.convertAmountToERC20(erc20Address, SafeCast.toUint64(packetData.amount));
         IERC20(erc20Address).safeTransfer(refundee, _convertedAmount);
     }
 
