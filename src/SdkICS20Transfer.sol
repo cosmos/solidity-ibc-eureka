@@ -74,6 +74,13 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
 
     /// @inheritdoc IIBCApp
     function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
+        // The packet sender has to be the contract itself.
+        // Because of the packetData massaging we do in sendTransfer to convert the amount to sdkCoin, we don't allow
+        // this function to be called by anyone else. They could end up transferring a larger amount than intended.
+        if (msg_.sender != address(this)) {
+            revert ICS20UnauthorizedPacketSender(msg_.sender);
+        }
+
         if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.packet.version);
         }
@@ -85,13 +92,6 @@ contract SdkICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Ree
         }
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
-
-        // The packet sender has to be the contract itself.
-        // Because of the packetData massaging we do in sendTransfer to convert the amount to sdkCoin, we don't allow
-        // this function to be called by anyone else. They could end up transferring a larger amount than intended.
-        if (msg_.sender != address(this)) {
-            revert ICS20UnauthorizedPacketSender(msg_.sender);
-        }
 
         (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
 
