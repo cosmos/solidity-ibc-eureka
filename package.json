@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "solhint": "^5.0.3",
-    "@defi-wonderland/natspec-smells": "^1.1.4"
+    "@defi-wonderland/natspec-smells": "^1.1.5"
   },
   "keywords": [
     "blockchain",
