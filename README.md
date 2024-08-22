@@ -53,9 +53,33 @@ You also need to have the `sp1-ics07-tendermint` operator binary installed on yo
 just install-operator
 ```
 
+## Unit Testing
+
+There are multiple unit tests for the solidity contracts located in the `test/` directory. The tests are written in Solidity using [foundry/forge](https://book.getfoundry.sh/forge/writing-tests).
+
+To run all the tests, run the following command:
+
+```sh
+just test-foundry
+```
+
+The recipe also accepts a `testname` argument that will only run the test with the given name. For example:
+
+```shell
+just test-foundry test_success_sendTransfer
+```
+
 ## End to End Testing
 
-There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
+There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
+It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
+Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
+You can also run the tests with a "mock" prover that doesn't actually generate proofs and will accept any proof.
+
+To prepare for running the e2e tests, you need to make sure you have done the following:
+* Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
+* Set up an .env file (see the instructions in the `.env.example` file)
+* If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just generate-abi`
 
 > [!NOTE]
 > If you are running on a Mac with an M chip, you will need to do the following:
@@ -67,6 +91,8 @@ There are several end-to-end tests in the `e2e/interchaintestv8` directory. Thes
 >     docker pull --platform=linux/amd64 ghcr.io/foundry-rs/foundry:latest
 >     ```
 
+### Running the tests
+
 To run the tests, run the following command:
 
 ```sh
@@ -77,6 +103,14 @@ Where `$TEST_NAME` is the name of the test you want to run, for example:
 
 ```sh
 just test-e2e TestDeploy
+```
+
+## Linting
+
+Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
+
+```sh
+just lint
 ```
 
 ## End to End Benchmarks
