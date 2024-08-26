@@ -11,7 +11,7 @@ import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
 import { SP1Verifier } from "@sp1-contracts/v1.1.0/SP1Verifier.sol";
-import { SdkICS20Transfer } from "../../src/SdkICS20Transfer.sol";
+import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
@@ -20,7 +20,7 @@ abstract contract FixtureTest is Test {
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     SP1Verifier public sp1Verifier;
-    SdkICS20Transfer public ics20Transfer;
+    ICS20Transfer public ics20Transfer;
 
     string public counterpartyClient = "00-mock-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
@@ -71,7 +71,7 @@ abstract contract FixtureTest is Test {
             address(ics07Tendermint)
         );
 
-        ics20Transfer = new SdkICS20Transfer(address(ics26Router));
+        ics20Transfer = new ICS20Transfer(address(ics26Router));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Deploy ERC20 to the expected address from the fixture

@@ -84,7 +84,7 @@ contract BenchmarkTest is FixtureTest {
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
-        uint256 amountToSend = packetData.amount * 1e12;
+        uint256 amountToSend = packetData.amount;
         erc20.mint(user, amountToSend);
         vm.prank(user);
         erc20.approve(address(ics20Transfer), amountToSend);

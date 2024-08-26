@@ -71,7 +71,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
 
 	// Fund user accounts
-	cosmosUserFunds := sdkmath.NewInt(testvalues.StartingTokenAmount)
+	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), cosmosUserFunds, s.ChainB)
 	s.UserB = cosmosUsers[0]
 	ethUsers := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), testvalues.StartingEthBalance, s.ChainA)

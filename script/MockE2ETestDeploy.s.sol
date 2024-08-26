@@ -13,7 +13,7 @@ import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tenderm
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
-import { SdkICS20Transfer } from "../src/SdkICS20Transfer.sol";
+import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
 import { AcceptAllSP1Verifier } from "../test/mocks/AcceptAllSP1Verifier.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
@@ -57,7 +57,7 @@ contract MockE2ETestDeploy is Script {
         // Deploy IBC Eureka
         ICS02Client ics02Client = new ICS02Client(deployerAddress);
         ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
-        SdkICS20Transfer ics20Transfer = new SdkICS20Transfer(address(ics26Router));
+        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
         // Wire Transfer app

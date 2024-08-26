@@ -45,9 +45,9 @@ jobs:
         test:
           # List your tests here
           - TestWithIbcEurekaTestSuite/TestDeploy
-          - TestWithIbcEurekaTestSuite/TestICS20Transfer
-          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeSdkCoin
-          - TestWithIbcEurekaTestSuite/TestICS20Timeout
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack
+          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     steps:

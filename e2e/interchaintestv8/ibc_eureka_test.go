@@ -44,8 +44,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibcerc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20Transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sdkics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
@@ -68,7 +68,7 @@ type IbcEurekaTestSuite struct {
 	sp1Ics07Contract *sp1ics07tendermint.Contract
 	ics02Contract    *ics02client.Contract
 	ics26Contract    *ics26router.Contract
-	ics20Contract    *sdkics20transfer.Contract
+	ics20Contract    *ics20Transfer.Contract
 	erc20Contract    *erc20.Contract
 
 	simdClientID string
@@ -188,7 +188,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), ethClient)
 		s.Require().NoError(err)
-		s.ics20Contract, err = sdkics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), ethClient)
+		s.ics20Contract, err = ics20Transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), ethClient)
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
@@ -199,14 +199,14 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.StartingERC20TokenAmount))
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
 		s.Require().NoError(err)
 
 		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
 	}))
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
-	s.Require().True(s.Run("Add client on Cosmos side", func() {
+	s.Require().True(s.Run("Add client on Cosmos chain", func() {
 		ethHeight, err := eth.Height(ctx)
 		s.Require().NoError(err)
 
@@ -252,8 +252,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.ethClientID = event.ClientId
 	}))
 
-	s.Require().True(s.Run("Register counterparty on Cosmos side", func() {
-		// NOTE: This is the mock client on the Cosmos side, so the prefix need not be valid
+	s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
+		// NOTE: This is the mock client on the Cosmos chain, so the prefix need not be valid
 		merklePathPrefix := commitmenttypes.NewMerklePath([]byte{0x1})
 
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgProvideCounterparty{
@@ -331,12 +331,15 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().True(s.Run("Verify ERC20 Genesis", func() {
 			userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount, userBalance.Int64())
+			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 		}))
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20Transfer() {
+// TestICS20TransferERC20TokenfromEthereumToCosmosAndBack tests the ICS20 transfer functionality
+// by transferring ERC20 tokens from Ethereum to Cosmos chain
+// and then back from Cosmos chain to Ethereum
+func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
@@ -344,29 +347,29 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 	eth, simd := s.ChainA, s.ChainB
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-	erc20TransferAmount := big.NewInt(testvalues.ERC20TransferAmount)
-	sdkTransferAmount := big.NewInt(testvalues.SDKTransferAmount)
-	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	receiver := s.UserB
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.UserB
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
-	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
-		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, erc20TransferAmount)
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		allowance, err := s.erc20Contract.Allowance(nil, userAddress, ics20Address)
+		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
 		s.Require().NoError(err)
-		s.Require().Equal(erc20TransferAmount, allowance)
+		s.Require().Equal(transferAmount, allowance)
 	}))
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
-	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
+	s.Require().True(s.Run("sendTransfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := ics20Transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
-			Amount:           erc20TransferAmount,
-			Receiver:         receiver.FormattedAddress(),
+			Amount:           transferAmount,
+			Receiver:         cosmosUserAddress,
 			SourceChannel:    s.ethClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
@@ -381,9 +384,9 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.Erc20Address.Hex()))
-		s.Require().Equal(sdkTransferAmount, transferEvent.PacketData.Amount) // converted from erc20 amount to sdk coin amount
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
+		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount) // converted from erc20 amount to sdk coin amount
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
+		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
 		s.Require().Equal("", transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
@@ -397,22 +400,25 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().Equal(s.simdClientID, sendPacket.DestChannel)
 		s.Require().Equal(transfertypes.Version, sendPacket.Version)
 
-		s.True(s.Run("Verify balances", func() {
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount-testvalues.ERC20TransferAmount, userBalance.Int64())
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(erc20TransferAmount, ics20TransferBalance)
+			s.Require().Equal(transferAmount, ics20TransferBalance)
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
+	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
 
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
-	s.Require().True(s.Run("recvPacket on Cosmos side", func() {
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgRecvPacket{
+	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
 			Packet: channeltypes.Packet{
 				Sequence:           uint64(sendPacket.Sequence),
 				SourcePort:         sendPacket.SourcePort,
@@ -425,7 +431,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			},
 			ProofCommitment: []byte("doesn't matter"),
 			ProofHeight:     clienttypes.Height{},
-			Signer:          s.UserB.FormattedAddress(),
+			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 
@@ -433,34 +439,24 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		s.Require().NoError(err)
 		s.Require().NotNil(recvAck)
 
-		s.Require().True(s.Run("Verify balances", func() {
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			denomOnCosmos = transfertypes.ParseDenomTrace(
 				fmt.Sprintf("%s/%s/%s", transfertypes.PortID, "00-mock-0", s.contractAddresses.Erc20),
 			)
 
-			// Check the balance of UserB
+			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-				Address: s.UserB.FormattedAddress(),
+				Address: cosmosUserAddress,
 				Denom:   denomOnCosmos.IBCDenom(),
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(sdkmath.NewIntFromBigInt(sdkTransferAmount), resp.Balance.Amount)
+			s.Require().Equal(sdkmath.NewIntFromBigInt(transferAmount), resp.Balance.Amount)
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
-
-			// Check the balance of the SdkICS20Transfer.sol contract
-			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ERC20TransferAmount, ics20Bal.Int64())
-
-			// Check the balance of the sender
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount-testvalues.ERC20TransferAmount, userBalance.Int64())
 		}))
 	}))
 
-	s.Require().True(s.Run("acknowledgePacket on Ethereum side", func() {
+	s.Require().True(s.Run("acknowledgePacket on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -494,31 +490,31 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
 		}
 
-		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the SdkICS20Transfer.sol contract
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ERC20TransferAmount, ics20Bal.Int64())
-
-			// Check the balance of the sender
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount-testvalues.ERC20TransferAmount, userBalance.Int64())
+			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
 		}))
 	}))
 
 	var returnPacket channeltypes.Packet
-	s.Require().True(s.Run("Transfer back", func() {
+	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30*time.Minute).Unix() * 1_000_000_000)
-		ibcCoin := sdk.NewCoin(denomOnCosmos.IBCDenom(), sdkmath.NewIntFromBigInt(sdkTransferAmount))
+		ibcCoin := sdk.NewCoin(denomOnCosmos.IBCDenom(), sdkmath.NewIntFromBigInt(transferAmount))
 
 		msgTransfer := transfertypes.MsgTransfer{
 			SourcePort:       transfertypes.PortID,
 			SourceChannel:    s.simdClientID,
 			Token:            ibcCoin,
-			Sender:           s.UserB.FormattedAddress(),
-			Receiver:         strings.ToLower(userAddress.Hex()),
+			Sender:           cosmosUserAddress,
+			Receiver:         strings.ToLower(ethereumUserAddress.Hex()),
 			TimeoutHeight:    clienttypes.Height{},
 			TimeoutTimestamp: timeout,
 			Memo:             "",
@@ -526,7 +522,7 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 			DestChannel:      s.ethClientID,
 		}
 
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &msgTransfer)
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgTransfer)
 		s.Require().NoError(err)
 		returnPacket, err = ibctesting.ParsePacketFromEvents(txResp.Events)
 		s.Require().NoError(err)
@@ -543,26 +539,26 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		err = json.Unmarshal(returnPacket.Data, &transferPacketData)
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnCosmos.GetFullDenomPath(), transferPacketData.Denom)
-		s.Require().Equal(sdkTransferAmount.String(), transferPacketData.Amount)
-		s.Require().Equal(s.UserB.FormattedAddress(), transferPacketData.Sender)
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), transferPacketData.Receiver)
+		s.Require().Equal(transferAmount.String(), transferPacketData.Amount)
+		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
 		s.Require().Equal("", transferPacketData.Memo)
 
-		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of UserB
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-				Address: s.UserB.FormattedAddress(),
+				Address: cosmosUserAddress,
 				Denom:   denomOnCosmos.IBCDenom(),
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(int64(0), resp.Balance.Amount.Int64())
+			s.Require().Equal(sdkmath.ZeroInt(), resp.Balance.Amount)
 			s.Require().Equal(denomOnCosmos.GetFullDenomPath(), resp.Balance.Denom)
 		}))
 	}))
 
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
-	s.Require().True(s.Run("Receive packet on Ethereum side", func() {
+	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -612,16 +608,16 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		ethReceiveData := receiveEvent.PacketData
 		s.Require().Equal(denomOnCosmos.GetFullDenomPath(), ethReceiveData.Denom)
 		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(receiveEvent.Erc20Address.Hex()))
-		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveData.Sender)
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), ethReceiveData.Receiver)
-		s.Require().Equal(sdkTransferAmount, ethReceiveData.Amount) // the amount transferred the user on the evm side is converted, but the packet doesn't change
+		s.Require().Equal(cosmosUserAddress, ethReceiveData.Sender)
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), ethReceiveData.Receiver)
+		s.Require().Equal(transferAmount, ethReceiveData.Amount) // the amount transferred the user on the evm side is converted, but the packet doesn't change
 		s.Require().Equal("", ethReceiveData.Memo)
 
-		s.True(s.Run("Verify balances", func() {
+		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance should be back to the starting point
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount, userBalance.Int64())
+			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 
 			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
@@ -629,9 +625,9 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
+	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
 
-	s.Require().True(s.Run("acknowledgePacket on Cosmos side", func() {
+	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
 		})
@@ -640,19 +636,21 @@ func (s *IbcEurekaTestSuite) TestICS20Transfer() {
 		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
 		s.Require().NoError(err)
 
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgAcknowledgement{
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          returnPacket,
 			Acknowledgement: returnWriteAckEvent.Acknowledgement,
 			ProofAcked:      []byte("doesn't matter"), // Because mock light client
 			ProofHeight:     clienttypes.Height{},
-			Signer:          s.UserB.FormattedAddress(),
+			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
+// TestICS20TransferNativeCosmosCoinsToEthereumAndBack tests the ICS20 transfer functionality
+// by transferring native coins from a Cosmos chain to Ethereum and back
+func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
@@ -660,23 +658,25 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 	eth, simd := s.ChainA, s.ChainB
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-	sdkTransferAmount := big.NewInt(testvalues.SDKTransferAmount)
-	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.UserB
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	sendMemo := "nonnativesend"
 
 	var sendPacket channeltypes.Packet
 	var transferCoin sdk.Coin
-	s.Require().True(s.Run("Transfer from cosmos side", func() {
+	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30*time.Minute).Unix() * 1_000_000_000)
-		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(sdkTransferAmount))
+		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 		msgTransfer := transfertypes.MsgTransfer{
 			SourcePort:       transfertypes.PortID,
 			SourceChannel:    s.simdClientID,
 			Token:            transferCoin,
-			Sender:           s.UserB.FormattedAddress(),
-			Receiver:         strings.ToLower(userAddress.Hex()),
+			Sender:           cosmosUserAddress,
+			Receiver:         strings.ToLower(ethereumUserAddress.Hex()),
 			TimeoutHeight:    clienttypes.Height{},
 			TimeoutTimestamp: timeout,
 			Memo:             sendMemo,
@@ -684,7 +684,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 			DestChannel:      s.ethClientID,
 		}
 
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &msgTransfer)
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgTransfer)
 		s.Require().NoError(err)
 
 		sendPacket, err = ibctesting.ParsePacketFromEvents(txResp.Events)
@@ -702,29 +702,29 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		err = json.Unmarshal(sendPacket.Data, &transferPacketData)
 		s.Require().NoError(err)
 		s.Require().Equal(transferCoin.Denom, transferPacketData.Denom)
-		s.Require().Equal(sdkTransferAmount.String(), transferPacketData.Amount)
-		s.Require().Equal(s.UserB.FormattedAddress(), transferPacketData.Sender)
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), transferPacketData.Receiver)
+		s.Require().Equal(transferAmount.String(), transferPacketData.Amount)
+		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
 		s.Require().Equal(sendMemo, transferPacketData.Memo)
 
-		s.Require().True(s.Run("Verify balances", func() {
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-				Address: s.UserB.FormattedAddress(),
+				Address: cosmosUserAddress,
 				Denom:   transferCoin.Denom,
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.StartingTokenAmount-testvalues.SDKTransferAmount, resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, resp.Balance.Amount.Int64())
 		}))
 	}))
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
-	var ethReceiveTransferPacket sdkics20transfer.ICS20LibPacketDataJSON
+	var ethReceiveTransferPacket ics20Transfer.ICS20LibPacketDataJSON
 	var denomOnEthereum transfertypes.DenomTrace
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
-	s.Require().True(s.Run("Receive packet on Ethereum side", func() {
+	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -797,25 +797,27 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 
 		ethReceiveTransferPacket = ethReceiveTransferEvent.PacketData
 		s.Require().Equal(transferCoin.Denom, ethReceiveTransferPacket.Denom)
-		s.Require().Equal(sdkTransferAmount, ethReceiveTransferPacket.Amount)
-		s.Require().Equal(s.UserB.FormattedAddress(), ethReceiveTransferPacket.Sender)
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
+		s.Require().Equal(transferAmount, ethReceiveTransferPacket.Amount)
+		s.Require().Equal(cosmosUserAddress, ethReceiveTransferPacket.Sender)
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
 		s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
 
-		s.True(s.Run("Verify balances", func() {
-			userBalance, err := ibcERC20.BalanceOf(nil, userAddress)
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(sdkTransferAmount, userBalance)
+			s.Require().Equal(transferAmount, userBalance)
 
+			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
+	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
 
-	s.Require().True(s.Run("ack back to cosmos", func() {
+	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
 		})
@@ -824,36 +826,36 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
 		s.Require().NoError(err)
 
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgAcknowledgement{
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          sendPacket,
 			Acknowledgement: ethReceiveAckEvent.Acknowledgement,
 			ProofAcked:      []byte("doesn't matter"), // Because mock light client
 			ProofHeight:     clienttypes.Height{},
-			Signer:          s.UserB.FormattedAddress(),
+			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
 
-	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
-		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key), ics20Address, sdkTransferAmount)
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		allowance, err := ibcERC20.Allowance(nil, userAddress, ics20Address)
+		allowance, err := ibcERC20.Allowance(nil, ethereumUserAddress, ics20Address)
 		s.Require().NoError(err)
-		s.Require().Equal(sdkTransferAmount, allowance)
+		s.Require().Equal(transferAmount, allowance)
 	}))
 
 	var returnPacket ics26router.IICS26RouterMsgsPacket
 	returnMemo := "testreturnmemo"
-	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
+	s.Require().True(s.Run("Send transfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := ics20Transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            ibcERC20Address,
-			Amount:           sdkTransferAmount,
-			Receiver:         s.UserB.FormattedAddress(),
+			Amount:           transferAmount,
+			Receiver:         cosmosUserAddress,
 			SourceChannel:    s.ethClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
@@ -868,9 +870,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.GetFullDenomPath(), transferEvent.PacketData.Denom)
-		s.Require().Equal(sdkTransferAmount, transferEvent.PacketData.Amount) // Here we can see the amount has been converted from the erc20 amount to the sdk amount in the packet
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(s.UserB.FormattedAddress(), transferEvent.PacketData.Receiver)
+		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
+		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
 		s.Require().Equal(returnMemo, transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
@@ -884,8 +886,8 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.Require().Equal(s.simdClientID, returnPacket.DestChannel)
 		s.Require().Equal(transfertypes.Version, returnPacket.Version)
 
-		s.True(s.Run("Verify balances", func() {
-			userBalance, err := ibcERC20.BalanceOf(nil, userAddress)
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), userBalance.Int64())
 
@@ -896,10 +898,10 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos side, the client there needs to be updated at this point
+	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
 
 	var cosmosReceiveAck []byte
-	s.Require().True(s.Run("recvPacket on Cosmos side", func() {
+	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
 		})
@@ -908,7 +910,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
 		s.Require().NoError(err)
 
-		txResp, err := s.BroadcastMessages(ctx, simd, s.UserB, 200_000, &channeltypes.MsgRecvPacket{
+		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
 			Packet: channeltypes.Packet{
 				Sequence:           uint64(returnPacket.Sequence),
 				SourcePort:         returnPacket.SourcePort,
@@ -921,7 +923,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 			},
 			ProofCommitment: []byte("doesn't matter"),
 			ProofHeight:     clienttypes.Height{},
-			Signer:          s.UserB.FormattedAddress(),
+			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 
@@ -929,19 +931,19 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 		s.Require().NoError(err)
 		s.Require().NotNil(cosmosReceiveAck)
 
-		s.Require().True(s.Run("Verify balances", func() {
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-				Address: s.UserB.FormattedAddress(),
+				Address: cosmosUserAddress,
 				Denom:   transferCoin.Denom,
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.StartingTokenAmount, resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
 	}))
 
-	s.Require().True(s.Run("acknowledgePacket on Ethereum side", func() {
+	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -973,37 +975,38 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeSdkCoin() {
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20Timeout() {
+func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
 
 	eth, simd := s.ChainA, s.ChainB
 
-	transferAmount := big.NewInt(testvalues.ERC20TransferAmount)
-	userAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	receiver := s.UserB
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.UserB
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	var packet ics26router.IICS26RouterMsgsPacket
-	s.Require().True(s.Run("Approve the SdkICS20Transfer.sol contract to spend the erc20 tokens", func() {
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		allowance, err := s.erc20Contract.Allowance(nil, userAddress, ics20Address)
+		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
 		s.Require().NoError(err)
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
 	var timeout uint64
-	s.Require().True(s.Run("sendTransfer on Ethereum side", func() {
+	s.Require().True(s.Run("Send transfer on Ethereum", func() {
 		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
-		msgSendTransfer := sdkics20transfer.IICS20TransferMsgsSendTransferMsg{
+		msgSendTransfer := ics20Transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            s.contractAddresses.Erc20,
 			Amount:           transferAmount,
-			Receiver:         receiver.FormattedAddress(),
+			Receiver:         cosmosUserAddress,
 			SourceChannel:    s.ethClientID,
 			DestPort:         "transfer",
 			TimeoutTimestamp: timeout,
@@ -1018,9 +1021,9 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.Erc20Address.Hex()))
-		s.Require().Equal(testvalues.SDKTransferAmount, transferEvent.PacketData.Amount.Int64()) // Because the amount is converted to the sdk amount
-		s.Require().Equal(strings.ToLower(userAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(receiver.FormattedAddress(), transferEvent.PacketData.Receiver)
+		s.Require().Equal(testvalues.TransferAmount, transferEvent.PacketData.Amount.Int64()) // Because the amount is converted to the sdk amount
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
+		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
 		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
@@ -1034,24 +1037,24 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 		s.Require().Equal(s.simdClientID, packet.DestChannel)
 		s.Require().Equal(transfertypes.Version, packet.Version)
 
-		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the SdkICS20Transfer.sol contract
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Etherem
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
 			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, ics20Bal)
-
-			// Check the balance of the sender
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount-testvalues.ERC20TransferAmount, userBalance.Int64())
 		}))
 	}))
 
 	// sleep for 45 seconds to let the packet timeout
 	time.Sleep(45 * time.Second)
 
-	s.True(s.Run("timeoutPacket on Ethereum", func() {
+	s.True(s.Run("Timeout packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -1084,17 +1087,17 @@ func (s *IbcEurekaTestSuite) TestICS20Timeout() {
 			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
 		}
 
-		s.Require().True(s.Run("Verify balances", func() {
-			// Check the balance of the SdkICS20Transfer.sol contract
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
 			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20Bal.Int64())
-
-			// Check the balance of the sender
-			userBalance, err := s.erc20Contract.BalanceOf(nil, userAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20TokenAmount, userBalance.Int64())
 		}))
 	}))
 }
