@@ -504,7 +504,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 	}))
 
 	var returnPacket channeltypes.Packet
-	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
+	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
 		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30*time.Minute).Unix() * 1_000_000_000)
 		ibcCoin := sdk.NewCoin(denomOnCosmos.IBCDenom(), sdkmath.NewIntFromBigInt(transferAmount))
@@ -850,7 +850,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 	var returnPacket ics26router.IICS26RouterMsgsPacket
 	returnMemo := "testreturnmemo"
-	s.Require().True(s.Run("Send transfer on Ethereum", func() {
+	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            ibcERC20Address,
