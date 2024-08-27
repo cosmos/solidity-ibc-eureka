@@ -96,7 +96,7 @@ contract IntegrationTest is Test {
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        });
+         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
@@ -138,7 +138,7 @@ contract IntegrationTest is Test {
             acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        });
+         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
         ics26Router.ackPacket(ackMsg);
@@ -166,7 +166,7 @@ contract IntegrationTest is Test {
             packet: packet,
             proofTimeout: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        });
+         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20Timeout(expectedDefaultSendPacketData);
         ics26Router.timeoutPacket(timeoutMsg);
@@ -192,7 +192,7 @@ contract IntegrationTest is Test {
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        });
+         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
@@ -249,7 +249,7 @@ contract IntegrationTest is Test {
                 packet: packet,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
 
         // Check balances are updated as expected
@@ -300,7 +300,7 @@ contract IntegrationTest is Test {
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
 
         // Check that the ack is written
@@ -557,7 +557,7 @@ contract IntegrationTest is Test {
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
 
         // Check that the ack is written
@@ -657,7 +657,7 @@ contract IntegrationTest is Test {
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        });
+         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
@@ -704,7 +704,7 @@ contract IntegrationTest is Test {
                 packet: packet,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
     }
 

@@ -251,9 +251,7 @@ contract ICS20TransferTest is Test {
         string memory malfuncERC20AddressStr = Strings.toHexString(address(malfunctioningERC20));
         data = ICS20Lib.marshalJSON(malfuncERC20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
         packet.data = data;
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: address(ics20Transfer) })
         );

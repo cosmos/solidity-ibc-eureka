@@ -13,7 +13,6 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 using SafeERC20 for IERC20;
 
