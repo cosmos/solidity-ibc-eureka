@@ -144,7 +144,7 @@ func (s *TestSuite) GetRelayerUsers(ctx context.Context) (ibc.Wallet, ibc.Wallet
 
 	ethUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), testvalues.StartingEthBalance, eth)
 
-	cosmosUserFunds := sdkmath.NewInt(testvalues.StartingTokenAmount)
+	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, simd)
 
 	return ethUsers[0], cosmosUsers[0]

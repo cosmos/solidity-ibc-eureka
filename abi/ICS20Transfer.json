@@ -669,22 +669,6 @@
   },
   {
     "type": "error",
-    "name": "ICS20InvalidAmountAfterConversion",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "convertedAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ICS20JSONClosingBraceNotFound",
     "inputs": [
       {
@@ -824,28 +808,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidAddress",
-    "inputs": [
-      {
-        "name": "_address",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidAmount",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -873,22 +835,6 @@
   },
   {
     "type": "error",
-    "name": "SafeCastOverflowedUintDowncast",
-    "inputs": [
-      {
-        "name": "bits",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "SafeERC20FailedOperation",
     "inputs": [
       {
@@ -911,22 +857,6 @@
         "name": "length",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "Unsupported",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedTokenDecimals",
-    "inputs": [
-      {
-        "name": "decimals",
-        "type": "uint8",
-        "internalType": "uint8"
       }
     ]
   }

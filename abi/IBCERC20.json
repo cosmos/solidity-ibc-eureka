@@ -116,7 +116,7 @@
         "internalType": "uint8"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",

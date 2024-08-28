@@ -2,10 +2,6 @@
 pragma solidity >=0.8.25;
 
 interface IISdkCoinErrors {
-    /// @notice Unsupported token decimals
-    /// @param decimals client type
-    error UnsupportedTokenDecimals(uint8 decimals);
-
     /// @notice Invalid address
     /// @param _address address
     error InvalidAddress(address _address);
