@@ -13,8 +13,9 @@ import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
+import { IICS26RouterEvents } from "../src/events/IICS26RouterEvents.sol";
 
-contract ICS26RouterTest is Test {
+contract ICS26RouterTest is Test, IICS26RouterEvents {
     ICS02Client public ics02Client;
     ICS26Router public ics26Router;
 
@@ -30,7 +31,7 @@ contract ICS26RouterTest is Test {
         string memory ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(ics20AddressStr, address(ics20Transfer));
+        emit IBCAppAdded(ics20AddressStr, address(ics20Transfer));
         ics26Router.addIBCApp("", address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
@@ -40,7 +41,7 @@ contract ICS26RouterTest is Test {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
+        emit IBCAppAdded("transfer", address(ics20Transfer));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));

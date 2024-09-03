@@ -23,8 +23,10 @@ import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { IICS26RouterEvents } from "../src/events/IICS26RouterEvents.sol";
+import { IICS20TransferEvents } from "../src/events/IICS20TransferEvents.sol";
 
-contract IntegrationTest is Test {
+contract IntegrationTest is Test, IICS26RouterEvents, IICS20TransferEvents {
     IICS02Client public ics02Client;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
@@ -62,7 +64,7 @@ contract IntegrationTest is Test {
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
+        emit IBCAppAdded("transfer", address(ics20Transfer));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
@@ -98,7 +100,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
+        emit ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
         );
         ics26Router.ackPacket(ackMsg);
@@ -140,7 +142,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
+        emit ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -168,7 +170,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Timeout(expectedDefaultSendPacketData);
+        emit ICS20Timeout(expectedDefaultSendPacketData);
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -194,7 +196,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
+        emit ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
         );
         ics26Router.ackPacket(ackMsg);
@@ -229,7 +231,7 @@ contract IntegrationTest is Test {
             data: ICS20Lib.marshalJSON(receivedDenom, transferAmount, senderStr, receiverStr, "backmemo")
         });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20ReceiveTransfer(
+        emit ICS20ReceiveTransfer(
             ICS20Lib.PacketDataJSON({
                 denom: receivedDenom,
                 sender: senderStr,
@@ -240,9 +242,9 @@ contract IntegrationTest is Test {
             address(erc20)
         );
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(packet, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit WriteAcknowledgement(packet, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         vm.expectEmit();
-        emit IICS26Router.RecvPacket(packet);
+        emit RecvPacket(packet);
 
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
@@ -288,11 +290,11 @@ contract IntegrationTest is Test {
         ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        emit ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         vm.expectEmit();
-        emit IICS26Router.RecvPacket(receivePacket);
+        emit RecvPacket(receivePacket);
 
         vm.recordLogs();
         ics26Router.recvPacket(
@@ -313,7 +315,7 @@ contract IntegrationTest is Test {
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        assertEq(receiveTransferLog.topics[0], ICS20ReceiveTransfer.selector);
 
         (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
         assertEq(packetData.denom, foreignDenom);
@@ -353,7 +355,7 @@ contract IntegrationTest is Test {
         });
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
+        emit ICS20TokenTransfer(
             ICS20Lib.PacketDataJSON({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
@@ -374,7 +376,7 @@ contract IntegrationTest is Test {
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
         });
         vm.expectEmit();
-        emit IICS26Router.SendPacket(expectedPacketSent);
+        emit SendPacket(expectedPacketSent);
         vm.prank(sender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, expectedPacketSent.sequence);
@@ -414,11 +416,11 @@ contract IntegrationTest is Test {
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        emit ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         vm.expectEmit();
-        emit IICS26Router.RecvPacket(receivePacket);
+        emit RecvPacket(receivePacket);
 
         vm.recordLogs();
         ics26Router.recvPacket(
@@ -439,7 +441,7 @@ contract IntegrationTest is Test {
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        assertEq(receiveTransferLog.topics[0], ICS20ReceiveTransfer.selector);
 
         (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
         assertEq(packetData.denom, foreignDenom);
@@ -479,7 +481,7 @@ contract IntegrationTest is Test {
         });
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
+        emit ICS20TokenTransfer(
             ICS20Lib.PacketDataJSON({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
@@ -501,7 +503,7 @@ contract IntegrationTest is Test {
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
         });
-        emit IICS26Router.SendPacket(expectedPacketSent);
+        emit SendPacket(expectedPacketSent);
 
         vm.prank(sender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
@@ -545,11 +547,11 @@ contract IntegrationTest is Test {
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        emit ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         vm.expectEmit();
-        emit IICS26Router.RecvPacket(receivePacket);
+        emit RecvPacket(receivePacket);
 
         vm.recordLogs();
         ics26Router.recvPacket(
@@ -570,7 +572,7 @@ contract IntegrationTest is Test {
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        assertEq(receiveTransferLog.topics[0], ICS20ReceiveTransfer.selector);
 
         (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
         assertEq(packetData.denom, foreignDenom);
@@ -610,7 +612,7 @@ contract IntegrationTest is Test {
         });
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
+        emit ICS20TokenTransfer(
             ICS20Lib.PacketDataJSON({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
@@ -632,7 +634,7 @@ contract IntegrationTest is Test {
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "")
         });
-        emit IICS26Router.SendPacket(expectedPacketSent);
+        emit SendPacket(expectedPacketSent);
 
         vm.prank(sender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
@@ -659,7 +661,7 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
+        emit ICS20Acknowledgement(
             expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
         );
         ics26Router.ackPacket(ackMsg);
@@ -730,7 +732,7 @@ contract IntegrationTest is Test {
 
         vm.startPrank(sender);
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
+        emit ICS20TokenTransfer(expectedDefaultSendPacketData, address(erc20));
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, 1);
 

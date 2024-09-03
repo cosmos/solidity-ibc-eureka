@@ -93,7 +93,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             ibcERC20Contract.burn(packetData.amount);
         }
 
-        emit ICS20Transfer(packetData, erc20Address);
+        emit ICS20TokenTransfer(packetData, erc20Address);
     }
 
     /// @inheritdoc IIBCApp

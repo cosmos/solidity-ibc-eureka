@@ -10,8 +10,9 @@ import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ILightClient } from "../src/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
+import { IICS02ClientEvents } from "../src/events/IICS02ClientEvents.sol";
 
-contract ICS02ClientTest is Test {
+contract ICS02ClientTest is Test, IICS02ClientEvents {
     IICS02Client public ics02Client;
     DummyLightClient public lightClient;
 
@@ -27,7 +28,7 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
+        emit ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
         string memory clientIdentifier = ics02Client.addClient("07-tendermint", counterpartyInfo, address(lightClient));
 
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
