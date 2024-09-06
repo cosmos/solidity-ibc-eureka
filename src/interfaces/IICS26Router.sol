@@ -8,7 +8,6 @@ import { IICS26RouterEvents } from "../events/IICS26RouterEvents.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router is IICS26RouterMsgs, IICS26RouterEvents {
-
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
@@ -37,5 +36,4 @@ interface IICS26Router is IICS26RouterMsgs, IICS26RouterEvents {
     /// @notice Timeouts a packet
     /// @param msg The message for timing out packets
     function timeoutPacket(MsgTimeoutPacket calldata msg) external;
-
 }

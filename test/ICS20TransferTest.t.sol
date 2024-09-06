@@ -7,7 +7,6 @@ import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
-import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
@@ -280,9 +279,7 @@ contract ICS20TransferTest is Test, IICS20TransferEvents {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+        emit ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 packet: packet,

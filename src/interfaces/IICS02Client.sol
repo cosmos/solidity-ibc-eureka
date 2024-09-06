@@ -8,7 +8,6 @@ import { IICS02ClientEvents } from "../events/IICS02ClientEvents.sol";
 /// @title ICS02 Light Client Router Interface
 /// @notice IICS02Client is an interface for the IBC Eureka client router
 interface IICS02Client is IICS02ClientMsgs, IICS02ClientEvents {
-
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
     /// @return The counterparty client information

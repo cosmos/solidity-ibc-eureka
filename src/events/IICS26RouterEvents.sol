@@ -3,8 +3,7 @@ pragma solidity >=0.8.25;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
-interface IICS26RouterEvents is IICS26RouterMsgs{
-    
+interface IICS26RouterEvents is IICS26RouterMsgs {
     /// @notice Emitted when an IBC application is added to the router
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
@@ -31,5 +30,4 @@ interface IICS26RouterEvents is IICS26RouterMsgs{
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
     event AckPacket(Packet packet, bytes acknowledgement);
-
 }

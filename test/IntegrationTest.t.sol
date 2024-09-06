@@ -7,13 +7,11 @@ import { Test } from "forge-std/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
-import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
-import { IICS26Router } from "../src/ICS26Router.sol";
 import { IICS26RouterErrors } from "../src/errors/IICS26RouterErrors.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
@@ -100,9 +98,7 @@ contract IntegrationTest is Test, IICS26RouterEvents, IICS20TransferEvents {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+        emit ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -196,9 +192,7 @@ contract IntegrationTest is Test, IICS26RouterEvents, IICS20TransferEvents {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+        emit ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -661,9 +655,7 @@ contract IntegrationTest is Test, IICS26RouterEvents, IICS20TransferEvents {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+        emit ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
