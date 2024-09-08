@@ -512,7 +512,7 @@
   },
   {
     "type": "event",
-    "name": "ICS20TokenTransfer",
+    "name": "ICS20Transfer",
     "inputs": [
       {
         "name": "packetData",
