@@ -3,8 +3,14 @@ package e2esuite
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	"io"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -19,9 +25,11 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	errorsmod "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
@@ -192,6 +200,99 @@ func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
 	s.Require().NoError(err)
 
 	return txOpts
+}
+
+// PushNewWasmClientProposal submits a new wasm client governance proposal to the chain.
+func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, proposalContentReader io.Reader) string {
+	zippedContent, err := io.ReadAll(proposalContentReader)
+	s.Require().NoError(err)
+
+	computedChecksum := s.extractChecksumFromGzippedContent(zippedContent)
+
+	s.Require().NoError(err)
+	message := wasmtypes.MsgStoreCode{
+		Signer:       authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		WasmByteCode: zippedContent,
+	}
+
+
+	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
+	s.Require().NoError(err)
+
+	codeResp, err := GRPCQuery[wasmtypes.QueryCodeResponse](ctx, chain, &wasmtypes.QueryCodeRequest{Checksum: computedChecksum})
+	s.Require().NoError(err)
+
+	checksumBz := codeResp.Data
+	checksum32 := sha256.Sum256(checksumBz)
+	actualChecksum := hex.EncodeToString(checksum32[:])
+	s.Require().Equal(computedChecksum, actualChecksum, "checksum returned from query did not match the computed checksum")
+
+	return actualChecksum
+}
+
+// extractChecksumFromGzippedContent takes a gzipped wasm contract and returns the checksum.
+func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) string {
+	content, err := wasmtypes.Uncompress(zippedContent, wasmtypes.MaxWasmSize)
+	s.Require().NoError(err)
+
+	checksum32 := sha256.Sum256(content)
+	return hex.EncodeToString(checksum32[:])
+}
+
+// ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
+// to vote yes on the proposal.
+func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
+	sender, err := sdk.AccAddressFromBech32(user.FormattedAddress())
+	s.Require().NoError(err)
+
+	proposalID := s.proposalIDs[cosmosChain.Config().ChainID]
+	defer func() {
+		s.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
+	}()
+
+	msgs := []sdk.Msg{msg}
+
+	msgSubmitProposal, err := govtypesv1.NewMsgSubmitProposal(
+		msgs,
+		sdk.NewCoins(sdk.NewCoin(cosmosChain.Config().Denom, govtypesv1.DefaultMinDepositTokens)),
+		sender.String(),
+		"",
+		fmt.Sprintf("e2e gov proposal: %d", proposalID),
+		fmt.Sprintf("executing gov proposal %d", proposalID),
+		false,
+	)
+	s.Require().NoError(err)
+
+	_, err = s.BroadcastMessages(ctx, cosmosChain, user, 50_000_000, msgSubmitProposal)
+	s.Require().NoError(err)
+
+	s.Require().NoError(cosmosChain.VoteOnProposalAllValidators(ctx, strconv.Itoa(int(proposalID)), cosmos.ProposalVoteYes))
+
+	return s.waitForGovV1ProposalToPass(ctx, cosmosChain, proposalID)
+}
+
+// waitForGovV1ProposalToPass polls for the entire voting period to see if the proposal has passed.
+// if the proposal has not passed within the duration of the voting period, an error is returned.
+func (*TestSuite) waitForGovV1ProposalToPass(ctx context.Context, chain *cosmos.CosmosChain, proposalID uint64) error {
+	var govProposal *govtypesv1.Proposal
+	// poll for the query for the entire voting period to see if the proposal has passed.
+	err := testutil.WaitForCondition(testvalues.VotingPeriod, 10*time.Second, func() (bool, error) {
+		proposalResp, err := GRPCQuery[govtypesv1.QueryProposalResponse](ctx, chain, &govtypesv1.QueryProposalRequest{
+			ProposalId: proposalID,
+		})
+		if err != nil {
+			return false, err
+		}
+
+		govProposal = proposalResp.Proposal
+		return govProposal.Status == govtypesv1.StatusPassed, nil
+	})
+
+	// in the case of a failed proposal, we wrap the polling error with additional information about why the proposal failed.
+	if err != nil && govProposal.FailedReason != "" {
+		err = errorsmod.Wrap(err, govProposal.FailedReason)
+	}
+	return err
 }
 
 func IsLowercase(s string) bool {

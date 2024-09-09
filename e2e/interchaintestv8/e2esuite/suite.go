@@ -32,6 +32,9 @@ type TestSuite struct {
 	network      string
 	logger       *zap.Logger
 	ExecRep      *testreporter.RelayerExecReporter
+
+	// proposalIDs keeps track of the active proposal ID for cosmos chains
+	proposalIDs    map[string]uint64
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -76,6 +79,9 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.UserB = cosmosUsers[0]
 	ethUsers := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), testvalues.StartingEthBalance, s.ChainA)
 	s.UserA = ethUsers[0]
+
+	s.proposalIDs = make(map[string]uint64)
+	s.proposalIDs[s.ChainB.Config().ChainID] = 1
 
 	t.Cleanup(
 		func() {

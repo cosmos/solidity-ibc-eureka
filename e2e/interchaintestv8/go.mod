@@ -6,13 +6,15 @@ toolchain go1.22.3
 
 require (
 	cosmossdk.io/api v0.7.5
+	cosmossdk.io/errors v1.0.1
 	cosmossdk.io/math v1.3.0
 	cosmossdk.io/x/tx v0.13.3
-	cosmossdk.io/x/upgrade v0.1.2
-	github.com/CosmWasm/wasmd v0.50.0
-	github.com/cometbft/cometbft v0.38.7
+	cosmossdk.io/x/upgrade v0.1.3
+	github.com/CosmWasm/wasmd v0.51.0
+	github.com/cometbft/cometbft v0.38.9
 	github.com/cosmos/cosmos-sdk v0.50.7
 	github.com/cosmos/gogoproto v1.4.12
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.4.1-0.20240728184249-44562d751b0e
 	github.com/cosmos/ibc-go/v8 v8.3.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/ethereum/go-ethereum v1.14.6
@@ -33,7 +35,6 @@ require (
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.0 // indirect
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
-	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/log v1.3.1 // indirect
 	cosmossdk.io/store v1.1.0 // indirect
 	cosmossdk.io/x/circuit v0.1.1 // indirect
@@ -46,7 +47,7 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/ChainSafe/go-schnorrkel/1 v0.0.0-00010101000000-000000000000 // indirect
 	github.com/ComposableFi/go-subkey/v2 v2.0.0-tm03420 // indirect
-	github.com/CosmWasm/wasmvm v1.5.0 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.1.0 // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
@@ -140,7 +141,7 @@ require (
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-getter v1.7.3 // indirect
+	github.com/hashicorp/go-getter v1.7.4 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-metrics v0.5.3 // indirect
@@ -214,6 +215,7 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
+	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -278,6 +280,8 @@ require (
 )
 
 replace github.com/cosmos/ibc-go/v8 => github.com/cosmos/ibc-go/v8 v8.0.0-beta.1.0.20240730120204-16cd2bb559de
+
+replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => ../../../ibc-go/modules/light-clients/08-wasm
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/DimitrisJim/interchaintest/v8 v8.0.0-20240419095404-2c9270423b9a
 

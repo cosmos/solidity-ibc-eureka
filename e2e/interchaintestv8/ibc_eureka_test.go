@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	"math/big"
 	"os"
 	"strconv"
@@ -42,6 +43,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibcerc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
@@ -71,6 +73,8 @@ type IbcEurekaTestSuite struct {
 	ics20Contract    *ics20transfer.Contract
 	erc20Contract    *erc20.Contract
 
+	// The (hex encoded) checksum of the wasm client contract deployed on the Cosmos chain
+	simdClientChecksum string
 	simdClientID string
 	ethClientID  string
 }
@@ -206,6 +210,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+
 	s.Require().True(s.Run("Add client on Cosmos chain", func() {
 		ethHeight, err := eth.Height(ctx)
 		s.Require().NoError(err)
@@ -264,6 +269,90 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		})
 		s.Require().NoError(err)
 	}))
+
+	s.Require().True(s.Run("Deploy ethereum 08-wasm contract on Cosmos chain", func() {
+		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_mainnet.wasm.gz")
+		s.Require().NoError(err)
+
+		s.simdClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+
+		s.Require().NotEmpty(s.simdClientChecksum, "checksum was empty but should not have been")
+	}))
+
+	s.Require().True(s.Run("Add ethereum 08-wasm light client on Cosmos chain", func() {
+		// Wanting to use holesky: https://github.com/eth-clients/holesky
+		// TODO: Need to fetch information about current epoch, block, etc from an API or RPC (depending on what is possible)
+		// For now, I've just put in a bunch of dummy values to just test creating the client
+		genesisValidatorsRoot := ethcommon.FromHex("0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1")
+
+		// TODO: Fill these out, need to find the correct information from somewhere
+		ethClientState := ethereumligthclient.ClientState{
+			ChainId:                      "17000",
+			GenesisValidatorsRoot:        genesisValidatorsRoot,
+			MinSyncCommitteeParticipants: 1,
+			GenesisTime:                  1,
+			ForkParameters:               &ethereumligthclient.ForkParameters{
+				GenesisForkVersion: []byte{0, 0, 16, 32},
+				GenesisSlot:        1,
+				Altair:             nil,
+				Bellatrix:          nil,
+				Capella:            nil,
+				Deneb:              nil,
+			},
+			SecondsPerSlot:               1,
+			SlotsPerEpoch:                1,
+			EpochsPerSyncCommitteePeriod: 1,
+			LatestSlot:                   1,
+			FrozenHeight:                 &clienttypes.Height{},
+			IbcCommitmentSlot:            []byte("42"),
+			IbcContractAddress:           ethcommon.FromHex("0xe914d607a64c5ac3b2c9db3e1b5d809ec4c2e4bf"), // some random address
+		}
+		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
+		wasmClientChecksum, err := hex.DecodeString(s.simdClientChecksum)
+		s.Require().NoError(err)
+		clientState := ibcwasmtypes.ClientState{
+			Data:         ethClientStateBz,
+			Checksum:     wasmClientChecksum,
+			// TODO: replace with actual height
+			LatestHeight: clienttypes.Height{
+				RevisionNumber: 1,
+				RevisionHeight: 42,
+			},
+		}
+		clientStateAny, err := clienttypes.PackClientState(&clientState)
+		s.Require().NoError(err)
+
+		// TODO: Fill out correctly
+		ethConsensusState := ethereumligthclient.ConsensusState{
+			Slot:                 77,
+			StateRoot:            []byte("state root"),
+			StorageRoot:          []byte("storage root"),
+			Timestamp:            1,
+			CurrentSyncCommittee: []byte("current sync committee"),
+			NextSyncCommittee:    []byte("next sync committee"),
+		}
+		ethConsensusStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethConsensusState)
+		consensusState := ibcwasmtypes.ConsensusState{
+			Data: ethConsensusStateBz,
+		}
+		consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
+		s.Require().NoError(err)
+
+		res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:      clientStateAny,
+			ConsensusState:   consensusStateAny,
+			Signer:           simdRelayerUser.FormattedAddress(),
+			CounterpartyId:   "",
+			MerklePathPrefix: nil,
+		})
+		s.Require().NoError(err)
+
+		s.simdClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
+		s.Require().NoError(err)
+		s.Require().Equal("xxx-replace-me", s.simdClientID)
+	}))
+
+	// TODO: Deploy a client on holesky (or whatever Ethereum variant we can test with) and add counterparty on both sides
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run

@@ -50,6 +50,9 @@ const (
 	// FaucetPrivateKey is the private key of the faucet account.
 	// '0x' prefix is trimmed.
 	FaucetPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
+	DefaultGovV1ProposalTokenAmount        = 500_000_000
 )
 
 var (

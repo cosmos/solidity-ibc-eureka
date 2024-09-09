@@ -64,3 +64,10 @@ generate-fixtures:
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack$' -timeout 40m
 	@echo "Generating timeoutPacket fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain$' -timeout 40m
+
+protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
+DOCKER := `which docker`
+
+proto-gen:
+    @echo "Generating Protobuf files"
+    {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
