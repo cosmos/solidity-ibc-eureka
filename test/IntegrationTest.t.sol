@@ -98,7 +98,9 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20TransferEvents.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS20TransferEvents.ICS20Acknowledgement(
+            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
+        );
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -138,7 +140,9 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20TransferEvents.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
+        emit IICS20TransferEvents.ICS20Acknowledgement(
+            expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON
+        );
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
@@ -192,7 +196,9 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20TransferEvents.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS20TransferEvents.ICS20Acknowledgement(
+            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
+        );
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -655,7 +661,9 @@ contract IntegrationTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
         vm.expectEmit();
-        emit IICS20TransferEvents.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS20TransferEvents.ICS20Acknowledgement(
+            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
+        );
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
