@@ -80,7 +80,7 @@ jobs:
         uses: ./.github/setup
 
       - name: "Run coverage"
-        run: "bun test:coverage:ci"
+        run: "bash scripts/checks/coverage.sh"
 
       - uses: codecov/codecov-action@v4
         env:
