@@ -17,7 +17,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - name: "Set up environment"
-        uses: ./.github/workflows/setup.yml
+        uses: ./.github/setup
 
       - name: "Lint the code"
         run: "bun run lint:sol"
@@ -32,7 +32,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - name: "Set up environment"
-        uses: ./.github/workflows/setup.yml
+        uses: ./.github/setup
 
       - name: "Build the contracts and print their size"
         run: "forge build --sizes"
@@ -48,7 +48,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - name: "Set up environment"
-        uses: ./.github/workflows/setup.yml
+        uses: ./.github/setup
 
       - name: "Show the Foundry config"
         run: "forge config"
@@ -73,7 +73,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - name: "Set up environment"
-        uses: ./.github/workflows/setup.yml
+        uses: ./.github/setup
 
       - name: "Run coverage"
         run: "bun test:coverage:ci"
