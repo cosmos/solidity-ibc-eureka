@@ -28,12 +28,12 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     }
 
     /// @inheritdoc IIBCERC20
-    function mint(uint256 amount) external onlyOwner {
-        _mint(owner(), amount);
+    function mint(address account, uint256 amount) external onlyOwner {
+        _mint(account, amount);
     }
 
     /// @inheritdoc IIBCERC20
-    function burn(uint256 amount) external onlyOwner {
-        _burn(owner(), amount);
+    function burn(address account, uint256 amount) external onlyOwner {
+        _burn(account, amount);
     }
 }

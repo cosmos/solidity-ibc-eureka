@@ -25,14 +25,14 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     function testFuzz_success_Mint(uint256 amount) public {
-        ibcERC20.mint(amount);
+        ibcERC20.mint(address(this), amount);
         assertEq(ibcERC20.balanceOf(address(this)), amount);
         assertEq(ibcERC20.totalSupply(), amount);
     }
 
     // Just to document the behaviour
     function test_MintZero() public {
-        ibcERC20.mint(0);
+        ibcERC20.mint(address(this), 0);
         assertEq(ibcERC20.balanceOf(address(this)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
     }
@@ -41,7 +41,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
         address notICS20Transfer = makeAddr("notICS20Transfer");
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
-        ibcERC20.mint(amount);
+        ibcERC20.mint(address(this), amount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(this)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
@@ -49,16 +49,16 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function testFuzz_success_Burn(uint256 startingAmount, uint256 burnAmount) public {
         burnAmount = bound(burnAmount, 0, startingAmount);
-        ibcERC20.mint(startingAmount);
+        ibcERC20.mint(address(this), startingAmount);
         assertEq(ibcERC20.balanceOf(address(this)), startingAmount);
 
-        ibcERC20.burn(burnAmount);
+        ibcERC20.burn(address(this), burnAmount);
         uint256 leftOver = startingAmount - burnAmount;
         assertEq(ibcERC20.balanceOf(address(this)), leftOver);
         assertEq(ibcERC20.totalSupply(), leftOver);
 
         if (leftOver != 0) {
-            ibcERC20.burn(leftOver);
+            ibcERC20.burn(address(this), leftOver);
             assertEq(ibcERC20.balanceOf(address(this)), 0);
             assertEq(ibcERC20.totalSupply(), 0);
         }
@@ -66,13 +66,13 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function testFuzz_unauthorized_Burn(uint256 startingAmount, uint256 burnAmount) public {
         burnAmount = bound(burnAmount, 0, startingAmount);
-        ibcERC20.mint(startingAmount);
+        ibcERC20.mint(address(this), startingAmount);
         assertEq(ibcERC20.balanceOf(address(this)), startingAmount);
 
         address notICS20Transfer = makeAddr("notICS20Transfer");
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
-        ibcERC20.burn(burnAmount);
+        ibcERC20.burn(address(this), burnAmount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(this)), startingAmount);
         assertEq(ibcERC20.totalSupply(), startingAmount);
@@ -80,12 +80,12 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     // Just to document the behaviour
     function test_BurnZero() public {
-        ibcERC20.burn(0);
+        ibcERC20.burn(address(this), 0);
         assertEq(ibcERC20.balanceOf(address(this)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
 
-        ibcERC20.mint(1000);
-        ibcERC20.burn(0);
+        ibcERC20.mint(address(this), 1000);
+        ibcERC20.burn(address(this), 0);
         assertEq(ibcERC20.balanceOf(address(this)), 1000);
         assertEq(ibcERC20.totalSupply(), 1000);
     }
@@ -93,16 +93,16 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function test_failure_Burn() public {
         // test burn with zero balance
         vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, 1));
-        ibcERC20.burn(1);
+        ibcERC20.burn(address(this), 1);
 
         // mint some to test other cases
-        ibcERC20.mint(1000);
+        ibcERC20.mint(address(this), 1000);
 
         // test burn with insufficient balance
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 1000, 1001)
         );
-        ibcERC20.burn(1001);
+        ibcERC20.burn(address(this), 1001);
     }
 
     // Dummy implementation of IICS20Transfer

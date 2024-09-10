@@ -60,7 +60,7 @@ generate-fixtures:
 	just clean
 	@echo "Generating recvPacket and acknowledgePacket fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack$' -timeout 40m
-	@echo "Generating native SdkCoin recvPacket fixtures..."
+	@echo "Generating native Cosmos recvPacket fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack$' -timeout 40m
 	@echo "Generating timeoutPacket fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain$' -timeout 40m
