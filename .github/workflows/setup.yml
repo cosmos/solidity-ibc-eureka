@@ -1,0 +1,13 @@
+name: setup
+
+runs:
+  using: composite
+  steps:
+    - name: "Check out the repo"
+      uses: "actions/checkout@v4"
+    - name: "Install Foundry"
+      uses: "foundry-rs/foundry-toolchain@v1"
+    - name: "Install Bun"
+      uses: "oven-sh/setup-bun@v2"
+    - name: "Install the Node.js dependencies"
+      run: "bun install"

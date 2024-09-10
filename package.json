@@ -29,6 +29,7 @@
   "scripts": {
     "lint:sol": "forge fmt --check && bun solhint -w 0 '{script,src,test}/**/*.sol' && bun natspec-smells --include 'src/**/*.sol'",
     "test:coverage": "forge coverage",
+    "test:coverage:ci": "scripts/checks/coverage.sh",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }
 }

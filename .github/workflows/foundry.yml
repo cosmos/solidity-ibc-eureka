@@ -1,4 +1,4 @@
-name: "foundry"
+name: foundry
 
 env:
   API_KEY_ALCHEMY: ${{ secrets.API_KEY_ALCHEMY }}
@@ -16,17 +16,8 @@ jobs:
     name: "lint"
     runs-on: "ubuntu-latest"
     steps:
-      - name: "Check out the repo"
-        uses: "actions/checkout@v4"
-
-      - name: "Install Foundry"
-        uses: "foundry-rs/foundry-toolchain@v1"
-
-      - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v2"
-
-      - name: "Install the Node.js dependencies"
-        run: "bun install"
+      - name: "Set up environment"
+        uses: ./.github/workflows/setup.yml
 
       - name: "Lint the code"
         run: "bun run lint:sol"
@@ -40,17 +31,8 @@ jobs:
     name: "build"
     runs-on: "ubuntu-latest"
     steps:
-      - name: "Check out the repo"
-        uses: "actions/checkout@v4"
-
-      - name: "Install Foundry"
-        uses: "foundry-rs/foundry-toolchain@v1"
-
-      - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v2"
-
-      - name: "Install the Node.js dependencies"
-        run: "bun install"
+      - name: "Set up environment"
+        uses: ./.github/workflows/setup.yml
 
       - name: "Build the contracts and print their size"
         run: "forge build --sizes"
@@ -65,17 +47,8 @@ jobs:
     needs: ["lint", "build"]
     runs-on: "ubuntu-latest"
     steps:
-      - name: "Check out the repo"
-        uses: "actions/checkout@v4"
-
-      - name: "Install Foundry"
-        uses: "foundry-rs/foundry-toolchain@v1"
-
-      - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v2"
-
-      - name: "Install the Node.js dependencies"
-        run: "bun install"
+      - name: "Set up environment"
+        uses: ./.github/workflows/setup.yml
 
       - name: "Show the Foundry config"
         run: "forge config"
@@ -93,3 +66,18 @@ jobs:
         run: |
           echo "## Tests result" >> $GITHUB_STEP_SUMMARY
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+
+  coverage:
+    name: "coverage"
+    needs: ["test"]
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Set up environment"
+        uses: ./.github/workflows/setup.yml
+
+      - name: "Run coverage"
+        run: "bun test:coverage:ci"
+
+      - uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
