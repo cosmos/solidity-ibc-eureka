@@ -10,4 +10,5 @@ runs:
     - name: "Install Bun"
       uses: "oven-sh/setup-bun@v2"
     - name: "Install the Node.js dependencies"
+      shell: bash
       run: "bun install"
