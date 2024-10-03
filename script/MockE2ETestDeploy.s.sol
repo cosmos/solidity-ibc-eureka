@@ -25,6 +25,7 @@ struct SP1ICS07TendermintGenesisJson {
     bytes32 updateClientVkey;
     bytes32 membershipVkey;
     bytes32 ucAndMembershipVkey;
+    bytes32 misbehaviourVkey;
 }
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -49,6 +50,7 @@ contract MockE2ETestDeploy is Script {
             genesis.updateClientVkey,
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
+            genesis.misbehaviourVkey,
             address(verifier),
             genesis.trustedClientState,
             trustedConsensusHash
@@ -89,13 +91,15 @@ contract MockE2ETestDeploy is Script {
         bytes32 updateClientVkey = json.readBytes32(".updateClientVkey");
         bytes32 membershipVkey = json.readBytes32(".membershipVkey");
         bytes32 ucAndMembershipVkey = json.readBytes32(".ucAndMembershipVkey");
+        bytes32 misbehaviourVkey = json.readBytes32(".misbehaviourVkey");
 
         SP1ICS07TendermintGenesisJson memory fixture = SP1ICS07TendermintGenesisJson({
             trustedClientState: trustedClientState,
             trustedConsensusState: trustedConsensusState,
             updateClientVkey: updateClientVkey,
             membershipVkey: membershipVkey,
-            ucAndMembershipVkey: ucAndMembershipVkey
+            ucAndMembershipVkey: ucAndMembershipVkey,
+            misbehaviourVkey: misbehaviourVkey
         });
 
         return fixture;
