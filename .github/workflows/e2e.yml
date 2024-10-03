@@ -16,7 +16,7 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
-  SP1_OPERATOR_REV: 8b8813e636df8825ff45f4410e619a95f2f8ae5a
+  SP1_OPERATOR_REV: 0c68154522413f20e078726014d753bbedcdbd2b
 permissions:
   contents: read
 
