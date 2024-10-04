@@ -31,13 +31,12 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "1.22"
-          cache-dependency-path: 'e2e/interchaintestv8/go.sum'
+          cache-dependency-path: e2e/interchaintestv8/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3.7.0
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.61
-          args: --timeout 5m
           working-directory: e2e/interchaintestv8
   e2e:
     strategy:
