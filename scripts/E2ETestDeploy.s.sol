@@ -10,7 +10,7 @@ pragma solidity >=0.8.25 <0.9.0;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v1.1.0/SP1Verifier.sol";
+import { SP1Verifier } from "@sp1-contracts/v2.0.0/SP1VerifierPlonk.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
@@ -25,6 +25,7 @@ struct SP1ICS07TendermintGenesisJson {
     bytes32 updateClientVkey;
     bytes32 membershipVkey;
     bytes32 ucAndMembershipVkey;
+    bytes32 misbehaviourVkey;
 }
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -49,6 +50,7 @@ contract E2ETestDeploy is Script {
             genesis.updateClientVkey,
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
+            genesis.misbehaviourVkey,
             address(verifier),
             genesis.trustedClientState,
             trustedConsensusHash
@@ -90,13 +92,15 @@ contract E2ETestDeploy is Script {
         bytes32 updateClientVkey = json.readBytes32(".updateClientVkey");
         bytes32 membershipVkey = json.readBytes32(".membershipVkey");
         bytes32 ucAndMembershipVkey = json.readBytes32(".ucAndMembershipVkey");
+        bytes32 misbehaviourVkey = json.readBytes32(".misbehaviourVkey");
 
         SP1ICS07TendermintGenesisJson memory fixture = SP1ICS07TendermintGenesisJson({
             trustedClientState: trustedClientState,
             trustedConsensusState: trustedConsensusState,
             updateClientVkey: updateClientVkey,
             membershipVkey: membershipVkey,
-            ucAndMembershipVkey: ucAndMembershipVkey
+            ucAndMembershipVkey: ucAndMembershipVkey,
+            misbehaviourVkey: misbehaviourVkey
         });
 
         return fixture;
