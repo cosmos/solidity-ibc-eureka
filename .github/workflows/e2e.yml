@@ -72,7 +72,7 @@ jobs:
         with:
           go-version: "1.22"
           check-latest: true
-          cache-dependency-path: "e2e/interchaintestv8/go.sum"
+          cache-dependency-path: e2e/interchaintestv8/go.sum
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v2"
       - name: "Install the Node.js dependencies"
