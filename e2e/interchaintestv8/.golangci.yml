@@ -46,6 +46,9 @@ issues:
     - text: "ST1016:"
       linters:
         - stylecheck
+    - text: "G115:"
+      linters:
+        - gosec
   max-issues-per-linter: 10000
   max-same-issues: 10000
 
