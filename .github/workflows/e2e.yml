@@ -99,7 +99,7 @@ jobs:
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install SP1 circuit artifacts (plonky only)
         run: |
-          mkdir ~/.sp1/circuits
+          mkdir -p ~/.sp1/circuits
           mv e2e/artifacts/circuits/v2.0.0 ~/.sp1/circuits/v2.0.0
       - name: Install operator
         if: steps.cache-operator.outputs.cache-hit != 'true'
