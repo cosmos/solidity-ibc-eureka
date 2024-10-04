@@ -154,7 +154,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		case testvalues.EnvValueSp1Prover_Mock:
 			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
 				ContractRootDir:  ".",
-				SolidityContract: "script/MockE2ETestDeploy.s.sol",
+				SolidityContract: "scripts/MockE2ETestDeploy.s.sol",
 				RawOptions: []string{
 					"--json",
 					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
@@ -167,7 +167,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
 				ContractRootDir:  ".",
-				SolidityContract: "script/E2ETestDeploy.s.sol",
+				SolidityContract: "scripts/E2ETestDeploy.s.sol",
 				RawOptions: []string{
 					"--json",
 					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
