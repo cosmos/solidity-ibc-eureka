@@ -25,17 +25,18 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
       - uses: actions/setup-go@v4
         with:
           go-version: "1.22"
           cache-dependency-path: 'e2e/interchaintestv8/go.sum'
 
-      - uses: actions/checkout@v4
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3.7.0
         with:
-          version: v1.59
+          version: v1.61
           args: --timeout 5m
           working-directory: e2e/interchaintestv8
   e2e:
@@ -53,6 +54,19 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Create LFS file list
+        run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
+      - name: LFS Cache
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs/objects
+          key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: |
+            ${{ runner.os }}-lfs-
+      - name: Git LFS Pull
+        run: git lfs pull
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -84,6 +98,10 @@ jobs:
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
+      - name: Install SP1 circuit artifacts (plonky only)
+        run: |
+          mkdir ~/.sp1/circuits
+          mv e2e/artifacts/circuits/v2.0.0 ~/.sp1/circuits/v2.0.0
       - name: Install operator
         if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
