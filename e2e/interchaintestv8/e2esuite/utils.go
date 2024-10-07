@@ -47,6 +47,7 @@ type DeployedContracts struct {
 	Ics26Router     string `json:"ics26Router"`
 	Ics20Transfer   string `json:"ics20Transfer"`
 	Erc20           string `json:"erc20"`
+	Escrow          string `json:"escrow"`
 }
 
 // FundAddressChainB sends funds to the given address on Chain B.
@@ -133,6 +134,8 @@ func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContr
 	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
 	s.Require().NotEmpty(embeddedContracts.Ics26Router)
 	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
+	s.Require().NotEmpty(embeddedContracts.Escrow)
+	s.Require().True(IsLowercase(embeddedContracts.Escrow))
 
 	return embeddedContracts
 }
