@@ -28,4 +28,8 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @param msg The message for sending a transfer
     /// @return sequence The sequence number of the packet created
     function sendTransfer(SendTransferMsg calldata msg) external returns (uint32 sequence);
+
+    /// @notice Retrieve the escrow contract address
+    /// @return The escrow contract address
+    function escrow() external view returns (address);
 }

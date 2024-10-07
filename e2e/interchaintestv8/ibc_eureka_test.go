@@ -65,11 +65,12 @@ type IbcEurekaTestSuite struct {
 
 	contractAddresses e2esuite.DeployedContracts
 
-	sp1Ics07Contract *sp1ics07tendermint.Contract
-	ics02Contract    *ics02client.Contract
-	ics26Contract    *ics26router.Contract
-	ics20Contract    *ics20transfer.Contract
-	erc20Contract    *erc20.Contract
+	sp1Ics07Contract   *sp1ics07tendermint.Contract
+	ics02Contract      *ics02client.Contract
+	ics26Contract      *ics26router.Contract
+	ics20Contract      *ics20transfer.Contract
+	erc20Contract      *erc20.Contract
+	escrowContractAddr ethcommon.Address
 
 	simdClientID string
 	ethClientID  string
@@ -192,6 +193,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
+		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
 	}))
 
 	s.T().Cleanup(func() {
@@ -407,9 +409,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, ics20TransferBalance)
+			s.Require().Equal(transferAmount, escrowBalance)
 		}))
 	}))
 
@@ -497,9 +499,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
+			s.Require().Equal(testvalues.TransferAmount, escrowBalance.Int64())
 		}))
 	}))
 
@@ -619,9 +621,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Equal(int64(0), escrowBalance.Int64())
 		}))
 	}))
 
@@ -1044,10 +1046,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain()
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, ics20Bal)
+			s.Require().Equal(transferAmount, escrowBalance)
 		}))
 	}))
 
@@ -1094,10 +1095,9 @@ func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain()
 			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20Bal.Int64())
+			s.Require().Equal(int64(0), escrowBalance.Int64())
 		}))
 	}))
 }

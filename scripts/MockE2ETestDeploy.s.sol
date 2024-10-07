@@ -68,6 +68,7 @@ contract MockE2ETestDeploy is Script {
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "invalid address");
+
         erc20.mint(addr, 1_000_000_000_000_000_000);
 
         vm.stopBroadcast();
@@ -77,6 +78,7 @@ contract MockE2ETestDeploy is Script {
         json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

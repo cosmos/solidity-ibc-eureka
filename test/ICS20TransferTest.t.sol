@@ -125,7 +125,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -136,7 +136,7 @@ contract ICS20TransferTest is Test {
         );
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
-        uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfter, 0);
         assertEq(contractBalanceAfter, defaultAmount);
     }
@@ -150,7 +150,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), largeAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, largeAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -165,7 +165,7 @@ contract ICS20TransferTest is Test {
         );
 
         assertEq(erc20.balanceOf(sender), 0);
-        assertEq(erc20.balanceOf(address(ics20Transfer)), largeAmount);
+        assertEq(erc20.balanceOf(ics20Transfer.escrow()), largeAmount);
     }
 
     function test_failure_onSendPacket() public {
@@ -263,7 +263,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -274,7 +274,7 @@ contract ICS20TransferTest is Test {
         );
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
@@ -292,7 +292,7 @@ contract ICS20TransferTest is Test {
 
         // Nothing should change
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterAck, 0);
         assertEq(contractBalanceAfterAck, defaultAmount);
     }
@@ -303,7 +303,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -314,7 +314,7 @@ contract ICS20TransferTest is Test {
         );
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
@@ -330,7 +330,7 @@ contract ICS20TransferTest is Test {
 
         // transfer should be reverted
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterAck, defaultAmount);
         assertEq(contractBalanceAfterAck, 0);
     }
@@ -379,7 +379,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -390,7 +390,7 @@ contract ICS20TransferTest is Test {
         );
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
@@ -402,7 +402,7 @@ contract ICS20TransferTest is Test {
 
         // transfer should be reverted
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterAck, defaultAmount);
         assertEq(contractBalanceAfterAck, 0);
     }
@@ -439,7 +439,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -450,7 +450,7 @@ contract ICS20TransferTest is Test {
         );
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
@@ -489,7 +489,7 @@ contract ICS20TransferTest is Test {
 
         // the tokens should have been transferred back again
         uint256 senderBalanceAfterReceive = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterReceive = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterReceive, defaultSdkCoinAmount);
         assertEq(contractBalanceAfterReceive, defaultAmount - defaultSdkCoinAmount);
     }

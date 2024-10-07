@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
+import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
@@ -13,6 +14,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
+import { Escrow } from "./utils/Escrow.sol";
 
 using SafeERC20 for IERC20;
 
@@ -22,11 +24,20 @@ using SafeERC20 for IERC20;
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
+    /// @notice The escrow contract address
+    IEscrow private immutable ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
-    mapping(string denom => IBCERC20 ibcERC20Contract) private _foreignDenomContracts;
+    mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
 
     /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) { }
+    constructor(address owner_) Ownable(owner_) {
+        ESCROW = new Escrow(address(this));
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function escrow() external view override returns (address) {
+        return address(ESCROW);
+    }
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
@@ -84,7 +95,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(this), erc20Address, packetData.amount);
+        _transferFrom(sender, address(ESCROW), erc20Address, packetData.amount);
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
@@ -124,7 +135,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // transfer the tokens to the receiver
-        IERC20(erc20Address).safeTransfer(receiver, packetData.amount);
+        ESCROW.send(IERC20(erc20Address), receiver, packetData.amount);
 
         // Note the event don't take into account the conversion
         emit ICS20ReceiveTransfer(packetData, erc20Address);
@@ -159,7 +170,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @param erc20Address The address of the ERC20 contract
     function _refundTokens(ICS20Lib.PacketDataJSON memory packetData, address erc20Address) private {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
-        IERC20(erc20Address).safeTransfer(refundee, packetData.amount);
+        ESCROW.send(IERC20(erc20Address), refundee, packetData.amount);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -209,7 +220,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         } else {
             // receiving chain is source of the token, so we've received and mapped this token before
             string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
-            erc20Address = address(_foreignDenomContracts[ibcDenom]);
+            erc20Address = address(_ibcDenomContracts[ibcDenom]);
             if (erc20Address == address(0)) {
                 revert ICS20DenomNotFound(packetData.denom);
             }
@@ -259,11 +270,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     function findOrCreateERC20Address(string memory fullDenomPath, string memory base) internal returns (address) {
         // check if denom already has a foreign registered contract
         string memory ibcDenom = ICS20Lib.toIBCDenom(fullDenomPath);
-        address erc20Contract = address(_foreignDenomContracts[ibcDenom]);
+        address erc20Contract = address(_ibcDenomContracts[ibcDenom]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)), ibcDenom, base, fullDenomPath);
-            _foreignDenomContracts[ibcDenom] = ibcERC20;
+            IBCERC20 ibcERC20 = new IBCERC20(this, ESCROW, ibcDenom, base, fullDenomPath);
+            _ibcDenomContracts[ibcDenom] = ibcERC20;
             erc20Contract = address(ibcERC20);
         }
 

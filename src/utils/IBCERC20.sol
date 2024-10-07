@@ -5,13 +5,17 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
+import { IEscrow } from "../interfaces/IEscrow.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20, Ownable {
     /// @notice The full IBC denom path for this token
     string private _fullDenomPath;
+    /// @notice The escrow contract address
+    IEscrow private immutable ESCROW;
 
     constructor(
         IICS20Transfer owner_,
+        IEscrow escrow_,
         string memory ibcDenom_,
         string memory baseDenom_,
         string memory fullDenomPath_
@@ -20,6 +24,7 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
         Ownable(address(owner_))
     {
         _fullDenomPath = fullDenomPath_;
+        ESCROW = escrow_;
     }
 
     /// @inheritdoc IIBCERC20
@@ -29,11 +34,11 @@ contract IBCERC20 is IIBCERC20, ERC20, Ownable {
 
     /// @inheritdoc IIBCERC20
     function mint(uint256 amount) external onlyOwner {
-        _mint(owner(), amount);
+        _mint(address(ESCROW), amount);
     }
 
     /// @inheritdoc IIBCERC20
     function burn(uint256 amount) external onlyOwner {
-        _burn(owner(), amount);
+        _burn(address(ESCROW), amount);
     }
 }
