@@ -6,7 +6,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @title Escrow Contract Interface
 /// @notice This interface is implemented by the Escrow contract
 interface IEscrow {
-    /// @notice Approve the owner to spend the token on behalf of the contract
-    /// @param token The token to approve
-    function approve(IERC20 token) external;
+    /// @notice Send tokens to the specified address
+    /// @param token The token to send
+    /// @param to The address to send the tokens to
+    /// @param amount The amount of tokens to send
+    function send(IERC20 token, address to, uint256 amount) external;
 }
