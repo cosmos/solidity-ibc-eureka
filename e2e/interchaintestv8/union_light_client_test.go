@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	ethRPC             = "http://localhost:32845"
-	beaconRPC          = "http://localhost:32850"
+	ethRPC             = "http://localhost:32856"
+	beaconRPC          = "http://localhost:32861"
 	ics26RouterAddress = "0xC3536F63aB92bc7902dB5D57926c80f933121Bca"
 )
 
@@ -380,13 +380,9 @@ func (s *UnionTestSuite) TestUnionDeployment() {
 		MerklePath:  merklePath,
 	})
 
-	// expected value (0xfce56304911af29f62fafbb8cc63e1284c58227678a2eef956e5ee5bd459de0e) and stored value (0x6100b0115958fd2814360ce18f99b63e26266265f2a258a4191c11231c098c27) don't match: wasm contract call failed"
-
-	// :02AM ERR Verify membership failed KeyPath[0]=commitments/ports/testport/channels/test-channel-0/sequences/1 err="verify storage proof error: trie error (InvalidStateRoot(0x10308a351689a587547d650cf46bfa13f0cf3423555310ab7ec048d8df5085a8)) 0x10308a351689a587547d650cf46bfa13f0cf3423555310ab7ec048d8df5085a8 0xab693306e3ccdded526ba13d80e7eadad21195ce64bc2a0c4a6e8dab1d236c69 0x6100b0115958fd2814360ce18f99b63e26266265f2a258a4191c11231c098c27: trie error (InvalidStateRoot(0x10308a351689a587547d650cf46bfa13f0cf3423555310ab
-
 	s.Require().NoError(err)
 	fmt.Printf("Verify resp: %t\n", verifyResp.Success)
-	fmt.Println(verifyResp.Success)
+	s.Require().True(verifyResp.Success)
 }
 
 func TestRawValue(t *testing.T) {
