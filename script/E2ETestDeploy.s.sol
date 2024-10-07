@@ -7,6 +7,7 @@ pragma solidity >=0.8.25 <0.9.0;
 
 // solhint-disable gas-custom-errors,custom-errors
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
@@ -14,10 +15,12 @@ import { SP1Verifier } from "@sp1-contracts/v1.1.0/SP1Verifier.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
+import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
+import {console} from "forge-std/console.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -35,24 +38,25 @@ contract E2ETestDeploy is Script {
 
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
-        SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
-        IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
-            abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
-        bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
+        //SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
+        //IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
+        //    abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+        //bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
-        vm.startBroadcast();
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(privateKey);
         address deployerAddress = msg.sender; // This is being set in the e2e test
 
         // Deploy the SP1 ICS07 Tendermint light client
-        SP1Verifier verifier = new SP1Verifier();
-        SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
-            genesis.updateClientVkey,
-            genesis.membershipVkey,
-            genesis.ucAndMembershipVkey,
-            address(verifier),
-            genesis.trustedClientState,
-            trustedConsensusHash
-        );
+        //SP1Verifier verifier = new SP1Verifier();
+        //SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
+        //    genesis.updateClientVkey,
+        //    genesis.membershipVkey,
+        //    genesis.ucAndMembershipVkey,
+        //    address(verifier),
+        //    genesis.trustedClientState,
+        //    trustedConsensusHash
+        //);
 
         // Deploy IBC Eureka
         ICS02Client ics02Client = new ICS02Client(deployerAddress);
@@ -63,6 +67,31 @@ contract E2ETestDeploy is Script {
         // Wire Transfer app
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
+        bytes memory ack = "test-ack";
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+             sequence: 1,
+             timeoutTimestamp: 100,
+             sourcePort: "testport",
+             sourceChannel: "test-channel-0",
+             destPort: "testport",
+             destChannel: "test-channel-1",
+             version: ICS20Lib.ICS20_VERSION,
+             data: bytes("testdata")
+        });
+        (bytes32 path, bytes32 commitment) = ics26Router.testHack(packet);
+
+        bytes memory raw = abi.encodePacked(
+                SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
+                uint64(0),
+                uint64(0),
+                sha256(packet.data),
+                packet.destPort,
+                packet.destChannel
+            );
+        console.logBytes(raw);
+
+        console.logBytes32(ics26Router.getCommitment(path));
+
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "failed to parse faucet address");
@@ -72,10 +101,16 @@ contract E2ETestDeploy is Script {
         vm.stopBroadcast();
 
         string memory json = "json";
-        json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
+        //json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
         json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        json.serialize("portId", packet.destPort);
+        json.serialize("channelId", packet.destChannel);
+        json.serialize("sequence", Strings.toString(packet.sequence));
+        json.serialize("ack raw", string(ack));
+        json.serialize("path hex", Strings.toHexString(uint256(path)));
+        json.serialize("commitement hex", Strings.toHexString(uint256(commitment)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
@@ -101,4 +136,5 @@ contract E2ETestDeploy is Script {
 
         return fixture;
     }
+    
 }

@@ -5,6 +5,8 @@ import { IIBCStore } from "./IIBCStore.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { ICS24Host } from "./ICS24Host.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
+import {console} from "forge-std/console.sol";
+
 
 abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     /// @notice all IBC commitments
@@ -97,6 +99,9 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
         }
 
         bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(ack);
+
+                console.logBytes32(path);
+
         commitments[path] = commitment;
     }
 }

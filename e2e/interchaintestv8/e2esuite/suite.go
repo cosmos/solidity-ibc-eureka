@@ -34,7 +34,7 @@ type TestSuite struct {
 	ExecRep      *testreporter.RelayerExecReporter
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
-	proposalIDs    map[string]uint64
+	proposalIDs map[string]uint64
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -71,7 +71,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	// map all query request types to their gRPC method paths for cosmos chains
-	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
+	s.Require().NoError(PopulateQueryReqToPath(ctx, s.ChainB))
 
 	// Fund user accounts
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)

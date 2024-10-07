@@ -17,8 +17,8 @@ var DefaultChainSpecs = []*interchaintest.ChainSpec{
 			ChainID: "simd-1",
 			Images: []ibc.DockerImage{
 				{
-					Repository: "ghcr.io/cosmos/ibc-go-simd", // FOR LOCAL IMAGE USE: Docker Image Name
-					Version:    "poc-solidity-ibc-eureka-wasm",    // FOR LOCAL IMAGE USE: Docker Image Tag
+					Repository: "ghcr.io/cosmos/ibc-go-simd",   // FOR LOCAL IMAGE USE: Docker Image Name
+					Version:    "poc-solidity-ibc-eureka-wasm", // FOR LOCAL IMAGE USE: Docker Image Tag
 					UidGid:     "1025:1025",
 				},
 			},
@@ -28,7 +28,7 @@ var DefaultChainSpecs = []*interchaintest.ChainSpec{
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.3,
 			EncodingConfig: CosmosEncodingConfig(),
-			ModifyGenesis:  defaultModifyGenesis(),
+			ModifyGenesis:  DefaultModifyGenesis(),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,
 		},

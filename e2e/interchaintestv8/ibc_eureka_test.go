@@ -75,8 +75,8 @@ type IbcEurekaTestSuite struct {
 
 	// The (hex encoded) checksum of the wasm client contract deployed on the Cosmos chain
 	simdClientChecksum string
-	simdClientID string
-	ethClientID  string
+	simdClientID       string
+	ethClientID        string
 }
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
@@ -280,39 +280,47 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Add ethereum 08-wasm light client on Cosmos chain", func() {
+		ethClient, err := ethclient.Dial("https://eth-holesky-beacon.public.blastapi.io")
+		s.Require().NoError(err)
+		var blockNumberStr string
+		err = ethClient.Client().Call(&blockNumberStr, "eth_blockNumber")
+		s.Require().NoError(err)
+		blockNumber, err := strconv.Atoi(blockNumberStr)
+		s.Require().NoError(err)
+
+		beaconAPIClient := NewBeaconAPIClient("https://eth-holesky-beacon.public.blastapi.io")
+		genesis := beaconAPIClient.GetGenesis()
+		spec := beaconAPIClient.GetSpec()
+
 		// Wanting to use holesky: https://github.com/eth-clients/holesky
 		// TODO: Need to fetch information about current epoch, block, etc from an API or RPC (depending on what is possible)
 		// For now, I've just put in a bunch of dummy values to just test creating the client
-		genesisValidatorsRoot := ethcommon.FromHex("0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1")
+		genesisValidatorsRoot := genesis.GenesisValidatorsRoot
 
 		// TODO: Fill these out, need to find the correct information from somewhere
 		ethClientState := ethereumligthclient.ClientState{
 			ChainId:                      "17000",
-			GenesisValidatorsRoot:        genesisValidatorsRoot,
-			MinSyncCommitteeParticipants: 1,
-			GenesisTime:                  1,
-			ForkParameters:               &ethereumligthclient.ForkParameters{
-				GenesisForkVersion: []byte{0, 0, 16, 32},
-				GenesisSlot:        1,
-				Altair:             nil,
-				Bellatrix:          nil,
-				Capella:            nil,
-				Deneb:              nil,
+			GenesisValidatorsRoot:        genesisValidatorsRoot[:],
+			MinSyncCommitteeParticipants: 0,
+			GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
+			ForkParameters:               spec.ToForkParameters(),
+			SecondsPerSlot:               uint64(spec.SecondsPerSlot),
+			SlotsPerEpoch:                spec.SlotsPerEpoch,
+			EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
+			LatestSlot:                   uint64(blockNumber),
+			FrozenHeight: &clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: 0,
 			},
-			SecondsPerSlot:               1,
-			SlotsPerEpoch:                1,
-			EpochsPerSyncCommitteePeriod: 1,
-			LatestSlot:                   1,
-			FrozenHeight:                 &clienttypes.Height{},
-			IbcCommitmentSlot:            []byte("42"),
-			IbcContractAddress:           ethcommon.FromHex("0xe914d607a64c5ac3b2c9db3e1b5d809ec4c2e4bf"), // some random address
+			IbcCommitmentSlot:  []byte{0, 0, 0, 0},
+			IbcContractAddress: ethcommon.FromHex("0xe914d607a64c5ac3b2c9db3e1b5d809ec4c2e4bf"), // some random address
 		}
 		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
 		wasmClientChecksum, err := hex.DecodeString(s.simdClientChecksum)
 		s.Require().NoError(err)
 		clientState := ibcwasmtypes.ClientState{
-			Data:         ethClientStateBz,
-			Checksum:     wasmClientChecksum,
+			Data:     ethClientStateBz,
+			Checksum: wasmClientChecksum,
 			// TODO: replace with actual height
 			LatestHeight: clienttypes.Height{
 				RevisionNumber: 1,
@@ -322,7 +330,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		clientStateAny, err := clienttypes.PackClientState(&clientState)
 		s.Require().NoError(err)
 
-		// TODO: Fill out correctly
+		//header := beaconAPIClient.GetHeader()
 		ethConsensusState := ethereumligthclient.ConsensusState{
 			Slot:                 77,
 			StateRoot:            []byte("state root"),
@@ -349,7 +357,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 		s.simdClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 		s.Require().NoError(err)
-		s.Require().Equal("xxx-replace-me", s.simdClientID)
+		s.Require().Equal("08-wasm-1", s.simdClientID)
 	}))
 
 	// TODO: Deploy a client on holesky (or whatever Ethereum variant we can test with) and add counterparty on both sides

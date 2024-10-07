@@ -15,7 +15,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
-func defaultModifyGenesis() func(ibc.ChainConfig, []byte) ([]byte, error) {
+func DefaultModifyGenesis() func(ibc.ChainConfig, []byte) ([]byte, error) {
 	return func(chainConfig ibc.ChainConfig, genBz []byte) ([]byte, error) {
 		appGenesis, err := genutiltypes.AppGenesisFromReader(bytes.NewReader(genBz))
 		if err != nil {

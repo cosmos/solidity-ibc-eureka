@@ -219,6 +219,15 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         emit TimeoutPacket(msg_.packet);
     }
 
+    function testHack(Packet calldata packet) public returns (bytes32, bytes32) {
+        IBCStore.commitPacket(packet);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
+        bytes32 commitment = ICS24Host.packetCommitmentBytes32(packet);
+
+        return (path, commitment);
+    }
+
+
     /// @notice Writes a packet acknowledgement and emits an event
     /// @param packet The packet to acknowledge
     /// @param ack The acknowledgement
