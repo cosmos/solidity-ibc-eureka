@@ -35,6 +35,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     /// @inheritdoc IICS20Transfer
+    function escrow() external view override returns (address) {
+        return address(ESCROW);
+    }
+
+    /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         if (msg_.amount == 0) {
             revert ICS20InvalidAmount(msg_.amount);
