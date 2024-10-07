@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.25;
 
-import { IIBCStore } from "./IIBCStore.sol";
+import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { ICS24Host } from "./ICS24Host.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
