@@ -308,7 +308,7 @@ require (
 
 replace github.com/cosmos/ibc-go/v8 => github.com/cosmos/ibc-go/v8 v8.0.0-beta.1.0.20240730120204-16cd2bb559de
 
-replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => ../../../ibc-go/modules/light-clients/08-wasm
+replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241007231118-9ffa999926bc
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/DimitrisJim/interchaintest/v8 v8.0.0-20240419095404-2c9270423b9a
 
