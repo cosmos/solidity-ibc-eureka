@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"time"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
+
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -39,6 +43,9 @@ type TestSuite struct {
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
+
+	GethRPC   string
+	BeaconRPC string
 }
 
 type KurtosisNetworkParams struct {
@@ -98,8 +105,20 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.proposalIDs[s.ChainB.Config().ChainID] = 1
 
 	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
+	s.Require().NoError(err)
+
 	enclaveName := "my-enclave"
+	enclaves, err := kurtosisCtx.GetEnclaves(ctx)
+	s.Require().NoError(err)
+
+	if enclaveInfos, found := enclaves.GetEnclavesByName()[enclaveName]; found {
+		for _, enclaveInfo := range enclaveInfos {
+			err = kurtosisCtx.DestroyEnclave(ctx, enclaveInfo.EnclaveUuid)
+			s.Require().NoError(err)
+		}
+	}
 	enclaveCtx, err := kurtosisCtx.CreateEnclave(ctx, enclaveName)
+	s.Require().NoError(err)
 	networkParams := KurtosisNetworkParams{
 		Participants: []Participant{
 			{
@@ -116,8 +135,32 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	})
 	s.Require().NoError(err)
 	fmt.Println(starlarkResp.RunOutput)
-	// serviceCtx, err := enclaveCtx.GetServiceContext("my-service")
-	// s.Require().NoError(err)
+
+	time.Sleep(2 * time.Minute)
+
+	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
+	s.Require().NoError(err)
+	rpcPortSpec := gethCtx.GetPublicPorts()["rpc"]
+	s.GethRPC = fmt.Sprintf("http://localhost:%d", rpcPortSpec.GetNumber())
+
+	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
+	s.Require().NoError(err)
+	beaconPortSpec := lighthouseCtx.GetPublicPorts()["http"]
+	s.BeaconRPC = fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
+
+	cmd := exec.Command("forge", "script", "--rpc-url", s.GethRPC, "--broadcast", "--slow", "--delay", "30", "--retries", "20", "-vvvv", "../../script/E2ETestDeploy.s.sol:E2ETestDeploy")
+	cmd.Env = append(cmd.Env, "PRIVATE_KEY=0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	// if err != nil {
+	// 	// forge script sometimes fail waiting for tx indexing
+	// 	cmd.Args = append(cmd.Args, "--resume")
+	// 	err = cmd.Run()
+	// 	s.Require().NoError(err)
+	// }
+	s.Require().NoError(err)
+	//PRIVATE_KEY=0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59 forge script script/E2ETestDeploy.s.sol:E2ETestDeploy --rpc-url http://localhost:32856 --broadcast -vvvv
 
 	t.Cleanup(
 		func() {

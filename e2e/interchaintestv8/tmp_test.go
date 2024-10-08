@@ -319,7 +319,8 @@ func getStorageKey(path string) common.Hash {
 }
 
 func TestBeacon(t *testing.T) {
-	ethClient, err := ethclient.Dial(ethRPC)
+	// ethClient, err := ethclient.Dial(ethRPC)
+	ethClient, err := ethclient.Dial("")
 	require.NoError(t, err)
 	var blockNumberHex string
 	err = ethClient.Client().Call(&blockNumberHex, "eth_blockNumber")
@@ -330,7 +331,8 @@ func TestBeacon(t *testing.T) {
 
 	time.Sleep(10 * time.Second) // Just to give time to settle, some calls might fail otherwise
 
-	beaconAPIClient := NewBeaconAPIClient(beaconRPC)
+	//beaconAPIClient := NewBeaconAPIClient(beaconRPC)
+	beaconAPIClient := NewBeaconAPIClient("")
 	genesis := beaconAPIClient.GetGenesis()
 	require.NotEmpty(t, genesis)
 
