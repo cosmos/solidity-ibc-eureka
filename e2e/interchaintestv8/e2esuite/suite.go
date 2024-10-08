@@ -2,8 +2,12 @@ package e2esuite
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	dockerclient "github.com/docker/docker/client"
+	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
+	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -35,6 +39,16 @@ type TestSuite struct {
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
+}
+
+type KurtosisNetworkParams struct {
+	Participants []Participant `json:"participants"`
+}
+
+type Participant struct {
+	CLType        string   `json:"cl_type"`
+	CLImage       string   `json:"cl_image"`
+	CLExtraParams []string `json:"cl_extra_params"`
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -83,8 +97,33 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.proposalIDs = make(map[string]uint64)
 	s.proposalIDs[s.ChainB.Config().ChainID] = 1
 
+	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
+	enclaveName := "my-enclave"
+	enclaveCtx, err := kurtosisCtx.CreateEnclave(ctx, enclaveName)
+	networkParams := KurtosisNetworkParams{
+		Participants: []Participant{
+			{
+				CLType:        "lighthouse",
+				CLImage:       "sigp/lighthouse:latest-unstable",
+				CLExtraParams: []string{"--light-client-server"},
+			},
+		},
+	}
+	networkParamsJson, err := json.Marshal(networkParams)
+	s.Require().NoError(err)
+	starlarkResp, err := enclaveCtx.RunStarlarkRemotePackageBlocking(ctx, "github.com/ethpandaops/ethereum-package", &starlark_run_config.StarlarkRunConfig{
+		SerializedParams: string(networkParamsJson),
+	})
+	s.Require().NoError(err)
+	fmt.Println(starlarkResp.RunOutput)
+	// serviceCtx, err := enclaveCtx.GetServiceContext("my-service")
+	// s.Require().NoError(err)
+
 	t.Cleanup(
 		func() {
+			if err := kurtosisCtx.DestroyEnclave(ctx, enclaveName); err != nil {
+				fmt.Printf("Error destroying enclave: %v\n", err)
+			}
 		},
 	)
 }
