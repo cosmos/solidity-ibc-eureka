@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	"math/big"
 	"os"
 	"strconv"
@@ -35,15 +34,11 @@ import (
 	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ibcerc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics02client"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
@@ -62,8 +57,7 @@ type IbcEurekaTestSuite struct {
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 	// The private key of the faucet account of interchaintest
-	faucet   *ecdsa.PrivateKey
-	deployer ibc.Wallet
+	deployer *ecdsa.PrivateKey
 
 	contractAddresses e2esuite.DeployedContracts
 
@@ -91,19 +85,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		s.key, err = crypto.GenerateKey()
-		s.Require().NoError(err)
-		testKeyAddress := crypto.PubkeyToAddress(s.key.PublicKey).Hex()
-
-		s.deployer, err = eth.BuildWallet(ctx, "deployer", "")
+		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
-		operatorKey, err := crypto.GenerateKey()
+		operatorKey, err := eth.CreateAndFundUser()
 		s.Require().NoError(err)
-		operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey).Hex()
 
-		// get faucet private key from string
-		s.faucet, err = crypto.HexToECDSA(testvalues.FaucetPrivateKey)
+		s.deployer, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
 		prover = os.Getenv(testvalues.EnvKeySp1Prover)
@@ -118,28 +106,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		}
 
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
-		os.Setenv(testvalues.EnvKeyEthRPC, eth.GetHostRPCAddress())
+		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 		if os.Getenv(testvalues.EnvKeyGenerateFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateFixtures = true
 		}
-
-		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
-			Amount:  testvalues.StartingEthBalance,
-			Address: testKeyAddress,
-		}))
-
-		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
-			Amount:  testvalues.StartingEthBalance,
-			Address: s.deployer.FormattedAddress(),
-		}))
-
-		s.Require().NoError(eth.SendFunds(ctx, "faucet", ibc.WalletAmount{
-			Amount:  testvalues.StartingEthBalance,
-			Address: operatorAddress,
-		}))
 	}))
 
 	s.Require().True(s.Run("Deploy contracts", func() {
@@ -151,38 +124,24 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 		var (
 			stdout []byte
-			stderr []byte
 			err    error
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
-				ContractRootDir:  ".",
-				SolidityContract: "script/MockE2ETestDeploy.s.sol",
-				RawOptions: []string{
-					"--json",
-					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
-				},
-			})
-			s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
+			stdout, err = eth.ForgeScript(s.deployer, "script/MockE2ETestDeploy.s.sol:MockE2ETestDeploy")
+			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the SP1_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
-			stdout, stderr, err = eth.ForgeScript(ctx, s.deployer.KeyName(), ethereum.ForgeScriptOpts{
-				ContractRootDir:  ".",
-				SolidityContract: "script/E2ETestDeploy.s.sol",
-				RawOptions: []string{
-					"--json",
-					"--sender", s.deployer.FormattedAddress(), // This, combined with the keyname, makes msg.sender the deployer
-				},
-			})
-			s.Require().NoError(err, fmt.Sprintf("error deploying contracts: \nstderr: %s\nstdout: %s", stderr, stdout))
+			stdout, err = eth.ForgeScript(s.deployer, "script/E2ETestDeploy.s.sol:E2ETestDeploy")
+			fmt.Println("deploy output", string(stdout))
+			s.Require().NoError(err)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		ethClient, err := ethclient.Dial(eth.GetHostRPCAddress())
+		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 
 		s.contractAddresses = s.GetEthContractsFromDeployOutput(string(stdout))
@@ -203,7 +162,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(s.faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
 		s.Require().NoError(err)
 
 		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
@@ -211,8 +170,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 
+	// TODO: Replace with union light client stuff
 	s.Require().True(s.Run("Add client on Cosmos chain", func() {
-		ethHeight, err := eth.Height(ctx)
+		ethHeight, err := eth.Height()
 		s.Require().NoError(err)
 
 		clientState := mock.ClientState{
@@ -269,98 +229,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		})
 		s.Require().NoError(err)
 	}))
-
-	s.Require().True(s.Run("Deploy ethereum 08-wasm contract on Cosmos chain", func() {
-		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_mainnet.wasm.gz")
-		s.Require().NoError(err)
-
-		s.simdClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
-
-		s.Require().NotEmpty(s.simdClientChecksum, "checksum was empty but should not have been")
-	}))
-
-	s.Require().True(s.Run("Add ethereum 08-wasm light client on Cosmos chain", func() {
-		ethClient, err := ethclient.Dial("https://eth-holesky-beacon.public.blastapi.io")
-		s.Require().NoError(err)
-		var blockNumberStr string
-		err = ethClient.Client().Call(&blockNumberStr, "eth_blockNumber")
-		s.Require().NoError(err)
-		blockNumber, err := strconv.Atoi(blockNumberStr)
-		s.Require().NoError(err)
-
-		beaconAPIClient := NewBeaconAPIClient("https://eth-holesky-beacon.public.blastapi.io")
-		genesis := beaconAPIClient.GetGenesis()
-		spec := beaconAPIClient.GetSpec()
-
-		// Wanting to use holesky: https://github.com/eth-clients/holesky
-		// TODO: Need to fetch information about current epoch, block, etc from an API or RPC (depending on what is possible)
-		// For now, I've just put in a bunch of dummy values to just test creating the client
-		genesisValidatorsRoot := genesis.GenesisValidatorsRoot
-
-		// TODO: Fill these out, need to find the correct information from somewhere
-		ethClientState := ethereumligthclient.ClientState{
-			ChainId:                      "17000",
-			GenesisValidatorsRoot:        genesisValidatorsRoot[:],
-			MinSyncCommitteeParticipants: 0,
-			GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
-			ForkParameters:               spec.ToForkParameters(),
-			SecondsPerSlot:               uint64(spec.SecondsPerSlot),
-			SlotsPerEpoch:                spec.SlotsPerEpoch,
-			EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
-			LatestSlot:                   uint64(blockNumber),
-			FrozenHeight: &clienttypes.Height{
-				RevisionNumber: 0,
-				RevisionHeight: 0,
-			},
-			IbcCommitmentSlot:  []byte{0, 0, 0, 0},
-			IbcContractAddress: ethcommon.FromHex("0xe914d607a64c5ac3b2c9db3e1b5d809ec4c2e4bf"), // some random address
-		}
-		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
-		wasmClientChecksum, err := hex.DecodeString(s.simdClientChecksum)
-		s.Require().NoError(err)
-		clientState := ibcwasmtypes.ClientState{
-			Data:     ethClientStateBz,
-			Checksum: wasmClientChecksum,
-			// TODO: replace with actual height
-			LatestHeight: clienttypes.Height{
-				RevisionNumber: 1,
-				RevisionHeight: 42,
-			},
-		}
-		clientStateAny, err := clienttypes.PackClientState(&clientState)
-		s.Require().NoError(err)
-
-		//header := beaconAPIClient.GetHeader()
-		ethConsensusState := ethereumligthclient.ConsensusState{
-			Slot:                 77,
-			StateRoot:            []byte("state root"),
-			StorageRoot:          []byte("storage root"),
-			Timestamp:            1,
-			CurrentSyncCommittee: []byte("current sync committee"),
-			NextSyncCommittee:    []byte("next sync committee"),
-		}
-		ethConsensusStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethConsensusState)
-		consensusState := ibcwasmtypes.ConsensusState{
-			Data: ethConsensusStateBz,
-		}
-		consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
-		s.Require().NoError(err)
-
-		res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
-			ClientState:      clientStateAny,
-			ConsensusState:   consensusStateAny,
-			Signer:           simdRelayerUser.FormattedAddress(),
-			CounterpartyId:   "",
-			MerklePathPrefix: nil,
-		})
-		s.Require().NoError(err)
-
-		s.simdClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
-		s.Require().NoError(err)
-		s.Require().Equal("08-wasm-1", s.simdClientID)
-	}))
-
-	// TODO: Deploy a client on holesky (or whatever Ethereum variant we can test with) and add counterparty on both sides
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -404,7 +272,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().True(s.Run("Verify ICS02 Client", func() {
 			owner, err := s.ics02Contract.Owner(nil)
 			s.Require().NoError(err)
-			s.Require().Equal(strings.ToLower(s.deployer.FormattedAddress()), strings.ToLower(owner.Hex()))
+			s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
 
 			clientAddress, err := s.ics02Contract.GetClient(nil, s.ethClientID)
 			s.Require().NoError(err)
@@ -418,7 +286,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().True(s.Run("Verify ICS26 Router", func() {
 			owner, err := s.ics26Contract.Owner(nil)
 			s.Require().NoError(err)
-			s.Require().Equal(strings.ToLower(s.deployer.FormattedAddress()), strings.ToLower(owner.Hex()))
+			s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
 
 			transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
 			s.Require().NoError(err)
@@ -869,7 +737,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
 		s.Require().NoError(err)
 
-		ethClient, err := ethclient.Dial(eth.GetHostRPCAddress())
+		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 		ibcERC20, err = ibcerc20.NewContract(ethReceiveTransferEvent.Erc20Address, ethClient)
 		s.Require().NoError(err)

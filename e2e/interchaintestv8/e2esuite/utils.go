@@ -7,16 +7,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	"io"
-	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -33,7 +33,6 @@ import (
 
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
@@ -43,10 +42,6 @@ import (
 type ForgeScriptReturnValues struct {
 	InternalType string `json:"internal_type"`
 	Value        string `json:"value"`
-}
-
-type ForgeDeployOutput struct {
-	Returns map[string]ForgeScriptReturnValues `json:"returns"`
 }
 
 type DeployedContracts struct {
@@ -111,24 +106,20 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 }
 
 func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContracts {
+	// Remove everything above the JSON part
+	cutOff := "== Return =="
+	cutoffIndex := strings.Index(stdout, cutOff)
+	stdout = stdout[cutoffIndex+len(cutOff):]
+
 	// Extract the JSON part using regex
 	re := regexp.MustCompile(`\{.*\}`)
 	jsonPart := re.FindString(stdout)
 
-	var returns ForgeDeployOutput
-	err := json.Unmarshal([]byte(jsonPart), &returns)
-	s.Require().NoError(err)
-
-	// Extract the embedded JSON string
-	s.Require().Len(returns.Returns, 1)
-	embeddedJsonStr := returns.Returns["0"].Value
-
-	// Unescape and remove surrounding quotes
-	embeddedJsonStr = strings.ReplaceAll(embeddedJsonStr, `\"`, `"`)
-	embeddedJsonStr = strings.Trim(embeddedJsonStr, `"`)
+	jsonPart = strings.ReplaceAll(jsonPart, `\"`, `"`)
+	jsonPart = strings.Trim(jsonPart, `"`)
 
 	var embeddedContracts DeployedContracts
-	err = json.Unmarshal([]byte(embeddedJsonStr), &embeddedContracts)
+	err := json.Unmarshal([]byte(jsonPart), &embeddedContracts)
 	s.Require().NoError(err)
 
 	s.Require().NotEmpty(embeddedContracts.Erc20)
@@ -147,15 +138,16 @@ func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContr
 
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
 // on the two chains.
-func (s *TestSuite) GetRelayerUsers(ctx context.Context) (ibc.Wallet, ibc.Wallet) {
+func (s *TestSuite) GetRelayerUsers(ctx context.Context) (*ecdsa.PrivateKey, ibc.Wallet) {
 	eth, simd := s.ChainA, s.ChainB
 
-	ethUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), testvalues.StartingEthBalance, eth)
+	ethKey, err := eth.CreateAndFundUser()
+	s.Require().NoError(err)
 
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, simd)
 
-	return ethUsers[0], cosmosUsers[0]
+	return ethKey, cosmosUsers[0]
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
@@ -174,12 +166,12 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return
 }
 
-func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumChain, hash ethcommon.Hash) *ethtypes.Receipt {
-	ethClient, err := ethclient.Dial(chain.GetHostRPCAddress())
+func (s *TestSuite) GetTxReciept(ctx context.Context, chain Ethereum, hash ethcommon.Hash) *ethtypes.Receipt {
+	ethClient, err := ethclient.Dial(chain.RPC)
 	s.Require().NoError(err)
 
 	var receipt *ethtypes.Receipt
-	err = testutil.WaitForCondition(time.Second*10, time.Second, func() (bool, error) {
+	err = testutil.WaitForCondition(time.Second*30, time.Second, func() (bool, error) {
 		receipt, err = ethClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil
@@ -192,11 +184,7 @@ func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumCh
 }
 
 func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
-	chainIDStr, err := strconv.ParseInt(s.ChainA.Config().ChainID, 10, 64)
-	s.Require().NoError(err)
-	chainID := big.NewInt(chainIDStr)
-
-	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	txOpts, err := bind.NewKeyedTransactorWithChainID(key, s.ChainA.ChainID)
 	s.Require().NoError(err)
 
 	return txOpts
@@ -214,7 +202,6 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 		Signer:       authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		WasmByteCode: zippedContent,
 	}
-
 
 	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
 	s.Require().NoError(err)

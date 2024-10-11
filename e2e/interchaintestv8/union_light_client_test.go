@@ -46,7 +46,7 @@ type UnionTestSuite struct {
 func (s *UnionTestSuite) SetupSuite(ctx context.Context) {
 	s.TestSuite.SetupSuite(ctx)
 
-	simd := s.ChainB
+	eth, simd := s.ChainA, s.ChainB
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 
 	// Just to do the same as the other test suite:
@@ -60,7 +60,7 @@ func (s *UnionTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().NotEmpty(s.simdClientChecksum, "checksum was empty but should not have been")
 
-	ethClient, err := ethclient.Dial(s.GethRPC)
+	ethClient, err := ethclient.Dial(eth.RPC)
 	s.Require().NoError(err)
 	var blockNumberHex string
 	err = ethClient.Client().Call(&blockNumberHex, "eth_blockNumber")
@@ -71,7 +71,7 @@ func (s *UnionTestSuite) SetupSuite(ctx context.Context) {
 
 	time.Sleep(20 * time.Second) // Just to give time to settle, some calls might fail otherwise
 
-	beaconAPIClient := NewBeaconAPIClient(s.BeaconRPC)
+	beaconAPIClient := NewBeaconAPIClient(eth.BeaconRPC)
 	genesis := beaconAPIClient.GetGenesis()
 	spec := beaconAPIClient.GetSpec()
 
@@ -263,8 +263,8 @@ func (s *UnionTestSuite) TestUnionDeployment() {
 
 	s.SetupSuite(ctx)
 
-	simd := s.ChainB
-	ethClient, err := ethclient.Dial(s.GethRPC)
+	eth, simd := s.ChainA, s.ChainB
+	ethClient, err := ethclient.Dial(eth.RPC)
 	s.Require().NoError(err)
 
 	clientStateResp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
