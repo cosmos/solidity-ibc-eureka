@@ -6,8 +6,8 @@ pragma solidity >=0.8.25 <0.9.0;
 import { Test } from "forge-std/Test.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../src/utils/Escrow.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {

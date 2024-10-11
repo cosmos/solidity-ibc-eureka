@@ -16,7 +16,7 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
 struct SP1ICS07TendermintGenesisJson {
