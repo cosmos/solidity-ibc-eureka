@@ -1,4 +1,4 @@
-package e2esuite
+package ethereum
 
 import (
 	"bytes"
@@ -30,11 +30,24 @@ type Ethereum struct {
 	kurtosisCtx *kurtosis_context.KurtosisContext
 	enclaveCtx  *enclaves.EnclaveContext
 
-	ChainID   *big.Int
-	RPC       string
-	BeaconRPC string
+	ChainID         *big.Int
+	RPC             string
+	EthAPI          EthAPI
+	BeaconAPIClient BeaconAPIClient
 
 	Faucet *ecdsa.PrivateKey
+}
+
+type KurtosisNetworkParams struct {
+	Participants []Participant `json:"participants"`
+}
+
+type Participant struct {
+	CLType        string   `json:"cl_type"`
+	CLImage       string   `json:"cl_image"`
+	CLExtraParams []string `json:"cl_extra_params"`
+	ELImage       string   `json:"el_image"`
+	ELLogLevel    string   `json:"el_log_level"`
 }
 
 func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
@@ -90,7 +103,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(45 * time.Second)
 
 	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
 	if err != nil {
@@ -106,6 +119,10 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	if err != nil {
 		return Ethereum{}, err
 	}
+	ethAPI, err := NewEthAPI(rpc)
+	if err != nil {
+		return Ethereum{}, err
+	}
 
 	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
 	if err != nil {
@@ -115,21 +132,20 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
 	return Ethereum{
-		kurtosisCtx: kurtosisCtx,
-		enclaveCtx:  enclaveCtx,
-		ChainID:     chainID,
-		RPC:         rpc,
-		BeaconRPC:   beaconRPC,
-		Faucet:      faucet,
+		kurtosisCtx:     kurtosisCtx,
+		enclaveCtx:      enclaveCtx,
+		ChainID:         chainID,
+		RPC:             rpc,
+		EthAPI:          ethAPI,
+		BeaconAPIClient: NewBeaconAPIClient(beaconRPC),
+		Faucet:          faucet,
 	}, nil
 }
 
-func (e Ethereum) Destroy(ctx context.Context) error {
+func (e Ethereum) Destroy(ctx context.Context) {
 	if err := e.kurtosisCtx.DestroyEnclave(ctx, string(e.enclaveCtx.GetEnclaveUuid())); err != nil {
 		panic(err)
 	}
-
-	return nil
 }
 
 func (e Ethereum) DumpLogs(ctx context.Context) error {

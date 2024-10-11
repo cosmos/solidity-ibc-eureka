@@ -1,5 +1,0 @@
-participants:
-  - cl_type: lighthouse
-    cl_image: sigp/lighthouse:latest-unstable
-    cl_extra_params: 
-      - "--light-client-server"

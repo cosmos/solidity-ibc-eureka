@@ -1,8 +1,9 @@
-package e2esuite
+package ethereum_test
 
 import (
 	"testing"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/stretchr/testify/require"
 )
 
@@ -123,10 +124,8 @@ Transactions saved to: /Users/gg/Code/solidity-ibc-eureka/broadcast/E2ETestDeplo
 Sensitive values saved to: /Users/gg/Code/solidity-ibc-eureka/cache/E2ETestDeploy.s.sol/3151908/run-latest.json
 `
 
-	testSuite := &TestSuite{}
-	testSuite.SetT(t)
-
-	deployedContracts := testSuite.GetEthContractsFromDeployOutput(exampleOutput)
+	deployedContracts, err := ethereum.GetEthContractsFromDeployOutput(exampleOutput)
+	require.NoError(t, err)
 
 	require.Equal(t, "0x65ce09e5864dd1f45f4ae50396a307291aad6631", deployedContracts.Ics07Tendermint)
 	require.Equal(t, "0xebc7c68e032d765e392cff5b2a11e76c2c43bbbf", deployedContracts.Ics02Client)

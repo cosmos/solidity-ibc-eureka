@@ -17,6 +17,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
@@ -24,7 +25,7 @@ import (
 type TestSuite struct {
 	suite.Suite
 
-	ChainA       Ethereum
+	ChainA       ethereum.Ethereum
 	ChainB       *cosmos.CosmosChain
 	UserB        ibc.Wallet
 	dockerClient *dockerclient.Client
@@ -34,18 +35,6 @@ type TestSuite struct {
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
-}
-
-type KurtosisNetworkParams struct {
-	Participants []Participant `json:"participants"`
-}
-
-type Participant struct {
-	CLType        string   `json:"cl_type"`
-	CLImage       string   `json:"cl_image"`
-	CLExtraParams []string `json:"cl_extra_params"`
-	ELImage       string   `json:"el_image"`
-	ELLogLevel    string   `json:"el_log_level"`
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -65,7 +54,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	chains, err := cf.Chains(t.Name())
 	s.Require().NoError(err)
-	s.ChainA, err = SpinUpEthereum(ctx)
+	s.ChainA, err = ethereum.SpinUpEthereum(ctx)
 	s.Require().NoError(err)
 	s.ChainB = chains[0].(*cosmos.CosmosChain)
 

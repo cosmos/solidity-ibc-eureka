@@ -5,12 +5,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
 	"unicode"
 
@@ -36,21 +33,9 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
-
-type ForgeScriptReturnValues struct {
-	InternalType string `json:"internal_type"`
-	Value        string `json:"value"`
-}
-
-type DeployedContracts struct {
-	Ics07Tendermint string `json:"ics07Tendermint"`
-	Ics02Client     string `json:"ics02Client"`
-	Ics26Router     string `json:"ics26Router"`
-	Ics20Transfer   string `json:"ics20Transfer"`
-	Erc20           string `json:"erc20"`
-}
 
 // FundAddressChainB sends funds to the given address on Chain B.
 // The amount sent is 1,000,000,000 of the chain's denom.
@@ -105,36 +90,7 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	s.Require().NoError(err)
 }
 
-func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContracts {
-	// Remove everything above the JSON part
-	cutOff := "== Return =="
-	cutoffIndex := strings.Index(stdout, cutOff)
-	stdout = stdout[cutoffIndex+len(cutOff):]
 
-	// Extract the JSON part using regex
-	re := regexp.MustCompile(`\{.*\}`)
-	jsonPart := re.FindString(stdout)
-
-	jsonPart = strings.ReplaceAll(jsonPart, `\"`, `"`)
-	jsonPart = strings.Trim(jsonPart, `"`)
-
-	var embeddedContracts DeployedContracts
-	err := json.Unmarshal([]byte(jsonPart), &embeddedContracts)
-	s.Require().NoError(err)
-
-	s.Require().NotEmpty(embeddedContracts.Erc20)
-	s.Require().True(IsLowercase(embeddedContracts.Erc20))
-	s.Require().NotEmpty(embeddedContracts.Ics02Client)
-	s.Require().True(IsLowercase(embeddedContracts.Ics02Client))
-	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
-	s.Require().True(IsLowercase(embeddedContracts.Ics07Tendermint))
-	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
-	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
-	s.Require().NotEmpty(embeddedContracts.Ics26Router)
-	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
-
-	return embeddedContracts
-}
 
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
 // on the two chains.
@@ -166,7 +122,7 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return
 }
 
-func (s *TestSuite) GetTxReciept(ctx context.Context, chain Ethereum, hash ethcommon.Hash) *ethtypes.Receipt {
+func (s *TestSuite) GetTxReciept(ctx context.Context, chain ethereum.Ethereum, hash ethcommon.Hash) *ethtypes.Receipt {
 	ethClient, err := ethclient.Dial(chain.RPC)
 	s.Require().NoError(err)
 
