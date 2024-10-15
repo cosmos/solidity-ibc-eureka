@@ -39,7 +39,9 @@ type Ethereum struct {
 }
 
 type KurtosisNetworkParams struct {
-	Participants []Participant `json:"participants"`
+	Participants        []Participant       `json:"participants"`
+	NetworkParams       NetworkConfigParams `json:"network_params"`
+	WaitForFinalization bool                `json:"wait_for_finalization"`
 }
 
 type Participant struct {
@@ -48,6 +50,11 @@ type Participant struct {
 	CLExtraParams []string `json:"cl_extra_params"`
 	ELImage       string   `json:"el_image"`
 	ELLogLevel    string   `json:"el_log_level"`
+}
+
+type NetworkConfigParams struct {
+	Preset string `json:"preset"`
+	//SecondsPerSlot uint64 `json:"seconds_per_slot"`
 }
 
 func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
@@ -90,6 +97,11 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 				ELLogLevel:    "info",
 			},
 		},
+		NetworkParams: NetworkConfigParams{
+			Preset: "minimal",
+			//SecondsPerSlot: 4,
+		},
+		WaitForFinalization: true,
 	}
 	networkParamsJson, err := json.Marshal(networkParams)
 	if err != nil {
@@ -103,7 +115,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	time.Sleep(45 * time.Second)
+	time.Sleep(300 * time.Second) // :(((((
 
 	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
 	if err != nil {
@@ -143,9 +155,9 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 }
 
 func (e Ethereum) Destroy(ctx context.Context) {
-	if err := e.kurtosisCtx.DestroyEnclave(ctx, string(e.enclaveCtx.GetEnclaveUuid())); err != nil {
-		panic(err)
-	}
+	// if err := e.kurtosisCtx.DestroyEnclave(ctx, string(e.enclaveCtx.GetEnclaveUuid())); err != nil {
+	// 	panic(err)
+	// }
 }
 
 func (e Ethereum) DumpLogs(ctx context.Context) error {

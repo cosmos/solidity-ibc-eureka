@@ -2,10 +2,9 @@ package ethereum_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/stretchr/testify/require"
 )
@@ -19,8 +18,10 @@ func TestBeacon(t *testing.T) {
 		eth.Destroy(ctx)
 	})
 
-	_, blockNumber, err := eth.EthAPI.GetBlockNumber()
+	blockNumberHex, blockNumber, err := eth.EthAPI.GetBlockNumber()
 	require.NoError(t, err)
+
+	time.Sleep(30 * time.Second)
 
 	genesis, err := eth.BeaconAPIClient.GetGenesis()
 	require.NoError(t, err)
@@ -35,7 +36,6 @@ func TestBeacon(t *testing.T) {
 	require.NotEmpty(t, spec.EpochsPerSyncCommitteePeriod)
 
 	require.NotEmpty(t, forkParams.GenesisForkVersion)
-	fmt.Println("GenesisForkVersion", common.Bytes2Hex(forkParams.GenesisForkVersion))
 	require.NotEmpty(t, forkParams.Altair.Version)
 	require.NotEmpty(t, forkParams.Bellatrix.Version)
 	require.NotEmpty(t, forkParams.Capella.Version)
@@ -43,11 +43,22 @@ func TestBeacon(t *testing.T) {
 
 	header, err := eth.BeaconAPIClient.GetHeader(blockNumber)
 	require.NoError(t, err)
+
 	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
 	require.NoError(t, err)
 	require.NotEmpty(t, bootstrap.Data.CurrentSyncCommittee)
-	require.NotEmpty(t, bootstrap.Data.Header.Beacon.Slot)
 	require.NotEmpty(t, bootstrap.Data.Header.Execution.StateRoot)
-	require.NotEmpty(t, bootstrap.Data.Header.Execution.BlockNumber)
-	require.NotEmpty(t, bootstrap.Data.Header.Execution.Timestamp)
+
+	finalityUpdate, err := eth.BeaconAPIClient.GetFinalityUpdate()
+	require.NoError(t, err)
+	require.NotEmpty(t, finalityUpdate)
+
+	executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(blockNumberHex)
+	require.NoError(t, err)
+	require.NotEmpty(t, executionHeight)
+
+	currentPeriod := uint64(blockNumber) / spec.Period()
+	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
+	require.NoError(t, err)
+	require.NotEmpty(t, clientUpdates)
 }

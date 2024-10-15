@@ -13,7 +13,9 @@ import (
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -35,6 +37,7 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
 // FundAddressChainB sends funds to the given address on Chain B.
@@ -89,8 +92,6 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	err = testutil.WaitForBlocks(ctx, 2, chain)
 	s.Require().NoError(err)
 }
-
-
 
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
 // on the two chains.
@@ -154,7 +155,7 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 	computedChecksum := s.extractChecksumFromGzippedContent(zippedContent)
 
 	s.Require().NoError(err)
-	message := wasmtypes.MsgStoreCode{
+	message := ibcwasmtypes.MsgStoreCode{
 		Signer:       authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		WasmByteCode: zippedContent,
 	}
@@ -162,7 +163,7 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
 	s.Require().NoError(err)
 
-	codeResp, err := GRPCQuery[wasmtypes.QueryCodeResponse](ctx, chain, &wasmtypes.QueryCodeRequest{Checksum: computedChecksum})
+	codeResp, err := GRPCQuery[ibcwasmtypes.QueryCodeResponse](ctx, chain, &ibcwasmtypes.QueryCodeRequest{Checksum: computedChecksum})
 	s.Require().NoError(err)
 
 	checksumBz := codeResp.Data
@@ -175,7 +176,7 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 
 // extractChecksumFromGzippedContent takes a gzipped wasm contract and returns the checksum.
 func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) string {
-	content, err := wasmtypes.Uncompress(zippedContent, wasmtypes.MaxWasmSize)
+	content, err := ibcwasmtypes.Uncompress(zippedContent, ibcwasmtypes.MaxWasmSize)
 	s.Require().NoError(err)
 
 	checksum32 := sha256.Sum256(content)
@@ -245,4 +246,50 @@ func IsLowercase(s string) bool {
 		}
 	}
 	return true
+}
+
+func (s *TestSuite) GetUnionClientState(ctx context.Context, clientID string) (*ibcwasmtypes.ClientState, ethereumligthclient.ClientState) {
+	simd := s.ChainB
+	clientStateResp, err := GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+		ClientId: clientID,
+	})
+	s.Require().NoError(err)
+
+	var clientState ibcexported.ClientState
+	err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(clientStateResp.ClientState, &clientState)
+	s.Require().NoError(err)
+
+	wasmClientState, ok := clientState.(*ibcwasmtypes.ClientState)
+	s.Require().True(ok)
+	s.Require().NotEmpty(wasmClientState.Data)
+
+	var ethClientState ethereumligthclient.ClientState
+	err = simd.Config().EncodingConfig.Codec.Unmarshal(wasmClientState.Data, &ethClientState)
+	s.Require().NoError(err)
+
+	return wasmClientState, ethClientState
+}
+
+func (s *TestSuite) GetUnionConsensusState(ctx context.Context, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumligthclient.ConsensusState) {
+	simd := s.ChainB
+	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+		ClientId:       clientID,
+		RevisionNumber: height.RevisionNumber,
+		RevisionHeight: height.RevisionHeight,
+		LatestHeight:   false,
+	})
+	s.Require().NoError(err)
+
+	var consensusState ibcexported.ConsensusState
+	err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
+	s.Require().NoError(err)
+
+	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
+	s.Require().True(ok)
+
+	var ethConsensusState ethereumligthclient.ConsensusState
+	err = simd.Config().EncodingConfig.Codec.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
+	s.Require().NoError(err)
+
+	return wasmConsenusState, ethConsensusState
 }

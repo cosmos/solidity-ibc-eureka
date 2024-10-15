@@ -17,6 +17,7 @@ type EthGetProofResponse struct {
 		Proof []string `json:"proof"`
 		Value string   `json:"value"`
 	} `json:"storageProof"`
+	AccountProof []string `json:"accountProof"`
 }
 
 func NewEthAPI(rpc string) (EthAPI, error) {

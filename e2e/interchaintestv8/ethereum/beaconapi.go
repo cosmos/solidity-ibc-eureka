@@ -15,7 +15,7 @@ import (
 	ethttp "github.com/attestantio/go-eth2-client/http"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
-	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
 type BeaconAPIClient struct {
@@ -66,31 +66,38 @@ type SyncCommittee struct {
 	AggregatePubkey string `json:"aggregate_pubkey"`
 }
 
-type LightClientUpdate struct {
-	Data struct {
-		NextSyncCommittee SyncCommittee `json:"next_sync_committee"`
-	} `json:"data"`
-}
+type LightClientUpdatesResponse []LightClientUpdateJSON
 
-type LightClientUpdatesResponse []LightClientUpdate
+//	pub struct UnboundedLightClientFinalityUpdate {
+//	    /// Header attested to by the sync committee
+//	    pub attested_header: UnboundedLightClientHeader,
+//	    /// Finalized header corresponding to `attested_header.state_root`
+//	    pub finalized_header: UnboundedLightClientHeader,
+//	    pub finality_branch: [H256; floorlog2(FINALIZED_ROOT_INDEX)],
+//	    /// Sync committee aggregate signature
+//	    pub sync_aggregate: UnboundedSyncAggregate,
+//	    /// Slot at which the aggregate signature was created (untrusted)
+//	    #[serde(with = "::serde_utils::string")]
+//	    pub signature_slot: u64,
+//	}
 
-func (s Spec) ToForkParameters() *ethereumligthclient.ForkParameters {
-	return &ethereumligthclient.ForkParameters{
+func (s Spec) ToForkParameters() *ethereumlightclient.ForkParameters {
+	return &ethereumlightclient.ForkParameters{
 		GenesisForkVersion: s.GenesisForkVersion[:],
 		GenesisSlot:        s.GenesisSlot,
-		Altair: &ethereumligthclient.Fork{
+		Altair: &ethereumlightclient.Fork{
 			Version: s.AltairForkVersion[:],
 			Epoch:   s.AltairForkEpoch,
 		},
-		Bellatrix: &ethereumligthclient.Fork{
+		Bellatrix: &ethereumlightclient.Fork{
 			Version: s.BellatrixForkVersion[:],
 			Epoch:   s.BellatrixForkEpoch,
 		},
-		Capella: &ethereumligthclient.Fork{
+		Capella: &ethereumlightclient.Fork{
 			Version: s.CapellaForkVersion[:],
 			Epoch:   s.CapellaForkEpoch,
 		},
-		Deneb: &ethereumligthclient.Fork{
+		Deneb: &ethereumlightclient.Fork{
 			Version: s.DenebForkVersion[:],
 			Epoch:   s.DenebForkEpoch,
 		},
@@ -134,6 +141,8 @@ func (b BeaconAPIClient) GetHeader(blockNumber int64) (*apiv1.BeaconBlockHeader,
 		return nil, err
 	}
 
+	fmt.Printf("header metadata: %+v\n", headerResponse.Metadata)
+
 	return headerResponse.Data, nil
 }
 
@@ -170,6 +179,7 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 
 func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64) (LightClientUpdatesResponse, error) {
 	url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
+	fmt.Println("get light client updates url", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return LightClientUpdatesResponse{}, err
@@ -186,6 +196,8 @@ func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64)
 	if err != nil {
 		return LightClientUpdatesResponse{}, err
 	}
+
+	fmt.Println("get light client updates response", string(body))
 
 	var lightClientUpdatesResponse LightClientUpdatesResponse
 	if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
@@ -219,4 +231,67 @@ func (b BeaconAPIClient) GetSpec() (Spec, error) {
 	}
 
 	return spec, nil
+}
+
+func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error) {
+	url := fmt.Sprintf("%s/eth/v1/beacon/light_client/finality_update", b.url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return FinalityUpdateJSONResponse{}, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return FinalityUpdateJSONResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return FinalityUpdateJSONResponse{}, err
+	}
+
+	var finalityUpdate FinalityUpdateJSONResponse
+	if err := json.Unmarshal(body, &finalityUpdate); err != nil {
+		return FinalityUpdateJSONResponse{}, err
+	}
+
+	return finalityUpdate, nil
+
+}
+
+func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
+	url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
+	fmt.Println("get execution height url", url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Println("get execution height response", string(body))
+
+	if resp.StatusCode != 200 {
+		return 0, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+	}
+
+	var beaconBlocksResponse BeaconBlocksResponseJSON
+	if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
+		return 0, err
+	}
+
+	return beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, nil
 }

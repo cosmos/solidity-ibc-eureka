@@ -3,6 +3,7 @@ package ethereum
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 
@@ -154,7 +155,7 @@ func GetUnionConsensusStateUnitTestJSON(
 	bootstrap Bootstrap,
 	proofResp EthGetProofResponse,
 	timestamp uint64,
-	clientUpdate LightClientUpdate,
+	clientUpdate LightClientUpdateJSON,
 ) string {
 	return fmt.Sprintf(`{
   "data": {
@@ -173,4 +174,24 @@ func GetUnionConsensusStateUnitTestJSON(
 		bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		clientUpdate.Data.NextSyncCommittee.AggregatePubkey,
 	)
+}
+
+func HexToBeBytes(hex string) []byte {
+	bz := ethcommon.FromHex(hex)
+	if len(bz) == 32 {
+		return bz
+	}
+	if len(bz) > 32 {
+		panic("TOO BIG!")
+	}
+	beBytes := make([]byte, 32)
+	copy(beBytes[32-len(bz):32], bz)
+	return beBytes
+}
+
+func BigIntToBeBytes(n *big.Int) [32]byte {
+	bytes := n.Bytes()
+	var beBytes [32]byte
+	copy(beBytes[32-len(bytes):], bytes)
+	return beBytes
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"math/big"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -86,8 +85,8 @@ func (s *UnionTestSuite) TestUnionDeployment() {
 		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
 	}
 	storageProof := ethereumligthclient.StorageProof{
-		Key:   HexToBeBytes(proofResp.StorageProof[0].Key),
-		Value: HexToBeBytes(proofResp.StorageProof[0].Value),
+		Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
+		Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
 		Proof: proofBz,
 	}
 	storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
@@ -153,26 +152,6 @@ func TestRawValue(t *testing.T) {
 	fmt.Printf("Raw value hex: %s\n", ethcommon.Bytes2Hex(value))
 	hashedValue := sha256.Sum256(value)
 	fmt.Printf("Raw value hashed and hexed: %s\n", ethcommon.Bytes2Hex(hashedValue[:]))
-}
-
-func HexToBeBytes(hex string) []byte {
-	bz := ethcommon.FromHex(hex)
-	if len(bz) == 32 {
-		return bz
-	}
-	if len(bz) > 32 {
-		panic("TOO BIG!")
-	}
-	beBytes := make([]byte, 32)
-	copy(beBytes[32-len(bz):32], bz)
-	return beBytes
-}
-
-func ToBeBytes(n *big.Int) [32]byte {
-	bytes := n.Bytes()
-	var beBytes [32]byte
-	copy(beBytes[32-len(bytes):], bytes)
-	return beBytes
 }
 
 func rawValue(packet channeltypes.Packet) []byte {
