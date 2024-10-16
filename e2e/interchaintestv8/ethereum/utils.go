@@ -59,7 +59,7 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff
 func GetStorageKey(path string) ethcommon.Hash {
 	// Storage slot for the balances mapping is typically 0
-	storageSlot := ethcommon.Hex2Bytes("0x0")
+	storageSlot := ethcommon.FromHex("0x0")
 
 	pathHash := crypto.Keccak256([]byte(path))
 

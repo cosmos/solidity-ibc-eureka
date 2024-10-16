@@ -22,6 +22,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
+	"github.com/kurtosis-tech/kurtosis/api/golang/engine/kurtosis_engine_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
@@ -30,6 +31,7 @@ type Ethereum struct {
 	kurtosisCtx *kurtosis_context.KurtosisContext
 	enclaveCtx  *enclaves.EnclaveContext
 
+	Started         bool
 	ChainID         *big.Int
 	RPC             string
 	EthAPI          EthAPI
@@ -55,6 +57,74 @@ type Participant struct {
 type NetworkConfigParams struct {
 	Preset string `json:"preset"`
 	//SecondsPerSlot uint64 `json:"seconds_per_slot"`
+}
+
+func ConnectToRunningEthereum(ctx context.Context) (Ethereum, error) {
+	// get faucet private key from string
+	faucet, err := crypto.ToECDSA(ethcommon.FromHex(testvalues.FaucetPrivateKey))
+	if err != nil {
+		return Ethereum{}, err
+	}
+
+	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
+	if err != nil {
+		return Ethereum{}, err
+	}
+
+	enclaveName := "ethereum-pos-testnet"
+	enclaves, err := kurtosisCtx.GetEnclaves(ctx)
+	if err != nil {
+		return Ethereum{}, err
+	}
+	var enclaveInfo *kurtosis_engine_rpc_api_bindings.EnclaveInfo
+	if enclaveInfos, found := enclaves.GetEnclavesByName()[enclaveName]; found {
+		if len(enclaveInfos) != 1 {
+			return Ethereum{}, fmt.Errorf("Expected 1 enclave, found %d", len(enclaveInfos))
+		}
+		enclaveInfo = enclaveInfos[0]
+	}
+
+	enclaveCtx, err := kurtosisCtx.GetEnclaveContext(ctx, enclaveInfo.EnclaveUuid)
+	if err != nil {
+		return Ethereum{}, err
+	}
+
+	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
+	if err != nil {
+		return Ethereum{}, err
+	}
+	rpcPortSpec := gethCtx.GetPublicPorts()["rpc"]
+	rpc := fmt.Sprintf("http://localhost:%d", rpcPortSpec.GetNumber())
+	ethClient, err := ethclient.Dial(rpc)
+	if err != nil {
+		return Ethereum{}, err
+	}
+	chainID, err := ethClient.ChainID(ctx)
+	if err != nil {
+		return Ethereum{}, err
+	}
+	ethAPI, err := NewEthAPI(rpc)
+	if err != nil {
+		return Ethereum{}, err
+	}
+
+	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
+	if err != nil {
+		return Ethereum{}, err
+	}
+	beaconPortSpec := lighthouseCtx.GetPublicPorts()["http"]
+	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
+
+	return Ethereum{
+		kurtosisCtx:     kurtosisCtx,
+		enclaveCtx:      enclaveCtx,
+		Started:         true,
+		ChainID:         chainID,
+		RPC:             rpc,
+		EthAPI:          ethAPI,
+		BeaconAPIClient: NewBeaconAPIClient(beaconRPC),
+		Faucet:          faucet,
+	}, nil
 }
 
 func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
@@ -146,6 +216,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	return Ethereum{
 		kurtosisCtx:     kurtosisCtx,
 		enclaveCtx:      enclaveCtx,
+		Started:         true,
 		ChainID:         chainID,
 		RPC:             rpc,
 		EthAPI:          ethAPI,
@@ -155,12 +226,19 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 }
 
 func (e Ethereum) Destroy(ctx context.Context) {
+	if !e.Started {
+		return
+	}
+	// TODO: Turn back on before merging
 	// if err := e.kurtosisCtx.DestroyEnclave(ctx, string(e.enclaveCtx.GetEnclaveUuid())); err != nil {
 	// 	panic(err)
 	// }
 }
 
 func (e Ethereum) DumpLogs(ctx context.Context) error {
+	if !e.Started {
+		return nil
+	}
 	enclaveServices, err := e.enclaveCtx.GetServices()
 	if err != nil {
 		return err

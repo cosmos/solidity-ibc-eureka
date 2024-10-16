@@ -2,6 +2,7 @@ package e2esuite
 
 import (
 	"context"
+	"fmt"
 
 	dockerclient "github.com/docker/docker/client"
 
@@ -19,19 +20,23 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/visualizerclient"
 )
+
+const visualizerPort = 6969
 
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
 	suite.Suite
 
-	ChainA       ethereum.Ethereum
-	ChainB       *cosmos.CosmosChain
-	UserB        ibc.Wallet
-	dockerClient *dockerclient.Client
-	network      string
-	logger       *zap.Logger
-	ExecRep      *testreporter.RelayerExecReporter
+	ChainA           ethereum.Ethereum
+	ChainB           *cosmos.CosmosChain
+	UserB            ibc.Wallet
+	dockerClient     *dockerclient.Client
+	network          string
+	logger           *zap.Logger
+	ExecRep          *testreporter.RelayerExecReporter
+	VisualizerClient *visualizerclient.VisualizerClient
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
@@ -39,13 +44,25 @@ type TestSuite struct {
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
+	t := s.T()
+
+	s.VisualizerClient = visualizerclient.NewVisualizerClient(visualizerPort, t.Name())
+	s.VisualizerClient.SendMessage("TestSuite setup started")
 	chainSpecs := chainconfig.DefaultChainSpecs
 
-	if len(chainSpecs) != 1 {
-		panic("TestSuite requires exactly 1 chain spec")
-	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		if t.Failed() {
+			s.VisualizerClient.SendMessage("Test failed")
+			s.ChainA.DumpLogs(ctx)
+		}
+		s.ChainA.Destroy(ctx)
+		s.VisualizerClient.SendMessage("Test run done and cleanup completed")
+	})
 
-	t := s.T()
+	if len(chainSpecs) != 1 {
+		t.Fatal("TestSuite requires exactly 1 chain spec")
+	}
 
 	s.logger = zaptest.NewLogger(t)
 	s.dockerClient, s.network = interchaintest.DockerSetup(t)
@@ -70,6 +87,8 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
+	s.VisualizerClient.SendMessage(fmt.Sprintf("Chains started: %s, %s", s.ChainA.ChainID.String(), s.ChainB.Config().ChainID))
+
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(PopulateQueryReqToPath(ctx, s.ChainB))
 
@@ -81,11 +100,4 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.proposalIDs = make(map[string]uint64)
 	s.proposalIDs[s.ChainB.Config().ChainID] = 1
 
-	t.Cleanup(func() {
-		ctx := context.Background()
-		if t.Failed() {
-			s.ChainA.DumpLogs(ctx)
-		}
-		s.ChainA.Destroy(ctx)
-	})
 }

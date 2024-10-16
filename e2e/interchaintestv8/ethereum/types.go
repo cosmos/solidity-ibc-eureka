@@ -141,26 +141,26 @@ func (l LightClientUpdateJSON) ToLightClientUpdate() ethereumlightclient.LightCl
 	attestedHeaderExecution := l.Data.AttestedHeader.Execution.ToExecutionPayloadHeader()
 	var attestedheaderExecutionBranch [][]byte
 	for _, branch := range l.Data.AttestedHeader.ExecutionBranch {
-		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.Hex2Bytes(branch))
+		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.FromHex(branch))
 	}
 
 	var nextSyncCommitteePubkeys [][]byte
 	for _, pubkey := range l.Data.NextSyncCommittee.Pubkeys {
-		nextSyncCommitteePubkeys = append(nextSyncCommitteePubkeys, ethcommon.Hex2Bytes(pubkey))
+		nextSyncCommitteePubkeys = append(nextSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
 	}
-	nextSyncCommitteeAggregatePubkey := ethcommon.Hex2Bytes(l.Data.NextSyncCommittee.AggregatePubkey)
+	nextSyncCommitteeAggregatePubkey := ethcommon.FromHex(l.Data.NextSyncCommittee.AggregatePubkey)
 
 	finalizedHeaderBeacon := l.Data.FinalizedHeader.Beacon.ToBeaconBlockHeader()
 	finalizedHeaderExecution := l.Data.FinalizedHeader.Execution.ToExecutionPayloadHeader()
 
 	var nextSyncCommitteeBranch [][]byte
 	for _, branch := range l.Data.NextSyncCommitteeBranch {
-		nextSyncCommitteeBranch = append(nextSyncCommitteeBranch, ethcommon.Hex2Bytes(branch))
+		nextSyncCommitteeBranch = append(nextSyncCommitteeBranch, ethcommon.FromHex(branch))
 	}
 
 	var finalityBranch [][]byte
 	for _, branch := range l.Data.FinalityBranch {
-		finalityBranch = append(finalityBranch, ethcommon.Hex2Bytes(branch))
+		finalityBranch = append(finalityBranch, ethcommon.FromHex(branch))
 	}
 
 	return ethereumlightclient.LightClientUpdate{
@@ -181,8 +181,8 @@ func (l LightClientUpdateJSON) ToLightClientUpdate() ethereumlightclient.LightCl
 		},
 		FinalityBranch: finalityBranch,
 		SyncAggregate: &ethereumlightclient.SyncAggregate{
-			SyncCommitteeBits:      ethcommon.Hex2Bytes(l.Data.SyncAggregate.SyncCommitteeBits),
-			SyncCommitteeSignature: ethcommon.Hex2Bytes(l.Data.SyncAggregate.SyncCommitteeSignature),
+			SyncCommitteeBits:      ethcommon.FromHex(l.Data.SyncAggregate.SyncCommitteeBits),
+			SyncCommitteeSignature: ethcommon.FromHex(l.Data.SyncAggregate.SyncCommitteeSignature),
 		},
 		SignatureSlot: l.Data.SignatureSlot,
 	}
@@ -192,9 +192,9 @@ func (b BeaconJSON) ToBeaconBlockHeader() ethereumlightclient.BeaconBlockHeader 
 	return ethereumlightclient.BeaconBlockHeader{
 		Slot:          b.Slot,
 		ProposerIndex: b.ProposerIndex,
-		ParentRoot:    ethcommon.Hex2Bytes(b.ParentRoot),
-		StateRoot:     ethcommon.Hex2Bytes(b.StateRoot),
-		BodyRoot:      ethcommon.Hex2Bytes(b.BodyRoot),
+		ParentRoot:    ethcommon.FromHex(b.ParentRoot),
+		StateRoot:     ethcommon.FromHex(b.StateRoot),
+		BodyRoot:      ethcommon.FromHex(b.BodyRoot),
 	}
 }
 
@@ -202,21 +202,21 @@ func (e ExecutionJSON) ToExecutionPayloadHeader() ethereumlightclient.ExecutionP
 	baseFeePerGasBE := BigIntToBeBytes(big.NewInt(int64(e.BaseFeePerGas)))
 
 	return ethereumlightclient.ExecutionPayloadHeader{
-		ParentHash:       ethcommon.Hex2Bytes(e.ParentHash),
-		FeeRecipient:     ethcommon.Hex2Bytes(e.FeeRecipient),
-		StateRoot:        ethcommon.Hex2Bytes(e.StateRoot),
-		ReceiptsRoot:     ethcommon.Hex2Bytes(e.ReceiptsRoot),
-		LogsBloom:        ethcommon.Hex2Bytes(e.LogsBloom),
-		PrevRandao:       ethcommon.Hex2Bytes(e.PrevRandao),
+		ParentHash:       ethcommon.FromHex(e.ParentHash),
+		FeeRecipient:     ethcommon.FromHex(e.FeeRecipient),
+		StateRoot:        ethcommon.FromHex(e.StateRoot),
+		ReceiptsRoot:     ethcommon.FromHex(e.ReceiptsRoot),
+		LogsBloom:        ethcommon.FromHex(e.LogsBloom),
+		PrevRandao:       ethcommon.FromHex(e.PrevRandao),
 		BlockNumber:      e.BlockNumber,
 		GasLimit:         e.GasLimit,
 		GasUsed:          e.GasUsed,
 		Timestamp:        e.Timestamp,
-		ExtraData:        ethcommon.Hex2Bytes(e.ExtraData),
+		ExtraData:        ethcommon.FromHex(e.ExtraData),
 		BaseFeePerGas:    baseFeePerGasBE[:],
-		BlockHash:        ethcommon.Hex2Bytes(e.BlockHash),
-		TransactionsRoot: ethcommon.Hex2Bytes(e.TransactionsRoot),
-		WithdrawalsRoot:  ethcommon.Hex2Bytes(e.WithdrawalsRoot),
+		BlockHash:        ethcommon.FromHex(e.BlockHash),
+		TransactionsRoot: ethcommon.FromHex(e.TransactionsRoot),
+		WithdrawalsRoot:  ethcommon.FromHex(e.WithdrawalsRoot),
 		BlobGasUsed:      e.BlobGasUsed,
 		ExcessBlobGas:    e.ExcessBlobGas,
 	}
@@ -227,19 +227,19 @@ func (f *FinalityUpdateJSONResponse) ToLightClientUpdate() ethereumlightclient.L
 	attestedHeaderExecution := f.Data.AttestedHeader.Execution.ToExecutionPayloadHeader()
 	var attestedheaderExecutionBranch [][]byte
 	for _, branch := range f.Data.AttestedHeader.ExecutionBranch {
-		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.Hex2Bytes(branch))
+		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.FromHex(branch))
 	}
 
 	finalizedHeaderBeacon := f.Data.FinalizedHeader.Beacon.ToBeaconBlockHeader()
 	finalizedHeaderExecution := f.Data.FinalizedHeader.Execution.ToExecutionPayloadHeader()
 	var finalizedheaderExecutionBranch [][]byte
 	for _, branch := range f.Data.FinalizedHeader.ExecutionBranch {
-		finalizedheaderExecutionBranch = append(finalizedheaderExecutionBranch, ethcommon.Hex2Bytes(branch))
+		finalizedheaderExecutionBranch = append(finalizedheaderExecutionBranch, ethcommon.FromHex(branch))
 	}
 
 	var finalityBranch [][]byte
 	for _, branch := range f.Data.FinalityBranch {
-		finalityBranch = append(finalityBranch, ethcommon.Hex2Bytes(branch))
+		finalityBranch = append(finalityBranch, ethcommon.FromHex(branch))
 	}
 
 	return ethereumlightclient.LightClientUpdate{
@@ -262,8 +262,8 @@ func (f *FinalityUpdateJSONResponse) ToLightClientUpdate() ethereumlightclient.L
 		},
 		FinalityBranch: finalityBranch,
 		SyncAggregate: &ethereumlightclient.SyncAggregate{
-			SyncCommitteeBits:      ethcommon.Hex2Bytes(f.Data.SyncAggregate.SyncCommitteeBits),
-			SyncCommitteeSignature: ethcommon.Hex2Bytes(f.Data.SyncAggregate.SyncCommitteeSignature),
+			SyncCommitteeBits:      ethcommon.FromHex(f.Data.SyncAggregate.SyncCommitteeBits),
+			SyncCommitteeSignature: ethcommon.FromHex(f.Data.SyncAggregate.SyncCommitteeSignature),
 		},
 		SignatureSlot: f.Data.SignatureSlot,
 	}

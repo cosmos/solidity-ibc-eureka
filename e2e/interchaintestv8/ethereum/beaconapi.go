@@ -24,6 +24,9 @@ type BeaconAPIClient struct {
 
 	client eth2client.Service
 	url    string
+
+	Retries   int
+	RetryWait time.Duration
 }
 
 type Spec struct {
@@ -125,173 +128,196 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 	}
 
 	return BeaconAPIClient{
-		ctx:    ctx,
-		cancel: cancel,
-		client: client,
-		url:    beaconAPIAddress,
+		ctx:       ctx,
+		cancel:    cancel,
+		client:    client,
+		url:       beaconAPIAddress,
+		Retries:   6,
+		RetryWait: 10 * time.Second,
 	}
+}
+
+func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T, error) {
+	var err error
+	var result T
+	for i := 0; i < retries; i++ {
+		result, err = fn()
+		if err == nil {
+			return result, nil
+		}
+
+		fmt.Printf("Retrying for %T: %s in %f seconds\n", result, err, waitTime.Seconds())
+		time.Sleep(waitTime)
+	}
+	return result, err
 }
 
 func (b BeaconAPIClient) GetHeader(blockNumber int64) (*apiv1.BeaconBlockHeader, error) {
-	block := strconv.Itoa(int(blockNumber))
-	headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
-		Block: block,
+	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
+		block := strconv.Itoa(int(blockNumber))
+		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
+			Block: block,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return headerResponse.Data, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("header metadata: %+v\n", headerResponse.Metadata)
-
-	return headerResponse.Data, nil
 }
 
 func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, error) {
-	finalizedRootStr := finalizedRoot.String()
-	url := fmt.Sprintf("%s/eth/v1/beacon/light_client/bootstrap/%s", b.url, finalizedRootStr)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return Bootstrap{}, err
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return Bootstrap{}, err
-	}
-	defer resp.Body.Close()
+	return retry(b.Retries, b.RetryWait, func() (Bootstrap, error) {
+		finalizedRootStr := finalizedRoot.String()
+		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/bootstrap/%s", b.url, finalizedRootStr)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return Bootstrap{}, err
+		}
+		req.Header.Set("Accept", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return Bootstrap{}, err
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return Bootstrap{}, err
-	}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return Bootstrap{}, err
+		}
 
-	if resp.StatusCode != 200 {
-		return Bootstrap{}, fmt.Errorf("Get bootstrap (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
-	}
+		if resp.StatusCode != 200 {
+			return Bootstrap{}, fmt.Errorf("Get bootstrap (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+		}
 
-	var bootstrap Bootstrap
-	if err := json.Unmarshal(body, &bootstrap); err != nil {
-		return Bootstrap{}, err
-	}
+		var bootstrap Bootstrap
+		if err := json.Unmarshal(body, &bootstrap); err != nil {
+			return Bootstrap{}, err
+		}
 
-	return bootstrap, nil
+		return bootstrap, nil
+	})
 }
 
 func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64) (LightClientUpdatesResponse, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
-	fmt.Println("get light client updates url", url)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return LightClientUpdatesResponse{}, err
-	}
-	req.Header.Set("Accept", "application/json")
+	return retry(b.Retries, b.RetryWait, func() (LightClientUpdatesResponse, error) {
+		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return LightClientUpdatesResponse{}, err
+		}
+		req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return LightClientUpdatesResponse{}, err
-	}
-	defer resp.Body.Close()
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return LightClientUpdatesResponse{}, err
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return LightClientUpdatesResponse{}, err
-	}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return LightClientUpdatesResponse{}, err
+		}
 
-	fmt.Println("get light client updates response", string(body))
+		var lightClientUpdatesResponse LightClientUpdatesResponse
+		if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
+			return LightClientUpdatesResponse{}, err
+		}
 
-	var lightClientUpdatesResponse LightClientUpdatesResponse
-	if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
-		return LightClientUpdatesResponse{}, err
-	}
-
-	return lightClientUpdatesResponse, nil
+		return lightClientUpdatesResponse, nil
+	})
 }
 
 func (b BeaconAPIClient) GetGenesis() (*apiv1.Genesis, error) {
-	genesisResponse, err := b.client.(eth2client.GenesisProvider).Genesis(b.ctx, &api.GenesisOpts{})
-	if err != nil {
-		return nil, err
-	}
-	return genesisResponse.Data, nil
+	return retry(b.Retries, b.RetryWait, func() (*apiv1.Genesis, error) {
+		genesisResponse, err := b.client.(eth2client.GenesisProvider).Genesis(b.ctx, &api.GenesisOpts{})
+		if err != nil {
+			return nil, err
+		}
+		return genesisResponse.Data, nil
+	})
 }
 
 func (b BeaconAPIClient) GetSpec() (Spec, error) {
-	specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, &api.SpecOpts{})
-	if err != nil {
-		return Spec{}, err
-	}
+	return retry(b.Retries, b.RetryWait, func() (Spec, error) {
+		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, &api.SpecOpts{})
+		if err != nil {
+			return Spec{}, err
+		}
 
-	specJsonBz, err := json.Marshal(specResponse.Data)
-	if err != nil {
-		return Spec{}, err
-	}
-	var spec Spec
-	if err := json.Unmarshal(specJsonBz, &spec); err != nil {
-		return Spec{}, err
-	}
+		specJsonBz, err := json.Marshal(specResponse.Data)
+		if err != nil {
+			return Spec{}, err
+		}
+		var spec Spec
+		if err := json.Unmarshal(specJsonBz, &spec); err != nil {
+			return Spec{}, err
+		}
 
-	return spec, nil
+		return spec, nil
+	})
 }
 
 func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/light_client/finality_update", b.url)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return FinalityUpdateJSONResponse{}, err
-	}
-	req.Header.Set("Accept", "application/json")
+	return retry(b.Retries, b.RetryWait, func() (FinalityUpdateJSONResponse, error) {
+		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/finality_update", b.url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return FinalityUpdateJSONResponse{}, err
+		}
+		req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return FinalityUpdateJSONResponse{}, err
-	}
-	defer resp.Body.Close()
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return FinalityUpdateJSONResponse{}, err
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return FinalityUpdateJSONResponse{}, err
-	}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return FinalityUpdateJSONResponse{}, err
+		}
 
-	var finalityUpdate FinalityUpdateJSONResponse
-	if err := json.Unmarshal(body, &finalityUpdate); err != nil {
-		return FinalityUpdateJSONResponse{}, err
-	}
+		var finalityUpdate FinalityUpdateJSONResponse
+		if err := json.Unmarshal(body, &finalityUpdate); err != nil {
+			return FinalityUpdateJSONResponse{}, err
+		}
 
-	return finalityUpdate, nil
+		return finalityUpdate, nil
+	})
 
 }
 
 func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
-	fmt.Println("get execution height url", url)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return 0, err
-	}
+	return retry(b.Retries, b.RetryWait, func() (uint64, error) {
+		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return 0, err
+		}
 
-	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
+		req.Header.Set("Accept", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 0, err
+		}
 
-	defer resp.Body.Close()
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return 0, err
+		}
 
-	fmt.Println("get execution height response", string(body))
+		if resp.StatusCode != 200 {
+			return 0, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+		}
 
-	if resp.StatusCode != 200 {
-		return 0, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
-	}
+		var beaconBlocksResponse BeaconBlocksResponseJSON
+		if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
+			return 0, err
+		}
 
-	var beaconBlocksResponse BeaconBlocksResponseJSON
-	if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
-		return 0, err
-	}
-
-	return beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, nil
+		return beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, nil
+	})
 }

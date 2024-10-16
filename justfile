@@ -50,6 +50,12 @@ test-e2e testname:
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
 
+fast-e2e testname:
+	just clean
+	@echo "Running fast {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithFastSuite/{{testname}}$' -timeout 40m
+
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
