@@ -25,6 +25,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/kurtosis_engine_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 )
 
 type Ethereum struct {
@@ -185,8 +186,6 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	time.Sleep(300 * time.Second) // :(((((
-
 	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
 	if err != nil {
 		return Ethereum{}, err
@@ -213,6 +212,21 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	beaconPortSpec := lighthouseCtx.GetPublicPorts()["http"]
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
+	// TODO: Wait for condition: first finalized slot
+	beaconAPIClient := NewBeaconAPIClient(beaconRPC)
+	err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
+		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
+		fmt.Printf("Waiting for chain to finalize, finalizedBlockResp: %+v, err: %s\n", finalizedBlocksResp, err)
+		if err != nil {
+			return false, nil
+		}
+
+		return finalizedBlocksResp.Finalized, nil
+	})
+	if err != nil {
+		return Ethereum{}, err
+	}
+
 	return Ethereum{
 		kurtosisCtx:     kurtosisCtx,
 		enclaveCtx:      enclaveCtx,
@@ -220,7 +234,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 		ChainID:         chainID,
 		RPC:             rpc,
 		EthAPI:          ethAPI,
-		BeaconAPIClient: NewBeaconAPIClient(beaconRPC),
+		BeaconAPIClient: beaconAPIClient,
 		Faucet:          faucet,
 	}, nil
 }

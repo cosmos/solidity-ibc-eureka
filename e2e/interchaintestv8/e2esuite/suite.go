@@ -47,17 +47,17 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	t := s.T()
 
 	s.VisualizerClient = visualizerclient.NewVisualizerClient(visualizerPort, t.Name())
-	s.VisualizerClient.SendMessage("TestSuite setup started")
+	s.VisualizerClient.SendMessage("TestSuite setup started", "setup")
 	chainSpecs := chainconfig.DefaultChainSpecs
 
 	t.Cleanup(func() {
 		ctx := context.Background()
 		if t.Failed() {
-			s.VisualizerClient.SendMessage("Test failed")
+			s.VisualizerClient.SendMessage("Test failed", "teardown")
 			s.ChainA.DumpLogs(ctx)
 		}
 		s.ChainA.Destroy(ctx)
-		s.VisualizerClient.SendMessage("Test run done and cleanup completed")
+		s.VisualizerClient.SendMessage("Test run done and cleanup completed", "teardown")
 	})
 
 	if len(chainSpecs) != 1 {
@@ -87,7 +87,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
-	s.VisualizerClient.SendMessage(fmt.Sprintf("Chains started: %s, %s", s.ChainA.ChainID.String(), s.ChainB.Config().ChainID))
+	s.VisualizerClient.SendMessage(fmt.Sprintf("Chains started: %s, %s", s.ChainA.ChainID.String(), s.ChainB.Config().ChainID), "setup")
 
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(PopulateQueryReqToPath(ctx, s.ChainB))

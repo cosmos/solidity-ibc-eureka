@@ -16,9 +16,10 @@ const (
 )
 
 type VisualizationData struct {
-	Text   string            `json:"text"`
-	TestID string            `json:"test_id"`
-	Panel  VisulizationPanel `json:"visulization_panel"`
+	Text      string            `json:"text"`
+	TestID    string            `json:"test_id"`
+	SubTestID string            `json:"sub_test_id"`
+	Panel     VisulizationPanel `json:"visulization_panel"`
 }
 
 type VisualizerClient struct {
@@ -50,11 +51,12 @@ func NewVisualizerClient(port uint, testName string) *VisualizerClient {
 	return v
 }
 
-func (v *VisualizerClient) SendMessage(message string) {
+func (v *VisualizerClient) SendMessage(message string, subtestID string) {
 	msg := VisualizationData{
-		Text:   message,
-		TestID: v.testID,
-		Panel:  Dashboard,
+		Text:      message,
+		TestID:    v.testID,
+		SubTestID: subtestID,
+		Panel:     Dashboard,
 	}
 	if err := v.sendMessage(msg); err != nil {
 		fmt.Println("Failed to send message to visualizer:", err)

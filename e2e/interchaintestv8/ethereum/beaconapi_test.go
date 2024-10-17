@@ -41,7 +41,7 @@ func TestBeacon(t *testing.T) {
 	require.NotEmpty(t, forkParams.Capella.Version)
 	require.NotEmpty(t, forkParams.Deneb.Version)
 
-	header, err := eth.BeaconAPIClient.GetHeader(blockNumber)
+	header, err := eth.BeaconAPIClient.GetHeader("")
 	require.NoError(t, err)
 
 	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)

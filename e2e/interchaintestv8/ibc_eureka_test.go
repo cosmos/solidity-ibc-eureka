@@ -242,7 +242,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			fmt.Println("client update next sync c aggpubk", update.Data.NextSyncCommittee.AggregatePubkey)
 		}
 
-		header, err := eth.BeaconAPIClient.GetHeader(int64(blockNumber))
+		header, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(blockNumber)))
 		s.Require().NoError(err)
 		bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
 		s.Require().NoError(err)

@@ -117,11 +117,8 @@ type LightClientUpdateJSON struct {
 			Execution       ExecutionJSON `json:"execution"`
 			ExecutionBranch []string      `json:"execution_branch"`
 		} `json:"attested_header"`
-		NextSyncCommittee struct {
-			Pubkeys         []string `json:"pubkeys"`
-			AggregatePubkey string   `json:"aggregate_pubkey"`
-		} `json:"next_sync_committee"`
-		NextSyncCommitteeBranch []string `json:"next_sync_committee_branch"`
+		NextSyncCommittee       SyncCommittee `json:"next_sync_committee"`
+		NextSyncCommitteeBranch []string      `json:"next_sync_committee_branch"`
 		FinalizedHeader         struct {
 			Beacon          BeaconJSON    `json:"beacon"`
 			Execution       ExecutionJSON `json:"execution"`

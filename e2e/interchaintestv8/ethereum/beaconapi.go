@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
@@ -66,7 +65,8 @@ type BootstrapHeader struct {
 }
 
 type SyncCommittee struct {
-	AggregatePubkey string `json:"aggregate_pubkey"`
+	Pubkeys         []string `json:"pubkeys"`
+	AggregatePubkey string   `json:"aggregate_pubkey"`
 }
 
 type LightClientUpdatesResponse []LightClientUpdateJSON
@@ -152,11 +152,10 @@ func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T,
 	return result, err
 }
 
-func (b BeaconAPIClient) GetHeader(blockNumber int64) (*apiv1.BeaconBlockHeader, error) {
+func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, error) {
 	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
-		block := strconv.Itoa(int(blockNumber))
 		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
-			Block: block,
+			Block: blockID,
 		})
 		if err != nil {
 			return nil, err
@@ -285,7 +284,44 @@ func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error)
 
 		return finalityUpdate, nil
 	})
+}
 
+func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) {
+	return retry(b.Retries, b.RetryWait, func() (BeaconBlocksResponseJSON, error) {
+		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/finalized", b.url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return BeaconBlocksResponseJSON{}, err
+		}
+
+		req.Header.Set("Accept", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return BeaconBlocksResponseJSON{}, err
+		}
+
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return BeaconBlocksResponseJSON{}, err
+		}
+
+		if resp.StatusCode != 200 {
+			return BeaconBlocksResponseJSON{}, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+		}
+
+		var beaconBlocksResponse BeaconBlocksResponseJSON
+		if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
+			return BeaconBlocksResponseJSON{}, err
+		}
+
+		if !beaconBlocksResponse.Finalized {
+			return BeaconBlocksResponseJSON{}, fmt.Errorf("Block is not finalized")
+		}
+
+		return beaconBlocksResponse, nil
+	})
 }
 
 func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
@@ -316,6 +352,10 @@ func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
 		var beaconBlocksResponse BeaconBlocksResponseJSON
 		if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
 			return 0, err
+		}
+
+		if blockID == "finalized" && !beaconBlocksResponse.Finalized {
+			return 0, fmt.Errorf("Block is not finalized")
 		}
 
 		return beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, nil
