@@ -274,7 +274,7 @@ func (s *FastSuite) TestFastShit() {
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
+		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal_merge.wasm.gz")
 		s.Require().NoError(err)
 
 		s.unionClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
@@ -492,6 +492,7 @@ func (s *FastSuite) TestFastShit() {
 	s.Require().True(s.Run("Update client on Cosmos chain", func() {
 		_, updateTo, err := eth.EthAPI.GetBlockNumber()
 		s.Require().NoError(err)
+		s.LogVisualizerMessage(fmt.Sprintf("updateTo: %d", updateTo))
 
 		wasmClientStateDoNotUseMe, _ := s.GetUnionClientState(ctx, s.unionClientID)
 		s.LogVisualizerMessage(fmt.Sprintf("wasmClientStateDoNotUseMe latest height: %+v", wasmClientStateDoNotUseMe.LatestHeight.RevisionHeight))
@@ -509,13 +510,18 @@ func (s *FastSuite) TestFastShit() {
 
 		var finalityUpdate ethereum.FinalityUpdateJSONResponse
 		var targetPeriod uint64
-		testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
+		testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 			finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 			s.Require().NoError(err)
 			targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
 
-			s.LogVisualizerMessage(fmt.Sprintf("Waiting for finality update and target period. updateTo: %d finality update slot: %d, target period: %d", updateTo, finalityUpdate.Data.AttestedHeader.Beacon.Slot, targetPeriod))
-			return finalityUpdate.Data.AttestedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
+			s.LogVisualizerMessage(fmt.Sprintf("Waiting for finality update and target period. updateTo: %d finality update slot: %d, target period: %d", updateTo, finalityUpdate.Data.FinalizedHeader.Beacon.Slot, targetPeriod))
+
+			lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+			s.Require().NoError(err)
+
+			return len(lightClientUpdates) > 1 && finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
+			// return finalityUpdate.Data.AttestedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
 		})
 
 		s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d", targetPeriod))
@@ -549,7 +555,7 @@ func (s *FastSuite) TestFastShit() {
 			previousPeriod -= 1
 			s.LogVisualizerMessage(fmt.Sprintf("previous period: %d", previousPeriod))
 
-			executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(fmt.Sprintf("%d", update.Data.AttestedHeader.Beacon.Slot))
+			executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.Slot)))
 			s.Require().NoError(err)
 			executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
 			s.LogVisualizerMessage(fmt.Sprintf("Execution height: %d", executionHeight))
@@ -561,6 +567,7 @@ func (s *FastSuite) TestFastShit() {
 			var proofBz [][]byte
 			for _, proofStr := range proofResp.AccountProof {
 				proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+				// proofBz = append(proofBz, []byte(proofStr))
 			}
 			accountUpdate := ethereumligthclient.AccountUpdate{
 				AccountProof: &ethereumligthclient.AccountProof{
@@ -603,8 +610,8 @@ func (s *FastSuite) TestFastShit() {
 				AccountUpdate: &accountUpdate,
 			})
 
-			oldTrustedSlot := update.Data.AttestedHeader.Beacon.Slot
 			lastUpdateBlockNumber = oldTrustedSlot
+			oldTrustedSlot = update.Data.AttestedHeader.Beacon.Slot
 		}
 
 		if trustedPeriod >= targetPeriod {
@@ -651,21 +658,6 @@ func (s *FastSuite) TestFastShit() {
 		}
 		// previousLightClientUpdate := previousPeriodLightClientUpdate[0]
 		s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
-
-		// self.make_header(
-		//                   last_update_block_number,
-		//                   UnboundedLightClientUpdate {
-		//                       attested_header: finality_update.attested_header,
-		//                       next_sync_committee: None,
-		//                       next_sync_committee_branch: None,
-		//                       finalized_header: finality_update.finalized_header,
-		//                       finality_branch: finality_update.finality_branch,
-		//                       sync_aggregate: finality_update.sync_aggregate,
-		//                       signature_slot: finality_update.signature_slot,
-		//                   },
-		//                   false,
-		//                   &spec,
-		//               )
 
 		currentSyncCommitteePubkeys := [][]byte{}
 		for _, pubkey := range previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys {
@@ -757,7 +749,7 @@ func (s *FastSuite) TestFastShit() {
 			})
 			s.Require().NoError(err)
 			s.LogVisualizerMessage("OH MY FUCKING GOD, YES!!!!!")
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 
 	}))

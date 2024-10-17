@@ -194,9 +194,9 @@ func (b BeaconJSON) ToBeaconBlockHeader() ethereumlightclient.BeaconBlockHeader 
 	return ethereumlightclient.BeaconBlockHeader{
 		Slot:          b.Slot,
 		ProposerIndex: b.ProposerIndex,
-		ParentRoot:    ethcommon.FromHex(b.ParentRoot),
-		StateRoot:     ethcommon.FromHex(b.StateRoot),
-		BodyRoot:      ethcommon.FromHex(b.BodyRoot),
+		ParentRoot:    HexToBeBytes(b.ParentRoot),
+		StateRoot:     HexToBeBytes(b.StateRoot),
+		BodyRoot:      HexToBeBytes(b.BodyRoot),
 	}
 }
 
@@ -206,7 +206,7 @@ func (e ExecutionJSON) ToExecutionPayloadHeader() ethereumlightclient.ExecutionP
 	return ethereumlightclient.ExecutionPayloadHeader{
 		ParentHash:       ethcommon.FromHex(e.ParentHash),
 		FeeRecipient:     ethcommon.FromHex(e.FeeRecipient),
-		StateRoot:        ethcommon.FromHex(e.StateRoot),
+		StateRoot:        HexToBeBytes(e.StateRoot),
 		ReceiptsRoot:     ethcommon.FromHex(e.ReceiptsRoot),
 		LogsBloom:        ethcommon.FromHex(e.LogsBloom),
 		PrevRandao:       ethcommon.FromHex(e.PrevRandao),
