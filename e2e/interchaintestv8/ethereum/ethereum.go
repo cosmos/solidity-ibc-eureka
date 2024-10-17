@@ -214,14 +214,30 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 
 	// TODO: Wait for condition: first finalized slot
 	beaconAPIClient := NewBeaconAPIClient(beaconRPC)
-	err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitForCondition(10*time.Minute, 5*time.Second, func() (bool, error) {
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
 		fmt.Printf("Waiting for chain to finalize, finalizedBlockResp: %+v, err: %s\n", finalizedBlocksResp, err)
 		if err != nil {
 			return false, nil
 		}
+		if !finalizedBlocksResp.Finalized {
+			return false, nil
+		}
 
-		return finalizedBlocksResp.Finalized, nil
+		executionHeight, err := beaconAPIClient.GetExecutionHeight("finalized")
+		if err != nil {
+			return false, nil
+		}
+		header, err := beaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
+		if err != nil {
+			return false, nil
+		}
+		bootstrap, err := beaconAPIClient.GetBootstrap(header.Root)
+		if err != nil {
+			return false, nil
+		}
+
+		return bootstrap.Data.Header.Beacon.Slot != 0, nil
 	})
 	if err != nil {
 		return Ethereum{}, err

@@ -160,6 +160,11 @@ func (l LightClientUpdateJSON) ToLightClientUpdate() ethereumlightclient.LightCl
 		finalityBranch = append(finalityBranch, ethcommon.FromHex(branch))
 	}
 
+	var finalizedHeaderExecutionBranch [][]byte
+	for _, branch := range l.Data.FinalizedHeader.ExecutionBranch {
+		finalizedHeaderExecutionBranch = append(finalizedHeaderExecutionBranch, ethcommon.FromHex(branch))
+	}
+
 	return ethereumlightclient.LightClientUpdate{
 		AttestedHeader: &ethereumlightclient.LightClientHeader{
 			Beacon:          &attestedHeaderBeacon,
@@ -174,7 +179,7 @@ func (l LightClientUpdateJSON) ToLightClientUpdate() ethereumlightclient.LightCl
 		FinalizedHeader: &ethereumlightclient.LightClientHeader{
 			Beacon:          &finalizedHeaderBeacon,
 			Execution:       &finalizedHeaderExecution,
-			ExecutionBranch: attestedheaderExecutionBranch,
+			ExecutionBranch: finalizedHeaderExecutionBranch,
 		},
 		FinalityBranch: finalityBranch,
 		SyncAggregate: &ethereumlightclient.SyncAggregate{
