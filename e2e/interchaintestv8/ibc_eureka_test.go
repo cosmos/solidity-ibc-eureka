@@ -146,6 +146,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			"-o", testvalues.Sp1GenesisFilePath,
 		))
 
+		s.VisualizerClient.SendMessage("Deploying IBC Eureka smart contract on EVM chain", "setup")
+		s.Focus(2, "Deploying contracts")
+
 		var (
 			stdout []byte
 			stderr []byte
@@ -209,6 +212,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 	s.Require().True(s.Run("Add client on Cosmos chain", func() {
+		s.RemoveColors()
+		s.RemoveStatusTexts()
+		s.AddRelayerToVisualizer()
+		s.VisualizerClient.SendMessage("Adding evm light client on Chain A", "setup")
+
 		ethHeight, err := eth.Height(ctx)
 		s.Require().NoError(err)
 
@@ -235,9 +243,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.simdClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 		s.Require().NoError(err)
 		s.Require().Equal("00-mock-0", s.simdClientID)
+
+		s.AddLightClient(0, "evm light client")
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
+		s.VisualizerClient.SendMessage("Adding sp1-ics07-tendermint light client to EVM Chain", "setup")
+
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     s.simdClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
@@ -252,9 +264,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
 		s.Require().Equal(s.simdClientID, event.CounterpartyInfo.ClientId)
 		s.ethClientID = event.ClientId
+		s.AddLightClient(4, "sp1-ics07-tendermint")
+
 	}))
 
 	s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
+		s.VisualizerClient.SendMessage("Registering light client counterparties", "setup")
 		// NOTE: This is the mock client on the Cosmos chain, so the prefix need not be valid
 		merklePathPrefix := commitmenttypes.NewMerklePath([]byte{0x1})
 
@@ -653,9 +668,20 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // TestICS20TransferNativeCosmosCoinsToEthereumAndBack tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
 func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack() {
+	cToE := "Transfer from Chain A to EVM Chain"
+	eToC := "Transfer from EVM Chain to Chain A"
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
+	s.RemoveArrows()
+	s.RemoveColors()
+	s.RemoveStatusTexts()
+	s.VisualizerClient.SendMessage("Setup complete, waiting to continue...", "setup")
+
+	fmt.Println("Setup complete, waiting for user to press Enter...")
+	fmt.Scanln() // Waits for the user to press Enter
+
+	s.VisualizerClient.SendMessage("Starting ICS20 flow to transfer coins from Chain A to EVM Chain and back", cToE)
 
 	eth, simd := s.ChainA, s.ChainB
 
@@ -669,6 +695,10 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	var sendPacket channeltypes.Packet
 	var transferCoin sdk.Coin
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
+		s.SetArrow(1, "right")
+		s.VisualizerClient.SendMessage(fmt.Sprintf("Creating transfer packet on Chain A with %d %s", transferAmount.Int64()/1000000, s.ChainB.Config().Denom), cToE)
+		s.Focus(0, "Creating transfer packet")
+
 		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30*time.Minute).Unix() * 1_000_000_000)
 		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
@@ -691,6 +721,8 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 		sendPacket, err = ibctesting.ParsePacketFromEvents(txResp.Events)
 		s.Require().NoError(err)
+
+		s.VisualizerClient.SendMessage("Starting relaying...", cToE)
 
 		s.Require().Equal(uint64(1), sendPacket.Sequence)
 		s.Require().Equal(transfertypes.PortID, sendPacket.SourcePort)
@@ -734,6 +766,10 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
+		s.RemoveArrows()
+		s.VisualizerClient.SendMessage("Generating SP1 proof for update client and membership of packet", cToE)
+		s.Focus(2, "Generating packet SP1 proof")
+
 		packetCommitmentPath := ibchost.PacketCommitmentPath(sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
 			uint64(trustedHeight), uint64(latestHeight), packetCommitmentPath,
@@ -757,6 +793,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 			ProofCommitment: ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
+
+		s.VisualizerClient.SendMessage("Receiving packet on Ethereum", cToE)
+		s.RemoveArrows()
+		s.SetArrow(3, "right")
+		s.Focus(4, "Receiving packet")
 
 		tx, err := s.ics26Contract.RecvPacket(s.GetTransactOpts(s.key), msg)
 		s.Require().NoError(err)
@@ -820,6 +861,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
 
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
+		s.VisualizerClient.SendMessage("Acknowledging packet on Chain A", cToE)
+		s.RemoveArrows()
+		s.SetArrow(3, "left")
+		s.SetArrow(1, "left")
+		s.Focus(2, "Relaying ack")
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
 		})
@@ -839,6 +885,8 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
 
+	s.VisualizerClient.SendMessage("Starting transfer back from EVM Chain to Chain A", eToC)
+
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
 		s.Require().NoError(err)
@@ -853,6 +901,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	var returnPacket ics26router.IICS26RouterMsgsPacket
 	returnMemo := "testreturnmemo"
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
+		s.RemoveArrows()
+		s.SetArrow(3, "left")
+		s.VisualizerClient.SendMessage(fmt.Sprintf("Creating transfer packet on EVM Chain with %d %s", transferAmount.Int64()/1000000, ibcERC20Address), eToC)
+		s.Focus(4, "Sending packet")
+
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            ibcERC20Address,
@@ -904,6 +957,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 	var cosmosReceiveAck []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
+		s.VisualizerClient.SendMessage("Receiving packet on Chain A", eToC)
+		s.RemoveArrows()
+		s.SetArrow(1, "left")
+		s.Focus(0, "Receiving packet")
+
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.simdClientID,
 		})
@@ -946,6 +1004,12 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
+		s.VisualizerClient.SendMessage("Generating SP1 Proof for ack", eToC)
+		s.RemoveArrows()
+		//s.SetArrow(1, "right")
+		//s.SetArrow(3, "right")
+		s.Focus(2, "Generating SP1 ack proof")
+
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
@@ -969,12 +1033,21 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 			ProofHeight:     *proofHeight,
 		}
 
+		s.VisualizerClient.SendMessage("Acknowledging packet on EVM Chain", cToE)
+		s.SetArrow(3, "right")
+
 		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key), msg)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
+
+	s.RemoveArrows()
+	s.RemoveColors()
+	s.RemoveStatusTexts()
+	s.Focus(0, "Transfer complete")
+	s.VisualizerClient.SendMessage("ICS20 flow complete", eToC)
 }
 
 func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain() {

@@ -11,7 +11,7 @@ build:
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"
-	-rm -rf cache out # ignore errors
+	-rm -rf cache out
 
 # Run the foundry tests
 test-foundry testname=".\\*":
@@ -43,6 +43,11 @@ generate-abi:
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out e2e/interchaintestv8/types/sp1ics07tendermint/contract.go
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out e2e/interchaintestv8/types/ibcerc20/contract.go
+
+run-presentation:
+	just clean
+	@echo "Running the presentation test..."
+	cd e2e/interchaintestv8 && go test -c -o presentationtest && ./presentationtest -test.v -test.run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack$' -test.timeout 40m | ibc-visualizer
 
 # Run the e2e tests
 test-e2e testname:

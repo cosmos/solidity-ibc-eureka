@@ -2,6 +2,7 @@ package e2esuite
 
 import (
 	"context"
+	"time"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/suite"
@@ -18,7 +19,10 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/visualizerclient"
 )
+
+const DefaultVisualizerServerPort = 6969
 
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
@@ -32,6 +36,9 @@ type TestSuite struct {
 	network      string
 	logger       *zap.Logger
 	ExecRep      *testreporter.RelayerExecReporter
+
+	VisualizerClient    *visualizerclient.VisualizerClient
+	CurrentNetworkState *visualizerclient.NetworkState
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -43,6 +50,13 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	}
 
 	t := s.T()
+
+	s.VisualizerClient = visualizerclient.NewVisualizerClient(DefaultVisualizerServerPort, t.Name())
+	s.CurrentNetworkState = &visualizerclient.NetworkState{
+		Name: "IBC Eureka",
+	}
+	s.setNotStartedNetworkState()
+	s.VisualizerClient.SendMessage("Spinning up chains, relayer, accounts, etc...", "setup")
 
 	s.logger = zaptest.NewLogger(t)
 	s.dockerClient, s.network = interchaintest.DockerSetup(t)
@@ -67,6 +81,14 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
+	s.setStartedNetworkState()
+	s.VisualizerClient.SendMessage("Chains started...", "setup")
+	go func() {
+		time.Sleep(10 * time.Second)
+		s.RemoveColors()
+		s.RemoveStatusTexts()
+	}()
+
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
 
@@ -77,8 +99,18 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	ethUsers := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), testvalues.StartingEthBalance, s.ChainA)
 	s.UserA = ethUsers[0]
 
+	s.VisualizerClient.SendMessage("Test users created and funded...", "setup")
+
 	t.Cleanup(
 		func() {
+			s.RemoveArrows()
+			s.RemoveColors()
+			if t.Failed() {
+				s.VisualizerClient.SendPopupMessage("Test failed...", "teardown")
+				return
+			} else {
+				s.VisualizerClient.SendPopupMessage("Test passed!", "teardown")
+			}
 		},
 	)
 }
