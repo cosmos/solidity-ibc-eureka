@@ -4,6 +4,7 @@ pragma solidity >=0.8.25;
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
@@ -17,14 +18,17 @@ import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, ReentrancyGuard {
+contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGuard {
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
     /// @dev ICS02Client contract
     IICS02Client private ics02Client;
+    /// @dev IBC Storage Contract
+    IIBCStore public immutable IBC_STORE;
 
     constructor(address ics02Client_, address owner) Ownable(owner) {
         ics02Client = IICS02Client(ics02Client_);
+        IBC_STORE = new IBCStore(address(this));
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -77,7 +81,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
         }
 
-        uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
+        uint32 sequence = IBC_STORE.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
 
         Packet memory packet = Packet({
             sequence: sequence,
@@ -94,7 +98,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender })
         );
 
-        IBCStore.commitPacket(packet);
+        IBC_STORE.commitPacket(packet);
 
         emit SendPacket(packet);
         return sequence;
@@ -136,7 +140,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
         writeAcknowledgement(msg_.packet, ack);
 
-        IBCStore.setPacketReceipt(msg_.packet);
+        IBC_STORE.setPacketReceipt(msg_.packet);
 
         emit RecvPacket(msg_.packet);
     }
@@ -151,7 +155,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         }
 
         // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
@@ -192,7 +196,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         }
 
         // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
@@ -223,7 +227,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param packet The packet to acknowledge
     /// @param ack The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
-        IBCStore.commitPacketAcknowledgement(packet, ack);
+        IBC_STORE.commitPacketAcknowledgement(packet, ack);
         emit WriteAcknowledgement(packet, ack);
     }
 }
