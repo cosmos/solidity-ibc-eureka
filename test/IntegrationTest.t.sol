@@ -106,7 +106,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
@@ -146,7 +146,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -174,7 +174,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -203,7 +203,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
@@ -257,7 +257,7 @@ contract IntegrationTest is Test {
         assertEq(erc20.balanceOf(ics20Transfer.escrow()), 0);
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence)
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
@@ -304,7 +304,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -385,7 +385,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -430,7 +430,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -514,7 +514,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -561,7 +561,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -645,7 +645,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -668,7 +668,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
@@ -736,7 +736,7 @@ contract IntegrationTest is Test {
 
         bytes32 path =
             ICS24Host.packetCommitmentKeyCalldata(msgSendPacket.sourcePort, msgSendPacket.sourceChannel, sequence);
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         IICS26RouterMsgs.Packet memory packet = _getPacket(msgSendPacket, sequence);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 
