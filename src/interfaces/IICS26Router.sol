@@ -3,6 +3,7 @@ pragma solidity >=0.8.25;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IIBCApp } from "./IIBCApp.sol";
+import { IIBCStore } from "./IIBCStore.sol";
 
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
@@ -11,6 +12,10 @@ interface IICS26Router is IICS26RouterMsgs {
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
     event IBCAppAdded(string portId, address app);
+
+    /// @notice Returns the IBC storage contract
+    /// @return The address of the IBC stotage contract
+    function IBC_STORE() external view returns (IIBCStore);
 
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier

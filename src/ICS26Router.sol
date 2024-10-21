@@ -23,7 +23,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
     mapping(string portId => IIBCApp app) private apps;
     /// @dev ICS02Client contract
     IICS02Client private ics02Client;
-    /// @dev IBC Storage Contract
+    /// @inheritdoc IICS26Router
     IIBCStore public immutable IBC_STORE;
 
     constructor(address ics02Client_, address owner) Ownable(owner) {
