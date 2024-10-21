@@ -15,17 +15,21 @@ import (
 	"strings"
 	"time"
 
-	"cosmossdk.io/math"
-	ethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/kurtosis_engine_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+
+	"cosmossdk.io/math"
+
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 type Ethereum struct {
@@ -57,7 +61,7 @@ type Participant struct {
 
 type NetworkConfigParams struct {
 	Preset string `json:"preset"`
-	//SecondsPerSlot uint64 `json:"seconds_per_slot"`
+	// SecondsPerSlot uint64 `json:"seconds_per_slot"`
 }
 
 func ConnectToRunningEthereum(ctx context.Context) (Ethereum, error) {
@@ -170,7 +174,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 		},
 		NetworkParams: NetworkConfigParams{
 			Preset: "minimal",
-			//SecondsPerSlot: 4,
+			// SecondsPerSlot: 4,
 		},
 		WaitForFinalization: true,
 	}
@@ -212,7 +216,6 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	beaconPortSpec := lighthouseCtx.GetPublicPorts()["http"]
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
-	// TODO: Wait for condition: first finalized slot
 	beaconAPIClient := NewBeaconAPIClient(beaconRPC)
 	err = testutil.WaitForCondition(10*time.Minute, 5*time.Second, func() (bool, error) {
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
@@ -308,11 +311,10 @@ func (e Ethereum) DumpLogs(ctx context.Context) error {
 			return nil
 		}
 	}
-
 }
 
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string) ([]byte, error) {
-	cmd := exec.Command("forge", "script", "--rpc-url", e.RPC, "--broadcast", "--delay", "30", "--slow", "--non-interactive", "-vvvv", solidityContract)
+	cmd := exec.Command("forge", "script", "--rpc-url", e.RPC, "--broadcast", "--non-interactive", "-vvvv", solidityContract)
 	cmd.Env = append(cmd.Env, fmt.Sprintf("PRIVATE_KEY=0x%s", hex.EncodeToString(deployer.D.Bytes())))
 
 	var stdoutBuf bytes.Buffer

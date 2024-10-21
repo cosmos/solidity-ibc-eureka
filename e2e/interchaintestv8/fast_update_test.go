@@ -16,13 +16,28 @@ import (
 	"time"
 	"unicode"
 
+	dockerclient "github.com/docker/docker/client"
+	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+
 	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -31,20 +46,6 @@ import (
 	ibchost "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
-	dockerclient "github.com/docker/docker/client"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	ethcommon "github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-
-	"github.com/stretchr/testify/suite"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
-
-	sdkmath "cosmossdk.io/math"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
@@ -169,7 +170,6 @@ func (s *FastSuite) SetupSuite(ctx context.Context) {
 
 	s.proposalIDs = make(map[string]uint64)
 	s.proposalIDs[s.ChainB.Config().ChainID] = 1
-
 }
 
 func TestWithFastSuite(t *testing.T) {
@@ -286,6 +286,7 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 
 		_, actualBlockNumber, err := eth.EthAPI.GetBlockNumber()
+		s.Require().NoError(err)
 		s.LogVisualizerMessage(fmt.Sprintf("creating client: actualBlockNumber: %d", actualBlockNumber))
 
 		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
@@ -316,7 +317,7 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 		latestHeightSlot := clienttypes.Height{
 			RevisionNumber: 0,
-			RevisionHeight: uint64(executionHeight),
+			RevisionHeight: executionHeight,
 		}
 		clientState := ibcwasmtypes.ClientState{
 			Data:         ethClientStateBz,
@@ -337,7 +338,7 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 
 		//        assert!(bootstrap.header.beacon.slot == height.revision_height);
-		if bootstrap.Data.Header.Beacon.Slot != uint64(executionHeight) {
+		if bootstrap.Data.Header.Beacon.Slot != executionHeight {
 			s.Require().Fail(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap slot %d", executionHeight, bootstrap.Data.Header.Beacon.Slot))
 		}
 
@@ -346,7 +347,7 @@ func (s *FastSuite) TestFastShit() {
 
 		s.LogVisualizerMessage(fmt.Sprintf("creating client: bootstrap sync committee aggpubkey: %s", bootstrap.Data.CurrentSyncCommittee.AggregatePubkey))
 
-		currentPeriod := uint64(executionHeight) / s.spec.Period()
+		currentPeriod := executionHeight / s.spec.Period()
 		s.LogVisualizerMessage(fmt.Sprintf("creating client: spec period: %d, current period: %d", s.spec.Period(), currentPeriod))
 		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 0)
 		s.Require().NoError(err)
@@ -510,7 +511,7 @@ func (s *FastSuite) TestFastShit() {
 
 		var finalityUpdate ethereum.FinalityUpdateJSONResponse
 		var targetPeriod uint64
-		testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
+		err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 			finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 			s.Require().NoError(err)
 			targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
@@ -523,6 +524,7 @@ func (s *FastSuite) TestFastShit() {
 			return len(lightClientUpdates) > 1 && finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
 			// return finalityUpdate.Data.AttestedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
 		})
+		s.Require().NoError(err)
 
 		s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d", targetPeriod))
 		s.LogVisualizerMessage(fmt.Sprintf("trustedPeriod: %d", trustedPeriod))
@@ -605,7 +607,7 @@ func (s *FastSuite) TestFastShit() {
 						Pubkeys:         nextSyncCommitteePubkeys,
 						AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
 					},
-					//CurrentSyncCommittee: &ethereumligthclient.SyncCommittee{},
+					// CurrentSyncCommittee: &ethereumligthclient.SyncCommittee{},
 				},
 				AccountUpdate: &accountUpdate,
 			})
@@ -751,7 +753,6 @@ func (s *FastSuite) TestFastShit() {
 			s.LogVisualizerMessage("OH MY FUCKING GOD, YES!!!!!")
 			time.Sleep(10 * time.Second)
 		}
-
 	}))
 
 	// s.Require().True(s.Run("Update client on Cosmos chain", func() {
@@ -1405,7 +1406,6 @@ func (s *FastSuite) GetUnionConsensusState(ctx context.Context, clientID string,
 }
 
 func (s *FastSuite) LogVisualizerMessage(msg string) {
-
 	if s.VisualizerClient != nil {
 		fmt.Println("Visualizer message:", msg)
 		s.VisualizerClient.SendMessage(msg, s.T().Name())

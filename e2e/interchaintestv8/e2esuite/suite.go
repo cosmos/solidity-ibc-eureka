@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	dockerclient "github.com/docker/docker/client"
-
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -54,7 +53,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		ctx := context.Background()
 		if t.Failed() {
 			s.VisualizerClient.SendMessage("Test failed", "teardown")
-			s.ChainA.DumpLogs(ctx)
+			_ = s.ChainA.DumpLogs(ctx)
 		}
 		s.ChainA.Destroy(ctx)
 		s.VisualizerClient.SendMessage("Test run done and cleanup completed", "teardown")
@@ -99,5 +98,4 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	s.proposalIDs = make(map[string]uint64)
 	s.proposalIDs[s.ChainB.Config().ChainID] = 1
-
 }

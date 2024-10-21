@@ -187,6 +187,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		_, actualBlockNumber, err := eth.EthAPI.GetBlockNumber()
+		s.Require().NoError(err)
 		fmt.Println("actualBlockNumber", actualBlockNumber)
 
 		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
@@ -205,7 +206,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 			SecondsPerSlot:               uint64(s.spec.SecondsPerSlot.Seconds()),
 			SlotsPerEpoch:                s.spec.SlotsPerEpoch,
 			EpochsPerSyncCommitteePeriod: s.spec.EpochsPerSyncCommitteePeriod,
-			LatestSlot:                   uint64(blockNumber),
+			LatestSlot:                   blockNumber,
 			FrozenHeight: &clienttypes.Height{
 				RevisionNumber: 0,
 				RevisionHeight: 0,
@@ -219,7 +220,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		latestHeight := clienttypes.Height{
 			RevisionNumber: 0,
-			RevisionHeight: uint64(blockNumber),
+			RevisionHeight: blockNumber,
 		}
 		clientState := ibcwasmtypes.ClientState{
 			Data:         ethClientStateBz,
@@ -232,7 +233,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		proofOfIBCContract, err := eth.EthAPI.GetProof(ics26RouterAddress, []string{}, blockNumberHex)
 		s.Require().NoError(err)
 
-		currentPeriod := uint64(blockNumber) / s.spec.Period()
+		currentPeriod := blockNumber / s.spec.Period()
 		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(clientUpdates)
@@ -483,6 +484,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		s.Require().Greater(targetPeriod, trustedPeriod)
 
 		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+		s.Require().NoError(err)
 		fmt.Printf("Num light client updates: %d\n", len(lightClientUpdates))
 		lightClientUpdate := lightClientUpdates[len(lightClientUpdates)-1]
 		fmt.Printf("Light client update %+v\n", lightClientUpdate)
@@ -526,7 +528,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 			fmt.Println("update next sync c aggpubk", update.Data.NextSyncCommittee.AggregatePubkey)
 		}
 
-		//for _, update := range updates {
+		// for _, update := range updates {
 		update := updates[len(updates)-1]
 		var pubkeys [][]byte
 		for _, pubkey := range update.Data.NextSyncCommittee.Pubkeys {
@@ -593,6 +595,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		fmt.Println("headerJson", string(headerJson))
 
 		finalityUpdateJSON, err := json.Marshal(finalityUpdate)
+		s.Require().NoError(err)
 
 		var proofBzJSON []string
 		for _, proof := range proofBz {
@@ -633,7 +636,6 @@ AccountProof: &ethereumligthclient.AccountProof{
 		})
 		s.Require().NoError(err)
 		//}
-
 	}))
 
 	var recvAck []byte

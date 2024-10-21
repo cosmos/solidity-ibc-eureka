@@ -7,9 +7,11 @@ import (
 	"regexp"
 	"strings"
 
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 

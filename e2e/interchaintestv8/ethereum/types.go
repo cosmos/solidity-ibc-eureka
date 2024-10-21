@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
+
 	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
@@ -269,5 +270,4 @@ func (f *FinalityUpdateJSONResponse) ToLightClientUpdate() ethereumlightclient.L
 		},
 		SignatureSlot: f.Data.SignatureSlot,
 	}
-
 }

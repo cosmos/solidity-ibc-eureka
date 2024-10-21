@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/stretchr/testify/require"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 )
 
 func TestBeacon(t *testing.T) {
