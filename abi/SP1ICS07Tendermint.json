@@ -18,6 +18,11 @@
         "internalType": "bytes32"
       },
       {
+        "name": "misbehaviourProgramVkey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
         "name": "verifier",
         "type": "address",
         "internalType": "address"
@@ -51,6 +56,19 @@
   {
     "type": "function",
     "name": "MEMBERSHIP_PROGRAM_VKEY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MISBEHAVIOUR_PROGRAM_VKEY",
     "inputs": [],
     "outputs": [
       {
@@ -190,7 +208,7 @@
               {
                 "name": "env",
                 "type": "tuple",
-                "internalType": "struct IUpdateClientMsgs.Env",
+                "internalType": "struct IICS07TendermintMsgs.Env",
                 "components": [
                   {
                     "name": "chainId",
@@ -406,6 +424,159 @@
             ]
           }
         ]
+      },
+      {
+        "name": "o7",
+        "type": "tuple",
+        "internalType": "struct IMisbehaviourMsgs.MisbehaviourOutput",
+        "components": [
+          {
+            "name": "env",
+            "type": "tuple",
+            "internalType": "struct IICS07TendermintMsgs.Env",
+            "components": [
+              {
+                "name": "chainId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "trustThreshold",
+                "type": "tuple",
+                "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
+                "components": [
+                  {
+                    "name": "numerator",
+                    "type": "uint8",
+                    "internalType": "uint8"
+                  },
+                  {
+                    "name": "denominator",
+                    "type": "uint8",
+                    "internalType": "uint8"
+                  }
+                ]
+              },
+              {
+                "name": "trustingPeriod",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "now",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "trustedHeight1",
+            "type": "tuple",
+            "internalType": "struct IICS02ClientMsgs.Height",
+            "components": [
+              {
+                "name": "revisionNumber",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "revisionHeight",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "trustedHeight2",
+            "type": "tuple",
+            "internalType": "struct IICS02ClientMsgs.Height",
+            "components": [
+              {
+                "name": "revisionNumber",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "revisionHeight",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "trustedConsensusState1",
+            "type": "tuple",
+            "internalType": "struct IICS07TendermintMsgs.ConsensusState",
+            "components": [
+              {
+                "name": "timestamp",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "root",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "nextValidatorsHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "trustedConsensusState2",
+            "type": "tuple",
+            "internalType": "struct IICS07TendermintMsgs.ConsensusState",
+            "components": [
+              {
+                "name": "timestamp",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "root",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "nextValidatorsHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "o8",
+        "type": "tuple",
+        "internalType": "struct IMisbehaviourMsgs.MsgSubmitMisbehaviour",
+        "components": [
+          {
+            "name": "sp1Proof",
+            "type": "tuple",
+            "internalType": "struct ISP1Msgs.SP1Proof",
+            "components": [
+              {
+                "name": "vKey",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "publicValues",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "proof",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -557,13 +728,13 @@
     "name": "misbehaviour",
     "inputs": [
       {
-        "name": "",
+        "name": "misbehaviourMsg",
         "type": "bytes",
         "internalType": "bytes"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

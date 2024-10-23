@@ -97,11 +97,12 @@ type FastSuite struct {
 
 	contractAddresses ethereum.DeployedContracts
 
-	sp1Ics07Contract *sp1ics07tendermint.Contract
-	ics02Contract    *ics02client.Contract
-	ics26Contract    *ics26router.Contract
-	ics20Contract    *ics20transfer.Contract
-	erc20Contract    *erc20.Contract
+	sp1Ics07Contract   *sp1ics07tendermint.Contract
+	ics02Contract      *ics02client.Contract
+	ics26Contract      *ics26router.Contract
+	ics20Contract      *ics20transfer.Contract
+	erc20Contract      *erc20.Contract
+	escrowContractAddr ethcommon.Address
 
 	// The (hex encoded) checksum of the ethereum wasm client contract deployed on the Cosmos chain
 	unionClientChecksum     string
@@ -232,13 +233,13 @@ func (s *FastSuite) TestFastShit() {
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, "script/MockE2ETestDeploy.s.sol:MockE2ETestDeploy")
+			stdout, err = eth.ForgeScript(s.deployer, "scripts/MockE2ETestDeploy.s.sol:MockE2ETestDeploy")
 			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the SP1_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
-			stdout, err = eth.ForgeScript(s.deployer, "script/E2ETestDeploy.s.sol:E2ETestDeploy")
+			stdout, err = eth.ForgeScript(s.deployer, "scripts/E2ETestDeploy.s.sol:E2ETestDeploy")
 			s.Require().NoError(err)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
@@ -259,6 +260,8 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
+		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
+
 	}))
 
 	s.T().Cleanup(func() {
@@ -489,9 +492,9 @@ func (s *FastSuite) TestFastShit() {
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, ics20TransferBalance)
+			s.Require().Equal(transferAmount, escrowBalance)
 		}))
 	}))
 
@@ -1052,9 +1055,10 @@ data (unhashed, and as hex): %s
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			ics20Bal, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			// ICS20 contract balance on Ethereum
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.TransferAmount, ics20Bal.Int64())
+			s.Require().Equal(testvalues.TransferAmount, escrowBalance.Int64())
 		}))
 	}))
 
@@ -1174,9 +1178,9 @@ data (unhashed, and as hex): %s
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Equal(int64(0), escrowBalance.Int64())
 		}))
 	}))
 
