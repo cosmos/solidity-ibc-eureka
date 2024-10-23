@@ -21,7 +21,7 @@ import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract IntegrationTest is Test {
@@ -110,7 +110,7 @@ contract IntegrationTest is Test {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
-        uint256 contractBalanceAfter = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfter, 0);
         assertEq(contractBalanceAfter, transferAmount);
     }
@@ -122,7 +122,7 @@ contract IntegrationTest is Test {
         erc20.approve(address(ics20Transfer), transferAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -151,7 +151,7 @@ contract IntegrationTest is Test {
 
         // transfer should be reverted
         uint256 senderBalanceAfterAck = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterAck = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterAck, transferAmount);
         assertEq(contractBalanceAfterAck, 0);
     }
@@ -179,7 +179,7 @@ contract IntegrationTest is Test {
 
         // transfer should be reverted
         uint256 senderBalanceAfterTimeout = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterTimeout = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterTimeout = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterTimeout, transferAmount);
         assertEq(contractBalanceAfterTimeout, 0);
     }
@@ -207,7 +207,7 @@ contract IntegrationTest is Test {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, transferAmount);
 
@@ -254,7 +254,7 @@ contract IntegrationTest is Test {
 
         // Check balances are updated as expected
         assertEq(erc20.balanceOf(receiver), transferAmount);
-        assertEq(erc20.balanceOf(address(ics20Transfer)), 0);
+        assertEq(erc20.balanceOf(ics20Transfer.escrow()), 0);
 
         // Check that the ack is written
         bytes32 storedAck = ics26Router.getCommitment(
@@ -672,7 +672,7 @@ contract IntegrationTest is Test {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, transferAmount);
 
@@ -714,7 +714,7 @@ contract IntegrationTest is Test {
         erc20.approve(address(ics20Transfer), transferAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(address(ics20Transfer));
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 

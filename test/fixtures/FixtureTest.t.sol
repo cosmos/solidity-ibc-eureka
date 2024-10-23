@@ -10,7 +10,7 @@ import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v1.1.0/SP1Verifier.sol";
+import { SP1Verifier } from "@sp1-contracts/v2.0.0/SP1VerifierPlonk.sol";
 import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -33,6 +33,7 @@ abstract contract FixtureTest is Test {
         bytes32 updateClientVkey;
         bytes32 membershipVkey;
         bytes32 ucAndMembershipVkey;
+        bytes32 misbehaviourVkey;
     }
 
     struct Fixture {
@@ -60,6 +61,7 @@ abstract contract FixtureTest is Test {
             fixture.genesisFixture.updateClientVkey,
             fixture.genesisFixture.membershipVkey,
             fixture.genesisFixture.ucAndMembershipVkey,
+            fixture.genesisFixture.misbehaviourVkey,
             address(verifier),
             fixture.genesisFixture.trustedClientState,
             trustedConsensusHash
@@ -93,6 +95,7 @@ abstract contract FixtureTest is Test {
         genesisFixture.updateClientVkey = sp1GenesisJSON.readBytes32(".updateClientVkey");
         genesisFixture.membershipVkey = sp1GenesisJSON.readBytes32(".membershipVkey");
         genesisFixture.ucAndMembershipVkey = sp1GenesisJSON.readBytes32(".ucAndMembershipVkey");
+        genesisFixture.misbehaviourVkey = sp1GenesisJSON.readBytes32(".misbehaviourVkey");
 
         bytes memory packetBz = json.readBytes(".packet");
         IICS26RouterMsgs.Packet memory packet = abi.decode(packetBz, (IICS26RouterMsgs.Packet));

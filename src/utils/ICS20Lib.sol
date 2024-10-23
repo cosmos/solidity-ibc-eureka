@@ -3,7 +3,7 @@ pragma solidity >=0.8.25;
 
 // solhint-disable no-inline-assembly
 
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity

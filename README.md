@@ -1,4 +1,4 @@
-# IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license]
+# IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
 [gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
@@ -6,6 +6,8 @@
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://opensource.org/licenses/MIT
 [license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+[codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
+[codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
 This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic.
 
@@ -32,6 +34,14 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from another Eureka transfer implementation. | ✅ |
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
+
+## Cloning the Repository
+
+This repository contains large files stored using Git LFS. These are only needed for the GitHub workflows (and are not needed for local development/testing) until [succinctlabs/sp1#1565](https://github.com/succinctlabs/sp1/issues/1565) is resolved. You can clone the repository without the large files by running the following command:
+
+```sh
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/cosmos/solidity-ibc-eureka
+```
 
 ## Requirements
 

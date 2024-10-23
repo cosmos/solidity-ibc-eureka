@@ -1,0 +1,8 @@
+e2e/artifacts/circuits/v2.0.0/plonk_witness.json filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/PlonkVerifier.sol filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/SP1VerifierPlonk.sol filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/SP1_COMMIT filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/constraints.json filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/plonk_circuit.bin filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/plonk_pk.bin filter=lfs diff=lfs merge=lfs -text
+e2e/artifacts/circuits/v2.0.0/plonk_vk.bin filter=lfs diff=lfs merge=lfs -text

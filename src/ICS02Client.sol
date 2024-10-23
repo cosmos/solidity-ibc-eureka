@@ -2,11 +2,11 @@
 pragma solidity >=0.8.25;
 
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     /// @dev clientId => counterpartyInfo

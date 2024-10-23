@@ -16,7 +16,7 @@ import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
 import { AcceptAllSP1Verifier } from "../test/mocks/AcceptAllSP1Verifier.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
 struct SP1ICS07TendermintGenesisJson {
@@ -25,6 +25,7 @@ struct SP1ICS07TendermintGenesisJson {
     bytes32 updateClientVkey;
     bytes32 membershipVkey;
     bytes32 ucAndMembershipVkey;
+    bytes32 misbehaviourVkey;
 }
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -49,6 +50,7 @@ contract MockE2ETestDeploy is Script {
             genesis.updateClientVkey,
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
+            genesis.misbehaviourVkey,
             address(verifier),
             genesis.trustedClientState,
             trustedConsensusHash
@@ -66,6 +68,7 @@ contract MockE2ETestDeploy is Script {
         // Mint some tokens
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
         require(ok, "invalid address");
+
         erc20.mint(addr, 1_000_000_000_000_000_000);
 
         vm.stopBroadcast();
@@ -75,6 +78,7 @@ contract MockE2ETestDeploy is Script {
         json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
@@ -89,13 +93,15 @@ contract MockE2ETestDeploy is Script {
         bytes32 updateClientVkey = json.readBytes32(".updateClientVkey");
         bytes32 membershipVkey = json.readBytes32(".membershipVkey");
         bytes32 ucAndMembershipVkey = json.readBytes32(".ucAndMembershipVkey");
+        bytes32 misbehaviourVkey = json.readBytes32(".misbehaviourVkey");
 
         SP1ICS07TendermintGenesisJson memory fixture = SP1ICS07TendermintGenesisJson({
             trustedClientState: trustedClientState,
             trustedConsensusState: trustedConsensusState,
             updateClientVkey: updateClientVkey,
             membershipVkey: membershipVkey,
-            ucAndMembershipVkey: ucAndMembershipVkey
+            ucAndMembershipVkey: ucAndMembershipVkey,
+            misbehaviourVkey: misbehaviourVkey
         });
 
         return fixture;

@@ -40,6 +40,24 @@ import (
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
+type ForgeScriptReturnValues struct {
+	InternalType string `json:"internal_type"`
+	Value        string `json:"value"`
+}
+
+type ForgeDeployOutput struct {
+	Returns map[string]ForgeScriptReturnValues `json:"returns"`
+}
+
+type DeployedContracts struct {
+	Ics07Tendermint string `json:"ics07Tendermint"`
+	Ics02Client     string `json:"ics02Client"`
+	Ics26Router     string `json:"ics26Router"`
+	Ics20Transfer   string `json:"ics20Transfer"`
+	Erc20           string `json:"erc20"`
+	Escrow          string `json:"escrow"`
+}
+
 // FundAddressChainB sends funds to the given address on Chain B.
 // The amount sent is 1,000,000,000 of the chain's denom.
 func (s *TestSuite) FundAddressChainB(ctx context.Context, address string) {
@@ -91,6 +109,43 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	// wait for 2 blocks for the funds to be received
 	err = testutil.WaitForBlocks(ctx, 2, chain)
 	s.Require().NoError(err)
+}
+
+func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContracts {
+	// Extract the JSON part using regex
+	re := regexp.MustCompile(`\{.*\}`)
+	jsonPart := re.FindString(stdout)
+
+	var returns ForgeDeployOutput
+	err := json.Unmarshal([]byte(jsonPart), &returns)
+	s.Require().NoError(err)
+
+	// Extract the embedded JSON string
+	s.Require().Len(returns.Returns, 1)
+	embeddedJsonStr := returns.Returns["0"].Value
+
+	// Unescape and remove surrounding quotes
+	embeddedJsonStr = strings.ReplaceAll(embeddedJsonStr, `\"`, `"`)
+	embeddedJsonStr = strings.Trim(embeddedJsonStr, `"`)
+
+	var embeddedContracts DeployedContracts
+	err = json.Unmarshal([]byte(embeddedJsonStr), &embeddedContracts)
+	s.Require().NoError(err)
+
+	s.Require().NotEmpty(embeddedContracts.Erc20)
+	s.Require().True(IsLowercase(embeddedContracts.Erc20))
+	s.Require().NotEmpty(embeddedContracts.Ics02Client)
+	s.Require().True(IsLowercase(embeddedContracts.Ics02Client))
+	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
+	s.Require().True(IsLowercase(embeddedContracts.Ics07Tendermint))
+	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
+	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
+	s.Require().NotEmpty(embeddedContracts.Ics26Router)
+	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
+	s.Require().NotEmpty(embeddedContracts.Escrow)
+	s.Require().True(IsLowercase(embeddedContracts.Escrow))
+
+	return embeddedContracts
 }
 
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
