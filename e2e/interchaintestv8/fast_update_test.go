@@ -17,6 +17,7 @@ import (
 	"unicode"
 
 	dockerclient "github.com/docker/docker/client"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -439,6 +440,7 @@ func (s *FastSuite) TestFastShit() {
 	}))
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
+	var sendBlockNumber int64
 	s.Require().True(s.Run("sendTransfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
@@ -455,6 +457,7 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		sendBlockNumber = receipt.BlockNumber.Int64()
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
@@ -490,10 +493,20 @@ func (s *FastSuite) TestFastShit() {
 
 	// TODO: If packet is not found, we might need to save the current height and make sure we update to one after it
 
+	var lastUnionUpdate uint64
 	s.Require().True(s.Run("Update client on Cosmos chain", func() {
 		_, updateTo, err := eth.EthAPI.GetBlockNumber()
 		s.Require().NoError(err)
-		s.LogVisualizerMessage(fmt.Sprintf("updateTo: %d", updateTo))
+		s.LogVisualizerMessage(fmt.Sprintf("first updateTo: %d", updateTo))
+		s.LogVisualizerMessage(fmt.Sprintf("sendBlockNumber: %d", sendBlockNumber))
+
+		if updateTo <= sendBlockNumber {
+			time.Sleep(30 * time.Second)
+
+			_, updateTo, err = eth.EthAPI.GetBlockNumber()
+			s.Require().NoError(err)
+			s.Require().Greater(updateTo, sendBlockNumber)
+		}
 
 		wasmClientStateDoNotUseMe, _ := s.GetUnionClientState(ctx, s.unionClientID)
 		s.LogVisualizerMessage(fmt.Sprintf("wasmClientStateDoNotUseMe latest height: %+v", wasmClientStateDoNotUseMe.LatestHeight.RevisionHeight))
@@ -544,7 +557,6 @@ func (s *FastSuite) TestFastShit() {
 		}
 
 		newHeaders := []ethereumligthclient.Header{}
-		var lastUpdateBlockNumber uint64
 		trustedSlot := unionConsensusState.Slot
 		oldTrustedSlot := trustedSlot
 		for _, update := range lightClientUpdates {
@@ -612,7 +624,7 @@ func (s *FastSuite) TestFastShit() {
 				AccountUpdate: &accountUpdate,
 			})
 
-			lastUpdateBlockNumber = oldTrustedSlot
+			lastUnionUpdate = oldTrustedSlot
 			oldTrustedSlot = update.Data.AttestedHeader.Beacon.Slot
 		}
 
@@ -649,16 +661,16 @@ func (s *FastSuite) TestFastShit() {
 		previousPeriodLightClientUpdate, err := eth.BeaconAPIClient.GetLightClientUpdates(previousPeriod, 1)
 		s.Require().NoError(err)
 		s.LogVisualizerMessage(fmt.Sprintf("final update: Num previous light client updates: %d", len(previousPeriodLightClientUpdate)))
-		var previousLightClientUpdate ethereum.LightClientUpdateJSON
+		// var previousLightClientUpdate ethereum.LightClientUpdateJSON
 		for _, update := range previousPeriodLightClientUpdate {
 			s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", update.Data.AttestedHeader.Beacon.Slot))
 			s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update next sync c aggpubkey: %s", update.Data.NextSyncCommittee.AggregatePubkey))
-			if update.Data.NextSyncCommittee.AggregatePubkey == s.initialNextSyncComittee.AggregatePubkey {
-				s.LogVisualizerMessage(fmt.Sprintf("final update: found previous light client update with same aggpubkey: %s", update.Data.NextSyncCommittee.AggregatePubkey))
-				previousLightClientUpdate = update
-			}
+			// if update.Data.NextSyncCommittee.AggregatePubkey == finalityUpdate.Data {
+			// 	s.LogVisualizerMessage(fmt.Sprintf("final update: found previous light client update with same aggpubkey: %s", update.Data.NextSyncCommittee.AggregatePubkey))
+			// 	previousLightClientUpdate = update
+			// }
 		}
-		// previousLightClientUpdate := previousPeriodLightClientUpdate[0]
+		previousLightClientUpdate := previousPeriodLightClientUpdate[1]
 		s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
 
 		currentSyncCommitteePubkeys := [][]byte{}
@@ -687,14 +699,14 @@ func (s *FastSuite) TestFastShit() {
 		}
 
 		//		        let does_not_have_finality_update = last_update_block_number >= update_to.revision_height;
-		doesNotHaveFinalityUpdate := lastUpdateBlockNumber >= finalityUpdate.Data.AttestedHeader.Beacon.Slot
+		doesNotHaveFinalityUpdate := lastUnionUpdate >= finalityUpdate.Data.AttestedHeader.Beacon.Slot
 		var headers []ethereumligthclient.Header
 		headers = append(headers, newHeaders...)
 
 		if doesNotHaveFinalityUpdate {
-			s.LogVisualizerMessage(fmt.Sprintf("does not have finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUpdateBlockNumber, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("does not have finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUnionUpdate, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
 		} else {
-			s.LogVisualizerMessage(fmt.Sprintf("has finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUpdateBlockNumber, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("has finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUnionUpdate, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
 			headers = append(headers, oldestHeader)
 
 		}
@@ -752,6 +764,11 @@ func (s *FastSuite) TestFastShit() {
 			s.Require().NoError(err)
 			s.LogVisualizerMessage("OH MY FUCKING GOD, YES!!!!!")
 			time.Sleep(10 * time.Second)
+
+			if header.ConsensusUpdate.AttestedHeader.Beacon.Slot >= uint64(updateTo) {
+				s.LogVisualizerMessage("we have updated past updateTo! we should be able to prove now!")
+				break
+			}
 		}
 	}))
 
@@ -901,15 +918,25 @@ func (s *FastSuite) TestFastShit() {
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
 	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
-		wasmClientState, _ := s.GetUnionClientState(ctx, s.unionClientID)
-		blockNumberHex := fmt.Sprintf("0x%x", wasmClientState.LatestHeight.RevisionHeight)
+		proofHeight := clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: lastUnionUpdate,
+		}
+		_, unionConsState := s.GetUnionConsensusState(ctx, s.unionClientID, proofHeight)
+		s.LogVisualizerMessage(fmt.Sprintf("recv: trusted slot (union cons slot): %d", unionConsState.Slot))
+		s.LogVisualizerMessage(fmt.Sprintf("recv: state root: %s", ethcommon.Bytes2Hex(unionConsState.StateRoot)))
+		s.LogVisualizerMessage(fmt.Sprintf("recv: state root: %s", ethcommon.Bytes2Hex(unionConsState.StorageRoot)))
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
-		s.LogVisualizerMessage(fmt.Sprintf("recvPacket path: %s", path))
+		s.LogVisualizerMessage(fmt.Sprintf("recv: path: %s", path))
 		storageKey := ethereum.GetStorageKey(path)
+		s.LogVisualizerMessage(fmt.Sprintf("recv: storage key: %s", storageKey.Hex()))
 		storageKeys := []string{storageKey.Hex()}
 
-		proofResp, err := eth.EthAPI.GetProof(ics26RouterAddress, storageKeys, blockNumberHex)
+		blockNumberHex := fmt.Sprintf("0x%x", lastUnionUpdate)
+		s.LogVisualizerMessage(fmt.Sprintf("recv: proof block number: %s", blockNumberHex))
+		s.LogVisualizerMessage(fmt.Sprintf("recv: ics26Router: %s", s.contractAddresses.Ics26Router))
+		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
 		s.Require().NoError(err)
 		s.Require().Len(proofResp.StorageProof, 1)
 
@@ -922,7 +949,7 @@ func (s *FastSuite) TestFastShit() {
 			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
 			Proof: proofBz,
 		}
-		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", storageProof.Key, storageProof.Value, storageProof.Proof))
+		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof))
 		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
@@ -937,7 +964,7 @@ func (s *FastSuite) TestFastShit() {
 				TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
 			},
 			ProofCommitment: storageProofBz,
-			ProofHeight:     wasmClientState.LatestHeight,
+			ProofHeight:     proofHeight,
 			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
@@ -1149,6 +1176,43 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
+}
+
+func TestFastProof(t *testing.T) {
+	ethAPI, err := ethereum.NewEthAPI("http://localhost:32857")
+	require.NoError(t, err)
+
+	blockNumberHex, _, err := ethAPI.GetBlockNumber()
+	require.NoError(t, err)
+
+	path := "commitments/ports/transfer/channels/07-tendermint-0/sequences/1"
+
+	fmt.Printf("recv: path: %s\n", path)
+	storageKey := ethereum.GetStorageKey(path)
+	fmt.Printf("recv: storage key: %s\n", storageKey.Hex())
+	storageKeys := []string{storageKey.Hex()}
+
+	blockNumberHex = fmt.Sprintf("0x%x", 81)
+	fmt.Printf("recv: proof block number: %s\n", blockNumberHex)
+	ics26Router := "0xcd906bb056d0c65b198154d576de6aac349b6bdf"
+	fmt.Printf("recv: ics26Router: %s\n", ics26Router)
+
+	proofResp, err := ethAPI.GetProof(ics26Router, storageKeys, blockNumberHex)
+	require.NoError(t, err)
+	require.Len(t, proofResp.StorageProof, 1)
+
+	var proofBz [][]byte
+	for _, proofStr := range proofResp.StorageProof[0].Proof {
+		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+	}
+	storageProof := ethereumligthclient.StorageProof{
+		Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
+		Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
+		Proof: proofBz,
+	}
+	fmt.Printf("StorageProof Key: %s, Value: %s, Proof: %+v\n", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof)
+	_ = storageProof
+
 }
 
 // FundAddressChainB sends funds to the given address on Chain B.

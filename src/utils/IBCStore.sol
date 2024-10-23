@@ -8,7 +8,7 @@ import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 
 abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     /// @notice all IBC commitments
-    /// @dev keccak256(IBC-compatible-store-path) => keccak256(IBC-compatible-commitment)
+    /// @dev keccak256(IBC-compatible-store-path) => sha256(IBC-compatible-commitment)
     mapping(bytes32 hashedPath => bytes32 commitment) internal commitments;
 
     /// @notice Previous sequence send for a given port and channel pair

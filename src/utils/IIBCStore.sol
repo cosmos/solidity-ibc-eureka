@@ -13,4 +13,11 @@ interface IIBCStore {
     /// @param channelId The channel identifier.
     /// @return The next sequence to send.
     function getNextSequenceSend(string calldata portId, string calldata channelId) external view returns (uint32);
+
+    // --------------------- Events --------------------- //
+
+    /// @notice Emitted when a packet is sent
+    /// @param path The commitment path
+    /// @param commitment The commitment data
+    event PacketCommitted(bytes32 path, bytes32 commitment);
 }
