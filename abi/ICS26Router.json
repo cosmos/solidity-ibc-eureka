@@ -537,6 +537,25 @@
   },
   {
     "type": "event",
+    "name": "PacketCommitted",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "commitment",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "RecvPacket",
     "inputs": [
       {

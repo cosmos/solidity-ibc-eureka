@@ -275,7 +275,7 @@ func (s *FastSuite) TestFastShit() {
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal_merge.wasm.gz")
+		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
 		s.Require().NoError(err)
 
 		s.unionClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
@@ -441,6 +441,7 @@ func (s *FastSuite) TestFastShit() {
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
 	var sendBlockNumber int64
+	var commitEvent *ics26router.ContractPacketCommitted
 	s.Require().True(s.Run("sendTransfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
@@ -466,6 +467,9 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
 		s.Require().Equal("", transferEvent.PacketData.Memo)
+
+		commitEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParsePacketCommitted)
+		s.Require().NoError(err)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -952,17 +956,32 @@ func (s *FastSuite) TestFastShit() {
 		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof))
 		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
 
+		s.LogVisualizerMessage(fmt.Sprintf("recv: path from contract event: %s", ethcommon.Bytes2Hex(commitEvent.Path[:])))
+		s.LogVisualizerMessage(fmt.Sprintf("recv: commitment from contract event: %s", ethcommon.Bytes2Hex(commitEvent.Commitment[:])))
+
+		packet := channeltypes.Packet{
+			Sequence:           uint64(sendPacket.Sequence),
+			SourcePort:         sendPacket.SourcePort,
+			SourceChannel:      sendPacket.SourceChannel,
+			DestinationPort:    sendPacket.DestPort,
+			DestinationChannel: sendPacket.DestChannel,
+			Data:               sendPacket.Data,
+			TimeoutHeight:      clienttypes.Height{},
+			TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
+		}
+
+		s.LogVisualizerMessage(fmt.Sprintf(`recv: packet sent in:
+timeout: %d
+dest port: %s
+dest channel: %s
+data (unhashed, and as hex): %s
+`, packet.TimeoutTimestamp, packet.DestinationPort, packet.DestinationChannel, hex.EncodeToString(sendPacket.Data)))
+
+		goCommitment := channeltypes.CommitLitePacket(simd.GetCodec(), packet)
+		s.LogVisualizerMessage(fmt.Sprintf("recv: goCommitment: %s", hex.EncodeToString(goCommitment)))
+
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
-			Packet: channeltypes.Packet{
-				Sequence:           uint64(sendPacket.Sequence),
-				SourcePort:         sendPacket.SourcePort,
-				SourceChannel:      sendPacket.SourceChannel,
-				DestinationPort:    sendPacket.DestPort,
-				DestinationChannel: sendPacket.DestChannel,
-				Data:               sendPacket.Data,
-				TimeoutHeight:      clienttypes.Height{},
-				TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
-			},
+			Packet:          packet,
 			ProofCommitment: storageProofBz,
 			ProofHeight:     proofHeight,
 			Signer:          cosmosUserAddress,
@@ -975,7 +994,7 @@ func (s *FastSuite) TestFastShit() {
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			denomOnCosmos = transfertypes.ParseDenomTrace(
-				fmt.Sprintf("%s/%s/%s", transfertypes.PortID, "00-mock-0", s.contractAddresses.Erc20),
+				fmt.Sprintf("%s/%s/%s", transfertypes.PortID, "08-wasm-0", s.contractAddresses.Erc20),
 			)
 
 			// User balance on Cosmos chain
@@ -1013,6 +1032,8 @@ func (s *FastSuite) TestFastShit() {
 			ProofAcked:      ucAndMemProof,
 			ProofHeight:     *proofHeight,
 		}
+
+		fmt.Printf("ack packet: %+v\n", msg)
 
 		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key), msg)
 		s.Require().NoError(err)
@@ -1176,6 +1197,31 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
+}
+
+func TestFastCommitment(t *testing.T) {
+	packet := channeltypes.Packet{
+		Sequence:           1,
+		Data:               ethcommon.FromHex("7b2264656e6f6d223a22307831643234666361326633633831633761633438613937303533313534636164353166373137643335222c22616d6f756e74223a2231303030303030303030222c2273656e646572223a22307866653566333561396638383831353535346434613965363932396239316635666537623936393964222c227265636569766572223a22636f736d6f7331646135396d7776686479753577746d36356e776533776678706d676733796333386d716b3732222c226d656d6f223a22227d"),
+		TimeoutHeight:      clienttypes.Height{},
+		TimeoutTimestamp:   1729659372000000000,
+		DestinationPort:    "transfer",
+		DestinationChannel: "08-wasm-0",
+	}
+
+	fmt.Printf(`recv: packet sent in:
+timeout: %d
+data (unhashed, and as hex): %s
+`, packet.TimeoutTimestamp, hex.EncodeToString(packet.Data))
+
+	goCommitment := channeltypes.CommitLitePacket(chainconfig.CosmosEncodingConfig().Codec, packet)
+	beGoCommitment := ethereum.HexToBeBytes(ethcommon.Bytes2Hex(goCommitment))
+	fmt.Printf("goComm bytes len: %d\n", len(goCommitment))
+	fmt.Printf("beGoComm bytes len: %d\n", len(beGoCommitment))
+	fmt.Printf("recv: goCommitment: %s\n", hex.EncodeToString(goCommitment))
+	fmt.Println("from test", "0xb9495b2e5458dd790ca6d91efd83a815618f24d29c3fda341a5e8bf0582785f7")
+
+	require.Equal(t, "3ec9c8f927b36ae8bdd1431e5f91fabc34667adbaf9fb1334353809ad465e063", hex.EncodeToString(goCommitment))
 }
 
 func TestFastProof(t *testing.T) {
