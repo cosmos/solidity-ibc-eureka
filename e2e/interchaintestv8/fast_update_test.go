@@ -144,7 +144,6 @@ func (s *FastSuite) SetupSuite(ctx context.Context) {
 
 	// s.ChainA, err = ethereum.ConnectToRunningEthereum(ctx)
 	s.ChainA, err = ethereum.SpinUpEthereum(ctx)
-
 	s.Require().NoError(err)
 	s.ChainB = chains[0].(*cosmos.CosmosChain)
 
@@ -779,149 +778,6 @@ func (s *FastSuite) TestFastShit() {
 		}
 	}))
 
-	// s.Require().True(s.Run("Update client on Cosmos chain", func() {
-	// 	wasmClientState, unionClientState := s.GetUnionClientState(ctx, s.unionClientID)
-	// 	_, unionConsensusState := s.GetUnionConsensusState(ctx, s.unionClientID, wasmClientState.LatestHeight)
-	//
-	// 	spec, err := eth.BeaconAPIClient.GetSpec()
-	// 	s.Require().NoError(err)
-	//
-	// 	time.Sleep(5 * time.Second)
-	// 	trustedPeriod := wasmClientState.LatestHeight.RevisionHeight / spec.Period()
-	//
-	// 	targetPeriod := trustedPeriod
-	// 	err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
-	// 		s.LogVisualizerMessage("Waiting for finalized target period to be greater than trusted period")
-	// 		finalityUpdate, err := eth.BeaconAPIClient.GetFinalityUpdate()
-	// 		if err != nil {
-	// 			return false, err
-	// 		}
-	//
-	// 		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
-	//
-	// 		return targetPeriod > trustedPeriod, nil
-	// 	})
-	// 	s.Require().NoError(err)
-	//
-	// 	s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d", targetPeriod))
-	// 	s.LogVisualizerMessage(fmt.Sprintf("trustedPeriod: %d", trustedPeriod))
-	// 	s.Require().Greater(targetPeriod, trustedPeriod)
-	//
-	// 	lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
-	// 	s.Require().NoError(err)
-	//
-	// 	// var lightClientUpdates ethereum.LightClientUpdatesResponse
-	// 	// err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
-	// 	// 	s.LogVisualizerMessage("Waiting for light client updates")
-	// 	// 	lightClientUpdates, err = eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
-	// 	// 	if err != nil {
-	// 	// 		return false, err
-	// 	// 	}
-	// 	//
-	// 	// 	return len(lightClientUpdates) > 0, nil
-	// 	// })
-	// 	// s.Require().NoError(err)
-	// 	//
-	// 	s.LogVisualizerMessage(fmt.Sprintf("Num light client updates: %d", len(lightClientUpdates)))
-	//
-	// 	lightClientUpdate := lightClientUpdates[0]
-	// 	s.LogVisualizerMessage(fmt.Sprintf("light client update slot: %d", lightClientUpdate.Data.AttestedHeader.Beacon.Slot))
-	//
-	// 	executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(fmt.Sprintf("%d", lightClientUpdate.Data.AttestedHeader.Beacon.Slot))
-	// 	s.Require().NoError(err)
-	// 	executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
-	// 	s.LogVisualizerMessage(fmt.Sprintf("Execution height: %s", executionHeightHex))
-	// 	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, executionHeightHex)
-	// 	s.Require().NoError(err)
-	// 	s.Require().NotEmpty(proofResp.AccountProof)
-	//
-	// 	testHeader, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
-	// 	s.Require().NoError(err)
-	//
-	// 	var testBootstrap ethereum.Bootstrap
-	// 	err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
-	// 		testBootstrap, err = eth.BeaconAPIClient.GetBootstrap(testHeader.Root)
-	// 		if err != nil {
-	// 			return false, nil
-	// 		}
-	//
-	// 		return true, nil
-	// 	})
-	// 	s.Require().NoError(err)
-	// 	s.LogVisualizerMessage(fmt.Sprintf("exec height bootstrap sync committee aggpubkey: %s", testBootstrap.Data.CurrentSyncCommittee.AggregatePubkey))
-	// 	s.Require().Equal(ethcommon.FromHex(testBootstrap.Data.CurrentSyncCommittee.AggregatePubkey), unionConsensusState.NextSyncCommittee)
-	//
-	// 	var proofBz [][]byte
-	// 	for _, proofStr := range proofResp.AccountProof {
-	// 		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-	// 	}
-	// 	accountUpdate := ethereumligthclient.AccountUpdate{
-	// 		AccountProof: &ethereumligthclient.AccountProof{
-	// 			StorageRoot: ethereum.HexToBeBytes(proofResp.StorageHash),
-	// 			Proof:       proofBz,
-	// 		},
-	// 	}
-	//
-	// 	var pubkeys [][]byte
-	// 	for _, pubkey := range s.initialNextSyncComittee.Pubkeys {
-	// 		pubkeys = append(pubkeys, ethcommon.FromHex(pubkey))
-	// 	}
-	//
-	// 	// currentSyncCommittee := ethereumligthclient.SyncCommittee{
-	// 	// 	Pubkeys:         pubkeys,
-	// 	// 	AggregatePubkey: ethcommon.FromHex(lightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
-	// 	// }
-	// 	// _ = currentSyncCommittee
-	// 	nextSyncCommittee := ethereumligthclient.SyncCommittee{
-	// 		Pubkeys:         pubkeys,
-	// 		AggregatePubkey: unionConsensusState.NextSyncCommittee,
-	// 	}
-	// 	s.LogVisualizerMessage(fmt.Sprintf("lightclientupdate sync committee: %s", lightClientUpdate.Data.NextSyncCommittee.AggregatePubkey))
-	// 	s.LogVisualizerMessage(fmt.Sprintf("current consensus state sync committee aggpubkey: %s", ethcommon.Bytes2Hex(unionConsensusState.CurrentSyncCommittee)))
-	// 	s.LogVisualizerMessage(fmt.Sprintf("current consensus state next sync committee aggpubkey: %s", ethcommon.Bytes2Hex(unionConsensusState.NextSyncCommittee)))
-	//
-	// 	trustedSyncCommittee := ethereumligthclient.TrustedSyncCommittee{
-	// 		TrustedHeight: &wasmClientState.LatestHeight,
-	// 		// CurrentSyncCommittee: &currentSyncCommittee,
-	// 		NextSyncCommittee: &nextSyncCommittee,
-	// 	}
-	//
-	// 	consensusLightClientUpdate := lightClientUpdate.ToLightClientUpdate()
-	// 	header := ethereumligthclient.Header{
-	// 		// ConsensusUpdate: &lightClientUpdate,
-	// 		ConsensusUpdate:      &consensusLightClientUpdate,
-	// 		TrustedSyncCommittee: &trustedSyncCommittee,
-	// 		AccountUpdate:        &accountUpdate,
-	// 	}
-	//
-	// 	s.LogVisualizerMessage(fmt.Sprintf("Union client state: %+v", unionClientState))
-	// 	s.LogVisualizerMessage(fmt.Sprintf("Union consensus state: %+v", unionConsensusState))
-	//
-	// 	currentSlotCalculated := (uint64(time.Now().Unix()) - unionClientState.GenesisTime) / uint64(spec.SecondsPerSlot.Seconds())
-	// 	s.Require().GreaterOrEqual(currentSlotCalculated, consensusLightClientUpdate.SignatureSlot)
-	// 	s.Require().Greater(consensusLightClientUpdate.SignatureSlot, consensusLightClientUpdate.AttestedHeader.Beacon.Slot)
-	// 	s.Require().GreaterOrEqual(consensusLightClientUpdate.AttestedHeader.Beacon.Slot, consensusLightClientUpdate.FinalizedHeader.Beacon.Slot)
-	//
-	// 	var proofBzJSON []string
-	// 	for _, proof := range proofBz {
-	// 		proofBzJSON = append(proofBzJSON, ethcommon.Bytes2Hex(proof))
-	// 	}
-	//
-	// 	headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
-	// 	wasmHeader := ibcwasmtypes.ClientMessage{
-	// 		Data: headerBz,
-	// 	}
-	//
-	// 	wasmHeaderAny, err := clienttypes.PackClientMessage(&wasmHeader)
-	// 	s.Require().NoError(err)
-	// 	_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgUpdateClient{
-	// 		ClientId:      s.unionClientID,
-	// 		ClientMessage: wasmHeaderAny,
-	// 		Signer:        simdRelayerUser.FormattedAddress(),
-	// 	})
-	// 	s.Require().NoError(err)
-	// }))
-
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
 	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
@@ -1116,7 +972,9 @@ data (unhashed, and as hex): %s
 		}))
 	}))
 
+	var recvBlockNumber int64
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
+	var returnAckCommitEvent *ics26router.ContractAckCommitted
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
@@ -1155,11 +1013,16 @@ data (unhashed, and as hex): %s
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
+		recvBlockNumber = receipt.BlockNumber.Int64()
+
 		if s.generateFixtures {
 			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
+		s.Require().NoError(err)
+
+		returnAckCommitEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckCommitted)
 		s.Require().NoError(err)
 
 		receiveEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
@@ -1184,23 +1047,377 @@ data (unhashed, and as hex): %s
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
+	s.Require().True(s.Run("Update client on Cosmos chain", func() {
+		_, updateTo, err := eth.EthAPI.GetBlockNumber()
+		s.Require().NoError(err)
+		s.LogVisualizerMessage(fmt.Sprintf("first updateTo: %d", updateTo))
+		s.LogVisualizerMessage(fmt.Sprintf("recvBlockNumber: %d", recvBlockNumber))
+
+		if updateTo <= recvBlockNumber {
+			time.Sleep(30 * time.Second)
+
+			_, updateTo, err = eth.EthAPI.GetBlockNumber()
+			s.Require().NoError(err)
+			s.Require().Greater(updateTo, recvBlockNumber)
+		}
+
+		wasmClientStateDoNotUseMe, _ := s.GetUnionClientState(ctx, s.unionClientID)
+		s.LogVisualizerMessage(fmt.Sprintf("wasmClientStateDoNotUseMe latest height: %+v", wasmClientStateDoNotUseMe.LatestHeight.RevisionHeight))
+		_, unionConsensusState := s.GetUnionConsensusState(ctx, s.unionClientID, clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: lastUnionUpdate,
+		})
+		s.LogVisualizerMessage(fmt.Sprintf("trusted slot (union cons slot): %d", unionConsensusState.Slot))
+		spec, err := eth.BeaconAPIClient.GetSpec()
+		s.Require().NoError(err)
+
+		trustedPeriod := unionConsensusState.Slot / spec.Period()
+		s.LogVisualizerMessage(fmt.Sprintf("spec period: %d", spec.Period()))
+		s.LogVisualizerMessage(fmt.Sprintf("trusted period: %d", trustedPeriod))
+
+		var finalityUpdate ethereum.FinalityUpdateJSONResponse
+		var targetPeriod uint64
+		err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
+			finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
+			s.Require().NoError(err)
+			targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
+
+			s.LogVisualizerMessage(fmt.Sprintf("Waiting for finality update and target period. updateTo: %d finality update slot: %d, target period: %d", updateTo, finalityUpdate.Data.FinalizedHeader.Beacon.Slot, targetPeriod))
+
+			lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+			s.Require().NoError(err)
+
+			highestSlot := uint64(0)
+			for _, update := range lightClientUpdates {
+				blocksResp, err := eth.BeaconAPIClient.GetBeaconBlocks(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.Slot)))
+				s.Require().NoError(err)
+				if !blocksResp.Finalized {
+					return false, nil
+				}
+
+				if update.Data.AttestedHeader.Beacon.Slot > highestSlot {
+					highestSlot = update.Data.AttestedHeader.Beacon.Slot
+				}
+
+			}
+
+			if highestSlot < finalityUpdate.Data.FinalizedHeader.Beacon.Slot {
+				return false, nil
+			}
+
+			return len(lightClientUpdates) > int(targetPeriod-trustedPeriod) &&
+					finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
+					targetPeriod >= trustedPeriod,
+				nil
+		})
+		s.Require().NoError(err) // NOTE: FAILS HERE:
+		// 		// Visualizer message: Waiting for finality update and target period. updateTo: 216 finality update slot: 272, target period: 4
+		// light_client_updates url: http://localhost:33027/eth/v1/beacon/light_client/updates?start_period=2&count=3
+		// Visualizer message: Waiting for finality update and target period. updateTo: 216 finality update slot: 272, target period: 4
+		// light_client_updates url: http://localhost:33027/eth/v1/beacon/light_client/updates?start_period=2&count=3
+		//     fast_update_test.go:1251:
+		//                 Error Trace:    /Users/gg/Code/solidity-ibc-eureka/e2e/interchaintestv8/fast_update_test.go:1251
+		//                                                         /Users/gg/go/pkg/mod/github.com/stretchr/testify@v1.9.0/suite/suite.go:115
+		//                 Error:          Received unexpected error:
+		//                                 failed waiting for condition after 480.000000 seconds
+		//                 Test:           TestWithFastSuite/TestFastShit/Update_client_on_Cosmos_chain#01
+		// === NAME  TestWithFastSuite/TestFastShit
+		//     fast_update_test.go:1194:
+		//                 Error Trace:    /Users/gg/Code/solidity-ibc-eureka/e2e/interchaintestv8/fast_update_test.go:1194
+		//                 Error:          Should be true
+		//                 Test:           TestWithFastSuite/TestFastShit
+		//     setup.go:126:
+		//
+
+		s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d", targetPeriod))
+		s.LogVisualizerMessage(fmt.Sprintf("trustedPeriod: %d", trustedPeriod))
+
+		var lightClientUpdates ethereum.LightClientUpdatesResponse
+		if trustedPeriod < targetPeriod {
+			lightClientUpdates, err = eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+			s.Require().NoError(err)
+			s.LogVisualizerMessage(fmt.Sprintf("Num light client updates for header updates: %d", len(lightClientUpdates)))
+			for _, update := range lightClientUpdates {
+				s.LogVisualizerMessage(fmt.Sprintf("light client update for header update slot: %d", update.Data.AttestedHeader.Beacon.Slot))
+			}
+		} else {
+			s.LogVisualizerMessage("No light client updates for header updates")
+			lightClientUpdates = []ethereum.LightClientUpdateJSON{}
+		}
+
+		newHeaders := []ethereumligthclient.Header{}
+		trustedSlot := unionConsensusState.Slot
+		oldTrustedSlot := trustedSlot
+		var prevPubAggKey string
+		for _, update := range lightClientUpdates {
+			s.LogVisualizerMessage(fmt.Sprintf("old trusted slot: %d", oldTrustedSlot))
+
+			previousPeriod := uint64(1)
+			if update.Data.AttestedHeader.Beacon.Slot/spec.Period() > 1 {
+				previousPeriod = update.Data.AttestedHeader.Beacon.Slot / spec.Period()
+			}
+			previousPeriod -= 1
+			s.LogVisualizerMessage(fmt.Sprintf("previous period: %d", previousPeriod))
+
+			executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.Slot)))
+			s.Require().NoError(err)
+			executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
+			s.LogVisualizerMessage(fmt.Sprintf("Execution height: %d", executionHeight))
+			proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, executionHeightHex)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(proofResp.AccountProof)
+			s.LogVisualizerMessage(fmt.Sprintf("final update: proof resp: %+v", proofResp))
+
+			var proofBz [][]byte
+			for _, proofStr := range proofResp.AccountProof {
+				proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+			}
+			accountUpdate := ethereumligthclient.AccountUpdate{
+				AccountProof: &ethereumligthclient.AccountProof{
+					StorageRoot: ethereum.HexToBeBytes(proofResp.StorageHash),
+					Proof:       proofBz,
+				},
+			}
+
+			previousLightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(previousPeriod, 1)
+			s.Require().NoError(err)
+			s.LogVisualizerMessage(fmt.Sprintf("Num previous light client updates: %d", len(previousLightClientUpdates)))
+			for _, previousLightClientUpdate := range previousLightClientUpdates {
+				s.LogVisualizerMessage(fmt.Sprintf("prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
+				s.LogVisualizerMessage(fmt.Sprintf("prev light client update next sync c aggpubkey: %s", previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey))
+			}
+
+			// previousLightClientUpdate := previousLightClientUpdates[len(previousLightClientUpdates)-1]
+			previousLightClientUpdate := previousLightClientUpdates[0]
+			s.LogVisualizerMessage(fmt.Sprintf("prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
+
+			if previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey == prevPubAggKey {
+				s.LogVisualizerMessage(fmt.Sprintf("found previous light client update with same aggpubkey: %s", previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey))
+				continue
+			}
+
+			var nextSyncCommitteePubkeys [][]byte
+			for _, pubkey := range previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys {
+				nextSyncCommitteePubkeys = append(nextSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
+			}
+
+			consensusUpdate := update.ToLightClientUpdate()
+			newHeaders = append(newHeaders, ethereumligthclient.Header{
+				ConsensusUpdate: &consensusUpdate,
+				TrustedSyncCommittee: &ethereumligthclient.TrustedSyncCommittee{
+					TrustedHeight: &clienttypes.Height{
+						RevisionNumber: 0,
+						RevisionHeight: oldTrustedSlot,
+					},
+					NextSyncCommittee: &ethereumligthclient.SyncCommittee{
+						Pubkeys:         nextSyncCommitteePubkeys,
+						AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
+					},
+					// CurrentSyncCommittee: &ethereumligthclient.SyncCommittee{},
+				},
+				AccountUpdate: &accountUpdate,
+			})
+
+			lastUnionUpdate = oldTrustedSlot
+			oldTrustedSlot = update.Data.AttestedHeader.Beacon.Slot
+			prevPubAggKey = previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey
+		}
+
+		if trustedPeriod >= targetPeriod {
+			newHeaders = []ethereumligthclient.Header{}
+		}
+
+		s.LogVisualizerMessage(fmt.Sprintf("final update: finality update slot: %d, spec period: %d", finalityUpdate.Data.AttestedHeader.Beacon.Slot, spec.Period()))
+		previousPeriod := (finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period())
+		if previousPeriod != 0 {
+			previousPeriod -= 1
+		}
+		s.LogVisualizerMessage(fmt.Sprintf("final update: previous period: %d", previousPeriod))
+		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(fmt.Sprintf("%d", finalityUpdate.Data.AttestedHeader.Beacon.Slot))
+		s.Require().NoError(err)
+		s.LogVisualizerMessage(fmt.Sprintf("final update: execution height: %d", executionHeight))
+		executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
+		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, executionHeightHex)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(proofResp.AccountProof)
+		s.LogVisualizerMessage(fmt.Sprintf("final update: proof resp: %+v", proofResp))
+
+		var proofBz [][]byte
+		for _, proofStr := range proofResp.AccountProof {
+			proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+		}
+		accountUpdate := ethereumligthclient.AccountUpdate{
+			AccountProof: &ethereumligthclient.AccountProof{
+				StorageRoot: ethereum.HexToBeBytes(proofResp.StorageHash),
+				Proof:       proofBz,
+			},
+		}
+
+		previousPeriodLightClientUpdate, err := eth.BeaconAPIClient.GetLightClientUpdates(previousPeriod, 1)
+		s.Require().NoError(err)
+		s.LogVisualizerMessage(fmt.Sprintf("final update: Num previous light client updates: %d", len(previousPeriodLightClientUpdate)))
+		// var previousLightClientUpdate ethereum.LightClientUpdateJSON
+		for _, update := range previousPeriodLightClientUpdate {
+			s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", update.Data.AttestedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update next sync c aggpubkey: %s", update.Data.NextSyncCommittee.AggregatePubkey))
+			// if update.Data.NextSyncCommittee.AggregatePubkey == finalityUpdate.Data {
+			// 	s.LogVisualizerMessage(fmt.Sprintf("final update: found previous light client update with same aggpubkey: %s", update.Data.NextSyncCommittee.AggregatePubkey))
+			// 	previousLightClientUpdate = update
+			// }
+		}
+		previousLightClientUpdate := previousPeriodLightClientUpdate[1]
+		s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
+
+		currentSyncCommitteePubkeys := [][]byte{}
+		for _, pubkey := range previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys {
+			currentSyncCommitteePubkeys = append(currentSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
+		}
+
+		consensusUpdate := finalityUpdate.ToLightClientUpdate()
+		oldestHeader := ethereumligthclient.Header{
+			ConsensusUpdate: &consensusUpdate,
+			TrustedSyncCommittee: &ethereumligthclient.TrustedSyncCommittee{
+				TrustedHeight: &clienttypes.Height{
+					RevisionNumber: 0,
+					RevisionHeight: unionConsensusState.Slot,
+				},
+				// NextSyncCommittee: &ethereumligthclient.SyncCommittee{
+				// 	Pubkeys:         nextSyncCommitteePubkeys,
+				// 	AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
+				// },
+				CurrentSyncCommittee: &ethereumligthclient.SyncCommittee{
+					Pubkeys:         currentSyncCommitteePubkeys,
+					AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
+				},
+			},
+			AccountUpdate: &accountUpdate,
+		}
+
+		//		        let does_not_have_finality_update = last_update_block_number >= update_to.revision_height;
+		doesNotHaveFinalityUpdate := lastUnionUpdate >= finalityUpdate.Data.AttestedHeader.Beacon.Slot
+		var headers []ethereumligthclient.Header
+		headers = append(headers, newHeaders...)
+
+		if doesNotHaveFinalityUpdate {
+			s.LogVisualizerMessage(fmt.Sprintf("does not have finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUnionUpdate, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
+		} else {
+			s.LogVisualizerMessage(fmt.Sprintf("has finality update: lastUpdateBlockNumber: %d, finalityUpdate slot: %d", lastUnionUpdate, finalityUpdate.Data.AttestedHeader.Beacon.Slot))
+			headers = append(headers, oldestHeader)
+
+		}
+
+		s.LogVisualizerMessage(fmt.Sprintf("Num headers: %d", len(headers)))
+
+		// #[error(
+		//     "(update_signature_slot > update_attested_slot >= update_finalized_slot) must hold, \
+		//     found: ({update_signature_slot} > {update_attested_slot} >= {update_finalized_slot})"
+		// )]
+
+		// current_slot >= update.signature_slot
+		// && update.signature_slot > update_attested_slot
+		// && update_attested_slot >= update_finalized_slot,
+
+		wasmClientState, unionClientState := s.GetUnionClientState(ctx, s.unionClientID)
+		_, unionConsensusState = s.GetUnionConsensusState(ctx, s.unionClientID, wasmClientState.LatestHeight)
+		s.LogVisualizerMessage(fmt.Sprintf("submitting header to client with wasm latest height: %d", wasmClientState.LatestHeight.RevisionHeight))
+		s.LogVisualizerMessage(fmt.Sprintf("submitting header to client with union latest height: %d", unionClientState.LatestSlot))
+		s.LogVisualizerMessage(fmt.Sprintf("submitting header to client with union cons height: %d", unionConsensusState.Slot))
+		s.LogVisualizerMessage(fmt.Sprintf("submitting header to client with union current cons pub agg key: %s", ethcommon.Bytes2Hex(unionConsensusState.CurrentSyncCommittee)))
+		s.LogVisualizerMessage(fmt.Sprintf("submitting header to client with union next cons pub agg key: %s", ethcommon.Bytes2Hex(unionConsensusState.CurrentSyncCommittee)))
+
+		s.LogVisualizerMessage("loop headers")
+		for _, header := range headers {
+			s.LogVisualizerMessage(fmt.Sprintf("submittiong header slot: %d", header.ConsensusUpdate.AttestedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with trusted slot: %d", header.TrustedSyncCommittee.TrustedHeight.RevisionHeight))
+			if header.TrustedSyncCommittee.CurrentSyncCommittee != nil {
+				s.LogVisualizerMessage(fmt.Sprintf("submitting header with current sync committee: %s", ethcommon.Bytes2Hex(header.TrustedSyncCommittee.CurrentSyncCommittee.AggregatePubkey)))
+			}
+			if header.TrustedSyncCommittee.NextSyncCommittee != nil {
+				s.LogVisualizerMessage(fmt.Sprintf("submitting header with next sync committee: %s", ethcommon.Bytes2Hex(header.TrustedSyncCommittee.NextSyncCommittee.AggregatePubkey)))
+			}
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with signature slot: %d", header.ConsensusUpdate.SignatureSlot))
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with attested slot: %d", header.ConsensusUpdate.AttestedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with finalized slot: %d", header.ConsensusUpdate.FinalizedHeader.Beacon.Slot))
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with account update storage root: %s", ethcommon.Bytes2Hex(header.AccountUpdate.AccountProof.StorageRoot)))
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header with exec state root: %s", ethcommon.Bytes2Hex(header.ConsensusUpdate.AttestedHeader.Execution.StateRoot)))
+		}
+
+		for _, header := range headers {
+			s.LogVisualizerMessage(fmt.Sprintf("submitting header slot: %d", header.ConsensusUpdate.AttestedHeader.Beacon.Slot))
+			headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
+			wasmHeader := ibcwasmtypes.ClientMessage{
+				Data: headerBz,
+			}
+
+			wasmHeaderAny, err := clienttypes.PackClientMessage(&wasmHeader)
+			s.Require().NoError(err)
+			_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgUpdateClient{
+				ClientId:      s.unionClientID,
+				ClientMessage: wasmHeaderAny,
+				Signer:        simdRelayerUser.FormattedAddress(),
+			})
+			s.Require().NoError(err)
+			s.LogVisualizerMessage("OH MY FUCKING GOD, YES!!!!!")
+			time.Sleep(10 * time.Second)
+
+			if header.ConsensusUpdate.AttestedHeader.Beacon.Slot >= uint64(updateTo) {
+				s.LogVisualizerMessage("we have updated past updateTo! we should be able to prove now!")
+				break
+			}
+		}
+	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		wasmClientState, _ := s.GetUnionClientState(ctx, s.unionClientID)
+		proofHeight := clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: lastUnionUpdate,
+		}
+		_, unionConsState := s.GetUnionConsensusState(ctx, s.unionClientID, proofHeight)
+		s.LogVisualizerMessage(fmt.Sprintf("ack: trusted slot (union cons slot): %d", unionConsState.Slot))
+		s.LogVisualizerMessage(fmt.Sprintf("ack: state root: %s", ethcommon.Bytes2Hex(unionConsState.StateRoot)))
+		s.LogVisualizerMessage(fmt.Sprintf("ack: state root: %s", ethcommon.Bytes2Hex(unionConsState.StorageRoot)))
 
-		// TODO: Create proof for the ack
+		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", returnPacket.DestinationPort, returnPacket.DestinationChannel, returnPacket.Sequence)
+		s.LogVisualizerMessage(fmt.Sprintf("ack: path: %s", path))
+		storageKey := ethereum.GetStorageKey(path)
+		s.LogVisualizerMessage(fmt.Sprintf("ack: storage key: %s", storageKey.Hex()))
+		storageKeys := []string{storageKey.Hex()}
+
+		blockNumberHex := fmt.Sprintf("0x%x", lastUnionUpdate)
+		s.LogVisualizerMessage(fmt.Sprintf("ack: proof block number: %s", blockNumberHex))
+		s.LogVisualizerMessage(fmt.Sprintf("ack: ics26Router: %s", s.contractAddresses.Ics26Router))
+		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
+		s.Require().NoError(err)
+		s.Require().Len(proofResp.StorageProof, 1)
+
+		var proofBz [][]byte
+		for _, proofStr := range proofResp.StorageProof[0].Proof {
+			proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+		}
+		storageProof := ethereumligthclient.StorageProof{
+			Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
+			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
+			Proof: proofBz,
+		}
+		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof))
+		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
+
+		s.LogVisualizerMessage(fmt.Sprintf("ack: path from contract event: %s", ethcommon.Bytes2Hex(returnAckCommitEvent.Path[:])))
+		s.LogVisualizerMessage(fmt.Sprintf("ack: commitment from contract event: %s", ethcommon.Bytes2Hex(returnAckCommitEvent.Commitment[:])))
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          returnPacket,
 			Acknowledgement: returnWriteAckEvent.Acknowledgement,
-			ProofAcked:      []byte("doesn't matter"), // Because mock light client
-			ProofHeight:     wasmClientState.LatestHeight,
+			ProofAcked:      storageProofBz,
+			ProofHeight:     proofHeight,
 			Signer:          cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
+
+	fmt.Println("IF YOU SEE THIS, YOU HAVE REACHED NIRVANA! 🔥🎉")
+	fmt.Println("THE ULTIMATE BOSS BATTLE HAS BEEN WON! 🎉🔥")
 }
 
 func TestFastCommitment(t *testing.T) {

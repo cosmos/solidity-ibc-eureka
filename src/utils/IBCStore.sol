@@ -97,6 +97,8 @@ abstract contract IBCStore is IIBCStore, IICS24HostErrors {
             );
         }
 
-        commitments[path] = ICS24Host.packetAcknowledgementCommitmentBytes32(ack);
+        bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(ack);
+        emit AckCommitted(path, commitment);
+        commitments[path] = commitment;
     }
 }

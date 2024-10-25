@@ -2,12 +2,16 @@ package ethereum
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type EthAPI struct {
 	client *ethclient.Client
+
+	Retries   int
+	RetryWait time.Duration
 }
 
 type EthGetProofResponse struct {
@@ -27,17 +31,21 @@ func NewEthAPI(rpc string) (EthAPI, error) {
 	}
 
 	return EthAPI{
-		client: ethClient,
+		client:    ethClient,
+		Retries:   6,
+		RetryWait: 10 * time.Second,
 	}, nil
 }
 
 func (e EthAPI) GetProof(address string, storageKeys []string, blockHex string) (EthGetProofResponse, error) {
-	var proofResponse EthGetProofResponse
-	if err := e.client.Client().Call(&proofResponse, "eth_getProof", address, storageKeys, blockHex); err != nil {
-		return EthGetProofResponse{}, err
-	}
+	return retry(e.Retries, e.RetryWait, func() (EthGetProofResponse, error) {
+		var proofResponse EthGetProofResponse
+		if err := e.client.Client().Call(&proofResponse, "eth_getProof", address, storageKeys, blockHex); err != nil {
+			return EthGetProofResponse{}, err
+		}
 
-	return proofResponse, nil
+		return proofResponse, nil
+	})
 }
 
 func (e EthAPI) GetBlockNumber() (string, int64, error) {

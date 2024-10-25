@@ -16,8 +16,14 @@ interface IIBCStore {
 
     // --------------------- Events --------------------- //
 
-    /// @notice Emitted when a packet is sent
+    /// @notice Emitted when a packet is committed
     /// @param path The commitment path
     /// @param commitment The commitment data
     event PacketCommitted(bytes32 path, bytes32 commitment);
+
+    /// @notice Emitted when an ack is commmitted 
+    /// @param path The commitment path
+    /// @param commitment The commitment data
+    event AckCommitted(bytes32 path, bytes32 commitment);
+
 }

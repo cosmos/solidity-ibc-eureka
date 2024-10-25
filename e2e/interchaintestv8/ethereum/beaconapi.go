@@ -288,7 +288,7 @@ func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error)
 	})
 }
 
-func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) {
+func (b BeaconAPIClient) GetBeaconBlocks(blockID string) (BeaconBlocksResponseJSON, error) {
 	return retry(b.Retries, b.RetryWait, func() (BeaconBlocksResponseJSON, error) {
 		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/finalized", b.url)
 		req, err := http.NewRequest("GET", url, nil)
@@ -318,49 +318,37 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) 
 			return BeaconBlocksResponseJSON{}, err
 		}
 
-		if !beaconBlocksResponse.Finalized {
+		return beaconBlocksResponse, nil
+	})
+}
+
+func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) {
+	return retry(b.Retries, b.RetryWait, func() (BeaconBlocksResponseJSON, error) {
+		resp, err := b.GetBeaconBlocks("finalized")
+		if err != nil {
+			return BeaconBlocksResponseJSON{}, err
+		}
+
+		if !resp.Finalized {
 			return BeaconBlocksResponseJSON{}, fmt.Errorf("Block is not finalized")
 		}
 
-		return beaconBlocksResponse, nil
+		return resp, nil
 	})
 }
 
 func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
 	return retry(b.Retries, b.RetryWait, func() (uint64, error) {
-		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
-		req, err := http.NewRequest("GET", url, nil)
+		resp, err := b.GetBeaconBlocks(blockID)
 		if err != nil {
 			return 0, err
 		}
 
-		req.Header.Set("Accept", "application/json")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return 0, err
-		}
-
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return 0, err
-		}
-
-		if resp.StatusCode != 200 {
-			return 0, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
-		}
-
-		var beaconBlocksResponse BeaconBlocksResponseJSON
-		if err := json.Unmarshal(body, &beaconBlocksResponse); err != nil {
-			return 0, err
-		}
-
-		if blockID == "finalized" && !beaconBlocksResponse.Finalized {
+		if blockID == "finalized" && !resp.Finalized {
 			return 0, fmt.Errorf("Block is not finalized")
 		}
-		fmt.Printf("block number %d, finalized: %t\n", beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, beaconBlocksResponse.Finalized)
+		fmt.Printf("block number %d, finalized: %t\n", resp.Data.Message.Body.ExecutionPayload.BlockNumber, resp.Finalized)
 
-		return beaconBlocksResponse.Data.Message.Body.ExecutionPayload.BlockNumber, nil
+		return resp.Data.Message.Body.ExecutionPayload.BlockNumber, nil
 	})
 }

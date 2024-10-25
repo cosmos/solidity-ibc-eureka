@@ -15,7 +15,7 @@ clean:
 
 # Run the foundry tests
 test-foundry testname=".\\*":
-	forge test -vvv --match-test ^{{testname}}\(.\*\)\$
+	forge test -vvv --gas-report --match-test ^{{testname}}\(.\*\)\$ 
 
 # Run the benchmark tests
 test-benchmark:
