@@ -174,7 +174,6 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 		},
 		NetworkParams: NetworkConfigParams{
 			Preset: "minimal",
-			// SecondsPerSlot: 4,
 		},
 		WaitForFinalization: true,
 	}
@@ -227,11 +226,11 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 			return false, nil
 		}
 
-		executionHeight, err := beaconAPIClient.GetExecutionHeight("finalized")
-		if err != nil {
-			return false, nil
-		}
-		header, err := beaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
+		// executionHeight, err := beaconAPIClient.GetExecutionHeight("finalized")
+		// if err != nil {
+		// 	return false, nil
+		// }
+		header, err := beaconAPIClient.GetHeader(finalizedBlocksResp.Data.Message.Slot)
 		if err != nil {
 			return false, nil
 		}

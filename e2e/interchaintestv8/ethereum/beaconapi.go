@@ -133,7 +133,7 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 		cancel:    cancel,
 		client:    client,
 		url:       beaconAPIAddress,
-		Retries:   6,
+		Retries:   60,
 		RetryWait: 10 * time.Second,
 	}
 }
@@ -290,7 +290,7 @@ func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error)
 
 func (b BeaconAPIClient) GetBeaconBlocks(blockID string) (BeaconBlocksResponseJSON, error) {
 	return retry(b.Retries, b.RetryWait, func() (BeaconBlocksResponseJSON, error) {
-		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/finalized", b.url)
+		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return BeaconBlocksResponseJSON{}, err
