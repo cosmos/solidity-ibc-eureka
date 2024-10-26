@@ -1,0 +1,152 @@
+diff --git a/e2e/interchaintestv8/ethereum/beaconapi.go b/e2e/interchaintestv8/ethereum/beaconapi.go
+index af62a9a..6b21a5f 100644
+--- a/e2e/interchaintestv8/ethereum/beaconapi.go
++++ b/e2e/interchaintestv8/ethereum/beaconapi.go
+@@ -290,7 +290,7 @@ func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error)
+ 
+ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) {
+ 	return retry(b.Retries, b.RetryWait, func() (BeaconBlocksResponseJSON, error) {
+-		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/finalized", b.url)
++		url := fmt.Sprintf("%s/eth/v2/beacon/blocks/finalized", b.url)
+ 		req, err := http.NewRequest("GET", url, nil)
+ 		if err != nil {
+ 			return BeaconBlocksResponseJSON{}, err
+@@ -328,7 +328,7 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error)
+ 
+ func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
+ 	return retry(b.Retries, b.RetryWait, func() (uint64, error) {
+-		url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%s", b.url, blockID)
++		url := fmt.Sprintf("%s/eth/v2/beacon/blocks/%s", b.url, blockID)
+ 		req, err := http.NewRequest("GET", url, nil)
+ 		if err != nil {
+ 			return 0, err
+diff --git a/e2e/interchaintestv8/ethereum/ethereum.go b/e2e/interchaintestv8/ethereum/ethereum.go
+index f626ca5..71c903b 100644
+--- a/e2e/interchaintestv8/ethereum/ethereum.go
++++ b/e2e/interchaintestv8/ethereum/ethereum.go
+@@ -52,11 +52,11 @@ type KurtosisNetworkParams struct {
+ }
+ 
+ type Participant struct {
+-	CLType        string   `json:"cl_type"`
+-	CLImage       string   `json:"cl_image"`
+-	CLExtraParams []string `json:"cl_extra_params"`
+-	ELImage       string   `json:"el_image"`
+-	ELLogLevel    string   `json:"el_log_level"`
++	CLType string `json:"cl_type"`
++	//CLImage       string   `json:"cl_image"`
++	// CLExtraParams []string `json:"cl_extra_params"`
++	ELImage    string `json:"el_image"`
++	ELLogLevel string `json:"el_log_level"`
+ }
+ 
+ type NetworkConfigParams struct {
+@@ -165,11 +165,11 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
+ 	networkParams := KurtosisNetworkParams{
+ 		Participants: []Participant{
+ 			{
+-				CLType:        "lighthouse",
+-				CLImage:       "sigp/lighthouse:latest-unstable",
+-				CLExtraParams: []string{"--light-client-server"},
+-				ELImage:       "ethereum/client-go:v1.14.6",
+-				ELLogLevel:    "info",
++				CLType: "lodestar",
++				// CLImage:       "sigp/lighthouse:latest-unstable",
++				// CLExtraParams: []string{"--light-client-server"},
++				ELImage:    "ethereum/client-go:v1.14.6",
++				ELLogLevel: "info",
+ 			},
+ 		},
+ 		NetworkParams: NetworkConfigParams{
+@@ -190,7 +190,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
+ 	}
+ 	fmt.Println(starlarkResp.RunOutput)
+ 
+-	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
++	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lodestar")
+ 	if err != nil {
+ 		return Ethereum{}, err
+ 	}
+@@ -209,7 +209,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
+ 		return Ethereum{}, err
+ 	}
+ 
+-	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
++	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lodestar-geth")
+ 	if err != nil {
+ 		return Ethereum{}, err
+ 	}
+diff --git a/e2e/interchaintestv8/fast_update_test.go b/e2e/interchaintestv8/fast_update_test.go
+index 0af00f4..dc9a573 100644
+--- a/e2e/interchaintestv8/fast_update_test.go
++++ b/e2e/interchaintestv8/fast_update_test.go
+@@ -350,7 +350,7 @@ func (s *FastSuite) TestFastShit() {
+ 
+ 		currentPeriod := executionHeight / s.spec.Period()
+ 		s.LogVisualizerMessage(fmt.Sprintf("creating client: spec period: %d, current period: %d", s.spec.Period(), currentPeriod))
+-		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 0)
++		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
+ 		s.Require().NoError(err)
+ 		s.Require().NotEmpty(clientUpdates)
+ 		s.LogVisualizerMessage(fmt.Sprintf("create client: clientUpdates len: %d", len(clientUpdates)))
+@@ -538,7 +538,7 @@ func (s *FastSuite) TestFastShit() {
+ 			lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+ 			s.Require().NoError(err)
+ 
+-			return len(lightClientUpdates) > 1 && finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
++			return len(lightClientUpdates) > 0 && finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
+ 			// return finalityUpdate.Data.AttestedHeader.Beacon.Slot > uint64(updateTo) && targetPeriod >= trustedPeriod, nil
+ 		})
+ 		s.Require().NoError(err)
+@@ -546,7 +546,6 @@ func (s *FastSuite) TestFastShit() {
+ 		s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d", targetPeriod))
+ 		s.LogVisualizerMessage(fmt.Sprintf("trustedPeriod: %d", trustedPeriod))
+ 
+-		// TODO: Try to wait for target period and also light client updates to be 2
+ 		var lightClientUpdates ethereum.LightClientUpdatesResponse
+ 		if trustedPeriod < targetPeriod {
+ 			lightClientUpdates, err = eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+@@ -628,7 +627,7 @@ func (s *FastSuite) TestFastShit() {
+ 				AccountUpdate: &accountUpdate,
+ 			})
+ 
+-			lastUnionUpdate = oldTrustedSlot
++			lastUnionUpdate = update.Data.AttestedHeader.Beacon.Slot
+ 			oldTrustedSlot = update.Data.AttestedHeader.Beacon.Slot
+ 		}
+ 
+@@ -674,7 +673,7 @@ func (s *FastSuite) TestFastShit() {
+ 			// 	previousLightClientUpdate = update
+ 			// }
+ 		}
+-		previousLightClientUpdate := previousPeriodLightClientUpdate[1]
++		previousLightClientUpdate := previousPeriodLightClientUpdate[len(previousPeriodLightClientUpdate)-1]
+ 		s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
+ 
+ 		currentSyncCommitteePubkeys := [][]byte{}
+diff --git a/e2e/interchaintestv8/operator/operator.go b/e2e/interchaintestv8/operator/operator.go
+index 092b991..50004f0 100644
+--- a/e2e/interchaintestv8/operator/operator.go
++++ b/e2e/interchaintestv8/operator/operator.go
+@@ -4,6 +4,7 @@ import (
+ 	"encoding/hex"
+ 	"encoding/json"
+ 	"errors"
++	"fmt"
+ 	"os"
+ 	"os/exec"
+ 	"strconv"
+@@ -48,9 +49,11 @@ func StartOperator(args ...string) error {
+ func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
+ 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
+ 	// nolint:gosec
+-	stdout, err := exec.Command(BinaryPath(), args...).Output()
++	cmd := exec.Command(BinaryPath(), args...)
++	cmd.Stderr = os.Stderr
++	stdout, err := cmd.Output()
+ 	if err != nil {
+-		return nil, nil, err
++		return nil, nil, fmt.Errorf("uc_and_mem failed: %s, %w", stdout, err)
+ 	}
+ 
+ 	// NOTE: writing stdout to os.Stdout after execution due to how `.Output()` works

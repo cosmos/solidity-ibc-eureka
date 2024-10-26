@@ -353,7 +353,7 @@ func (s *FastSuite) TestFastShit() {
 
 		currentPeriod := executionHeight / s.spec.Period()
 		s.LogVisualizerMessage(fmt.Sprintf("creating client: spec period: %d, current period: %d", s.spec.Period(), currentPeriod))
-		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 0)
+		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(clientUpdates)
 		s.LogVisualizerMessage(fmt.Sprintf("create client: clientUpdates len: %d", len(clientUpdates)))

@@ -71,7 +71,7 @@ func (s *FastSuite) updateEthClient(ctx context.Context, targetBlockNumber int64
 		s.LogVisualizerMessage(fmt.Sprintf("finalityUpdate.Data.FinalizedHeader.Beacon.Slot: %d, updateTo: %d", finalityUpdate.Data.FinalizedHeader.Beacon.Slot, updateTo))
 		s.LogVisualizerMessage(fmt.Sprintf("targetPeriod: %d, trustedPeriod: %d", targetPeriod, trustedPeriod))
 
-		return len(lightClientUpdates) > int(targetPeriod-trustedPeriod) &&
+		return len(lightClientUpdates) >= int(targetPeriod-trustedPeriod) &&
 				finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
 				targetPeriod >= trustedPeriod,
 			nil
@@ -215,7 +215,7 @@ func (s *FastSuite) updateEthClient(ctx context.Context, targetBlockNumber int64
 		// 	previousLightClientUpdate = update
 		// }
 	}
-	previousLightClientUpdate := previousPeriodLightClientUpdate[1]
+	previousLightClientUpdate := previousPeriodLightClientUpdate[len(previousPeriodLightClientUpdate)-1]
 	s.LogVisualizerMessage(fmt.Sprintf("final update: prev light client update slot: %d", previousLightClientUpdate.Data.AttestedHeader.Beacon.Slot))
 
 	currentSyncCommitteePubkeys := [][]byte{}

@@ -52,11 +52,11 @@ type KurtosisNetworkParams struct {
 }
 
 type Participant struct {
-	CLType        string   `json:"cl_type"`
-	CLImage       string   `json:"cl_image"`
-	CLExtraParams []string `json:"cl_extra_params"`
-	ELImage       string   `json:"el_image"`
-	ELLogLevel    string   `json:"el_log_level"`
+	CLType string `json:"cl_type"`
+	// CLImage       string   `json:"cl_image"`
+	// CLExtraParams []string `json:"cl_extra_params"`
+	ELImage    string `json:"el_image"`
+	ELLogLevel string `json:"el_log_level"`
 }
 
 type NetworkConfigParams struct {
@@ -94,7 +94,7 @@ func ConnectToRunningEthereum(ctx context.Context) (Ethereum, error) {
 		return Ethereum{}, err
 	}
 
-	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
+	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lodestar")
 	if err != nil {
 		return Ethereum{}, err
 	}
@@ -113,7 +113,7 @@ func ConnectToRunningEthereum(ctx context.Context) (Ethereum, error) {
 		return Ethereum{}, err
 	}
 
-	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
+	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lodestar-geth")
 	if err != nil {
 		return Ethereum{}, err
 	}
@@ -165,11 +165,11 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	networkParams := KurtosisNetworkParams{
 		Participants: []Participant{
 			{
-				CLType:        "lighthouse",
-				CLImage:       "sigp/lighthouse:latest-unstable",
-				CLExtraParams: []string{"--light-client-server"},
-				ELImage:       "ethereum/client-go:v1.14.6",
-				ELLogLevel:    "info",
+				CLType: "lodestar",
+				// CLImage:       "sigp/lighthouse:latest-unstable",
+				// CLExtraParams: []string{"--light-client-server"},
+				ELImage:    "ethereum/client-go:v1.14.6",
+				ELLogLevel: "info",
 			},
 		},
 		NetworkParams: NetworkConfigParams{
@@ -189,7 +189,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lighthouse")
+	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lodestar")
 	if err != nil {
 		return Ethereum{}, err
 	}
@@ -208,7 +208,7 @@ func SpinUpEthereum(ctx context.Context) (Ethereum, error) {
 		return Ethereum{}, err
 	}
 
-	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lighthouse-geth")
+	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lodestar-geth")
 	if err != nil {
 		return Ethereum{}, err
 	}
@@ -298,7 +298,7 @@ func (e Ethereum) DumpLogs(ctx context.Context) error {
 				return nil
 			}
 			for serviceID, serviceLog := range logs.GetServiceLogsByServiceUuids() {
-				if serviceIdToName[serviceID] != "el-1-geth-lighthouse" {
+				if serviceIdToName[serviceID] != "el-1-geth-lodestar" {
 					continue
 				}
 				for _, log := range serviceLog {
