@@ -10,7 +10,7 @@ import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v2.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier } from "@sp1-contracts/v3.0.0/SP1VerifierPlonk.sol";
 import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { stdJson } from "forge-std/StdJson.sol";
