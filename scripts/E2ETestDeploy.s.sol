@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.25 <0.9.0;
+pragma solidity ^0.8.28;
 
 /*
     This script is used for end-to-end testing with SP1_PROVER=network.
