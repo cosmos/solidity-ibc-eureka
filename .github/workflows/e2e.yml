@@ -16,7 +16,7 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
-  SP1_OPERATOR_REV: 0c68154522413f20e078726014d753bbedcdbd2b
+  SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
 permissions:
   contents: read
 
@@ -54,18 +54,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Create LFS file list
-        run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
-      - name: LFS Cache
-        uses: actions/cache@v4
-        with:
-          path: .git/lfs/objects
-          key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}
-          restore-keys: |
-            ${{ runner.os }}-lfs-
-      - name: Git LFS Pull
-        run: git lfs pull
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -97,10 +85,6 @@ jobs:
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
-      - name: Install SP1 circuit artifacts (plonky only)
-        run: |
-          mkdir -p ~/.sp1/circuits
-          mv e2e/artifacts/circuits/v2.0.0 ~/.sp1/circuits/v2.0.0
       - name: Install operator
         if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
