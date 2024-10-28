@@ -1,9 +1,12 @@
 package operator
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -48,13 +51,11 @@ func StartOperator(args ...string) error {
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
 	// nolint:gosec
-	stdout, err := exec.Command(BinaryPath(), args...).Output()
+	cmd := exec.Command(BinaryPath(), args...)
+	stdout, err := execOperatorCommand(cmd)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	// NOTE: writing stdout to os.Stdout after execution due to how `.Output()` works
-	os.Stdout.Write(stdout)
 
 	// eliminate non-json characters
 	jsonStartIdx := strings.Index(string(stdout), "{")
@@ -104,4 +105,22 @@ func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths 
 	}
 
 	return height, proofBz, nil
+}
+
+func execOperatorCommand(c *exec.Cmd) ([]byte, error) {
+	var outBuf bytes.Buffer
+
+	// Create a MultiWriter to write to both os.Stdout and the buffer
+	multiWriter := io.MultiWriter(os.Stdout, &outBuf)
+
+	// Set the command's stdout and stderror to the MultiWriter
+	c.Stdout = multiWriter
+	c.Stderr = multiWriter
+
+	// Run the command
+	if err := c.Run(); err != nil {
+		return nil, fmt.Errorf("operator command '%s' failed: %s", strings.Join(c.Args, " "), outBuf.String())
+	}
+
+	return outBuf.Bytes(), nil
 }
