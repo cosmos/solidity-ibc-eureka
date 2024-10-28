@@ -88,6 +88,7 @@ jobs:
         if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
+          toolchain: nightly-2024-10-11
           command: install
           args: --git https://github.com/cosmos/sp1-ics07-tendermint --rev ${{ env.SP1_OPERATOR_REV }} sp1-ics07-tendermint-operator --bin operator --locked
 
