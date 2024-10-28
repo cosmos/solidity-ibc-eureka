@@ -35,14 +35,6 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
-## Cloning the Repository
-
-This repository contains large files stored using Git LFS. These are only needed for the GitHub workflows (and are not needed for local development/testing) until [succinctlabs/sp1#1565](https://github.com/succinctlabs/sp1/issues/1565) is resolved. You can clone the repository without the large files by running the following command:
-
-```sh
-GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/cosmos/solidity-ibc-eureka
-```
-
 ## Requirements
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
