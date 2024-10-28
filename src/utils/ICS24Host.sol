@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.25;
+pragma solidity ^0.8.28;
 
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";

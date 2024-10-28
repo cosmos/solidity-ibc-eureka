@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.25 <0.9.0;
+pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,avoid-low-level-calls
 

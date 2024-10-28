@@ -8,6 +8,11 @@
         "internalType": "contract IICS20Transfer"
       },
       {
+        "name": "escrow_",
+        "type": "address",
+        "internalType": "contract IEscrow"
+      },
+      {
         "name": "ibcDenom_",
         "type": "string",
         "internalType": "string"

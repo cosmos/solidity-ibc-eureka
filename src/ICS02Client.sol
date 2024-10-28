@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.25;
+pragma solidity ^0.8.28;
 
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
