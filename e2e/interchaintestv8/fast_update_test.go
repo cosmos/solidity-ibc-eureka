@@ -17,7 +17,6 @@ import (
 	"unicode"
 
 	dockerclient "github.com/docker/docker/client"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -66,7 +65,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics20transfer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/visualizerclient"
 )
 
 const visualizerPort = 6969
@@ -75,14 +73,13 @@ const visualizerPort = 6969
 type FastSuite struct {
 	suite.Suite
 
-	ChainA           ethereum.Ethereum
-	ChainB           *cosmos.CosmosChain
-	UserB            ibc.Wallet
-	dockerClient     *dockerclient.Client
-	network          string
-	logger           *zap.Logger
-	ExecRep          *testreporter.RelayerExecReporter
-	VisualizerClient *visualizerclient.VisualizerClient
+	ChainA       ethereum.Ethereum
+	ChainB       *cosmos.CosmosChain
+	UserB        ibc.Wallet
+	dockerClient *dockerclient.Client
+	network      string
+	logger       *zap.Logger
+	ExecRep      *testreporter.RelayerExecReporter
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
@@ -118,18 +115,7 @@ type FastSuite struct {
 func (s *FastSuite) SetupSuite(ctx context.Context) {
 	t := s.T()
 
-	s.VisualizerClient = visualizerclient.NewVisualizerClient(visualizerPort, t.Name())
-	s.LogVisualizerMessage("FastSuite setup started")
 	chainSpecs := chainconfig.DefaultChainSpecs
-
-	t.Cleanup(func() {
-		// ctx := context.Background()
-		if t.Failed() {
-			s.LogVisualizerMessage("Test failed")
-			// s.ChainA.DumpLogs(ctx)
-		}
-		s.LogVisualizerMessage("Test run done and cleanup completed")
-	})
 
 	if len(chainSpecs) != 1 {
 		t.Fatal("FastSuite requires exactly 1 chain spec")
@@ -160,8 +146,6 @@ func (s *FastSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
-	s.LogVisualizerMessage(fmt.Sprintf("Chains started: %s, %s", s.ChainA.ChainID.String(), s.ChainB.Config().ChainID))
-
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(e2esuite.PopulateQueryReqToPath(ctx, s.ChainB))
 
@@ -181,7 +165,6 @@ func TestWithFastSuite(t *testing.T) {
 func (s *FastSuite) TestFastShit() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.LogVisualizerMessage("Testing some fast shit")
 
 	eth, simd := s.ChainA, s.ChainB
 
@@ -289,13 +272,8 @@ func (s *FastSuite) TestFastShit() {
 		s.spec, err = eth.BeaconAPIClient.GetSpec()
 		s.Require().NoError(err)
 
-		_, actualBlockNumber, err := eth.EthAPI.GetBlockNumber()
-		s.Require().NoError(err)
-		s.LogVisualizerMessage(fmt.Sprintf("creating client: actualBlockNumber: %d", actualBlockNumber))
-
 		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
 		s.Require().NoError(err)
-		s.LogVisualizerMessage(fmt.Sprintf("creating client: executionHeight: %d", executionHeight))
 		executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
 		ethClientState := ethereumligthclient.ClientState{
@@ -337,7 +315,6 @@ func (s *FastSuite) TestFastShit() {
 		// header, err := eth.BeaconAPIClient.GetHeader(int64(blockNumber))
 		header, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
 		s.Require().NoError(err)
-		s.LogVisualizerMessage(fmt.Sprintf("creating client: header for bootstrap %+v", header))
 		bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
 		s.Require().NoError(err)
 
@@ -349,20 +326,11 @@ func (s *FastSuite) TestFastShit() {
 		timestamp := bootstrap.Data.Header.Execution.Timestamp * 1_000_000_000
 		stateRoot := ethereum.HexToBeBytes(bootstrap.Data.Header.Execution.StateRoot)
 
-		s.LogVisualizerMessage(fmt.Sprintf("creating client: bootstrap sync committee aggpubkey: %s", bootstrap.Data.CurrentSyncCommittee.AggregatePubkey))
-
 		currentPeriod := executionHeight / s.spec.Period()
-		s.LogVisualizerMessage(fmt.Sprintf("creating client: spec period: %d, current period: %d", s.spec.Period(), currentPeriod))
 		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(clientUpdates)
-		s.LogVisualizerMessage(fmt.Sprintf("create client: clientUpdates len: %d", len(clientUpdates)))
-		for _, update := range clientUpdates {
-			s.LogVisualizerMessage(fmt.Sprintf("creating client: client update slot: %d", update.Data.AttestedHeader.Beacon.Slot))
-			s.LogVisualizerMessage(fmt.Sprintf("creating client: client update next sync c aggpubk: %s", update.Data.NextSyncCommittee.AggregatePubkey))
-		}
 		update := clientUpdates[0]
-		// latestSlot := update.Data.AttestedHeader.Beacon.Slot
 
 		s.initialNextSyncComittee = update.Data.NextSyncCommittee
 		s.lastUnionUpdate = bootstrap.Data.Header.Beacon.Slot
@@ -444,7 +412,6 @@ func (s *FastSuite) TestFastShit() {
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
 	var sendBlockNumber int64
-	var commitEvent *ics26router.ContractPacketCommitted
 	s.Require().True(s.Run("sendTransfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
@@ -470,9 +437,6 @@ func (s *FastSuite) TestFastShit() {
 		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
 		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
 		s.Require().Equal("", transferEvent.PacketData.Memo)
-
-		commitEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParsePacketCommitted)
-		s.Require().NoError(err)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -509,20 +473,12 @@ func (s *FastSuite) TestFastShit() {
 			RevisionNumber: 0,
 			RevisionHeight: s.lastUnionUpdate,
 		}
-		_, unionConsState := s.GetUnionConsensusState(ctx, s.unionClientID, proofHeight)
-		s.LogVisualizerMessage(fmt.Sprintf("recv: trusted slot (union cons slot): %d", unionConsState.Slot))
-		s.LogVisualizerMessage(fmt.Sprintf("recv: state root: %s", ethcommon.Bytes2Hex(unionConsState.StateRoot)))
-		s.LogVisualizerMessage(fmt.Sprintf("recv: state root: %s", ethcommon.Bytes2Hex(unionConsState.StorageRoot)))
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
-		s.LogVisualizerMessage(fmt.Sprintf("recv: path: %s", path))
 		storageKey := ethereum.GetStorageKey(path)
-		s.LogVisualizerMessage(fmt.Sprintf("recv: storage key: %s", storageKey.Hex()))
 		storageKeys := []string{storageKey.Hex()}
 
 		blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
-		s.LogVisualizerMessage(fmt.Sprintf("recv: proof block number: %s", blockNumberHex))
-		s.LogVisualizerMessage(fmt.Sprintf("recv: ics26Router: %s", s.contractAddresses.Ics26Router))
 		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
 		s.Require().NoError(err)
 		s.Require().Len(proofResp.StorageProof, 1)
@@ -536,11 +492,7 @@ func (s *FastSuite) TestFastShit() {
 			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
 			Proof: proofBz,
 		}
-		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof))
 		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
-
-		s.LogVisualizerMessage(fmt.Sprintf("recv: path from contract event: %s", ethcommon.Bytes2Hex(commitEvent.Path[:])))
-		s.LogVisualizerMessage(fmt.Sprintf("recv: commitment from contract event: %s", ethcommon.Bytes2Hex(commitEvent.Commitment[:])))
 
 		packet := channeltypes.Packet{
 			Sequence:           uint64(sendPacket.Sequence),
@@ -552,16 +504,6 @@ func (s *FastSuite) TestFastShit() {
 			TimeoutHeight:      clienttypes.Height{},
 			TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
 		}
-
-		s.LogVisualizerMessage(fmt.Sprintf(`recv: packet sent in:
-timeout: %d
-dest port: %s
-dest channel: %s
-data (unhashed, and as hex): %s
-`, packet.TimeoutTimestamp, packet.DestinationPort, packet.DestinationChannel, hex.EncodeToString(sendPacket.Data)))
-
-		goCommitment := channeltypes.CommitLitePacket(simd.GetCodec(), packet)
-		s.LogVisualizerMessage(fmt.Sprintf("recv: goCommitment: %s", hex.EncodeToString(goCommitment)))
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
 			Packet:          packet,
@@ -635,7 +577,6 @@ data (unhashed, and as hex): %s
 			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
-			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.TransferAmount, escrowBalance.Int64())
@@ -698,7 +639,6 @@ data (unhashed, and as hex): %s
 
 	var recvBlockNumber int64
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
-	var returnAckCommitEvent *ics26router.ContractAckCommitted
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
@@ -746,9 +686,6 @@ data (unhashed, and as hex): %s
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
-		returnAckCommitEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckCommitted)
-		s.Require().NoError(err)
-
 		receiveEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
 		s.Require().NoError(err)
 		ethReceiveData := receiveEvent.PacketData
@@ -780,20 +717,12 @@ data (unhashed, and as hex): %s
 			RevisionNumber: 0,
 			RevisionHeight: s.lastUnionUpdate,
 		}
-		_, unionConsState := s.GetUnionConsensusState(ctx, s.unionClientID, proofHeight)
-		s.LogVisualizerMessage(fmt.Sprintf("ack: trusted slot (union cons slot): %d", unionConsState.Slot))
-		s.LogVisualizerMessage(fmt.Sprintf("ack: state root: %s", ethcommon.Bytes2Hex(unionConsState.StateRoot)))
-		s.LogVisualizerMessage(fmt.Sprintf("ack: state root: %s", ethcommon.Bytes2Hex(unionConsState.StorageRoot)))
 
 		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", returnPacket.DestinationPort, returnPacket.DestinationChannel, returnPacket.Sequence)
-		s.LogVisualizerMessage(fmt.Sprintf("ack: path: %s", path))
 		storageKey := ethereum.GetStorageKey(path)
-		s.LogVisualizerMessage(fmt.Sprintf("ack: storage key: %s", storageKey.Hex()))
 		storageKeys := []string{storageKey.Hex()}
 
 		blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
-		s.LogVisualizerMessage(fmt.Sprintf("ack: proof block number: %s", blockNumberHex))
-		s.LogVisualizerMessage(fmt.Sprintf("ack: ics26Router: %s", s.contractAddresses.Ics26Router))
 		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
 		s.Require().NoError(err)
 		s.Require().Len(proofResp.StorageProof, 1)
@@ -807,11 +736,7 @@ data (unhashed, and as hex): %s
 			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
 			Proof: proofBz,
 		}
-		s.LogVisualizerMessage(fmt.Sprintf("StorageProof Key: %s, Value: %s, Proof: %+v", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof))
 		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
-
-		s.LogVisualizerMessage(fmt.Sprintf("ack: path from contract event: %s", ethcommon.Bytes2Hex(returnAckCommitEvent.Path[:])))
-		s.LogVisualizerMessage(fmt.Sprintf("ack: commitment from contract event: %s", ethcommon.Bytes2Hex(returnAckCommitEvent.Commitment[:])))
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          returnPacket,
@@ -823,71 +748,6 @@ data (unhashed, and as hex): %s
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
-
-	fmt.Println("IF YOU SEE THIS, YOU HAVE REACHED NIRVANA! 🔥🎉")
-	fmt.Println("THE ULTIMATE BOSS BATTLE HAS BEEN WON! 🎉🔥")
-}
-
-func TestFastCommitment(t *testing.T) {
-	packet := channeltypes.Packet{
-		Sequence:           1,
-		Data:               ethcommon.FromHex("7b2264656e6f6d223a22307831643234666361326633633831633761633438613937303533313534636164353166373137643335222c22616d6f756e74223a2231303030303030303030222c2273656e646572223a22307866653566333561396638383831353535346434613965363932396239316635666537623936393964222c227265636569766572223a22636f736d6f7331646135396d7776686479753577746d36356e776533776678706d676733796333386d716b3732222c226d656d6f223a22227d"),
-		TimeoutHeight:      clienttypes.Height{},
-		TimeoutTimestamp:   1729659372000000000,
-		DestinationPort:    "transfer",
-		DestinationChannel: "08-wasm-0",
-	}
-
-	fmt.Printf(`recv: packet sent in:
-timeout: %d
-data (unhashed, and as hex): %s
-`, packet.TimeoutTimestamp, hex.EncodeToString(packet.Data))
-
-	goCommitment := channeltypes.CommitLitePacket(chainconfig.CosmosEncodingConfig().Codec, packet)
-	beGoCommitment := ethereum.HexToBeBytes(ethcommon.Bytes2Hex(goCommitment))
-	fmt.Printf("goComm bytes len: %d\n", len(goCommitment))
-	fmt.Printf("beGoComm bytes len: %d\n", len(beGoCommitment))
-	fmt.Printf("recv: goCommitment: %s\n", hex.EncodeToString(goCommitment))
-	fmt.Println("from test", "0xb9495b2e5458dd790ca6d91efd83a815618f24d29c3fda341a5e8bf0582785f7")
-
-	require.Equal(t, "3ec9c8f927b36ae8bdd1431e5f91fabc34667adbaf9fb1334353809ad465e063", hex.EncodeToString(goCommitment))
-}
-
-func TestFastProof(t *testing.T) {
-	ethAPI, err := ethereum.NewEthAPI("http://localhost:32857")
-	require.NoError(t, err)
-
-	blockNumberHex, _, err := ethAPI.GetBlockNumber()
-	require.NoError(t, err)
-
-	path := "commitments/ports/transfer/channels/07-tendermint-0/sequences/1"
-
-	fmt.Printf("recv: path: %s\n", path)
-	storageKey := ethereum.GetStorageKey(path)
-	fmt.Printf("recv: storage key: %s\n", storageKey.Hex())
-	storageKeys := []string{storageKey.Hex()}
-
-	blockNumberHex = fmt.Sprintf("0x%x", 81)
-	fmt.Printf("recv: proof block number: %s\n", blockNumberHex)
-	ics26Router := "0xcd906bb056d0c65b198154d576de6aac349b6bdf"
-	fmt.Printf("recv: ics26Router: %s\n", ics26Router)
-
-	proofResp, err := ethAPI.GetProof(ics26Router, storageKeys, blockNumberHex)
-	require.NoError(t, err)
-	require.Len(t, proofResp.StorageProof, 1)
-
-	var proofBz [][]byte
-	for _, proofStr := range proofResp.StorageProof[0].Proof {
-		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-	}
-	storageProof := ethereumligthclient.StorageProof{
-		Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
-		Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
-		Proof: proofBz,
-	}
-	fmt.Printf("StorageProof Key: %s, Value: %s, Proof: %+v\n", proofResp.StorageProof[0].Key, proofResp.StorageProof[0].Value, proofResp.StorageProof[0].Proof)
-	_ = storageProof
-
 }
 
 // FundAddressChainB sends funds to the given address on Chain B.
@@ -1142,11 +1002,4 @@ func (s *FastSuite) GetUnionConsensusState(ctx context.Context, clientID string,
 	s.Require().NoError(err)
 
 	return wasmConsenusState, ethConsensusState
-}
-
-func (s *FastSuite) LogVisualizerMessage(msg string) {
-	if s.VisualizerClient != nil {
-		fmt.Println("Visualizer message:", msg)
-		s.VisualizerClient.SendMessage(msg, s.T().Name())
-	}
 }

@@ -71,11 +71,8 @@ type IbcEurekaTestSuite struct {
 	erc20Contract      *erc20.Contract
 	escrowContractAddr ethcommon.Address
 
-	// The (hex encoded) checksum of the ethereum wasm client contract deployed on the Cosmos chain
-	unionClientChecksum string
-	unionClientID       string
-	tendermintClientID  string
-	spec                ethereum.Spec
+	unionClientID      string
+	tendermintClientID string
 }
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
@@ -180,12 +177,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
 		s.Require().NoError(err)
 
-		s.unionClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
-		s.Require().NotEmpty(s.unionClientChecksum, "checksum was empty but should not have been")
+		unionClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+		s.Require().NotEmpty(unionClientChecksum, "checksum was empty but should not have been")
 
 		genesis, err := eth.BeaconAPIClient.GetGenesis()
 		s.Require().NoError(err)
-		s.spec, err = eth.BeaconAPIClient.GetSpec()
+		spec, err := eth.BeaconAPIClient.GetSpec()
 		s.Require().NoError(err)
 
 		_, actualBlockNumber, err := eth.EthAPI.GetBlockNumber()
@@ -197,17 +194,15 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		blockNumber := executionHeight
 		blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
 
-		fmt.Printf("execution: blockNumber: %d, blockNumberHex: %s\n", blockNumber, blockNumberHex)
-
 		ethClientState := ethereumligthclient.ClientState{
 			ChainId:                      eth.ChainID.String(),
 			GenesisValidatorsRoot:        genesis.GenesisValidatorsRoot[:],
 			MinSyncCommitteeParticipants: 0,
 			GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
-			ForkParameters:               s.spec.ToForkParameters(),
-			SecondsPerSlot:               uint64(s.spec.SecondsPerSlot.Seconds()),
-			SlotsPerEpoch:                s.spec.SlotsPerEpoch,
-			EpochsPerSyncCommitteePeriod: s.spec.EpochsPerSyncCommitteePeriod,
+			ForkParameters:               spec.ToForkParameters(),
+			SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
+			SlotsPerEpoch:                spec.SlotsPerEpoch,
+			EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
 			LatestSlot:                   blockNumber,
 			FrozenHeight: &clienttypes.Height{
 				RevisionNumber: 0,
@@ -218,7 +213,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		}
 
 		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
-		wasmClientChecksum, err := hex.DecodeString(s.unionClientChecksum)
+		wasmClientChecksum, err := hex.DecodeString(unionClientChecksum)
 		s.Require().NoError(err)
 		latestHeight := clienttypes.Height{
 			RevisionNumber: 0,
@@ -235,7 +230,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		proofOfIBCContract, err := eth.EthAPI.GetProof(ics26RouterAddress, []string{}, blockNumberHex)
 		s.Require().NoError(err)
 
-		currentPeriod := blockNumber / s.spec.Period()
+		currentPeriod := blockNumber / spec.Period()
 		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(clientUpdates)

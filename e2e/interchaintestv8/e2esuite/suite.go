@@ -2,7 +2,6 @@ package e2esuite
 
 import (
 	"context"
-	"fmt"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/suite"
@@ -19,23 +18,19 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/visualizerclient"
 )
-
-const visualizerPort = 6969
 
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
 	suite.Suite
 
-	ChainA           ethereum.Ethereum
-	ChainB           *cosmos.CosmosChain
-	UserB            ibc.Wallet
-	dockerClient     *dockerclient.Client
-	network          string
-	logger           *zap.Logger
-	ExecRep          *testreporter.RelayerExecReporter
-	VisualizerClient *visualizerclient.VisualizerClient
+	ChainA       ethereum.Ethereum
+	ChainB       *cosmos.CosmosChain
+	UserB        ibc.Wallet
+	dockerClient *dockerclient.Client
+	network      string
+	logger       *zap.Logger
+	ExecRep      *testreporter.RelayerExecReporter
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
@@ -45,18 +40,14 @@ type TestSuite struct {
 func (s *TestSuite) SetupSuite(ctx context.Context) {
 	t := s.T()
 
-	s.VisualizerClient = visualizerclient.NewVisualizerClient(visualizerPort, t.Name())
-	s.VisualizerClient.SendMessage("TestSuite setup started", "setup")
 	chainSpecs := chainconfig.DefaultChainSpecs
 
 	t.Cleanup(func() {
 		ctx := context.Background()
 		if t.Failed() {
-			s.VisualizerClient.SendMessage("Test failed", "teardown")
 			_ = s.ChainA.DumpLogs(ctx)
 		}
 		s.ChainA.Destroy(ctx)
-		s.VisualizerClient.SendMessage("Test run done and cleanup completed", "teardown")
 	})
 
 	if len(chainSpecs) != 1 {
@@ -85,8 +76,6 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		NetworkID:        s.network,
 		SkipPathCreation: true,
 	}))
-
-	s.VisualizerClient.SendMessage(fmt.Sprintf("Chains started: %s, %s", s.ChainA.ChainID.String(), s.ChainB.Config().ChainID), "setup")
 
 	// map all query request types to their gRPC method paths for cosmos chains
 	s.Require().NoError(PopulateQueryReqToPath(ctx, s.ChainB))
