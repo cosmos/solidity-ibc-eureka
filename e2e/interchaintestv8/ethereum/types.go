@@ -251,13 +251,6 @@ func (f *FinalityUpdateJSONResponse) ToLightClientUpdate() ethereumlightclient.L
 			Execution:       &attestedHeaderExecution,
 			ExecutionBranch: attestedheaderExecutionBranch,
 		},
-		// TODO: DO WE NEED THESE? NOT SURE WHERE TO GET THEM?
-		//
-		// NextSyncCommittee: &ethereumlightclient.SyncCommittee{
-		// 	Pubkeys:         [][]byte{},
-		// 	AggregatePubkey: []byte{},
-		// },
-		// NextSyncCommitteeBranch: [][]byte{},
 		FinalizedHeader: &ethereumlightclient.LightClientHeader{
 			Beacon:          &finalizedHeaderBeacon,
 			Execution:       &finalizedHeaderExecution,

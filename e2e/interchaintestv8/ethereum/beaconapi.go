@@ -202,7 +202,6 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64) (LightClientUpdatesResponse, error) {
 	return retry(b.Retries, b.RetryWait, func() (LightClientUpdatesResponse, error) {
 		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
-		fmt.Println("light_client_updates url:", url)
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return LightClientUpdatesResponse{}, err
@@ -347,7 +346,6 @@ func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
 		if blockID == "finalized" && !resp.Finalized {
 			return 0, fmt.Errorf("Block is not finalized")
 		}
-		fmt.Printf("block number %d, finalized: %t\n", resp.Data.Message.Body.ExecutionPayload.BlockNumber, resp.Finalized)
 
 		return resp.Data.Message.Body.ExecutionPayload.BlockNumber, nil
 	})
