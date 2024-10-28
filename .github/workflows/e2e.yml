@@ -68,8 +68,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: nightly-2024-10-11
 
       - name: "Cache Operator"
         id: cache-operator
