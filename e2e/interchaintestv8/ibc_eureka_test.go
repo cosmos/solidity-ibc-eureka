@@ -71,6 +71,8 @@ type IbcEurekaTestSuite struct {
 	erc20Contract      *erc20.Contract
 	escrowContractAddr ethcommon.Address
 
+	lastUnionUpdate uint64
+
 	unionClientID      string
 	tendermintClientID string
 }
@@ -209,7 +211,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 				RevisionHeight: 0,
 			},
 			IbcCommitmentSlot:  []byte{0, 0, 0, 0},
-			IbcContractAddress: ethcommon.FromHex(ics26RouterAddress),
+			IbcContractAddress: ethcommon.FromHex(s.contractAddresses.Ics26Router),
 		}
 
 		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
@@ -227,7 +229,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		clientStateAny, err := clienttypes.PackClientState(&clientState)
 		s.Require().NoError(err)
 
-		proofOfIBCContract, err := eth.EthAPI.GetProof(ics26RouterAddress, []string{}, blockNumberHex)
+		proofOfIBCContract, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, blockNumberHex)
 		s.Require().NoError(err)
 
 		currentPeriod := blockNumber / spec.Period()
@@ -646,7 +648,7 @@ AccountProof: &ethereumligthclient.AccountProof{
 		storageKey := ethereum.GetStorageKey(path)
 		storageKeys := []string{storageKey.Hex()}
 
-		proofResp, err := eth.EthAPI.GetProof(ics26RouterAddress, storageKeys, blockNumberHex)
+		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
 		s.Require().NoError(err)
 		s.Require().Len(proofResp.StorageProof, 1)
 

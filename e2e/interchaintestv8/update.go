@@ -62,7 +62,7 @@ func (s *FastSuite) updateEthClient(ctx context.Context, minimumUpdateTo int64, 
 		s.Require().NoError(err)
 
 		computedSlot := (uint64(time.Now().Unix())-unionClientState.GenesisTime)/
-			uint64(unionClientState.SecondsPerSlot) + spec.GenesisSlot
+			unionClientState.SecondsPerSlot + spec.GenesisSlot
 
 		for _, update := range lightClientUpdates {
 			if computedSlot < update.Data.SignatureSlot {
@@ -237,7 +237,6 @@ func (s *FastSuite) updateEthClient(ctx context.Context, minimumUpdateTo int64, 
 			break
 		}
 	}
-
 }
 
 func logHeader(prefix string, header ethereumligthclient.Header) {
@@ -248,5 +247,4 @@ func logHeader(prefix string, header ethereumligthclient.Header) {
 		header.ConsensusUpdate.SignatureSlot,
 		header.ConsensusUpdate.FinalizedHeader.Beacon.Slot,
 		header.ConsensusUpdate.FinalizedHeader.Execution.BlockNumber)
-
 }

@@ -67,8 +67,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
-const visualizerPort = 6969
-
 // TestSuite is a suite of tests that require two chains and a relayer
 type FastSuite struct {
 	suite.Suite
@@ -104,11 +102,8 @@ type FastSuite struct {
 	lastUnionUpdate uint64
 
 	// The (hex encoded) checksum of the ethereum wasm client contract deployed on the Cosmos chain
-	unionClientChecksum     string
-	unionClientID           string
-	tendermintClientID      string
-	spec                    ethereum.Spec
-	initialNextSyncComittee ethereum.SyncCommittee
+	unionClientID      string
+	tendermintClientID string
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
@@ -244,7 +239,6 @@ func (s *FastSuite) TestFastShit() {
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
 		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
-
 	}))
 
 	s.T().Cleanup(func() {
@@ -264,12 +258,12 @@ func (s *FastSuite) TestFastShit() {
 		file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
 		s.Require().NoError(err)
 
-		s.unionClientChecksum = s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
-		s.Require().NotEmpty(s.unionClientChecksum, "checksum was empty but should not have been")
+		unionClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+		s.Require().NotEmpty(unionClientChecksum, "checksum was empty but should not have been")
 
 		genesis, err := eth.BeaconAPIClient.GetGenesis()
 		s.Require().NoError(err)
-		s.spec, err = eth.BeaconAPIClient.GetSpec()
+		spec, err := eth.BeaconAPIClient.GetSpec()
 		s.Require().NoError(err)
 
 		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
@@ -281,21 +275,21 @@ func (s *FastSuite) TestFastShit() {
 			GenesisValidatorsRoot:        genesis.GenesisValidatorsRoot[:],
 			MinSyncCommitteeParticipants: 0,
 			GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
-			ForkParameters:               s.spec.ToForkParameters(),
-			SecondsPerSlot:               uint64(s.spec.SecondsPerSlot.Seconds()),
-			SlotsPerEpoch:                s.spec.SlotsPerEpoch,
-			EpochsPerSyncCommitteePeriod: s.spec.EpochsPerSyncCommitteePeriod,
+			ForkParameters:               spec.ToForkParameters(),
+			SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
+			SlotsPerEpoch:                spec.SlotsPerEpoch,
+			EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
 			LatestSlot:                   executionHeight,
 			FrozenHeight: &clienttypes.Height{
 				RevisionNumber: 0,
 				RevisionHeight: 0,
 			},
 			IbcCommitmentSlot:  []byte{0, 0, 0, 0},
-			IbcContractAddress: ethcommon.FromHex(ics26RouterAddress),
+			IbcContractAddress: ethcommon.FromHex(s.contractAddresses.Ics26Router),
 		}
 
 		ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
-		wasmClientChecksum, err := hex.DecodeString(s.unionClientChecksum)
+		wasmClientChecksum, err := hex.DecodeString(unionClientChecksum)
 		s.Require().NoError(err)
 		latestHeightSlot := clienttypes.Height{
 			RevisionNumber: 0,
@@ -309,7 +303,7 @@ func (s *FastSuite) TestFastShit() {
 		clientStateAny, err := clienttypes.PackClientState(&clientState)
 		s.Require().NoError(err)
 
-		proofOfIBCContract, err := eth.EthAPI.GetProof(ics26RouterAddress, []string{}, executionNumberHex)
+		proofOfIBCContract, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, executionNumberHex)
 		s.Require().NoError(err)
 
 		// header, err := eth.BeaconAPIClient.GetHeader(int64(blockNumber))
@@ -326,13 +320,11 @@ func (s *FastSuite) TestFastShit() {
 		timestamp := bootstrap.Data.Header.Execution.Timestamp * 1_000_000_000
 		stateRoot := ethereum.HexToBeBytes(bootstrap.Data.Header.Execution.StateRoot)
 
-		currentPeriod := executionHeight / s.spec.Period()
+		currentPeriod := executionHeight / spec.Period()
 		clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(clientUpdates)
-		update := clientUpdates[0]
 
-		s.initialNextSyncComittee = update.Data.NextSyncCommittee
 		s.lastUnionUpdate = bootstrap.Data.Header.Beacon.Slot
 		ethConsensusState := ethereumligthclient.ConsensusState{
 			Slot:                 bootstrap.Data.Header.Beacon.Slot,

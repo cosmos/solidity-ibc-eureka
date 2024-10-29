@@ -84,7 +84,7 @@ func ConnectToRunningEthereum(ctx context.Context) (Ethereum, error) {
 	var enclaveInfo *kurtosis_engine_rpc_api_bindings.EnclaveInfo
 	if enclaveInfos, found := enclaves.GetEnclavesByName()[enclaveName]; found {
 		if len(enclaveInfos) != 1 {
-			return Ethereum{}, fmt.Errorf("Expected 1 enclave, found %d", len(enclaveInfos))
+			return Ethereum{}, fmt.Errorf("expected 1 enclave, found %d", len(enclaveInfos))
 		}
 		enclaveInfo = enclaveInfos[0]
 	}

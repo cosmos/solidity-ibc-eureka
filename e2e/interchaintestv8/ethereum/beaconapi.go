@@ -72,19 +72,6 @@ type SyncCommittee struct {
 
 type LightClientUpdatesResponse []LightClientUpdateJSON
 
-//	pub struct UnboundedLightClientFinalityUpdate {
-//	    /// Header attested to by the sync committee
-//	    pub attested_header: UnboundedLightClientHeader,
-//	    /// Finalized header corresponding to `attested_header.state_root`
-//	    pub finalized_header: UnboundedLightClientHeader,
-//	    pub finality_branch: [H256; floorlog2(FINALIZED_ROOT_INDEX)],
-//	    /// Sync committee aggregate signature
-//	    pub sync_aggregate: UnboundedSyncAggregate,
-//	    /// Slot at which the aggregate signature was created (untrusted)
-//	    #[serde(with = "::serde_utils::string")]
-//	    pub signature_slot: u64,
-//	}
-
 func (s Spec) ToForkParameters() *ethereumlightclient.ForkParameters {
 	return &ethereumlightclient.ForkParameters{
 		GenesisForkVersion: s.GenesisForkVersion[:],
@@ -187,7 +174,7 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 		}
 
 		if resp.StatusCode != 200 {
-			return Bootstrap{}, fmt.Errorf("Get bootstrap (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+			return Bootstrap{}, fmt.Errorf("get bootstrap (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
 		}
 
 		var bootstrap Bootstrap
@@ -309,7 +296,7 @@ func (b BeaconAPIClient) GetBeaconBlocks(blockID string) (BeaconBlocksResponseJS
 		}
 
 		if resp.StatusCode != 200 {
-			return BeaconBlocksResponseJSON{}, fmt.Errorf("Get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
+			return BeaconBlocksResponseJSON{}, fmt.Errorf("get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
 		}
 
 		var beaconBlocksResponse BeaconBlocksResponseJSON
@@ -329,7 +316,7 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) 
 		}
 
 		if !resp.Finalized {
-			return BeaconBlocksResponseJSON{}, fmt.Errorf("Block is not finalized")
+			return BeaconBlocksResponseJSON{}, fmt.Errorf("block is not finalized")
 		}
 
 		return resp, nil
@@ -344,7 +331,7 @@ func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
 		}
 
 		if blockID == "finalized" && !resp.Finalized {
-			return 0, fmt.Errorf("Block is not finalized")
+			return 0, fmt.Errorf("block is not finalized")
 		}
 
 		return resp.Data.Message.Body.ExecutionPayload.BlockNumber, nil
