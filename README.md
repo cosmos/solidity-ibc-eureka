@@ -35,14 +35,6 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
-## Cloning the Repository
-
-This repository contains large files stored using Git LFS. These are only needed for the GitHub workflows (and are not needed for local development/testing) until [succinctlabs/sp1#1565](https://github.com/succinctlabs/sp1/issues/1565) is resolved. You can clone the repository without the large files by running the following command:
-
-```sh
-GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/cosmos/solidity-ibc-eureka
-```
-
 ## Requirements
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
@@ -129,11 +121,11 @@ The contracts in this repository are benchmarked end-to-end using foundry. The f
 
 | **Contract** | **Method** | **Description** | **Gas** |
 |:---:|:---:|:---:|:---:|
-| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 241,674 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 620,758 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,521,712 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 508,261 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 555,121 |
+| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 240,120 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 628,403 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,525,837 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 512,695 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 563,571 |
 
 ## License
 

@@ -7,12 +7,12 @@
     "url": "https://github.com/srdtrk"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.1.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.2",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v2.0.0",
-    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#0c68154522413f20e078726014d753bbedcdbd2b"
+    "@openzeppelin/contracts": "^5.1.0"
   },
   "devDependencies": {
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v3.0.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#8f748792907110bbaceeb02c6ae3b5147664cf8e",
     "solhint": "^5.0.3",
     "@defi-wonderland/natspec-smells": "^1.1.5"
   },

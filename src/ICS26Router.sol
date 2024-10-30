@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.25;
+pragma solidity ^0.8.28;
 
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
