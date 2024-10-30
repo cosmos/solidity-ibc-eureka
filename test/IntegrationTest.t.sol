@@ -49,8 +49,7 @@ contract IntegrationTest is Test {
     ICS20Lib.PacketDataJSON public expectedDefaultSendPacketData;
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         ics20Transfer = new ICS20Transfer(address(ics26Router));
         erc20 = new TestERC20();

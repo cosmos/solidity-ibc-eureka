@@ -57,8 +57,7 @@ contract E2ETestDeploy is Script {
         );
 
         // Deploy IBC Eureka
-        ICS02Client ics02Client = new ICS02Client(deployerAddress);
-        ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
+        ICS26Router ics26Router = new ICS26Router(deployerAddress);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
@@ -75,7 +74,7 @@ contract E2ETestDeploy is Script {
 
         string memory json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
-        json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
+        json.serialize("ics02Client", Strings.toHexString(address(ics26Router.ICS02_CLIENT())));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));

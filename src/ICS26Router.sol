@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { ICS02Client } from "./ICS02Client.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
@@ -21,14 +22,14 @@ import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGuard {
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
-    /// @dev ICS02Client contract
-    IICS02Client private ics02Client;
+    /// @inheritdoc IICS26Router
+    IICS02Client public immutable ICS02_CLIENT;
     /// @inheritdoc IICS26Router
     IIBCStore public immutable IBC_STORE;
 
-    constructor(address ics02Client_, address owner) Ownable(owner) {
-        ics02Client = IICS02Client(ics02Client_);
-        IBC_STORE = new IBCStore(address(this));
+    constructor(address owner) Ownable(owner) {
+        ICS02_CLIENT = new ICS02Client(owner); // using the same owner
+        IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -74,7 +75,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
+        string memory counterpartyId = ICS02_CLIENT.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
@@ -108,7 +109,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.destChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.destChannel);
         if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel);
         }
@@ -129,7 +130,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
             value: abi.encodePacked(commitmentBz)
         });
 
-        ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
+        ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         bytes memory ack = getIBCApp(msg_.packet.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender })
@@ -149,7 +150,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
         if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
@@ -173,7 +174,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
             value: abi.encodePacked(commitmentBz)
         });
 
-        ics02Client.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         getIBCApp(msg_.packet.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -190,7 +191,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
         if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
@@ -211,7 +212,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }

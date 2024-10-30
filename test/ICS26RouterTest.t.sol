@@ -15,14 +15,12 @@ import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 
 contract ICS26RouterTest is Test {
-    ICS02Client public ics02Client;
     ICS26Router public ics26Router;
 
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
     }
 
     function test_AddIBCAppUsingAddress() public {
@@ -49,7 +47,7 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyClientID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics02Client.addClient(
+        string memory clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClientID, merklePrefix), address(lightClient)
         );
 
