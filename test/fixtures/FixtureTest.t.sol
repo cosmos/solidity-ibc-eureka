@@ -5,7 +5,6 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
-import { ICS02Client } from "../../src/ICS02Client.sol";
 import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
@@ -16,7 +15,6 @@ import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07Te
 import { stdJson } from "forge-std/StdJson.sol";
 
 abstract contract FixtureTest is Test {
-    ICS02Client public ics02Client;
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     SP1Verifier public sp1Verifier;
@@ -45,8 +43,7 @@ abstract contract FixtureTest is Test {
     }
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
@@ -67,7 +64,7 @@ abstract contract FixtureTest is Test {
             trustedConsensusHash
         );
 
-        ics02Client.addClient(
+        ics26Router.ICS02_CLIENT().addClient(
             "07-tendermint",
             IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix),
             address(ics07Tendermint)

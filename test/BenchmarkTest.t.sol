@@ -24,7 +24,7 @@ contract BenchmarkTest is FixtureTest {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             ackFixture.packet.sourcePort, ackFixture.packet.sourceChannel, ackFixture.packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // Step 3: Cosmos has sent the tokens back and commited a packet, which we will now prove and receive
@@ -34,7 +34,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 recvFixture.packet.destPort, recvFixture.packet.destChannel, recvFixture.packet.sequence
             )
@@ -48,7 +48,7 @@ contract BenchmarkTest is FixtureTest {
         (bool success,) = address(ics26Router).call(recvNativeFixture.msg);
         assertTrue(success);
 
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 recvNativeFixture.packet.destPort,
                 recvNativeFixture.packet.destChannel,
@@ -74,7 +74,7 @@ contract BenchmarkTest is FixtureTest {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             timeoutFixture.packet.sourcePort, timeoutFixture.packet.sourceChannel, timeoutFixture.packet.sequence
         );
-        assertEq(ics26Router.getCommitment(path), 0);
+        assertEq(ics26Router.IBC_STORE().getCommitment(path), 0);
     }
 
     function sendTransfer(Fixture memory fixture) internal {
@@ -105,7 +105,7 @@ contract BenchmarkTest is FixtureTest {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             fixture.packet.sourcePort, fixture.packet.sourceChannel, fixture.packet.sequence
         );
-        assertEq(ics26Router.getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
+        assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
     }
 
     function unmarshalJSON(bytes calldata bz) external pure returns (ICS20Lib.PacketDataJSON memory) {

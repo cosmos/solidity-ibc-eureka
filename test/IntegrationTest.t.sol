@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length,max-states-count
 
 import { Test } from "forge-std/Test.sol";
-import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
@@ -12,7 +11,6 @@ import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../src/utils/IBCERC20.sol";
-import { ICS02Client } from "../src/ICS02Client.sol";
 import { IICS26Router } from "../src/ICS26Router.sol";
 import { IICS26RouterErrors } from "../src/errors/IICS26RouterErrors.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
@@ -25,7 +23,6 @@ import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract IntegrationTest is Test {
-    IICS02Client public ics02Client;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
@@ -49,14 +46,13 @@ contract IntegrationTest is Test {
     ICS20Lib.PacketDataJSON public expectedDefaultSendPacketData;
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         ics20Transfer = new ICS20Transfer(address(ics26Router));
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
-        clientIdentifier = ics02Client.addClient(
+        clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
@@ -106,7 +102,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(sender);
@@ -146,7 +142,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -174,7 +170,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -203,7 +199,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
@@ -257,7 +253,7 @@ contract IntegrationTest is Test {
         assertEq(erc20.balanceOf(ics20Transfer.escrow()), 0);
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence)
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
@@ -304,7 +300,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -385,7 +381,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -430,7 +426,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -514,7 +510,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -561,7 +557,7 @@ contract IntegrationTest is Test {
         );
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
             )
@@ -645,7 +641,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             expectedPacketSent.sourcePort, expectedPacketSent.sourceChannel, expectedPacketSent.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
@@ -668,7 +664,7 @@ contract IntegrationTest is Test {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
             msgSendPacket.sourcePort, msgSendPacket.sourceChannel, packet.sequence
         );
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(sender);
@@ -736,7 +732,7 @@ contract IntegrationTest is Test {
 
         bytes32 path =
             ICS24Host.packetCommitmentKeyCalldata(msgSendPacket.sourcePort, msgSendPacket.sourceChannel, sequence);
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         IICS26RouterMsgs.Packet memory packet = _getPacket(msgSendPacket, sequence);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 
