@@ -65,18 +65,13 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 }
 
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff
-func GetStorageKey(path string) ethcommon.Hash {
-	// Storage slot for the balances mapping is typically 0
-	storageSlot := ethcommon.FromHex("0x0")
+func GetCommitmentsStorageKey(path string) ethcommon.Hash {
+	storageSlot := ethcommon.FromHex("0x0") // storage slot is 0 for the commitments mapping
 
 	pathHash := crypto.Keccak256([]byte(path))
 
 	// zero pad both to 32 bytes
 	paddedSlot := ethcommon.LeftPadBytes(storageSlot, 32)
-
-	fmt.Println("path", path)
-	fmt.Println("Paddedslot", ethcommon.Bytes2Hex(paddedSlot))
-	fmt.Println("PathHash", ethcommon.Bytes2Hex(pathHash))
 
 	// keccak256(h(k) . slot)
 	return crypto.Keccak256Hash(pathHash, paddedSlot)

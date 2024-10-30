@@ -34,7 +34,6 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibchost "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -886,14 +885,6 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", sendPacket.DestinationPort, sendPacket.DestinationChannel, sendPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
 
-		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
-			ClientId: s.unionClientID,
-		})
-		s.Require().NoError(err)
-		var clientState mock.ClientState
-		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
-		s.Require().NoError(err)
-
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          sendPacket, // TODO: Does this need to be modified with correct timestamp?
 			Acknowledgement: ethReceiveAckEvent.Acknowledgement,
@@ -978,14 +969,6 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", returnPacket.SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
-
-		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
-			ClientId: s.unionClientID,
-		})
-		s.Require().NoError(err)
-		var clientState mock.ClientState
-		err = simd.Config().EncodingConfig.Codec.Unmarshal(resp.ClientState.Value, &clientState)
-		s.Require().NoError(err)
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
 			Packet: channeltypes.Packet{
@@ -1348,7 +1331,7 @@ func (s *IbcEurekaTestSuite) updateEthClient(ctx context.Context, minimumUpdateT
 func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
 	eth, simd := s.ChainA, s.ChainB
 
-	storageKey := ethereum.GetStorageKey(path)
+	storageKey := ethereum.GetCommitmentsStorageKey(path)
 	storageKeys := []string{storageKey.Hex()}
 
 	blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
