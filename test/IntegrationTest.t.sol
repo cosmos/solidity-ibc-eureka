@@ -25,7 +25,6 @@ import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract IntegrationTest is Test {
-    IICS02Client public ics02Client;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
@@ -55,7 +54,7 @@ contract IntegrationTest is Test {
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
-        clientIdentifier = ics02Client.addClient(
+        clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
