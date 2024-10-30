@@ -3,17 +3,38 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "ics02Client_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "owner",
         "type": "address",
         "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "IBC_STORE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IIBCStore"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ICS02_CLIENT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IICS02Client"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -124,25 +145,6 @@
   },
   {
     "type": "function",
-    "name": "getCommitment",
-    "inputs": [
-      {
-        "name": "hashedPath",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getIBCApp",
     "inputs": [
       {
@@ -156,30 +158,6 @@
         "name": "",
         "type": "address",
         "internalType": "contract IIBCApp"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getNextSequenceSend",
-    "inputs": [
-      {
-        "name": "portId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "channelId",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
       }
     ],
     "stateMutability": "view"
@@ -822,28 +800,6 @@
   },
   {
     "type": "error",
-    "name": "IBCPacketAcknowledgementAlreadyExists",
-    "inputs": [
-      {
-        "name": "path",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "IBCPacketCommitmentAlreadyExists",
-    "inputs": [
-      {
-        "name": "path",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "IBCPacketCommitmentMismatch",
     "inputs": [
       {
@@ -855,28 +811,6 @@
         "name": "actual",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "IBCPacketCommitmentNotFound",
-    "inputs": [
-      {
-        "name": "path",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "IBCPacketReceiptAlreadyExists",
-    "inputs": [
-      {
-        "name": "path",
-        "type": "bytes",
-        "internalType": "bytes"
       }
     ]
   },
