@@ -32,15 +32,15 @@ struct SP1ICS07TendermintGenesisJson {
 contract E2ETestDeploy is Script {
     using stdJson for string;
 
-    string public constant E2E_FAUCET = "0xaff0ca253b97e54440965855cec0a8a2e2399896";
-
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
 
+        string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
         vm.startBroadcast(privateKey);
 
         // Deploy the SP1 ICS07 Tendermint light client
@@ -65,7 +65,7 @@ contract E2ETestDeploy is Script {
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Mint some tokens
-        (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
+        (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
         require(ok, "failed to parse faucet address");
 
         erc20.mint(addr, 1_000_000_000_000_000_000);

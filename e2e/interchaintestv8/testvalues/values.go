@@ -41,15 +41,16 @@ const (
 	// EnvValueGenerateFixtures_True is the value to set to generate fixtures for the solidity tests.
 	EnvValueGenerateFixtures_True = "true"
 
+	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
+	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
+	// EnvE2EFacuetAddress The address of the faucet
+	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
+
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "e2e/genesis.json"
 	// FixturesDir is the directory where the Solidity fixtures are stored.
 	FixturesDir = "test/fixtures/"
-
-	// FaucetPrivateKey is the private key of the faucet account.
-	// '0x' prefix is trimmed.
-	FaucetPrivateKey = "0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 
 	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
 	DefaultGovV1ProposalTokenAmount = 500_000_000

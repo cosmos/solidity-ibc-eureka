@@ -17,6 +17,7 @@ on:
 env:
   FOUNDRY_PROFILE: ci
   SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
+  ETH_TESTNET_TYPE: pow
 permissions:
   contents: read
 

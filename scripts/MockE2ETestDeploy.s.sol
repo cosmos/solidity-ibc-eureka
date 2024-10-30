@@ -32,8 +32,6 @@ struct SP1ICS07TendermintGenesisJson {
 contract MockE2ETestDeploy is Script {
     using stdJson for string;
 
-    string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
@@ -41,8 +39,10 @@ contract MockE2ETestDeploy is Script {
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
-        vm.startBroadcast();
-        address deployerAddress = msg.sender; // This is being set in the e2e test
+        string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
+        vm.startBroadcast(privateKey);
 
         // Deploy the SP1 ICS07 Tendermint light client
         AcceptAllSP1Verifier verifier = new AcceptAllSP1Verifier();
@@ -57,8 +57,8 @@ contract MockE2ETestDeploy is Script {
         );
 
         // Deploy IBC Eureka
-        ICS02Client ics02Client = new ICS02Client(deployerAddress);
-        ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
+        ICS02Client ics02Client = new ICS02Client(msg.sender);
+        ICS26Router ics26Router = new ICS26Router(address(ics02Client), msg.sender);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
@@ -66,7 +66,7 @@ contract MockE2ETestDeploy is Script {
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Mint some tokens
-        (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
+        (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
         require(ok, "invalid address");
 
         erc20.mint(addr, 1_000_000_000_000_000_000);
