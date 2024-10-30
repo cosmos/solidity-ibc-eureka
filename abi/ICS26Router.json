@@ -3,11 +3,6 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "ics02Client_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "owner",
         "type": "address",
         "internalType": "address"
@@ -24,6 +19,19 @@
         "name": "",
         "type": "address",
         "internalType": "contract IIBCStore"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ICS02_CLIENT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IICS02Client"
       }
     ],
     "stateMutability": "view"
