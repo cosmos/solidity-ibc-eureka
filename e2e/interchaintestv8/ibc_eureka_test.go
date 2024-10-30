@@ -466,37 +466,13 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		}))
 	}))
 
-	s.Require().True(s.Run("Update client on Cosmos chain", func() {
-		s.updateEthClient(ctx, sendBlockNumber, simdRelayerUser)
-	}))
-
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
 	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
-		proofHeight := clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: s.lastUnionUpdate,
-		}
+		s.updateEthClient(ctx, sendBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
-		storageKey := ethereum.GetStorageKey(path)
-		storageKeys := []string{storageKey.Hex()}
-
-		blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
-		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
-		s.Require().NoError(err)
-		s.Require().Len(proofResp.StorageProof, 1)
-
-		var proofBz [][]byte
-		for _, proofStr := range proofResp.StorageProof[0].Proof {
-			proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-		}
-		storageProof := ethereumligthclient.StorageProof{
-			Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
-			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
-			Proof: proofBz,
-		}
-		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
+		storageProofBz := s.getCommitmentProof(path)
 
 		packet := channeltypes.Packet{
 			Sequence:           uint64(sendPacket.Sequence),
@@ -512,8 +488,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgRecvPacket{
 			Packet:          packet,
 			ProofCommitment: storageProofBz,
-			ProofHeight:     proofHeight,
-			Signer:          cosmosUserAddress,
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: s.lastUnionUpdate,
+			},
+			Signer: cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 
@@ -710,42 +689,20 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		}))
 	}))
 
-	s.Require().True(s.Run("Update client on Cosmos chain", func() {
-		s.updateEthClient(ctx, recvBlockNumber, simdRelayerUser)
-	}))
-
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		proofHeight := clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: s.lastUnionUpdate,
-		}
+		s.updateEthClient(ctx, recvBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", returnPacket.DestinationPort, returnPacket.DestinationChannel, returnPacket.Sequence)
-		storageKey := ethereum.GetStorageKey(path)
-		storageKeys := []string{storageKey.Hex()}
-
-		blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
-		proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
-		s.Require().NoError(err)
-		s.Require().Len(proofResp.StorageProof, 1)
-
-		var proofBz [][]byte
-		for _, proofStr := range proofResp.StorageProof[0].Proof {
-			proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-		}
-		storageProof := ethereumligthclient.StorageProof{
-			Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
-			Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
-			Proof: proofBz,
-		}
-		storageProofBz := simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
-
+		storageProofBz := s.getCommitmentProof(path)
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
 			Packet:          returnPacket,
 			Acknowledgement: returnWriteAckEvent.Acknowledgement,
 			ProofAcked:      storageProofBz,
-			ProofHeight:     proofHeight,
-			Signer:          cosmosUserAddress,
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: s.lastUnionUpdate,
+			},
+			Signer: cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
@@ -766,6 +723,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.UserB
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 	sendMemo := "nonnativesend"
 
 	var sendPacket channeltypes.Packet
@@ -828,6 +786,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	var denomOnEthereum transfertypes.DenomTrace
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
+	var recvBlockNumber int64
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
@@ -865,6 +824,8 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		recvBlockNumber = receipt.BlockNumber.Int64()
 
 		if s.generateFixtures {
 			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
@@ -919,9 +880,12 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
-
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
+		s.updateEthClient(ctx, recvBlockNumber, simdRelayerUser)
+
+		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", sendPacket.DestinationPort, sendPacket.DestinationChannel, sendPacket.Sequence)
+		storageProofBz := s.getCommitmentProof(path)
+
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.unionClientID,
 		})
@@ -931,11 +895,14 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		s.Require().NoError(err)
 
 		txResp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &channeltypes.MsgAcknowledgement{
-			Packet:          sendPacket,
+			Packet:          sendPacket, // TODO: Does this need to be modified with correct timestamp?
 			Acknowledgement: ethReceiveAckEvent.Acknowledgement,
-			ProofAcked:      []byte("doesn't matter"), // Because mock light client
-			ProofHeight:     clienttypes.Height{},
-			Signer:          cosmosUserAddress,
+			ProofAcked:      storageProofBz,
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: s.lastUnionUpdate,
+			},
+			Signer: cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
@@ -954,6 +921,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 	var returnPacket ics26router.IICS26RouterMsgsPacket
 	returnMemo := "testreturnmemo"
+	var sendBlockNumber int64
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
@@ -970,6 +938,8 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		sendBlockNumber = receipt.BlockNumber.Int64()
 
 		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
 		s.Require().NoError(err)
@@ -1002,10 +972,13 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 		}))
 	}))
 
-	// TODO: When using a non-mock light client on the cosmos chain, the client there needs to be updated at this point
-
 	var cosmosReceiveAck []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
+		s.updateEthClient(ctx, sendBlockNumber, simdRelayerUser)
+
+		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", returnPacket.SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
+		storageProofBz := s.getCommitmentProof(path)
+
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.unionClientID,
 		})
@@ -1025,9 +998,12 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 				TimeoutHeight:      clienttypes.Height{},
 				TimeoutTimestamp:   returnPacket.TimeoutTimestamp * 1_000_000_000,
 			},
-			ProofCommitment: []byte("doesn't matter"),
-			ProofHeight:     clienttypes.Height{},
-			Signer:          cosmosUserAddress,
+			ProofCommitment: storageProofBz,
+			ProofHeight: clienttypes.Height{
+				RevisionNumber: 0,
+				RevisionHeight: s.lastUnionUpdate,
+			},
+			Signer: cosmosUserAddress,
 		})
 		s.Require().NoError(err)
 
@@ -1270,8 +1246,6 @@ func (s *IbcEurekaTestSuite) updateEthClient(ctx context.Context, minimumUpdateT
 
 	headers := []ethereumligthclient.Header{}
 	trustedSlot := unionConsensusState.Slot
-	oldTrustedSlot := trustedSlot
-	lastUpdateBlockNumber := trustedSlot
 	var prevPubAggKey string
 	for _, update := range lightClientUpdates {
 
@@ -1319,7 +1293,7 @@ func (s *IbcEurekaTestSuite) updateEthClient(ctx context.Context, minimumUpdateT
 			TrustedSyncCommittee: &ethereumligthclient.TrustedSyncCommittee{
 				TrustedHeight: &clienttypes.Height{
 					RevisionNumber: 0,
-					RevisionHeight: oldTrustedSlot,
+					RevisionHeight: trustedSlot,
 				},
 				NextSyncCommittee: &ethereumligthclient.SyncCommittee{
 					Pubkeys:         nextSyncCommitteePubkeys,
@@ -1331,68 +1305,12 @@ func (s *IbcEurekaTestSuite) updateEthClient(ctx context.Context, minimumUpdateT
 		headers = append(headers, header)
 		logHeader("Adding new header", header)
 
-		lastUpdateBlockNumber = update.Data.AttestedHeader.Beacon.Slot
-		oldTrustedSlot = update.Data.AttestedHeader.Beacon.Slot
+		trustedSlot = update.Data.AttestedHeader.Beacon.Slot
 		prevPubAggKey = previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey
 	}
 
 	if trustedPeriod >= targetPeriod {
 		headers = []ethereumligthclient.Header{}
-	}
-
-	previousPeriod := (finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period())
-	if previousPeriod != 0 {
-		previousPeriod -= 1
-	}
-	executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(fmt.Sprintf("%d", finalityUpdate.Data.AttestedHeader.Beacon.Slot))
-	s.Require().NoError(err)
-	executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
-	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, []string{}, executionHeightHex)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(proofResp.AccountProof)
-
-	var proofBz [][]byte
-	for _, proofStr := range proofResp.AccountProof {
-		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-	}
-	accountUpdate := ethereumligthclient.AccountUpdate{
-		AccountProof: &ethereumligthclient.AccountProof{
-			StorageRoot: ethereum.HexToBeBytes(proofResp.StorageHash),
-			Proof:       proofBz,
-		},
-	}
-
-	previousPeriodLightClientUpdate, err := eth.BeaconAPIClient.GetLightClientUpdates(previousPeriod, 1)
-	s.Require().NoError(err)
-	previousLightClientUpdate := previousPeriodLightClientUpdate[len(previousPeriodLightClientUpdate)-1]
-
-	currentSyncCommitteePubkeys := [][]byte{}
-	for _, pubkey := range previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys {
-		currentSyncCommitteePubkeys = append(currentSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
-	}
-
-	hasFinalityUpdate := lastUpdateBlockNumber < finalityUpdate.Data.AttestedHeader.Beacon.Slot
-
-	if hasFinalityUpdate {
-		consensusUpdate := finalityUpdate.ToLightClientUpdate()
-		header := ethereumligthclient.Header{
-			ConsensusUpdate: &consensusUpdate,
-			TrustedSyncCommittee: &ethereumligthclient.TrustedSyncCommittee{
-				TrustedHeight: &clienttypes.Height{
-					RevisionNumber: 0,
-					RevisionHeight: unionConsensusState.Slot,
-				},
-				CurrentSyncCommittee: &ethereumligthclient.SyncCommittee{
-					Pubkeys:         currentSyncCommitteePubkeys,
-					AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
-				},
-			},
-			AccountUpdate: &accountUpdate,
-		}
-
-		logHeader("We have finality update", header)
-		headers = append(headers, header)
-
 	}
 
 	wasmClientState, _ := s.GetUnionClientState(ctx, s.unionClientID)
@@ -1423,6 +1341,32 @@ func (s *IbcEurekaTestSuite) updateEthClient(ctx context.Context, minimumUpdateT
 			break
 		}
 	}
+
+	s.Require().Greater(s.lastUnionUpdate, uint64(minimumUpdateTo))
+}
+
+func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
+	eth, simd := s.ChainA, s.ChainB
+
+	storageKey := ethereum.GetStorageKey(path)
+	storageKeys := []string{storageKey.Hex()}
+
+	blockNumberHex := fmt.Sprintf("0x%x", s.lastUnionUpdate)
+	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
+	s.Require().NoError(err)
+	s.Require().Len(proofResp.StorageProof, 1)
+	s.Require().NotEmpty(ethcommon.FromHex(proofResp.StorageProof[0].Value))
+
+	var proofBz [][]byte
+	for _, proofStr := range proofResp.StorageProof[0].Proof {
+		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
+	}
+	storageProof := ethereumligthclient.StorageProof{
+		Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
+		Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
+		Proof: proofBz,
+	}
+	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
 }
 
 func logHeader(prefix string, header ethereumligthclient.Header) {
