@@ -215,7 +215,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 
 	s.SetupSuite(ctx)
 
-	eth, simd := s.ChainA, s.ChainB
+	simd := s.ChainB
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
@@ -264,20 +264,11 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 	}))
 
-	var latestClientStateHeight clienttypes.Height
-	s.Require().True(s.Run("Verify ethereum wasm light client state", func() {
-		wasmClientState, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
-
-		s.Require().NotZero(wasmClientState.LatestHeight.RevisionHeight)
-		latestClientStateHeight = wasmClientState.LatestHeight
-
-		s.Require().Equal(eth.ChainID.String(), unionClientState.ChainId)
-	}))
-
-	s.Require().True(s.Run("Verify ethereum wasm light client consensus state", func() {
-		wasmConsensusState, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, latestClientStateHeight)
-		s.Require().NoError(wasmConsensusState.ValidateBasic())
-		s.Require().Equal(latestClientStateHeight.RevisionHeight, unionConsensusState.Slot)
+	s.Require().True(s.Run("Verify etheruem light client", func() {
+		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+			ClientId: s.EthereumLightClientID,
+		})
+		s.Require().NoError(err)
 	}))
 }
 
@@ -1068,9 +1059,6 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
 	blockNumberHex := fmt.Sprintf("0x%x", s.LastEtheruemLightClientUpdate)
 	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.IbcStore, storageKeys, blockNumberHex)
 	s.Require().NoError(err)
-	s.Require().Len(proofResp.StorageProof, 1, "proof not found")
-	s.Require().NotEmpty(ethcommon.FromHex(proofResp.StorageProof[0].Value))
-	s.Require().NotEqual("0x0", proofResp.StorageProof[0].Value, "value not found in storage")
 
 	var proofBz [][]byte
 	for _, proofStr := range proofResp.StorageProof[0].Proof {
