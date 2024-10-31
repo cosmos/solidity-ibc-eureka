@@ -171,7 +171,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	_, simdRelayerUser := s.GetRelayerUsers(ctx)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simdRelayerUser, s.contractAddresses.Ics07Tendermint)
+		s.CreateEthereumLightClient(ctx, simdRelayerUser, s.contractAddresses.IbcStore)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -364,7 +364,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 	var recvAck []byte
 	var denomOnCosmos transfertypes.DenomTrace
 	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.Ics26Router, sendBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
@@ -585,7 +585,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.Ics26Router, recvBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", returnPacket.DestinationPort, returnPacket.DestinationChannel, returnPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
@@ -776,7 +776,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.Ics26Router, recvBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", sendPacket.DestinationPort, sendPacket.DestinationChannel, sendPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
@@ -861,7 +861,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 
 	var cosmosReceiveAck []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.Ics26Router, sendBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
 
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", returnPacket.SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
@@ -1066,10 +1066,11 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
 	storageKeys := []string{storageKey.Hex()}
 
 	blockNumberHex := fmt.Sprintf("0x%x", s.LastEtheruemLightClientUpdate)
-	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.Ics26Router, storageKeys, blockNumberHex)
+	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.IbcStore, storageKeys, blockNumberHex)
 	s.Require().NoError(err)
-	s.Require().Len(proofResp.StorageProof, 1)
+	s.Require().Len(proofResp.StorageProof, 1, "proof not found")
 	s.Require().NotEmpty(ethcommon.FromHex(proofResp.StorageProof[0].Value))
+	s.Require().NotEqual("0x0", proofResp.StorageProof[0].Value, "value not found in storage")
 
 	var proofBz [][]byte
 	for _, proofStr := range proofResp.StorageProof[0].Proof {

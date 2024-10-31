@@ -54,6 +54,9 @@ const (
 
 	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
 	DefaultGovV1ProposalTokenAmount = 500_000_000
+
+	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
+	IbcCommitmentSlotHex = "0x1"
 )
 
 var (

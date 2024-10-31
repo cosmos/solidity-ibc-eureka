@@ -19,6 +19,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
@@ -217,6 +218,8 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
+	ibcCommitmentSlot := ethereum.HexToBeBytes(testvalues.IbcCommitmentSlotHex)
+
 	ethClientState := ethereumligthclient.ClientState{
 		ChainId:                      eth.ChainID.String(),
 		GenesisValidatorsRoot:        genesis.GenesisValidatorsRoot[:],
@@ -231,7 +234,7 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 			RevisionNumber: 0,
 			RevisionHeight: 0,
 		},
-		IbcCommitmentSlot:  []byte{0, 0, 0, 0},
+		IbcCommitmentSlot:  ibcCommitmentSlot,
 		IbcContractAddress: ethcommon.FromHex(ibcContractAddress),
 	}
 

@@ -12,6 +12,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
@@ -31,6 +32,7 @@ type DeployedContracts struct {
 	Ics20Transfer   string `json:"ics20Transfer"`
 	Erc20           string `json:"erc20"`
 	Escrow          string `json:"escrow"`
+	IbcStore        string `json:"ibcstore"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
@@ -57,7 +59,9 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 		embeddedContracts.Ics07Tendermint == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
 		embeddedContracts.Ics26Router == "" ||
-		embeddedContracts.Escrow == "" {
+		embeddedContracts.Escrow == "" ||
+		embeddedContracts.IbcStore == "" {
+
 		return DeployedContracts{}, fmt.Errorf("one or more contracts missing: %+v", embeddedContracts)
 	}
 
@@ -66,12 +70,12 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff
 func GetCommitmentsStorageKey(path string) ethcommon.Hash {
-	storageSlot := ethcommon.FromHex("0x0") // storage slot is 0 for the commitments mapping
+	commitmentStorageSlot := ethcommon.FromHex(testvalues.IbcCommitmentSlotHex)
 
 	pathHash := crypto.Keccak256([]byte(path))
 
 	// zero pad both to 32 bytes
-	paddedSlot := ethcommon.LeftPadBytes(storageSlot, 32)
+	paddedSlot := ethcommon.LeftPadBytes(commitmentStorageSlot, 32)
 
 	// keccak256(h(k) . slot)
 	return crypto.Keccak256Hash(pathHash, paddedSlot)
