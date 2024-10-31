@@ -55,6 +55,13 @@ You also need to have the `sp1-ics07-tendermint` operator binary installed on yo
 just install-operator
 ```
 
+> [!TIP]
+> Nix users can enter a development shell with all the necessary dependencies by running:
+> 
+> ```sh
+> nix-shell shell.nix
+> ```
+
 ## Unit Testing
 
 There are multiple unit tests for the solidity contracts located in the `test/` directory. The tests are written in Solidity using [foundry/forge](https://book.getfoundry.sh/forge/writing-tests).
