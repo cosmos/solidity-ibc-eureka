@@ -15,7 +15,7 @@ import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
-import { AcceptAllSP1Verifier } from "../test/mocks/AcceptAllSP1Verifier.sol";
+import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 
@@ -45,7 +45,7 @@ contract MockE2ETestDeploy is Script {
         address deployerAddress = msg.sender; // This is being set in the e2e test
 
         // Deploy the SP1 ICS07 Tendermint light client
-        AcceptAllSP1Verifier verifier = new AcceptAllSP1Verifier();
+        SP1MockVerifier verifier = new SP1MockVerifier();
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             genesis.updateClientVkey,
             genesis.membershipVkey,
