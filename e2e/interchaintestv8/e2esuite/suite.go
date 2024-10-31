@@ -25,6 +25,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
+const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
 	suite.Suite
@@ -79,12 +81,10 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(err)
 
 	s.ChainB = chains[0].(*cosmos.CosmosChain)
-	ic := interchaintest.NewInterchain().
-		AddChain(s.ChainB)
 
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[1].(*icethereum.EthereumChain)
-		ic = ic.AddChain(anvil)
+	ic := interchaintest.NewInterchain()
+	for _, chain := range chains {
+		ic = ic.AddChain(chain)
 	}
 
 	s.ExecRep = testreporter.NewNopReporter().RelayerExecReporter(s.T())
@@ -102,7 +102,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[1].(*icethereum.EthereumChain)
-		faucet, err := crypto.ToECDSA(ethcommon.FromHex("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"))
+		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
 
 		s.ChainA, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)

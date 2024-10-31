@@ -266,7 +266,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 
 	var latestClientStateHeight clienttypes.Height
 	s.Require().True(s.Run("Verify ethereum wasm light client state", func() {
-		wasmClientState, unionClientState := s.GetUnionClientState(ctx, s.EthereumLightClientID)
+		wasmClientState, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
 
 		s.Require().NotZero(wasmClientState.LatestHeight.RevisionHeight)
 		latestClientStateHeight = wasmClientState.LatestHeight
@@ -275,7 +275,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 	}))
 
 	s.Require().True(s.Run("Verify ethereum wasm light client consensus state", func() {
-		wasmConsensusState, unionConsensusState := s.GetUnionConsensusState(ctx, s.EthereumLightClientID, latestClientStateHeight)
+		wasmConsensusState, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, latestClientStateHeight)
 		s.Require().NoError(wasmConsensusState.ValidateBasic())
 		s.Require().Equal(latestClientStateHeight.RevisionHeight, unionConsensusState.Slot)
 	}))

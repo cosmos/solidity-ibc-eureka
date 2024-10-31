@@ -248,15 +248,14 @@ func IsLowercase(s string) bool {
 	return true
 }
 
-func (s *TestSuite) GetUnionClientState(ctx context.Context, clientID string) (*ibcwasmtypes.ClientState, ethereumligthclient.ClientState) {
-	simd := s.ChainB
-	clientStateResp, err := GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+func (s *TestSuite) GetUnionClientState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string) (*ibcwasmtypes.ClientState, ethereumligthclient.ClientState) {
+	clientStateResp, err := GRPCQuery[clienttypes.QueryClientStateResponse](ctx, cosmosChain, &clienttypes.QueryClientStateRequest{
 		ClientId: clientID,
 	})
 	s.Require().NoError(err)
 
 	var clientState ibcexported.ClientState
-	err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(clientStateResp.ClientState, &clientState)
+	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(clientStateResp.ClientState, &clientState)
 	s.Require().NoError(err)
 
 	wasmClientState, ok := clientState.(*ibcwasmtypes.ClientState)
@@ -264,15 +263,14 @@ func (s *TestSuite) GetUnionClientState(ctx context.Context, clientID string) (*
 	s.Require().NotEmpty(wasmClientState.Data)
 
 	var ethClientState ethereumligthclient.ClientState
-	err = simd.Config().EncodingConfig.Codec.Unmarshal(wasmClientState.Data, &ethClientState)
+	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmClientState.Data, &ethClientState)
 	s.Require().NoError(err)
 
 	return wasmClientState, ethClientState
 }
 
-func (s *TestSuite) GetUnionConsensusState(ctx context.Context, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumligthclient.ConsensusState) {
-	simd := s.ChainB
-	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+func (s *TestSuite) GetUnionConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumligthclient.ConsensusState) {
+	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, cosmosChain, &clienttypes.QueryConsensusStateRequest{
 		ClientId:       clientID,
 		RevisionNumber: height.RevisionNumber,
 		RevisionHeight: height.RevisionHeight,
@@ -281,14 +279,14 @@ func (s *TestSuite) GetUnionConsensusState(ctx context.Context, clientID string,
 	s.Require().NoError(err)
 
 	var consensusState ibcexported.ConsensusState
-	err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
+	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
 	s.Require().NoError(err)
 
 	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
 	s.Require().True(ok)
 
 	var ethConsensusState ethereumligthclient.ConsensusState
-	err = simd.Config().EncodingConfig.Codec.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
+	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
 	s.Require().NoError(err)
 
 	return wasmConsenusState, ethConsensusState

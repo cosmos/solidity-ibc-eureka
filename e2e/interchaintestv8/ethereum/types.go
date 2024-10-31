@@ -2,11 +2,51 @@ package ethereum
 
 import (
 	"math/big"
+	"time"
+
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 
 	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
+
+type Spec struct {
+	SecondsPerSlot               time.Duration `json:"SECONDS_PER_SLOT"`
+	SlotsPerEpoch                uint64        `json:"SLOTS_PER_EPOCH"`
+	EpochsPerSyncCommitteePeriod uint64        `json:"EPOCHS_PER_SYNC_COMMITTEE_PERIOD"`
+
+	// Fork Parameters
+	GenesisForkVersion   phase0.Version `json:"GENESIS_FORK_VERSION"`
+	GenesisSlot          uint64         `json:"GENESIS_SLOT"`
+	AltairForkVersion    phase0.Version `json:"ALTAIR_FORK_VERSION"`
+	AltairForkEpoch      uint64         `json:"ALTAIR_FORK_EPOCH"`
+	BellatrixForkVersion phase0.Version `json:"BELLATRIX_FORK_VERSION"`
+	BellatrixForkEpoch   uint64         `json:"BELLATRIX_FORK_EPOCH"`
+	CapellaForkVersion   phase0.Version `json:"CAPELLA_FORK_VERSION"`
+	CapellaForkEpoch     uint64         `json:"CAPELLA_FORK_EPOCH"`
+	DenebForkVersion     phase0.Version `json:"DENEB_FORK_VERSION"`
+	DenebForkEpoch       uint64         `json:"DENEB_FORK_EPOCH"`
+}
+
+type Bootstrap struct {
+	Data struct {
+		Header               BootstrapHeader `json:"header"`
+		CurrentSyncCommittee SyncCommittee   `json:"current_sync_committee"`
+	} `json:"data"`
+}
+
+type BootstrapHeader struct {
+	Beacon    BeaconJSON    `json:"beacon"`
+	Execution ExecutionJSON `json:"execution"`
+}
+
+type SyncCommittee struct {
+	Pubkeys         []string `json:"pubkeys"`
+	AggregatePubkey string   `json:"aggregate_pubkey"`
+}
+
+type LightClientUpdatesResponse []LightClientUpdateJSON
 
 type BeaconJSON struct {
 	Slot          uint64 `json:"slot,string"`

@@ -20,7 +20,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 )
 
-const FaucetPrivateKey = "0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
+const faucetPrivateKey = "0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 
 type EthKurtosisChain struct {
 	RPC             string
@@ -70,7 +70,7 @@ var (
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
-	faucet, err := crypto.ToECDSA(ethcommon.FromHex(FaucetPrivateKey))
+	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}

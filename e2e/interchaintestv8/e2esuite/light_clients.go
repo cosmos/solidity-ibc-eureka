@@ -51,8 +51,9 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		return updateTo > minimumUpdateTo, nil
 	})
 	s.Require().NoError(err)
+	fmt.Printf("Updating eth light client to at least block number %d (with minimum requested: %d)\n", updateTo, minimumUpdateTo)
 
-	_, unionConsensusState := s.GetUnionConsensusState(ctx, s.EthereumLightClientID, clienttypes.Height{
+	_, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
 		RevisionNumber: 0,
 		RevisionHeight: s.LastEtheruemLightClientUpdate,
 	})
@@ -70,12 +71,12 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
 
 		return finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
-				targetPeriod >= trustedPeriod,
+				targetPeriod > trustedPeriod,
 			nil
 	})
 	s.Require().NoError(err)
 
-	_, unionClientState := s.GetUnionClientState(ctx, s.EthereumLightClientID)
+	_, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
 	// Wait until computed slot is greater than all of the updates signature slots
 	err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
@@ -94,13 +95,10 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	})
 	s.Require().NoError(err)
 
-	var lightClientUpdates ethereum.LightClientUpdatesResponse
-	if trustedPeriod < targetPeriod {
-		lightClientUpdates, err = eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
-		s.Require().NoError(err)
-	} else {
-		lightClientUpdates = []ethereum.LightClientUpdateJSON{}
-	}
+	s.Require().Greater(targetPeriod, trustedPeriod)
+
+	lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+	s.Require().NoError(err)
 
 	headers := []ethereumligthclient.Header{}
 	trustedSlot := unionConsensusState.Slot
@@ -171,8 +169,8 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		headers = []ethereumligthclient.Header{}
 	}
 
-	wasmClientState, _ := s.GetUnionClientState(ctx, s.EthereumLightClientID)
-	_, unionConsensusState = s.GetUnionConsensusState(ctx, s.EthereumLightClientID, wasmClientState.LatestHeight)
+	wasmClientState, _ := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
+	_, unionConsensusState = s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
 
 	for _, header := range headers {
 		logHeader("Updating eth light client", header)
@@ -194,7 +192,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		fmt.Println("Updated eth light client to block number", s.LastEtheruemLightClientUpdate)
 		time.Sleep(10 * time.Second)
 
-		if header.ConsensusUpdate.AttestedHeader.Beacon.Slot >= uint64(updateTo) {
+		if s.LastEtheruemLightClientUpdate > uint64(updateTo) {
 			fmt.Println("Updated past target block number, skipping any further updates")
 			break
 		}
