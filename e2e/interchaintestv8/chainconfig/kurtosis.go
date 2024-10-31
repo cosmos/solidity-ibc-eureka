@@ -31,6 +31,7 @@ type EthKurtosisChain struct {
 	enclaveCtx  *enclaves.EnclaveContext
 }
 
+// To see all the configuration options: github.com/ethpandaops/ethereum-package
 type kurtosisNetworkParams struct {
 	Participants        []kurtosisParticipant       `json:"participants"`
 	NetworkParams       kurtosisNetworkConfigParams `json:"network_params"`
@@ -39,6 +40,7 @@ type kurtosisNetworkParams struct {
 
 type kurtosisParticipant struct {
 	CLType     string `json:"cl_type"`
+	ELType     string `json:"el_type"`
 	ELImage    string `json:"el_image"`
 	ELLogLevel string `json:"el_log_level"`
 }
@@ -47,6 +49,26 @@ type kurtosisNetworkConfigParams struct {
 	Preset string `json:"preset"`
 }
 
+var (
+	kurtosisConfig = kurtosisNetworkParams{
+		Participants: []kurtosisParticipant{
+			{
+				CLType:     "lodestar",
+				ELType:     "geth",
+				ELImage:    "ethereum/client-go:v1.14.6",
+				ELLogLevel: "info",
+			},
+		},
+		NetworkParams: kurtosisNetworkConfigParams{
+			Preset: "minimal",
+		},
+		WaitForFinalization: true,
+	}
+	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
+)
+
+// SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(FaucetPrivateKey))
 	if err != nil {
@@ -76,20 +98,8 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
-	networkParams := kurtosisNetworkParams{
-		Participants: []kurtosisParticipant{
-			{
-				CLType:     "lodestar",
-				ELImage:    "ethereum/client-go:v1.14.6",
-				ELLogLevel: "info",
-			},
-		},
-		NetworkParams: kurtosisNetworkConfigParams{
-			Preset: "minimal",
-		},
-		WaitForFinalization: true,
-	}
-	networkParamsJson, err := json.Marshal(networkParams)
+
+	networkParamsJson, err := json.Marshal(kurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
@@ -101,20 +111,23 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 	fmt.Println(starlarkResp.RunOutput)
 
-	gethCtx, err := enclaveCtx.GetServiceContext("el-1-geth-lodestar")
+	// exeuctionCtx is the service context (kurtosis concept) for the execution node that allows us to get the public ports
+	executionCtx, err := enclaveCtx.GetServiceContext(executionService)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
-	rpcPortSpec := gethCtx.GetPublicPorts()["rpc"]
+	rpcPortSpec := executionCtx.GetPublicPorts()["rpc"]
 	rpc := fmt.Sprintf("http://localhost:%d", rpcPortSpec.GetNumber())
 
-	lighthouseCtx, err := enclaveCtx.GetServiceContext("cl-1-lodestar-geth")
+	// consensusCtx is the service context (kurtosis concept) for the consensus node that allows us to get the public ports
+	consensusCtx, err := enclaveCtx.GetServiceContext(consensusService)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
-	beaconPortSpec := lighthouseCtx.GetPublicPorts()["http"]
+	beaconPortSpec := consensusCtx.GetPublicPorts()["http"]
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
+	// Wait for the chain to finalize
 	beaconAPIClient := ethereum.NewBeaconAPIClient(beaconRPC)
 	err = testutil.WaitForCondition(10*time.Minute, 5*time.Second, func() (bool, error) {
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
@@ -184,7 +197,7 @@ func (e EthKurtosisChain) DumpLogs(ctx context.Context) error {
 				return nil
 			}
 			for serviceID, serviceLog := range logs.GetServiceLogsByServiceUuids() {
-				if serviceIdToName[serviceID] != "el-1-geth-lodestar" {
+				if serviceIdToName[serviceID] != executionService {
 					continue
 				}
 				for _, log := range serviceLog {

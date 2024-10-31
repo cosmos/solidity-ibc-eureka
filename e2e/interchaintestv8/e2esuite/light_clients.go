@@ -24,15 +24,18 @@ import (
 )
 
 func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
-	if s.ethTestnetType == TestnetTypePoW {
+	switch s.ethTestnetType {
+	case testvalues.EthTestnetTypePoW:
 		s.createDummyLightClient(ctx, simdRelayerUser)
-	} else {
+	case testvalues.EthTestnetTypePoS:
 		s.createUnionLightClient(ctx, simdRelayerUser, ibcContractAddress)
+	default:
+		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
 }
 
 func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet) {
-	if s.ethTestnetType == TestnetTypePoW {
+	if s.ethTestnetType != testvalues.EthTestnetTypePoS {
 		return
 	}
 

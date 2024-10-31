@@ -41,6 +41,10 @@ const (
 	// EnvValueGenerateFixtures_True is the value to set to generate fixtures for the solidity tests.
 	EnvValueGenerateFixtures_True = "true"
 
+	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
+	EthTestnetTypePoW = "pow"
+	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
+	EthTestnetTypePoS = "pos"
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet

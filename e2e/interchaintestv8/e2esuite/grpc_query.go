@@ -19,7 +19,7 @@ import (
 
 var queryReqToPath = make(map[string]string)
 
-func PopulateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) error {
+func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) error {
 	resp, err := queryFileDescriptors(ctx, chain)
 	if err != nil {
 		return err

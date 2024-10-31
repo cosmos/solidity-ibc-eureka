@@ -25,11 +25,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
-const (
-	TestnetTypePoW = "pow"
-	TestnetTypePoS = "pos"
-)
-
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
 	suite.Suite
@@ -53,61 +48,59 @@ type TestSuite struct {
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
-	t := s.T()
-
 	icChainSpecs := chainconfig.DefaultChainSpecs
 
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
 	switch s.ethTestnetType {
-	case TestnetTypePoW:
+	case testvalues.EthTestnetTypePoW:
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icethereum.DefaultEthereumAnvilChainConfig("ethereum")})
-	case TestnetTypePoS:
+	case testvalues.EthTestnetTypePoS:
 		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
 		s.ChainA, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
 		s.Require().NoError(err)
-		t.Cleanup(func() {
+		s.T().Cleanup(func() {
 			ctx := context.Background()
-			if t.Failed() {
+			if s.T().Failed() {
 				_ = kurtosisChain.DumpLogs(ctx)
 			}
 			kurtosisChain.Destroy(ctx)
 		})
 	default:
-		t.Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
+		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
 
-	s.logger = zaptest.NewLogger(t)
-	s.dockerClient, s.network = interchaintest.DockerSetup(t)
+	s.logger = zaptest.NewLogger(s.T())
+	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
 
 	cf := interchaintest.NewBuiltinChainFactory(s.logger, icChainSpecs)
 
-	chains, err := cf.Chains(t.Name())
+	chains, err := cf.Chains(s.T().Name())
 	s.Require().NoError(err)
 
 	s.ChainB = chains[0].(*cosmos.CosmosChain)
 	ic := interchaintest.NewInterchain().
 		AddChain(s.ChainB)
 
-	if s.ethTestnetType == TestnetTypePoW {
+	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[1].(*icethereum.EthereumChain)
 		ic = ic.AddChain(anvil)
 	}
 
-	s.ExecRep = testreporter.NewNopReporter().RelayerExecReporter(t)
+	s.ExecRep = testreporter.NewNopReporter().RelayerExecReporter(s.T())
 
 	// TODO: Run this in a goroutine and wait for it to be ready
 	s.Require().NoError(ic.Build(ctx, s.ExecRep, interchaintest.InterchainBuildOptions{
-		TestName:         t.Name(),
+		TestName:         s.T().Name(),
 		Client:           s.dockerClient,
 		NetworkID:        s.network,
 		SkipPathCreation: true,
 	}))
 
 	// map all query request types to their gRPC method paths for cosmos chains
-	s.Require().NoError(PopulateQueryReqToPath(ctx, s.ChainB))
+	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
 
-	if s.ethTestnetType == TestnetTypePoW {
+	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
 		anvil := chains[1].(*icethereum.EthereumChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"))
 		s.Require().NoError(err)
@@ -118,7 +111,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 
 	// Fund user accounts
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), cosmosUserFunds, s.ChainB)
+	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, s.ChainB)
 	s.UserB = cosmosUsers[0]
 
 	s.proposalIDs = make(map[string]uint64)

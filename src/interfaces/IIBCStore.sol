@@ -35,7 +35,6 @@ interface IIBCStore {
     /// @param ack The acknowledgement to commit
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) external;
 
-
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when a packet is committed
