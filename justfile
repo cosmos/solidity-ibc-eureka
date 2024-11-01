@@ -4,14 +4,13 @@ set dotenv-load
 sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', '7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104')
 
 # Build the contracts using `forge build`
-build:
-	just clean
+build: clean
 	forge build
  
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"
-	-rm -rf cache out # ignore errors
+	-rm -rf cache out broadcast # ignore errors
 
 # Run the foundry tests
 test-foundry testname=".\\*":
@@ -46,13 +45,11 @@ generate-abi:
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out e2e/interchaintestv8/types/ibcerc20/contract.go
 
 # Run the e2e tests
-test-e2e testname:
-	just clean
+test-e2e testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
 
-fast-e2e testname:
-	just clean
+fast-e2e testname: clean
 	@echo "Running fast {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithFastSuite/{{testname}}$' -timeout 40m
 
