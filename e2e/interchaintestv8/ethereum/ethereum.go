@@ -63,6 +63,7 @@ func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract strin
 		fmt.Sprintf("PRIVATE_KEY=0x%s", hex.EncodeToString(deployer.D.Bytes())),
 	}
 
+	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, extraEnv...)
 
 	var stdoutBuf bytes.Buffer
