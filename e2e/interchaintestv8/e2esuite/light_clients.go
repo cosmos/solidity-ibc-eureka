@@ -70,8 +70,18 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
 
+		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+		s.Require().NoError(err)
+		var highestUpdateSlot uint64
+		for _, update := range lightClientUpdates {
+			if update.Data.AttestedHeader.Beacon.Slot > highestUpdateSlot {
+				highestUpdateSlot = update.Data.AttestedHeader.Beacon.Slot
+			}
+		}
+
 		return finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
-				targetPeriod > trustedPeriod,
+				targetPeriod > trustedPeriod &&
+				highestUpdateSlot > uint64(updateTo),
 			nil
 	})
 	s.Require().NoError(err)
