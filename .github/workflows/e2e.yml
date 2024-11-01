@@ -75,6 +75,19 @@ jobs:
           check-latest: true
           cache-dependency-path: e2e/interchaintestv8/go.sum
 
+      - name: Setup Kurtosis
+        run: |
+          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt update
+          if [ "${{ inputs.version }}" = "latest" ]; then
+            sudo apt install kurtosis-cli
+          else
+            sudo apt install kurtosis-cli=${{ inputs.kurtosis_version }}
+          fi
+          kurtosis analytics disable
+          echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+        shell: bash
+
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
