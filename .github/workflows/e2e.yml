@@ -17,6 +17,7 @@ on:
 env:
   FOUNDRY_PROFILE: ci
   SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
+  ETH_TESTNET_TYPE: pow
 permissions:
   contents: read
 
@@ -54,16 +55,16 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: "Set up environment"
+        uses: ./.github/setup
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.22"
           check-latest: true
           cache-dependency-path: e2e/interchaintestv8/go.sum
-      - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v2"
-      - name: "Install the Node.js dependencies"
-        run: bun install
+
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -84,6 +85,7 @@ jobs:
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
+
       - name: Install operator
         if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1

@@ -32,17 +32,16 @@ struct SP1ICS07TendermintGenesisJson {
 contract E2ETestDeploy is Script {
     using stdJson for string;
 
-    string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
-        bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
-        vm.startBroadcast();
-        address deployerAddress = msg.sender; // This is being set in the e2e test
+        string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
+        vm.startBroadcast(privateKey);
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1Verifier verifier = new SP1Verifier();
@@ -53,11 +52,11 @@ contract E2ETestDeploy is Script {
             genesis.misbehaviourVkey,
             address(verifier),
             genesis.trustedClientState,
-            trustedConsensusHash
+            keccak256(abi.encode(trustedConsensusState))
         );
 
         // Deploy IBC Eureka
-        ICS26Router ics26Router = new ICS26Router(deployerAddress);
+        ICS26Router ics26Router = new ICS26Router(msg.sender);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
@@ -65,7 +64,7 @@ contract E2ETestDeploy is Script {
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Mint some tokens
-        (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
+        (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
         require(ok, "failed to parse faucet address");
 
         erc20.mint(addr, 1_000_000_000_000_000_000);
@@ -78,6 +77,7 @@ contract E2ETestDeploy is Script {
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));
+        json.serialize("ibcstore", Strings.toHexString(address(ics26Router.IBC_STORE())));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

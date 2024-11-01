@@ -9,7 +9,7 @@ import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @notice all IBC commitments
-    /// @dev keccak256(IBC-compatible-store-path) => keccak256(IBC-compatible-commitment)
+    /// @dev keccak256(IBC-compatible-store-path) => sha256(IBC-compatible-commitment)
     mapping(bytes32 hashedPath => bytes32 commitment) internal commitments;
 
     /// @notice Previous sequence send for a given port and channel pair
@@ -51,6 +51,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         }
 
         bytes32 commitment = ICS24Host.packetCommitmentBytes32(packet);
+        emit PacketCommitted(path, commitment);
         commitments[path] = commitment;
     }
 
@@ -94,6 +95,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         }
 
         bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(ack);
+        emit AckCommitted(path, commitment);
         commitments[path] = commitment;
     }
 }

@@ -49,6 +49,9 @@ issues:
     - text: "G115:"
       linters:
         - gosec
+    - text: "G204:"
+      linters:
+        - gosec
   max-issues-per-linter: 10000
   max-same-issues: 10000
 

@@ -3,12 +3,11 @@ package e2esuite
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"math/big"
-	"regexp"
+	"io"
 	"strconv"
-	"strings"
 	"time"
 	"unicode"
 
@@ -17,38 +16,29 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
-
-type ForgeScriptReturnValues struct {
-	InternalType string `json:"internal_type"`
-	Value        string `json:"value"`
-}
-
-type ForgeDeployOutput struct {
-	Returns map[string]ForgeScriptReturnValues `json:"returns"`
-}
-
-type DeployedContracts struct {
-	Ics07Tendermint string `json:"ics07Tendermint"`
-	Ics02Client     string `json:"ics02Client"`
-	Ics26Router     string `json:"ics26Router"`
-	Ics20Transfer   string `json:"ics20Transfer"`
-	Erc20           string `json:"erc20"`
-	Escrow          string `json:"escrow"`
-}
 
 // FundAddressChainB sends funds to the given address on Chain B.
 // The amount sent is 1,000,000,000 of the chain's denom.
@@ -103,54 +93,18 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 	s.Require().NoError(err)
 }
 
-func (s *TestSuite) GetEthContractsFromDeployOutput(stdout string) DeployedContracts {
-	// Extract the JSON part using regex
-	re := regexp.MustCompile(`\{.*\}`)
-	jsonPart := re.FindString(stdout)
-
-	var returns ForgeDeployOutput
-	err := json.Unmarshal([]byte(jsonPart), &returns)
-	s.Require().NoError(err)
-
-	// Extract the embedded JSON string
-	s.Require().Len(returns.Returns, 1)
-	embeddedJsonStr := returns.Returns["0"].Value
-
-	// Unescape and remove surrounding quotes
-	embeddedJsonStr = strings.ReplaceAll(embeddedJsonStr, `\"`, `"`)
-	embeddedJsonStr = strings.Trim(embeddedJsonStr, `"`)
-
-	var embeddedContracts DeployedContracts
-	err = json.Unmarshal([]byte(embeddedJsonStr), &embeddedContracts)
-	s.Require().NoError(err)
-
-	s.Require().NotEmpty(embeddedContracts.Erc20)
-	s.Require().True(IsLowercase(embeddedContracts.Erc20))
-	s.Require().NotEmpty(embeddedContracts.Ics02Client)
-	s.Require().True(IsLowercase(embeddedContracts.Ics02Client))
-	s.Require().NotEmpty(embeddedContracts.Ics07Tendermint)
-	s.Require().True(IsLowercase(embeddedContracts.Ics07Tendermint))
-	s.Require().NotEmpty(embeddedContracts.Ics20Transfer)
-	s.Require().True(IsLowercase(embeddedContracts.Ics20Transfer))
-	s.Require().NotEmpty(embeddedContracts.Ics26Router)
-	s.Require().True(IsLowercase(embeddedContracts.Ics26Router))
-	s.Require().NotEmpty(embeddedContracts.Escrow)
-	s.Require().True(IsLowercase(embeddedContracts.Escrow))
-
-	return embeddedContracts
-}
-
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
 // on the two chains.
-func (s *TestSuite) GetRelayerUsers(ctx context.Context) (ibc.Wallet, ibc.Wallet) {
+func (s *TestSuite) GetRelayerUsers(ctx context.Context) (*ecdsa.PrivateKey, ibc.Wallet) {
 	eth, simd := s.ChainA, s.ChainB
 
-	ethUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), testvalues.StartingEthBalance, eth)
+	ethKey, err := eth.CreateAndFundUser()
+	s.Require().NoError(err)
 
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, simd)
 
-	return ethUsers[0], cosmosUsers[0]
+	return ethKey, cosmosUsers[0]
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
@@ -169,12 +123,12 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return
 }
 
-func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumChain, hash ethcommon.Hash) *ethtypes.Receipt {
-	ethClient, err := ethclient.Dial(chain.GetHostRPCAddress())
+func (s *TestSuite) GetTxReciept(ctx context.Context, chain ethereum.Ethereum, hash ethcommon.Hash) *ethtypes.Receipt {
+	ethClient, err := ethclient.Dial(chain.RPC)
 	s.Require().NoError(err)
 
 	var receipt *ethtypes.Receipt
-	err = testutil.WaitForCondition(time.Second*10, time.Second, func() (bool, error) {
+	err = testutil.WaitForCondition(time.Second*30, time.Second, func() (bool, error) {
 		receipt, err = ethClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil
@@ -187,14 +141,102 @@ func (s *TestSuite) GetTxReciept(ctx context.Context, chain *ethereum.EthereumCh
 }
 
 func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
-	chainIDStr, err := strconv.ParseInt(s.ChainA.Config().ChainID, 10, 64)
-	s.Require().NoError(err)
-	chainID := big.NewInt(chainIDStr)
-
-	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	txOpts, err := bind.NewKeyedTransactorWithChainID(key, s.ChainA.ChainID)
 	s.Require().NoError(err)
 
 	return txOpts
+}
+
+// PushNewWasmClientProposal submits a new wasm client governance proposal to the chain.
+func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, proposalContentReader io.Reader) string {
+	zippedContent, err := io.ReadAll(proposalContentReader)
+	s.Require().NoError(err)
+
+	computedChecksum := s.extractChecksumFromGzippedContent(zippedContent)
+
+	s.Require().NoError(err)
+	message := ibcwasmtypes.MsgStoreCode{
+		Signer:       authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		WasmByteCode: zippedContent,
+	}
+
+	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
+	s.Require().NoError(err)
+
+	codeResp, err := GRPCQuery[ibcwasmtypes.QueryCodeResponse](ctx, chain, &ibcwasmtypes.QueryCodeRequest{Checksum: computedChecksum})
+	s.Require().NoError(err)
+
+	checksumBz := codeResp.Data
+	checksum32 := sha256.Sum256(checksumBz)
+	actualChecksum := hex.EncodeToString(checksum32[:])
+	s.Require().Equal(computedChecksum, actualChecksum, "checksum returned from query did not match the computed checksum")
+
+	return actualChecksum
+}
+
+// extractChecksumFromGzippedContent takes a gzipped wasm contract and returns the checksum.
+func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) string {
+	content, err := ibcwasmtypes.Uncompress(zippedContent, ibcwasmtypes.MaxWasmSize)
+	s.Require().NoError(err)
+
+	checksum32 := sha256.Sum256(content)
+	return hex.EncodeToString(checksum32[:])
+}
+
+// ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
+// to vote yes on the proposal.
+func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
+	sender, err := sdk.AccAddressFromBech32(user.FormattedAddress())
+	s.Require().NoError(err)
+
+	proposalID := s.proposalIDs[cosmosChain.Config().ChainID]
+	defer func() {
+		s.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
+	}()
+
+	msgs := []sdk.Msg{msg}
+
+	msgSubmitProposal, err := govtypesv1.NewMsgSubmitProposal(
+		msgs,
+		sdk.NewCoins(sdk.NewCoin(cosmosChain.Config().Denom, govtypesv1.DefaultMinDepositTokens)),
+		sender.String(),
+		"",
+		fmt.Sprintf("e2e gov proposal: %d", proposalID),
+		fmt.Sprintf("executing gov proposal %d", proposalID),
+		false,
+	)
+	s.Require().NoError(err)
+
+	_, err = s.BroadcastMessages(ctx, cosmosChain, user, 50_000_000, msgSubmitProposal)
+	s.Require().NoError(err)
+
+	s.Require().NoError(cosmosChain.VoteOnProposalAllValidators(ctx, strconv.Itoa(int(proposalID)), cosmos.ProposalVoteYes))
+
+	return s.waitForGovV1ProposalToPass(ctx, cosmosChain, proposalID)
+}
+
+// waitForGovV1ProposalToPass polls for the entire voting period to see if the proposal has passed.
+// if the proposal has not passed within the duration of the voting period, an error is returned.
+func (*TestSuite) waitForGovV1ProposalToPass(ctx context.Context, chain *cosmos.CosmosChain, proposalID uint64) error {
+	var govProposal *govtypesv1.Proposal
+	// poll for the query for the entire voting period to see if the proposal has passed.
+	err := testutil.WaitForCondition(testvalues.VotingPeriod, 10*time.Second, func() (bool, error) {
+		proposalResp, err := GRPCQuery[govtypesv1.QueryProposalResponse](ctx, chain, &govtypesv1.QueryProposalRequest{
+			ProposalId: proposalID,
+		})
+		if err != nil {
+			return false, err
+		}
+
+		govProposal = proposalResp.Proposal
+		return govProposal.Status == govtypesv1.StatusPassed, nil
+	})
+
+	// in the case of a failed proposal, we wrap the polling error with additional information about why the proposal failed.
+	if err != nil && govProposal.FailedReason != "" {
+		err = errorsmod.Wrap(err, govProposal.FailedReason)
+	}
+	return err
 }
 
 func IsLowercase(s string) bool {
@@ -204,4 +246,48 @@ func IsLowercase(s string) bool {
 		}
 	}
 	return true
+}
+
+func (s *TestSuite) GetUnionClientState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string) (*ibcwasmtypes.ClientState, ethereumligthclient.ClientState) {
+	clientStateResp, err := GRPCQuery[clienttypes.QueryClientStateResponse](ctx, cosmosChain, &clienttypes.QueryClientStateRequest{
+		ClientId: clientID,
+	})
+	s.Require().NoError(err)
+
+	var clientState ibcexported.ClientState
+	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(clientStateResp.ClientState, &clientState)
+	s.Require().NoError(err)
+
+	wasmClientState, ok := clientState.(*ibcwasmtypes.ClientState)
+	s.Require().True(ok)
+	s.Require().NotEmpty(wasmClientState.Data)
+
+	var ethClientState ethereumligthclient.ClientState
+	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmClientState.Data, &ethClientState)
+	s.Require().NoError(err)
+
+	return wasmClientState, ethClientState
+}
+
+func (s *TestSuite) GetUnionConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumligthclient.ConsensusState) {
+	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, cosmosChain, &clienttypes.QueryConsensusStateRequest{
+		ClientId:       clientID,
+		RevisionNumber: height.RevisionNumber,
+		RevisionHeight: height.RevisionHeight,
+		LatestHeight:   false,
+	})
+	s.Require().NoError(err)
+
+	var consensusState ibcexported.ConsensusState
+	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
+	s.Require().NoError(err)
+
+	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
+	s.Require().True(ok)
+
+	var ethConsensusState ethereumligthclient.ConsensusState
+	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
+	s.Require().NoError(err)
+
+	return wasmConsenusState, ethConsensusState
 }
