@@ -1,6 +1,17 @@
 name: e2e
 on:
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      ethTestnetType:
+        description: 'Eth testnet type'
+        required: false
+        default: 'pow'
+        type: choice
+        options:
+        - pow
+        - pos
   push:
     branches: [main]
   pull_request:
@@ -17,7 +28,6 @@ on:
 env:
   FOUNDRY_PROFILE: ci
   SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
-  ETH_TESTNET_TYPE: pow
 permissions:
   contents: read
 
@@ -97,6 +107,7 @@ jobs:
       - name: Run Tests
         env:
           SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+          ETH_TESTNET_TYPE: ${{ (github.event_name == 'schedule' && 'pos') || github.event.inputs.ethTestnetType || 'pow' }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 40m
