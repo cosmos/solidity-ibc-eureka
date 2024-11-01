@@ -84,7 +84,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 		s.key, err = eth.CreateAndFundUser()
 		fmt.Println(err)
-		time.Sleep(5 * time.Minute)
 		s.Require().NoError(err)
 
 		operatorKey, err := eth.CreateAndFundUser()
