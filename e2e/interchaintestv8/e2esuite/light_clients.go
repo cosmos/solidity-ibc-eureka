@@ -64,6 +64,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 	var finalityUpdate ethereum.FinalityUpdateJSONResponse
 	var targetPeriod uint64
+	// Now we need to wait for finalization and light client update availability to be after updateTo
 	err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 		finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 		s.Require().NoError(err)
