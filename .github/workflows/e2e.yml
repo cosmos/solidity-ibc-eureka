@@ -1,6 +1,17 @@
 name: e2e
 on:
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      ethTestnetType:
+        description: 'Eth testnet type'
+        required: false
+        default: 'pow'
+        type: choice
+        options:
+        - pow
+        - pos
   push:
     branches: [main]
   pull_request:
@@ -17,7 +28,6 @@ on:
 env:
   FOUNDRY_PROFILE: ci
   SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
-  ETH_TESTNET_TYPE: pow
 permissions:
   contents: read
 
@@ -51,6 +61,8 @@ jobs:
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
+    env:
+      ETH_TESTNET_TYPE: ${{ github.event.inputs.ethTestnetType || (github.event_name == 'schedule' && 'pos') || 'pow' }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -93,6 +105,17 @@ jobs:
           toolchain: nightly-2024-10-11
           command: install
           args: --git https://github.com/cosmos/sp1-ics07-tendermint --rev ${{ env.SP1_OPERATOR_REV }} sp1-ics07-tendermint-operator --bin operator --locked
+
+      - name: Setup Kurtosis
+        if: env.ETH_TESTNET_TYPE == 'pos'
+        run: |
+          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt update
+          sudo apt install kurtosis-cli=1.3.0 # Must match the kurtosis library version we use in the e2e tests
+          kurtosis engine start
+          kurtosis analytics disable
+          echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+        shell: bash
 
       - name: Run Tests
         env:

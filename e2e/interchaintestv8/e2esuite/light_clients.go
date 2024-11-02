@@ -64,14 +64,25 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 	var finalityUpdate ethereum.FinalityUpdateJSONResponse
 	var targetPeriod uint64
+	// Now we need to wait for finalization and light client update availability to be after updateTo
 	err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 		finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 		s.Require().NoError(err)
 
 		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
 
+		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
+		s.Require().NoError(err)
+		var highestUpdateSlot uint64
+		for _, update := range lightClientUpdates {
+			if update.Data.AttestedHeader.Beacon.Slot > highestUpdateSlot {
+				highestUpdateSlot = update.Data.AttestedHeader.Beacon.Slot
+			}
+		}
+
 		return finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
-				targetPeriod > trustedPeriod,
+				targetPeriod > trustedPeriod &&
+				highestUpdateSlot > uint64(updateTo),
 			nil
 	})
 	s.Require().NoError(err)
