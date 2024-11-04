@@ -36,7 +36,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	connectiontypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
 	solomachine "github.com/cosmos/ibc-go/v8/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
@@ -81,7 +80,6 @@ func encodingConfig(bech32Prefix string) *sdktestutil.TestEncodingConfig {
 	ibctmtypes.RegisterInterfaces(interfaceRegistry)
 	ibcwasmtypes.RegisterInterfaces(interfaceRegistry)
 	localhost.RegisterInterfaces(interfaceRegistry)
-	mock.RegisterInterfaces(interfaceRegistry)
 
 	// sdk types
 	upgradetypes.RegisterInterfaces(interfaceRegistry)
