@@ -325,6 +325,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NotEmpty(dummyClientChecksum, "checksum was empty but should not have been")
 
 	_, ethHeight, err := eth.EthAPI.GetBlockNumber()
+	s.Require().NoError(err)
 
 	wasmClientChecksum, err := hex.DecodeString(dummyClientChecksum)
 	s.Require().NoError(err)
@@ -359,7 +360,6 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
-
 }
 
 func logHeader(prefix string, header ethereumligthclient.Header) {
