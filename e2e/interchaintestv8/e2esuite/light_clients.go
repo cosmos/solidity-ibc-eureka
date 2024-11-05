@@ -12,7 +12,6 @@ import (
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	mock "github.com/cosmos/ibc-go/v8/modules/light-clients/00-mock"
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
@@ -319,17 +318,32 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {
 	eth, simd := s.ChainA, s.ChainB
 
-	ethHeight, err := eth.Height()
+	file, err := os.Open("e2e/interchaintestv8/wasm/wasm_dummy_light_client.wasm.gz")
 	s.Require().NoError(err)
-	s.Require().NotZero(ethHeight)
 
-	clientState := mock.ClientState{
-		LatestHeight: clienttypes.NewHeight(1, uint64(ethHeight)),
+	dummyClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+	s.Require().NotEmpty(dummyClientChecksum, "checksum was empty but should not have been")
+
+	_, ethHeight, err := eth.EthAPI.GetBlockNumber()
+	s.Require().NoError(err)
+
+	wasmClientChecksum, err := hex.DecodeString(dummyClientChecksum)
+	s.Require().NoError(err)
+	latestHeight := clienttypes.Height{
+		RevisionNumber: 0,
+		RevisionHeight: uint64(ethHeight),
+	}
+	s.Require().NoError(err)
+	clientState := ibcwasmtypes.ClientState{
+		Data:         []byte("doesnt matter"),
+		Checksum:     wasmClientChecksum,
+		LatestHeight: latestHeight,
 	}
 	clientStateAny, err := clienttypes.PackClientState(&clientState)
 	s.Require().NoError(err)
-	consensusState := mock.ConsensusState{
-		Timestamp: uint64(time.Now().UnixNano()),
+
+	consensusState := ibcwasmtypes.ConsensusState{
+		Data: []byte("doesnt matter"),
 	}
 	consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
 	s.Require().NoError(err)
@@ -345,7 +359,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 
 	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
-	s.Require().Equal("00-mock-0", s.EthereumLightClientID)
+	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 }
 
 func logHeader(prefix string, header ethereumligthclient.Header) {
