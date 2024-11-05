@@ -53,15 +53,20 @@ contract ICS26RouterTest is Test {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: "transfer",
+            destPort: "transfer",
+            version: "ics20-1",
+            encoding: "application/json",
+            value: "0x"
+        });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            sourcePort: "transfer",
             sourceChannel: counterpartyClientID,
-            destPort: "transfer",
             destChannel: clientIdentifier,
-            version: "ics20-1",
-            data: "0x"
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads
         });
 
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = IICS26RouterMsgs.MsgRecvPacket({

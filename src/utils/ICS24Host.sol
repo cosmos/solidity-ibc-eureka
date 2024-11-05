@@ -140,8 +140,8 @@ library ICS24Host {
                 SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
                 uint64(0),
                 uint64(0),
-                sha256(packet.data),
-                packet.destPort,
+                sha256(packet.payloads[0].value),
+                packet.payloads[0].destPort,
                 packet.destChannel
             )
         );

@@ -59,13 +59,18 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         bytes memory packetData =
             ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(msg.sender), msg_.receiver, msg_.memo);
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            sourceChannel: msg_.sourceChannel,
             destPort: msg_.destPort,
-            data: packetData,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: packetData
+        });
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
+            sourceChannel: msg_.sourceChannel,
             timeoutTimestamp: msg_.timeoutTimestamp, // TODO: Default timestamp?
-            version: ICS20Lib.ICS20_VERSION
+            payloads: payloads
         });
 
         return IICS26Router(owner()).sendPacket(msgSendPacket);
@@ -80,11 +85,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20UnauthorizedPacketSender(msg_.sender);
         }
 
-        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
-            revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.packet.version);
+        if (keccak256(abi.encodePacked(msg_.payload.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
+            revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version);
         }
 
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
 
         if (packetData.amount == 0) {
             revert ICS20InvalidAmount(packetData.amount);
@@ -92,7 +97,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
-        (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.packet, packetData);
+        (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(sender, address(ESCROW), erc20Address, packetData.amount);
@@ -110,13 +115,18 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @inheritdoc IIBCApp
     function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
-        if (keccak256(abi.encodePacked(msg_.packet.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
+        if (keccak256(abi.encodePacked(msg_.payload.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
             // TODO: Figure out if should actually error out, or if just error acking is enough
-            return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.packet.version));
+            return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
-        (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(msg_.packet, packetData);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
+        (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
+            msg_.payload.sourcePort,
+            msg_.sourceChannel,
+            msg_.payload.destPort,
+            msg_.destinationChannel,
+            packetData);
 
         if (packetData.amount == 0) {
             return ICS20Lib.errorAck("invalid amount: 0");
@@ -145,10 +155,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            (address erc20Address,) = getSendERC20AddressAndSource(msg_.packet, packetData);
+            (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
             _refundTokens(packetData, erc20Address);
         }
 
@@ -158,8 +168,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.packet.data);
-        (address erc20Address,) = getSendERC20AddressAndSource(msg_.packet, packetData);
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
+        (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
         _refundTokens(packetData, erc20Address);
 
         emit ICS20Timeout(packetData);
@@ -197,12 +207,14 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     /// @notice For a send packet, get the ERC20 address for the token and whether the originator chain is the source
-    /// @param packet The ICS26 packet
+    /// @param sourcePort The source port of the packet
+    /// @param sourceChannel The source channel of the packet
     /// @param packetData The unmarshalled packet data
     /// @return The ERC20 address for the token in the packetData
     /// @return Whether the originator (i.e. us) chain of the packet is the source of the token
     function getSendERC20AddressAndSource(
-        IICS26RouterMsgs.Packet calldata packet,
+        string calldata sourcePort,
+        string calldata sourceChannel,
         ICS20Lib.PacketDataJSON memory packetData
     )
         private
@@ -210,7 +222,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);
-        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceChannel);
         bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
         address erc20Address;
@@ -229,26 +241,32 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     /// @notice For a receive packet, get the ERC20 address for the token and whether the originator chain is the source
-    /// @param packet The ICS26 packet
+    /// @param sourcePort The source port of the packet
+    /// @param sourceChannel The source channel of the packet
+    /// @param destPort The destination port of the packet
+    /// @param destChannel The destination channel of the packet
     /// @param packetData The unmarshalled packet data
     /// @return The ERC20 address for the token in the packetData
     /// @return Whether the originator (i.e. the counterparty) chain of the packet is the source of the token
     function getReceiveERC20AddressAndSource(
-        IICS26RouterMsgs.Packet calldata packet,
+        string calldata sourcePort,
+        string calldata sourceChannel,
+        string calldata destPort,
+        string calldata destChannel,
         ICS20Lib.PacketDataJSON memory packetData
     )
         private
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);
-        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(packet.sourcePort, packet.sourceChannel);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceChannel);
         bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
         address erc20Address;
         if (originatorChainIsSource) {
             // we are not the source of this token: we add a denom trace and find or create a new token contract
             string memory baseDenom = packetData.denom;
-            bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(packet.destPort, packet.destChannel);
+            bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(destPort, destChannel);
             string memory fullDenomPath = string(abi.encodePacked(newDenomPrefix, baseDenom));
 
             erc20Address = findOrCreateERC20Address(fullDenomPath, baseDenom);

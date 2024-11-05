@@ -43,10 +43,10 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// modules/core/04-channel/types/packet.go#L38
     /// @inheritdoc IIBCStore
     function commitPacket(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.payloads[0].sourcePort, packet.sourceChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketCommitmentAlreadyExists(
-                ICS24Host.packetCommitmentPathCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence)
+                ICS24Host.packetCommitmentPathCalldata(packet.payloads[0].sourcePort, packet.sourceChannel, packet.sequence)
             );
         }
 
@@ -57,11 +57,11 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) public onlyOwner returns (bytes32) {
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.payloads[0].sourcePort, packet.sourceChannel, packet.sequence);
         bytes32 commitment = commitments[path];
         if (commitment == 0) {
             revert IBCPacketCommitmentNotFound(
-                ICS24Host.packetCommitmentPathCalldata(packet.sourcePort, packet.sourceChannel, packet.sequence)
+                ICS24Host.packetCommitmentPathCalldata(packet.payloads[0].sourcePort, packet.sourceChannel, packet.sequence)
             );
         }
 
@@ -72,10 +72,10 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @inheritdoc IIBCStore
     function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
         bytes32 path =
-            ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);
+            ICS24Host.packetReceiptCommitmentKeyCalldata(packet.payloads[0].destPort, packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketReceiptAlreadyExists(
-                ICS24Host.packetReceiptCommitmentPathCalldata(packet.destPort, packet.destChannel, packet.sequence)
+                ICS24Host.packetReceiptCommitmentPathCalldata(packet.payloads[0].destPort, packet.destChannel, packet.sequence)
             );
         }
 
@@ -85,11 +85,11 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @inheritdoc IIBCStore
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) public onlyOwner {
         bytes32 path =
-            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destPort, packet.destChannel, packet.sequence);
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.payloads[0].destPort, packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketAcknowledgementAlreadyExists(
                 ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-                    packet.destPort, packet.destChannel, packet.sequence
+                    packet.payloads[0].destPort, packet.destChannel, packet.sequence
                 )
             );
         }

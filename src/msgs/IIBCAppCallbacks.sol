@@ -9,7 +9,10 @@ interface IIBCAppCallbacks {
     /// @param packet The packet to be sent
     /// @param sender The sender of the packet
     struct OnSendPacketCallback {
-        IICS26RouterMsgs.Packet packet;
+        string sourceChannel;
+        string destinationChannel;
+        uint64 sequence;
+        IICS26RouterMsgs.Payload payload;
         address sender;
     }
 
@@ -17,7 +20,10 @@ interface IIBCAppCallbacks {
     /// @param packet The packet to be received
     /// @param relayer The relayer of this message
     struct OnRecvPacketCallback {
-        IICS26RouterMsgs.Packet packet;
+        string sourceChannel;
+        string destinationChannel;
+        uint64 sequence;
+        IICS26RouterMsgs.Payload payload;
         address relayer;
     }
 
@@ -26,7 +32,10 @@ interface IIBCAppCallbacks {
     /// @param acknowledgement The acknowledgement
     /// @param relayer The relayer of this message
     struct OnAcknowledgementPacketCallback {
-        IICS26RouterMsgs.Packet packet;
+        string sourceChannel;
+        string destinationChannel;
+        uint64 sequence;
+        IICS26RouterMsgs.Payload payload;
         bytes acknowledgement;
         address relayer;
     }
@@ -35,7 +44,11 @@ interface IIBCAppCallbacks {
     /// @param packet The packet to be timed out
     /// @param relayer The relayer of this message
     struct OnTimeoutPacketCallback {
-        IICS26RouterMsgs.Packet packet;
+        string sourceChannel;
+        string destinationChannel;
+        uint64 sequence;
+        IICS26RouterMsgs.Payload payload;
         address relayer;
     }
 }
+
