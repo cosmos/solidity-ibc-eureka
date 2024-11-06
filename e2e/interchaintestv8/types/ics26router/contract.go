@@ -52,12 +52,9 @@ type IICS26RouterMsgsMsgRecvPacket struct {
 
 // IICS26RouterMsgsMsgSendPacket is an auto generated low-level Go binding around an user-defined struct.
 type IICS26RouterMsgsMsgSendPacket struct {
-	SourcePort       string
 	SourceChannel    string
-	DestPort         string
-	Data             []byte
 	TimeoutTimestamp uint64
-	Version          string
+	Payloads         []IICS26RouterMsgsPayload
 }
 
 // IICS26RouterMsgsMsgTimeoutPacket is an auto generated low-level Go binding around an user-defined struct.
@@ -70,18 +67,24 @@ type IICS26RouterMsgsMsgTimeoutPacket struct {
 // IICS26RouterMsgsPacket is an auto generated low-level Go binding around an user-defined struct.
 type IICS26RouterMsgsPacket struct {
 	Sequence         uint32
-	TimeoutTimestamp uint64
-	SourcePort       string
 	SourceChannel    string
-	DestPort         string
 	DestChannel      string
-	Version          string
-	Data             []byte
+	TimeoutTimestamp uint64
+	Payloads         []IICS26RouterMsgsPayload
+}
+
+// IICS26RouterMsgsPayload is an auto generated low-level Go binding around an user-defined struct.
+type IICS26RouterMsgsPayload struct {
+	SourcePort string
+	DestPort   string
+	Version    string
+	Encoding   string
+	Value      []byte
 }
 
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"IBC_STORE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIIBCStore\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS02_CLIENT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIICS02Client\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ackPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgAckPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofAcked\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addIBCApp\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"app\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getIBCApp\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIIBCApp\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recvPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgRecvPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"proofCommitment\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"timeoutPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgTimeoutPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"proofTimeout\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AckPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"IBCAppAdded\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RecvPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SendPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TimeoutPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WriteAcknowledgement\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"IBCAppNotFound\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCAsyncAcknowledgementNotSupported\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IBCInvalidCounterparty\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidPortIdentifier\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidTimeoutTimestamp\",\"inputs\":[{\"name\":\"timeoutTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"comparedTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"IBCPacketCommitmentMismatch\",\"inputs\":[{\"name\":\"expected\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actual\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"IBCPortAlreadyExists\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidMerklePrefix\",\"inputs\":[{\"name\":\"prefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"IBC_STORE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIIBCStore\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS02_CLIENT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIICS02Client\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ackPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgAckPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofAcked\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addIBCApp\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"app\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getIBCApp\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIIBCApp\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recvPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgRecvPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]},{\"name\":\"proofCommitment\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"timeoutPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgTimeoutPacket\",\"components\":[{\"name\":\"packet\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]},{\"name\":\"proofTimeout\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"proofHeight\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.Height\",\"components\":[{\"name\":\"revisionNumber\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"revisionHeight\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AckPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"IBCAppAdded\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RecvPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SendPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TimeoutPacket\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WriteAcknowledgement\",\"inputs\":[{\"name\":\"packet\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS26RouterMsgs.Packet\",\"components\":[{\"name\":\"sequence\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"IBCAppNotFound\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCAsyncAcknowledgementNotSupported\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IBCInvalidCounterparty\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidPortIdentifier\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidTimeoutTimestamp\",\"inputs\":[{\"name\":\"timeoutTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"comparedTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"IBCMultiPayloadPacketNotSupported\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IBCPacketCommitmentMismatch\",\"inputs\":[{\"name\":\"expected\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actual\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"IBCPortAlreadyExists\",\"inputs\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidMerklePrefix\",\"inputs\":[{\"name\":\"prefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -354,23 +357,23 @@ func (_Contract *ContractCallerSession) Owner() (common.Address, error) {
 	return _Contract.Contract.Owner(&_Contract.CallOpts)
 }
 
-// AckPacket is a paid mutator transaction binding the contract method 0xd643d23c.
+// AckPacket is a paid mutator transaction binding the contract method 0x990c5292.
 //
-// Solidity: function ackPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function ackPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactor) AckPacket(opts *bind.TransactOpts, msg_ IICS26RouterMsgsMsgAckPacket) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "ackPacket", msg_)
 }
 
-// AckPacket is a paid mutator transaction binding the contract method 0xd643d23c.
+// AckPacket is a paid mutator transaction binding the contract method 0x990c5292.
 //
-// Solidity: function ackPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function ackPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractSession) AckPacket(msg_ IICS26RouterMsgsMsgAckPacket) (*types.Transaction, error) {
 	return _Contract.Contract.AckPacket(&_Contract.TransactOpts, msg_)
 }
 
-// AckPacket is a paid mutator transaction binding the contract method 0xd643d23c.
+// AckPacket is a paid mutator transaction binding the contract method 0x990c5292.
 //
-// Solidity: function ackPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function ackPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactorSession) AckPacket(msg_ IICS26RouterMsgsMsgAckPacket) (*types.Transaction, error) {
 	return _Contract.Contract.AckPacket(&_Contract.TransactOpts, msg_)
 }
@@ -396,23 +399,23 @@ func (_Contract *ContractTransactorSession) AddIBCApp(portId string, app common.
 	return _Contract.Contract.AddIBCApp(&_Contract.TransactOpts, portId, app)
 }
 
-// RecvPacket is a paid mutator transaction binding the contract method 0x10e7b028.
+// RecvPacket is a paid mutator transaction binding the contract method 0xd0e49870.
 //
-// Solidity: function recvPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function recvPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactor) RecvPacket(opts *bind.TransactOpts, msg_ IICS26RouterMsgsMsgRecvPacket) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "recvPacket", msg_)
 }
 
-// RecvPacket is a paid mutator transaction binding the contract method 0x10e7b028.
+// RecvPacket is a paid mutator transaction binding the contract method 0xd0e49870.
 //
-// Solidity: function recvPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function recvPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractSession) RecvPacket(msg_ IICS26RouterMsgsMsgRecvPacket) (*types.Transaction, error) {
 	return _Contract.Contract.RecvPacket(&_Contract.TransactOpts, msg_)
 }
 
-// RecvPacket is a paid mutator transaction binding the contract method 0x10e7b028.
+// RecvPacket is a paid mutator transaction binding the contract method 0xd0e49870.
 //
-// Solidity: function recvPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function recvPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactorSession) RecvPacket(msg_ IICS26RouterMsgsMsgRecvPacket) (*types.Transaction, error) {
 	return _Contract.Contract.RecvPacket(&_Contract.TransactOpts, msg_)
 }
@@ -438,44 +441,44 @@ func (_Contract *ContractTransactorSession) RenounceOwnership() (*types.Transact
 	return _Contract.Contract.RenounceOwnership(&_Contract.TransactOpts)
 }
 
-// SendPacket is a paid mutator transaction binding the contract method 0xa2a60e15.
+// SendPacket is a paid mutator transaction binding the contract method 0x2868a128.
 //
-// Solidity: function sendPacket((string,string,string,bytes,uint64,string) msg_) returns(uint32)
+// Solidity: function sendPacket((string,uint64,(string,string,string,string,bytes)[]) msg_) returns(uint32)
 func (_Contract *ContractTransactor) SendPacket(opts *bind.TransactOpts, msg_ IICS26RouterMsgsMsgSendPacket) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "sendPacket", msg_)
 }
 
-// SendPacket is a paid mutator transaction binding the contract method 0xa2a60e15.
+// SendPacket is a paid mutator transaction binding the contract method 0x2868a128.
 //
-// Solidity: function sendPacket((string,string,string,bytes,uint64,string) msg_) returns(uint32)
+// Solidity: function sendPacket((string,uint64,(string,string,string,string,bytes)[]) msg_) returns(uint32)
 func (_Contract *ContractSession) SendPacket(msg_ IICS26RouterMsgsMsgSendPacket) (*types.Transaction, error) {
 	return _Contract.Contract.SendPacket(&_Contract.TransactOpts, msg_)
 }
 
-// SendPacket is a paid mutator transaction binding the contract method 0xa2a60e15.
+// SendPacket is a paid mutator transaction binding the contract method 0x2868a128.
 //
-// Solidity: function sendPacket((string,string,string,bytes,uint64,string) msg_) returns(uint32)
+// Solidity: function sendPacket((string,uint64,(string,string,string,string,bytes)[]) msg_) returns(uint32)
 func (_Contract *ContractTransactorSession) SendPacket(msg_ IICS26RouterMsgsMsgSendPacket) (*types.Transaction, error) {
 	return _Contract.Contract.SendPacket(&_Contract.TransactOpts, msg_)
 }
 
-// TimeoutPacket is a paid mutator transaction binding the contract method 0x61e3c574.
+// TimeoutPacket is a paid mutator transaction binding the contract method 0x189efaa9.
 //
-// Solidity: function timeoutPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function timeoutPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactor) TimeoutPacket(opts *bind.TransactOpts, msg_ IICS26RouterMsgsMsgTimeoutPacket) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "timeoutPacket", msg_)
 }
 
-// TimeoutPacket is a paid mutator transaction binding the contract method 0x61e3c574.
+// TimeoutPacket is a paid mutator transaction binding the contract method 0x189efaa9.
 //
-// Solidity: function timeoutPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function timeoutPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractSession) TimeoutPacket(msg_ IICS26RouterMsgsMsgTimeoutPacket) (*types.Transaction, error) {
 	return _Contract.Contract.TimeoutPacket(&_Contract.TransactOpts, msg_)
 }
 
-// TimeoutPacket is a paid mutator transaction binding the contract method 0x61e3c574.
+// TimeoutPacket is a paid mutator transaction binding the contract method 0x189efaa9.
 //
-// Solidity: function timeoutPacket(((uint32,uint64,string,string,string,string,string,bytes),bytes,(uint32,uint32)) msg_) returns()
+// Solidity: function timeoutPacket(((uint32,string,string,uint64,(string,string,string,string,bytes)[]),bytes,(uint32,uint32)) msg_) returns()
 func (_Contract *ContractTransactorSession) TimeoutPacket(msg_ IICS26RouterMsgsMsgTimeoutPacket) (*types.Transaction, error) {
 	return _Contract.Contract.TimeoutPacket(&_Contract.TransactOpts, msg_)
 }
@@ -575,9 +578,9 @@ type ContractAckPacket struct {
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterAckPacket is a free log retrieval operation binding the contract event 0x02ec30ff6a19d6525e757d5b1acb1ba14374ea626a7459a984b7d6eb4cc6ee06.
+// FilterAckPacket is a free log retrieval operation binding the contract event 0xb9c8d80a8bcb604cc6de0d3ab6f9a6f1206c15289d67b1526cae869dd9bb2494.
 //
-// Solidity: event AckPacket((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event AckPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) FilterAckPacket(opts *bind.FilterOpts) (*ContractAckPacketIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "AckPacket")
@@ -587,9 +590,9 @@ func (_Contract *ContractFilterer) FilterAckPacket(opts *bind.FilterOpts) (*Cont
 	return &ContractAckPacketIterator{contract: _Contract.contract, event: "AckPacket", logs: logs, sub: sub}, nil
 }
 
-// WatchAckPacket is a free log subscription operation binding the contract event 0x02ec30ff6a19d6525e757d5b1acb1ba14374ea626a7459a984b7d6eb4cc6ee06.
+// WatchAckPacket is a free log subscription operation binding the contract event 0xb9c8d80a8bcb604cc6de0d3ab6f9a6f1206c15289d67b1526cae869dd9bb2494.
 //
-// Solidity: event AckPacket((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event AckPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) WatchAckPacket(opts *bind.WatchOpts, sink chan<- *ContractAckPacket) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "AckPacket")
@@ -624,9 +627,9 @@ func (_Contract *ContractFilterer) WatchAckPacket(opts *bind.WatchOpts, sink cha
 	}), nil
 }
 
-// ParseAckPacket is a log parse operation binding the contract event 0x02ec30ff6a19d6525e757d5b1acb1ba14374ea626a7459a984b7d6eb4cc6ee06.
+// ParseAckPacket is a log parse operation binding the contract event 0xb9c8d80a8bcb604cc6de0d3ab6f9a6f1206c15289d67b1526cae869dd9bb2494.
 //
-// Solidity: event AckPacket((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event AckPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) ParseAckPacket(log types.Log) (*ContractAckPacket, error) {
 	event := new(ContractAckPacket)
 	if err := _Contract.contract.UnpackLog(event, "AckPacket", log); err != nil {
@@ -997,9 +1000,9 @@ type ContractRecvPacket struct {
 	Raw    types.Log // Blockchain specific contextual infos
 }
 
-// FilterRecvPacket is a free log retrieval operation binding the contract event 0xe5740fe3f297a40ddd866e5007e02a83f5f16e6fc0bdcc4f18a0468101f4bf51.
+// FilterRecvPacket is a free log retrieval operation binding the contract event 0x04800fcdd96f564cfee29e736ca6e0677c2e2fc9c768f7ee852dfe7cf11b3e1f.
 //
-// Solidity: event RecvPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event RecvPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) FilterRecvPacket(opts *bind.FilterOpts) (*ContractRecvPacketIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "RecvPacket")
@@ -1009,9 +1012,9 @@ func (_Contract *ContractFilterer) FilterRecvPacket(opts *bind.FilterOpts) (*Con
 	return &ContractRecvPacketIterator{contract: _Contract.contract, event: "RecvPacket", logs: logs, sub: sub}, nil
 }
 
-// WatchRecvPacket is a free log subscription operation binding the contract event 0xe5740fe3f297a40ddd866e5007e02a83f5f16e6fc0bdcc4f18a0468101f4bf51.
+// WatchRecvPacket is a free log subscription operation binding the contract event 0x04800fcdd96f564cfee29e736ca6e0677c2e2fc9c768f7ee852dfe7cf11b3e1f.
 //
-// Solidity: event RecvPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event RecvPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) WatchRecvPacket(opts *bind.WatchOpts, sink chan<- *ContractRecvPacket) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "RecvPacket")
@@ -1046,9 +1049,9 @@ func (_Contract *ContractFilterer) WatchRecvPacket(opts *bind.WatchOpts, sink ch
 	}), nil
 }
 
-// ParseRecvPacket is a log parse operation binding the contract event 0xe5740fe3f297a40ddd866e5007e02a83f5f16e6fc0bdcc4f18a0468101f4bf51.
+// ParseRecvPacket is a log parse operation binding the contract event 0x04800fcdd96f564cfee29e736ca6e0677c2e2fc9c768f7ee852dfe7cf11b3e1f.
 //
-// Solidity: event RecvPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event RecvPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) ParseRecvPacket(log types.Log) (*ContractRecvPacket, error) {
 	event := new(ContractRecvPacket)
 	if err := _Contract.contract.UnpackLog(event, "RecvPacket", log); err != nil {
@@ -1131,9 +1134,9 @@ type ContractSendPacket struct {
 	Raw    types.Log // Blockchain specific contextual infos
 }
 
-// FilterSendPacket is a free log retrieval operation binding the contract event 0xcd3be236e03bb0c6cdd04d27237cc5ed26330113ef1ba8b471f536c1abea0402.
+// FilterSendPacket is a free log retrieval operation binding the contract event 0xf7ebcdc962e8a8107a69b70b1e30d7a7545763584af979f25dd95b17ad7db0b6.
 //
-// Solidity: event SendPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event SendPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) FilterSendPacket(opts *bind.FilterOpts) (*ContractSendPacketIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "SendPacket")
@@ -1143,9 +1146,9 @@ func (_Contract *ContractFilterer) FilterSendPacket(opts *bind.FilterOpts) (*Con
 	return &ContractSendPacketIterator{contract: _Contract.contract, event: "SendPacket", logs: logs, sub: sub}, nil
 }
 
-// WatchSendPacket is a free log subscription operation binding the contract event 0xcd3be236e03bb0c6cdd04d27237cc5ed26330113ef1ba8b471f536c1abea0402.
+// WatchSendPacket is a free log subscription operation binding the contract event 0xf7ebcdc962e8a8107a69b70b1e30d7a7545763584af979f25dd95b17ad7db0b6.
 //
-// Solidity: event SendPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event SendPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) WatchSendPacket(opts *bind.WatchOpts, sink chan<- *ContractSendPacket) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "SendPacket")
@@ -1180,9 +1183,9 @@ func (_Contract *ContractFilterer) WatchSendPacket(opts *bind.WatchOpts, sink ch
 	}), nil
 }
 
-// ParseSendPacket is a log parse operation binding the contract event 0xcd3be236e03bb0c6cdd04d27237cc5ed26330113ef1ba8b471f536c1abea0402.
+// ParseSendPacket is a log parse operation binding the contract event 0xf7ebcdc962e8a8107a69b70b1e30d7a7545763584af979f25dd95b17ad7db0b6.
 //
-// Solidity: event SendPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event SendPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) ParseSendPacket(log types.Log) (*ContractSendPacket, error) {
 	event := new(ContractSendPacket)
 	if err := _Contract.contract.UnpackLog(event, "SendPacket", log); err != nil {
@@ -1265,9 +1268,9 @@ type ContractTimeoutPacket struct {
 	Raw    types.Log // Blockchain specific contextual infos
 }
 
-// FilterTimeoutPacket is a free log retrieval operation binding the contract event 0x49a7850cd3afc1d631cee71a3afb30b6f6cbc6d3141b539ad6017895e3dec2d2.
+// FilterTimeoutPacket is a free log retrieval operation binding the contract event 0x64213b86fcab291f4e2e5dc83c0eb803e94eaadcbfb09fef7c044bc647d297da.
 //
-// Solidity: event TimeoutPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event TimeoutPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) FilterTimeoutPacket(opts *bind.FilterOpts) (*ContractTimeoutPacketIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "TimeoutPacket")
@@ -1277,9 +1280,9 @@ func (_Contract *ContractFilterer) FilterTimeoutPacket(opts *bind.FilterOpts) (*
 	return &ContractTimeoutPacketIterator{contract: _Contract.contract, event: "TimeoutPacket", logs: logs, sub: sub}, nil
 }
 
-// WatchTimeoutPacket is a free log subscription operation binding the contract event 0x49a7850cd3afc1d631cee71a3afb30b6f6cbc6d3141b539ad6017895e3dec2d2.
+// WatchTimeoutPacket is a free log subscription operation binding the contract event 0x64213b86fcab291f4e2e5dc83c0eb803e94eaadcbfb09fef7c044bc647d297da.
 //
-// Solidity: event TimeoutPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event TimeoutPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) WatchTimeoutPacket(opts *bind.WatchOpts, sink chan<- *ContractTimeoutPacket) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "TimeoutPacket")
@@ -1314,9 +1317,9 @@ func (_Contract *ContractFilterer) WatchTimeoutPacket(opts *bind.WatchOpts, sink
 	}), nil
 }
 
-// ParseTimeoutPacket is a log parse operation binding the contract event 0x49a7850cd3afc1d631cee71a3afb30b6f6cbc6d3141b539ad6017895e3dec2d2.
+// ParseTimeoutPacket is a log parse operation binding the contract event 0x64213b86fcab291f4e2e5dc83c0eb803e94eaadcbfb09fef7c044bc647d297da.
 //
-// Solidity: event TimeoutPacket((uint32,uint64,string,string,string,string,string,bytes) packet)
+// Solidity: event TimeoutPacket((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet)
 func (_Contract *ContractFilterer) ParseTimeoutPacket(log types.Log) (*ContractTimeoutPacket, error) {
 	event := new(ContractTimeoutPacket)
 	if err := _Contract.contract.UnpackLog(event, "TimeoutPacket", log); err != nil {
@@ -1400,9 +1403,9 @@ type ContractWriteAcknowledgement struct {
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterWriteAcknowledgement is a free log retrieval operation binding the contract event 0x73966bdad531fa3af2ff3dbabd29cdad01d53f98f8ea02083708b7da5a13ecc0.
+// FilterWriteAcknowledgement is a free log retrieval operation binding the contract event 0x121c2a7e6ea9b5f6a80ac7ebd0bd4b66ac5819ad4d438e7bbd74f8ec68010e10.
 //
-// Solidity: event WriteAcknowledgement((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event WriteAcknowledgement((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) FilterWriteAcknowledgement(opts *bind.FilterOpts) (*ContractWriteAcknowledgementIterator, error) {
 
 	logs, sub, err := _Contract.contract.FilterLogs(opts, "WriteAcknowledgement")
@@ -1412,9 +1415,9 @@ func (_Contract *ContractFilterer) FilterWriteAcknowledgement(opts *bind.FilterO
 	return &ContractWriteAcknowledgementIterator{contract: _Contract.contract, event: "WriteAcknowledgement", logs: logs, sub: sub}, nil
 }
 
-// WatchWriteAcknowledgement is a free log subscription operation binding the contract event 0x73966bdad531fa3af2ff3dbabd29cdad01d53f98f8ea02083708b7da5a13ecc0.
+// WatchWriteAcknowledgement is a free log subscription operation binding the contract event 0x121c2a7e6ea9b5f6a80ac7ebd0bd4b66ac5819ad4d438e7bbd74f8ec68010e10.
 //
-// Solidity: event WriteAcknowledgement((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event WriteAcknowledgement((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) WatchWriteAcknowledgement(opts *bind.WatchOpts, sink chan<- *ContractWriteAcknowledgement) (event.Subscription, error) {
 
 	logs, sub, err := _Contract.contract.WatchLogs(opts, "WriteAcknowledgement")
@@ -1449,9 +1452,9 @@ func (_Contract *ContractFilterer) WatchWriteAcknowledgement(opts *bind.WatchOpt
 	}), nil
 }
 
-// ParseWriteAcknowledgement is a log parse operation binding the contract event 0x73966bdad531fa3af2ff3dbabd29cdad01d53f98f8ea02083708b7da5a13ecc0.
+// ParseWriteAcknowledgement is a log parse operation binding the contract event 0x121c2a7e6ea9b5f6a80ac7ebd0bd4b66ac5819ad4d438e7bbd74f8ec68010e10.
 //
-// Solidity: event WriteAcknowledgement((uint32,uint64,string,string,string,string,string,bytes) packet, bytes acknowledgement)
+// Solidity: event WriteAcknowledgement((uint32,string,string,uint64,(string,string,string,string,bytes)[]) packet, bytes acknowledgement)
 func (_Contract *ContractFilterer) ParseWriteAcknowledgement(log types.Log) (*ContractWriteAcknowledgement, error) {
 	event := new(ContractWriteAcknowledgement)
 	if err := _Contract.contract.UnpackLog(event, "WriteAcknowledgement", log); err != nil {
