@@ -10,7 +10,6 @@ pragma solidity ^0.8.28;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v3.0.0/SP1VerifierPlonk.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
@@ -44,13 +43,11 @@ contract E2ETestDeploy is Script {
         vm.startBroadcast(privateKey);
 
         // Deploy the SP1 ICS07 Tendermint light client
-        SP1Verifier verifier = new SP1Verifier();
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             genesis.updateClientVkey,
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
             genesis.misbehaviourVkey,
-            address(verifier),
             genesis.trustedClientState,
             keccak256(abi.encode(trustedConsensusState))
         );
