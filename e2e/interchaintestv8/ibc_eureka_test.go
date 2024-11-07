@@ -453,7 +453,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("acknowledgePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
@@ -570,7 +570,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		recvBlockNumber = receipt.BlockNumber.Int64()
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receivePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -749,7 +749,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		recvBlockNumber = receipt.BlockNumber.Int64()
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -1074,7 +1074,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("timeoutPacket-%s.json", pt.String()), s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {

@@ -62,12 +62,18 @@ install-operator:
 generate-fixtures:
 	@echo "Generating fixtures... This may take a while."
 	just clean
-	@echo "Generating recvPacket and acknowledgePacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack$' -timeout 40m
-	@echo "Generating native SdkCoin recvPacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack$' -timeout 40m
-	@echo "Generating timeoutPacket fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket plonk fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket plonk fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk$' -timeout 40m
+	@echo "Generating timeoutPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
+	@echo "Generating timeoutPacket plonk fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk$' -timeout 40m
 
 protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
 DOCKER := `which docker`
