@@ -18,7 +18,7 @@ abstract contract FixtureTest is Test {
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyClient = "00-mock-0";
+    string public counterpartyClient = "08-wasm-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     using stdJson for string;
