@@ -117,7 +117,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, pt operator.Support
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", "contracts/script/genesis.json",
+			"-o", testvalues.Sp1GenesisFilePath,
 		}, pt.ToOpGenesisArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
