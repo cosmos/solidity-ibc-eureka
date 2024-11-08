@@ -58,18 +58,18 @@ contract IntegrationTest is Test {
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
-        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
 
         sender = makeAddr("sender");
         senderStr = Strings.toHexString(sender);
         data = ICS20Lib.marshalJSON(erc20AddressStr, transferAmount, senderStr, receiverStr, "memo");
         msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             data: data,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             version: ICS20Lib.ICS20_VERSION
@@ -217,9 +217,9 @@ contract IntegrationTest is Test {
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: counterpartyClient,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(receivedDenom, transferAmount, senderStr, receiverStr, "backmemo")
@@ -270,9 +270,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: counterpartyClient,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
@@ -343,7 +343,7 @@ contract IntegrationTest is Test {
             amount: transferAmount,
             receiver: receiverStr,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "backmemo"
         });
@@ -362,9 +362,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
@@ -385,6 +385,126 @@ contract IntegrationTest is Test {
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
 
+    function test_success_receiveMultiPacketWithForeignBaseDenom() public {
+        string memory foreignDenom = "uatom";
+
+        senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
+        receiver = makeAddr("receiver_of_foreign_denom");
+        receiverStr = Strings.toHexString(receiver);
+
+        // First packet
+        IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            sourceChannel: counterpartyClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            destChannel: clientIdentifier,
+            version: ICS20Lib.ICS20_VERSION,
+            data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+        });
+
+        // Second packet
+        IICS26RouterMsgs.Packet memory receivePacket2 = IICS26RouterMsgs.Packet({
+            sequence: 2,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            sourceChannel: counterpartyClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            destChannel: clientIdentifier,
+            version: ICS20Lib.ICS20_VERSION,
+            data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+        });
+
+        bytes[] memory multicallData = new bytes[](2);
+        multicallData[0] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+        multicallData[1] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket2,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+
+        ics26Router.multicall(multicallData);
+
+        // Check that the ack is written
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
+                receivePacket.destPort, receivePacket.destChannel, receivePacket.sequence
+            )
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+
+        bytes32 storedAck2 = ics26Router.IBC_STORE().getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
+                receivePacket2.destPort, receivePacket2.destChannel, receivePacket2.sequence
+            )
+        );
+        assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+    }
+
+    function test_failure_receiveMultiPacketWithForeignBaseDenom() public {
+        string memory foreignDenom = "uatom";
+
+        senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
+        receiver = makeAddr("receiver_of_foreign_denom");
+        receiverStr = Strings.toHexString(receiver);
+
+        // First packet
+        IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            sourceChannel: counterpartyClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            destChannel: clientIdentifier,
+            version: ICS20Lib.ICS20_VERSION,
+            data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+        });
+
+        // Second packet
+        IICS26RouterMsgs.Packet memory invalidPacket = IICS26RouterMsgs.Packet({
+            sequence: 2,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            sourceChannel: counterpartyClient,
+            destPort: "invalid-port",
+            destChannel: clientIdentifier,
+            version: ICS20Lib.ICS20_VERSION,
+            data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+        });
+
+        bytes[] memory multicallData = new bytes[](2);
+        multicallData[0] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+        multicallData[1] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: invalidPacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.destPort));
+        ics26Router.multicall(multicallData);
+    }
+
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {
         string memory foreignDenom = "transfer/channel-42/uatom";
 
@@ -396,9 +516,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: counterpartyClient,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
@@ -469,7 +589,7 @@ contract IntegrationTest is Test {
             amount: transferAmount,
             receiver: receiverStr,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "backmemo"
         });
@@ -490,9 +610,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
@@ -527,9 +647,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: counterpartyClient,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(foreignDenom, largeAmount, senderStr, receiverStr, "")
@@ -600,7 +720,7 @@ contract IntegrationTest is Test {
             amount: largeAmount,
             receiver: receiverStr,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: ""
         });
@@ -621,9 +741,9 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: counterpartyClient,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "")
@@ -682,9 +802,9 @@ contract IntegrationTest is Test {
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: timeoutTimestamp,
-            sourcePort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: counterpartyClient,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
             data: data
@@ -719,7 +839,7 @@ contract IntegrationTest is Test {
             amount: transferAmount,
             receiver: receiverStr,
             sourceChannel: clientIdentifier,
-            destPort: "transfer",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "memo"
         });
