@@ -76,6 +76,10 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 	// wait for 2 blocks for the transaction to be included
 	s.Require().NoError(testutil.WaitForBlocks(ctx, 2, chain))
 
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("tx failed with code %d: %s", resp.Code, resp.RawLog)
+	}
+
 	return &resp, nil
 }
 

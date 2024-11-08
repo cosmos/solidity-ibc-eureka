@@ -178,7 +178,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     s.EthereumLightClientID,
+			ClientId:     ibctesting.FirstChannelID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
@@ -189,11 +189,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
-		s.Require().Equal(s.EthereumLightClientID, event.CounterpartyInfo.ClientId)
+		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
 		s.TendermintLightClientID = event.ClientId
 	}))
 
-	s.Require().True(s.Run("Register counterparty on Cosmos chain", func() {
+	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
 
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgCreateChannel{
@@ -204,7 +204,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             s.EthereumLightClientID,
+			ChannelId:             ibctesting.FirstChannelID,
 			CounterpartyChannelId: s.TendermintLightClientID,
 			Signer:                simdRelayerUser.FormattedAddress(),
 		})
@@ -279,10 +279,10 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 		s.Require().NoError(err)
 
 		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simd, &channeltypesv2.QueryChannelRequest{
-			ChannelId: s.EthereumLightClientID,
+			ChannelId: "channel-0",
 		})
 		s.Require().NoError(err)
-		s.Require().Equal(s.TendermintLightClientID, channelResp.Channel.ClientId)
+		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
 	}))
 }
 
@@ -351,7 +351,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
 		s.Require().Equal(s.TendermintLightClientID, sendPacket.SourceChannel)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestPort)
-		s.Require().Equal(s.EthereumLightClientID, sendPacket.DestChannel)
+		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.DestChannel)
 		s.Require().Equal(transfertypes.V1, sendPacket.Payloads[0].Version)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
@@ -406,11 +406,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		// recvAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
 		// s.Require().NoError(err)
 		// s.Require().NotNil(recvAck)
-		_ = txResp
+		fmt.Printf("msgRecvPacket txResp: %+v\n", txResp)
 		recvAck = channeltypesv2.CommitPacket(packet)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, s.EthereumLightClientID))
+			denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
 
 			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
