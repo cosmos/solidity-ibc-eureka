@@ -8,7 +8,7 @@ import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
-import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
@@ -23,7 +23,7 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
-contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuard {
+contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient {
     /// @notice The escrow contract address
     IEscrow private immutable ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
@@ -58,7 +58,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         bytes memory packetData =
-            ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(msg.sender), msg_.receiver, msg_.memo);
+            ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo);
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: msg_.sourceChannel,
