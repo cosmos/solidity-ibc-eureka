@@ -72,7 +72,7 @@ type IbcEurekaTestSuite struct {
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
-func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, pt operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.ChainA, s.ChainB
@@ -118,7 +118,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, pt operator.Support
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
 			"-o", testvalues.Sp1GenesisFilePath,
-		}, pt.ToOpGenesisArgs()...)
+		}, proofType.ToOpGenesisArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
 		var (
@@ -219,8 +219,8 @@ func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
 }
 
 // DeployTest tests the deployment of the IbcEureka contracts
-func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, pt operator.SupportedProofType) {
-	s.SetupSuite(ctx, pt)
+func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
 
 	simd := s.ChainB
 

@@ -83,7 +83,6 @@ just test-foundry test_success_sendTransfer
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
 It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
-You can also run the tests with a "mock" prover that doesn't actually generate proofs and will accept any proof.
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
