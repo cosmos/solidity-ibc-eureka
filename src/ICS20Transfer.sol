@@ -57,8 +57,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             fullDenomPath = msg_.denom;
         }
 
-        bytes memory packetData =
-            ICS20Lib.marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo);
+        bytes memory packetData = ICS20Lib.marshalJSON(
+            fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo
+        );
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             sourceChannel: msg_.sourceChannel,

@@ -423,7 +423,7 @@ contract IntegrationTest is Test {
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
         multicallData[1] = abi.encodeCall(
             IICS26Router.recvPacket,
@@ -431,7 +431,7 @@ contract IntegrationTest is Test {
                 packet: receivePacket2,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
 
         ics26Router.multicall(multicallData);
@@ -490,7 +490,7 @@ contract IntegrationTest is Test {
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
         multicallData[1] = abi.encodeCall(
             IICS26Router.recvPacket,
@@ -498,7 +498,7 @@ contract IntegrationTest is Test {
                 packet: invalidPacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-            })
+             })
         );
 
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.destPort));
