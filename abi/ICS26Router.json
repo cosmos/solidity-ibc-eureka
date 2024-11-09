@@ -176,6 +176,25 @@
   },
   {
     "type": "function",
+    "name": "multicall",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "results",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -849,6 +868,22 @@
   },
   {
     "type": "error",
+    "name": "AddressEmptyCode",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FailedCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCAppNotFound",
     "inputs": [
       {
@@ -975,22 +1010,6 @@
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SafeCastOverflowedUintDowncast",
-    "inputs": [
-      {
-        "name": "bits",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",

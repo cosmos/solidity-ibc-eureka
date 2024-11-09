@@ -15,11 +15,12 @@ import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
-import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGuard {
+contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
     /// @inheritdoc IICS26Router
@@ -100,12 +101,12 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
 
         getIBCApp(payload.sourcePort).onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({ 
-            sourceChannel: msg_.sourceChannel,
-            destinationChannel: counterpartyId,
-            sequence: sequence,
-            payload: payload,
-            sender: msg.sender 
-        })
+                sourceChannel: msg_.sourceChannel,
+                destinationChannel: counterpartyId,
+                sequence: sequence,
+                payload: payload,
+                sender: _msgSender()
+            })
         );
 
         IBC_STORE.commitPacket(packet);
@@ -149,12 +150,12 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
 
         bytes memory ack = getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({ 
-            sourceChannel: msg_.packet.sourceChannel,
-            destinationChannel: msg_.packet.destChannel,
-            sequence: msg_.packet.sequence,
-            payload: payload,
-            relayer: msg.sender 
-        })
+                sourceChannel: msg_.packet.sourceChannel,
+                destinationChannel: msg_.packet.destChannel,
+                sequence: msg_.packet.sequence,
+                payload: payload,
+                relayer: _msgSender() 
+            })
         );
         if (ack.length == 0) {
             revert IBCAsyncAcknowledgementNotSupported();
@@ -210,7 +211,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
                 sequence: msg_.packet.sequence,
                 payload: payload,
                 acknowledgement: msg_.acknowledgement,
-                relayer: msg.sender
+                relayer: _msgSender()
             })
         );
 
@@ -259,7 +260,7 @@ contract ICS26Router is IICS26Router, Ownable, IICS26RouterErrors, ReentrancyGua
                 destinationChannel: msg_.packet.destChannel,
                 sequence: msg_.packet.sequence,
                 payload: payload,
-                relayer: msg.sender 
+                relayer: _msgSender() 
             })
         );
 

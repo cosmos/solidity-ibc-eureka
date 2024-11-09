@@ -27,7 +27,7 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
-  SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
+  SP1_OPERATOR_REV: c7462ad12a0e67044dd7bbf20321e8b538c60b54
 permissions:
   contents: read
 
@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.22"
+          go-version: "1.23"
           cache-dependency-path: e2e/interchaintestv8/go.sum
 
       - name: golangci-lint
@@ -55,10 +55,14 @@ jobs:
       matrix:
         test:
           # List your tests here
-          - TestWithIbcEurekaTestSuite/TestDeploy
-          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack
-          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack
-          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain
+          - TestWithIbcEurekaTestSuite/TestDeploy_Groth16
+          - TestWithIbcEurekaTestSuite/TestDeploy_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     env:

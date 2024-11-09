@@ -83,7 +83,6 @@ just test-foundry test_success_sendTransfer
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
 It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
-You can also run the tests with a "mock" prover that doesn't actually generate proofs and will accept any proof.
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
@@ -124,15 +123,15 @@ just lint
 
 ## End to End Benchmarks
 
-The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~320,000 gas is used for each light client verification, and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 3 minutes 30 seconds. More granular and in-depth benchmarks are planned for the future.
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
 
-| **Contract** | **Method** | **Description** | **Gas** |
-|:---:|:---:|:---:|:---:|
-| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 249,811 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 636,957 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,534,395 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 517,836 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 568,708 |
+| **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
+|:---:|:---:|:---:|:---:|:---:|
+| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 250,472 | 250,472 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 548,671 | 636,957 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,446,811 | 1,534,395 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 428,926 | 517,836 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 479,599 | 568,708 |
 
 ## License
 

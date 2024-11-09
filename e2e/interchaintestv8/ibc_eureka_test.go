@@ -75,7 +75,7 @@ type IbcEurekaTestSuite struct {
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
-func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
+func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.ChainA, s.ChainB
@@ -117,11 +117,12 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
-		s.Require().NoError(operator.RunGenesis(
+		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
 			"-o", testvalues.Sp1GenesisFilePath,
-		))
+		}, proofType.ToOpGenesisArgs()...)
+		s.Require().NoError(operator.RunGenesis(args...))
 
 		var (
 			stdout []byte
@@ -129,8 +130,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context) {
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, "scripts/MockE2ETestDeploy.s.sol:MockE2ETestDeploy")
-			s.Require().NoError(err)
+			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the SP1_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
@@ -217,11 +217,19 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 	suite.Run(t, new(IbcEurekaTestSuite))
 }
 
-// TestDeploy tests the deployment of the IbcEureka contracts
-func (s *IbcEurekaTestSuite) TestDeploy() {
+func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
 	ctx := context.Background()
+	s.DeployTest(ctx, operator.ProofTypeGroth16)
+}
 
-	s.SetupSuite(ctx)
+func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
+	ctx := context.Background()
+	s.DeployTest(ctx, operator.ProofTypePlonk)
+}
+
+// DeployTest tests the deployment of the IbcEureka contracts
+func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
 
 	simd := s.ChainB
 
@@ -253,7 +261,7 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 
 		counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, s.TendermintLightClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.EthereumLightClientID, counterpartyInfo.ClientId)
+		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
@@ -286,13 +294,21 @@ func (s *IbcEurekaTestSuite) TestDeploy() {
 	}))
 }
 
-// TestICS20TransferERC20TokenfromEthereumToCosmosAndBack tests the ICS20 transfer functionality
+func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+	ctx := context.Background()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
+	ctx := context.Background()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk)
+}
+
+// ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality
 // by transferring ERC20 tokens from Ethereum to Cosmos chain
 // and then back from Cosmos chain to Ethereum
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
-	ctx := context.Background()
-
-	s.SetupSuite(ctx)
+func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx context.Context, pt operator.SupportedProofType) {
+	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.ChainA, s.ChainB
 
@@ -433,11 +449,17 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		s.Require().NoError(err)
 
 		// This will be a membership proof since the acknowledgement is written
-		packetAckPath := ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(sendPacket.Sequence))
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetAckPath),
+		// packetAckPath := ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(sendPacket.Sequence))
+		packetAckPath := fmt.Sprintf("acks/channels/%s/sequences/%d", sendPacket.DestChannel, sendPacket.Sequence)
+		fmt.Printf("packetAckPath: %s, sequence: %d\n", packetAckPath, sendPacket.Sequence)
+		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		},
+			pt.ToOperatorArgs()...,
+		)
+		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+			uint64(trustedHeight), uint64(latestHeight), packetAckPath, args...,
 		)
 		s.Require().NoError(err)
 
@@ -455,7 +477,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("acknowledgePacket.json", s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("acknowledgePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "ackPacket", msg, sendPacket))
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
@@ -558,10 +580,14 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		s.Require().NoError(err)
 
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, returnPacket.Sequence)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetCommitmentPath),
+		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		},
+			pt.ToOperatorArgs()...,
+		)
+		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+			uint64(trustedHeight), uint64(latestHeight), string(packetCommitmentPath), args...,
 		)
 		s.Require().NoError(err)
 
@@ -595,7 +621,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 		recvBlockNumber = receipt.BlockNumber.Int64()
 
 		if s.generateFixtures {
-			s.Require().NoError(types.GenerateAndSaveFixture("receivePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receivePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -653,12 +679,20 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 	}))
 }
 
-// TestICS20TransferNativeCosmosCoinsToEthereumAndBack tests the ICS20 transfer functionality
-// by transferring native coins from a Cosmos chain to Ethereum and back
-// func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack() {
+// func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16() {
 // 	ctx := context.Background()
+// 	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypeGroth16)
+// }
 //
-// 	s.SetupSuite(ctx)
+// func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk() {
+// 	ctx := context.Background()
+// 	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypePlonk)
+// }
+//
+// // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
+// // by transferring native coins from a Cosmos chain to Ethereum and back
+// func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType) {
+// 	s.SetupSuite(ctx, pt)
 //
 // 	eth, simd := s.ChainA, s.ChainB
 //
@@ -739,11 +773,15 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 		latestHeight, err := simd.Height(ctx)
 // 		s.Require().NoError(err)
 //
-// 		packetCommitmentPath := ibchostv2.PacketCommitmentPath(sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
-// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-// 			uint64(trustedHeight), uint64(latestHeight), packetCommitmentPath,
+// 		packetCommitmentPath := ibchost.PacketCommitmentPath(sendPacket.SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
+// 		args := append([]string{
 // 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 // 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+// 		},
+// 			pt.ToOperatorArgs()...,
+// 		)
+// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+// 			uint64(trustedHeight), uint64(latestHeight), packetCommitmentPath, args...,
 // 		)
 // 		s.Require().NoError(err)
 //
@@ -772,7 +810,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 		recvBlockNumber = receipt.BlockNumber.Int64()
 //
 // 		if s.generateFixtures {
-// 			s.Require().NoError(types.GenerateAndSaveFixture("receiveNativePacket.json", s.contractAddresses.Erc20, "recvPacket", msg, packet))
+// 			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 // 		}
 //
 // 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
@@ -960,11 +998,15 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 		s.Require().NoError(err)
 //
 // 		// This will be a membership proof since the acknowledgement is written
-// 		packetAckPath := ibchostv2.PacketAcknowledgementPath(returnPacket.DestPort, returnPacket.DestChannel, uint64(returnPacket.Sequence))
-// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-// 			uint64(trustedHeight), uint64(latestHeight), packetAckPath,
+// 		packetAckPath := ibchost.PacketAcknowledgementPath(returnPacket.DestPort, returnPacket.DestChannel, uint64(returnPacket.Sequence))
+// 		args := append([]string{
 // 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 // 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+// 		},
+// 			pt.ToOperatorArgs()...,
+// 		)
+// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+// 			uint64(trustedHeight), uint64(latestHeight), packetAckPath, args...,
 // 		)
 // 		s.Require().NoError(err)
 //
@@ -983,10 +1025,18 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 	}))
 // }
 //
-// func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain() {
+// func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16() {
 // 	ctx := context.Background()
+// 	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypeGroth16)
+// }
 //
-// 	s.SetupSuite(ctx)
+// func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk() {
+// 	ctx := context.Background()
+// 	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypePlonk)
+// }
+//
+// func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx context.Context, pt operator.SupportedProofType) {
+// 	s.SetupSuite(ctx, pt)
 //
 // 	eth, simd := s.ChainA, s.ChainB
 //
@@ -1070,11 +1120,15 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 		s.Require().NoError(err)
 //
 // 		// This will be a non-membership proof since no packets have been sent
-// 		packetReceiptPath := ibchostv2.PacketReceiptPath(packet.DestPort, packet.DestChannel, uint64(packet.Sequence))
-// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-// 			uint64(trustedHeight), uint64(latestHeight), packetReceiptPath,
+// 		packetReceiptPath := ibchost.PacketReceiptPath(packet.DestPort, packet.DestChannel, uint64(packet.Sequence))
+// 		args := append([]string{
 // 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 // 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+// 		},
+// 			pt.ToOperatorArgs()...,
+// 		)
+// 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+// 			uint64(trustedHeight), uint64(latestHeight), packetReceiptPath, args...,
 // 		)
 // 		s.Require().NoError(err)
 //
@@ -1091,7 +1145,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndB
 // 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 //
 // 		if s.generateFixtures {
-// 			s.Require().NoError(types.GenerateAndSaveFixture("timeoutPacket.json", s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
+// 			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("timeoutPacket-%s.json", pt.String()), s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
 // 		}
 //
 // 		s.Require().True(s.Run("Verify balances on Ethereum", func() {

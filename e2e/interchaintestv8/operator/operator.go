@@ -35,6 +35,7 @@ func RunGenesis(args ...string) error {
 	// nolint:gosec
 	cmd := exec.Command(BinaryPath(), args...)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
@@ -44,6 +45,7 @@ func StartOperator(args ...string) error {
 	// nolint:gosec
 	cmd := exec.Command(BinaryPath(), args...)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 

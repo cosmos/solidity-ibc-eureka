@@ -659,9 +659,9 @@ contract ICS20TransferTest is Test {
         receiverStr = Strings.toHexString(receiver);
         bytes memory receiveData = ICS20Lib.marshalJSON(foreignDenom, defaultAmount, senderStr, receiverStr, "memo");
         packet.payloads[0].value = receiveData;
-        packet.payloads[0].destPort = "transfer";
+        packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
         packet.destChannel = "dest-channel";
-        packet.payloads[0].sourcePort = "transfer";
+        packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
         packet.sourceChannel = "source-channel";
 
         string memory expectedFullDenomPath =
@@ -716,9 +716,9 @@ contract ICS20TransferTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
         packet.payloads[0].value = ICS20Lib.marshalJSON(foreignDenom, defaultAmount, senderStr, receiverStr, "memo");
-        packet.payloads[0].destPort = "transfer";
+        packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
         packet.destChannel = "dest-channel";
-        packet.payloads[0].sourcePort = "transfer";
+        packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
         packet.sourceChannel = "source-channel";
 
         string memory expectedFullDenomPath =
