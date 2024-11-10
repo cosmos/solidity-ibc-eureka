@@ -135,7 +135,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         }
 
         bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
-            payload.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
+            msg_.packet.sourceChannel, msg_.packet.sequence
         );
         bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
 
@@ -190,7 +190,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         }
 
         bytes memory commitmentPath = ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-            payload.destPort, msg_.packet.destChannel, msg_.packet.sequence
+            msg_.packet.destChannel, msg_.packet.sequence
         );
         bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
 
@@ -240,7 +240,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         }
 
         bytes memory receiptPath = ICS24Host.packetReceiptCommitmentPathCalldata(
-            payload.destPort, msg_.packet.destChannel, msg_.packet.sequence
+            msg_.packet.destChannel, msg_.packet.sequence
         );
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,

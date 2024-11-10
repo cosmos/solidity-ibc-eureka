@@ -29,9 +29,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack should be deleted
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            ackFixture.packet.payloads[0].sourcePort, ackFixture.packet.sourceChannel, ackFixture.packet.sequence
-        );
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(ackFixture.packet.sourceChannel, ackFixture.packet.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
@@ -43,9 +41,7 @@ contract BenchmarkTest is FixtureTest {
 
         // ack is written
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
-            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
-                recvFixture.packet.payloads[0].destPort, recvFixture.packet.destChannel, recvFixture.packet.sequence
-            )
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvFixture.packet.destChannel, recvFixture.packet.sequence)
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
     }
@@ -66,7 +62,6 @@ contract BenchmarkTest is FixtureTest {
 
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
-                recvNativeFixture.packet.payloads[0].destPort,
                 recvNativeFixture.packet.destChannel,
                 recvNativeFixture.packet.sequence
             )
@@ -95,9 +90,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack should be deleted
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            timeoutFixture.packet.payloads[0].sourcePort, timeoutFixture.packet.sourceChannel, timeoutFixture.packet.sequence
-        );
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata( timeoutFixture.packet.sourceChannel, timeoutFixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), 0);
     }
 
@@ -126,9 +119,7 @@ contract BenchmarkTest is FixtureTest {
             })
         );
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            fixture.packet.payloads[0].sourcePort, fixture.packet.sourceChannel, fixture.packet.sequence
-        );
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceChannel, fixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
     }
 
