@@ -98,7 +98,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
-        (address erc20Address, bool originatorChainIsSource) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+        (address erc20Address, bool originatorChainIsSource) =
+            getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(sender, address(ESCROW), erc20Address, packetData.amount);
@@ -123,11 +124,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
-            msg_.payload.sourcePort,
-            msg_.sourceChannel,
-            msg_.payload.destPort,
-            msg_.destinationChannel,
-            packetData);
+            msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
+        );
 
         if (packetData.amount == 0) {
             return ICS20Lib.errorAck("invalid amount: 0");
@@ -159,7 +157,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+            (address erc20Address,) =
+                getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
             _refundTokens(packetData, erc20Address);
         }
 

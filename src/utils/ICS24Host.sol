@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
-import { SafeCast } from "@openzeppelin/utils/math/SafeCast.sol";
 
 // @title ICS24 Host Path Generators
 // @notice ICS24Host is a library that provides commitment path generators for ICS24 host requirements.
@@ -34,9 +33,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            "commitments/channels/", channelId, "/sequences/", Strings.toString(sequence)
-        );
+        return abi.encodePacked("commitments/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     /// @notice Generator for the path of a packet acknowledgement commitment
@@ -51,8 +48,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodePacked("acks/channels/", channelId, "/sequences/", Strings.toString(sequence));
+        return abi.encodePacked("acks/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     /// @notice Generator for the path of a packet receipt commitment
@@ -67,9 +63,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            "receipts/channels/", channelId, "/sequences/", Strings.toString(sequence)
-        );
+        return abi.encodePacked("receipts/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     // Key generators for Commitment mapping
@@ -78,14 +72,7 @@ library ICS24Host {
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet commitment path
-    function packetCommitmentKeyCalldata(
-        string memory channelId,
-        uint64 sequence
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
+    function packetCommitmentKeyCalldata(string memory channelId, uint64 sequence) internal pure returns (bytes32) {
         return keccak256(packetCommitmentPathCalldata(channelId, sequence));
     }
 
@@ -125,9 +112,7 @@ library ICS24Host {
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
-                packet.timeoutTimestamp,
-                sha256(abi.encodePacked(packet.destChannel)),
-                hashPayload(packet.payloads[0])
+                packet.timeoutTimestamp, sha256(abi.encodePacked(packet.destChannel)), hashPayload(packet.payloads[0])
             )
         );
     }

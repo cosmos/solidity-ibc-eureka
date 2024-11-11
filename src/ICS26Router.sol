@@ -100,7 +100,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         });
 
         getIBCApp(payload.sourcePort).onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({ 
+            IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: msg_.sourceChannel,
                 destinationChannel: counterpartyId,
                 sequence: sequence,
@@ -134,9 +134,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
 
-        bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
-            msg_.packet.sourceChannel, msg_.packet.sequence
-        );
+        bytes memory commitmentPath =
+            ICS24Host.packetCommitmentPathCalldata(msg_.packet.sourceChannel, msg_.packet.sequence);
         bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
 
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
@@ -149,12 +148,12 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         bytes memory ack = getIBCApp(payload.destPort).onRecvPacket(
-            IIBCAppCallbacks.OnRecvPacketCallback({ 
+            IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
                 sequence: msg_.packet.sequence,
                 payload: payload,
-                relayer: _msgSender() 
+                relayer: _msgSender()
             })
         );
         if (ack.length == 0) {
@@ -189,9 +188,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
 
-        bytes memory commitmentPath = ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-            msg_.packet.destChannel, msg_.packet.sequence
-        );
+        bytes memory commitmentPath =
+            ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
         bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
 
         // verify the packet acknowledgement
@@ -239,9 +237,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
 
-        bytes memory receiptPath = ICS24Host.packetReceiptCommitmentPathCalldata(
-            msg_.packet.destChannel, msg_.packet.sequence
-        );
+        bytes memory receiptPath =
+            ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
@@ -255,12 +252,12 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         }
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({ 
-                sourceChannel: msg_.packet.sourceChannel, 
+            IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
                 sequence: msg_.packet.sequence,
                 payload: payload,
-                relayer: _msgSender() 
+                relayer: _msgSender()
             })
         );
 

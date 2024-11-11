@@ -22,11 +22,11 @@ interface IICS26RouterMsgs {
     }
 
     struct Payload {
-       string sourcePort;
-       string destPort;
-       string version;
-       string encoding;
-       bytes value;
+        string sourcePort;
+        string destPort;
+        string version;
+        string encoding;
+        bytes value;
     }
 
     /// @notice Message for sending packets

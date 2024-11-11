@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -31,7 +30,6 @@ import (
 	channeltypesv1 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
-
 	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
@@ -40,7 +38,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
@@ -529,6 +526,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		// The denom should be the full denom path, not just the ibc denom
 		transferPayload.Denom = denomOnCosmos.Path()
 		payload.Value, err = json.Marshal(transferPayload)
+		s.Require().NoError(err)
 		returnPacket = channeltypesv2.Packet{
 			Sequence:           sequence,
 			SourceChannel:      msgSendPacket.SourceChannel,
@@ -744,6 +742,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		// The denom should be the full denom path, not just the ibc denom
 		transferPayload.Denom = transferCoin.Denom
 		payload.Value, err = json.Marshal(transferPayload)
+		s.Require().NoError(err)
 		sendPacket = channeltypesv2.Packet{
 			Sequence:           sequence,
 			SourceChannel:      msgSendPacket.SourceChannel,
@@ -1226,17 +1225,4 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
 		Proof: proofBz,
 	}
 	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
-}
-
-func (s *IbcEurekaTestSuite) tmpHackToGetSequenceFromTxResp(res *sdk.TxResponse) uint64 {
-	var msgData sdk.TxMsgData
-	err := proto.Unmarshal([]byte(res.Data), &msgData)
-	s.Require().NoError(err)
-
-	msgResponse := msgData.MsgResponses[0]
-	var sendResponse channeltypesv2.MsgSendPacketResponse
-	err = proto.Unmarshal(msgResponse.Value, &sendResponse)
-	s.Require().NoError(err)
-
-	return sendResponse.Sequence
 }

@@ -39,8 +39,6 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	solomachine "github.com/cosmos/ibc-go/v9/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
-
-	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 )
 
 // CosmosEncodingConfig returns the global E2E encoding config for simd.
@@ -99,7 +97,7 @@ func encodingConfig(bech32Prefix string) *sdktestutil.TestEncodingConfig {
 	consensustypes.RegisterInterfaces(interfaceRegistry)
 
 	// custom module types
-	wasmtypes.RegisterInterfaces(interfaceRegistry)
+	ibcwasmtypes.RegisterInterfaces(interfaceRegistry)
 
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 

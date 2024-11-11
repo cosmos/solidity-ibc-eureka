@@ -210,8 +210,8 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({ 
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID, 
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
@@ -268,8 +268,8 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({ 
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID, 
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
@@ -283,8 +283,9 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        string memory expectedFullDenomPath =
-            string(abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom));
+        string memory expectedFullDenomPath = string(
+            abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
+        );
 
         ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
@@ -386,7 +387,8 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.totalSupply(), 0);
         assertEq(ibcERC20.balanceOf(sender), 0);
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
+        bytes32 path =
+            ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
@@ -523,7 +525,9 @@ contract IntegrationTest is Test {
              })
         );
 
-        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort));
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort)
+        );
         ics26Router.multicall(multicallData);
     }
 
@@ -536,8 +540,8 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         IICS26RouterMsgs.Payload[] memory receievePayloads = new IICS26RouterMsgs.Payload[](1);
-        receievePayloads[0] = IICS26RouterMsgs.Payload({ 
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID, 
+        receievePayloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
@@ -551,8 +555,9 @@ contract IntegrationTest is Test {
             payloads: receievePayloads
         });
 
-        string memory expectedFullDenomPath =
-            string(abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom));
+        string memory expectedFullDenomPath = string(
+            abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
+        );
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         ICS20Lib.PacketDataJSON memory packetData;
@@ -657,7 +662,8 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.totalSupply(), 0);
         assertEq(ibcERC20.balanceOf(receiver), 0);
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
+        bytes32 path =
+            ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
@@ -673,8 +679,8 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({ 
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID, 
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
@@ -688,8 +694,9 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        string memory expectedFullDenomPath =
-            string(abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom));
+        string memory expectedFullDenomPath = string(
+            abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
+        );
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         ICS20Lib.PacketDataJSON memory packetData;
@@ -794,7 +801,8 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.totalSupply(), 0);
         assertEq(ibcERC20.balanceOf(receiver), 0);
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
+        bytes32 path =
+            ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
@@ -905,8 +913,7 @@ contract IntegrationTest is Test {
             payloads: packetPayloads
         });
 
-        bytes32 path =
-            ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceChannel, sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceChannel, sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 

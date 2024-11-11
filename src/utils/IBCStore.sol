@@ -71,8 +71,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
-        bytes32 path =
-            ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketReceiptAlreadyExists(
                 ICS24Host.packetReceiptCommitmentPathCalldata(packet.destChannel, packet.sequence)
@@ -84,13 +83,10 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) public onlyOwner {
-        bytes32 path =
-            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketAcknowledgementAlreadyExists(
-                ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-                    packet.destChannel, packet.sequence
-                )
+                ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destChannel, packet.sequence)
             );
         }
 
