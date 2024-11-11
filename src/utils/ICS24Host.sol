@@ -119,46 +119,13 @@ library ICS24Host {
         return keccak256(packetReceiptCommitmentPathCalldata(channelId, sequence));
     }
 
-    /*
-func CommitPacket(packet Packet) []byte {
-	buf := sdk.Uint64ToBigEndian(packet.GetTimeoutTimestamp())
-
-	destIDHash := sha256.Sum256([]byte(packet.DestinationChannel))
-	buf = append(buf, destIDHash[:]...)
-
-	for _, payload := range packet.Payloads {
-		buf = append(buf, hashPayload(payload)...)
-	}
-
-	hash := sha256.Sum256(buf)
-	return hash[:]
-}
-
-// hashPayload returns the hash of the payload.
-func hashPayload(data Payload) []byte {
-	var buf []byte
-	sourceHash := sha256.Sum256([]byte(data.SourcePort))
-	buf = append(buf, sourceHash[:]...)
-	destHash := sha256.Sum256([]byte(data.DestinationPort))
-	buf = append(buf, destHash[:]...)
-	payloadValueHash := sha256.Sum256(data.Value)
-	buf = append(buf, payloadValueHash[:]...)
-	payloadEncodingHash := sha256.Sum256([]byte(data.Encoding))
-	buf = append(buf, payloadEncodingHash[:]...)
-	payloadVersionHash := sha256.Sum256([]byte(data.Version))
-	buf = append(buf, payloadVersionHash[:]...)
-	hash := sha256.Sum256(buf)
-	return hash[:]
-}
-*/
-
     /// @notice Get the packet commitment bytes.
     /// @param packet The packet to get the commitment for
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
-                SafeCast.toUint64(packet.timeoutTimestamp),
+                packet.timeoutTimestamp,
                 sha256(abi.encodePacked(packet.destChannel)),
                 hashPayload(packet.payloads[0])
             )

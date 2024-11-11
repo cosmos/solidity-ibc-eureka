@@ -448,7 +448,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 		// This will be a membership proof since the acknowledgement is written
 		packetAckPath := ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(sendPacket.Sequence))
-		//packetAckPath := fmt.Sprintf("acks/channels/%s/sequences/%d", sendPacket.DestChannel, sendPacket.Sequence)
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
@@ -855,7 +854,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		denomOnEthereum = transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
 		actualDenom, err := ibcERC20.Name(nil)
 		s.Require().NoError(err)
-		fmt.Printf("actualDenom: %s, calculatued denom: %s, path: %s\n", actualDenom, denomOnEthereum.IBCDenom(), denomOnEthereum.Path())
 		s.Require().Equal(denomOnEthereum.IBCDenom(), actualDenom)
 
 		actualBaseDenom, err := ibcERC20.Symbol(nil)
@@ -987,14 +985,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", returnPacket.Payloads[0].SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
 
-		fmt.Printf("returnPacket: %+v\n", returnPacket)
-
 		var transferPacketData transfertypes.FungibleTokenPacketData
 		err := json.Unmarshal(returnPacket.Payloads[0].Value, &transferPacketData)
 		s.Require().NoError(err)
-		fmt.Printf("transferPacketData: %+v\n", transferPacketData)
 
-		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
+		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
 			Packet: channeltypesv2.Packet{
 				Sequence:           uint64(returnPacket.Sequence),
 				SourceChannel:      returnPacket.SourceChannel,
@@ -1018,7 +1013,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Signer: simdRelayerUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
-		fmt.Printf("txResp: %+v\n", txResp)
 
 		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
 		// cosmosReceiveAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
