@@ -882,6 +882,25 @@
   },
   {
     "type": "function",
+    "name": "multicall",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "results",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "updateClient",
     "inputs": [
       {
@@ -911,6 +930,17 @@
     ],
     "outputs": [],
     "stateMutability": "pure"
+  },
+  {
+    "type": "error",
+    "name": "AddressEmptyCode",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -988,6 +1018,11 @@
   },
   {
     "type": "error",
+    "name": "FailedCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FeatureNotSupported",
     "inputs": []
   },
@@ -1000,6 +1035,22 @@
     "type": "error",
     "name": "InvalidMembershipProof",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "KeyValuePairNotInCache",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "value",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",
