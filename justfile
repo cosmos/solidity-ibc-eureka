@@ -51,11 +51,6 @@ test-e2e testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
 
-fast-e2e testname: clean
-	@echo "Running fast {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^TestWithFastSuite/{{testname}}$' -timeout 40m
-
-
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
@@ -67,6 +62,10 @@ generate-fixtures: clean
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket plonk fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures for 25 packets..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket plonk fixtures for 100 packets..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_100_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket plonk fixtures..."
@@ -79,6 +78,7 @@ generate-fixtures: clean
 protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
 DOCKER := `which docker`
 
-proto-gen:
+# Generate the union proto files
+union-proto-gen:
     @echo "Generating Protobuf files"
     {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
