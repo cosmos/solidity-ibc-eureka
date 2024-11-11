@@ -284,7 +284,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 
 		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simd, &channeltypesv2.QueryChannelRequest{
-			ChannelId: "channel-0",
+			ChannelId: ibctesting.FirstChannelID,
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
@@ -505,7 +505,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
-			Encoding:        "application/json", // TODO Get from code
+			Encoding:        "application/json", // TODO Get from ibc-go code when exists
 			Value:           transferBz,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -656,9 +656,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			Acknowledgement: channeltypesv2.Acknowledgement{
 				AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
 					{
-						AppName: "transfer", // TODO: Destination port?
+						AppName: transfertypes.ModuleName,
 						RecvPacketResult: channeltypesv2.RecvPacketResult{
-							Status:          0, // TODO: types.PacketStatus_Success
+							Status:          channeltypesv2.PacketStatus_Success,
 							Acknowledgement: returnWriteAckEvent.Acknowledgement,
 						},
 					},
@@ -721,7 +721,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
-			Encoding:        "application/json", // TODO Get from code
+			Encoding:        "application/json", // TODO Get from ibc-go code when exists
 			Value:           transferBz,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -817,7 +817,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 					SourcePort: sendPacket.Payloads[0].SourcePort,
 					DestPort:   sendPacket.Payloads[0].DestinationPort,
 					Version:    transfertypes.V1,
-					Encoding:   "application/json", // TODO Get from code
+					Encoding:   "application/json", // TODO Get from ibc-go code when exists
 					Value:      sendPacket.Payloads[0].Value,
 				},
 			},
@@ -894,9 +894,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Acknowledgement: channeltypesv2.Acknowledgement{
 				AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
 					{
-						AppName: "transfer", // TODO: Destination port?
+						AppName: transfertypes.ModuleName,
 						RecvPacketResult: channeltypesv2.RecvPacketResult{
-							Status:          0, // TODO: types.PacketStatus_Success
+							Status:          channeltypesv2.PacketStatus_Success,
 							Acknowledgement: ethReceiveAckEvent.Acknowledgement,
 						},
 					},
