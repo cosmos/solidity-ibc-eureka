@@ -649,7 +649,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
-		path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, uint64(returnPacket.Sequence))
+		path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, returnPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
 		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
 			Packet: returnPacket,
@@ -886,7 +886,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
-		path := ibchostv2.PacketAcknowledgementKey(sendPacket.DestinationChannel, uint64(sendPacket.Sequence))
+		path := ibchostv2.PacketAcknowledgementKey(sendPacket.DestinationChannel, sendPacket.Sequence)
 		storageProofBz := s.getCommitmentProof(path)
 
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
