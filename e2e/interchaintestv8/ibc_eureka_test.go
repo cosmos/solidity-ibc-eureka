@@ -386,7 +386,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("recvPacket on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
 
-		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", sendPacket.Payloads[0].SourcePort, sendPacket.SourceChannel, sendPacket.Sequence)
+		path := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, uint64(sendPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
 
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
@@ -649,7 +649,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
-		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", returnPacket.Payloads[0].DestinationPort, returnPacket.DestinationChannel, returnPacket.Sequence)
+		path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, uint64(returnPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
 		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
 			Packet: returnPacket,
@@ -886,7 +886,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
-		path := fmt.Sprintf("acks/ports/%s/channels/%s/sequences/%d", sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel, sendPacket.Sequence)
+		path := ibchostv2.PacketAcknowledgementKey(sendPacket.DestinationChannel, uint64(sendPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
 
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
@@ -981,7 +981,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
 
-		path := fmt.Sprintf("commitments/ports/%s/channels/%s/sequences/%d", returnPacket.Payloads[0].SourcePort, returnPacket.SourceChannel, returnPacket.Sequence)
+		path := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(returnPacket.Sequence))
 		storageProofBz := s.getCommitmentProof(path)
 
 		var transferPacketData transfertypes.FungibleTokenPacketData
@@ -1205,7 +1205,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	}))
 }
 
-func (s *IbcEurekaTestSuite) getCommitmentProof(path string) []byte {
+func (s *IbcEurekaTestSuite) getCommitmentProof(path []byte) []byte {
 	eth, simd := s.ChainA, s.ChainB
 
 	storageKey := ethereum.GetCommitmentsStorageKey(path)
