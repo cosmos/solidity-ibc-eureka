@@ -14,13 +14,13 @@ clean:
 
 # Run the foundry tests
 test-foundry testname=".\\*":
-	forge test -vvv --gas-report --match-test ^{{testname}}\(.\*\)\$
+	forge test -vvv --show-progress --match-test ^{{testname}}\(.\*\)\$
 
 # Run the benchmark tests
 # Run with `just test-benchmark Plonk"` to run only Plonk benchmarks
 # Run with `just test-benchmark Groth16"` to run only Groth16 benchmarks
 test-benchmark testname=".\\*":
-	forge test -vvv --gas-report --match-path test/BenchmarkTest.t.sol --match-test {{testname}}
+	forge test -vvv --show-progress --gas-report --match-path test/BenchmarkTest.t.sol --match-test {{testname}}
 
 # Run forge fmt and bun solhint
 lint:
