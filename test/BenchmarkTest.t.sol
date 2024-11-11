@@ -15,15 +15,21 @@ contract BenchmarkTest is FixtureTest {
     }
 
     function test_ICS20TransferWithSP1Fixtures_Groth16() public {
-        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_1-groth16.json", "receiveMultiPacket_1-groth16.json", 1);
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_1-groth16.json", "receiveMultiPacket_1-groth16.json", 1
+        );
     }
 
     function test_ICS20TransferWithSP1Fixtures_100Packets_Plonk() public {
-        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_100-plonk.json", "receiveMultiPacket_100-plonk.json", 100);
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_100-plonk.json", "receiveMultiPacket_100-plonk.json", 100
+        );
     }
 
     function test_ICS20TransferWithSP1Fixtures_25Packets_Groth16() public {
-        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_25-groth16.json", "receiveMultiPacket_25-groth16.json", 25);
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_25-groth16.json", "receiveMultiPacket_25-groth16.json", 25
+        );
     }
 
     function ICS20TransferWithSP1FixturesTest(string memory ackFix, string memory recvFix, uint64 numPackets) public {
