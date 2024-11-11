@@ -1,7 +1,7 @@
 set dotenv-load
 
 # Use the SP1_OPERATOR_REV environment variable if it is set, otherwise use a default commit hash
-sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', 'c7462ad12a0e67044dd7bbf20321e8b538c60b54')
+sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', '07e23bba5000c9d67dfc1d975ac477164e56db1f')
 
 # Build the contracts using `forge build`
 build: clean
