@@ -110,6 +110,11 @@ library ICS24Host {
     /// @param packet The packet to get the commitment for
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
+        // TODO: Support multi-payload packets #93
+        if (packet.payloads.length != 1) {
+            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
+        }
+
         return sha256(
             abi.encodePacked(
                 packet.timeoutTimestamp, sha256(bytes(packet.destChannel)), hashPayload(packet.payloads[0])

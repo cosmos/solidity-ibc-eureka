@@ -21,4 +21,7 @@ interface IICS24HostErrors {
     /// @notice Merkle prefix is invalid
     /// @param prefix The invalid prefix
     error InvalidMerklePrefix(bytes[] prefix);
+
+    /// @notice Multi-payload packets are not supported
+    error IBCMultiPayloadPacketNotSupported();
 }

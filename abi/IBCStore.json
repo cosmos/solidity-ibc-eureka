@@ -424,6 +424,11 @@
   },
   {
     "type": "error",
+    "name": "IBCMultiPayloadPacketNotSupported",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCPacketAcknowledgementAlreadyExists",
     "inputs": [
       {
@@ -496,22 +501,6 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "SafeCastOverflowedUintDowncast",
-    "inputs": [
-      {
-        "name": "bits",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ]
   }

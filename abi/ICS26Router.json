@@ -948,6 +948,11 @@
   },
   {
     "type": "error",
+    "name": "IBCMultiPayloadPacketNotSupported",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCPacketCommitmentMismatch",
     "inputs": [
       {
@@ -1010,22 +1015,6 @@
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SafeCastOverflowedUintDowncast",
-    "inputs": [
-      {
-        "name": "bits",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",

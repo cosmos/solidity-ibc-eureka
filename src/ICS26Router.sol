@@ -76,7 +76,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        // TODO: Support multi-payload packets
+        // TODO: Support multi-payload packets #93
         if (msg_.payloads.length != 1) {
             revert IBCMultiPayloadPacketNotSupported();
         }
@@ -119,7 +119,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        // TODO: Support multi-payload packets
+        // TODO: Support multi-payload packets #93
         if (msg_.packet.payloads.length != 1) {
             revert IBCMultiPayloadPacketNotSupported();
         }
@@ -171,7 +171,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        // TODO: Support multi-payload packets
+        // TODO: Support multi-payload packets #93
         if (msg_.packet.payloads.length != 1) {
             revert IBCMultiPayloadPacketNotSupported();
         }
@@ -220,7 +220,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        // TODO: Support multi-payload packets
+        // TODO: Support multi-payload packets #93
         if (msg_.packet.payloads.length != 1) {
             revert IBCMultiPayloadPacketNotSupported();
         }
