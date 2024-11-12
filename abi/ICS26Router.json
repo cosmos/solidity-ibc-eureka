@@ -858,10 +858,10 @@
         ]
       },
       {
-        "name": "acknowledgement",
-        "type": "bytes",
+        "name": "acknowledgements",
+        "type": "bytes[]",
         "indexed": false,
-        "internalType": "bytes"
+        "internalType": "bytes[]"
       }
     ],
     "anonymous": false

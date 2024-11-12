@@ -9,6 +9,7 @@ import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
@@ -23,7 +24,7 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
-contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient {
+contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @notice The escrow contract address
     IEscrow private immutable ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here

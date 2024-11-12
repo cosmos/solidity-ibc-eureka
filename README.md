@@ -125,6 +125,10 @@ just lint
 
 The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
 
+### Single Packet Benchmarks
+
+The following benchmarks are for a single packet transfer without aggregation.
+
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
 | `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 250,472 | 250,472 |
@@ -132,6 +136,16 @@ The contracts in this repository are benchmarked end-to-end using foundry. The f
 | `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,446,811 | 1,534,395 |
 | `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 428,926 | 517,836 |
 | `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 479,599 | 568,708 |
+
+### Aggregated Packet Benchmarks
+
+The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
+Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
+
+| **Contract** | **Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (100 packets)** |
+|:---:|:---:|:---:|:---:|:---:|
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 195,355 | 187,373 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 107,557 | 100,629 |
 
 ## License
 
