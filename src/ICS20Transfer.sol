@@ -117,7 +117,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @inheritdoc IIBCApp
     function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
-        if (keccak256(abi.encodePacked(msg_.payload.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
+        if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
             // TODO: Figure out if should actually error out, or if just error acking is enough
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
