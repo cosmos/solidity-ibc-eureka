@@ -423,7 +423,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				Sequence:           uint64(i + 1),
 				SourceChannel:      sendPacket.SourceChannel,
 				DestinationChannel: sendPacket.DestChannel,
-				TimeoutTimestamp:   sendPacket.TimeoutTimestamp * 1_000_000_000,
+				TimeoutTimestamp:   sendPacket.TimeoutTimestamp,
 				Payloads: []channeltypesv2.Payload{
 					{
 						SourcePort:      sendPacket.Payloads[0].SourcePort,
@@ -559,16 +559,20 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			Encoding:        "application/json", // TODO Get from ibc-go code when exists
 			Value:           transferBz,
 		}
-		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.FirstChannelID,
-			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-			Signer: cosmosUserWallet.FormattedAddress(),
+
+		transferMsgs := make([]sdk.Msg, numOfTransfers)
+		for i := 0; i < numOfTransfers; i++ {
+			transferMsgs[i] = &channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
 		}
 
-		_, err = s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+		_, err = s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, transferMsgs...)
 		s.Require().NoError(err)
 
 		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
@@ -580,7 +584,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().NoError(err)
 		returnPacket = channeltypesv2.Packet{
 			Sequence:           sequence,
-			SourceChannel:      msgSendPacket.SourceChannel,
+			SourceChannel:      ibctesting.FirstChannelID,
 			DestinationChannel: s.TendermintLightClientID,
 			TimeoutTimestamp:   timeout,
 			Payloads: []channeltypesv2.Payload{
@@ -627,7 +631,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
-		packetCommitmentPath := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, returnPacket.Sequence)
+		proofPaths := make([]string, numOfTransfers)
+		for i := 0; i < numOfTransfers; i++ {
+			proofPaths[i] = string(ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1)))
+		}
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
@@ -635,7 +642,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			proofType.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetCommitmentPath), args...,
+			uint64(trustedHeight), uint64(latestHeight), strings.Join(proofPaths, ","), args...,
 		)
 		s.Require().NoError(err)
 
@@ -715,28 +722,33 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Acknowledge packets on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
-		path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, returnPacket.Sequence)
-		storageProofBz := s.getCommitmentProof(path)
-		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
-			Packet: returnPacket,
-			Acknowledgement: channeltypesv2.Acknowledgement{
-				AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
-					{
-						AppName: transfertypes.ModuleName,
-						RecvPacketResult: channeltypesv2.RecvPacketResult{
-							Status:          channeltypesv2.PacketStatus_Success,
-							Acknowledgement: returnWriteAckEvent.Acknowledgements[0],
+		ackMsgs := make([]sdk.Msg, numOfTransfers)
+		for i := 0; i < numOfTransfers; i++ {
+			path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, uint64(i+1))
+			storageProofBz := s.getCommitmentProof(path)
+
+			ackMsgs[i] = &channeltypesv2.MsgAcknowledgement{
+				Packet: returnPacket,
+				Acknowledgement: channeltypesv2.Acknowledgement{
+					AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
+						{
+							AppName: transfertypes.ModuleName,
+							RecvPacketResult: channeltypesv2.RecvPacketResult{
+								Status:          channeltypesv2.PacketStatus_Success,
+								Acknowledgement: returnWriteAckEvent.Acknowledgements[0],
+							},
 						},
 					},
 				},
-			},
-			ProofAcked: storageProofBz,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: 0,
-				RevisionHeight: s.LastEtheruemLightClientUpdate,
-			},
-			Signer: simdRelayerUser.FormattedAddress(),
-		})
+				ProofAcked: storageProofBz,
+				ProofHeight: clienttypes.Height{
+					RevisionNumber: 0,
+					RevisionHeight: s.LastEtheruemLightClientUpdate,
+				},
+				Signer: simdRelayerUser.FormattedAddress(),
+			}
+		}
+		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 20_000_000, ackMsgs...)
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
 	}))
