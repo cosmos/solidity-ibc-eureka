@@ -11,17 +11,13 @@ v    Word of caution: poorly thought-out proposals may be rejected
 v                     without deliberation 
 ☺ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >  -->
 
-## Requirements document
+## Requirements
 
-<!-- Link to requirements document -->
+<!-- Describe the requirements in detail -->
 
 ## IBC spec
 
 <!-- Link to specification -->
-
-## ADRs
-
-<!-- Links to ADRs related to this epic -->
 
 ## Milestones
 
@@ -31,13 +27,13 @@ v                     without deliberation
 
 <!-- Links to specific issues, thematically/logically grouped -->
 
-## QA scenarios
-
-<!-- Lists of manual QA tests that need to be performed -->
-
 ## Automated e2e tests
 
 <!-- List of automated e2e tests that need be added to CI -->
+
+## QA scenarios
+
+<!-- Lists of manual QA tests that need to be performed, if applicable -->
 
 ## Pre-releases
 
