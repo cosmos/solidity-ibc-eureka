@@ -86,7 +86,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20UnauthorizedPacketSender(msg_.sender);
         }
 
-        if (keccak256(abi.encodePacked(msg_.payload.version)) != keccak256(abi.encodePacked(ICS20Lib.ICS20_VERSION))) {
+        if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
             revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version);
         }
 
