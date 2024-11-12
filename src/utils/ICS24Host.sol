@@ -112,7 +112,7 @@ library ICS24Host {
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
         return sha256(
             abi.encodePacked(
-                packet.timeoutTimestamp, sha256(abi.encodePacked(packet.destChannel)), hashPayload(packet.payloads[0])
+                packet.timeoutTimestamp, sha256(bytes(packet.destChannel)), hashPayload(packet.payloads[0])
             )
         );
     }
