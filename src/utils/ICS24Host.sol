@@ -135,10 +135,16 @@ library ICS24Host {
     }
 
     /// @notice Get the packet acknowledgement commitment bytes.
-    /// @param ack The acknowledgement to get the commitment for
+    /// @dev each payload get one ack each from their application, so this function accepts a list of acks
+    /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
-    function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
-        return sha256(abi.encodePacked(sha256(ack)));
+    function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
+        // TODO: Support multi-payload packets #93
+        if (acks.length != 1) {
+            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
+        }
+
+        return sha256(abi.encodePacked(sha256(acks[0])));
     }
 
     /// @notice Create a prefixed path

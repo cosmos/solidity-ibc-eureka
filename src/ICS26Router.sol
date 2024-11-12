@@ -147,7 +147,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
-        bytes memory ack = getIBCApp(payload.destPort).onRecvPacket(
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
@@ -156,11 +157,11 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 relayer: _msgSender()
             })
         );
-        if (ack.length == 0) {
+        if (acks[0].length == 0) {
             revert IBCAsyncAcknowledgementNotSupported();
         }
 
-        writeAcknowledgement(msg_.packet, ack);
+        writeAcknowledgement(msg_.packet, acks);
 
         IBC_STORE.setPacketReceipt(msg_.packet);
 
@@ -190,7 +191,9 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         bytes memory commitmentPath =
             ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
-        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = msg_.acknowledgement;
+        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
 
         // verify the packet acknowledgement
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
@@ -266,9 +269,9 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
     /// @notice Writes a packet acknowledgement and emits an event
     /// @param packet The packet to acknowledge
-    /// @param ack The acknowledgement
-    function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
-        IBC_STORE.commitPacketAcknowledgement(packet, ack);
-        emit WriteAcknowledgement(packet, ack);
+    /// @param acks The acknowledgement
+    function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
+        IBC_STORE.commitPacketAcknowledgement(packet, acks);
+        emit WriteAcknowledgement(packet, acks);
     }
 }

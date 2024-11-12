@@ -32,6 +32,7 @@ contract IntegrationTest is Test {
     string public erc20AddressStr;
     string public counterpartyClient = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
+    bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
     address public sender;
     string public senderStr;
@@ -236,7 +237,7 @@ contract IntegrationTest is Test {
             address(erc20)
         );
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(packet, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS26Router.WriteAcknowledgement(packet, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(packet);
 
@@ -256,7 +257,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
     function test_success_receiveICS20PacketWithForeignBaseDenom() public {
@@ -292,7 +293,7 @@ contract IntegrationTest is Test {
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -309,7 +310,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
@@ -458,12 +459,11 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
-
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
         bytes32 storedAck2 = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket2.destChannel, receivePacket2.sequence)
         );
-        assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
     function test_failure_receiveMultiPacketWithForeignBaseDenom() public {
@@ -564,7 +564,7 @@ contract IntegrationTest is Test {
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -581,7 +581,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
@@ -703,7 +703,7 @@ contract IntegrationTest is Test {
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -720,7 +720,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];

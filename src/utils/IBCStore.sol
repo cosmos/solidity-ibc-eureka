@@ -82,7 +82,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     }
 
     /// @inheritdoc IIBCStore
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes memory ack) public onlyOwner {
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) public onlyOwner {
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
         if (commitments[path] != 0) {
             revert IBCPacketAcknowledgementAlreadyExists(
@@ -90,7 +90,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
             );
         }
 
-        bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(ack);
+        bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
         emit AckCommitted(path, commitment);
         commitments[path] = commitment;
     }
