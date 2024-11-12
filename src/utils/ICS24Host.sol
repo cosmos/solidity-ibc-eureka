@@ -119,11 +119,11 @@ library ICS24Host {
 
     function hashPayload(IICS26RouterMsgs.Payload memory data) internal pure returns (bytes32) {
         bytes memory buf = abi.encodePacked(
-            sha256(abi.encodePacked(data.sourcePort)),
-            sha256(abi.encodePacked(data.destPort)),
+            sha256(bytes(data.sourcePort)),
+            sha256(bytes(data.destPort)),
             sha256(data.value),
-            sha256(abi.encodePacked(data.encoding)),
-            sha256(abi.encodePacked(data.version))
+            sha256(bytes(data.encoding)),
+            sha256(bytes(data.version))
         );
 
         return sha256(buf);
