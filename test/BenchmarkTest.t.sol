@@ -11,18 +11,34 @@ import { FixtureTest } from "./fixtures/FixtureTest.t.sol";
 
 contract BenchmarkTest is FixtureTest {
     function test_ICS20TransferWithSP1Fixtures_Plonk() public {
-        ICS20TransferWithSP1FixturesTest("acknowledgePacket-plonk.json", "receivePacket-plonk.json");
+        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_1-plonk.json", "receiveMultiPacket_1-plonk.json", 1);
     }
 
     function test_ICS20TransferWithSP1Fixtures_Groth16() public {
-        ICS20TransferWithSP1FixturesTest("acknowledgePacket-groth16.json", "receivePacket-groth16.json");
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_1-groth16.json", "receiveMultiPacket_1-groth16.json", 1
+        );
     }
 
-    function ICS20TransferWithSP1FixturesTest(string memory ackFix, string memory recvFix) public {
+    function test_ICS20TransferWithSP1Fixtures_100Packets_Plonk() public {
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_100-plonk.json", "receiveMultiPacket_100-plonk.json", 100
+        );
+    }
+
+    function test_ICS20TransferWithSP1Fixtures_25Packets_Groth16() public {
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_25-groth16.json", "receiveMultiPacket_25-groth16.json", 25
+        );
+    }
+
+    function ICS20TransferWithSP1FixturesTest(string memory ackFix, string memory recvFix, uint64 numPackets) public {
         Fixture memory ackFixture = loadInitialFixture(ackFix);
 
         // Step 1: Transfer from Ethereum to Cosmos
-        sendTransfer(ackFixture);
+        for (uint64 i = 0; i < numPackets; i++) {
+            sendTransfer(ackFixture);
+        }
 
         // Step 2: Cosmos has received the packet and commited an acknowledgement, which we will now prove and process
         (bool success,) = address(ics26Router).call(ackFixture.msg);
