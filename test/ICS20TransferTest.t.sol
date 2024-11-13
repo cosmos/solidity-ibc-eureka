@@ -123,6 +123,16 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
+        ICS20Lib.PacketDataJSON memory pd;
+        pd.denom=erc20AddressStr;
+        pd.sender=senderStr;
+        pd.amount=defaultAmount;
+        pd.receiver=receiverStr;
+        pd.memo="memo";
+        //data = ICS20Lib.encodePayload(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
+
+        data = ICS20Lib.encodePayload(pd);
+
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(defaultPacketData, address(erc20));
         ics20Transfer.onSendPacket(
