@@ -15,7 +15,7 @@ var DefaultChainSpecs = []*interchaintest.ChainSpec{
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
-					Version:    "poc-solidity-ibc-eureka-wasm",    // FOR LOCAL IMAGE USE: Docker Image Tag
+					Version:    "gjermund-tmp-wasmd",              // FOR LOCAL IMAGE USE: Docker Image Tag
 					UidGid:     "1025:1025",
 				},
 			},

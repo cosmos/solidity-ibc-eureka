@@ -31,4 +31,7 @@ interface IICS26RouterErrors {
     /// @notice IBC app for port not found
     /// @param portId port identifier
     error IBCAppNotFound(string portId);
+
+    /// @notice Multi-payload packets are not supported
+    error IBCMultiPayloadPacketNotSupported();
 }

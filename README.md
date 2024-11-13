@@ -131,21 +131,21 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 250,472 | 250,472 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 548,671 | 636,957 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,446,811 | 1,534,395 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 428,926 | 517,836 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 479,599 | 568,708 |
+| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 251,148 | 251,148 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 550,874 | 638,731 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,436,745 | 1,524,820 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 425,486 | 513,522 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 470,422 | 558,973 |
 
 ### Aggregated Packet Benchmarks
 
 The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
 Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
 
-| **Contract** | **Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (100 packets)** |
-|:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 195,355 | 187,373 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 107,557 | 100,629 |
+| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (100 packets)** |
+|:---:|:---:|:---:|:---:|
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | 226,083 | 217,645 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | 128,376 | 121,024 |
 
 ## License
 

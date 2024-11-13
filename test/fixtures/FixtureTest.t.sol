@@ -11,6 +11,7 @@ import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
+import { ICS20Lib } from "../../src/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 abstract contract FixtureTest is Test {
@@ -18,8 +19,9 @@ abstract contract FixtureTest is Test {
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyClient = "08-wasm-0";
+    string public counterpartyClient = "channel-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
+    bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
     using stdJson for string;
 

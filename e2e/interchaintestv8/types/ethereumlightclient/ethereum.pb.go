@@ -6,8 +6,8 @@ package ethereum
 import (
 	fmt "fmt"
 	proto "github.com/cosmos/gogoproto/proto"
-	types "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	_ "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	types "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	_ "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	io "io"
 	math "math"
 	math_bits "math/bits"

@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
-import { SafeCast } from "@openzeppelin/utils/math/SafeCast.sol";
 
 // @title ICS24 Host Path Generators
 // @notice ICS24Host is a library that provides commitment path generators for ICS24 host requirements.
@@ -23,12 +22,10 @@ library ICS24Host {
         keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
     /// @notice Generator for the path of a packet commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet commitment
     function packetCommitmentPathCalldata(
-        string memory portId,
         string memory channelId,
         uint64 sequence
     )
@@ -36,18 +33,14 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            "commitments/ports/", portId, "/channels/", channelId, "/sequences/", Strings.toString(sequence)
-        );
+        return abi.encodePacked("commitments/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     /// @notice Generator for the path of a packet acknowledgement commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet acknowledgement commitment
     function packetAcknowledgementCommitmentPathCalldata(
-        string memory portId,
         string memory channelId,
         uint64 sequence
     )
@@ -55,17 +48,14 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodePacked("acks/ports/", portId, "/channels/", channelId, "/sequences/", Strings.toString(sequence));
+        return abi.encodePacked("acks/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     /// @notice Generator for the path of a packet receipt commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet receipt commitment
     function packetReceiptCommitmentPathCalldata(
-        string memory portId,
         string memory channelId,
         uint64 sequence
     )
@@ -73,37 +63,24 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            "receipts/ports/", portId, "/channels/", channelId, "/sequences/", Strings.toString(sequence)
-        );
+        return abi.encodePacked("receipts/channels/", channelId, "/sequences/", Strings.toString(sequence));
     }
 
     // Key generators for Commitment mapping
 
     /// @notice Generator for the key of a packet commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet commitment path
-    function packetCommitmentKeyCalldata(
-        string memory portId,
-        string memory channelId,
-        uint64 sequence
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(packetCommitmentPathCalldata(portId, channelId, sequence));
+    function packetCommitmentKeyCalldata(string memory channelId, uint64 sequence) internal pure returns (bytes32) {
+        return keccak256(packetCommitmentPathCalldata(channelId, sequence));
     }
 
     /// @notice Generator for the key of a packet acknowledgement commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet acknowledgement commitment path
     function packetAcknowledgementCommitmentKeyCalldata(
-        string memory portId,
         string memory channelId,
         uint64 sequence
     )
@@ -111,16 +88,14 @@ library ICS24Host {
         pure
         returns (bytes32)
     {
-        return keccak256(packetAcknowledgementCommitmentPathCalldata(portId, channelId, sequence));
+        return keccak256(packetAcknowledgementCommitmentPathCalldata(channelId, sequence));
     }
 
     /// @notice Generator for the key of a packet receipt commitment
-    /// @param portId The port identifier
     /// @param channelId The channel identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet receipt commitment path
     function packetReceiptCommitmentKeyCalldata(
-        string memory portId,
         string memory channelId,
         uint64 sequence
     )
@@ -128,30 +103,51 @@ library ICS24Host {
         pure
         returns (bytes32)
     {
-        return keccak256(packetReceiptCommitmentPathCalldata(portId, channelId, sequence));
+        return keccak256(packetReceiptCommitmentPathCalldata(channelId, sequence));
     }
 
     /// @notice Get the packet commitment bytes.
     /// @param packet The packet to get the commitment for
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
+        // TODO: Support multi-payload packets #93
+        if (packet.payloads.length != 1) {
+            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
+        }
+
         return sha256(
             abi.encodePacked(
-                SafeCast.toUint64(uint256(packet.timeoutTimestamp) * 1_000_000_000),
-                uint64(0),
-                uint64(0),
-                sha256(packet.data),
-                packet.destPort,
-                packet.destChannel
+                packet.timeoutTimestamp, sha256(bytes(packet.destChannel)), hashPayload(packet.payloads[0])
             )
         );
     }
 
+    /// @notice Get the commitment hash of a payload
+    /// @param data The payload to get the commitment hash for
+    /// @return The commitment hash
+    function hashPayload(IICS26RouterMsgs.Payload memory data) private pure returns (bytes32) {
+        bytes memory buf = abi.encodePacked(
+            sha256(bytes(data.sourcePort)),
+            sha256(bytes(data.destPort)),
+            sha256(data.value),
+            sha256(bytes(data.encoding)),
+            sha256(bytes(data.version))
+        );
+
+        return sha256(buf);
+    }
+
     /// @notice Get the packet acknowledgement commitment bytes.
-    /// @param ack The acknowledgement to get the commitment for
+    /// @dev each payload get one ack each from their application, so this function accepts a list of acks
+    /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
-    function packetAcknowledgementCommitmentBytes32(bytes memory ack) internal pure returns (bytes32) {
-        return sha256(ack);
+    function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
+        // TODO: Support multi-payload packets #93
+        if (acks.length != 1) {
+            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
+        }
+
+        return sha256(abi.encodePacked(sha256(acks[0])));
     }
 
     /// @notice Create a prefixed path

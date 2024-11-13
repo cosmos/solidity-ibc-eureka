@@ -45,9 +45,8 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack should be deleted
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            ackFixture.packet.sourcePort, ackFixture.packet.sourceChannel, ackFixture.packet.sequence
-        );
+        bytes32 path =
+            ICS24Host.packetCommitmentKeyCalldata(ackFixture.packet.sourceChannel, ackFixture.packet.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
@@ -60,10 +59,10 @@ contract BenchmarkTest is FixtureTest {
         // ack is written
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
-                recvFixture.packet.destPort, recvFixture.packet.destChannel, recvFixture.packet.sequence
+                recvFixture.packet.destChannel, recvFixture.packet.sequence
             )
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
     function test_ICS20TransferNativeSdkCoinWithSP1Fixtures_Plonk() public {
@@ -82,12 +81,10 @@ contract BenchmarkTest is FixtureTest {
 
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
-                recvNativeFixture.packet.destPort,
-                recvNativeFixture.packet.destChannel,
-                recvNativeFixture.packet.sequence
+                recvNativeFixture.packet.destChannel, recvNativeFixture.packet.sequence
             )
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
     function test_ICS20TimeoutWithSP1Fixtures_Plonk() public {
@@ -111,16 +108,15 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack should be deleted
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            timeoutFixture.packet.sourcePort, timeoutFixture.packet.sourceChannel, timeoutFixture.packet.sequence
-        );
+        bytes32 path =
+            ICS24Host.packetCommitmentKeyCalldata(timeoutFixture.packet.sourceChannel, timeoutFixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), 0);
     }
 
     function sendTransfer(Fixture memory fixture) internal {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
-        ICS20Lib.PacketDataJSON memory packetData = this.unmarshalJSON(fixture.packet.data);
+        ICS20Lib.PacketDataJSON memory packetData = this.unmarshalJSON(fixture.packet.payloads[0].value);
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
@@ -136,15 +132,13 @@ contract BenchmarkTest is FixtureTest {
                 amount: amountToSend,
                 receiver: packetData.receiver,
                 sourceChannel: fixture.packet.sourceChannel,
-                destPort: fixture.packet.destPort,
+                destPort: fixture.packet.payloads[0].destPort,
                 timeoutTimestamp: fixture.packet.timeoutTimestamp,
                 memo: packetData.memo
             })
         );
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(
-            fixture.packet.sourcePort, fixture.packet.sourceChannel, fixture.packet.sequence
-        );
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceChannel, fixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
     }
 

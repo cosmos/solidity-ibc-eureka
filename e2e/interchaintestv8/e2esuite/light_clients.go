@@ -11,8 +11,8 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
@@ -302,11 +302,9 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 
 	res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
-		ClientState:      clientStateAny,
-		ConsensusState:   consensusStateAny,
-		Signer:           simdRelayerUser.FormattedAddress(),
-		CounterpartyId:   "",
-		MerklePathPrefix: nil,
+		ClientState:    clientStateAny,
+		ConsensusState: consensusStateAny,
+		Signer:         simdRelayerUser.FormattedAddress(),
 	})
 	s.Require().NoError(err)
 
@@ -349,11 +347,9 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 
 	res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
-		ClientState:      clientStateAny,
-		ConsensusState:   consensusStateAny,
-		Signer:           simdRelayerUser.FormattedAddress(),
-		CounterpartyId:   "",
-		MerklePathPrefix: nil,
+		ClientState:    clientStateAny,
+		ConsensusState: consensusStateAny,
+		Signer:         simdRelayerUser.FormattedAddress(),
 	})
 	s.Require().NoError(err)
 

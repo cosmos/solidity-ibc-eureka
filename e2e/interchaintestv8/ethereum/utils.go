@@ -10,7 +10,7 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
@@ -69,10 +69,10 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 }
 
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff
-func GetCommitmentsStorageKey(path string) ethcommon.Hash {
+func GetCommitmentsStorageKey(path []byte) ethcommon.Hash {
 	commitmentStorageSlot := ethcommon.FromHex(testvalues.IbcCommitmentSlotHex)
 
-	pathHash := crypto.Keccak256([]byte(path))
+	pathHash := crypto.Keccak256(path)
 
 	// zero pad both to 32 bytes
 	paddedSlot := ethcommon.LeftPadBytes(commitmentStorageSlot, 32)

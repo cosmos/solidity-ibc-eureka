@@ -27,8 +27,8 @@ import (
 	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
@@ -75,6 +75,10 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 
 	// wait for 2 blocks for the transaction to be included
 	s.Require().NoError(testutil.WaitForBlocks(ctx, 2, chain))
+
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("tx failed with code %d: %s", resp.Code, resp.RawLog)
+	}
 
 	return &resp, nil
 }
