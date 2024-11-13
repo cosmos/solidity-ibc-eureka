@@ -64,6 +64,20 @@ library ICS20Lib {
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
 
+    /// @notice Encodes an ICS20Payload struct into ABI bytes.
+    /// @param payload The ICS20Payload struct to encode
+    /// @return Encoded bytes
+    function encodePayload(PacketDataJSON memory payload) internal pure returns (bytes memory) {
+        return abi.encode(payload);
+    }
+
+    /// @notice Decodes ABI-encoded bytes into an ICS20Payload struct.
+    /// @param data ABI-encoded bytes representing an ICS20Payload
+    /// @return Decoded ICS20Payload struct
+    function decodePayload(bytes memory data) internal pure returns (PacketDataJSON memory) {
+        return abi.decode(data, (PacketDataJSON));
+    }
+
     /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
     /// @param escapedDenom Escaped denom
     /// @param amount Amount
