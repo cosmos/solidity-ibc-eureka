@@ -144,8 +144,8 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **Contract** | **Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (100 packets)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 195,355 | 187,373 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 107,557 | 100,629 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 226,083 | 217,645 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 128,376 | 121,024 |
 
 ## License
 
