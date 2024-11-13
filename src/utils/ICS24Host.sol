@@ -125,7 +125,7 @@ library ICS24Host {
     /// @notice Get the commitment hash of a payload
     /// @param data The payload to get the commitment hash for
     /// @return The commitment hash
-    function hashPayload(IICS26RouterMsgs.Payload memory data) internal pure returns (bytes32) {
+    function hashPayload(IICS26RouterMsgs.Payload memory data) private pure returns (bytes32) {
         bytes memory buf = abi.encodePacked(
             sha256(bytes(data.sourcePort)),
             sha256(bytes(data.destPort)),
