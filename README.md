@@ -131,7 +131,7 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 251,148 | 250,472 |
+| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 251,148 | 251,148 |
 | `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 550,874 | 638,731 |
 | `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,436,745 | 1,524,820 |
 | `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 425,486 | 513,522 |
