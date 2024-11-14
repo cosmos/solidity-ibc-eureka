@@ -47,6 +47,7 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
+<<<<<<< HEAD
     /// @notice A dummy function to generate the ABI for the parameters.
     /// @param o1 The FungibleTokenPacketData.
     function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
@@ -63,6 +64,118 @@ library ICS20Lib {
     function newMsgSendPacketV1(
         address sender,
         IICS20TransferMsgs.SendTransferMsg memory msg_
+=======
+    /// @notice CHAR_DOUBLE_QUOTE is the ASCII value for double quote.
+    uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
+    /// @notice CHAR_SLASH is the ASCII value for slash.
+    uint256 private constant CHAR_SLASH = 0x2f;
+    /// @notice CHAR_BACKSLASH is the ASCII value for backslash.
+    uint256 private constant CHAR_BACKSLASH = 0x5c;
+    /// @notice CHAR_F is the ASCII value for 'f'.
+    uint256 private constant CHAR_F = 0x66;
+    /// @notice CHAR_R is the ASCII value for 'r'.
+    uint256 private constant CHAR_R = 0x72;
+    /// @notice CHAR_N is the ASCII value for 'n'.
+    uint256 private constant CHAR_N = 0x6e;
+    /// @notice CHAR_B is the ASCII value for 'b'.
+    uint256 private constant CHAR_B = 0x62;
+    /// @notice CHAR_T is the ASCII value for 't'.
+    uint256 private constant CHAR_T = 0x74;
+    /// @notice CHAR_CLOSING_BRACE is the ASCII value for closing brace '}'.
+    uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
+    /// @notice CHAR_M is the ASCII value for 'm'.
+    uint256 private constant CHAR_M = 0x6d;
+
+    /**
+     * @notice Encodes a `PacketDataJSON` struct into ABI-encoded bytes.
+     * 
+     * @dev This function uses `abi.encode` to convert a `PacketDataJSON` struct into its ABI-encoded
+     * `bytes` representation. The resulting bytes can be transmitted or stored for decoding later.
+     * 
+     * @param payload The `PacketDataJSON` struct to encode.
+     * @return Encoded `bytes` representation of the input struct.
+     * 
+     * @dev What this function does:
+     * - Converts the `PacketDataJSON` struct into a `bytes` array using ABI encoding.
+     * - Ensures the resulting bytes are compatible with `abi.decode` for the same struct.
+     * - Preserves the field order and data structure of the input struct during encoding.
+     * 
+     * @dev What this function does NOT do:
+     * - It does not validate the content of the `PacketDataJSON` struct before encoding.
+     *   For example:
+     *     - Does not check if `amount` is greater than 0.
+     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
+     *     - Does not validate the format or expected content of `denom` or `memo`.
+     * - It does not ensure compatibility with external systems unless they adhere to the same ABI encoding rules.
+     * 
+     * @dev Recommended validation to avoid issues:
+     * - Validate the fields of the `PacketDataJSON` struct before calling this function:
+     *   - Ensure `amount > 0`.
+     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
+     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
+     *   - Optionally validate `memo` for length or allowed characters.
+     * - Ensure that the consumer of the encoded bytes uses the same ABI decoding standard.
+     */
+    /// @notice Encodes an ICS20Payload struct into ABI bytes.
+    /// @param payload The ICS20Payload struct to encode
+    /// @return Encoded bytes
+    function encodePayload(PacketDataJSON memory payload) internal pure returns (bytes memory) {
+        return abi.encode(payload);
+    }
+
+    /**
+     * @notice Decodes ABI-encoded bytes into a `PacketDataJSON` struct.
+     * 
+     * @dev This function uses `abi.decode` to decode a `bytes` payload into a `PacketDataJSON` struct.
+     * It assumes that the input data is correctly ABI-encoded and matches the structure of `PacketDataJSON`.
+     * 
+     * @param data ABI-encoded bytes representing a `PacketDataJSON`.
+     * @return Decoded `PacketDataJSON` struct.
+     * 
+     * @dev What this function does:
+     * - Decodes the `bytes` payload into the expected `PacketDataJSON` struct.
+     * - Ensures that the payload conforms to the ABI encoding of `PacketDataJSON` (field types and order).
+     * - Reverts if the input data is not properly ABI-encoded.
+     * 
+     * @dev What this function does NOT do:
+     * - Validate the logical correctness or semantic meaning of the decoded fields.
+     *   For example:
+     *     - Does not check if `amount` is greater than 0.
+     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
+     *     - Does not validate the format, length, or expected content of `denom` or `memo`.
+     * - Does not validate whether the payload matches a specific JSON schema or key order.
+     * 
+     * @dev Recommended validation to avoid exploits:
+     * - After decoding, validate each field of the struct:
+     *   - Ensure `amount > 0`.
+     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
+     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
+     *   - Optionally validate `memo` for length or allowed characters.
+     * - Implement JSON key-order validation if strict ordering is required.
+     * - Consider using a try/catch block for decoding, or handle decoding errors explicitly to ensure
+     *   the function does not fail silently or revert without providing clear error messages.
+     */
+    /// @notice Decodes ABI-encoded bytes into an ICS20Payload struct.
+    /// @param data ABI-encoded bytes representing an ICS20Payload
+    /// @return Decoded ICS20Payload struct
+    function decodePayload(bytes memory data) external pure returns (PacketDataJSON memory) {
+        return abi.decode(data, (PacketDataJSON));
+    }
+
+    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
+    /// @param escapedDenom Escaped denom
+    /// @param amount Amount
+    /// @param escapedSender Escaped sender
+    /// @param escapedReceiver Escaped receiver
+    /// @param escapedMemo Escaped memo
+    /// @return Marshalled JSON bytes
+    function marshalJSON(
+        string memory escapedDenom,
+        uint256 amount,
+        string memory escapedSender,
+        string memory escapedReceiver,
+        string memory escapedMemo
+>>>>>>> 0d643e0 (fix transfer tests)
     )
         internal
         view
