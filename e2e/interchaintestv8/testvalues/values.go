@@ -5,7 +5,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 )
@@ -41,15 +41,26 @@ const (
 	// EnvValueGenerateFixtures_True is the value to set to generate fixtures for the solidity tests.
 	EnvValueGenerateFixtures_True = "true"
 
+	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
+	EthTestnetTypePoW = "pow"
+	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
+	EthTestnetTypePoS = "pos"
+	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
+	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
+	// EnvE2EFacuetAddress The address of the faucet
+	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
+
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "e2e/genesis.json"
 	// FixturesDir is the directory where the Solidity fixtures are stored.
 	FixturesDir = "test/fixtures/"
 
-	// FaucetPrivateKey is the private key of the faucet account.
-	// '0x' prefix is trimmed.
-	FaucetPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
+	DefaultGovV1ProposalTokenAmount = 500_000_000
+
+	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
+	IbcCommitmentSlotHex = "0x1"
 )
 
 var (

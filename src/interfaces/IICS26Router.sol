@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IIBCApp } from "./IIBCApp.sol";
+import { IIBCStore } from "./IIBCStore.sol";
+import { IICS02Client } from "./IICS02Client.sol";
 
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
@@ -11,6 +13,14 @@ interface IICS26Router is IICS26RouterMsgs {
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
     event IBCAppAdded(string portId, address app);
+
+    /// @notice Returns the IBC storage contract
+    /// @return The address of the IBC stotage contract
+    function IBC_STORE() external view returns (IIBCStore);
+
+    /// @notice Returns the ICS02 client contract
+    /// @return The address of the ICS02 client contract
+    function ICS02_CLIENT() external view returns (IICS02Client);
 
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
@@ -51,8 +61,8 @@ interface IICS26Router is IICS26RouterMsgs {
     event RecvPacket(Packet packet);
     /// @notice Emitted when a packet acknowledgement is written
     /// @param packet The packet that was acknowledged
-    /// @param acknowledgement The acknowledgement data
-    event WriteAcknowledgement(Packet packet, bytes acknowledgement);
+    /// @param acknowledgements The list of acknowledgements data
+    event WriteAcknowledgement(Packet packet, bytes[] acknowledgements);
     /// @notice Emitted when a packet is timed out
     /// @param packet The packet that was timed out
     event TimeoutPacket(Packet packet);

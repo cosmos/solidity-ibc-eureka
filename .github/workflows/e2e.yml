@@ -1,6 +1,17 @@
 name: e2e
 on:
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      ethTestnetType:
+        description: 'Eth testnet type'
+        required: false
+        default: 'pow'
+        type: choice
+        options:
+        - pow
+        - pos
   push:
     branches: [main]
   pull_request:
@@ -16,7 +27,7 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
-  SP1_OPERATOR_REV: 7b302f7493cfd7dbcbcd7c8ece5ba1e57d6c8104
+  SP1_OPERATOR_REV: 07e23bba5000c9d67dfc1d975ac477164e56db1f
 permissions:
   contents: read
 
@@ -30,7 +41,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.22"
+          go-version: "1.23"
           cache-dependency-path: e2e/interchaintestv8/go.sum
 
       - name: golangci-lint
@@ -44,15 +55,26 @@ jobs:
       matrix:
         test:
           # List your tests here
-          - TestWithIbcEurekaTestSuite/TestDeploy
-          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack
-          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack
-          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain
+          - TestWithIbcEurekaTestSuite/TestDeploy_Groth16
+          - TestWithIbcEurekaTestSuite/TestDeploy_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/Test_100_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
+    env:
+      ETH_TESTNET_TYPE: ${{ github.event.inputs.ethTestnetType || (github.event_name == 'schedule' && 'pos') || 'pow' }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: "Set up environment"
+        uses: ./.github/setup
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -60,10 +82,7 @@ jobs:
           go-version: "1.22"
           check-latest: true
           cache-dependency-path: e2e/interchaintestv8/go.sum
-      - name: "Install Bun"
-        uses: "oven-sh/setup-bun@v2"
-      - name: "Install the Node.js dependencies"
-        run: bun install
+
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -84,6 +103,7 @@ jobs:
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
           ~/.sp1/bin/cargo-prove prove --version
+
       - name: Install operator
         if: steps.cache-operator.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
@@ -91,6 +111,17 @@ jobs:
           toolchain: nightly-2024-10-11
           command: install
           args: --git https://github.com/cosmos/sp1-ics07-tendermint --rev ${{ env.SP1_OPERATOR_REV }} sp1-ics07-tendermint-operator --bin operator --locked
+
+      - name: Setup Kurtosis
+        if: env.ETH_TESTNET_TYPE == 'pos'
+        run: |
+          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt update
+          sudo apt install kurtosis-cli=1.3.0 # Must match the kurtosis library version we use in the e2e tests
+          kurtosis engine start
+          kurtosis analytics disable
+          echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+        shell: bash
 
       - name: Run Tests
         env:

@@ -10,9 +10,9 @@
     "@openzeppelin/contracts": "^5.1.0"
   },
   "devDependencies": {
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v3.0.0",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#275691af9bfaf67158f6df1f4c3c1646eb03eed0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#8f748792907110bbaceeb02c6ae3b5147664cf8e",
+    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#07e23bba5000c9d67dfc1d975ac477164e56db1f",
     "solhint": "^5.0.3",
     "@defi-wonderland/natspec-smells": "^1.1.5"
   },

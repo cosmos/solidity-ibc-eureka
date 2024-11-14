@@ -55,6 +55,13 @@ You also need to have the `sp1-ics07-tendermint` operator binary installed on yo
 just install-operator
 ```
 
+> [!TIP]
+> Nix users can enter a development shell with all the necessary dependencies by running:
+> 
+> ```sh
+> nix-shell shell.nix
+> ```
+
 ## Unit Testing
 
 There are multiple unit tests for the solidity contracts located in the `test/` directory. The tests are written in Solidity using [foundry/forge](https://book.getfoundry.sh/forge/writing-tests).
@@ -76,7 +83,6 @@ just test-foundry test_success_sendTransfer
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
 It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
-You can also run the tests with a "mock" prover that doesn't actually generate proofs and will accept any proof.
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
@@ -117,15 +123,29 @@ just lint
 
 ## End to End Benchmarks
 
-The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~320,000 gas is used for each light client verification, and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 3 minutes 30 seconds. More granular and in-depth benchmarks are planned for the future.
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
 
-| **Contract** | **Method** | **Description** | **Gas** |
+### Single Packet Benchmarks
+
+The following benchmarks are for a single packet transfer without aggregation.
+
+| **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
+|:---:|:---:|:---:|:---:|:---:|
+| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 251,148 | 251,148 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 550,874 | 638,731 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,436,745 | 1,524,820 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 425,486 | 513,522 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 470,422 | 558,973 |
+
+### Aggregated Packet Benchmarks
+
+The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
+Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
+
+| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (100 packets)** |
 |:---:|:---:|:---:|:---:|
-| `ICS20Transfer.sol` | `sendTransfer` | Initiating an IBC transfer with an `ERC20`. | 240,120 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | 628,403 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | 1,525,837 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | 512,695 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | 563,571 |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | 226,083 | 217,645 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | 128,376 | 121,024 |
 
 ## License
 

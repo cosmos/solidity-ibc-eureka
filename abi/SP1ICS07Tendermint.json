@@ -23,11 +23,6 @@
         "internalType": "bytes32"
       },
       {
-        "name": "verifier",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "_clientState",
         "type": "bytes",
         "internalType": "bytes"
@@ -162,6 +157,72 @@
             "internalType": "struct IUpdateClientMsgs.UpdateClientOutput",
             "components": [
               {
+                "name": "clientState",
+                "type": "tuple",
+                "internalType": "struct IICS07TendermintMsgs.ClientState",
+                "components": [
+                  {
+                    "name": "chainId",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "trustLevel",
+                    "type": "tuple",
+                    "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
+                    "components": [
+                      {
+                        "name": "numerator",
+                        "type": "uint8",
+                        "internalType": "uint8"
+                      },
+                      {
+                        "name": "denominator",
+                        "type": "uint8",
+                        "internalType": "uint8"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "latestHeight",
+                    "type": "tuple",
+                    "internalType": "struct IICS02ClientMsgs.Height",
+                    "components": [
+                      {
+                        "name": "revisionNumber",
+                        "type": "uint32",
+                        "internalType": "uint32"
+                      },
+                      {
+                        "name": "revisionHeight",
+                        "type": "uint32",
+                        "internalType": "uint32"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "trustingPeriod",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "unbondingPeriod",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "isFrozen",
+                    "type": "bool",
+                    "internalType": "bool"
+                  },
+                  {
+                    "name": "zkAlgorithm",
+                    "type": "uint8",
+                    "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
+                  }
+                ]
+              },
+              {
                 "name": "trustedConsensusState",
                 "type": "tuple",
                 "internalType": "struct IICS07TendermintMsgs.ConsensusState",
@@ -206,43 +267,9 @@
                 ]
               },
               {
-                "name": "env",
-                "type": "tuple",
-                "internalType": "struct IICS07TendermintMsgs.Env",
-                "components": [
-                  {
-                    "name": "chainId",
-                    "type": "string",
-                    "internalType": "string"
-                  },
-                  {
-                    "name": "trustThreshold",
-                    "type": "tuple",
-                    "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
-                    "components": [
-                      {
-                        "name": "numerator",
-                        "type": "uint8",
-                        "internalType": "uint8"
-                      },
-                      {
-                        "name": "denominator",
-                        "type": "uint8",
-                        "internalType": "uint8"
-                      }
-                    ]
-                  },
-                  {
-                    "name": "trustingPeriod",
-                    "type": "uint32",
-                    "internalType": "uint32"
-                  },
-                  {
-                    "name": "now",
-                    "type": "uint64",
-                    "internalType": "uint64"
-                  }
-                ]
+                "name": "time",
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "trustedHeight",
@@ -431,9 +458,9 @@
         "internalType": "struct IMisbehaviourMsgs.MisbehaviourOutput",
         "components": [
           {
-            "name": "env",
+            "name": "clientState",
             "type": "tuple",
-            "internalType": "struct IICS07TendermintMsgs.Env",
+            "internalType": "struct IICS07TendermintMsgs.ClientState",
             "components": [
               {
                 "name": "chainId",
@@ -441,7 +468,7 @@
                 "internalType": "string"
               },
               {
-                "name": "trustThreshold",
+                "name": "trustLevel",
                 "type": "tuple",
                 "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
                 "components": [
@@ -458,16 +485,48 @@
                 ]
               },
               {
+                "name": "latestHeight",
+                "type": "tuple",
+                "internalType": "struct IICS02ClientMsgs.Height",
+                "components": [
+                  {
+                    "name": "revisionNumber",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  },
+                  {
+                    "name": "revisionHeight",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  }
+                ]
+              },
+              {
                 "name": "trustingPeriod",
                 "type": "uint32",
                 "internalType": "uint32"
               },
               {
-                "name": "now",
-                "type": "uint64",
-                "internalType": "uint64"
+                "name": "unbondingPeriod",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "isFrozen",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "zkAlgorithm",
+                "type": "uint8",
+                "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
               }
             ]
+          },
+          {
+            "name": "time",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "trustedHeight1",
@@ -679,6 +738,11 @@
             "name": "isFrozen",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "zkAlgorithm",
+            "type": "uint8",
+            "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
           }
         ]
       }
@@ -818,6 +882,25 @@
   },
   {
     "type": "function",
+    "name": "multicall",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "results",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "updateClient",
     "inputs": [
       {
@@ -850,6 +933,17 @@
   },
   {
     "type": "error",
+    "name": "AddressEmptyCode",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CannotHandleMisbehavior",
     "inputs": []
   },
@@ -866,6 +960,22 @@
         "name": "actual",
         "type": "string",
         "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ClientStateMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "actual",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ]
   },
@@ -908,6 +1018,11 @@
   },
   {
     "type": "error",
+    "name": "FailedCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FeatureNotSupported",
     "inputs": []
   },
@@ -920,6 +1035,22 @@
     "type": "error",
     "name": "InvalidMembershipProof",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "KeyValuePairNotInCache",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "value",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1087,10 +1218,37 @@
   },
   {
     "type": "error",
+    "name": "UnbondingPeriodMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actual",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UnknownMembershipProofType",
     "inputs": [
       {
         "name": "proofType",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownZkAlgorithm",
+    "inputs": [
+      {
+        "name": "algorithm",
         "type": "uint8",
         "internalType": "uint8"
       }

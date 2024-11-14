@@ -7,6 +7,8 @@ runs:
       uses: "actions/checkout@v4"
     - name: "Install Foundry"
       uses: "foundry-rs/foundry-toolchain@v1"
+      with:
+        version: nightly-f8aa4afec04cc0b7d364a5d78f0cde9e64fd14bf
     - name: "Install Bun"
       uses: "oven-sh/setup-bun@v2"
     - name: "Install the Node.js dependencies"

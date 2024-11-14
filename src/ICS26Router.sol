@@ -5,6 +5,8 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
+import { ICS02Client } from "./ICS02Client.sol";
+import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
@@ -16,20 +18,26 @@ import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
 import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, ReentrancyGuard {
+contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
-    /// @dev ICS02Client contract
-    IICS02Client private ics02Client;
-    /// @dev ICS04Channel contract
-    IICS04Channel private ics04Channel;
 
-    constructor(address ics02Client_, address owner) Ownable(owner) {
-        ics02Client = IICS02Client(ics02Client_);
-        ics04Channel = IICS04Channel(ics02Client_);
+    /// @inheritdoc IICS26Router
+    IICS02Client public immutable ICS02_CLIENT;
+    /// @dev ICS04Channel contract
+    IICS04Channel public immutable ICS04_CHANNEL;
+    /// @inheritdoc IICS26Router
+    IIBCStore public immutable IBC_STORE;
+
+    constructor(address owner) Ownable(owner) {
+        ICS02_CLIENT = new ICS02Client(owner); // using the same owner
+        ICS04_CHANNEL = IICS04Channel(address(ICS02_CLIENT)); // using the same contract
+        IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -75,31 +83,40 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        string memory counterpartyId = ics04Channel.getChannel(msg_.sourceChannel).counterpartyId;
+        // TODO: Support multi-payload packets #93
+        if (msg_.payloads.length != 1) {
+            revert IBCMultiPayloadPacketNotSupported();
+        }
+        Payload calldata payload = msg_.payloads[0];
+
+        string memory counterpartyId = ICS04_CHANNEL.getChannel(msg_.sourceChannel).counterpartyId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
         }
 
-        uint32 sequence = IBCStore.nextSequenceSend(msg_.sourcePort, msg_.sourceChannel);
+        uint32 sequence = IBC_STORE.nextSequenceSend(payload.sourcePort, msg_.sourceChannel);
 
         Packet memory packet = Packet({
             sequence: sequence,
-            timeoutTimestamp: msg_.timeoutTimestamp,
-            sourcePort: msg_.sourcePort,
             sourceChannel: msg_.sourceChannel,
-            destPort: msg_.destPort,
             destChannel: counterpartyId,
-            version: msg_.version,
-            data: msg_.data
+            timeoutTimestamp: msg_.timeoutTimestamp,
+            payloads: msg_.payloads
         });
 
-        getIBCApp(msg_.sourcePort).onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({ packet: packet, sender: msg.sender })
+        getIBCApp(payload.sourcePort).onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceChannel: msg_.sourceChannel,
+                destinationChannel: counterpartyId,
+                sequence: sequence,
+                payload: payload,
+                sender: _msgSender()
+            })
         );
 
-        IBCStore.commitPacket(packet);
+        IBC_STORE.commitPacket(packet);
 
         emit SendPacket(packet);
         return sequence;
@@ -109,7 +126,14 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.destChannel);
+       
+        // TODO: Support multi-payload packets #93
+        if (msg_.packet.payloads.length != 1) {
+            revert IBCMultiPayloadPacketNotSupported();
+        }
+        Payload calldata payload = msg_.packet.payloads[0];
+
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.destChannel);
         if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
             revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.sourceChannel);
         }
@@ -118,9 +142,8 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
 
-        bytes memory commitmentPath = ICS24Host.packetCommitmentPathCalldata(
-            msg_.packet.sourcePort, msg_.packet.sourceChannel, msg_.packet.sequence
-        );
+        bytes memory commitmentPath =
+            ICS24Host.packetCommitmentPathCalldata(msg_.packet.sourceChannel, msg_.packet.sequence);
         bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
 
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
@@ -130,18 +153,25 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             value: abi.encodePacked(commitmentBz)
         });
 
-        ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
+        ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
-        bytes memory ack = getIBCApp(msg_.packet.destPort).onRecvPacket(
-            IIBCAppCallbacks.OnRecvPacketCallback({ packet: msg_.packet, relayer: msg.sender })
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = getIBCApp(payload.destPort).onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceChannel: msg_.packet.sourceChannel,
+                destinationChannel: msg_.packet.destChannel,
+                sequence: msg_.packet.sequence,
+                payload: payload,
+                relayer: _msgSender()
+            })
         );
-        if (ack.length == 0) {
+        if (acks[0].length == 0) {
             revert IBCAsyncAcknowledgementNotSupported();
         }
 
-        writeAcknowledgement(msg_.packet, ack);
+        writeAcknowledgement(msg_.packet, acks);
 
-        IBCStore.setPacketReceipt(msg_.packet);
+        IBC_STORE.setPacketReceipt(msg_.packet);
 
         emit RecvPacket(msg_.packet);
     }
@@ -150,21 +180,28 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.sourceChannel);
+        // TODO: Support multi-payload packets #93
+        if (msg_.packet.payloads.length != 1) {
+            revert IBCMultiPayloadPacketNotSupported();
+        }
+        Payload calldata payload = msg_.packet.payloads[0];
+
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.sourceChannel);
         if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
             revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel);
         }
 
         // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
 
-        bytes memory commitmentPath = ICS24Host.packetAcknowledgementCommitmentPathCalldata(
-            msg_.packet.destPort, msg_.packet.destChannel, msg_.packet.sequence
-        );
-        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(msg_.acknowledgement);
+        bytes memory commitmentPath =
+            ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = msg_.acknowledgement;
+        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
 
         // verify the packet acknowledgement
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
@@ -174,13 +211,16 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             value: abi.encodePacked(commitmentBz)
         });
 
-        ics02Client.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
-        getIBCApp(msg_.packet.sourcePort).onAcknowledgementPacket(
+        getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                packet: msg_.packet,
+                sourceChannel: msg_.packet.sourceChannel,
+                destinationChannel: msg_.packet.destChannel,
+                sequence: msg_.packet.sequence,
+                payload: payload,
                 acknowledgement: msg_.acknowledgement,
-                relayer: msg.sender
+                relayer: _msgSender()
             })
         );
 
@@ -191,20 +231,26 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.sourceChannel);
+        
+        // TODO: Support multi-payload packets #93
+        if (msg_.packet.payloads.length != 1) {
+            revert IBCMultiPayloadPacketNotSupported();
+        }
+        Payload calldata payload = msg_.packet.payloads[0];
+
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.sourceChannel);
         if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
             revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel);
         }
 
         // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBCStore.deletePacketCommitment(msg_.packet);
+        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
         if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
             revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
         }
 
-        bytes memory receiptPath = ICS24Host.packetReceiptCommitmentPathCalldata(
-            msg_.packet.destPort, msg_.packet.destChannel, msg_.packet.sequence
-        );
+        bytes memory receiptPath =
+            ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
@@ -212,13 +258,19 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }
 
-        getIBCApp(msg_.packet.sourcePort).onTimeoutPacket(
-            IIBCAppCallbacks.OnTimeoutPacketCallback({ packet: msg_.packet, relayer: msg.sender })
+        getIBCApp(payload.sourcePort).onTimeoutPacket(
+            IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceChannel: msg_.packet.sourceChannel,
+                destinationChannel: msg_.packet.destChannel,
+                sequence: msg_.packet.sequence,
+                payload: payload,
+                relayer: _msgSender()
+            })
         );
 
         emit TimeoutPacket(msg_.packet);
@@ -226,9 +278,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
 
     /// @notice Writes a packet acknowledgement and emits an event
     /// @param packet The packet to acknowledge
-    /// @param ack The acknowledgement
-    function writeAcknowledgement(Packet calldata packet, bytes memory ack) private {
-        IBCStore.commitPacketAcknowledgement(packet, ack);
-        emit WriteAcknowledgement(packet, ack);
+    /// @param acks The acknowledgement
+    function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
+        IBC_STORE.commitPacketAcknowledgement(packet, acks);
+        emit WriteAcknowledgement(packet, acks);
     }
 }

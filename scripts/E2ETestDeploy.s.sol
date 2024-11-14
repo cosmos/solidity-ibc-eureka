@@ -10,7 +10,6 @@ pragma solidity ^0.8.28;
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v3.0.0/SP1VerifierPlonk.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
@@ -32,33 +31,29 @@ struct SP1ICS07TendermintGenesisJson {
 contract E2ETestDeploy is Script {
     using stdJson for string;
 
-    string public constant E2E_FAUCET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
-        bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
-        vm.startBroadcast();
-        address deployerAddress = msg.sender; // This is being set in the e2e test
+        string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
+        vm.startBroadcast(privateKey);
 
         // Deploy the SP1 ICS07 Tendermint light client
-        SP1Verifier verifier = new SP1Verifier();
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             genesis.updateClientVkey,
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
             genesis.misbehaviourVkey,
-            address(verifier),
             genesis.trustedClientState,
-            trustedConsensusHash
+            keccak256(abi.encode(trustedConsensusState))
         );
 
         // Deploy IBC Eureka
-        ICS02Client ics02Client = new ICS02Client(deployerAddress);
-        ICS26Router ics26Router = new ICS26Router(address(ics02Client), deployerAddress);
+        ICS26Router ics26Router = new ICS26Router(msg.sender);
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
         TestERC20 erc20 = new TestERC20();
 
@@ -66,7 +61,7 @@ contract E2ETestDeploy is Script {
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Mint some tokens
-        (address addr, bool ok) = ICS20Lib.hexStringToAddress(E2E_FAUCET);
+        (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
         require(ok, "failed to parse faucet address");
 
         erc20.mint(addr, 1_000_000_000_000_000_000);
@@ -75,10 +70,11 @@ contract E2ETestDeploy is Script {
 
         string memory json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
-        json.serialize("ics02Client", Strings.toHexString(address(ics02Client)));
+        json.serialize("ics02Client", Strings.toHexString(address(ics26Router.ICS02_CLIENT())));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));
+        json.serialize("ibcstore", Strings.toHexString(address(ics26Router.IBC_STORE())));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

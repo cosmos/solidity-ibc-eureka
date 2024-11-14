@@ -6,39 +6,42 @@ import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 interface IICS26RouterMsgs {
     /// @notice Packet struct
     /// @param sequence The sequence number of the packet
-    /// @param timeoutTimestamp The timeout timestamp in the counterparty chain, in unix seconds
-    /// @param sourcePort The source port identifier
     /// @param sourceChannel The source channel identifier (client id)
-    /// @param destPort The destination port identifier
     /// @param destChannel The destination channel identifier
-    /// @param version The version of the packet data
-    /// @param data The packet data
+    /// @param timeoutTimestamp The timeout timestamp in the counterparty chain, in unix seconds
+    /// @param payloads The packet payloads
     struct Packet {
         uint32 sequence;
-        uint64 timeoutTimestamp;
-        string sourcePort;
         string sourceChannel;
-        string destPort;
         string destChannel;
+        uint64 timeoutTimestamp;
+        Payload[] payloads;
+    }
+
+    /// @notice Payload struct
+    /// @notice Used in the Packet struct and handled by IBC applications
+    /// @param sourcePort The source port identifier
+    /// @param destPort The destination port identifier
+    /// @param version The application version of the packet data
+    /// @param encoding The encoding of the packet date (value)
+    /// @param value The packet data
+    struct Payload {
+        string sourcePort;
+        string destPort;
         string version;
-        bytes data;
+        string encoding;
+        bytes value;
     }
 
     /// @notice Message for sending packets
     /// @dev Submitted by the user or the IBC application
-    /// @param sourcePort The source port identifier
     /// @param sourceChannel The source channel identifier (client id)
-    /// @param destPort The destination port identifier
-    /// @param data The packet data
     /// @param timeoutTimestamp The timeout timestamp in unix seconds
-    /// @param version The version of the packet data
+    /// @param payloads The packet payloads
     struct MsgSendPacket {
-        string sourcePort;
         string sourceChannel;
-        string destPort;
-        bytes data;
         uint64 timeoutTimestamp;
-        string version;
+        Payload[] payloads;
     }
 
     /// @notice Message for receiving packets, submitted by relayer

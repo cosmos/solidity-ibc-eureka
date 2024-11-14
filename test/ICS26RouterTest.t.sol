@@ -4,26 +4,24 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { ICS02Client } from "../src/ICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../src/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../src/ICS26Router.sol";
 import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 
 contract ICS26RouterTest is Test {
-    ICS02Client public ics02Client;
     ICS26Router public ics26Router;
 
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
     }
 
     function test_AddIBCAppUsingAddress() public {
@@ -41,31 +39,36 @@ contract ICS26RouterTest is Test {
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded("transfer", address(ics20Transfer));
-        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp("transfer")));
+        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
     }
 
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics02Client.addChannel(
+        string memory clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
             "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyID, merklePrefix), address(lightClient)
         );
 
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
-        ics26Router.addIBCApp("transfer", address(ics20Transfer));
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: "0x"
+        });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            sourcePort: "transfer",
             sourceChannel: counterpartyID,
-            destPort: "transfer",
             destChannel: clientIdentifier,
-            version: "ics20-1",
-            data: "0x"
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads
         });
 
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = IICS26RouterMsgs.MsgRecvPacket({

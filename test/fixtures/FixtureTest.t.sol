@@ -5,28 +5,25 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
-import { ICS02Client } from "../../src/ICS02Client.sol";
-import { IICS02Client } from "../../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
 import { IICS04Channel } from "../../src/interfaces/IICS04Channel.sol";
 import { IICS04ChannelMsgs } from "../../src/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { SP1Verifier } from "@sp1-contracts/v3.0.0/SP1VerifierPlonk.sol";
 import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
+import { ICS20Lib } from "../../src/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 abstract contract FixtureTest is Test {
-    ICS02Client public ics02Client;
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
-    SP1Verifier public sp1Verifier;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyId = "00-mock-0";
+    string public counterpartyId = "channel-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
+    bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
     using stdJson for string;
 
@@ -48,8 +45,7 @@ abstract contract FixtureTest is Test {
     }
 
     function setUp() public {
-        ics02Client = new ICS02Client(address(this));
-        ics26Router = new ICS26Router(address(ics02Client), address(this));
+        ics26Router = new ICS26Router(address(this));
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
@@ -59,18 +55,16 @@ abstract contract FixtureTest is Test {
             abi.decode(fixture.genesisFixture.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
 
-        SP1Verifier verifier = new SP1Verifier();
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             fixture.genesisFixture.updateClientVkey,
             fixture.genesisFixture.membershipVkey,
             fixture.genesisFixture.ucAndMembershipVkey,
             fixture.genesisFixture.misbehaviourVkey,
-            address(verifier),
             fixture.genesisFixture.trustedClientState,
             trustedConsensusHash
         );
 
-        ics02Client.addChannel(
+        ics26Router.ICS04_CHANNEL().addChannel(
             "07-tendermint",
             IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix),
             address(ics07Tendermint)
