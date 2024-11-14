@@ -9,7 +9,7 @@ import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
-contract ICS02Client is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @dev channelId => counterpartyInfo
     mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract

@@ -5,7 +5,7 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
-import { ICS02Client } from "./ICS02Client.sol";
+import { ICSCore } from "./ICSCore.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
@@ -35,7 +35,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     IIBCStore public immutable IBC_STORE;
 
     constructor(address owner) Ownable(owner) {
-        ICS02_CLIENT = new ICS02Client(owner); // using the same owner
+        ICS02_CLIENT = new ICSCore(owner); // using the same owner
         ICS04_CHANNEL = IICS04Channel(address(ICS02_CLIENT)); // using the same contract
         IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
     }
