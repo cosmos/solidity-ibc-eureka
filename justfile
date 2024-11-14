@@ -52,7 +52,7 @@ test-e2e testname:
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
-	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
+	cargo +nightly install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures:

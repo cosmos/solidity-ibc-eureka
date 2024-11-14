@@ -4,15 +4,15 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { ICS02Client } from "../src/ICS02Client.sol";
-import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
+import { IICS04Channel } from "../src/interfaces/IICS04Channel.sol";
+import { IICS04ChannelMsgs } from "../src/msgs/IICS04ChannelMsgs.sol";
 import { ILightClient } from "../src/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 
 contract ICS02ClientTest is Test {
-    IICS02Client public ics02Client;
+    ICS02Client public ics02Client;
     DummyLightClient public lightClient;
 
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
@@ -23,17 +23,17 @@ contract ICS02ClientTest is Test {
     }
 
     function test_ICS02Client() public {
-        string memory counterpartyClient = "42-dummy-01";
-        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix);
+        string memory counterpartyId = "42-dummy-01";
+        IICS04ChannelMsgs.Channel memory channel =
+            IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
-        string memory clientIdentifier = ics02Client.addClient("07-tendermint", counterpartyInfo, address(lightClient));
+        emit IICS04Channel.ICS04ChannelAdded("07-tendermint-0", channel);
+        string memory clientIdentifier = ics02Client.addChannel("07-tendermint", channel, address(lightClient));
 
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
         assertNotEq(address(fetchedLightClient), address(0), "client not found");
 
-        assertEq(counterpartyInfo.clientId, counterpartyClient, "counterpartyInfo not found");
+        assertEq(channel.counterpartyId, counterpartyId, "channel not set correctly");
 
         bytes memory updateMsg = "testUpdateMsg";
         ILightClient.UpdateResult updateResult = ics02Client.updateClient(clientIdentifier, updateMsg);

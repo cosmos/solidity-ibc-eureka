@@ -6,6 +6,7 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "../src/msgs/IICS04ChannelMsgs.sol";
 import { ICS20Transfer } from "../src/ICS20Transfer.sol";
 import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
@@ -25,7 +26,7 @@ import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract IntegrationTest is Test {
-    IICS02Client public ics02Client;
+    ICS02Client public ics02Client;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
@@ -33,7 +34,7 @@ contract IntegrationTest is Test {
     string public ics20AddressStr;
     TestERC20 public erc20;
     string public erc20AddressStr;
-    string public counterpartyClient = "42-dummy-01";
+    string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     address public sender;
@@ -56,8 +57,8 @@ contract IntegrationTest is Test {
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
-        clientIdentifier = ics02Client.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(lightClient)
+        clientIdentifier = ics02Client.addChannel(
+            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
@@ -215,14 +216,14 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             sourcePort: "transfer",
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
@@ -275,7 +276,7 @@ contract IntegrationTest is Test {
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             sourcePort: "transfer",
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
@@ -369,7 +370,7 @@ contract IntegrationTest is Test {
             sourcePort: "transfer",
             sourceChannel: clientIdentifier,
             destPort: "transfer",
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
         });
@@ -401,7 +402,7 @@ contract IntegrationTest is Test {
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             sourcePort: "transfer",
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
@@ -497,7 +498,7 @@ contract IntegrationTest is Test {
             sourcePort: "transfer",
             sourceChannel: clientIdentifier,
             destPort: "transfer",
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
         });
@@ -532,7 +533,7 @@ contract IntegrationTest is Test {
             sequence: 1,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             sourcePort: "transfer",
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
@@ -628,7 +629,7 @@ contract IntegrationTest is Test {
             sourcePort: "transfer",
             sourceChannel: clientIdentifier,
             destPort: "transfer",
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             version: ICS20Lib.ICS20_VERSION,
             data: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "")
         });
@@ -679,7 +680,7 @@ contract IntegrationTest is Test {
         // Send back
         receiverStr = senderStr;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
         data = ICS20Lib.marshalJSON(ibcDenom, transferAmount, senderStr, receiverStr, "backmemo");
 
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
@@ -687,7 +688,7 @@ contract IntegrationTest is Test {
             sequence: 1,
             timeoutTimestamp: timeoutTimestamp,
             sourcePort: "transfer",
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destPort: "transfer",
             destChannel: clientIdentifier,
             version: ICS20Lib.ICS20_VERSION,
@@ -757,7 +758,7 @@ contract IntegrationTest is Test {
             sourcePort: _msgSendPacket.sourcePort,
             sourceChannel: _msgSendPacket.sourceChannel,
             destPort: _msgSendPacket.destPort,
-            destChannel: counterpartyClient, // If we test with something else, we need to add this to the args
+            destChannel: counterpartyId, // If we test with something else, we need to add this to the args
             version: _msgSendPacket.version,
             data: _msgSendPacket.data
         });

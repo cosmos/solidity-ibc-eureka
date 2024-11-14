@@ -6,7 +6,10 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { ICS02Client } from "../../src/ICS02Client.sol";
+import { IICS02Client } from "../../src/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
+import { IICS04Channel } from "../../src/interfaces/IICS04Channel.sol";
+import { IICS04ChannelMsgs } from "../../src/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../src/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
@@ -22,7 +25,7 @@ abstract contract FixtureTest is Test {
     SP1Verifier public sp1Verifier;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyClient = "00-mock-0";
+    string public counterpartyId = "00-mock-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     using stdJson for string;
@@ -67,9 +70,9 @@ abstract contract FixtureTest is Test {
             trustedConsensusHash
         );
 
-        ics02Client.addClient(
+        ics02Client.addChannel(
             "07-tendermint",
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix),
+            IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix),
             address(ics07Tendermint)
         );
 

@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
@@ -13,6 +14,7 @@ import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 
 /// @title IBC Eureka Router
@@ -22,9 +24,12 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     mapping(string portId => IIBCApp app) private apps;
     /// @dev ICS02Client contract
     IICS02Client private ics02Client;
+    /// @dev ICS04Channel contract
+    IICS04Channel private ics04Channel;
 
     constructor(address ics02Client_, address owner) Ownable(owner) {
         ics02Client = IICS02Client(ics02Client_);
+        ics04Channel = IICS04Channel(ics02Client_);
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -70,7 +75,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        string memory counterpartyId = ics02Client.getCounterparty(msg_.sourceChannel).clientId;
+        string memory counterpartyId = ics04Channel.getChannel(msg_.sourceChannel).counterpartyId;
 
         // TODO: validate all identifiers
         if (msg_.timeoutTimestamp <= block.timestamp) {
@@ -104,9 +109,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.destChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel);
+        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.destChannel);
+        if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
+            revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.sourceChannel);
         }
 
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
@@ -121,7 +126,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofCommitment,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
@@ -145,9 +150,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.sourceChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
+        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.sourceChannel);
+        if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
+            revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel);
         }
 
         // this will revert if the packet commitment does not exist
@@ -165,7 +170,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofAcked,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
@@ -186,9 +191,9 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ics02Client.getCounterparty(msg_.packet.sourceChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
+        IICS04ChannelMsgs.Channel memory channel = ics04Channel.getChannel(msg_.packet.sourceChannel);
+        if (keccak256(bytes(channel.counterpartyId)) != keccak256(bytes(msg_.packet.destChannel))) {
+            revert IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel);
         }
 
         // this will revert if the packet commitment does not exist
@@ -203,7 +208,7 @@ contract ICS26Router is IICS26Router, IBCStore, Ownable, IICS26RouterErrors, Ree
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, receiptPath),
             value: bytes("")
         });
 
