@@ -54,6 +54,12 @@ contract ICS24HostTest is Test {
             encoding: ICS20Lib.ICS20_ENCODING,
             value: transferPayload
         });
+
+        bytes32 payloadHash = ICS24Host.hashPayload(payloads[0]);
+        string memory actualPayloadHex = Strings.toHexString(uint256(payloadHash));
+        string memory expectedPayloadHex = "0x5a405608ab85eacdd3f6ad429a5d7cbcc0349055f57708311ece1983dd993307";
+        assertEq(actualPayloadHex, expectedPayloadHex);
+
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceChannel: "channel-0",
@@ -64,8 +70,46 @@ contract ICS24HostTest is Test {
 
         bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);
         string memory actual = Strings.toHexString(uint256(commitmentBytes));
-        string memory expected = "0xc75fb6745b83fe67fb01d11cc01de73f9203386cb20f5ae6102080ae07e28a24";
-
+        string memory expected = "0x450194f2ce25b12487f65593e106d91367a1e5c90b2efc03ed78265a54cfcebe";
         assertEq(actual, expected);
+    }
+
+    function test_packetAcknowledgementCommitment() public pure {
+        // Test against the ibc-go implementations output
+        bytes memory ack = abi.encodePacked("some bytes");
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = ack;
+        bytes32 ackHash = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
+        string memory actualAckHash = Strings.toHexString(uint256(ackHash));
+        string memory expectedAckHash = "0xf03b4667413e56aaf086663267913e525c442b56fa1af4fa3f3dab9f37044c5b";
+        assertEq(actualAckHash, expectedAckHash);
+    }
+
+    function test_packetKeys() public pure {
+        // Test against the ibc-go implementations output
+        bytes memory packetCommitmentKey = ICS24Host.packetCommitmentPathCalldata("channel-0", 1);
+        string memory actualCommitmentKey = bytesToHex(packetCommitmentKey);
+        string memory expectedCommitmentKey = "6368616e6e656c2d30010000000000000001";
+        assertEq(actualCommitmentKey, expectedCommitmentKey);
+
+        bytes memory packetReceiptCommitmentKey = ICS24Host.packetReceiptCommitmentPathCalldata("channel-1", 2);
+        string memory actualReceiptCommitmentKey = bytesToHex(packetReceiptCommitmentKey);
+        string memory expectedReceiptCommitmentKey = "6368616e6e656c2d31020000000000000002";
+        assertEq(actualReceiptCommitmentKey, expectedReceiptCommitmentKey);
+
+        bytes memory packetAcknowledgementCommitmentKey = ICS24Host.packetAcknowledgementCommitmentPathCalldata("channel-2", 3);
+        string memory actualAcknowledgementCommitmentKey = bytesToHex(packetAcknowledgementCommitmentKey);
+        string memory expectedAcknowledgementCommitmentKey = "6368616e6e656c2d32030000000000000003";
+        assertEq(actualAcknowledgementCommitmentKey, expectedAcknowledgementCommitmentKey);
+    }
+
+    function bytesToHex(bytes memory data) public pure returns (string memory) {
+        bytes memory alphabet = "0123456789abcdef";
+        bytes memory str = new bytes(2 * data.length);
+        for (uint256 i = 0; i < data.length; i++) {
+            str[2 * i] = alphabet[uint8(data[i] >> 4)];
+            str[2 * i + 1] = alphabet[uint8(data[i] & 0x0f)];
+        }
+        return string(str);
     }
 }

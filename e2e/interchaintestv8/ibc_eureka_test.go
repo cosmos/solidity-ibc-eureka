@@ -478,9 +478,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().NoError(err)
 
 		// This will be a membership proof since the acknowledgement is written
-		proofPaths := make([]string, numOfTransfers)
+		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = string(ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1)))
+			proofPaths[i] = ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1))
 		}
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
@@ -489,7 +489,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			proofType.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), strings.Join(proofPaths, ","), args...,
+			uint64(trustedHeight), uint64(latestHeight), proofPaths, args...,
 		)
 		s.Require().NoError(err)
 
@@ -631,9 +631,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
-		proofPaths := make([]string, numOfTransfers)
+		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = string(ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1)))
+			proofPaths[i] = ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1))
 		}
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
@@ -642,7 +642,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			proofType.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), strings.Join(proofPaths, ","), args...,
+			uint64(trustedHeight), uint64(latestHeight), proofPaths, args...,
 		)
 		s.Require().NoError(err)
 
@@ -881,7 +881,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			pt.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetCommitmentPath), args...,
+			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetCommitmentPath}, args...,
 		)
 		s.Require().NoError(err)
 
@@ -1127,7 +1127,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			pt.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetAckPath), args...,
+			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetAckPath}, args...,
 		)
 		s.Require().NoError(err)
 
@@ -1249,7 +1249,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 			pt.ToOperatorArgs()...,
 		)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetReceiptPath), args...,
+			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetReceiptPath}, args...,
 		)
 		s.Require().NoError(err)
 

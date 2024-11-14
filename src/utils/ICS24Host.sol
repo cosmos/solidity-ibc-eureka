@@ -33,7 +33,23 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked("commitments/channels/", channelId, "/sequences/", Strings.toString(sequence));
+        uint8 fixedByte = 1;
+        return abi.encodePacked(
+            channelId, 
+            fixedByte, 
+            uint64ToBigEndian(sequence)
+        );
+    }
+
+    function uint64ToBigEndian(uint64 value) internal pure returns (bytes memory) {
+        bytes memory result = new bytes(8);
+        assembly {
+            // Load the address of the `result` array data
+            let ptr := add(result, 32)
+            // Store the uint64 value directly, shifted so it fits the upper 8 bytes of the 32-byte word
+            mstore(ptr, shl(192, value))
+        }
+        return result;
     }
 
     /// @notice Generator for the path of a packet acknowledgement commitment
@@ -48,7 +64,12 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked("acks/channels/", channelId, "/sequences/", Strings.toString(sequence));
+        uint8 fixedByte = 3;
+        return abi.encodePacked(
+            channelId, 
+            fixedByte, 
+            uint64ToBigEndian(sequence)
+        );
     }
 
     /// @notice Generator for the path of a packet receipt commitment
@@ -63,7 +84,12 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked("receipts/channels/", channelId, "/sequences/", Strings.toString(sequence));
+        uint8 fixedByte = 2;
+        return abi.encodePacked(
+            channelId, 
+            fixedByte, 
+            uint64ToBigEndian(sequence)
+        );
     }
 
     // Key generators for Commitment mapping
@@ -107,6 +133,11 @@ library ICS24Host {
     }
 
     /// @notice Get the packet commitment bytes.
+    /// @dev CommitPacket returns the V2 packet commitment bytes. The commitment consists of:
+    /// @dev sha256_hash(0x02 + sha256_hash(destinationChannel) + sha256_hash(timeout) + sha256_hash(payload) from a given packet.
+    /// @dev This results in a fixed length preimage.
+    /// @dev A fixed length preimage is ESSENTIAL to prevent relayers from being able
+    /// @dev to malleate the packet fields and create a commitment hash that matches the original packet.
     /// @param packet The packet to get the commitment for
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
@@ -115,23 +146,31 @@ library ICS24Host {
             revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
         }
 
-        return sha256(
-            abi.encodePacked(
-                packet.timeoutTimestamp, sha256(bytes(packet.destChannel)), hashPayload(packet.payloads[0])
-            )
-        );
+        bytes memory appBytes = "";
+        for (uint256 i = 0; i < packet.payloads.length; i++) {
+            appBytes = abi.encodePacked(appBytes, hashPayload(packet.payloads[i]));
+        }
+        
+        uint8 prefix = 2;
+
+        return sha256(abi.encodePacked(
+            prefix,
+            sha256(bytes(packet.destChannel)), 
+            sha256(abi.encodePacked(packet.timeoutTimestamp)),
+            sha256(appBytes) 
+        ));
     }
 
     /// @notice Get the commitment hash of a payload
     /// @param data The payload to get the commitment hash for
     /// @return The commitment hash
-    function hashPayload(IICS26RouterMsgs.Payload memory data) private pure returns (bytes32) {
+    function hashPayload(IICS26RouterMsgs.Payload memory data) internal pure returns (bytes32) {
         bytes memory buf = abi.encodePacked(
             sha256(bytes(data.sourcePort)),
             sha256(bytes(data.destPort)),
-            sha256(data.value),
+            sha256(bytes(data.version)),
             sha256(bytes(data.encoding)),
-            sha256(bytes(data.version))
+            sha256(data.value)
         );
 
         return sha256(buf);
@@ -147,7 +186,17 @@ library ICS24Host {
             revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
         }
 
-        return sha256(abi.encodePacked(sha256(acks[0])));
+        bytes memory ackBytes = "";
+        for (uint256 i = 0; i < acks.length; i++) {
+            ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
+        }
+
+        uint8 prefix = 2;
+
+        return sha256(abi.encodePacked(
+            prefix,
+            ackBytes
+        ));
     }
 
     /// @notice Create a prefixed path

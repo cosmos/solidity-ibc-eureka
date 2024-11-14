@@ -2,6 +2,7 @@ package operator
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
 )
+
+var ibcPathBase64 = base64.StdEncoding.EncodeToString([]byte("ibc"))
 
 // membershipFixture is a struct that contains the membership proof and proof height
 type membershipFixture struct {
@@ -50,8 +53,18 @@ func StartOperator(args ...string) error {
 }
 
 // UpdateClientAndMembershipProof is a function that generates an update client and membership proof
-func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
-	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
+func UpdateClientAndMembershipProof(trusted_height, target_height uint64, ibcPaths [][]byte, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
+	var paths string
+	for i, path := range ibcPaths {
+
+		paths += fmt.Sprintf("%s\\%s", ibcPathBase64, base64.StdEncoding.EncodeToString(path))
+		fmt.Println(paths)
+		if i != len(ibcPaths)-1 {
+			paths += ","
+		}
+	}
+
+	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths, "--base64"}, args...)
 	// nolint:gosec
 	cmd := exec.Command(BinaryPath(), args...)
 	stdout, err := execOperatorCommand(cmd)
