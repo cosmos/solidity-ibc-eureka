@@ -64,6 +64,36 @@ library ICS20Lib {
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
 
+    /**
+     * @notice Encodes a `PacketDataJSON` struct into ABI-encoded bytes.
+     * 
+     * @dev This function uses `abi.encode` to convert a `PacketDataJSON` struct into its ABI-encoded
+     * `bytes` representation. The resulting bytes can be transmitted or stored for decoding later.
+     * 
+     * @param payload The `PacketDataJSON` struct to encode.
+     * @return Encoded `bytes` representation of the input struct.
+     * 
+     * @dev What this function does:
+     * - Converts the `PacketDataJSON` struct into a `bytes` array using ABI encoding.
+     * - Ensures the resulting bytes are compatible with `abi.decode` for the same struct.
+     * - Preserves the field order and data structure of the input struct during encoding.
+     * 
+     * @dev What this function does NOT do:
+     * - It does not validate the content of the `PacketDataJSON` struct before encoding.
+     *   For example:
+     *     - Does not check if `amount` is greater than 0.
+     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
+     *     - Does not validate the format or expected content of `denom` or `memo`.
+     * - It does not ensure compatibility with external systems unless they adhere to the same ABI encoding rules.
+     * 
+     * @dev Recommended validation to avoid issues:
+     * - Validate the fields of the `PacketDataJSON` struct before calling this function:
+     *   - Ensure `amount > 0`.
+     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
+     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
+     *   - Optionally validate `memo` for length or allowed characters.
+     * - Ensure that the consumer of the encoded bytes uses the same ABI decoding standard.
+     */
     /// @notice Encodes an ICS20Payload struct into ABI bytes.
     /// @param payload The ICS20Payload struct to encode
     /// @return Encoded bytes
@@ -71,10 +101,42 @@ library ICS20Lib {
         return abi.encode(payload);
     }
 
+    /**
+     * @notice Decodes ABI-encoded bytes into a `PacketDataJSON` struct.
+     * 
+     * @dev This function uses `abi.decode` to decode a `bytes` payload into a `PacketDataJSON` struct.
+     * It assumes that the input data is correctly ABI-encoded and matches the structure of `PacketDataJSON`.
+     * 
+     * @param data ABI-encoded bytes representing a `PacketDataJSON`.
+     * @return Decoded `PacketDataJSON` struct.
+     * 
+     * @dev What this function does:
+     * - Decodes the `bytes` payload into the expected `PacketDataJSON` struct.
+     * - Ensures that the payload conforms to the ABI encoding of `PacketDataJSON` (field types and order).
+     * - Reverts if the input data is not properly ABI-encoded.
+     * 
+     * @dev What this function does NOT do:
+     * - Validate the logical correctness or semantic meaning of the decoded fields.
+     *   For example:
+     *     - Does not check if `amount` is greater than 0.
+     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
+     *     - Does not validate the format, length, or expected content of `denom` or `memo`.
+     * - Does not validate whether the payload matches a specific JSON schema or key order.
+     * 
+     * @dev Recommended validation to avoid exploits:
+     * - After decoding, validate each field of the struct:
+     *   - Ensure `amount > 0`.
+     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
+     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
+     *   - Optionally validate `memo` for length or allowed characters.
+     * - Implement JSON key-order validation if strict ordering is required.
+     * - Consider using a try/catch block for decoding, or handle decoding errors explicitly to ensure
+     *   the function does not fail silently or revert without providing clear error messages.
+     */
     /// @notice Decodes ABI-encoded bytes into an ICS20Payload struct.
     /// @param data ABI-encoded bytes representing an ICS20Payload
     /// @return Decoded ICS20Payload struct
-    function decodePayload(bytes memory data) internal pure returns (PacketDataJSON memory) {
+    function decodePayload(bytes memory data) external pure returns (PacketDataJSON memory) {
         return abi.decode(data, (PacketDataJSON));
     }
 

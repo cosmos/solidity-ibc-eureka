@@ -40,6 +40,9 @@ interface IICS20Errors {
     /// @param actual actual bytes
     error ICS20JSONUnexpectedBytes(uint256 position, bytes32 expected, bytes32 actual);
 
+    /// @notice Abi encoding/decoding failure 
+    error ICS20AbiEncodingFailure();
+
     /// @notice JSON closing brace not found
     /// @param position position in packet data bytes
     /// @param actual actual value
