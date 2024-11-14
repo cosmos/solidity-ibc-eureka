@@ -58,9 +58,21 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             fullDenomPath = msg_.denom;
         }
 
-        bytes memory packetData = ICS20Lib.marshalJSON(
-            fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo
-        );
+        ICS20Lib.PacketDataJSON memory pd ;
+        pd.denom = fullDenomPath;
+        pd.amount = msg_.amount; 
+        pd.sender = Strings.toHexString(_msgSender());
+        pd.receiver=msg_.receiver;
+        pd.memo=msg_.memo; 
+        
+        bytes memory packetData = ICS20Lib.encodePayload(pd);
+        // Attempt to decode the payload
+        /*try ICS20Lib.decodePayload(msg_.payload.value) returns (ICS20Lib.PacketDataJSON memory decodedPayload) {
+        packetData = decodedPayload;
+        } catch {
+            revert ICS20AbiEncodingFailure(); 
+        }*/
+
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
@@ -99,7 +111,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         } catch {
             revert ICS20AbiEncodingFailure(); 
         }
-        
+
         if (packetData.amount == 0) {
             revert ICS20InvalidAmount(packetData.amount);
         }
