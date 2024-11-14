@@ -147,7 +147,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
-        bytes memory ack = getIBCApp(payload.destPort).onRecvPacket(
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
@@ -156,12 +157,9 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 relayer: _msgSender()
             })
         );
-        if (ack.length == 0) {
+        if (acks[0].length == 0) {
             revert IBCAsyncAcknowledgementNotSupported();
         }
-
-        bytes[] memory acks = new bytes[](1);
-        acks[0] = ack;
 
         writeAcknowledgement(msg_.packet, acks);
 

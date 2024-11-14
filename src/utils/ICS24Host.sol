@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 
@@ -33,23 +32,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        uint8 fixedByte = 1;
-        return abi.encodePacked(
-            channelId, 
-            fixedByte, 
-            uint64ToBigEndian(sequence)
-        );
-    }
-
-    function uint64ToBigEndian(uint64 value) internal pure returns (bytes memory) {
-        bytes memory result = new bytes(8);
-        assembly {
-            // Load the address of the `result` array data
-            let ptr := add(result, 32)
-            // Store the uint64 value directly, shifted so it fits the upper 8 bytes of the 32-byte word
-            mstore(ptr, shl(192, value))
-        }
-        return result;
+        return abi.encodePacked(channelId, uint8(1), uint64ToBigEndian(sequence));
     }
 
     /// @notice Generator for the path of a packet acknowledgement commitment
@@ -64,12 +47,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        uint8 fixedByte = 3;
-        return abi.encodePacked(
-            channelId, 
-            fixedByte, 
-            uint64ToBigEndian(sequence)
-        );
+        return abi.encodePacked(channelId, uint8(3), uint64ToBigEndian(sequence));
     }
 
     /// @notice Generator for the path of a packet receipt commitment
@@ -84,12 +62,7 @@ library ICS24Host {
         pure
         returns (bytes memory)
     {
-        uint8 fixedByte = 2;
-        return abi.encodePacked(
-            channelId, 
-            fixedByte, 
-            uint64ToBigEndian(sequence)
-        );
+        return abi.encodePacked(channelId, uint8(2), uint64ToBigEndian(sequence));
     }
 
     // Key generators for Commitment mapping
@@ -134,7 +107,8 @@ library ICS24Host {
 
     /// @notice Get the packet commitment bytes.
     /// @dev CommitPacket returns the V2 packet commitment bytes. The commitment consists of:
-    /// @dev sha256_hash(0x02 + sha256_hash(destinationChannel) + sha256_hash(timeout) + sha256_hash(payload) from a given packet.
+    /// @dev sha256_hash(0x02 + sha256_hash(destinationChannel) + sha256_hash(timeout) + sha256_hash(payload)) for a
+    /// @dev given packet.
     /// @dev This results in a fixed length preimage.
     /// @dev A fixed length preimage is ESSENTIAL to prevent relayers from being able
     /// @dev to malleate the packet fields and create a commitment hash that matches the original packet.
@@ -150,15 +124,15 @@ library ICS24Host {
         for (uint256 i = 0; i < packet.payloads.length; i++) {
             appBytes = abi.encodePacked(appBytes, hashPayload(packet.payloads[i]));
         }
-        
-        uint8 prefix = 2;
 
-        return sha256(abi.encodePacked(
-            prefix,
-            sha256(bytes(packet.destChannel)), 
-            sha256(abi.encodePacked(packet.timeoutTimestamp)),
-            sha256(appBytes) 
-        ));
+        return sha256(
+            abi.encodePacked(
+                uint8(2),
+                sha256(bytes(packet.destChannel)),
+                sha256(abi.encodePacked(packet.timeoutTimestamp)),
+                sha256(appBytes)
+            )
+        );
     }
 
     /// @notice Get the commitment hash of a payload
@@ -177,6 +151,9 @@ library ICS24Host {
     }
 
     /// @notice Get the packet acknowledgement commitment bytes.
+    /// @dev PacketAcknowledgementCommitment returns the V2 packet acknowledgement commitment bytes.
+    /// @dev The commitment consists of:
+    /// @dev sha256_hash(0x02 + sha256_hash(ack1) + sha256_hash(ack2), ...) for a given set of acks.
     /// @dev each payload get one ack each from their application, so this function accepts a list of acks
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
@@ -191,12 +168,7 @@ library ICS24Host {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
         }
 
-        uint8 prefix = 2;
-
-        return sha256(abi.encodePacked(
-            prefix,
-            ackBytes
-        ));
+        return sha256(abi.encodePacked(uint8(2), ackBytes));
     }
 
     /// @notice Create a prefixed path
@@ -211,5 +183,18 @@ library ICS24Host {
 
         merklePrefix[merklePrefix.length - 1] = abi.encodePacked(merklePrefix[merklePrefix.length - 1], path);
         return merklePrefix;
+    }
+
+    /// @notice Convert a uint64 to big endian bytes representation
+    /// @param value The uint64 value
+    /// @return The big endian bytes representation
+    function uint64ToBigEndian(uint64 value) internal pure returns (bytes8) {
+        bytes8 result;
+        // solhint-disable no-inline-assembly
+        assembly {
+            // Shift the uint64 value left by 192 bits to align with a bytes8's starting position
+            result := shl(192, value)
+        }
+        return result;
     }
 }

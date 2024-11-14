@@ -97,7 +97,8 @@ contract ICS24HostTest is Test {
         string memory expectedReceiptCommitmentKey = "6368616e6e656c2d31020000000000000002";
         assertEq(actualReceiptCommitmentKey, expectedReceiptCommitmentKey);
 
-        bytes memory packetAcknowledgementCommitmentKey = ICS24Host.packetAcknowledgementCommitmentPathCalldata("channel-2", 3);
+        bytes memory packetAcknowledgementCommitmentKey =
+            ICS24Host.packetAcknowledgementCommitmentPathCalldata("channel-2", 3);
         string memory actualAcknowledgementCommitmentKey = bytesToHex(packetAcknowledgementCommitmentKey);
         string memory expectedAcknowledgementCommitmentKey = "6368616e6e656c2d32030000000000000003";
         assertEq(actualAcknowledgementCommitmentKey, expectedAcknowledgementCommitmentKey);

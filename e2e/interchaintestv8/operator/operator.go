@@ -56,9 +56,7 @@ func StartOperator(args ...string) error {
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, ibcPaths [][]byte, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
 	var paths string
 	for i, path := range ibcPaths {
-
 		paths += fmt.Sprintf("%s\\%s", ibcPathBase64, base64.StdEncoding.EncodeToString(path))
-		fmt.Println(paths)
 		if i != len(ibcPaths)-1 {
 			paths += ","
 		}
