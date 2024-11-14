@@ -81,7 +81,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         } catch {
             revert ICS20AbiEncodingFailure(); 
         }
-        
+
         if (packetData.amount == 0) {
             revert ICS20InvalidAmount(packetData.amount);
         }

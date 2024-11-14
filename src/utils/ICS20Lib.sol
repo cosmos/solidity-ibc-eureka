@@ -162,6 +162,7 @@ library ICS20Lib {
         return abi.decode(data, (PacketDataJSON));
     }
 
+/*
     /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
     /// @param escapedDenom Escaped denom
     /// @param amount Amount
