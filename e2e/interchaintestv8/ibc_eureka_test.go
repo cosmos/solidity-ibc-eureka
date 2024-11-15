@@ -730,15 +730,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			ackMsgs[i] = &channeltypesv2.MsgAcknowledgement{
 				Packet: returnPacket,
 				Acknowledgement: channeltypesv2.Acknowledgement{
-					AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
-						{
-							AppName: transfertypes.ModuleName,
-							RecvPacketResult: channeltypesv2.RecvPacketResult{
-								Status:          channeltypesv2.PacketStatus_Success,
-								Acknowledgement: returnWriteAckEvent.Acknowledgements[0],
-							},
-						},
-					},
+					AppAcknowledgements: returnWriteAckEvent.Acknowledgements,
 				},
 				ProofAcked: storageProofBz,
 				ProofHeight: clienttypes.Height{
@@ -970,15 +962,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
 			Packet: sendPacket,
 			Acknowledgement: channeltypesv2.Acknowledgement{
-				AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
-					{
-						AppName: transfertypes.ModuleName,
-						RecvPacketResult: channeltypesv2.RecvPacketResult{
-							Status:          channeltypesv2.PacketStatus_Success,
-							Acknowledgement: ethReceiveAckEvent.Acknowledgements[0],
-						},
-					},
-				},
+				AppAcknowledgements: [][]byte{ethReceiveAckEvent.Acknowledgements[0]},
 			},
 			ProofAcked: storageProofBz,
 			ProofHeight: clienttypes.Height{
