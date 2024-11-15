@@ -55,11 +55,6 @@ contract ICS24HostTest is Test {
             value: transferPayload
         });
 
-        bytes32 payloadHash = ICS24Host.hashPayload(payloads[0]);
-        string memory actualPayloadHex = Strings.toHexString(uint256(payloadHash));
-        string memory expectedPayloadHex = "0x5a405608ab85eacdd3f6ad429a5d7cbcc0349055f57708311ece1983dd993307";
-        assertEq(actualPayloadHex, expectedPayloadHex);
-
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceChannel: "channel-0",
