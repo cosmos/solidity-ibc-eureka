@@ -188,7 +188,7 @@ library ICS24Host {
     /// @notice Convert a uint64 to big endian bytes representation
     /// @param value The uint64 value
     /// @return The big endian bytes representation
-    function uint64ToBigEndian(uint64 value) internal pure returns (bytes8) {
+    function uint64ToBigEndian(uint64 value) private pure returns (bytes8) {
         bytes8 result;
         // solhint-disable no-inline-assembly
         assembly {
