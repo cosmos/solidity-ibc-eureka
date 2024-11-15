@@ -54,13 +54,7 @@ func StartOperator(args ...string) error {
 
 // UpdateClientAndMembershipProof is a function that generates an update client and membership proof
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, ibcPaths [][]byte, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
-	var paths string
-	for i, path := range ibcPaths {
-		paths += fmt.Sprintf("%s\\%s", ibcPathBase64, base64.StdEncoding.EncodeToString(path))
-		if i != len(ibcPaths)-1 {
-			paths += ","
-		}
-	}
+	paths := toBase64IBCKeyPaths(ibcPaths)
 
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths, "--base64"}, args...)
 	// nolint:gosec
@@ -136,4 +130,14 @@ func execOperatorCommand(c *exec.Cmd) ([]byte, error) {
 	}
 
 	return outBuf.Bytes(), nil
+}
+
+// toBase64KeyPaths is a function that takes a list of key paths and returns a base64 encoded string
+// that the operator can use to generate a membership proof
+func toBase64IBCKeyPaths(paths [][]byte) string {
+	var keyPaths []string
+	for _, path := range paths {
+		keyPaths = append(keyPaths, fmt.Sprintf("%s\\%s", ibcPathBase64, base64.StdEncoding.EncodeToString(path)))
+	}
+	return strings.Join(keyPaths, ",")
 }
