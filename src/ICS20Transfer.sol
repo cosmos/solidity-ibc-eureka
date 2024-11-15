@@ -65,13 +65,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         pd.receiver=msg_.receiver;
         pd.memo=msg_.memo; 
         
+        // We are encoding the payload in ABI format 
         bytes memory packetData = ICS20Lib.encodePayload(pd);
-        // Attempt to decode the payload
-        /*try ICS20Lib.decodePayload(msg_.payload.value) returns (ICS20Lib.PacketDataJSON memory decodedPayload) {
-        packetData = decodedPayload;
-        } catch {
-            revert ICS20AbiEncodingFailure(); 
-        }*/
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -103,14 +98,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version);
         }
 
-        ICS20Lib.PacketDataJSON memory packetData ;
-
-        // Attempt to decode the payload
-        try ICS20Lib.decodePayload(msg_.payload.value) returns (ICS20Lib.PacketDataJSON memory decodedPayload) {
-        packetData = decodedPayload;
-        } catch {
-            revert ICS20AbiEncodingFailure(); 
-        }
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
 
         if (packetData.amount == 0) {
             revert ICS20InvalidAmount(packetData.amount);
@@ -144,16 +132,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        // Declare packetData variable outside try-catch for scope accessibility
-        ICS20Lib.PacketDataJSON memory packetData;
-
         // Attempt to decode the payload
-        try ICS20Lib.decodePayload(msg_.payload.value) returns (ICS20Lib.PacketDataJSON memory decodedPayload) {
-        packetData = decodedPayload;
-        } catch {
-            revert ICS20AbiEncodingFailure(); //return ICS20Lib.errorAck("failed to decode payload");
-        }
-
+        ICS20Lib.PacketDataJSON memory packetData= ICS20Lib.decodePayload(msg_.payload.value);
         
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData

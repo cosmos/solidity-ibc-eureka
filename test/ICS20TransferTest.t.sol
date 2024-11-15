@@ -266,10 +266,7 @@ contract ICS20TransferTest is Test {
         // test invalid data
         data = bytes("invalid");
         packet.payloads[0].value = data;
-                vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20AbiEncodingFailure.selector)//, bytes32("{\"denom\":\""), bytes32("{\"amount\":")
-            );
+                vm.expectRevert(); // Given the data is invalid, we expect the abi.decodePayload to fail with a generic revert  
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -899,11 +896,8 @@ contract ICS20TransferTest is Test {
         pd.amount=defaultAmount;
         pd.receiver=receiverStr;
         pd.memo="memo";
-        //data = ICS20Lib.encodePayload(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
 
-        //data = ICS20Lib.encodePayload(pd);
-
-        packet.payloads[0].value = ICS20Lib.encodePayload(pd);// ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiverStr, senderStr, "memo");
+        packet.payloads[0].value = ICS20Lib.encodePayload(pd);
 
         // test invalid version
         packet.payloads[0].version = "invalid";
@@ -923,10 +917,8 @@ contract ICS20TransferTest is Test {
         // test invalid data
         data = bytes("invalid");
         packet.payloads[0].value = data;
-                vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20AbiEncodingFailure.selector)//, bytes32("{\"denom\":\""), bytes32("{\"amount\":")
-            );
+                vm.expectRevert(); // here we expect a generic revert caused by the abi.decodePayload function 
+  
         ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -936,16 +928,13 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-
         // test invalid amount
-
-               pd.denom=ibcDenom;
+        pd.denom=ibcDenom;
         pd.sender=senderStr;
         pd.amount=0;
         pd.receiver=receiverStr;
         pd.memo="memo";
 
-        //data = ICS20Lib.marshalJSON(ibcDenom, 0, receiverStr, senderStr, "memo");
         data = ICS20Lib.encodePayload(pd);
         
         packet.payloads[0].value = data;
@@ -969,12 +958,9 @@ contract ICS20TransferTest is Test {
         pd.amount=defaultAmount;
         pd.receiver=receiverStr;
         pd.memo="memo";
-        //data = ICS20Lib.encodePayload(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
-
+        
         data = ICS20Lib.encodePayload(pd);
 
-
-        //data = ICS20Lib.marshalJSON(invalidErc20Denom, defaultAmount, receiverStr, senderStr, "memo");
         packet.payloads[0].value = data;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onRecvPacket(
@@ -987,17 +973,14 @@ contract ICS20TransferTest is Test {
             })
         );
         
-          
         // test invalid receiver
         pd.denom=ibcDenom;
         pd.sender=senderStr;
         pd.amount=defaultAmount;
         pd.receiver="invalid";
         pd.memo="memo";
-        //data = ICS20Lib.encodePayload(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
-
+        
         data = ICS20Lib.encodePayload(pd);
-        //data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiverStr, "invalid", "memo");
         packet.payloads[0].value = data;
         ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
@@ -1026,10 +1009,10 @@ contract ICS20TransferTest is Test {
             "\"}"
         );
         packet.payloads[0].value = wrongOrderJSON;
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20AbiEncodingFailure.selector)//, bytes32("{\"denom\":\""), bytes32("{\"amount\":")
-            );
+        vm.expectRevert();
+           // abi.encodeWithSelector(
+          //      IICS20Errors.ICS20AbiEncodingFailure.selector)//, bytes32("{\"denom\":\""), bytes32("{\"amount\":")
+            //)//;
         //);
 
         ics20Transfer.onRecvPacket(
