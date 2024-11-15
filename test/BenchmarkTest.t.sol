@@ -116,7 +116,7 @@ contract BenchmarkTest is FixtureTest {
     function sendTransfer(Fixture memory fixture) internal {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
-        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.decodePayload(fixture.packet.payloads[0].value); 
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.decodePayload(fixture.packet.payloads[0].value);
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 

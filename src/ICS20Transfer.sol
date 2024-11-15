@@ -58,14 +58,14 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             fullDenomPath = msg_.denom;
         }
 
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = fullDenomPath;
-        pd.amount = msg_.amount; 
+        pd.amount = msg_.amount;
         pd.sender = Strings.toHexString(_msgSender());
-        pd.receiver=msg_.receiver;
-        pd.memo=msg_.memo; 
-        
-        // We are encoding the payload in ABI format 
+        pd.receiver = msg_.receiver;
+        pd.memo = msg_.memo;
+
+        // We are encoding the payload in ABI format
         bytes memory packetData = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -104,8 +104,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             revert ICS20InvalidAmount(packetData.amount);
         }
 
-        // Note that if we use address instead of strings in the packetDataJson field definition 
-        //we can avoid the next line operation and save extra gas  
+        // Note that if we use address instead of strings in the packetDataJson field definition
+        //we can avoid the next line operation and save extra gas
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
         (address erc20Address, bool originatorChainIsSource) =
@@ -133,8 +133,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         }
 
         // Attempt to decode the payload
-        ICS20Lib.PacketDataJSON memory packetData= ICS20Lib.decodePayload(msg_.payload.value);
-        
+        ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
+
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
         );

@@ -33,5 +33,4 @@ contract ICS20LibTest is Test {
             assertEq(actual, testCase.expected);
         }
     }
-
 }

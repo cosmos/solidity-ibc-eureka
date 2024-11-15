@@ -100,14 +100,13 @@ contract IntegrationTest is Test {
     }
 
     function test_failure_sendICS20PacketDirectlyFromRouter() public {
-
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = erc20AddressStr;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -219,13 +218,13 @@ contract IntegrationTest is Test {
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
 
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = receivedDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="backmemo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "backmemo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
@@ -288,13 +287,13 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
 
-                ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -395,12 +394,12 @@ contract IntegrationTest is Test {
         );
 
         pd.denom = expectedFullDenomPath;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="backmemo"; 
-        
-       transferPayload = ICS20Lib.encodePayload(pd);
+        pd.receiver = receiverStr;
+        pd.memo = "backmemo";
+
+        transferPayload = ICS20Lib.encodePayload(pd);
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
@@ -439,13 +438,13 @@ contract IntegrationTest is Test {
         receiverStr = Strings.toHexString(receiver);
 
         // First packet
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
@@ -466,10 +465,10 @@ contract IntegrationTest is Test {
 
         // Second packet
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
 
         transferPayload = ICS20Lib.encodePayload(pd);
 
@@ -528,13 +527,13 @@ contract IntegrationTest is Test {
         receiverStr = Strings.toHexString(receiver);
 
         // First packet
-         ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
@@ -556,11 +555,11 @@ contract IntegrationTest is Test {
         // Second packet
 
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads2 = new IICS26RouterMsgs.Payload[](1);
@@ -612,13 +611,13 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
 
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory receievePayloads = new IICS26RouterMsgs.Payload[](1);
@@ -721,11 +720,11 @@ contract IntegrationTest is Test {
         vm.expectEmit();
 
         pd.denom = expectedFullDenomPath;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="backmemo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "backmemo";
+
         transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
@@ -770,13 +769,13 @@ contract IntegrationTest is Test {
 
         // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
 
-        ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = foreignDenom;
-        pd.amount = largeAmount; 
+        pd.amount = largeAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo=""; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -842,7 +841,6 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.totalSupply(), largeAmount);
         assertEq(ibcERC20.balanceOf(receiver), largeAmount);
 
-        
         // Send out again
         string memory backDenom = Strings.toHexString(erc20Address); // sendTransfer use the contract as the denom
         sender = receiver;
@@ -865,7 +863,6 @@ contract IntegrationTest is Test {
             memo: ""
         });
 
-        
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
             ICS20Lib.PacketDataJSON({
@@ -877,15 +874,15 @@ contract IntegrationTest is Test {
             }),
             erc20Address
         );
-        
+
         vm.expectEmit();
 
         pd.denom = expectedFullDenomPath;
-        pd.amount = largeAmount; 
+        pd.amount = largeAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo=""; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "";
+
         transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
@@ -904,21 +901,19 @@ contract IntegrationTest is Test {
             payloads: expectedPayloads
         });
         emit IICS26Router.SendPacket(expectedPacketSent);
-        
-        
+
         vm.prank(sender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
-        
+
         assertEq(sequence, expectedPacketSent.sequence);
-        
+
         assertEq(ibcERC20.totalSupply(), 0);
         assertEq(ibcERC20.balanceOf(receiver), 0);
 
         bytes32 path =
-        ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
+            ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
-        
     }
 
     function test_failure_receiveICS20PacketHasTimedOut() public {
@@ -951,13 +946,13 @@ contract IntegrationTest is Test {
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
 
-                 ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = ibcDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="backmemo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "backmemo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
 
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
@@ -1017,15 +1012,15 @@ contract IntegrationTest is Test {
         uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
         assertEq(sequence, 1);
 
-                 ICS20Lib.PacketDataJSON memory pd ;
+        ICS20Lib.PacketDataJSON memory pd;
         pd.denom = erc20AddressStr;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         bytes memory transferPayload = ICS20Lib.encodePayload(pd);
-        
+
         IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
         packetPayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: "transfer",
