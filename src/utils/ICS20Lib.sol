@@ -88,18 +88,18 @@ library ICS20Lib {
 
     /**
      * @notice Encodes a `PacketDataJSON` struct into ABI-encoded bytes.
-     * 
+     *
      * @dev This function uses `abi.encode` to convert a `PacketDataJSON` struct into its ABI-encoded
      * `bytes` representation. The resulting bytes can be transmitted or stored for decoding later.
-     * 
+     *
      * @param payload The `PacketDataJSON` struct to encode.
      * @return Encoded `bytes` representation of the input struct.
-     * 
+     *
      * @dev What this function does:
      * - Converts the `PacketDataJSON` struct into a `bytes` array using ABI encoding.
      * - Ensures the resulting bytes are compatible with `abi.decode` for the same struct.
      * - Preserves the field order and data structure of the input struct during encoding.
-     * 
+     *
      * @dev What this function does NOT do:
      * - It does not validate the content of the `PacketDataJSON` struct before encoding.
      *   For example:
@@ -107,7 +107,7 @@ library ICS20Lib {
      *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
      *     - Does not validate the format or expected content of `denom` or `memo`.
      * - It does not ensure compatibility with external systems unless they adhere to the same ABI encoding rules.
-     * 
+     *
      * @dev Recommended validation to avoid issues:
      * - Validate the fields of the `PacketDataJSON` struct before calling this function:
      *   - Ensure `amount > 0`.
@@ -125,18 +125,18 @@ library ICS20Lib {
 
     /**
      * @notice Decodes ABI-encoded bytes into a `PacketDataJSON` struct.
-     * 
+     *
      * @dev This function uses `abi.decode` to decode a `bytes` payload into a `PacketDataJSON` struct.
      * It assumes that the input data is correctly ABI-encoded and matches the structure of `PacketDataJSON`.
-     * 
+     *
      * @param data ABI-encoded bytes representing a `PacketDataJSON`.
      * @return Decoded `PacketDataJSON` struct.
-     * 
+     *
      * @dev What this function does:
      * - Decodes the `bytes` payload into the expected `PacketDataJSON` struct.
      * - Ensures that the payload conforms to the ABI encoding of `PacketDataJSON` (field types and order).
      * - Reverts if the input data is not properly ABI-encoded.
-     * 
+     *
      * @dev What this function does NOT do:
      * - Validate the logical correctness or semantic meaning of the decoded fields.
      *   For example:
@@ -144,7 +144,7 @@ library ICS20Lib {
      *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
      *     - Does not validate the format, length, or expected content of `denom` or `memo`.
      * - Does not validate whether the payload matches a specific JSON schema or key order.
-     * 
+     *
      * @dev Recommended validation to avoid exploits:
      * - After decoding, validate each field of the struct:
      *   - Ensure `amount > 0`.
@@ -162,7 +162,7 @@ library ICS20Lib {
         return abi.decode(data, (PacketDataJSON));
     }
 
-/*
+    /*
     /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
     /// @param escapedDenom Escaped denom
     /// @param amount Amount

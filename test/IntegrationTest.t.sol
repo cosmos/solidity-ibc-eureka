@@ -751,10 +751,10 @@ contract IntegrationTest is Test {
 
         // Second packet
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
 
         transferPayload = ICS20Lib.encodePayload(pd);
 
@@ -840,11 +840,11 @@ contract IntegrationTest is Test {
         // Second packet
 
         pd.denom = foreignDenom;
-        pd.amount = transferAmount; 
+        pd.amount = transferAmount;
         pd.sender = senderStr;
-        pd.receiver=receiverStr;
-        pd.memo="memo"; 
-        
+        pd.receiver = receiverStr;
+        pd.memo = "memo";
+
         transferPayload = ICS20Lib.encodePayload(pd);
 
         IICS26RouterMsgs.Payload[] memory payloads2 = new IICS26RouterMsgs.Payload[](1);
@@ -1119,7 +1119,6 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.totalSupply(), largeAmount);
         assertEq(ibcERC20.balanceOf(receiver), largeAmount);
 
-        
         // Send out again
         string memory backDenom = Strings.toHexString(erc20Address); // sendTransfer use the contract as the denom
         sender = receiver;
@@ -1142,7 +1141,6 @@ contract IntegrationTest is Test {
             memo: ""
         });
 
-        
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
             ICS20Lib.FungibleTokenPacketData({
@@ -1154,7 +1152,7 @@ contract IntegrationTest is Test {
             }),
             erc20Address
         );
-        
+
         vm.expectEmit();
 
         ICS20Lib.FungibleTokenPacketData memory sendPacketData = ICS20Lib.FungibleTokenPacketData({
@@ -1180,21 +1178,19 @@ contract IntegrationTest is Test {
             payloads: expectedPayloads
         });
         emit IICS26Router.SendPacket(expectedPacketSent);
-        
-        
+
         vm.prank(sender);
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
-        
+
         assertEq(sequence, expectedPacketSent.sequence);
-        
+
         assertEq(ibcERC20.totalSupply(), 0);
         assertEq(ibcERC20.balanceOf(receiver), 0);
 
         bytes32 path =
-        ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
+            ICS24Host.packetCommitmentKeyCalldata(expectedPacketSent.sourceChannel, expectedPacketSent.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
-        
     }
 
     function test_failure_receiveICS20PacketHasTimedOut() public {
