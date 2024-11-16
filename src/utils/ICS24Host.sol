@@ -115,11 +115,6 @@ library ICS24Host {
     /// @param packet The packet to get the commitment for
     /// @return The commitment bytes
     function packetCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
-        // TODO: Support multi-payload packets #93
-        if (packet.payloads.length != 1) {
-            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
-        }
-
         bytes memory appBytes = "";
         for (uint256 i = 0; i < packet.payloads.length; i++) {
             appBytes = abi.encodePacked(appBytes, hashPayload(packet.payloads[i]));
@@ -158,11 +153,6 @@ library ICS24Host {
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
-        // TODO: Support multi-payload packets #93
-        if (acks.length != 1) {
-            revert IICS24HostErrors.IBCMultiPayloadPacketNotSupported();
-        }
-
         bytes memory ackBytes = "";
         for (uint256 i = 0; i < acks.length; i++) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
