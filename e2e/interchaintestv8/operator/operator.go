@@ -18,8 +18,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
 )
 
-var ibcPathBase64 = base64.StdEncoding.EncodeToString([]byte("ibc"))
-
 // membershipFixture is a struct that contains the membership proof and proof height
 type membershipFixture struct {
 	// hex encoded height
@@ -53,10 +51,8 @@ func StartOperator(args ...string) error {
 }
 
 // UpdateClientAndMembershipProof is a function that generates an update client and membership proof
-func UpdateClientAndMembershipProof(trusted_height, target_height uint64, ibcPaths [][]byte, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
-	paths := toBase64IBCKeyPaths(ibcPaths)
-
-	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths, "--base64"}, args...)
+func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*ics26router.IICS02ClientMsgsHeight, []byte, error) {
+	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
 	// nolint:gosec
 	cmd := exec.Command(BinaryPath(), args...)
 	stdout, err := execOperatorCommand(cmd)
@@ -132,12 +128,15 @@ func execOperatorCommand(c *exec.Cmd) ([]byte, error) {
 	return outBuf.Bytes(), nil
 }
 
-// toBase64KeyPaths is a function that takes a list of key paths and returns a base64 encoded string
+// ToBase64KeyPaths is a function that takes a list of key paths and returns a base64 encoded string
 // that the operator can use to generate a membership proof
-func toBase64IBCKeyPaths(paths [][]byte) string {
+func ToBase64KeyPaths(paths ...[][]byte) string {
 	var keyPaths []string
 	for _, path := range paths {
-		keyPaths = append(keyPaths, fmt.Sprintf("%s\\%s", ibcPathBase64, base64.StdEncoding.EncodeToString(path)))
+		if len(path) != 2 {
+			panic("path must have 2 elements")
+		}
+		keyPaths = append(keyPaths, base64.StdEncoding.EncodeToString(path[0])+"\\"+base64.StdEncoding.EncodeToString(path[1]))
 	}
 	return strings.Join(keyPaths, ",")
 }

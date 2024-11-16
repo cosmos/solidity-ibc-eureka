@@ -35,6 +35,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -470,28 +472,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a membership proof since the acknowledgement is written
 		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
 			proofPaths[i] = ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1))
 		}
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			proofType.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), proofPaths, args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
 
 		ackMulticall := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
@@ -624,27 +610,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	var recvBlockNumber int64
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
 	s.Require().True(s.Run(fmt.Sprintf("Receive %d packets on Ethereum", numOfTransfers), func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
 			proofPaths[i] = ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1))
 		}
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			proofType.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), proofPaths, args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
 
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(returnPacket.Sequence),
@@ -858,24 +828,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var ibcERC20Address string
 	var recvBlockNumber int64
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetCommitmentPath}, args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
 
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(sendPacket.Sequence),
@@ -1095,25 +1049,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a membership proof since the acknowledgement is written
 		packetAckPath := ibchostv2.PacketAcknowledgementKey(returnPacket.DestChannel, uint64(returnPacket.Sequence))
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetAckPath}, args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetAckPath})
 
 		msg := ics26router.IICS26RouterMsgsMsgAckPacket{
 			Packet:          returnPacket,
@@ -1217,25 +1155,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	time.Sleep(45 * time.Second)
 
 	s.True(s.Run("Timeout packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a non-membership proof since no packets have been sent
 		packetReceiptPath := ibchostv2.PacketReceiptKey(packet.DestChannel, uint64(packet.Sequence))
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), [][]byte{packetReceiptPath}, args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetReceiptPath})
 
 		msg := ics26router.IICS26RouterMsgsMsgTimeoutPacket{
 			Packet:       packet,
@@ -1287,4 +1209,41 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(path []byte) []byte {
 		Proof: proofBz,
 	}
 	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
+}
+
+func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
+	ctx context.Context,
+	counterpartyChain *cosmos.CosmosChain,
+	proofType operator.SupportedProofType,
+	ibcProofPaths [][]byte,
+) (*ics26router.IICS02ClientMsgsHeight, []byte) {
+	clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+	s.Require().NoError(err)
+
+	trustedHeight := clientState.LatestHeight.RevisionHeight
+	latestHeight, err := counterpartyChain.Height(ctx)
+	s.Require().NoError(err)
+
+	proofPaths := make([][][]byte, len(ibcProofPaths))
+	for i, path := range ibcProofPaths {
+		proofPaths[i] = [][]byte{
+			[]byte("ibc"),
+			path,
+		}
+	}
+
+	proofPathsStr := operator.ToBase64KeyPaths(proofPaths...)
+
+	args := append([]string{
+		"--trust-level", testvalues.DefaultTrustLevel.String(),
+		"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		"--base64",
+	},
+		proofType.ToOperatorArgs()...,
+	)
+	proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+		uint64(trustedHeight), uint64(latestHeight), proofPathsStr, args...,
+	)
+	s.Require().NoError(err)
+	return proofHeight, ucAndMemProof
 }
