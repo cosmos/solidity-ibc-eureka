@@ -131,20 +131,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel);
         }
 
-        // recvPacket will no-op if the packet receipt already exists
-        try IBC_STORE.setPacketReceipt(msg_.packet) { }
-        catch (bytes memory reason) {
-            if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
-                emit Noop();
-                return; // no-op since the packet receipt already exists
-            } else {
-                // reverts with the same reason
-                assembly ("memory-safe") {
-                    revert(add(reason, 32), mload(reason))
-                }
-            }
-        }
-
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
@@ -161,6 +147,20 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         });
 
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
+
+        // recvPacket will no-op if the packet receipt already exists
+        try IBC_STORE.setPacketReceipt(msg_.packet) { }
+        catch (bytes memory reason) {
+            if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
+                emit Noop();
+                return; // no-op since the packet receipt already exists
+            } else {
+                // reverts with the same reason
+                assembly ("memory-safe") {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
+        }
 
         bytes[] memory acks = new bytes[](1);
         acks[0] = getIBCApp(payload.destPort).onRecvPacket(
@@ -196,6 +196,22 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
 
+        bytes memory commitmentPath =
+            ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
+        bytes[] memory acks = new bytes[](1);
+        acks[0] = msg_.acknowledgement;
+        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
+
+        // verify the packet acknowledgement
+        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
+            proof: msg_.proofAcked,
+            proofHeight: msg_.proofHeight,
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
+            value: abi.encodePacked(commitmentBz)
+        });
+
+        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+
         // ackPacket will no-op if the packet commitment does not exist
         try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
@@ -212,22 +228,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 }
             }
         }
-
-        bytes memory commitmentPath =
-            ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
-        bytes[] memory acks = new bytes[](1);
-        acks[0] = msg_.acknowledgement;
-        bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
-
-        // verify the packet acknowledgement
-        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
-            proof: msg_.proofAcked,
-            proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
-            value: abi.encodePacked(commitmentBz)
-        });
-
-        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -258,6 +258,20 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
 
+        bytes memory receiptPath =
+            ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
+        ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
+            proof: msg_.proofTimeout,
+            proofHeight: msg_.proofHeight,
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
+            value: bytes("")
+        });
+
+        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
+            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
+        }
+
         // timeoutPacket will no-op if the packet commitment does not exist
         try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
@@ -273,20 +287,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                     revert(add(reason, 32), mload(reason))
                 }
             }
-        }
-
-        bytes memory receiptPath =
-            ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
-        ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
-            proof: msg_.proofTimeout,
-            proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
-            value: bytes("")
-        });
-
-        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
-        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
         }
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
