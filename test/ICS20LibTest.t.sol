@@ -5,6 +5,8 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
+import { Vm } from "forge-std/Vm.sol";
+import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 
 contract ICS20LibTest is Test {
     struct IBCDenomTestCase {
@@ -34,7 +36,7 @@ contract ICS20LibTest is Test {
         }
     }
 
-    function test_unmarshalJSON() public view {
+    function test_unmarshalJSON() public {
         // ICS20Lib marshalled json with memo
         bytes memory jsonBz = ICS20Lib.marshalJSON("denom", 42, "sender", "receiver", "memo");
         ICS20Lib.PacketDataJSON memory packetData = this.unmarshalJSON(jsonBz);
@@ -71,6 +73,11 @@ contract ICS20LibTest is Test {
         assertEq(packetData.sender, "sender3");
         assertEq(packetData.receiver, "receiver3");
         assertEq(packetData.memo, "");
+
+        // Test with a broken JSON string without memo
+        jsonBz = "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\\,\"receiver\":\"receiver3\"}";
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20JSONInvalidEscape.selector, 50, bytes1(0x2c)));
+        packetData = this.unmarshalJSON(jsonBz);
     }
 
     function unmarshalJSON(bytes calldata bz) external pure returns (ICS20Lib.PacketDataJSON memory) {
