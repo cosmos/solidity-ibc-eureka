@@ -80,7 +80,10 @@ jobs:
         uses: ./.github/setup
 
       - name: "Run coverage"
-        run: "bash scripts/checks/coverage.sh"
+        run: |
+          forge coverage --report lcov
+          # Remove zero hits
+          sed -i '/,0/d' lcov.info
 
       - uses: codecov/codecov-action@v4
         env:
