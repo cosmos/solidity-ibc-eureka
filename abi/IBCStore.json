@@ -246,11 +246,6 @@
     "name": "nextSequenceSend",
     "inputs": [
       {
-        "name": "portId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
         "name": "channelId",
         "type": "string",
         "internalType": "string"
