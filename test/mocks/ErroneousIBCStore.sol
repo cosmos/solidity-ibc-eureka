@@ -17,7 +17,7 @@ contract ErroneousIBCStore is IIBCStore {
         revert CallFailure("getCommitment");
     }
 
-    function nextSequenceSend(string calldata, string calldata) external pure returns (uint32) {
+    function nextSequenceSend(string calldata) external pure returns (uint32) {
         revert CallFailure("nextSequenceSend");
     }
 
