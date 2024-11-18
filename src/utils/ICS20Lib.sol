@@ -196,46 +196,6 @@ library ICS20Lib {
         revert IICS20Errors.ICS20JSONStringUnclosed(bz, pos);
     }
 
-    /// @notice isEscapedJSONString checks if a string is escaped JSON.
-    /// @param s string
-    /// @return true if the string is escaped JSON
-    function isEscapedJSONString(string calldata s) private pure returns (bool) {
-        bytes memory bz = bytes(s);
-        unchecked {
-            for (uint256 i = 0; i < bz.length; i++) {
-                uint256 c = uint256(uint8(bz[i]));
-                if (c == CHAR_DOUBLE_QUOTE) {
-                    return false;
-                } else if (c == CHAR_BACKSLASH && i + 1 < bz.length) {
-                    i++;
-                    c = uint256(uint8(bz[i]));
-                    if (
-                        c != CHAR_DOUBLE_QUOTE && c != CHAR_SLASH && c != CHAR_BACKSLASH && c != CHAR_F && c != CHAR_R
-                            && c != CHAR_N && c != CHAR_B && c != CHAR_T
-                    ) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    /// @notice isEscapeNeededString checks if a string needs to be escaped.
-    /// @param bz bytes
-    /// @return true if the string needs to be escaped
-    function isEscapeNeededString(bytes memory bz) private pure returns (bool) {
-        unchecked {
-            for (uint256 i = 0; i < bz.length; i++) {
-                uint256 c = uint256(uint8(bz[i]));
-                if (c == CHAR_DOUBLE_QUOTE) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     /// @notice hexStringToAddress converts a hex string to an address.
     /// @param addrHexString hex address string
     /// @return address value
