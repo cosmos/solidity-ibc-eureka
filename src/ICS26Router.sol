@@ -143,16 +143,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         // solhint-disable-next-line no-empty-blocks
         try IBC_STORE.setPacketReceipt(msg_.packet) { }
         catch (bytes memory reason) {
-            if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
-                emit Noop();
-                return; // no-op since the packet receipt already exists
-            } else {
-                // reverts with the same reason
-                // solhint-disable-next-line no-inline-assembly
-                assembly ("memory-safe") {
-                    revert(add(reason, 32), mload(reason))
-                }
-            }
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector);
         }
 
         bytes[] memory acks = new bytes[](1);
@@ -209,16 +200,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
             );
         } catch (bytes memory reason) {
-            if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
-                emit Noop();
-                return; // no-op since the packet commitment already deleted
-            } else {
-                // reverts with the same reason
-                // solhint-disable-next-line no-inline-assembly
-                assembly ("memory-safe") {
-                    revert(add(reason, 32), mload(reason))
-                }
-            }
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
         }
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
@@ -271,16 +253,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
             );
         } catch (bytes memory reason) {
-            if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
-                emit Noop();
-                return; // no-op since the packet commitment already deleted
-            } else {
-                // reverts with the same reason
-                // solhint-disable-next-line no-inline-assembly
-                assembly ("memory-safe") {
-                    revert(add(reason, 32), mload(reason))
-                }
-            }
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
         }
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
@@ -302,5 +275,21 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
         IBC_STORE.commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
+    }
+
+    /// @notice No-op if the reason is correct, otherwise reverts with the same reason
+    /// @dev Only to be used in catch blocks
+    /// @param reason The reason to check
+    /// @param correctReason The correct reason
+    function noopOnCorrectReason(bytes memory reason, bytes4 correctReason) private {
+        if (bytes4(reason) == correctReason) {
+            emit Noop();
+        } else {
+            // reverts with the same reason
+            // solhint-disable-next-line no-inline-assembly
+            assembly ("memory-safe") {
+                revert(add(reason, 32), mload(reason))
+            }
+        }
     }
 }
