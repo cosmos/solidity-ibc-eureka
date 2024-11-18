@@ -6,6 +6,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { ICS02Client } from "./ICS02Client.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
+import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
@@ -130,6 +131,19 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel);
         }
 
+        // recvPacket will no-op if the packet receipt already exists
+        try IBC_STORE.setPacketReceipt(msg_.packet) { }
+        catch (bytes memory reason) {
+            if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
+                return; // no-op since the packet receipt already exists
+            } else {
+                // reverts with the same reason
+                assembly ("memory-safe") {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
+        }
+
         if (msg_.packet.timeoutTimestamp <= block.timestamp) {
             revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
         }
@@ -163,8 +177,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         writeAcknowledgement(msg_.packet, acks);
 
-        IBC_STORE.setPacketReceipt(msg_.packet);
-
         emit RecvPacket(msg_.packet);
     }
 
@@ -183,10 +195,20 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
 
-        // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
-            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+        // ackPacket will no-op if the packet commitment does not exist
+        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+            if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
+                revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+            }
+        } catch (bytes memory reason) {
+            if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
+                return; // no-op since the packet commitment already deleted
+            } else {
+                // reverts with the same reason
+                assembly ("memory-safe") {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
         }
 
         bytes memory commitmentPath =
@@ -234,10 +256,20 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
         }
 
-        // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
-            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+        // timeoutPacket will no-op if the packet commitment does not exist
+        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+            if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
+                revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
+            }
+        } catch (bytes memory reason) {
+            if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
+                return; // no-op since the packet commitment already deleted
+            } else {
+                // reverts with the same reason
+                assembly ("memory-safe") {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
         }
 
         bytes memory receiptPath =
