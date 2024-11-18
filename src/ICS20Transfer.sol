@@ -42,9 +42,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        if (msg_.amount == 0) {
-            revert ICS20InvalidAmount(msg_.amount);
-        }
+        require(msg_.amount > 0, ICS20InvalidAmount(msg_.amount));
 
         // we expect the denom to be an erc20 address
         address contractAddress = ICS20Lib.mustHexStringToAddress(msg_.denom);
@@ -83,19 +81,16 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // The packet sender has to be the contract itself.
         // Because of the packetData massaging we do in sendTransfer to convert the amount to sdkCoin, we don't allow
         // this function to be called by anyone else. They could end up transferring a larger amount than intended.
-        if (msg_.sender != address(this)) {
-            revert ICS20UnauthorizedPacketSender(msg_.sender);
-        }
+        require(msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
 
-        if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
-            revert ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version);
-        }
+        require(
+            keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
+            ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
+        );
 
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
 
-        if (packetData.amount == 0) {
-            revert ICS20InvalidAmount(packetData.amount);
-        }
+        require(packetData.amount > 0, ICS20InvalidAmount(packetData.amount));
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
@@ -137,7 +132,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
         }
 
-        // TODO: Implement escrow balance tracking (#6)
         if (originatorChainIsSource) {
             // sender is source, so we mint vouchers
             // NOTE: getReceiveTokenContractAndSource has already created a contract if it didn't exist
@@ -202,9 +196,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         uint256 expectedEndingBalance = ourStartingBalance + amount;
         // a very strange ERC20 may trigger this condition, if we didn't have this we would
         // underflow, so it's mostly just an error message printer
-        if (actualEndingBalance <= ourStartingBalance || actualEndingBalance != expectedEndingBalance) {
-            revert ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance);
-        }
+        require(
+            actualEndingBalance > ourStartingBalance && actualEndingBalance == expectedEndingBalance,
+            ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance)
+        );
     }
 
     /// @notice For a send packet, get the ERC20 address for the token and whether the originator chain is the source
@@ -234,9 +229,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             // receiving chain is source of the token, so we've received and mapped this token before
             string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
             erc20Address = address(_ibcDenomContracts[ibcDenom]);
-            if (erc20Address == address(0)) {
-                revert ICS20DenomNotFound(packetData.denom);
-            }
+            require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
         }
         return (erc20Address, originatorChainIsSource);
     }
