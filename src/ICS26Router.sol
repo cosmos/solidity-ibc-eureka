@@ -6,6 +6,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { ICS02Client } from "./ICS02Client.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
+import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
@@ -138,6 +139,13 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
+        // recvPacket will no-op if the packet receipt already exists
+        // solhint-disable-next-line no-empty-blocks
+        try IBC_STORE.setPacketReceipt(msg_.packet) { }
+        catch (bytes memory reason) {
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector);
+        }
+
         bytes[] memory acks = new bytes[](1);
         acks[0] = getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
@@ -151,8 +159,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(acks[0].length != 0, IBCAsyncAcknowledgementNotSupported());
 
         writeAcknowledgement(msg_.packet, acks);
-
-        IBC_STORE.setPacketReceipt(msg_.packet);
 
         emit RecvPacket(msg_.packet);
     }
@@ -171,13 +177,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
         );
 
-        // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
-
         bytes memory commitmentPath =
             ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
         bytes[] memory acks = new bytes[](1);
@@ -193,6 +192,16 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         });
 
         ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+
+        // ackPacket will no-op if the packet commitment does not exist
+        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+            require(
+                storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+                IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+            );
+        } catch (bytes memory reason) {
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
+        }
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -222,13 +231,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
         );
 
-        // this will revert if the packet commitment does not exist
-        bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
-
         bytes memory receiptPath =
             ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
@@ -243,6 +245,16 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
         );
+
+        // timeoutPacket will no-op if the packet commitment does not exist
+        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+            require(
+                storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+                IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+            );
+        } catch (bytes memory reason) {
+            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
+        }
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
@@ -263,5 +275,21 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
         IBC_STORE.commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
+    }
+
+    /// @notice No-op if the reason is correct, otherwise reverts with the same reason
+    /// @dev Only to be used in catch blocks
+    /// @param reason The reason to check
+    /// @param correctReason The correct reason
+    function noopOnCorrectReason(bytes memory reason, bytes4 correctReason) private {
+        if (bytes4(reason) == correctReason) {
+            emit Noop();
+        } else {
+            // reverts with the same reason
+            // solhint-disable-next-line no-inline-assembly
+            assembly ("memory-safe") {
+                revert(add(reason, 32), mload(reason))
+            }
+        }
     }
 }
