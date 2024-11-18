@@ -57,7 +57,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             newPortId = Strings.toHexString(app);
         }
 
-        require(apps[newPortId] == IIBCApp(address(0)), IBCPortAlreadyExists(newPortId));
+        require(address(apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
         require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
 
         apps[newPortId] = IIBCApp(app);
