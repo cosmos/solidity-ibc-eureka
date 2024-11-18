@@ -149,6 +149,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
+        // solhint-disable-next-line no-empty-blocks
         try IBC_STORE.setPacketReceipt(msg_.packet) { }
         catch (bytes memory reason) {
             if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
@@ -156,6 +157,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 return; // no-op since the packet receipt already exists
             } else {
                 // reverts with the same reason
+                // solhint-disable-next-line no-inline-assembly
                 assembly ("memory-safe") {
                     revert(add(reason, 32), mload(reason))
                 }
@@ -223,6 +225,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 return; // no-op since the packet commitment already deleted
             } else {
                 // reverts with the same reason
+                // solhint-disable-next-line no-inline-assembly
                 assembly ("memory-safe") {
                     revert(add(reason, 32), mload(reason))
                 }
@@ -283,6 +286,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 return; // no-op since the packet commitment already deleted
             } else {
                 // reverts with the same reason
+                // solhint-disable-next-line no-inline-assembly
                 assembly ("memory-safe") {
                     revert(add(reason, 32), mload(reason))
                 }
