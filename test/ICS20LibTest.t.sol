@@ -56,7 +56,7 @@ contract ICS20LibTest is Test {
 
         // Test with a manual JSON string with memo
         jsonBz =
-            "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\",\"memo\":\"memo3\"}";
+            bytes("{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\",\"memo\":\"memo3\"}");
         packetData = this.unmarshalJSON(jsonBz);
         assertEq(packetData.denom, "denom3");
         assertEq(packetData.amount, 43);
@@ -65,7 +65,7 @@ contract ICS20LibTest is Test {
         assertEq(packetData.memo, "memo3");
 
         // Test with a manual JSON string without memo
-        jsonBz = "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\"}";
+        jsonBz = bytes("{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\",\"receiver\":\"receiver3\"}");
         packetData = this.unmarshalJSON(jsonBz);
         assertEq(packetData.denom, "denom3");
         assertEq(packetData.amount, 43);
@@ -74,7 +74,7 @@ contract ICS20LibTest is Test {
         assertEq(packetData.memo, "");
 
         // Test with a broken JSON string without memo
-        jsonBz = "{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\\,\"receiver\":\"receiver3\"}";
+        jsonBz = bytes("{\"denom\":\"denom3\",\"amount\":\"43\",\"sender\":\"sender3\\,\"receiver\":\"receiver3\"}");
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20JSONInvalidEscape.selector, 50, bytes1(0x2c)));
         packetData = this.unmarshalJSON(jsonBz);
     }

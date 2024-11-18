@@ -83,7 +83,7 @@ jobs:
         run: |
           forge coverage --report lcov
           # Remove zero hits
-          sed -i '/,0/d' lcov.info
+          # sed -i '/,0/d' lcov.info
 
       - uses: codecov/codecov-action@v4
         env:
