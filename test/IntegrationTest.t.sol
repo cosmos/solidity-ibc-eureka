@@ -198,9 +198,7 @@ contract IntegrationTest is Test {
             abi.encodeWithSelector(IIBCStore.deletePacketCommitment.selector)
         );
         // call ack again, should throw CallFailure
-        vm.expectRevert(
-            abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "deletePacketCommitment")
-        );
+        vm.expectRevert(abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "deletePacketCommitment"));
         ics26Router.ackPacket(ackMsg);
     }
 
@@ -278,9 +276,7 @@ contract IntegrationTest is Test {
             abi.encodeWithSelector(IIBCStore.deletePacketCommitment.selector)
         );
         // call timeout again, should throw CallFailure
-        vm.expectRevert(
-            abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "deletePacketCommitment")
-        );
+        vm.expectRevert(abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "deletePacketCommitment"));
         ics26Router.timeoutPacket(timeoutMsg);
     }
 
@@ -502,9 +498,7 @@ contract IntegrationTest is Test {
             abi.encodeWithSelector(IIBCStore.setPacketReceipt.selector)
         );
         // call recv again, should throw CallFailure
-        vm.expectRevert(
-            abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "setPacketReceipt")
-        );
+        vm.expectRevert(abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "setPacketReceipt"));
         ics26Router.recvPacket(msgRecvPacket);
     }
 

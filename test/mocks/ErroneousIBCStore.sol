@@ -11,7 +11,7 @@ import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
 contract ErroneousIBCStore is IIBCStore {
     error CallFailure(string reason);
 
-    constructor() {}
+    constructor() { }
 
     function getCommitment(bytes32) external pure returns (bytes32) {
         revert CallFailure("getCommitment");
