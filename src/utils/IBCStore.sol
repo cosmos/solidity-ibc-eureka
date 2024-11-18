@@ -14,7 +14,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @notice Previous sequence send for a given port and channel pair
     /// @dev (portId, channelId) => prevSeqSend
-    mapping(string portId => mapping(string channelId => uint32 prevSeqSend)) private prevSequenceSends;
+    mapping(string channelId => uint32 prevSeqSend) private prevSequenceSends;
 
     /// @param owner_ The owner of the contract
     /// @dev Owner is to be the ICS26Router contract
@@ -25,22 +25,13 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         return commitments[hashedPath];
     }
 
-    /// @notice Gets and increments the next sequence to send for a given port and channel pair.
-    /// @param portId The port identifier
-    /// @param channelId The channel identifier
-    /// @return The next sequence to send
     /// @inheritdoc IIBCStore
-    function nextSequenceSend(string calldata portId, string calldata channelId) public onlyOwner returns (uint32) {
-        uint32 seq = prevSequenceSends[portId][channelId] + 1;
-        prevSequenceSends[portId][channelId] = seq;
+    function nextSequenceSend(string calldata channelId) public onlyOwner returns (uint32) {
+        uint32 seq = prevSequenceSends[channelId] + 1;
+        prevSequenceSends[channelId] = seq;
         return seq;
     }
 
-    /// @notice Commits a packet
-    /// @param packet The packet to commit
-    /// @custom:spec
-    /// https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
-    /// modules/core/04-channel/types/packet.go#L38
     /// @inheritdoc IIBCStore
     function commitPacket(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);

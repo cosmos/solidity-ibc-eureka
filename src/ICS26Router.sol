@@ -90,7 +90,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
         }
 
-        uint32 sequence = IBC_STORE.nextSequenceSend(payload.sourcePort, msg_.sourceChannel);
+        uint32 sequence = IBC_STORE.nextSequenceSend(msg_.sourceChannel);
 
         Packet memory packet = Packet({
             sequence: sequence,
