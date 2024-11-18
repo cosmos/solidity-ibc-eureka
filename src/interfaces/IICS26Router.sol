@@ -9,11 +9,6 @@ import { IICS02Client } from "./IICS02Client.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router is IICS26RouterMsgs {
-    /// @notice Emitted when an IBC application is added to the router
-    /// @param portId The port identifier
-    /// @param app The address of the IBC application contract
-    event IBCAppAdded(string portId, address app);
-
     /// @notice Returns the IBC storage contract
     /// @return The address of the IBC stotage contract
     function IBC_STORE() external view returns (IIBCStore);
@@ -53,6 +48,10 @@ interface IICS26Router is IICS26RouterMsgs {
 
     // --------------------- Events --------------------- //
 
+    /// @notice Emitted when an IBC application is added to the router
+    /// @param portId The port identifier
+    /// @param app The address of the IBC application contract
+    event IBCAppAdded(string portId, address app);
     /// @notice Emitted when a packet is sent
     /// @param packet The sent packet
     event SendPacket(Packet packet);
@@ -70,4 +69,6 @@ interface IICS26Router is IICS26RouterMsgs {
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
     event AckPacket(Packet packet, bytes acknowledgement);
+    /// @notice Emitted when a redundant relay occurs
+    event Noop();
 }

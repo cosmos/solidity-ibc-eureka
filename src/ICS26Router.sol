@@ -135,6 +135,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         try IBC_STORE.setPacketReceipt(msg_.packet) { }
         catch (bytes memory reason) {
             if (bytes4(reason) == IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector) {
+                emit Noop();
                 return; // no-op since the packet receipt already exists
             } else {
                 // reverts with the same reason
@@ -202,6 +203,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             }
         } catch (bytes memory reason) {
             if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
+                emit Noop();
                 return; // no-op since the packet commitment already deleted
             } else {
                 // reverts with the same reason
@@ -263,6 +265,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             }
         } catch (bytes memory reason) {
             if (bytes4(reason) == IICS24HostErrors.IBCPacketCommitmentNotFound.selector) {
+                emit Noop();
                 return; // no-op since the packet commitment already deleted
             } else {
                 // reverts with the same reason
