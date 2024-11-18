@@ -39,9 +39,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
         IIBCApp app = apps[portId];
-        if (app == IIBCApp(address(0))) {
-            revert IBCAppNotFound(portId);
-        }
+        require(address(app) != address(0), IBCAppNotFound(portId));
         return app;
     }
 
@@ -59,12 +57,8 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             newPortId = Strings.toHexString(app);
         }
 
-        if (apps[newPortId] != IIBCApp(address(0))) {
-            revert IBCPortAlreadyExists(newPortId);
-        }
-        if (!IBCIdentifiers.validatePortIdentifier(bytes(newPortId))) {
-            revert IBCInvalidPortIdentifier(newPortId);
-        }
+        require(address(apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
+        require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
 
         apps[newPortId] = IIBCApp(app);
 
@@ -77,17 +71,15 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @inheritdoc IICS26Router
     function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
         // TODO: Support multi-payload packets #93
-        if (msg_.payloads.length != 1) {
-            revert IBCMultiPayloadPacketNotSupported();
-        }
+        require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
         string memory counterpartyId = ICS02_CLIENT.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
-        if (msg_.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp);
-        }
+        require(
+            msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
+        );
 
         uint32 sequence = IBC_STORE.nextSequenceSend(msg_.sourceChannel);
 
@@ -120,19 +112,18 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
-        if (msg_.packet.payloads.length != 1) {
-            revert IBCMultiPayloadPacketNotSupported();
-        }
+        require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
         IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.destChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.sourceChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel);
-        }
-
-        if (msg_.packet.timeoutTimestamp <= block.timestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp);
-        }
+        require(
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel)
+        );
+        require(
+            msg_.packet.timeoutTimestamp > block.timestamp,
+            IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp)
+        );
 
         bytes memory commitmentPath =
             ICS24Host.packetCommitmentPathCalldata(msg_.packet.sourceChannel, msg_.packet.sequence);
@@ -157,9 +148,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 relayer: _msgSender()
             })
         );
-        if (acks[0].length == 0) {
-            revert IBCAsyncAcknowledgementNotSupported();
-        }
+        require(acks[0].length != 0, IBCAsyncAcknowledgementNotSupported());
 
         writeAcknowledgement(msg_.packet, acks);
 
@@ -173,21 +162,21 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @inheritdoc IICS26Router
     function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
-        if (msg_.packet.payloads.length != 1) {
-            revert IBCMultiPayloadPacketNotSupported();
-        }
+        require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
         IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
-        }
+        require(
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
+        );
 
         // this will revert if the packet commitment does not exist
         bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
-            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
-        }
+        require(
+            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+        );
 
         bytes memory commitmentPath =
             ICS24Host.packetAcknowledgementCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
@@ -224,21 +213,21 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
-        if (msg_.packet.payloads.length != 1) {
-            revert IBCMultiPayloadPacketNotSupported();
-        }
+        require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
         IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
-        if (keccak256(bytes(cInfo.clientId)) != keccak256(bytes(msg_.packet.destChannel))) {
-            revert IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel);
-        }
+        require(
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
+        );
 
         // this will revert if the packet commitment does not exist
         bytes32 storedCommitment = IBC_STORE.deletePacketCommitment(msg_.packet);
-        if (storedCommitment != ICS24Host.packetCommitmentBytes32(msg_.packet)) {
-            revert IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet));
-        }
+        require(
+            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+        );
 
         bytes memory receiptPath =
             ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destChannel, msg_.packet.sequence);
@@ -250,9 +239,10 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         });
 
         uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
-        if (counterpartyTimestamp < msg_.packet.timeoutTimestamp) {
-            revert IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp);
-        }
+        require(
+            counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
+            IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
+        );
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
