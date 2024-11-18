@@ -167,9 +167,7 @@ library ICS24Host {
     /// @param path The path to append
     /// @return The prefixed path
     function prefixedPath(bytes[] memory merklePrefix, bytes memory path) internal pure returns (bytes[] memory) {
-        if (merklePrefix.length == 0) {
-            revert IICS24HostErrors.InvalidMerklePrefix(merklePrefix);
-        }
+        require(merklePrefix.length > 0, IICS24HostErrors.InvalidMerklePrefix(merklePrefix));
 
         merklePrefix[merklePrefix.length - 1] = abi.encodePacked(merklePrefix[merklePrefix.length - 1], path);
         return merklePrefix;
