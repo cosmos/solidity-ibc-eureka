@@ -80,8 +80,10 @@ jobs:
         uses: ./.github/setup
 
       - name: "Run coverage"
-        run: "bash scripts/checks/coverage.sh"
+        run: forge coverage --report lcov
 
       - uses: codecov/codecov-action@v4
+        with:
+          exclude: test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

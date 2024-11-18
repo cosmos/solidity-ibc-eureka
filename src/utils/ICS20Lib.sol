@@ -106,40 +106,43 @@ library ICS20Lib {
         uint256 pos = 0;
 
         unchecked {
-            if (bytes32(bz[pos:pos + 10]) != bytes32("{\"denom\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"denom\":\""), bytes32(bz[pos:pos + 10]));
-            }
+            require(
+                bytes32(bz[pos:pos + 10]) == bytes32("{\"denom\":\""),
+                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"denom\":\""), bytes32(bz[pos:pos + 10]))
+            );
             (pd.denom, pos) = parseString(bz, pos + 10);
 
-            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"amount\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]));
-            }
+            require(
+                bytes32(bz[pos:pos + 11]) == bytes32(",\"amount\":\""),
+                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]))
+            );
             (pd.amount, pos) = parseUint256String(bz, pos + 11);
 
-            if (bytes32(bz[pos:pos + 11]) != bytes32(",\"sender\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]));
-            }
+            require(
+                bytes32(bz[pos:pos + 11]) == bytes32(",\"sender\":\""),
+                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]))
+            );
             (pd.sender, pos) = parseString(bz, pos + 11);
 
-            if (bytes32(bz[pos:pos + 13]) != bytes32(",\"receiver\":\"")) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(
-                    pos, bytes32(",\"receiver\":\""), bytes32(bz[pos:pos + 13])
-                );
-            }
+            require(
+                bytes32(bz[pos:pos + 13]) == bytes32(",\"receiver\":\""),
+                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"receiver\":\""), bytes32(bz[pos:pos + 13]))
+            );
             (pd.receiver, pos) = parseString(bz, pos + 13);
 
             // check if the memo field is present, if not, we leave it empty
             if (pos != bz.length - 1 && uint256(uint8(bz[pos + 2])) == CHAR_M) {
-                if (bytes32(bz[pos:pos + 9]) != bytes32(",\"memo\":\"")) {
-                    // solhint-disable-next-line max-line-length
-                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]));
-                }
+                require(
+                    bytes32(bz[pos:pos + 9]) == bytes32(",\"memo\":\""),
+                    IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]))
+                );
                 (pd.memo, pos) = parseString(bz, pos + 9);
             }
 
-            if (pos != bz.length - 1 || uint256(uint8(bz[pos])) != CHAR_CLOSING_BRACE) {
-                revert IICS20Errors.ICS20JSONClosingBraceNotFound(pos, bz[pos]);
-            }
+            require(
+                pos == bz.length - 1 && uint256(uint8(bz[pos])) == CHAR_CLOSING_BRACE,
+                IICS20Errors.ICS20JSONClosingBraceNotFound(pos, bz[pos])
+            );
         }
 
         return pd;
@@ -160,9 +163,10 @@ library ICS20Lib {
                 }
                 ret = ret * 10 + (c - 48);
             }
-            if (pos >= bz.length || uint256(uint8(bz[pos])) != CHAR_DOUBLE_QUOTE) {
-                revert IICS20Errors.ICS20JSONStringClosingDoubleQuoteNotFound(pos, bz[pos]);
-            }
+            require(
+                pos < bz.length && uint256(uint8(bz[pos])) == CHAR_DOUBLE_QUOTE,
+                IICS20Errors.ICS20JSONStringClosingDoubleQuoteNotFound(pos, bz[pos])
+            );
             return (ret, pos + 1);
         }
     }
@@ -181,56 +185,15 @@ library ICS20Lib {
                 } else if (c == CHAR_BACKSLASH && i + 1 < bz.length) {
                     i++;
                     c = uint256(uint8(bz[i]));
-                    if (
-                        c != CHAR_DOUBLE_QUOTE && c != CHAR_SLASH && c != CHAR_BACKSLASH && c != CHAR_F && c != CHAR_R
-                            && c != CHAR_N && c != CHAR_B && c != CHAR_T
-                    ) {
-                        revert IICS20Errors.ICS20JSONInvalidEscape(i, bz[i]);
-                    }
+                    require(
+                        c == CHAR_DOUBLE_QUOTE || c == CHAR_SLASH || c == CHAR_BACKSLASH || c == CHAR_F || c == CHAR_R
+                            || c == CHAR_N || c == CHAR_B || c == CHAR_T,
+                        IICS20Errors.ICS20JSONInvalidEscape(i, bz[i])
+                    );
                 }
             }
         }
         revert IICS20Errors.ICS20JSONStringUnclosed(bz, pos);
-    }
-
-    /// @notice isEscapedJSONString checks if a string is escaped JSON.
-    /// @param s string
-    /// @return true if the string is escaped JSON
-    function isEscapedJSONString(string calldata s) private pure returns (bool) {
-        bytes memory bz = bytes(s);
-        unchecked {
-            for (uint256 i = 0; i < bz.length; i++) {
-                uint256 c = uint256(uint8(bz[i]));
-                if (c == CHAR_DOUBLE_QUOTE) {
-                    return false;
-                } else if (c == CHAR_BACKSLASH && i + 1 < bz.length) {
-                    i++;
-                    c = uint256(uint8(bz[i]));
-                    if (
-                        c != CHAR_DOUBLE_QUOTE && c != CHAR_SLASH && c != CHAR_BACKSLASH && c != CHAR_F && c != CHAR_R
-                            && c != CHAR_N && c != CHAR_B && c != CHAR_T
-                    ) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    /// @notice isEscapeNeededString checks if a string needs to be escaped.
-    /// @param bz bytes
-    /// @return true if the string needs to be escaped
-    function isEscapeNeededString(bytes memory bz) private pure returns (bool) {
-        unchecked {
-            for (uint256 i = 0; i < bz.length; i++) {
-                uint256 c = uint256(uint8(bz[i]));
-                if (c == CHAR_DOUBLE_QUOTE) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /// @notice hexStringToAddress converts a hex string to an address.
@@ -267,9 +230,7 @@ library ICS20Lib {
     /// @return address the converted address
     function mustHexStringToAddress(string memory addrHexString) internal pure returns (address) {
         (address addr, bool success) = hexStringToAddress(addrHexString);
-        if (!success) {
-            revert IICS20Errors.ICS20InvalidAddress(addrHexString);
-        }
+        require(success, IICS20Errors.ICS20InvalidAddress(addrHexString));
         return addr;
     }
 

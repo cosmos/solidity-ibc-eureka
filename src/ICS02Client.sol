@@ -23,9 +23,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     /// @param clientType The client type
     /// @return The next client identifier
     function getNextClientId(string calldata clientType) private returns (string memory) {
-        if (!IBCIdentifiers.validateClientType(clientType)) {
-            revert IBCInvalidClientType(clientType);
-        }
+        require(IBCIdentifiers.validateClientType(clientType), IBCInvalidClientType(clientType));
 
         uint32 seq = nextClientSeq[clientType];
         nextClientSeq[clientType] = seq + 1;
@@ -35,9 +33,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     /// @inheritdoc IICS02Client
     function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
         CounterpartyInfo memory counterpartyInfo = counterpartyInfos[clientId];
-        if (bytes(counterpartyInfo.clientId).length == 0) {
-            revert IBCCounterpartyClientNotFound(clientId);
-        }
+        require(bytes(counterpartyInfo.clientId).length != 0, IBCCounterpartyClientNotFound(clientId));
 
         return counterpartyInfo;
     }
@@ -45,9 +41,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     /// @inheritdoc IICS02Client
     function getClient(string calldata clientId) public view returns (ILightClient) {
         ILightClient client = clients[clientId];
-        if (client == ILightClient(address(0))) {
-            revert IBCClientNotFound(clientId);
-        }
+        require(address(client) != address(0), IBCClientNotFound(clientId));
 
         return client;
     }
