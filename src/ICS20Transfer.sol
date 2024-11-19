@@ -42,47 +42,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        require(msg_.amount > 0, ICS20InvalidAmount(msg_.amount));
-
-        // we expect the denom to be an erc20 address
-        address contractAddress = ICS20Lib.mustHexStringToAddress(msg_.denom);
-
-        string memory fullDenomPath;
-        try IBCERC20(contractAddress).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
-            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
-            fullDenomPath = ibcERC20FullDenomPath;
-        } catch {
-            // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = msg_.denom;
-        }
-
-        bytes memory packetData = ICS20Lib.marshalJSON(
-            fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo
-        );
-        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: msg_.destPort,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: packetData
-        });
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: msg_.sourceChannel,
-            timeoutTimestamp: msg_.timeoutTimestamp, // TODO: Default timestamp?
-            payloads: payloads
-        });
-
-        return IICS26Router(owner()).sendPacket(msgSendPacket);
+        return IICS26Router(owner()).sendPacket(createMsgSendPacket(msg_));
     }
 
     /// @inheritdoc IIBCApp
     function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        // The packet sender has to be the contract itself.
-        // Because of the packetData massaging we do in sendTransfer to convert the amount to sdkCoin, we don't allow
-        // this function to be called by anyone else. They could end up transferring a larger amount than intended.
-        require(msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
-
         require(
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
@@ -168,6 +132,49 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         _refundTokens(packetData, erc20Address);
 
         emit ICS20Timeout(packetData);
+    }
+
+    /// @notice Create a MsgSendPacket for an ICS20 transfer
+    /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
+    /// @param msg_ The message for sending a transfer
+    /// @return The constructed MsgSendPacket
+    function createMsgSendPacket(SendTransferMsg calldata msg_)
+        public
+        view
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
+    {
+        require(msg_.amount > 0, ICS20InvalidAmount(msg_.amount));
+
+        // we expect the denom to be an erc20 address
+        address contractAddress = ICS20Lib.mustHexStringToAddress(msg_.denom);
+
+        string memory fullDenomPath;
+        try IBCERC20(contractAddress).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
+            fullDenomPath = ibcERC20FullDenomPath;
+        } catch {
+            // otherwise this is just an ERC20 address, so we use it as the denom
+            fullDenomPath = msg_.denom;
+        }
+
+        bytes memory packetData = ICS20Lib.marshalJSON(
+            fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo
+        );
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: msg_.destPort,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: packetData
+        });
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
+            sourceChannel: msg_.sourceChannel,
+            timeoutTimestamp: msg_.timeoutTimestamp, // TODO: Default timestamp?
+            payloads: payloads
+        });
+
+        return msgSendPacket;
     }
 
     /// @notice Refund the tokens to the sender

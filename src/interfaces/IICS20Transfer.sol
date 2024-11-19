@@ -24,7 +24,10 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @param packetData The transfer packet data
     event ICS20Timeout(ICS20Lib.PacketDataJSON packetData);
 
-    /// @notice Send a transfer
+    /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
+    /// @notice This function is not strictly necessary. You can construct IICS26RouterMsgs.SendPacketMsg
+    /// @notice yourself and call IICS26Router.sendPacket, which uses less gas than this function
+    /// @notice There is also a helper function createMsgSendPacket to help construct the message
     /// @param msg The message for sending a transfer
     /// @return sequence The sequence number of the packet created
     function sendTransfer(SendTransferMsg calldata msg) external returns (uint32 sequence);

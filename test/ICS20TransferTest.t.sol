@@ -17,6 +17,7 @@ import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -141,7 +142,6 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfter, defaultAmount);
     }
 
-    /// @dev to document the behaviour of the contract when calling onSendPacket directly
     function test_success_onSendPacketWithLargeAmount() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
@@ -253,10 +253,11 @@ contract ICS20TransferTest is Test {
             })
         );
 
-        // test msg sender is the token sender (i.e. not ics20Transfer)
+        // test msg sender is sender, i.e. not owner (ics26Router)
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
         packet.payloads[0].value = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, sender));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, sender));
+        vm.prank(sender);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -266,16 +267,20 @@ contract ICS20TransferTest is Test {
                 sender: sender
             })
         );
-        // test msg sender is someone else entirely (i.e. not ics20Transfer)
+
+        // test msg sender is someone else entierly, i.e. owner (ics26Router)
         address someoneElse = makeAddr("someoneElse");
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, someoneElse));
+        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
+        packet.payloads[0].value = data;
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, someoneElse));
+        vm.prank(someoneElse);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: someoneElse
+                sender: sender
             })
         );
 

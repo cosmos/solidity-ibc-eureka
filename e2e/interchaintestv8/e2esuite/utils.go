@@ -151,6 +151,13 @@ func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
 	return txOpts
 }
 
+func (s *TestSuite) GetCallOpts(key *ecdsa.PrivateKey) *bind.CallOpts {
+	return &bind.CallOpts{
+		From:    bind.NewKeyedTransactor(key).From,
+		Context: context.Background(),
+	}
+}
+
 // PushNewWasmClientProposal submits a new wasm client governance proposal to the chain.
 func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, proposalContentReader io.Reader) string {
 	zippedContent, err := io.ReadAll(proposalContentReader)
