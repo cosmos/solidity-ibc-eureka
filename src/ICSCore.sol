@@ -24,9 +24,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @param clientType The client type
     /// @return The next client identifier
     function getNextClientId(string calldata clientType) private returns (string memory) {
-        if (!IBCIdentifiers.validateClientType(clientType)) {
-            revert IBCInvalidClientType(clientType);
-        }
+        require(IBCIdentifiers.validateClientType(clientType), IBCInvalidClientType(clientType));
 
         uint32 seq = nextClientSeq[clientType];
         nextClientSeq[clientType] = seq + 1;
@@ -36,9 +34,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @inheritdoc IICS04Channel
     function getChannel(string calldata channelId) public view returns (Channel memory) {
         Channel memory channel = channels[channelId];
-        if (bytes(channel.counterpartyId).length == 0) {
-            revert IBCCounterpartyClientNotFound(channelId);
-        }
+        require(bytes(channel.counterpartyId).length != 0, IBCCounterpartyClientNotFound(channelId));
 
         return channel;
     }
@@ -46,9 +42,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @inheritdoc IICS02Client
     function getClient(string calldata clientId) public view returns (ILightClient) {
         ILightClient client = clients[clientId];
-        if (client == ILightClient(address(0))) {
-            revert IBCClientNotFound(clientId);
-        }
+        require(address(client) != address(0), IBCClientNotFound(clientId));
 
         return client;
     }

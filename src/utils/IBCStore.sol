@@ -14,7 +14,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @notice Previous sequence send for a given port and channel pair
     /// @dev (portId, channelId) => prevSeqSend
-    mapping(string portId => mapping(string channelId => uint32 prevSeqSend)) private prevSequenceSends;
+    mapping(string channelId => uint32 prevSeqSend) private prevSequenceSends;
 
     /// @param owner_ The owner of the contract
     /// @dev Owner is to be the ICS26Router contract
@@ -25,45 +25,36 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         return commitments[hashedPath];
     }
 
-    /// @notice Gets and increments the next sequence to send for a given port and channel pair.
-    /// @param portId The port identifier
-    /// @param channelId The channel identifier
-    /// @return The next sequence to send
     /// @inheritdoc IIBCStore
-    function nextSequenceSend(string calldata portId, string calldata channelId) public onlyOwner returns (uint32) {
-        uint32 seq = prevSequenceSends[portId][channelId] + 1;
-        prevSequenceSends[portId][channelId] = seq;
+    function nextSequenceSend(string calldata channelId) public onlyOwner returns (uint32) {
+        uint32 seq = prevSequenceSends[channelId] + 1;
+        prevSequenceSends[channelId] = seq;
         return seq;
     }
 
-    /// @notice Commits a packet
-    /// @param packet The packet to commit
-    /// @custom:spec
-    /// https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
-    /// modules/core/04-channel/types/packet.go#L38
     /// @inheritdoc IIBCStore
     function commitPacket(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
-        if (commitments[path] != 0) {
-            revert IBCPacketCommitmentAlreadyExists(
+        require(
+            commitments[path] == 0,
+            IBCPacketCommitmentAlreadyExists(
                 ICS24Host.packetCommitmentPathCalldata(packet.sourceChannel, packet.sequence)
-            );
-        }
+            )
+        );
 
         bytes32 commitment = ICS24Host.packetCommitmentBytes32(packet);
-        emit PacketCommitted(path, commitment);
         commitments[path] = commitment;
+        emit PacketCommitted(path, commitment);
     }
 
     /// @inheritdoc IIBCStore
     function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) public onlyOwner returns (bytes32) {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
         bytes32 commitment = commitments[path];
-        if (commitment == 0) {
-            revert IBCPacketCommitmentNotFound(
-                ICS24Host.packetCommitmentPathCalldata(packet.sourceChannel, packet.sequence)
-            );
-        }
+        require(
+            commitment != 0,
+            IBCPacketCommitmentNotFound(ICS24Host.packetCommitmentPathCalldata(packet.sourceChannel, packet.sequence))
+        );
 
         delete commitments[path];
         return commitment;
@@ -72,11 +63,12 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @inheritdoc IIBCStore
     function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destChannel, packet.sequence);
-        if (commitments[path] != 0) {
-            revert IBCPacketReceiptAlreadyExists(
+        require(
+            commitments[path] == 0,
+            IBCPacketReceiptAlreadyExists(
                 ICS24Host.packetReceiptCommitmentPathCalldata(packet.destChannel, packet.sequence)
-            );
-        }
+            )
+        );
 
         commitments[path] = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
     }
@@ -84,11 +76,12 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @inheritdoc IIBCStore
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) public onlyOwner {
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
-        if (commitments[path] != 0) {
-            revert IBCPacketAcknowledgementAlreadyExists(
+        require(
+            commitments[path] == 0,
+            IBCPacketAcknowledgementAlreadyExists(
                 ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destChannel, packet.sequence)
-            );
-        }
+            )
+        );
 
         bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
         emit AckCommitted(path, commitment);
