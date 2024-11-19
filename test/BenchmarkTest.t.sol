@@ -4,9 +4,9 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length,avoid-low-level-calls
 
 import { TestERC20 } from "./mocks/TestERC20.sol";
-import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
-import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
-import { ICS24Host } from "../src/utils/ICS24Host.sol";
+import { IICS20TransferMsgs } from "../contracts/msgs/IICS20TransferMsgs.sol";
+import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { ICS24Host } from "../contracts/utils/ICS24Host.sol";
 import { FixtureTest } from "./fixtures/FixtureTest.t.sol";
 
 contract BenchmarkTest is FixtureTest {

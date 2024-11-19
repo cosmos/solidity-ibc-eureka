@@ -4,11 +4,11 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IICS02Client } from "../src/interfaces/IICS02Client.sol";
-import { ICS02Client } from "../src/ICS02Client.sol";
-import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
-import { ILightClient } from "../src/interfaces/ILightClient.sol";
-import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
+import { IICS02Client } from "../contracts/interfaces/IICS02Client.sol";
+import { ICS02Client } from "../contracts/ICS02Client.sol";
+import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
+import { ILightClient } from "../contracts/interfaces/ILightClient.sol";
+import { ILightClientMsgs } from "../contracts/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 
 contract ICS02ClientTest is Test {
