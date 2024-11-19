@@ -25,7 +25,7 @@ test-benchmark testname=".\\*":
 # Run forge fmt and bun solhint
 lint:
 	@echo "Linting the Solidity code..."
-	forge fmt --check && bun solhint -w 0 '{script,src,test}/**/*.sol'
+	forge fmt --check && bun solhint -w 0 '{script,contracts,test}/**/*.sol'
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run --fix
 
