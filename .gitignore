@@ -22,3 +22,6 @@ broadcast/*/31337/
 # ide files
 .idea/
 *.iml
+
+# Rust
+target

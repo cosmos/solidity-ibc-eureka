@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "packages/*",
+]
+resolver = "2"
+
+[workspace.package]
+version       = "0.1.0"
+edition       = "2021"
+license       = "MIT"
+repository    = "https://github.com/srdtrk/solidity-ibc-eureka"
+keywords      = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
+authors       = ["srdtrk <srdtrk@hotmail.com>"]
+
+[workspace.dependencies]
+serde = { version = "1.0", default-features = false }
+hex = "0.4"
+
+alloy-contract = "0.6"
+alloy-sol-types = "0.8"

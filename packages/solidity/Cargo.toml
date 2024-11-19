@@ -1,0 +1,16 @@
+[package]
+name = "ibc-eureka-solidity-types"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[features]
+rpc = ["dep:alloy-contract", "dep:hex"]
+
+[dependencies]
+alloy-sol-types = { workspace = true, features = ["json"] }
+alloy-contract = { workspace = true, optional = true }
+serde = { workspace = true }
+hex = { workspace = true, optional = true }
