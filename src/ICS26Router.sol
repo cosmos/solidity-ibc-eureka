@@ -147,7 +147,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         }
 
         bytes[] memory acks = new bytes[](1);
-        acks[0] = getIBCApp(payload.destPort).onRecvPacket(
+        try ack = getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
@@ -155,8 +155,19 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 payload: payload,
                 relayer: _msgSender()
             })
-        );
-        require(acks[0].length != 0, IBCAsyncAcknowledgementNotSupported());
+        ) {
+            require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
+
+            acks[0] = abi.encodePacked(
+                true,
+                ack
+            );
+        } catch (bytes memory errorData) {
+            acks[0] = abi.encodePacked(
+                false,
+                errorData
+            );
+        }
 
         writeAcknowledgement(msg_.packet, acks);
 
@@ -203,7 +214,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
         }
 
-        getIBCApp(payload.sourcePort).onAcknowledgementPacket(
+        try getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
@@ -212,7 +223,9 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 acknowledgement: msg_.acknowledgement,
                 relayer: _msgSender()
             })
-        );
+        ) {} catch {
+            // no-op
+        }
 
         emit AckPacket(msg_.packet, msg_.acknowledgement);
     }
@@ -256,7 +269,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
         }
 
-        getIBCApp(payload.sourcePort).onTimeoutPacket(
+        try getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
                 sourceChannel: msg_.packet.sourceChannel,
                 destinationChannel: msg_.packet.destChannel,
@@ -264,7 +277,9 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 payload: payload,
                 relayer: _msgSender()
             })
-        );
+        ) {} catch {
+            // no-op
+        }
 
         emit TimeoutPacket(msg_.packet);
     }
