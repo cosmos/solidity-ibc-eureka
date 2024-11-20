@@ -16,5 +16,7 @@ jsonrpsee = { workspace = true, features = ["client", "full", "tracing"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true, features = ["std"] }
 
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 alloy-contract = { workspace = true }
