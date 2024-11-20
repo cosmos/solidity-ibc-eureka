@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
+import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
 interface IICS20Transfer is IICS20TransferMsgs {
     /// @notice Called when a packet is handled in onSendPacket and a transfer has been initiated
@@ -35,4 +36,29 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @notice Retrieve the escrow contract address
     /// @return The escrow contract address
     function escrow() external view returns (address);
+
+    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for sending a transfer.
+    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
+    /// @param denom ERC20 address of the token to be transferred
+    /// @param amount Amount of tokens to be transferred
+    /// @param sender Sender of the tokens
+    /// @param receiver Receiver of the tokens
+    /// @param sourceChannel Source channel of the packet
+    /// @param destPort Destination port of the packet
+    /// @param timeoutTimestamp Timeout timestamp of the packet
+    /// @param memo Optional memo
+    /// @return The constructed MsgSendPacket
+    function createMsgSendPacket(
+        string calldata denom,
+        uint256 amount,
+        address sender,
+        string calldata receiver,
+        string calldata sourceChannel,
+        string calldata destPort,
+        uint64 timeoutTimestamp,
+        string calldata memo
+    )
+        external
+        view
+        returns (IICS26RouterMsgs.MsgSendPacket memory);
 }

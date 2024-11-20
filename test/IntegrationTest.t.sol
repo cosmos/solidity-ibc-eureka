@@ -1161,18 +1161,17 @@ contract IntegrationTest is Test {
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 
-        IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
-            amount: transferAmount,
-            receiver: receiverStr,
-            sourceChannel: clientIdentifier,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            memo: "memo"
-        });
-
-        vm.startPrank(sender);
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.createMsgSendPacket(transferMsg);
+        uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.createMsgSendPacket(
+            erc20AddressStr, 
+            transferAmount, 
+            sender, 
+            receiverStr, 
+            clientIdentifier, 
+            ICS20Lib.DEFAULT_PORT_ID, 
+            timeoutTimestamp,
+            "memo"
+        );
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
@@ -1191,13 +1190,13 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
-            sourceChannel: transferMsg.sourceChannel,
+            sourceChannel: msgSendPacket.sourceChannel,
             destChannel: counterpartyClient,
-            timeoutTimestamp: transferMsg.timeoutTimestamp,
+            timeoutTimestamp: timeoutTimestamp,
             payloads: packetPayloads
         });
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceChannel, sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(msgSendPacket.sourceChannel, sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 
