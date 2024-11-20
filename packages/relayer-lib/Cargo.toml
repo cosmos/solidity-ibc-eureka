@@ -10,7 +10,11 @@ license = { workspace = true }
 
 [dependencies]
 ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
+
 serde = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true, features = ["client", "full", "tracing"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true, features = ["std"] }
+
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy-contract = { workspace = true }
