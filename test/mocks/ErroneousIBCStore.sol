@@ -33,7 +33,7 @@ contract ErroneousIBCStore is IIBCStore {
         revert CallFailure("setPacketReceipt");
     }
 
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory, bytes[] memory) external pure {
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory, bool, bytes[] memory) external pure {
         revert CallFailure("commitPacketAcknowledgement");
     }
 }

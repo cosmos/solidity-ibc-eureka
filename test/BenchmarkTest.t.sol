@@ -62,7 +62,7 @@ contract BenchmarkTest is FixtureTest {
                 recvFixture.packet.destChannel, recvFixture.packet.sequence
             )
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
     }
 
     function test_ICS20TransferNativeSdkCoinWithSP1Fixtures_Plonk() public {
@@ -84,7 +84,7 @@ contract BenchmarkTest is FixtureTest {
                 recvNativeFixture.packet.destChannel, recvNativeFixture.packet.sequence
             )
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
     }
 
     function test_ICS20TimeoutWithSP1Fixtures_Plonk() public {

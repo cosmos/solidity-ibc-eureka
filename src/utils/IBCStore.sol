@@ -74,7 +74,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     }
 
     /// @inheritdoc IIBCStore
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) public onlyOwner {
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bool recvSuccess, bytes[] memory acks) public onlyOwner {
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
         require(
             commitments[path] == 0,
@@ -83,7 +83,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
             )
         );
 
-        bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
+        bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(recvSuccess, acks);
         emit AckCommitted(path, commitment);
         commitments[path] = commitment;
     }

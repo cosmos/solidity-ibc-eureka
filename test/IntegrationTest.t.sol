@@ -81,6 +81,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: true,
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -135,6 +136,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: false,
             acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -159,6 +161,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: false,
             acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -181,6 +184,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: false,
             acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -285,6 +289,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: true,
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -339,7 +344,7 @@ contract IntegrationTest is Test {
             address(erc20)
         );
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(packet, singleSuccessAck);
+        emit IICS26Router.WriteAcknowledgement(packet, true, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(packet);
 
@@ -359,7 +364,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
     }
 
     function test_success_recvNoop() public {
@@ -367,6 +372,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: true,
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -421,7 +427,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
 
         // call recv again, should be noop
         vm.expectEmit();
@@ -435,6 +441,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: true,
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
@@ -489,7 +496,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
 
         // override IBCStore to ErroneousIBCStore
         vm.mockFunction(
@@ -535,7 +542,7 @@ contract IntegrationTest is Test {
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, true, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -552,7 +559,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
@@ -701,11 +708,11 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
         bytes32 storedAck2 = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket2.destChannel, receivePacket2.sequence)
         );
-        assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
     }
 
     function test_failure_receiveMultiPacketWithForeignBaseDenom() public {
@@ -806,7 +813,7 @@ contract IntegrationTest is Test {
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, true, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -823,7 +830,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
@@ -945,7 +952,7 @@ contract IntegrationTest is Test {
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
+        emit IICS26Router.WriteAcknowledgement(receivePacket, true, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -962,7 +969,7 @@ contract IntegrationTest is Test {
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
         );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(true, singleSuccessAck));
 
         // find and extract data from the ICS20ReceiveTransfer event
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
@@ -1054,6 +1061,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
+            recvSuccess: true,
             acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept

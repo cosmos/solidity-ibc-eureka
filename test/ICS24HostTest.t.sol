@@ -74,9 +74,9 @@ contract ICS24HostTest is Test {
         bytes memory ack = abi.encodePacked("some bytes");
         bytes[] memory acks = new bytes[](1);
         acks[0] = ack;
-        bytes32 ackHash = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
+        bytes32 ackHash = ICS24Host.packetAcknowledgementCommitmentBytes32(true, acks);
         string memory actualAckHash = Strings.toHexString(uint256(ackHash));
-        string memory expectedAckHash = "0xf03b4667413e56aaf086663267913e525c442b56fa1af4fa3f3dab9f37044c5b";
+        string memory expectedAckHash = "0xfc02a4453c297c9b65189ec354f4fc7f0c1327b72f6044a20d4dd1fac8fda9f7";
         assertEq(actualAckHash, expectedAckHash);
     }
 
