@@ -2,5 +2,6 @@
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
 
+pub mod chain;
 pub mod events;
 pub mod listener;

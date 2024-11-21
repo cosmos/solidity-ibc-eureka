@@ -10,7 +10,7 @@ use alloy::{
 use anyhow::{anyhow, Result};
 use ibc_eureka_solidity_types::ics26::router::{routerEvents, routerInstance};
 
-use crate::events::EurekaEvent;
+use crate::{chain::EthEureka, events::EurekaEvent};
 
 use super::ChainListenerService;
 
@@ -30,16 +30,12 @@ impl<T: Transport + Clone, P: Provider<T>> ChainListener<T, P> {
 }
 
 #[async_trait::async_trait]
-impl<T, P> ChainListenerService for ChainListener<T, P>
+impl<T, P> ChainListenerService<EthEureka> for ChainListener<T, P>
 where
     T: Transport + Clone,
     P: Provider<T>,
 {
-    type Event = EurekaEvent;
-    type TxId = TxHash;
-    type Height = u64;
-
-    async fn fetch_tx_events(&self, tx_id: Self::TxId) -> Result<Vec<Self::Event>> {
+    async fn fetch_tx_events(&self, tx_id: TxHash) -> Result<Vec<EurekaEvent>> {
         let tx_height = self
             .ics26_router
             .provider()
@@ -68,11 +64,7 @@ where
             .collect())
     }
 
-    async fn fetch_events(
-        &self,
-        start_height: Self::Height,
-        end_height: Self::Height,
-    ) -> Result<Vec<Self::Event>> {
+    async fn fetch_events(&self, start_height: u64, end_height: u64) -> Result<Vec<EurekaEvent>> {
         let event_filter = Filter::new()
             .events(EurekaEvent::evm_signatures())
             .address(*self.ics26_router.address())

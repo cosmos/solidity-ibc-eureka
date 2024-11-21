@@ -6,17 +6,13 @@ use tendermint_rpc::{Client, HttpClient};
 
 use anyhow::Result;
 
-use crate::events::EurekaEvent;
+use crate::{chain::CosmosSdk, events::EurekaEvent};
 
 use super::ChainListenerService;
 
 #[async_trait::async_trait]
-impl ChainListenerService for HttpClient {
-    type Event = EurekaEvent;
-    type TxId = Hash;
-    type Height = u32;
-
-    async fn fetch_tx_events(&self, tx_id: Self::TxId) -> Result<Vec<Self::Event>> {
+impl ChainListenerService<CosmosSdk> for HttpClient {
+    async fn fetch_tx_events(&self, tx_id: Hash) -> Result<Vec<EurekaEvent>> {
         Ok(self
             .tx(tx_id, false)
             .await?
@@ -27,11 +23,7 @@ impl ChainListenerService for HttpClient {
             .collect())
     }
 
-    async fn fetch_events(
-        &self,
-        start_height: Self::Height,
-        end_height: Self::Height,
-    ) -> Result<Vec<Self::Event>> {
+    async fn fetch_events(&self, start_height: u32, end_height: u32) -> Result<Vec<EurekaEvent>> {
         Ok(stream::iter(start_height..=end_height)
             .then(|h| async move { self.block_results(h).await })
             .try_fold(vec![], |mut acc, resp| async move {
