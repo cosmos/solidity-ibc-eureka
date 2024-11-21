@@ -634,6 +634,8 @@ contract IntegrationTest is Test {
         (eventPacketData, erc20Address) =
             abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
         assertEq(eventPacketData.denom, foreignDenom);
+        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
+        assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
         assertEq(eventPacketData.sender, senderStr);
         assertEq(eventPacketData.receiver, receiverStr);
