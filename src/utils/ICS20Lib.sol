@@ -5,6 +5,9 @@ pragma solidity ^0.8.28;
 
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
+import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
+import { IBCERC20 } from "./IBCERC20.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 library ICS20Lib {
@@ -42,27 +45,6 @@ library ICS20Lib {
     bytes public constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
-
-    /// @notice CHAR_DOUBLE_QUOTE is the ASCII value for double quote.
-    uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
-    /// @notice CHAR_SLASH is the ASCII value for slash.
-    uint256 private constant CHAR_SLASH = 0x2f;
-    /// @notice CHAR_BACKSLASH is the ASCII value for backslash.
-    uint256 private constant CHAR_BACKSLASH = 0x5c;
-    /// @notice CHAR_F is the ASCII value for 'f'.
-    uint256 private constant CHAR_F = 0x66;
-    /// @notice CHAR_R is the ASCII value for 'r'.
-    uint256 private constant CHAR_R = 0x72;
-    /// @notice CHAR_N is the ASCII value for 'n'.
-    uint256 private constant CHAR_N = 0x6e;
-    /// @notice CHAR_B is the ASCII value for 'b'.
-    uint256 private constant CHAR_B = 0x62;
-    /// @notice CHAR_T is the ASCII value for 't'.
-    uint256 private constant CHAR_T = 0x74;
-    /// @notice CHAR_CLOSING_BRACE is the ASCII value for closing brace '}'.
-    uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
-    /// @notice CHAR_M is the ASCII value for 'm'.
-    uint256 private constant CHAR_M = 0x6d;
 
     /**
      * @notice Encodes a `PacketDataJSON` struct into ABI-encoded bytes.
@@ -140,40 +122,52 @@ library ICS20Lib {
         return abi.decode(data, (PacketDataJSON));
     }
 
-    /*
-    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
-    /// @param escapedDenom Escaped denom
-    /// @param amount Amount
-    /// @param escapedSender Escaped sender
-    /// @param escapedReceiver Escaped receiver
-    /// @param escapedMemo Escaped memo
-    /// @return Marshalled JSON bytes
-    function marshalJSON(
-        string memory escapedDenom,
-        uint256 amount,
-        string memory escapedSender,
-        string memory escapedReceiver,
-        string memory escapedMemo
+    /// @notice Create a MsgSendPacket for an ics20-1 transfer
+    /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
+    /// @return The constructed MsgSendPacket
+    function newMsgSendPacketV1(
+        address sender,
+        IICS20TransferMsgs.SendTransferMsg memory msg_
     )
         internal
-        pure
-        returns (bytes memory)
+        view
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        return abi.encodePacked(
-            "{\"denom\":\"",
-            escapedDenom,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"sender\":\"",
-            escapedSender,
-            "\",\"receiver\":\"",
-            escapedReceiver,
-            "\",\"memo\":\"",
-            escapedMemo,
-            "\"}"
-        );
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
+
+        string memory fullDenomPath;
+        try IBCERC20(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
+            fullDenomPath = ibcERC20FullDenomPath;
+        } catch {
+            // otherwise this is just an ERC20 address, so we use it as the denom
+            fullDenomPath = msg_.denom;
+        }
+
+        // We are encoding the payload in ABI format
+        bytes memory packetData = ICS20Lib.encodePayload(ICS20Lib.PacketDataJSON({
+            denom: fullDenomPath,
+            sender: Strings.toHexString(sender),
+            receiver: msg_.receiver,
+            amount: msg_.amount,
+            memo: msg_.memo
+        }));
+
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: msg_.destPort,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: packetData
+        });
+        return IICS26RouterMsgs.MsgSendPacket({
+            sourceChannel: msg_.sourceChannel,
+            timeoutTimestamp: msg_.timeoutTimestamp,
+            payloads: payloads
+        });
     }
-    */
+
     /// @notice hexStringToAddress converts a hex string to an address.
     /// @param addrHexString hex address string
     /// @return address value
@@ -208,9 +202,7 @@ library ICS20Lib {
     /// @return address the converted address
     function mustHexStringToAddress(string memory addrHexString) internal pure returns (address) {
         (address addr, bool success) = hexStringToAddress(addrHexString);
-        if (!success) {
-            revert IICS20Errors.ICS20InvalidAddress(addrHexString);
-        }
+        require(success, IICS20Errors.ICS20InvalidAddress(addrHexString));
         return addr;
     }
 

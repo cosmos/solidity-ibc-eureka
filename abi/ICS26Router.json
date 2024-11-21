@@ -575,6 +575,12 @@
   },
   {
     "type": "event",
+    "name": "Noop",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -940,11 +946,6 @@
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "IBCMultiPayloadPacketNotSupported",
-    "inputs": []
   },
   {
     "type": "error",

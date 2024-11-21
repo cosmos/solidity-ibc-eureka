@@ -35,6 +35,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -307,9 +309,14 @@ func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmos
 	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 25)
 }
 
-func (s *IbcEurekaTestSuite) Test_100_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
+func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 100)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 50)
+}
+
+func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
+	ctx := context.Background()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 50)
 }
 
 // ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality by transferring
@@ -334,8 +341,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
 	s.Require().NoError(err)
-	ics20transferAbi, err := abi.JSON(strings.NewReader(ics20transfer.ContractABI))
-	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, totalTransferAmount)
@@ -353,22 +358,24 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
-			Amount:           transferAmount,
-			Receiver:         cosmosUserAddress,
-			SourceChannel:    s.TendermintLightClientID,
-			DestPort:         transfertypes.PortID,
-			TimeoutTimestamp: timeout,
-			Memo:             "",
-		}
-		encodedMsg, err := ics20transferAbi.Pack("sendTransfer", msgSendTransfer)
+
+		msgSendPacket := s.createICS20MsgSendPacket(
+			ethereumUserAddress,
+			s.contractAddresses.Erc20,
+			transferAmount,
+			cosmosUserAddress,
+			s.TendermintLightClientID,
+			timeout,
+			"",
+		)
+
+		encodedMsg, err := ics26routerAbi.Pack("sendPacket", msgSendPacket)
 		s.Require().NoError(err)
 		for i := 0; i < numOfTransfers; i++ {
 			transferMulticall[i] = encodedMsg
 		}
 
-		tx, err := s.ics20Contract.Multicall(s.GetTransactOpts(s.key), transferMulticall)
+		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key), transferMulticall)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -470,28 +477,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a membership proof since the acknowledgement is written
-		proofPaths := make([]string, numOfTransfers)
+		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = string(ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1)))
+			proofPaths[i] = ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1))
 		}
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			proofType.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), strings.Join(proofPaths, ","), args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
 
 		ackMulticall := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
@@ -624,27 +615,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	var recvBlockNumber int64
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
 	s.Require().True(s.Run(fmt.Sprintf("Receive %d packets on Ethereum", numOfTransfers), func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
-		proofPaths := make([]string, numOfTransfers)
+		proofPaths := make([][]byte, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = string(ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1)))
+			proofPaths[i] = ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1))
 		}
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			proofType.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), strings.Join(proofPaths, ","), args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
 
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(returnPacket.Sequence),
@@ -730,15 +705,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			ackMsgs[i] = &channeltypesv2.MsgAcknowledgement{
 				Packet: returnPacket,
 				Acknowledgement: channeltypesv2.Acknowledgement{
-					AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
-						{
-							AppName: transfertypes.ModuleName,
-							RecvPacketResult: channeltypesv2.RecvPacketResult{
-								Status:          channeltypesv2.PacketStatus_Success,
-								Acknowledgement: returnWriteAckEvent.Acknowledgements[0],
-							},
-						},
-					},
+					AppAcknowledgements: returnWriteAckEvent.Acknowledgements,
 				},
 				ProofAcked: storageProofBz,
 				ProofHeight: clienttypes.Height{
@@ -866,24 +833,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var ibcERC20Address string
 	var recvBlockNumber int64
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetCommitmentPath), args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
 
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(sendPacket.Sequence),
@@ -970,15 +921,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
 			Packet: sendPacket,
 			Acknowledgement: channeltypesv2.Acknowledgement{
-				AcknowledgementResults: []channeltypesv2.AcknowledgementResult{
-					{
-						AppName: transfertypes.ModuleName,
-						RecvPacketResult: channeltypesv2.RecvPacketResult{
-							Status:          channeltypesv2.PacketStatus_Success,
-							Acknowledgement: ethReceiveAckEvent.Acknowledgements[0],
-						},
-					},
-				},
+				AppAcknowledgements: [][]byte{ethReceiveAckEvent.Acknowledgements[0]},
 			},
 			ProofAcked: storageProofBz,
 			ProofHeight: clienttypes.Height{
@@ -1006,17 +949,17 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var sendBlockNumber int64
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            ibcERC20Address,
-			Amount:           transferAmount,
-			Receiver:         cosmosUserAddress,
-			SourceChannel:    s.TendermintLightClientID,
-			DestPort:         transfertypes.PortID,
-			TimeoutTimestamp: timeout,
-			Memo:             returnMemo,
-		}
+		msgSendPacket := s.createICS20MsgSendPacket(
+			ethereumUserAddress,
+			ibcERC20Address,
+			transferAmount,
+			cosmosUserAddress,
+			s.TendermintLightClientID,
+			timeout,
+			returnMemo,
+		)
 
-		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
+		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key), msgSendPacket)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -1111,25 +1054,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a membership proof since the acknowledgement is written
 		packetAckPath := ibchostv2.PacketAcknowledgementKey(returnPacket.DestChannel, uint64(returnPacket.Sequence))
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetAckPath), args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetAckPath})
 
 		msg := ics26router.IICS26RouterMsgsMsgAckPacket{
 			Packet:          returnPacket,
@@ -1182,17 +1109,18 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	var timeout uint64
 	s.Require().True(s.Run("Send transfer on Ethereum", func() {
 		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
-		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
-			Amount:           transferAmount,
-			Receiver:         cosmosUserAddress,
-			SourceChannel:    s.TendermintLightClientID,
-			DestPort:         "transfer",
-			TimeoutTimestamp: timeout,
-			Memo:             "testmemo",
-		}
 
-		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key), msgSendTransfer)
+		msgSendPacket := s.createICS20MsgSendPacket(
+			ethereumUserAddress,
+			s.contractAddresses.Erc20,
+			transferAmount,
+			cosmosUserAddress,
+			s.TendermintLightClientID,
+			timeout,
+			"testmemo",
+		)
+
+		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key), msgSendPacket)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -1233,25 +1161,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	time.Sleep(45 * time.Second)
 
 	s.True(s.Run("Timeout packet on Ethereum", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-		s.Require().NoError(err)
-
-		trustedHeight := clientState.LatestHeight.RevisionHeight
-		latestHeight, err := simd.Height(ctx)
-		s.Require().NoError(err)
-
 		// This will be a non-membership proof since no packets have been sent
 		packetReceiptPath := ibchostv2.PacketReceiptKey(packet.DestChannel, uint64(packet.Sequence))
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		},
-			pt.ToOperatorArgs()...,
-		)
-		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight), string(packetReceiptPath), args...,
-		)
-		s.Require().NoError(err)
+		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetReceiptPath})
 
 		msg := ics26router.IICS26RouterMsgsMsgTimeoutPacket{
 			Packet:       packet,
@@ -1283,6 +1195,44 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	}))
 }
 
+func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
+	sender ethcommon.Address,
+	denom string,
+	amount *big.Int,
+	receiver string,
+	sourceChannel string,
+	timeoutTimestamp uint64,
+	memo string,
+) ics26router.IICS26RouterMsgsMsgSendPacket {
+	msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+		Denom:            denom,
+		Amount:           amount,
+		Receiver:         receiver,
+		SourceChannel:    sourceChannel,
+		DestPort:         transfertypes.PortID,
+		TimeoutTimestamp: timeoutTimestamp,
+		Memo:             memo,
+	}
+	msgSendPacket, err := s.ics20Contract.ContractCaller.NewMsgSendPacketV1(nil, sender, msgSendTransfer)
+	s.Require().NoError(err)
+
+	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
+	// So we just move the values over here:
+	return ics26router.IICS26RouterMsgsMsgSendPacket{
+		SourceChannel:    sourceChannel,
+		TimeoutTimestamp: timeoutTimestamp,
+		Payloads: []ics26router.IICS26RouterMsgsPayload{
+			{
+				SourcePort: msgSendPacket.Payloads[0].SourcePort,
+				DestPort:   msgSendPacket.Payloads[0].DestPort,
+				Version:    msgSendPacket.Payloads[0].Version,
+				Encoding:   msgSendPacket.Payloads[0].Encoding,
+				Value:      msgSendPacket.Payloads[0].Value,
+			},
+		},
+	}
+}
+
 func (s *IbcEurekaTestSuite) getCommitmentProof(path []byte) []byte {
 	eth, simd := s.ChainA, s.ChainB
 
@@ -1303,4 +1253,41 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(path []byte) []byte {
 		Proof: proofBz,
 	}
 	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
+}
+
+func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
+	ctx context.Context,
+	counterpartyChain *cosmos.CosmosChain,
+	proofType operator.SupportedProofType,
+	ibcProofPaths [][]byte,
+) (*ics26router.IICS02ClientMsgsHeight, []byte) {
+	clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+	s.Require().NoError(err)
+
+	trustedHeight := clientState.LatestHeight.RevisionHeight
+	latestHeight, err := counterpartyChain.Height(ctx)
+	s.Require().NoError(err)
+
+	proofPaths := make([][][]byte, len(ibcProofPaths))
+	for i, path := range ibcProofPaths {
+		proofPaths[i] = [][]byte{
+			[]byte("ibc"),
+			path,
+		}
+	}
+
+	proofPathsStr := operator.ToBase64KeyPaths(proofPaths...)
+
+	args := append([]string{
+		"--trust-level", testvalues.DefaultTrustLevel.String(),
+		"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
+		"--base64",
+	},
+		proofType.ToOperatorArgs()...,
+	)
+	proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
+		uint64(trustedHeight), uint64(latestHeight), proofPathsStr, args...,
+	)
+	s.Require().NoError(err)
+	return proofHeight, ucAndMemProof
 }

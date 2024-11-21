@@ -11,14 +11,16 @@ interface IIBCStore {
     /// @return The commitment for the given path.
     function getCommitment(bytes32 hashedPath) external view returns (bytes32);
 
-    /// @notice Gets and increments the next sequence to send for a given port and channel pair.
-    /// @param portId The port identifier.
+    /// @notice Gets and increments the next sequence to send for a given channel.
     /// @param channelId The channel identifier.
     /// @return The next sequence to send.
-    function nextSequenceSend(string calldata portId, string calldata channelId) external returns (uint32);
+    function nextSequenceSend(string calldata channelId) external returns (uint32);
 
     /// @notice Commits a packet
     /// @param packet The packet to commit
+    /// @custom:spec
+    /// https://github.com/cosmos/ibc-go/blob/2b40562bcd59ce820ddd7d6732940728487cf94e/
+    /// modules/core/04-channel/types/packet.go#L38
     function commitPacket(IICS26RouterMsgs.Packet memory packet) external;
 
     /// @notice Deletes a packet commitment and reverts if it does not exist

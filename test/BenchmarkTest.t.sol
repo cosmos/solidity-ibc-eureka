@@ -8,6 +8,7 @@ import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { ICS24Host } from "../src/utils/ICS24Host.sol";
 import { FixtureTest } from "./fixtures/FixtureTest.t.sol";
+import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
 
 contract BenchmarkTest is FixtureTest {
     function test_ICS20TransferWithSP1Fixtures_Plonk() public {
@@ -20,15 +21,19 @@ contract BenchmarkTest is FixtureTest {
         );
     }
 
-    function test_ICS20TransferWithSP1Fixtures_100Packets_Plonk() public {
-        ICS20TransferWithSP1FixturesTest(
-            "acknowledgeMultiPacket_100-plonk.json", "receiveMultiPacket_100-plonk.json", 100
-        );
+    function test_ICS20TransferWithSP1Fixtures_50Packets_Plonk() public {
+        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_50-plonk.json", "receiveMultiPacket_50-plonk.json", 50);
     }
 
     function test_ICS20TransferWithSP1Fixtures_25Packets_Groth16() public {
         ICS20TransferWithSP1FixturesTest(
             "acknowledgeMultiPacket_25-groth16.json", "receiveMultiPacket_25-groth16.json", 25
+        );
+    }
+
+    function test_ICS20TransferWithSP1Fixtures_50Packets_Groth16() public {
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_50-groth16.json", "receiveMultiPacket_50-groth16.json", 50
         );
     }
 
@@ -125,8 +130,8 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         erc20.approve(address(ics20Transfer), amountToSend);
 
-        vm.prank(user);
-        ics20Transfer.sendTransfer(
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
+            user,
             IICS20TransferMsgs.SendTransferMsg({
                 denom: packetData.denom,
                 amount: amountToSend,
@@ -137,6 +142,9 @@ contract BenchmarkTest is FixtureTest {
                 memo: packetData.memo
             })
         );
+
+        vm.prank(user);
+        ics26Router.sendPacket(msgSendPacket);
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceChannel, fixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));

@@ -5,6 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
+import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 
 contract ICS20LibTest is Test {
     struct IBCDenomTestCase {

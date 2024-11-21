@@ -2,6 +2,7 @@ package operator
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -125,4 +126,17 @@ func execOperatorCommand(c *exec.Cmd) ([]byte, error) {
 	}
 
 	return outBuf.Bytes(), nil
+}
+
+// ToBase64KeyPaths is a function that takes a list of key paths and returns a base64 encoded string
+// that the operator can use to generate a membership proof
+func ToBase64KeyPaths(paths ...[][]byte) string {
+	var keyPaths []string
+	for _, path := range paths {
+		if len(path) != 2 {
+			panic("path must have 2 elements")
+		}
+		keyPaths = append(keyPaths, base64.StdEncoding.EncodeToString(path[0])+"\\"+base64.StdEncoding.EncodeToString(path[1]))
+	}
+	return strings.Join(keyPaths, ",")
 }
