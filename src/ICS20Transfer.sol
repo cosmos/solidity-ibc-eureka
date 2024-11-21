@@ -70,6 +70,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
+        // only the sender in the payload or this contract (sendTransfer) can send the packet
         require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
 
         (address erc20Address, bool originatorChainIsSource) =
