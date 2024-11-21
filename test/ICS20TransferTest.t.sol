@@ -17,6 +17,7 @@ import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -111,7 +112,37 @@ contract ICS20TransferTest is Test {
         msgSendTransfer.denom = erc20AddressStr;
     }
 
-    function test_success_onSendPacket() public {
+    function test_success_onSendPacket_from_sender() public {
+        IICS26RouterMsgs.Packet memory packet = _getTestPacket();
+
+        erc20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        uint256 senderBalanceBefore = erc20.balanceOf(sender);
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
+        assertEq(senderBalanceBefore, defaultAmount);
+        assertEq(contractBalanceBefore, 0);
+
+        vm.expectEmit();
+        emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceChannel: packet.sourceChannel,
+                destinationChannel: packet.destChannel,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+
+        uint256 senderBalanceAfter = erc20.balanceOf(sender);
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
+        assertEq(senderBalanceAfter, 0);
+        assertEq(contractBalanceAfter, defaultAmount);
+    }
+
+    function test_success_onSendPacket_from_ics20() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
         erc20.mint(sender, defaultAmount);
@@ -141,7 +172,6 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfter, defaultAmount);
     }
 
-    /// @dev to document the behaviour of the contract when calling onSendPacket directly
     function test_success_onSendPacketWithLargeAmount() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
@@ -179,6 +209,8 @@ contract ICS20TransferTest is Test {
     function test_failure_onSendPacket() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
+        // this contract acts as the ics26Router (it is the address given as owner to the ics20Transfer contract)
+
         // test missing approval
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -191,7 +223,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
@@ -207,7 +239,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
@@ -221,7 +253,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
@@ -235,7 +267,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
@@ -249,14 +281,30 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
-        // test msg sender is the token sender (i.e. not ics20Transfer)
+        // test packet sender is not the same as the payload sender
+        address notSender = makeAddr("notSender");
         data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
         packet.payloads[0].value = data;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, sender));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, notSender));
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceChannel: packet.sourceChannel,
+                destinationChannel: packet.destChannel,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: notSender // not the same as the payload sender
+             })
+        );
+
+        // test msg sender is sender, i.e. not owner (ics26Router)
+        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
+        packet.payloads[0].value = data;
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, sender));
+        vm.prank(sender);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -266,16 +314,20 @@ contract ICS20TransferTest is Test {
                 sender: sender
             })
         );
-        // test msg sender is someone else entirely (i.e. not ics20Transfer)
+
+        // test msg sender is someone else entierly, i.e. owner (ics26Router)
         address someoneElse = makeAddr("someoneElse");
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, someoneElse));
+        data = ICS20Lib.marshalJSON(erc20AddressStr, defaultAmount, senderStr, receiverStr, "memo");
+        packet.payloads[0].value = data;
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, someoneElse));
+        vm.prank(someoneElse);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: someoneElse
+                sender: sender
             })
         );
 
@@ -289,7 +341,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
 
@@ -304,7 +356,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                sender: address(ics20Transfer)
+                sender: sender
             })
         );
         // Reset version

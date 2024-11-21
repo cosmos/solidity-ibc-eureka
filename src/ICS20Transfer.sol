@@ -13,7 +13,6 @@ import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 
@@ -42,47 +41,24 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        require(msg_.amount > 0, ICS20InvalidAmount(msg_.amount));
+        return IICS26Router(owner()).sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
+    }
 
-        // we expect the denom to be an erc20 address
-        address contractAddress = ICS20Lib.mustHexStringToAddress(msg_.denom);
-
-        string memory fullDenomPath;
-        try IBCERC20(contractAddress).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
-            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
-            fullDenomPath = ibcERC20FullDenomPath;
-        } catch {
-            // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = msg_.denom;
-        }
-
-        bytes memory packetData = ICS20Lib.marshalJSON(
-            fullDenomPath, msg_.amount, Strings.toHexString(_msgSender()), msg_.receiver, msg_.memo
-        );
-        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: msg_.destPort,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: packetData
-        });
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: msg_.sourceChannel,
-            timeoutTimestamp: msg_.timeoutTimestamp, // TODO: Default timestamp?
-            payloads: payloads
-        });
-
-        return IICS26Router(owner()).sendPacket(msgSendPacket);
+    /// @inheritdoc IICS20Transfer
+    function newMsgSendPacketV1(
+        address sender,
+        SendTransferMsg calldata msg_
+    )
+        external
+        view
+        override
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
+    {
+        return ICS20Lib.newMsgSendPacketV1(sender, msg_);
     }
 
     /// @inheritdoc IIBCApp
     function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        // The packet sender has to be the contract itself.
-        // Because of the packetData massaging we do in sendTransfer to convert the amount to sdkCoin, we don't allow
-        // this function to be called by anyone else. They could end up transferring a larger amount than intended.
-        require(msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
-
         require(
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
@@ -94,6 +70,9 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
+        // only the sender in the payload or this contract (sendTransfer) can send the packet
+        require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
+
         (address erc20Address, bool originatorChainIsSource) =
             getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
@@ -102,7 +81,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
-            // TODO: Implement escrow balance tracking (#6)
             IBCERC20 ibcERC20Contract = IBCERC20(erc20Address);
             ibcERC20Contract.burn(packetData.amount);
         }
