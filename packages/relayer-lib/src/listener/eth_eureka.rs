@@ -56,7 +56,7 @@ where
             .get_logs(&event_filter)
             .await?
             .iter()
-            .filter(|log| log.transaction_hash.unwrap_or_default() == *tx_id)
+            .filter(|log| log.transaction_hash.unwrap_or_default() == tx_id)
             .filter_map(|log| {
                 let sol_event = routerEvents::decode_log(&log.inner, true).ok()?.data;
                 EurekaEvent::try_from(sol_event).ok()
