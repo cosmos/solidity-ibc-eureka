@@ -21,15 +21,21 @@ contract BenchmarkTest is FixtureTest {
         );
     }
 
-    function test_ICS20TransferWithSP1Fixtures_100Packets_Plonk() public {
+    function test_ICS20TransferWithSP1Fixtures_50Packets_Plonk() public {
         ICS20TransferWithSP1FixturesTest(
-            "acknowledgeMultiPacket_100-plonk.json", "receiveMultiPacket_100-plonk.json", 100
+            "acknowledgeMultiPacket_50-plonk.json", "receiveMultiPacket_50-plonk.json", 50
         );
     }
 
     function test_ICS20TransferWithSP1Fixtures_25Packets_Groth16() public {
         ICS20TransferWithSP1FixturesTest(
             "acknowledgeMultiPacket_25-groth16.json", "receiveMultiPacket_25-groth16.json", 25
+        );
+    }
+
+    function test_ICS20TransferWithSP1Fixtures_50Packets_Groth16() public {
+        ICS20TransferWithSP1FixturesTest(
+            "acknowledgeMultiPacket_50-groth16.json", "receiveMultiPacket_50-groth16.json", 50
         );
     }
 
