@@ -1163,14 +1163,16 @@ contract IntegrationTest is Test {
 
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.createMsgSendPacket(
-            erc20AddressStr, 
-            transferAmount, 
-            sender, 
-            receiverStr, 
-            clientIdentifier, 
-            ICS20Lib.DEFAULT_PORT_ID, 
-            timeoutTimestamp,
-            "memo"
+            sender,
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: erc20AddressStr,
+                amount: transferAmount,
+                receiver: receiverStr,
+                sourceChannel: clientIdentifier,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: timeoutTimestamp,
+                memo: "memo"
+            })
         );
 
         vm.expectEmit();

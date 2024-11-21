@@ -64,8 +64,10 @@ generate-fixtures: clean
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures for 25 packets..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
-	@echo "Generating recvPacket and acknowledgePacket plonk fixtures for 100 packets..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_100_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures for 50 packets..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating recvPacket and acknowledgePacket plonk fixtures for 50 packets..."
+	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket plonk fixtures..."

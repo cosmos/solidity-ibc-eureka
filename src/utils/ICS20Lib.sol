@@ -6,6 +6,7 @@ pragma solidity ^0.8.28;
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { IBCERC20 } from "./IBCERC20.sol";
 
 // This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
@@ -68,54 +69,37 @@ library ICS20Lib {
 
     /// @notice Create a MsgSendPacket for an ICS20 transfer
     /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
-    /// @param denom ERC20 address of the token to be transferred
-    /// @param amount Amount of tokens to be transferred
-    /// @param sender Sender of the tokens
-    /// @param receiver Receiver of the tokens
-    /// @param sourceChannel Source channel of the packet
-    /// @param destPort Destination port of the packet
-    /// @param timeoutTimestamp Timeout timestamp of the packet
-    /// @param memo Optional memo
     /// @return The constructed MsgSendPacket
     function createMsgSendPacket(
-        string calldata denom,
-        uint256 amount,
         address sender,
-        string calldata receiver,
-        string calldata sourceChannel,
-        string calldata destPort,
-        uint64 timeoutTimestamp,
-        string calldata memo
+        IICS20TransferMsgs.SendTransferMsg memory msg_
     )
         internal
         view
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        require(amount > 0, IICS20Errors.ICS20InvalidAmount(amount));
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
         string memory fullDenomPath;
-        try IBCERC20(mustHexStringToAddress(denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+        try IBCERC20(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
             // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
             fullDenomPath = ibcERC20FullDenomPath;
         } catch {
             // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = denom;
+            fullDenomPath = msg_.denom;
         }
-
-        bytes memory packetData =
-            marshalJSON(fullDenomPath, amount, Strings.toHexString(sender), receiver, memo);
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: destPort,
+            destPort: msg_.destPort,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: packetData
+            value: marshalJSON(fullDenomPath, msg_.amount, Strings.toHexString(sender), msg_.receiver, msg_.memo)
         });
         return IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: sourceChannel,
-            timeoutTimestamp: timeoutTimestamp,
+            sourceChannel: msg_.sourceChannel,
+            timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
     }

@@ -121,23 +121,14 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     // Dummy implementation of IICS20Transfer
     function createMsgSendPacket(
-        string calldata,
-        uint256,
         address,
-        string calldata,
-        string calldata,
-        string calldata,
-        uint64,
-        string calldata
+        SendTransferMsg calldata
     )
         external
         pure
         override
-        returns (IICS26RouterMsgs.MsgSendPacket memory) {
-        return IICS26RouterMsgs.MsgSendPacket(
-           "",
-           0,
-              new IICS26RouterMsgs.Payload[](0)
-        );
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
+    {
+        return IICS26RouterMsgs.MsgSendPacket("", 0, new IICS26RouterMsgs.Payload[](0));
     }
 }

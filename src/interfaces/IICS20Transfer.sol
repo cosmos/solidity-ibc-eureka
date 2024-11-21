@@ -39,24 +39,12 @@ interface IICS20Transfer is IICS20TransferMsgs {
 
     /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for sending a transfer.
     /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
-    /// @param denom ERC20 address of the token to be transferred
-    /// @param amount Amount of tokens to be transferred
-    /// @param sender Sender of the tokens
-    /// @param receiver Receiver of the tokens
-    /// @param sourceChannel Source channel of the packet
-    /// @param destPort Destination port of the packet
-    /// @param timeoutTimestamp Timeout timestamp of the packet
-    /// @param memo Optional memo
+    /// @param sender The sender of the transfer
+    /// @param msg The message for sending a transfer
     /// @return The constructed MsgSendPacket
     function createMsgSendPacket(
-        string calldata denom,
-        uint256 amount,
         address sender,
-        string calldata receiver,
-        string calldata sourceChannel,
-        string calldata destPort,
-        uint64 timeoutTimestamp,
-        string calldata memo
+        SendTransferMsg calldata msg
     )
         external
         view

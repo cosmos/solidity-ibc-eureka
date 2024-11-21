@@ -41,39 +41,20 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        return IICS26Router(owner()).sendPacket(
-            ICS20Lib.createMsgSendPacket(
-                msg_.denom,
-                msg_.amount,
-                _msgSender(),
-                msg_.receiver,
-                msg_.sourceChannel,
-                msg_.destPort,
-                msg_.timeoutTimestamp,
-                msg_.memo
-            )
-        );
+        return IICS26Router(owner()).sendPacket(ICS20Lib.createMsgSendPacket(_msgSender(), msg_));
     }
 
     /// @inheritdoc IICS20Transfer
     function createMsgSendPacket(
-        string calldata denom,
-        uint256 amount,
         address sender,
-        string calldata receiver,
-        string calldata sourceChannel,
-        string calldata destPort,
-        uint64 timeoutTimestamp,
-        string calldata memo
+        SendTransferMsg calldata msg_
     )
         external
         view
         override
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        return ICS20Lib.createMsgSendPacket(
-            denom, amount, sender, receiver, sourceChannel, destPort, timeoutTimestamp, memo
-        );
+        return ICS20Lib.createMsgSendPacket(sender, msg_);
     }
 
     /// @inheritdoc IIBCApp

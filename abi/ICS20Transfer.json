@@ -15,6 +15,11 @@
     "name": "createMsgSendPacket",
     "inputs": [
       {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "msg_",
         "type": "tuple",
         "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
