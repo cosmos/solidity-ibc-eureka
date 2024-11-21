@@ -8,6 +8,7 @@ use tendermint::abci::Event as TmEvent;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::module_name_repetitions)]
 pub enum EurekaEvent {
     /// A packet was sent.
     SendPacket(SendPacket),
@@ -33,23 +34,6 @@ impl EurekaEvent {
             TimeoutPacket::SIGNATURE,
             WriteAcknowledgement::SIGNATURE,
         ]
-    }
-
-    /// Get the IBC provable path for the event.
-    /// This is used to prove the event on the IBC chain.
-    pub fn ibc_path(&self) -> Option<Vec<u8>> {
-        match self {
-            Self::SendPacket(e) => {
-                // we need to append some bytes together
-                let mut path = Vec::new();
-                path.extend_from_slice(e.packet.sourceChannel.as_bytes());
-                path.push(1_u8);
-                path.extend_from_slice(&u64::from(e.packet.sequence).to_be_bytes());
-                Some(path)
-            }
-            Self::WriteAcknowledgement(_) => todo!(),
-            Self::TimeoutPacket(_) | Self::RecvPacket(_) | Self::AckPacket(_) => None,
-        }
     }
 }
 
