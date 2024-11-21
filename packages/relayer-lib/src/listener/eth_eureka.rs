@@ -39,11 +39,11 @@ where
     type TxId = TxHash;
     type Height = u64;
 
-    async fn fetch_tx_events(&self, tx_id: &Self::TxId) -> Result<Vec<Self::Event>> {
+    async fn fetch_tx_events(&self, tx_id: Self::TxId) -> Result<Vec<Self::Event>> {
         let tx_height = self
             .ics26_router
             .provider()
-            .get_transaction_by_hash(*tx_id)
+            .get_transaction_by_hash(tx_id)
             .await?
             .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?
             .block_number

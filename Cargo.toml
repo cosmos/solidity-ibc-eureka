@@ -27,7 +27,9 @@ jsonrpsee = { version = "0.24", default-features = false }
 tracing = { version = "0.1", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 async-trait = "0.1"
+futures = { version = "0.3", default-features = false }
 
+tendermint = { version = "0.40", default-features = false }
 tendermint-rpc = { version = "0.40", default-features = false }
 
 alloy = { version = "0.6", default-features = false }

@@ -18,7 +18,7 @@ pub trait ChainListenerService {
     type Height: Clone + Serialize + DeserializeOwned + Debug + std::cmp::PartialOrd;
 
     /// Fetch events from a transaction.
-    async fn fetch_tx_events(&self, tx_id: &Self::TxId) -> Result<Vec<Self::Event>>;
+    async fn fetch_tx_events(&self, tx_id: Self::TxId) -> Result<Vec<Self::Event>>;
 
     /// Fetch events from a block range.
     /// Both the start and end heights are inclusive.

@@ -4,6 +4,7 @@ use alloy::sol_types::SolEvent;
 use ibc_eureka_solidity_types::ics26::router::{
     routerEvents, AckPacket, RecvPacket, SendPacket, TimeoutPacket, WriteAcknowledgement,
 };
+use tendermint::abci::Event as TmEvent;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -51,5 +52,13 @@ impl TryFrom<routerEvents> for EurekaEvent {
                 Err(anyhow::anyhow!("OwnershipTransferred event"))
             }
         }
+    }
+}
+
+impl TryFrom<TmEvent> for EurekaEvent {
+    type Error = anyhow::Error;
+
+    fn try_from(_event: TmEvent) -> anyhow::Result<Self> {
+        todo!()
     }
 }

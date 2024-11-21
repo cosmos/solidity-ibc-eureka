@@ -1881,9 +1881,11 @@ dependencies = [
  "alloy-contract",
  "anyhow",
  "async-trait",
+ "futures",
  "ibc-eureka-solidity-types",
  "jsonrpsee",
  "serde",
+ "tendermint",
  "tendermint-rpc",
 ]
 
@@ -3818,6 +3820,7 @@ dependencies = [
  "deranged",
  "num-conv",
  "powerfmt",
+ "serde",
  "time-core",
  "time-macros",
 ]
