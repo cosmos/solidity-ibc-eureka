@@ -70,6 +70,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
+        require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
+
         (address erc20Address, bool originatorChainIsSource) =
             getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
@@ -78,7 +80,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
-            // TODO: Implement escrow balance tracking (#6)
             IBCERC20 ibcERC20Contract = IBCERC20(erc20Address);
             ibcERC20Contract.burn(packetData.amount);
         }
