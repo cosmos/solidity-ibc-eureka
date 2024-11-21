@@ -41,11 +41,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        return IICS26Router(owner()).sendPacket(ICS20Lib.createMsgSendPacket(_msgSender(), msg_));
+        return IICS26Router(owner()).sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
     /// @inheritdoc IICS20Transfer
-    function createMsgSendPacket(
+    function newMsgSendPacketV1(
         address sender,
         SendTransferMsg calldata msg_
     )
@@ -54,7 +54,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         override
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        return ICS20Lib.createMsgSendPacket(sender, msg_);
+        return ICS20Lib.newMsgSendPacketV1(sender, msg_);
     }
 
     /// @inheritdoc IIBCApp

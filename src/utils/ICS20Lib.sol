@@ -67,10 +67,10 @@ library ICS20Lib {
     /// @notice CHAR_M is the ASCII value for 'm'.
     uint256 private constant CHAR_M = 0x6d;
 
-    /// @notice Create a MsgSendPacket for an ICS20 transfer
+    /// @notice Create a MsgSendPacket for an ics20-1 transfer
     /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
     /// @return The constructed MsgSendPacket
-    function createMsgSendPacket(
+    function newMsgSendPacketV1(
         address sender,
         IICS20TransferMsgs.SendTransferMsg memory msg_
     )

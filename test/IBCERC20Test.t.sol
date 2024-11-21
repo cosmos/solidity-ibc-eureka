@@ -120,7 +120,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function createMsgSendPacket(
+    function newMsgSendPacketV1(
         address,
         SendTransferMsg calldata
     )

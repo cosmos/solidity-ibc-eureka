@@ -22,9 +22,7 @@ contract BenchmarkTest is FixtureTest {
     }
 
     function test_ICS20TransferWithSP1Fixtures_50Packets_Plonk() public {
-        ICS20TransferWithSP1FixturesTest(
-            "acknowledgeMultiPacket_50-plonk.json", "receiveMultiPacket_50-plonk.json", 50
-        );
+        ICS20TransferWithSP1FixturesTest("acknowledgeMultiPacket_50-plonk.json", "receiveMultiPacket_50-plonk.json", 50);
     }
 
     function test_ICS20TransferWithSP1Fixtures_25Packets_Groth16() public {
@@ -132,7 +130,7 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         erc20.approve(address(ics20Transfer), amountToSend);
 
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.createMsgSendPacket(
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
             user,
             IICS20TransferMsgs.SendTransferMsg({
                 denom: packetData.denom,

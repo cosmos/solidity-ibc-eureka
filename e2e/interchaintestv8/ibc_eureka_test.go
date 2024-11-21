@@ -1213,7 +1213,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 		TimeoutTimestamp: timeoutTimestamp,
 		Memo:             memo,
 	}
-	msgSendPacket, err := s.ics20Contract.ContractCaller.CreateMsgSendPacket(nil, sender, msgSendTransfer)
+	msgSendPacket, err := s.ics20Contract.ContractCaller.NewMsgSendPacketV1(nil, sender, msgSendTransfer)
 	s.Require().NoError(err)
 
 	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket

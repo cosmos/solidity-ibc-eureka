@@ -1162,7 +1162,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceBefore, 0);
 
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.createMsgSendPacket(
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
             sender,
             IICS20TransferMsgs.SendTransferMsg({
                 denom: erc20AddressStr,
