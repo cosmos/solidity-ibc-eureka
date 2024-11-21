@@ -827,7 +827,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
-	var ethReceiveTransferPacket ics20transfer.ICS20LibPacketDataJSON
+	var ethReceiveTransferPacket ics20transfer.ICS20LibFungibleTokenPacketData
 	var denomOnEthereum transfertypes.Denom
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string

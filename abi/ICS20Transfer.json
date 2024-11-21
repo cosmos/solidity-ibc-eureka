@@ -523,7 +523,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -569,7 +569,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -615,7 +615,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -655,7 +655,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -726,6 +726,11 @@
   {
     "type": "error",
     "name": "FailedCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ICS20AbiEncodingFailure",
     "inputs": []
   },
   {

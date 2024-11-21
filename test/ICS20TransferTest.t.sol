@@ -34,7 +34,7 @@ contract ICS20TransferTest is Test {
     /// @dev the default sdkCoin amount when sending from the sdk side
     uint256 public defaultSdkCoinAmount = 1_000_000;
 
-    ICS20Lib.PacketDataJSON public defaultSendPacketData;
+    ICS20Lib.FungibleTokenPacketData public defaultSendPacketData;
     bytes public data;
 
     function setUp() public {
@@ -46,7 +46,7 @@ contract ICS20TransferTest is Test {
         erc20AddressStr = Strings.toHexString(address(erc20));
         senderStr = Strings.toHexString(sender);
 
-        defaultSendPacketData = ICS20Lib.PacketDataJSON({
+        defaultSendPacketData = ICS20Lib.FungibleTokenPacketData({
             denom: erc20AddressStr,
             sender: senderStr,
             receiver: receiverStr,
@@ -155,7 +155,7 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = erc20AddressStr;
         pd.sender = senderStr;
         pd.amount = defaultAmount;
@@ -516,7 +516,7 @@ contract ICS20TransferTest is Test {
 
         // test invalid contract
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = "invalid";
         pd.amount = defaultAmount;
         pd.sender = senderStr;
@@ -629,7 +629,7 @@ contract ICS20TransferTest is Test {
         );
 
         // test invalid contract
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = "invalid";
         pd.amount = defaultAmount;
         pd.sender = senderStr;
@@ -714,7 +714,7 @@ contract ICS20TransferTest is Test {
             receiverStr = tmpSenderStr;
         }
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = receivedDenom;
         pd.amount = defaultSdkCoinAmount;
         pd.sender = senderStr;
@@ -730,7 +730,7 @@ contract ICS20TransferTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.PacketDataJSON({
+            ICS20Lib.FungibleTokenPacketData({
                 denom: receivedDenom,
                 sender: senderStr,
                 receiver: receiverStr,
@@ -766,7 +766,7 @@ contract ICS20TransferTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = foreignDenom;
         pd.amount = defaultAmount;
         pd.sender = senderStr;
@@ -786,7 +786,7 @@ contract ICS20TransferTest is Test {
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destChannel, "/", foreignDenom));
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        ICS20Lib.PacketDataJSON memory packetData;
+        ICS20Lib.FungibleTokenPacketData memory packetData;
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.recordLogs();
@@ -807,7 +807,7 @@ contract ICS20TransferTest is Test {
         Vm.Log memory receiveTransferLog = entries[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
+        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
         assertEq(packetData.sender, senderStr);
@@ -834,7 +834,7 @@ contract ICS20TransferTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = foreignDenom;
         pd.amount = defaultAmount;
         pd.sender = senderStr;
@@ -852,7 +852,7 @@ contract ICS20TransferTest is Test {
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destChannel, "/", foreignDenom));
 
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        ICS20Lib.PacketDataJSON memory packetData;
+        ICS20Lib.FungibleTokenPacketData memory packetData;
         address erc20Address;
         emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
         vm.recordLogs();
@@ -873,7 +873,7 @@ contract ICS20TransferTest is Test {
         Vm.Log memory receiveTransferLog = entries[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
+        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
         assertEq(packetData.denom, foreignDenom);
         assertEq(packetData.sender, senderStr);
         assertEq(packetData.receiver, receiverStr);
@@ -896,7 +896,7 @@ contract ICS20TransferTest is Test {
         string memory ibcDenom =
             string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceChannel, "/", erc20AddressStr));
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = ibcDenom;
         pd.sender = senderStr;
         pd.amount = defaultAmount;

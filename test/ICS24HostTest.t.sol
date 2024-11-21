@@ -47,7 +47,7 @@ contract ICS24HostTest is Test {
         // Test against the ibc-go implementations output
         //bytes memory transferPayload = ICS20Lib.marshalJSON("uatom", 1_000_000, "sender", "receiver", "memo");
 
-        ICS20Lib.PacketDataJSON memory pd;
+        ICS20Lib.FungibleTokenPacketData memory pd;
         pd.denom = "uatom";
         pd.amount = 1_000_000;
         pd.sender = "sender";
