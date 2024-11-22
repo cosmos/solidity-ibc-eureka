@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.68.0
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.35.2
 )
 
 require (
@@ -302,9 +302,9 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241115141922-468035e27f63
+replace github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241122125410-44814ffd0163
 
-replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241115141922-468035e27f63
+replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241122125410-44814ffd0163
 
 replace (
 	github.com/misko9/go-substrate-rpc-client/v4 => github.com/DimitrisJim/go-substrate-rpc-client/v4 v4.0.0-20240717100841-406da076c1d5
