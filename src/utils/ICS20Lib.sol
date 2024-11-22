@@ -145,13 +145,15 @@ library ICS20Lib {
         }
 
         // We are encoding the payload in ABI format
-        bytes memory packetData = ICS20Lib.encodePayload(ICS20Lib.FungibleTokenPacketData({
-            denom: fullDenomPath,
-            sender: Strings.toHexString(sender),
-            receiver: msg_.receiver,
-            amount: msg_.amount,
-            memo: msg_.memo
-        }));
+        bytes memory packetData = ICS20Lib.encodePayload(
+            ICS20Lib.FungibleTokenPacketData({
+                denom: fullDenomPath,
+                sender: Strings.toHexString(sender),
+                receiver: msg_.receiver,
+                amount: msg_.amount,
+                memo: msg_.memo
+            })
+        );
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({

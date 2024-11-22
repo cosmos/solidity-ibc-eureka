@@ -271,7 +271,6 @@ contract ICS20TransferTest is Test {
         defaultSendPacketData.amount = defaultAmount; // reset amount
         packet.payloads[0].value = ICS20Lib.encodePayload(defaultSendPacketData);
 
-
         // test invalid data
         packet.payloads[0].value = bytes("invalid");
         vm.expectRevert(); // Given the data is invalid, we expect the abi.decodePayload to fail with a generic revert
@@ -426,9 +425,7 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            defaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+        emit IICS20Transfer.ICS20Acknowledgement(defaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceChannel: packet.sourceChannel,

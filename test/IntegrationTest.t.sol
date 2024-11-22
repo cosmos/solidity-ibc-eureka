@@ -126,13 +126,15 @@ contract IntegrationTest is Test {
         uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
         assertEq(sequence, 1);
 
-        bytes memory value = ICS20Lib.encodePayload(ICS20Lib.FungibleTokenPacketData({
-            denom: erc20AddressStr,
-            sender: senderStr,
-            receiver: receiverStr,
-            amount: transferAmount,
-            memo: "memo"
-        }));
+        bytes memory value = ICS20Lib.encodePayload(
+            ICS20Lib.FungibleTokenPacketData({
+                denom: erc20AddressStr,
+                sender: senderStr,
+                receiver: receiverStr,
+                amount: transferAmount,
+                memo: "memo"
+            })
+        );
 
         IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
         packetPayloads[0] = IICS26RouterMsgs.Payload({
@@ -455,13 +457,15 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(ICS20Lib.FungibleTokenPacketData({
-                denom: receivedDenom,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }))
+            value: ICS20Lib.encodePayload(
+                ICS20Lib.FungibleTokenPacketData({
+                    denom: receivedDenom,
+                    sender: senderStr,
+                    receiver: receiverStr,
+                    amount: transferAmount,
+                    memo: "backmemo"
+                })
+            )
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -529,13 +533,15 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(ICS20Lib.FungibleTokenPacketData({
-                denom: receivedDenom,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }))
+            value: ICS20Lib.encodePayload(
+                ICS20Lib.FungibleTokenPacketData({
+                    denom: receivedDenom,
+                    sender: senderStr,
+                    receiver: receiverStr,
+                    amount: transferAmount,
+                    memo: "backmemo"
+                })
+            )
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
