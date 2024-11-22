@@ -403,10 +403,17 @@ github.com/cosmos/iavl v1.2.0 h1:kVxTmjTh4k0Dh1VNL046v6BXqKziqMDzxo93oh3kOfM=
 github.com/cosmos/iavl v1.2.0/go.mod h1:HidWWLVAtODJqFD6Hbne2Y0q3SdxByJepHUOeoH4LiI=
 github.com/cosmos/ibc-go/modules/capability v1.0.1 h1:ibwhrpJ3SftEEZRxCRkH0fQZ9svjthrX2+oXdZvzgGI=
 github.com/cosmos/ibc-go/modules/capability v1.0.1/go.mod h1:rquyOV262nGJplkumH+/LeYs04P3eV8oB7ZM4Ygqk4E=
+<<<<<<< HEAD
 github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241123151201-3d84b47307b9 h1:xLh2Px8mToh/PbU7NzookBHLEr0h+GEnOAaaBwlF4Bc=
 github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241123151201-3d84b47307b9/go.mod h1:mQ8AAgoyLNNjmZqjsI8sJ1+ASS0CUSDGXJNqH1SgOfI=
 github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9 h1:30NCjBSKgVa4/mXj063EPBQ26ZR35EuxiSKmYXJ4sv0=
 github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9/go.mod h1:TYSpg74CWeTP35UnmhqvMeFcHFp4KdTfHN3Q9IDDjtQ=
+=======
+github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241122125410-44814ffd0163 h1:U3Raxj6geXtVHJVp/IcNf5iW/Zu74IOvKVlCGwBtdGc=
+github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241122125410-44814ffd0163/go.mod h1:mQ8AAgoyLNNjmZqjsI8sJ1+ASS0CUSDGXJNqH1SgOfI=
+github.com/cosmos/ibc-go/v9 v9.0.0-20241122125410-44814ffd0163 h1:GCrIWM5VvuIRl/jb4/s1g89l2M69nM/IoHtJBADXNa0=
+github.com/cosmos/ibc-go/v9 v9.0.0-20241122125410-44814ffd0163/go.mod h1:TYSpg74CWeTP35UnmhqvMeFcHFp4KdTfHN3Q9IDDjtQ=
+>>>>>>> 569bb1c (fixtures and update benchmark)
 github.com/cosmos/ics23/go v0.11.0 h1:jk5skjT0TqX5e5QJbEnwXIS2yI2vnmLOgpQPeM5RtnU=
 github.com/cosmos/ics23/go v0.11.0/go.mod h1:A8OjxPE67hHST4Icw94hOxxFEJMBG031xIGF/JHNIY0=
 github.com/cosmos/ledger-cosmos-go v0.13.3 h1:7ehuBGuyIytsXbd4MP43mLeoN2LTOEnk5nvue4rK+yM=
