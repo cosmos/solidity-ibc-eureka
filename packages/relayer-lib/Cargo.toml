@@ -9,19 +9,21 @@ license = { workspace = true }
 [features]
 default = ["sp1-toolchain"]
 # sp1-toolchain requires sp1 toolchain to be installed to build
-sp1-toolchain = ["dep:sp1-ics07-tendermint-solidity", "dep:sp1-ics07-tendermint-prover"]
+sp1-toolchain = ["dep:sp1-ics07-tendermint-solidity", "dep:sp1-ics07-tendermint-prover", "dep:sp1-ics07-tendermint-utils"]
 
 [dependencies]
 ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
 
 sp1-ics07-tendermint-solidity = { workspace = true, features = ["rpc"], optional = true }
 sp1-ics07-tendermint-prover = { workspace = true, optional = true }
+sp1-ics07-tendermint-utils = { workspace = true, optional = true }
 
 serde = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true, features = ["client", "full", "tracing"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true, features = ["std"] }
 futures = { workspace = true, default-features = true }
+itertools = { workspace = true, default-features = true }
 
 tendermint = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }

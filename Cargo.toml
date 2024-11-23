@@ -17,8 +17,9 @@ authors       = ["srdtrk <srdtrk@hotmail.com>"]
 [workspace.dependencies]
 ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }
 
-sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
-sp1-ics07-tendermint-prover = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
+sp1-ics07-tendermint-solidity = { path = "../sp1-ics07-tendermint/packages/solidity/", default-features = false }
+sp1-ics07-tendermint-prover = { path = "../sp1-ics07-tendermint/packages/prover/", default-features = false }
+sp1-ics07-tendermint-utils = { path = "../sp1-ics07-tendermint/packages/utils/", default-features = false }
 
 serde = { version = "1.0", default-features = false }
 hex = { version = "0.4", default-features = false }
@@ -31,6 +32,7 @@ tracing = { version = "0.1", default-features = false }
 anyhow = { version = "1.0", default-features = false }
 async-trait = "0.1"
 futures = { version = "0.3", default-features = false }
+itertools = { version = "0.13", default-features = false }
 
 tendermint = { version = "0.40", default-features = false }
 tendermint-rpc = { version = "0.40", default-features = false }
