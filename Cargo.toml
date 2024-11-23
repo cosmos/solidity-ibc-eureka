@@ -17,9 +17,9 @@ authors       = ["srdtrk <srdtrk@hotmail.com>"]
 [workspace.dependencies]
 ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }
 
-sp1-ics07-tendermint-solidity = { path = "../sp1-ics07-tendermint/packages/solidity/", default-features = false }
-sp1-ics07-tendermint-prover = { path = "../sp1-ics07-tendermint/packages/prover/", default-features = false }
-sp1-ics07-tendermint-utils = { path = "../sp1-ics07-tendermint/packages/utils/", default-features = false }
+sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
+sp1-ics07-tendermint-prover = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
+sp1-ics07-tendermint-utils = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
 
 serde = { version = "1.0", default-features = false }
 hex = { version = "0.4", default-features = false }
