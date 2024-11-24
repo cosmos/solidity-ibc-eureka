@@ -23,6 +23,7 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+- `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 
 ### Contracts

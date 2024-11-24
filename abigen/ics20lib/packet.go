@@ -6,6 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// EncodeFungibleTokenPacketData abi encodes the ICS20Transfer payload data.
+// This works the same way as abi.encode(ICS20LibFungibleTokenPacketData) in Solidity.
+// The encoded bytes are used as the payload in the Packet data.
 func EncodeFungibleTokenPacketData(ftpd ICS20LibFungibleTokenPacketData) ([]byte, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
@@ -15,13 +18,15 @@ func EncodeFungibleTokenPacketData(ftpd ICS20LibFungibleTokenPacketData) ([]byte
 	return parsedABI.Pack(ftpd)
 }
 
-func DecodeFungibleTokenPacketData(bz []byte) (ICS20LibFungibleTokenPacketData, error) {
+// DecodeFungibleTokenPacketData decodes an abi encoded ICS20Transfer payload data.
+// This works the same way as abi.decode(payload) in Solidity.
+func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleTokenPacketData, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
 		return ICS20LibFungibleTokenPacketData{}, err
 	}
 
-	unpacked, err := parsedABI.Unpack(bz)
+	unpacked, err := parsedABI.Unpack(abiEncodedFtpd)
 	if err != nil {
 		return ICS20LibFungibleTokenPacketData{}, err
 	}
