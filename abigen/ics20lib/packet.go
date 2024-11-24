@@ -26,6 +26,7 @@ func DecodeFungibleTokenPacketData(bz []byte) (ICS20LibFungibleTokenPacketData, 
 		return ICS20LibFungibleTokenPacketData{}, err
 	}
 
+	// We have to do this because Unpack returns a slice of interfaces where the concrete type is an anonymous struct
 	decodedAnon := unpacked[0].(struct {
 		Denom    string   `json:"denom"`
 		Sender   string   `json:"sender"`
