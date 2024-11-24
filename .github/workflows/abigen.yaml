@@ -26,3 +26,35 @@ jobs:
       - name: "Check that generating files from go does not create any changes" 
         uses: nickcharlton/diff-check@main
         with: just generate-abi
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: abigen/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61
+          working-directory: abigen
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: abigen/go.sum
+
+      - name: "Unit test abigen"
+        run: cd abigen && go test -v ./...
