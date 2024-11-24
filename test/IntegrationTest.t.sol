@@ -752,14 +752,6 @@ contract IntegrationTest is Test {
         });
 
         // Second packet
-        pd.denom = foreignDenom;
-        pd.amount = transferAmount;
-        pd.sender = senderStr;
-        pd.receiver = receiverStr;
-        pd.memo = "memo";
-
-        transferPayload = ICS20Lib.encodePayload(pd);
-
         IICS26RouterMsgs.Payload[] memory payloads2 = new IICS26RouterMsgs.Payload[](1);
         payloads2[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
@@ -840,15 +832,6 @@ contract IntegrationTest is Test {
         });
 
         // Second packet
-
-        pd.denom = foreignDenom;
-        pd.amount = transferAmount;
-        pd.sender = senderStr;
-        pd.receiver = receiverStr;
-        pd.memo = "memo";
-
-        transferPayload = ICS20Lib.encodePayload(pd);
-
         IICS26RouterMsgs.Payload[] memory payloads2 = new IICS26RouterMsgs.Payload[](1);
         payloads2[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
