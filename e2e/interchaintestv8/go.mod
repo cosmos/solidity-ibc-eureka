@@ -4,6 +4,8 @@ go 1.22.7
 
 toolchain go1.23.2
 
+replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
+
 require (
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/errors v1.0.1
