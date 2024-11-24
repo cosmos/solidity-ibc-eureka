@@ -456,10 +456,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			}
 		}
 
-		tx, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, recvPacketMsgs...)
+		_, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, recvPacketMsgs...)
 		s.Require().NoError(err)
-
-		fmt.Printf("tx: %+v\n", tx)
 
 		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
 		// recvAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
@@ -475,7 +473,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				Address: cosmosUserAddress,
 				Denom:   denomOnCosmos.IBCDenom(),
 			})
-			fmt.Printf("resp: %+v\n", resp)
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
