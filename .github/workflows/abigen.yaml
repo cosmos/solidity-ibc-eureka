@@ -25,7 +25,8 @@ jobs:
 
       - name: "Check that generating files from go does not create any changes" 
         uses: nickcharlton/diff-check@main
-        with: just generate-abi
+        with:
+          command: just generate-abi
 
   golangci:
     name: lint
