@@ -66,4 +66,3 @@ jobs:
 
       - name: "Unit test abigen"  
         run: cd abigen && go test -v ./...
-
