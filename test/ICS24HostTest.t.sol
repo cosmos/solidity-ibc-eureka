@@ -45,15 +45,13 @@ contract ICS24HostTest is Test {
 
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
-
-        ICS20Lib.FungibleTokenPacketData memory pd;
-        pd.denom = "uatom";
-        pd.amount = 1_000_000;
-        pd.sender = "sender";
-        pd.receiver = "receiver";
-        pd.memo = "memo";
-
-        bytes memory transferPayload = ICS20Lib.encodePayload(pd);
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            denom: "uatom",
+            amount: 1_000_000,
+            sender: "sender",
+            receiver: "receiver",
+            memo: "memo"
+        });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -61,7 +59,7 @@ contract ICS24HostTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: transferPayload
+            value: ICS20Lib.encodePayload(packetData)
         });
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({

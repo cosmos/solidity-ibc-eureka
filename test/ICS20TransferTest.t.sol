@@ -690,14 +690,14 @@ contract ICS20TransferTest is Test {
             receiverStr = tmpSenderStr;
         }
 
-        ICS20Lib.FungibleTokenPacketData memory backPayload = ICS20Lib.FungibleTokenPacketData({
+        ICS20Lib.FungibleTokenPacketData memory backPacketData = ICS20Lib.FungibleTokenPacketData({
             denom: receivedDenom,
             sender: senderStr,
             receiver: receiverStr,
             amount: defaultAmount,
             memo: "memo"
         });
-        packet.payloads[0].value = ICS20Lib.encodePayload(backPayload);
+        packet.payloads[0].value = ICS20Lib.encodePayload(backPacketData);
         packet.payloads[0].destPort = packet.payloads[0].sourcePort;
         packet.destChannel = packet.sourceChannel;
         packet.payloads[0].sourcePort = newSourcePort;
