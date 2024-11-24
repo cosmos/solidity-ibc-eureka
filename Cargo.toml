@@ -37,6 +37,8 @@ itertools = { version = "0.13", default-features = false }
 tendermint = { version = "0.40", default-features = false }
 tendermint-rpc = { version = "0.40", default-features = false }
 
+ibc-core-host-types = { version = "0.56", default-features = false }
+
 alloy = { version = "0.6", default-features = false }
 alloy-contract = "0.6"
 alloy-sol-types = "0.8"

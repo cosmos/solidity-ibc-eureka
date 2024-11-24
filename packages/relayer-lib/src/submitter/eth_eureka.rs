@@ -1,5 +1,9 @@
 //! The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
 
+#![allow(unused_imports)]
+
+use std::str::FromStr;
+
 use alloy::{
     primitives::{Address, TxHash},
     providers::Provider,
@@ -7,9 +11,14 @@ use alloy::{
 };
 use anyhow::Result;
 use futures::future;
+use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
     ics02::client::clientInstance,
-    ics26::{router::routerInstance, IICS02ClientMsgs::Height, IICS26RouterMsgs::MsgTimeoutPacket},
+    ics26::{
+        router::{ackPacketCall, recvPacketCall, routerCalls, routerInstance, timeoutPacketCall},
+        IICS02ClientMsgs::Height,
+        IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
+    },
 };
 use itertools::Itertools;
 use sp1_ics07_tendermint_prover::{
@@ -17,7 +26,7 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
 use sp1_ics07_tendermint_solidity::{sp1_ics07_tendermint, IICS07TendermintMsgs::ClientState};
-use sp1_ics07_tendermint_utils::merkle::convert_tm_to_ics_merkle_proof;
+use sp1_ics07_tendermint_utils::{merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt};
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::{
@@ -90,19 +99,25 @@ where
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
 
-        let target_height = self.tm_client.latest_block().await?.block.header.height;
+        let latest_light_block = self.tm_client.get_light_block(None).await?;
+        let revision_height = u32::try_from(latest_light_block.height().value())?;
+        let chain_id =
+            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
+        let latest_height = Height {
+            revisionNumber: chain_id.revision_number().try_into()?,
+            revisionHeight: revision_height,
+        };
 
-        let timeout_msg_by_channel = src_events.into_iter().filter_map(|e| match &e {
+        let timeout_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if now >= se.packet.timeoutTimestamp {
-                    Some((
-                        se.packet.sourceChannel.clone(),
-                        MsgTimeoutPacket {
-                            packet: se.packet.clone(),
-                            proofHeight: todo!(),
+                    Some(routerCalls::timeoutPacket(timeoutPacketCall {
+                        msg_: MsgTimeoutPacket {
+                            packet: se.packet,
+                            proofHeight: latest_height.clone(),
                             proofTimeout: b"".into(),
                         },
-                    ))
+                    }))
                 } else {
                     None
                 }
@@ -110,17 +125,43 @@ where
             _ => None,
         });
 
-        let dest_events_by_channel = dest_events.into_iter().filter_map(|e| match &e {
+        let recv_and_ack_msgs = dest_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if se.packet.timeoutTimestamp > now {
-                    Some((se.packet.destChannel.clone(), e))
+                    Some(routerCalls::recvPacket(recvPacketCall {
+                        msg_: MsgRecvPacket {
+                            packet: se.packet,
+                            proofHeight: latest_height.clone(),
+                            proofCommitment: b"".into(),
+                        },
+                    }))
                 } else {
                     None
                 }
             }
-            EurekaEvent::WriteAcknowledgement(wa) => Some((wa.packet.sourceChannel.clone(), e)),
+            EurekaEvent::WriteAcknowledgement(we) => {
+                Some(routerCalls::ackPacket(ackPacketCall {
+                    msg_: MsgAckPacket {
+                        packet: we.packet,
+                        acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
+                        proofHeight: latest_height.clone(),
+                        proofAcked: b"".into(),
+                    },
+                }))
+            }
             _ => None,
         });
+
+        let _calls_by_channel = timeout_msgs
+            .chain(recv_and_ack_msgs)
+            .into_group_map_by(|call| match &call {
+                routerCalls::timeoutPacket(c) => c.msg_.packet.sourceChannel.clone(),
+                routerCalls::recvPacket(c) => c.msg_.packet.destChannel.clone(),
+                routerCalls::ackPacket(c) => c.msg_.packet.sourceChannel.clone(),
+                _ => unreachable!(),
+            });
+
+        // TODO: Filter already submitted packets
 
         //let events_by_channel = source_events_by_channel
         //    .chain(dest_events_by_channel)
@@ -130,18 +171,16 @@ where
         //    let client_state = self.client_state(channel_id.clone()).await?;
         //}
 
-        //let ibc_paths = timeout_events
-        //    .map(|e| match e {
-        //        EurekaEvent::SendPacket(se) => se.packet.receipt_commitment_path(),
-        //        _ => unreachable!(),
-        //    })
-        //    .chain(recv_ack_events.map(|e| match e {
-        //        EurekaEvent::SendPacket(se) => se.packet.commitment_path(),
-        //        EurekaEvent::WriteAcknowledgement(we) => we.packet.ack_commitment_path(),
-        //        _ => unreachable!(),
-        //    }))
+        //let ibc_paths = timeout_msg
+        //    .map(|msg| msg.packet.receipt_commitment_path())
+        //    .chain(
+        //        recv_msgs
+        //            .iter()
+        //            .map(|msg| msg.packet.commitment_path())
+        //            .chain(ack_msgs.iter().map(|msg| msg.packet.ack_commitment_path())),
+        //    )
         //    .map(|path| vec![b"ibc".into(), path]);
-        //
+
         //let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
         //    future::try_join_all(ibc_paths.into_iter().map(|path| async {
         //        let res = self
@@ -150,12 +189,12 @@ where
         //                Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
         //                path[1].as_slice(),
         //                // Proof height should be the block before the target block.
-        //                Some((target_block - 1).into()),
+        //                Some((revision_height - 1).into()),
         //                true,
         //            )
         //            .await?;
         //
-        //        if u32::try_from(res.height.value())? + 1 != target_block {
+        //        if u32::try_from(res.height.value())? + 1 != revision_height {
         //            anyhow::bail!("Proof height mismatch");
         //        }
         //
@@ -171,10 +210,8 @@ where
         //    }))
         //    .await?;
         //
-        //let sp1_uc_and_mem_proof =
-        //    SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(
-        //        SupportedProofType::Plonk,
-        //    );
+        //let sp1_uc_and_mem_prover =
+        //    SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(self.proof_type);
 
         todo!()
     }

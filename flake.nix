@@ -44,6 +44,8 @@
             jq
             parallel
             rust-bin.stable.latest.default
+            protobuf
+            buf
           ];
 
           NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [

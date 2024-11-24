@@ -3191,6 +3191,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures",
+ "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "itertools 0.13.0",
  "jsonrpsee",

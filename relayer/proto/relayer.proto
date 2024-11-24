@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package relayer;
+
+import "chain.proto";
+
+// The relayer service definition
+// Each relayer service is defined between two chains.
+// One chain is the source chain, and the other chain is the target chain.
+service Relayer {
+    // Relay the ibc packets produced by the results of transactions
+    rpc RelayByTx (RelayByTxRequest) returns (RelayReply);
+    // Request relayer information
+    rpc Info (InfoRequest) returns (InfoReply);
+}
+
+// The request message
+message RelayRequest {
+    // The identifiers for the transactions to be relayed
+    // This is usually the transaction hash
+    repeated bytes tx_ids = 1;
+    // The identifier for the target channel
+    // Used for event filtering
+    string target_channel_id = 2;
+}
+
+// The response message
+message RelayReply {
+    // The multicall transaction to be submitted by caller
+    bytes tx = 1;
+}
+
+// Information request message
+message InfoRequest {}
+
+// Information response message
+message InfoReply {
+    // The target chain information
+    Chain target_chain = 1;
+    // The source chain information
+    Chain source_chain = 2;
+}

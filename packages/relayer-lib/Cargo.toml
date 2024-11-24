@@ -28,5 +28,7 @@ itertools = { workspace = true, default-features = true }
 tendermint = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 
+ibc-core-host-types = { workspace = true }
+
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 alloy-contract = { workspace = true }
