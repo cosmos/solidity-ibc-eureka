@@ -98,9 +98,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        // Attempt to decode the payload
         ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
-
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
         );
