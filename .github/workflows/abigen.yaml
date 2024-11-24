@@ -1,0 +1,28 @@
+name: abigen
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "abi/**"
+      - "abigen/**"
+
+jobs:
+  gen-check:
+    name: "Check for abigen changes"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v2
+
+      - name: "Install abigen"
+        run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+
+      - name: "Check that generating files from go does not create any changes" 
+        uses: nickcharlton/diff-check@main
+        with: just generate-abi
