@@ -54,16 +54,16 @@ jobs:
           working-directory: abigen
 
     test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout sources
+          uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.23"
-          cache-dependency-path: abigen/go.sum
+        - uses: actions/setup-go@v4
+          with:
+            go-version: "1.23"
+            cache-dependency-path: abigen/go.sum
 
-      - name: "Unit test abigen"  
-        run: cd abigen && go test -v ./...
+        - name: "Unit test abigen"  
+          run: cd abigen && go test -v ./...
 
