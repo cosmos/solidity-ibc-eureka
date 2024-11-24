@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 // membershipFixture is a struct that contains the membership proof and proof height

@@ -31,7 +31,7 @@ library ICS20Lib {
     string public constant ICS20_VERSION = "ics20-1";
 
     /// @notice ICS20_ENCODING is the encoding string for ICS20 packet data.
-    string public constant ICS20_ENCODING = "application/x-abi";
+    string public constant ICS20_ENCODING = "application/x-solidity-abi";
 
     /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
     string public constant IBC_DENOM_PREFIX = "ibc/";

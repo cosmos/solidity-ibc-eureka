@@ -74,7 +74,7 @@ contract ICS24HostTest is Test {
 
         bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);
         string memory actual = Strings.toHexString(uint256(commitmentBytes));
-        string memory expected = "0xb9d420befe16f001bdd1f7b8352259c9f9777abc36e50cd34e605ff23dfc7a35";
+        string memory expected = "0xb691a1950f6fb0bbbcf4bdb16fe2c4d0aa7ef783eb7803073f475cb8164d9b7a";
         assertEq(actual, expected);
     }
 
