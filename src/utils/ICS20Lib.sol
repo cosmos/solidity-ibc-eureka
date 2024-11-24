@@ -120,9 +120,6 @@ library ICS20Lib {
      *   - Optionally validate `memo` for length or allowed characters.
      * - Ensure that the consumer of the encoded bytes uses the same ABI decoding standard.
      */
-    /// @notice Encodes an ICS20Payload struct into ABI bytes.
-    /// @param payload The ICS20Payload struct to encode
-    /// @return Encoded bytes
     function encodePayload(FungibleTokenPacketData memory payload) internal pure returns (bytes memory) {
         return abi.encode(payload);
     }
@@ -159,9 +156,6 @@ library ICS20Lib {
      * - Consider using a try/catch block for decoding, or handle decoding errors explicitly to ensure
      *   the function does not fail silently or revert without providing clear error messages.
      */
-    /// @notice Decodes ABI-encoded bytes into an ICS20Payload struct.
-    /// @param data ABI-encoded bytes representing an ICS20Payload
-    /// @return Decoded ICS20Payload struct
     function decodePayload(bytes memory data) external pure returns (FungibleTokenPacketData memory) {
         return abi.decode(data, (FungibleTokenPacketData));
     }
