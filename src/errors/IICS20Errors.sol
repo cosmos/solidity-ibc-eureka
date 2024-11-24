@@ -34,40 +34,14 @@ interface IICS20Errors {
 
     // ICS20Lib Errors:
 
-    /// @notice Unexpected bytes in JSON packet data
-    /// @param position position in packet data bytes
-    /// @param expected expected bytes
-    /// @param actual actual bytes
-    error ICS20JSONUnexpectedBytes(uint256 position, bytes32 expected, bytes32 actual);
-
     /// @notice Abi encoding/decoding failure
     error ICS20AbiEncodingFailure();
 
-    /// @notice JSON closing brace not found
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONClosingBraceNotFound(uint256 position, bytes1 actual);
-
-    /// @notice JSON closing double quote not found
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONStringClosingDoubleQuoteNotFound(uint256 position, bytes1 actual);
-
-    /// @notice JSON string unclosed
-    /// @param bz json string value
-    /// @param position position in packet data bytes
-    error ICS20JSONStringUnclosed(bytes bz, uint256 position);
-
-    /// @notice JSON invalid escape
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONInvalidEscape(uint256 position, bytes1 actual);
-
-    /// @notice JSON bytes slice overflow
+    /// @notice Bytes slice overflow
     /// @param length length of the slice
     error ICS20BytesSliceOverflow(uint256 length);
 
-    /// @notice JSON bytes slice out of bounds
+    /// @notice Bytes slice out of bounds
     /// @param length length of the bytes
     /// @param start start index
     /// @param end end index

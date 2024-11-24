@@ -9,9 +9,10 @@ import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { IBCERC20 } from "./IBCERC20.sol";
 
-// This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
+// This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
+// It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
 library ICS20Lib {
-    /// @notice FungibleTokenPacketData is the JSON representation of a fungible token transfer packet.
+    /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
     /// @dev PacketData is defined in
     /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
     /// @param denom The denomination of the token
@@ -76,9 +77,6 @@ library ICS20Lib {
      *   - Optionally validate `memo` for length or allowed characters.
      * - Ensure that the consumer of the encoded bytes uses the same ABI decoding standard.
      */
-    /// @notice Encodes an ICS20Payload struct into ABI bytes.
-    /// @param payload The ICS20Payload struct to encode
-    /// @return Encoded bytes
     function encodePayload(FungibleTokenPacketData memory payload) internal pure returns (bytes memory) {
         return abi.encode(payload);
     }
@@ -115,9 +113,6 @@ library ICS20Lib {
      * - Consider using a try/catch block for decoding, or handle decoding errors explicitly to ensure
      *   the function does not fail silently or revert without providing clear error messages.
      */
-    /// @notice Decodes ABI-encoded bytes into an ICS20Payload struct.
-    /// @param data ABI-encoded bytes representing an ICS20Payload
-    /// @return Decoded ICS20Payload struct
     function decodePayload(bytes memory data) external pure returns (FungibleTokenPacketData memory) {
         return abi.decode(data, (FungibleTokenPacketData));
     }
