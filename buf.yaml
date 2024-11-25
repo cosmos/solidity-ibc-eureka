@@ -1,6 +1,6 @@
 version: v2
 modules:
-  - path: proto
+  - path: relayer/proto
     name: buf.build/cosmos/solidity-ibc-eureka-relayer
 lint:
   use:
@@ -8,8 +8,6 @@ lint:
     - COMMENTS
     - FILE_LOWER_SNAKE_CASE
   except:
-    - UNARY_RPC
-    - COMMENT_FIELD
     - PACKAGE_VERSION_SUFFIX
   ignore:
     - node_modules
