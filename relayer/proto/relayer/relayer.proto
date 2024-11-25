@@ -9,7 +9,7 @@ import "relayer/chain.proto";
 // One chain is the source chain, and the other chain is the target chain.
 service RelayerService {
     // Relay the ibc packets produced by the results of transactions
-    rpc RelayByTx (RelayByTxRequest) returns (stream RelayByTxResponse);
+    rpc RelayByTx (RelayByTxRequest) returns (RelayByTxResponse);
     // Request relayer information
     rpc Info (InfoRequest) returns (InfoResponse);
 }
@@ -28,24 +28,10 @@ message RelayByTxRequest {
 
 // The response message
 message RelayByTxResponse {
-    // The status of the request
-    RequestStatus status = 1;
     // The multicall transaction to be submitted by caller
-    // Updated once the request is completed
-    bytes tx = 2;
+    bytes tx = 1;
     // The contract address to submit the transaction, if applicable
-    // Updated once the request is completed
-    string address = 3;
-}
-
-// The request status
-enum RequestStatus {
-    // The status is unknown
-    REQUEST_STATUS_UNKNOWN_UNSPECIFIED = 0;
-    // The request is in progress
-    REQUEST_STATUS_IN_PROGRESS = 1;
-    // The request is completed
-    REQUEST_STATUS_COMPLETED = 2;
+    string address = 2;
 }
 
 // Information request message
