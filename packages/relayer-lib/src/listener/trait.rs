@@ -8,7 +8,7 @@ use crate::chain::Chain;
 #[async_trait::async_trait]
 pub trait ChainListenerService<C: Chain> {
     /// Fetch events from a transaction.
-    async fn fetch_tx_events(&self, tx_id: C::TxId) -> Result<Vec<C::Event>>;
+    async fn fetch_tx_events(&self, tx_ids: Vec<C::TxId>) -> Result<Vec<C::Event>>;
 
     /// Fetch events from a block range.
     /// Both the start and end heights are inclusive.
