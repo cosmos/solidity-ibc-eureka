@@ -3193,12 +3193,12 @@ dependencies = [
  "futures",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
- "itertools 0.13.0",
  "jsonrpsee",
  "serde",
  "sp1-ics07-tendermint-prover",
  "sp1-ics07-tendermint-solidity",
  "sp1-ics07-tendermint-utils",
+ "sp1-sdk",
  "tendermint",
  "tendermint-rpc",
 ]

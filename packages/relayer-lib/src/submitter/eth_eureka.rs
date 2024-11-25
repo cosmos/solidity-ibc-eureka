@@ -1,12 +1,11 @@
 //! The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
 
-#![allow(unused_imports)]
-
 use std::str::FromStr;
 
 use alloy::{
-    primitives::{Address, TxHash},
+    primitives::Address,
     providers::Provider,
+    sol_types::{SolCall, SolValue},
     transports::Transport,
 };
 use anyhow::Result;
@@ -15,18 +14,28 @@ use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
     ics02::client::clientInstance,
     ics26::{
-        router::{ackPacketCall, recvPacketCall, routerCalls, routerInstance, timeoutPacketCall},
+        router::{
+            ackPacketCall, multicallCall, recvPacketCall, routerCalls, routerInstance,
+            timeoutPacketCall,
+        },
         IICS02ClientMsgs::Height,
         IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
     },
 };
-use itertools::Itertools;
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram,
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
-use sp1_ics07_tendermint_solidity::{sp1_ics07_tendermint, IICS07TendermintMsgs::ClientState};
-use sp1_ics07_tendermint_utils::{merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt};
+use sp1_ics07_tendermint_solidity::{
+    sp1_ics07_tendermint,
+    IICS07TendermintMsgs::ClientState,
+    IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
+    ISP1Msgs::SP1Proof,
+};
+use sp1_ics07_tendermint_utils::{
+    light_block::LightBlockExt, merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt,
+};
+use sp1_sdk::HashableKey;
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::{
@@ -90,11 +99,13 @@ where
     T: Transport + Clone,
     P: Provider<T> + Clone,
 {
-    async fn submit_events(
+    #[allow(clippy::too_many_lines)]
+    async fn relay_events(
         &self,
         src_events: Vec<EurekaEvent>,
         dest_events: Vec<EurekaEvent>,
-    ) -> Result<TxHash> {
+        target_channel_id: String,
+    ) -> Result<(String, Vec<u8>)> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
@@ -108,9 +119,10 @@ where
             revisionHeight: revision_height,
         };
 
+        let filter_channel = target_channel_id.clone();
         let timeout_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp {
+                if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == filter_channel {
                     Some(routerCalls::timeoutPacket(timeoutPacketCall {
                         msg_: MsgTimeoutPacket {
                             packet: se.packet,
@@ -127,7 +139,7 @@ where
 
         let recv_and_ack_msgs = dest_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
-                if se.packet.timeoutTimestamp > now {
+                if se.packet.timeoutTimestamp > now && se.packet.destChannel == filter_channel {
                     Some(routerCalls::recvPacket(recvPacketCall {
                         msg_: MsgRecvPacket {
                             packet: se.packet,
@@ -140,79 +152,118 @@ where
                 }
             }
             EurekaEvent::WriteAcknowledgement(we) => {
-                Some(routerCalls::ackPacket(ackPacketCall {
-                    msg_: MsgAckPacket {
-                        packet: we.packet,
-                        acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
-                        proofHeight: latest_height.clone(),
-                        proofAcked: b"".into(),
-                    },
-                }))
+                if we.packet.sourceChannel == filter_channel {
+                    Some(routerCalls::ackPacket(ackPacketCall {
+                        msg_: MsgAckPacket {
+                            packet: we.packet,
+                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
+                            proofHeight: latest_height.clone(),
+                            proofAcked: b"".into(),
+                        },
+                    }))
+                } else {
+                    None
+                }
             }
             _ => None,
         });
 
-        let _calls_by_channel = timeout_msgs
-            .chain(recv_and_ack_msgs)
-            .into_group_map_by(|call| match &call {
-                routerCalls::timeoutPacket(c) => c.msg_.packet.sourceChannel.clone(),
-                routerCalls::recvPacket(c) => c.msg_.packet.destChannel.clone(),
-                routerCalls::ackPacket(c) => c.msg_.packet.sourceChannel.clone(),
-                _ => unreachable!(),
-            });
+        let mut all_msgs = timeout_msgs.chain(recv_and_ack_msgs).collect::<Vec<_>>();
 
         // TODO: Filter already submitted packets
 
-        //let events_by_channel = source_events_by_channel
-        //    .chain(dest_events_by_channel)
-        //    .into_group_map();
-        //
-        //for channel_id in events_by_channel.keys() {
-        //    let client_state = self.client_state(channel_id.clone()).await?;
-        //}
+        let ibc_paths = all_msgs
+            .iter()
+            .map(|msg| match msg {
+                routerCalls::timeoutPacket(call) => call.msg_.packet.receipt_commitment_path(),
+                routerCalls::recvPacket(call) => call.msg_.packet.commitment_path(),
+                routerCalls::ackPacket(call) => call.msg_.packet.ack_commitment_path(),
+                _ => unreachable!(),
+            })
+            .map(|path| vec![b"ibc".into(), path]);
 
-        //let ibc_paths = timeout_msg
-        //    .map(|msg| msg.packet.receipt_commitment_path())
-        //    .chain(
-        //        recv_msgs
-        //            .iter()
-        //            .map(|msg| msg.packet.commitment_path())
-        //            .chain(ack_msgs.iter().map(|msg| msg.packet.ack_commitment_path())),
-        //    )
-        //    .map(|path| vec![b"ibc".into(), path]);
+        let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
+            future::try_join_all(ibc_paths.into_iter().map(|path| async {
+                let res = self
+                    .tm_client
+                    .abci_query(
+                        Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
+                        path[1].as_slice(),
+                        // Proof height should be the block before the target block.
+                        Some((revision_height - 1).into()),
+                        true,
+                    )
+                    .await?;
 
-        //let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
-        //    future::try_join_all(ibc_paths.into_iter().map(|path| async {
-        //        let res = self
-        //            .tm_client
-        //            .abci_query(
-        //                Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
-        //                path[1].as_slice(),
-        //                // Proof height should be the block before the target block.
-        //                Some((revision_height - 1).into()),
-        //                true,
-        //            )
-        //            .await?;
-        //
-        //        if u32::try_from(res.height.value())? + 1 != revision_height {
-        //            anyhow::bail!("Proof height mismatch");
-        //        }
-        //
-        //        if res.key.as_slice() != path[1].as_slice() {
-        //            anyhow::bail!("Key mismatch");
-        //        }
-        //        let vm_proof = convert_tm_to_ics_merkle_proof(&res.proof.unwrap())?;
-        //        if vm_proof.proofs.is_empty() {
-        //            anyhow::bail!("Empty proof");
-        //        }
-        //
-        //        anyhow::Ok((path, res.value, vm_proof))
-        //    }))
-        //    .await?;
-        //
-        //let sp1_uc_and_mem_prover =
-        //    SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(self.proof_type);
+                if u32::try_from(res.height.value())? + 1 != revision_height {
+                    anyhow::bail!("Proof height mismatch");
+                }
 
-        todo!()
+                if res.key.as_slice() != path[1].as_slice() {
+                    anyhow::bail!("Key mismatch");
+                }
+                let vm_proof = convert_tm_to_ics_merkle_proof(&res.proof.unwrap())?;
+                if vm_proof.proofs.is_empty() {
+                    anyhow::bail!("Empty proof");
+                }
+
+                anyhow::Ok((path, res.value, vm_proof))
+            }))
+            .await?;
+
+        let client_state = self.client_state(target_channel_id).await?;
+        let trusted_light_block = self
+            .tm_client
+            .get_light_block(Some(client_state.latestHeight.revisionHeight))
+            .await?;
+
+        // Get the proposed header from the target light block.
+        let proposed_header = latest_light_block.into_header(&trusted_light_block);
+
+        let uc_and_mem_prover =
+            SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(self.proof_type);
+
+        let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
+            &client_state,
+            &trusted_light_block.to_consensus_state().into(),
+            &proposed_header,
+            now,
+            kv_proofs,
+        );
+
+        let sp1_proof = MembershipProof::from(SP1MembershipAndUpdateClientProof {
+            sp1Proof: SP1Proof::new(
+                &uc_and_mem_prover.vkey.bytes32(),
+                uc_and_mem_proof.bytes(),
+                uc_and_mem_proof.public_values.to_vec(),
+            ),
+        });
+
+        // inject proof
+        match all_msgs.first_mut() {
+            Some(routerCalls::timeoutPacket(ref mut call)) => {
+                *call.msg_.proofTimeout = sp1_proof.abi_encode().into();
+            }
+            Some(routerCalls::recvPacket(ref mut call)) => {
+                *call.msg_.proofCommitment = sp1_proof.abi_encode().into();
+            }
+            Some(routerCalls::ackPacket(ref mut call)) => {
+                *call.msg_.proofAcked = sp1_proof.abi_encode().into();
+            }
+            _ => unreachable!(),
+        }
+
+        let calls = all_msgs.into_iter().map(|msg| match msg {
+            routerCalls::timeoutPacket(call) => call.abi_encode(),
+            routerCalls::recvPacket(call) => call.abi_encode(),
+            routerCalls::ackPacket(call) => call.abi_encode(),
+            _ => unreachable!(),
+        });
+
+        let multicall_tx = multicallCall {
+            data: calls.map(Into::into).collect(),
+        };
+
+        Ok((String::new(), multicall_tx.abi_encode()))
     }
 }

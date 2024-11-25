@@ -7,11 +7,15 @@ use anyhow::Result;
 #[async_trait::async_trait]
 #[allow(dead_code)]
 pub trait ChainSubmitterService<A: Chain, B: Chain> {
-    /// Submit a transaction to chain A based on the events from chain A and chain B.
+    /// Generate a transaction to chain A based on the events from chain A and chain B.
     /// Events from chain A are often used for timeout purposes and can be left empty.
-    async fn submit_events(
+    ///
+    /// # Returns
+    /// The address of the IBC contract on chain A and the transaction bytes.
+    async fn relay_events(
         &self,
-        a_events: Vec<A::Event>,
-        b_events: Vec<B::Event>,
-    ) -> Result<A::TxId>;
+        src_events: Vec<A::Event>,
+        target_events: Vec<B::Event>,
+        target_channel_id: String,
+    ) -> Result<(String, Vec<u8>)>;
 }
