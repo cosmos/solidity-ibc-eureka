@@ -43,6 +43,8 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerModule
 {
     type Config = RelayerConfig;
 
+    const NAME: &'static str = "cosmos_to_eth";
+
     fn new(_config: Self::Config) -> Self {
         todo!()
     }

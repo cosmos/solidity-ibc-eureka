@@ -10,6 +10,10 @@ pub trait RelayerModule: RelayerService {
     /// The configuration type for the relayer module.
     type Config: Clone + Serialize + DeserializeOwned + Debug;
 
+    /// The name of the relayer module.
+    /// This name is used to identify the module in the larger configuration file.
+    const NAME: &'static str;
+
     /// Create a new instance of the relayer module.
     fn new(config: Self::Config) -> Self;
 }

@@ -7,4 +7,5 @@ pub mod api {
     tonic::include_proto!("relayer");
 }
 
+pub mod cli;
 pub mod modules;
