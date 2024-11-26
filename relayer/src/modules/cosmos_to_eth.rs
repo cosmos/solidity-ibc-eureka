@@ -115,10 +115,12 @@ impl RelayerModule
 impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
     for CosmosToEthRelayerModule<T, P>
 {
+    #[tracing::instrument(skip(self, _request))]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
+        tracing::info!("Received info request.");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -141,10 +143,12 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
         }))
     }
 
+    #[tracing::instrument(skip(self))]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        tracing::info!("Handling relay by tx request...");
         let inner_req = request.into_inner();
         let cosmos_txs = inner_req
             .source_tx_ids
@@ -178,6 +182,8 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
             .relay_events(cosmos_events, eth_events, inner_req.target_channel_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: multicall_tx,
