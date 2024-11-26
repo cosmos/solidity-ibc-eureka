@@ -159,9 +159,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
                 getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
             _refundTokens(packetData, erc20Address);
         }
-
-        // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
-        emit ICS20Acknowledgement(packetData, msg_.acknowledgement);
     }
 
     /// @inheritdoc IIBCApp
