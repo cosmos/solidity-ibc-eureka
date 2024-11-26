@@ -6153,8 +6153,10 @@ name = "solidity-ibc-eureka-relayer"
 version = "0.1.0"
 dependencies = [
  "prost",
+ "serde",
  "tonic",
  "tonic-build",
+ "tracing",
 ]
 
 [[package]]
