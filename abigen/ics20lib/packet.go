@@ -56,5 +56,5 @@ func getFungibleTokenPacketDataABI() (abi.Arguments, error) {
 		return nil, err
 	}
 
-	return parsedABI.Methods["decodePayload"].Outputs, nil
+	return parsedABI.Methods["abiPublicTypes"].Inputs, nil
 }

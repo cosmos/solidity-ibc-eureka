@@ -79,17 +79,10 @@
   },
   {
     "type": "function",
-    "name": "decodePayload",
+    "name": "abiPublicTypes",
     "inputs": [
       {
-        "name": "data",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
+        "name": "o1",
         "type": "tuple",
         "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
@@ -121,6 +114,7 @@
         ]
       }
     ],
+    "outputs": [],
     "stateMutability": "pure"
   },
   {

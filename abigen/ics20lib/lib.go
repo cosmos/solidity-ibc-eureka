@@ -40,7 +40,7 @@ type ICS20LibFungibleTokenPacketData struct {
 
 // LibMetaData contains all meta data concerning the Lib contract.
 var LibMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"IBC_DENOM_PREFIX\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"decodePayload\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.FungibleTokenPacketData\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toHexHash\",\"inputs\":[{\"name\":\"str\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toIBCDenom\",\"inputs\":[{\"name\":\"fullDenomPath\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"IBC_DENOM_PREFIX\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"abiPublicTypes\",\"inputs\":[{\"name\":\"o1\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.FungibleTokenPacketData\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toHexHash\",\"inputs\":[{\"name\":\"str\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toIBCDenom\",\"inputs\":[{\"name\":\"fullDenomPath\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
 }
 
 // LibABI is the input ABI used to generate the binding from.
@@ -375,35 +375,33 @@ func (_Lib *LibCallerSession) SUCCESSFULACKNOWLEDGEMENTJSON() ([]byte, error) {
 	return _Lib.Contract.SUCCESSFULACKNOWLEDGEMENTJSON(&_Lib.CallOpts)
 }
 
-// DecodePayload is a free data retrieval call binding the contract method 0x197c6e77.
+// AbiPublicTypes is a free data retrieval call binding the contract method 0x185f3fe6.
 //
-// Solidity: function decodePayload(bytes data) pure returns((string,string,string,uint256,string))
-func (_Lib *LibCaller) DecodePayload(opts *bind.CallOpts, data []byte) (ICS20LibFungibleTokenPacketData, error) {
+// Solidity: function abiPublicTypes((string,string,string,uint256,string) o1) pure returns()
+func (_Lib *LibCaller) AbiPublicTypes(opts *bind.CallOpts, o1 ICS20LibFungibleTokenPacketData) error {
 	var out []interface{}
-	err := _Lib.contract.Call(opts, &out, "decodePayload", data)
+	err := _Lib.contract.Call(opts, &out, "abiPublicTypes", o1)
 
 	if err != nil {
-		return *new(ICS20LibFungibleTokenPacketData), err
+		return err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(ICS20LibFungibleTokenPacketData)).(*ICS20LibFungibleTokenPacketData)
-
-	return out0, err
+	return err
 
 }
 
-// DecodePayload is a free data retrieval call binding the contract method 0x197c6e77.
+// AbiPublicTypes is a free data retrieval call binding the contract method 0x185f3fe6.
 //
-// Solidity: function decodePayload(bytes data) pure returns((string,string,string,uint256,string))
-func (_Lib *LibSession) DecodePayload(data []byte) (ICS20LibFungibleTokenPacketData, error) {
-	return _Lib.Contract.DecodePayload(&_Lib.CallOpts, data)
+// Solidity: function abiPublicTypes((string,string,string,uint256,string) o1) pure returns()
+func (_Lib *LibSession) AbiPublicTypes(o1 ICS20LibFungibleTokenPacketData) error {
+	return _Lib.Contract.AbiPublicTypes(&_Lib.CallOpts, o1)
 }
 
-// DecodePayload is a free data retrieval call binding the contract method 0x197c6e77.
+// AbiPublicTypes is a free data retrieval call binding the contract method 0x185f3fe6.
 //
-// Solidity: function decodePayload(bytes data) pure returns((string,string,string,uint256,string))
-func (_Lib *LibCallerSession) DecodePayload(data []byte) (ICS20LibFungibleTokenPacketData, error) {
-	return _Lib.Contract.DecodePayload(&_Lib.CallOpts, data)
+// Solidity: function abiPublicTypes((string,string,string,uint256,string) o1) pure returns()
+func (_Lib *LibCallerSession) AbiPublicTypes(o1 ICS20LibFungibleTokenPacketData) error {
+	return _Lib.Contract.AbiPublicTypes(&_Lib.CallOpts, o1)
 }
 
 // ToHexHash is a free data retrieval call binding the contract method 0xba43c2fe.

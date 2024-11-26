@@ -47,6 +47,16 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
+    /// @notice A dummy function to generate the ABI for the parameters.
+    /// @param o1 The FungibleTokenPacketData.
+    function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
+    // solhint-disable-next-line no-empty-blocks
+    {
+        // This is a dummy function to generate the ABI for outputs
+        // so that it can be used in the SP1 verifier contract.
+        // The function is not used in the contract.
+    }
+
     /// @notice Create a MsgSendPacket for an ics20-1 transfer
     /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
     /// @return The constructed MsgSendPacket
