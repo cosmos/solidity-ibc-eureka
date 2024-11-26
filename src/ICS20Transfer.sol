@@ -64,7 +64,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
         require(packetData.amount > 0, ICS20InvalidAmount(packetData.amount));
 
@@ -98,7 +99,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
         );
@@ -129,7 +131,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
             (address erc20Address,) =
@@ -143,7 +146,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(msg_.payload.value);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
         _refundTokens(packetData, erc20Address);
 

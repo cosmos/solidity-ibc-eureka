@@ -10,9 +10,6 @@ on:
   push:
     branches:
       - "main"
-    paths:
-      - "src/**"
-      - "test/**"
 
 jobs:
   lint:

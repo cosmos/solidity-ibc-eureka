@@ -47,76 +47,6 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /**
-     * @notice Encodes a `FungibleTokenPacketData` struct into ABI-encoded bytes.
-     *
-     * @dev This function uses `abi.encode` to convert a `FungibleTokenPacketData` struct into its ABI-encoded
-     * `bytes` representation. The resulting bytes can be transmitted or stored for decoding later.
-     *
-     * @param payload The `FungibleTokenPacketData` struct to encode.
-     * @return Encoded `bytes` representation of the input struct.
-     *
-     * @dev What this function does:
-     * - Converts the `FungibleTokenPacketData` struct into a `bytes` array using ABI encoding.
-     * - Ensures the resulting bytes are compatible with `abi.decode` for the same struct.
-     * - Preserves the field order and data structure of the input struct during encoding.
-     *
-     * @dev What this function does NOT do:
-     * - It does not validate the content of the `FungibleTokenPacketData` struct before encoding.
-     *   For example:
-     *     - Does not check if `amount` is greater than 0.
-     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
-     *     - Does not validate the format or expected content of `denom` or `memo`.
-     * - It does not ensure compatibility with external systems unless they adhere to the same ABI encoding rules.
-     *
-     * @dev Recommended validation to avoid issues:
-     * - Validate the fields of the `FungibleTokenPacketData` struct before calling this function:
-     *   - Ensure `amount > 0`.
-     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
-     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
-     *   - Optionally validate `memo` for length or allowed characters.
-     * - Ensure that the consumer of the encoded bytes uses the same ABI decoding standard.
-     */
-    function encodePayload(FungibleTokenPacketData memory payload) internal pure returns (bytes memory) {
-        return abi.encode(payload);
-    }
-
-    /**
-     * @notice Decodes ABI-encoded bytes into a `FungibleTokenPacketData` struct.
-     *
-     * @dev This function uses `abi.decode` to decode a `bytes` payload into a `FungibleTokenPacketData` struct.
-     * It assumes that the input data is correctly ABI-encoded and matches the structure of `FungibleTokenPacketData`.
-     *
-     * @param data ABI-encoded bytes representing a `FungibleTokenPacketData`.
-     * @return Decoded `FungibleTokenPacketData` struct.
-     *
-     * @dev What this function does:
-     * - Decodes the `bytes` payload into the expected `FungibleTokenPacketData` struct.
-     * - Ensures that the payload conforms to the ABI encoding of `FungibleTokenPacketData` (field types and order).
-     * - Reverts if the input data is not properly ABI-encoded.
-     *
-     * @dev What this function does NOT do:
-     * - Validate the logical correctness or semantic meaning of the decoded fields.
-     *   For example:
-     *     - Does not check if `amount` is greater than 0.
-     *     - Does not verify that `receiver` or `sender` are valid addresses or non-empty strings.
-     *     - Does not validate the format, length, or expected content of `denom` or `memo`.
-     * - Does not validate whether the payload matches a specific JSON schema or key order.
-     *
-     * @dev Recommended validation to avoid exploits:
-     * - After decoding, validate each field of the struct:
-     *   - Ensure `amount > 0`.
-     *   - Check that `receiver` and `sender` are non-empty and, if required, valid address strings.
-     *   - Validate `denom` against expected formats or whitelisted values, if applicable.
-     *   - Optionally validate `memo` for length or allowed characters.
-     * - Implement JSON key-order validation if strict ordering is required.
-     * - Consider using a try/catch block for decoding, or handle decoding errors explicitly to ensure
-     *   the function does not fail silently or revert without providing clear error messages.
-     */
-    function decodePayload(bytes memory data) external pure returns (FungibleTokenPacketData memory) {
-        return abi.decode(data, (FungibleTokenPacketData));
-    }
-
     /// @notice Create a MsgSendPacket for an ics20-1 transfer
     /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
     /// @return The constructed MsgSendPacket
@@ -140,7 +70,7 @@ library ICS20Lib {
         }
 
         // We are encoding the payload in ABI format
-        bytes memory packetData = ICS20Lib.encodePayload(
+        bytes memory packetData = abi.encode(
             ICS20Lib.FungibleTokenPacketData({
                 denom: fullDenomPath,
                 sender: Strings.toHexString(sender),

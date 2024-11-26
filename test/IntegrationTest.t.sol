@@ -140,7 +140,7 @@ contract IntegrationTest is Test {
             destPort: "transfer",
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
@@ -371,7 +371,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -459,7 +459,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -533,7 +533,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -588,7 +588,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -693,7 +693,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(sendPacketData)
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -738,7 +738,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -755,7 +755,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket2 = IICS26RouterMsgs.Packet({
             sequence: 2,
@@ -818,7 +818,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -835,7 +835,7 @@ contract IntegrationTest is Test {
             destPort: "invalid-port",
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory invalidPacket = IICS26RouterMsgs.Packet({
             sequence: 2,
@@ -889,7 +889,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -996,7 +996,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(sendPacketData)
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1043,7 +1043,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1150,7 +1150,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(sendPacketData)
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1219,7 +1219,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(receivePacketData)
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1278,7 +1278,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(expectedDefaultSendPacketData)
+            value: abi.encode(expectedDefaultSendPacketData)
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,

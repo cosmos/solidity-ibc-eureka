@@ -4,8 +4,6 @@ go 1.22.7
 
 toolchain go1.23.2
 
-replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
-
 require (
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/errors v1.0.1
@@ -306,9 +304,12 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9
+replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
 
-replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241123151201-3d84b47307b9
+replace (
+	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241123151201-3d84b47307b9
+)
 
 replace (
 	github.com/misko9/go-substrate-rpc-client/v4 => github.com/DimitrisJim/go-substrate-rpc-client/v4 v4.0.0-20240717100841-406da076c1d5

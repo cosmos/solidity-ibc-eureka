@@ -59,7 +59,7 @@ contract ICS24HostTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.encodePayload(packetData)
+            value: abi.encode(packetData)
         });
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
