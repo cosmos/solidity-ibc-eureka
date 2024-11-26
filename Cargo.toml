@@ -22,9 +22,10 @@ sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-ten
 sp1-ics07-tendermint-prover   = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
 sp1-ics07-tendermint-utils    = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
 
-serde = { version = "1.0", default-features = false }
-hex   = { version = "0.4", default-features = false }
-prost = { version = "0.13", default-features = false }
+serde      = { version = "1.0", default-features = false }
+serde_json = { version = "1.0", default-features = false }
+hex        = { version = "0.4", default-features = false }
+prost      = { version = "0.13", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }

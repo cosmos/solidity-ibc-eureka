@@ -5849,6 +5849,7 @@ dependencies = [
  "ibc-eureka-relayer-lib",
  "prost",
  "serde",
+ "serde_json",
  "tendermint",
  "tonic",
  "tonic-build",
