@@ -25,6 +25,21 @@ impl ChainListener {
     pub const fn client(&self) -> &HttpClient {
         &self.0
     }
+
+    /// Get the chain ID.
+    ///
+    /// # Errors
+    /// Returns an error if the chain ID cannot be fetched.
+    pub async fn chain_id(&self) -> Result<String> {
+        Ok(self
+            .client()
+            .latest_block()
+            .await?
+            .block
+            .header
+            .chain_id
+            .into())
+    }
 }
 
 #[async_trait::async_trait]

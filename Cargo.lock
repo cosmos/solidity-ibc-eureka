@@ -6152,6 +6152,8 @@ dependencies = [
 name = "solidity-ibc-eureka-relayer"
 version = "0.1.0"
 dependencies = [
+ "alloy",
+ "ibc-eureka-relayer-lib",
  "prost",
  "serde",
  "tonic",

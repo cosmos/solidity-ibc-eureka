@@ -16,6 +16,7 @@ authors       = ["srdtrk <srdtrk@hotmail.com>"]
 
 [workspace.dependencies]
 ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }
+ibc-eureka-relayer-lib = { path = "packages/relayer-lib", default-features = false }
 
 sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }
 sp1-ics07-tendermint-prover = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "7b295b3e92f87a6c69a936f47becd6a8994b4df1", default-features = false }

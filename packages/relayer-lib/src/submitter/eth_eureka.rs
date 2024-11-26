@@ -49,11 +49,11 @@ use super::r#trait::ChainSubmitterService;
 #[allow(dead_code)]
 pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
     /// The IBC Eureka router instance.
-    ics26_router: routerInstance<T, P>,
+    pub ics26_router: routerInstance<T, P>,
     /// The HTTP client for the Cosmos SDK.
-    tm_client: HttpClient,
+    pub tm_client: HttpClient,
     /// The proof type to use for [`SP1ICS07TendermintProver`].
-    proof_type: SupportedProofType,
+    pub proof_type: SupportedProofType,
 }
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> ChainSubmitter<T, P> {
