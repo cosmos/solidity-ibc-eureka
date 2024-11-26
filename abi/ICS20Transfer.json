@@ -523,7 +523,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -569,7 +569,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -615,7 +615,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -655,7 +655,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -730,6 +730,11 @@
   },
   {
     "type": "error",
+    "name": "ICS20AbiEncodingFailure",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ICS20BytesSliceOutOfBounds",
     "inputs": [
       {
@@ -790,91 +795,6 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONClosingBraceNotFound",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONInvalidEscape",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONStringClosingDoubleQuoteNotFound",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONStringUnclosed",
-    "inputs": [
-      {
-        "name": "bz",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONUnexpectedBytes",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "expected",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "actual",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ]
   },

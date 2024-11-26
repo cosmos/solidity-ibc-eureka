@@ -121,7 +121,8 @@ contract BenchmarkTest is FixtureTest {
     function sendTransfer(Fixture memory fixture) internal {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
-        ICS20Lib.PacketDataJSON memory packetData = this.unmarshalJSON(fixture.packet.payloads[0].value);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(fixture.packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
@@ -148,9 +149,5 @@ contract BenchmarkTest is FixtureTest {
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceChannel, fixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
-    }
-
-    function unmarshalJSON(bytes calldata bz) external pure returns (ICS20Lib.PacketDataJSON memory) {
-        return ICS20Lib.unmarshalJSON(bz);
     }
 }

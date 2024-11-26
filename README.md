@@ -23,6 +23,7 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+- `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 
 ### Contracts
@@ -131,11 +132,11 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~225,000 | ~225,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~510,000 | ~588,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,439,000 | ~1,527,000 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~455,000 | ~533,000 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~480,000 | ~571,000 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~205,000 | ~205,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~484,000 | ~563,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,422,000 | ~1,510,000 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~370,000 | ~448,000 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~458,000 | ~545,000 |
 
 ### Aggregated Packet Benchmarks
 
@@ -144,8 +145,10 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
 |:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~228,000 | ~220,000 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~141,000 | ~135,000 |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~204,000 | ~197,000 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~116,000 | ~110,000 |
+
+Note: These gas benchmarks are with Groth16.
 
 ## License
 

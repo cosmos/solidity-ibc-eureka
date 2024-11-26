@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ics26router"
 )
 
 // GenericFixture is the fixture to be unmarshalled into a test case in Solidity tests
