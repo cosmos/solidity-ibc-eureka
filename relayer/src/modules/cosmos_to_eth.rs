@@ -40,7 +40,7 @@ pub struct CosmosToEthRelayerModule<T: Transport + Clone, P: Provider<T> + Clone
 
 /// The configuration for the Cosmos to Ethereum relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct RelayerConfig {
+pub struct ModuleConfig {
     /// The tendermint RPC URL.
     pub tm_rpc_url: String,
     /// The ICS26 address.
@@ -67,7 +67,7 @@ impl RelayerModule
         >,
     >
 {
-    type Config = RelayerConfig;
+    type Config = ModuleConfig;
 
     const NAME: &'static str = "cosmos_to_eth";
 
@@ -192,7 +192,7 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
     }
 }
 
-impl RelayerConfig {
+impl ModuleConfig {
     /// Parses the proof type from the configuration.
     /// # Panics
     /// Panics if the proof type is not recognized.
