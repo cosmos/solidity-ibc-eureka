@@ -7,3 +7,8 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+tonic = { workspace = true, default-features = true }
+prost = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }

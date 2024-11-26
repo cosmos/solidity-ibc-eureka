@@ -23,10 +23,13 @@ sp1-ics07-tendermint-utils = { git = "https://github.com/cosmos/sp1-ics07-tender
 
 serde = { version = "1.0", default-features = false }
 hex = { version = "0.4", default-features = false }
+prost = { version = "0.13", default-features = false }
 
 tokio = { version = "1.0", default-features = false }
 axum = { version = "0.7", default-features = false }
 jsonrpsee = { version = "0.24", default-features = false }
+tonic = { version = "0.12", default-features = false }
+tonic-build = { version = "0.12", default-features = false }
 
 tracing = { version = "0.1", default-features = false }
 anyhow = { version = "1.0", default-features = false }
