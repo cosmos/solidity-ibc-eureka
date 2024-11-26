@@ -105,7 +105,7 @@ where
         src_events: Vec<EurekaEvent>,
         dest_events: Vec<EurekaEvent>,
         target_channel_id: String,
-    ) -> Result<(String, Vec<u8>)> {
+    ) -> Result<Vec<u8>> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
@@ -264,6 +264,6 @@ where
             data: calls.map(Into::into).collect(),
         };
 
-        Ok((String::new(), multicall_tx.abi_encode()))
+        Ok(multicall_tx.abi_encode())
     }
 }

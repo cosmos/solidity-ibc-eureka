@@ -18,5 +18,7 @@ serde = { workspace = true, default-features = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
+tendermint = { workspace = true }
+
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

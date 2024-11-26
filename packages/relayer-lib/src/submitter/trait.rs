@@ -11,11 +11,11 @@ pub trait ChainSubmitterService<A: Chain, B: Chain> {
     /// Events from chain A are often used for timeout purposes and can be left empty.
     ///
     /// # Returns
-    /// The address of the IBC contract on chain A and the transaction bytes.
+    /// The relay transaction bytes.
     async fn relay_events(
         &self,
         src_events: Vec<A::Event>,
         target_events: Vec<B::Event>,
         target_channel_id: String,
-    ) -> Result<(String, Vec<u8>)>;
+    ) -> Result<Vec<u8>>;
 }

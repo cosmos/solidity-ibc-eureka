@@ -30,6 +30,24 @@ impl<T: Transport + Clone, P: Provider<T>> ChainListener<T, P> {
     }
 }
 
+impl<T, P> ChainListener<T, P>
+where
+    T: Transport + Clone,
+    P: Provider<T>,
+{
+    /// Get the chain ID.
+    /// # Errors
+    /// Returns an error if the chain ID cannot be fetched.
+    pub async fn chain_id(&self) -> Result<String> {
+        Ok(self
+            .ics26_router
+            .provider()
+            .get_chain_id()
+            .await?
+            .to_string())
+    }
+}
+
 #[async_trait::async_trait]
 impl<T, P> ChainListenerService<EthEureka> for ChainListener<T, P>
 where
