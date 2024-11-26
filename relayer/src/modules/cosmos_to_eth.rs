@@ -1,15 +1,26 @@
 //! Defines Cosmos to Ethereum relayer module.
 
+use std::str::FromStr;
+
 use alloy::{
+    network::{Ethereum, EthereumWallet},
     primitives::{Address, TxHash},
-    providers::Provider,
-    transports::Transport,
+    providers::{
+        fillers::{FillProvider, JoinFill, WalletFiller},
+        Identity, Provider, ProviderBuilder, RootProvider,
+    },
+    signers::local::PrivateKeySigner,
+    transports::{BoxTransport, Transport},
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    submitter::{eth_eureka::ChainSubmitter, ChainSubmitterService},
+    submitter::{
+        eth_eureka::{ChainSubmitter, SupportedProofType},
+        ChainSubmitterService,
+    },
 };
 use tendermint::Hash;
+use tendermint_rpc::{HttpClient, Url};
 use tonic::{Request, Response};
 
 use crate::api::{self, relayer_service_server::RelayerService};
@@ -36,17 +47,67 @@ pub struct RelayerConfig {
     pub ics26_address: Address,
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
+    /// The private key for the Ethereum account.
+    // TODO: Use a more secure way to store the private key.
+    pub private_key: String,
+    /// The proof type to use for the SP1 ICS07 Tendermint prover.
+    /// This is either groth16 or plonk.
+    pub proof_type: String,
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerModule
-    for CosmosToEthRelayerModule<T, P>
+#[tonic::async_trait]
+impl RelayerModule
+    for CosmosToEthRelayerModule<
+        BoxTransport,
+        FillProvider<
+            JoinFill<Identity, WalletFiller<EthereumWallet>>,
+            RootProvider<BoxTransport>,
+            BoxTransport,
+            Ethereum,
+        >,
+    >
 {
     type Config = RelayerConfig;
 
     const NAME: &'static str = "cosmos_to_eth";
 
-    fn new(_config: Self::Config) -> Self {
-        todo!()
+    async fn new(config: Self::Config) -> Self {
+        let tm_client = HttpClient::new(
+            Url::from_str(&config.tm_rpc_url)
+                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
+        )
+        .expect("Failed to create tendermint HTTP client");
+
+        let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
+
+        let wallet = EthereumWallet::from(
+            config
+                .private_key
+                .strip_prefix("0x")
+                .unwrap_or(&config.private_key)
+                .parse::<PrivateKeySigner>()
+                .expect("Failed to parse private key"),
+        );
+
+        let provider = ProviderBuilder::new()
+            .wallet(wallet.clone())
+            .on_builtin(&config.eth_rpc_url)
+            .await
+            .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
+
+        let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
+        let submitter = ChainSubmitter::new(
+            config.ics26_address,
+            provider,
+            tm_client,
+            config.proof_type(),
+        );
+
+        Self {
+            tm_listener,
+            eth_listener,
+            submitter,
+        }
     }
 }
 
@@ -122,5 +183,19 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
             tx: multicall_tx,
             address: self.submitter.ics26_router.address().to_string(),
         }))
+    }
+}
+
+impl RelayerConfig {
+    /// Parses the proof type from the configuration.
+    /// # Panics
+    /// Panics if the proof type is not recognized.
+    #[must_use]
+    pub fn proof_type(&self) -> SupportedProofType {
+        match self.proof_type.as_str() {
+            "groth16" => SupportedProofType::Groth16,
+            "plonk" => SupportedProofType::Plonk,
+            _ => panic!("invalid proof type: {}", self.proof_type),
+        }
     }
 }

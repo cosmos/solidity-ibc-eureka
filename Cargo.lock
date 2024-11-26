@@ -5852,6 +5852,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tendermint",
+ "tendermint-rpc",
  "tonic",
  "tonic-build",
  "tracing",

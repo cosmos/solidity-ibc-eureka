@@ -22,10 +22,12 @@ use ibc_eureka_solidity_types::{
         IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
     },
 };
+// Re-export the `SupportedProofType` enum.
+pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram,
-    prover::{SP1ICS07TendermintProver, SupportedProofType},
+    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
+
 use sp1_ics07_tendermint_solidity::{
     sp1_ics07_tendermint,
     IICS07TendermintMsgs::ClientState,

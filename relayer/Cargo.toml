@@ -9,7 +9,7 @@ license = { workspace = true }
 [dependencies]
 ibc-eureka-relayer-lib = { workspace = true, default-features = true }
 
-tonic = { workspace = true, default-features = true }
+tonic       = { workspace = true, default-features = true }
 
 tracing = { workspace = true, default-features = true }
 clap    = { workspace = true, default-features = true }
@@ -20,7 +20,8 @@ prost      = { workspace = true, default-features = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
-tendermint = { workspace = true }
+tendermint     = { workspace = true }
+tendermint-rpc = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
