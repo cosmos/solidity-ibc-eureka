@@ -12,6 +12,7 @@ ibc-eureka-relayer-lib = { workspace = true, default-features = true }
 tonic = { workspace = true, default-features = true }
 
 tracing = { workspace = true, default-features = true }
+clap    = { workspace = true, default-features = true }
 
 serde      = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
