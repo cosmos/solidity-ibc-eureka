@@ -19,12 +19,14 @@ This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is 
 
 This project is structered as a [foundry](https://getfoundry.sh/) project with the following directories:
 
-- `src/`: Contains the Solidity contracts.
+- `contracts/`: Contains the Solidity contracts.
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
+- `relayer/`: Contains the relayer implementation in Rust.
+- `packages/`: Contains the Rust packages for the relayer.
 
 ### Contracts
 
