@@ -3,11 +3,12 @@ package relayer
 import (
 	"os"
 	"os/exec"
+	"time"
 
 	grpc "google.golang.org/grpc"
+	insecure "google.golang.org/grpc/credentials/insecure"
 
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
-	insecure "google.golang.org/grpc/credentials/insecure"
 )
 
 func BinaryPath() string {
@@ -24,6 +25,9 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// wait for the relayer to start
+	time.Sleep(10 * time.Second)
 
 	return cmd.Process, nil
 }
