@@ -17,6 +17,13 @@ jobs:
       - name: "Set up environment"
         uses: ./.github/setup
 
+      - name: Install SP1 toolchain
+        shell: bash
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/cargo-prove prove --version
+
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
@@ -33,6 +40,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: Install SP1 toolchain
+        shell: bash
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/cargo-prove prove --version
       - name: "Set up environment"
         uses: ./.github/setup
       - name: Install just
@@ -43,12 +56,18 @@ jobs:
           RUST_BACKTRACE: 1
 
   build-relayer:
-    name: build-without-programs
+    name: build-relayer
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: Install SP1 toolchain
+        shell: bash
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/cargo-prove prove --version
       - name: Build
         uses: actions-rs/cargo@v1
         with:

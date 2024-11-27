@@ -18,9 +18,3 @@ runs:
     - name: "Install the Node.js dependencies"
       shell: bash
       run: bun install
-    - name: Install SP1 toolchain
-      shell: bash
-      run: |
-        curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-        ~/.sp1/bin/cargo-prove prove --version
