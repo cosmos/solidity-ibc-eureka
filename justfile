@@ -4,8 +4,12 @@ set dotenv-load
 sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', '07e23bba5000c9d67dfc1d975ac477164e56db1f')
 
 # Build the contracts using `forge build`
-build: clean
+build-contracts: clean
 	forge build
+
+# Build the relayer using `cargo build`
+build-relayer:
+	cargo build --bin relayer --release --locked
  
 # Clean up the cache and out directories
 clean:
