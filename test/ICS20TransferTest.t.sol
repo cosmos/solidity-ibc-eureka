@@ -844,7 +844,7 @@ contract ICS20TransferTest is Test {
             receivePayload
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(packet.payloads[0].value); //,(ICS20Lib.FungibleTokenPacketData,
+        ICS20Lib.FungibleTokenPacketData memory packetData = abi.decode(packet.payloads[0].value,(ICS20Lib.FungibleTokenPacketData)); //,(ICS20Lib.FungibleTokenPacketData,
             // address));
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
@@ -908,7 +908,7 @@ contract ICS20TransferTest is Test {
             receivePayload
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(packet.payloads[0].value);
+        ICS20Lib.FungibleTokenPacketData memory packetData = abi.decode(packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
 
         assertEq(packetData.denom, foreignDenom);
         assertEq(packetData.sender, senderStr);

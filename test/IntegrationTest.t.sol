@@ -614,7 +614,7 @@ contract IntegrationTest is Test {
             receivePacketData
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(receivePacket.payloads[0].value);
+        ICS20Lib.FungibleTokenPacketData memory packetData = abi.decode(receivePacket.payloads[0].value,(ICS20Lib.FungibleTokenPacketData));
 
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
@@ -903,7 +903,7 @@ contract IntegrationTest is Test {
             receivePacketData
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(receivePacket.payloads[0].value);
+        ICS20Lib.FungibleTokenPacketData memory packetData = abi.decode(receivePacket.payloads[0].value,(ICS20Lib.FungibleTokenPacketData));
 
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
@@ -1045,7 +1045,7 @@ contract IntegrationTest is Test {
             receivePacketData
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(receivePacket.payloads[0].value);
+        ICS20Lib.FungibleTokenPacketData memory packetData = abi.decode(receivePacket.payloads[0].value,(ICS20Lib.FungibleTokenPacketData));
 
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
