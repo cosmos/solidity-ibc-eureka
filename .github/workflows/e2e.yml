@@ -66,6 +66,7 @@ jobs:
           - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
+          - TestWithRelayerTestSuite/TestRelayerInfo
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     env:
