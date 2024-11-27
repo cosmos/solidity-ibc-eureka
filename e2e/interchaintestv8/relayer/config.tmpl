@@ -1,0 +1,19 @@
+{
+  "server": {
+    "address": "127.0.0.1",
+    "starting_port": 3000
+  },
+  "modules": [
+    {
+      "name": "cosmos_to_eth",
+      "config": {
+        "tm_rpc_url": "{{ .TMRPCURL }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .ETHRPCURL }}",
+        "private_key": "{{ .PrivateKey }}",
+        "proof_type": "{{ .ProofType }}",
+        "sp1_private_key": "{{ .SP1PrivateKey }}"
+      }
+    }
+  ]
+}
