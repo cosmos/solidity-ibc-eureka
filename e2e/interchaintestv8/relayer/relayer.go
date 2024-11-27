@@ -14,11 +14,18 @@ func BinaryPath() string {
 	return "./target/release/relayer"
 }
 
-func StartRelayer(configPath string) error {
+func StartRelayer(configPath string) (*os.Process, error) {
 	cmd := exec.Command(BinaryPath(), "start", "--config", configPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+
+	// run this command in the background
+	err := cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd.Process, nil
 }
 
 func StopRelayer() error {

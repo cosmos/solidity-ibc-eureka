@@ -15,7 +15,7 @@ type ConfigInfo struct {
 }
 
 func (c *ConfigInfo) GenerateConfigFile(path string) error {
-	tmpl, err := template.ParseFiles("config.tmpl")
+	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/config.tmpl")
 	if err != nil {
 		return err
 	}

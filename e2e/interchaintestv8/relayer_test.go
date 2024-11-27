@@ -35,6 +35,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 
 	eth, simd := s.ChainA, s.ChainB
 
+	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		relayerKey, err := eth.CreateAndFundUser()
 		s.Require().NoError(err)
@@ -51,7 +52,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 		err = configInfo.GenerateConfigFile("relayer_config.json")
 		s.Require().NoError(err)
 
-		err = relayer.StartRelayer("relayer_config.json")
+		relayerProcess, err = relayer.StartRelayer("relayer_config.json")
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
@@ -60,7 +61,9 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 	}))
 
 	s.T().Cleanup(func() {
-		_ = relayer.StopRelayer()
+		if relayerProcess != nil {
+			_ = relayerProcess.Kill()
+		}
 	})
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
@@ -75,9 +78,16 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16)
 
+	eth, simd := s.ChainA, s.ChainB
+
 	s.Run("Relayer Info", func() {
 		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
+
+		s.T().Logf("Relayer Info: %+v", info)
+
+		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
 	})
 }
