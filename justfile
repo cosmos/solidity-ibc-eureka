@@ -26,6 +26,7 @@ test-foundry testname=".\\*":
 test-benchmark testname=".\\*":
 	forge test -vvv --show-progress --gas-report --match-path test/BenchmarkTest.t.sol --match-test {{testname}}
 
+# Run the tests in abigen
 test-abigen:
 	@echo "Running abigen tests..."
 	cd abigen && go test -v ./...
@@ -64,6 +65,11 @@ generate-abi:
 test-e2e testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
+
+# Run the e2e tests in the relayer test suite
+test-e2e-relayer testname: clean
+	@echo "Running {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:

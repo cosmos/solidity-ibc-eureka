@@ -69,3 +69,15 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 		s.Require().NoError(err)
 	}))
 }
+
+// TestRelayer is a test that runs the relayer
+func (s *RelayerTestSuite) TestRelayerInfo() {
+	ctx := context.Background()
+	s.SetupSuite(ctx, operator.ProofTypeGroth16)
+
+	s.Run("Relayer Info", func() {
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	})
+}
