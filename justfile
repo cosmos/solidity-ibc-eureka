@@ -26,6 +26,10 @@ test-foundry testname=".\\*":
 test-benchmark testname=".\\*":
 	forge test -vvv --show-progress --gas-report --match-path test/BenchmarkTest.t.sol --match-test {{testname}}
 
+# Run the cargo tests
+test-cargo:
+	cargo test --all --locked
+
 # Run the tests in abigen
 test-abigen:
 	@echo "Running abigen tests..."
@@ -43,8 +47,7 @@ lint:
 	buf lint
 
 # Generate the ABI files for the contracts
-generate-abi:
-	just build
+generate-abi: build-contracts
 	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
 	jq '.abi' out/ICS02Client.sol/ICS02Client.json > abi/ICS02Client.json   
 	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
