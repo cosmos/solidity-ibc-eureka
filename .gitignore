@@ -25,3 +25,6 @@ broadcast/*/31337/
 
 # Rust
 target
+
+# Config files and test artifacts
+relayer/config.json
