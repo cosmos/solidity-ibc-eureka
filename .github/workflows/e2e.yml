@@ -125,7 +125,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --bin relayer --path relayer --release --locked
+          args: --bin relayer --path relayer --locked
 
       - name: Setup Kurtosis
         if: env.ETH_TESTNET_TYPE == 'pos'
