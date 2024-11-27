@@ -12,17 +12,17 @@ use solidity_ibc_eureka_relayer::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize the logger with default log level.
-    tracing_subscriber::fmt::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
-
     let cli = RelayerCli::parse();
     match cli.command {
         Commands::Start(args) => {
             let config_path = PathBuf::from(args.config);
             let config_bz = std::fs::read(config_path)?;
             let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
+
+            // Initialize the logger with log level.
+            tracing_subscriber::fmt::fmt()
+                .with_max_level(config.server.log_level())
+                .init();
 
             // Initialize a Cosmos to Ethereum relayer module.
             // TODO: improve builder so that we don't need to manually initialize the module.

@@ -1,6 +1,9 @@
 //! Defines the top level configuration for the relayer.
 
+use std::str::FromStr;
+
 use serde_json::Value;
+use tracing::Level;
 
 /// The top level configuration for the relayer.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -33,9 +36,20 @@ pub struct ServerConfig {
     pub address: String,
     /// The starting port for the server.
     pub starting_port: u16,
+    /// The log level for the server.
+    #[serde(default)]
+    pub log_level: String,
 }
 
 /// Returns true, used as a default value for boolean fields.
 const fn default_true() -> bool {
     true
+}
+
+impl ServerConfig {
+    /// Returns the log level for the server.
+    #[must_use]
+    pub fn log_level(&self) -> Level {
+        Level::from_str(&self.log_level).unwrap_or(Level::INFO)
+    }
 }
