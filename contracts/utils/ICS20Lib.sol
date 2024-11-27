@@ -5,10 +5,14 @@ pragma solidity ^0.8.28;
 
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
+import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
+import { IBCERC20 } from "./IBCERC20.sol";
 
-// This library is mostly copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
+// This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
+// It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
 library ICS20Lib {
-    /// @notice PacketDataJSON is the JSON representation of a fungible token transfer packet.
+    /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
     /// @dev PacketData is defined in
     /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
     /// @param denom The denomination of the token
@@ -16,7 +20,7 @@ library ICS20Lib {
     /// @param receiver The receiver of the token
     /// @param amount The amount of tokens
     /// @param memo Optional memo
-    struct PacketDataJSON {
+    struct FungibleTokenPacketData {
         string denom;
         string sender;
         string receiver;
@@ -28,7 +32,7 @@ library ICS20Lib {
     string public constant ICS20_VERSION = "ics20-1";
 
     /// @notice ICS20_ENCODING is the encoding string for ICS20 packet data.
-    string public constant ICS20_ENCODING = "application/json";
+    string public constant ICS20_ENCODING = "application/x-solidity-abi";
 
     /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
     string public constant IBC_DENOM_PREFIX = "ibc/";
@@ -43,157 +47,62 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice CHAR_DOUBLE_QUOTE is the ASCII value for double quote.
-    uint256 private constant CHAR_DOUBLE_QUOTE = 0x22;
-    /// @notice CHAR_SLASH is the ASCII value for slash.
-    uint256 private constant CHAR_SLASH = 0x2f;
-    /// @notice CHAR_BACKSLASH is the ASCII value for backslash.
-    uint256 private constant CHAR_BACKSLASH = 0x5c;
-    /// @notice CHAR_F is the ASCII value for 'f'.
-    uint256 private constant CHAR_F = 0x66;
-    /// @notice CHAR_R is the ASCII value for 'r'.
-    uint256 private constant CHAR_R = 0x72;
-    /// @notice CHAR_N is the ASCII value for 'n'.
-    uint256 private constant CHAR_N = 0x6e;
-    /// @notice CHAR_B is the ASCII value for 'b'.
-    uint256 private constant CHAR_B = 0x62;
-    /// @notice CHAR_T is the ASCII value for 't'.
-    uint256 private constant CHAR_T = 0x74;
-    /// @notice CHAR_CLOSING_BRACE is the ASCII value for closing brace '}'.
-    uint256 private constant CHAR_CLOSING_BRACE = 0x7d;
-    /// @notice CHAR_M is the ASCII value for 'm'.
-    uint256 private constant CHAR_M = 0x6d;
+    /// @notice A dummy function to generate the ABI for the parameters.
+    /// @param o1 The FungibleTokenPacketData.
+    function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
+    // solhint-disable-next-line no-empty-blocks
+    {
+        // This is a dummy function to generate the ABI for outputs
+        // so that it can be used in the SP1 verifier contract.
+        // The function is not used in the contract.
+    }
 
-    /// @notice marshalJSON marshals PacketData into JSON bytes with escaping.
-    /// @param escapedDenom Escaped denom
-    /// @param amount Amount
-    /// @param escapedSender Escaped sender
-    /// @param escapedReceiver Escaped receiver
-    /// @param escapedMemo Escaped memo
-    /// @return Marshalled JSON bytes
-    function marshalJSON(
-        string memory escapedDenom,
-        uint256 amount,
-        string memory escapedSender,
-        string memory escapedReceiver,
-        string memory escapedMemo
+    /// @notice Create a MsgSendPacket for an ics20-1 transfer
+    /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
+    /// @return The constructed MsgSendPacket
+    function newMsgSendPacketV1(
+        address sender,
+        IICS20TransferMsgs.SendTransferMsg memory msg_
     )
         internal
-        pure
-        returns (bytes memory)
+        view
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        return abi.encodePacked(
-            "{\"denom\":\"",
-            escapedDenom,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\",\"sender\":\"",
-            escapedSender,
-            "\",\"receiver\":\"",
-            escapedReceiver,
-            "\",\"memo\":\"",
-            escapedMemo,
-            "\"}"
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
+
+        string memory fullDenomPath;
+        try IBCERC20(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
+            fullDenomPath = ibcERC20FullDenomPath;
+        } catch {
+            // otherwise this is just an ERC20 address, so we use it as the denom
+            fullDenomPath = msg_.denom;
+        }
+
+        // We are encoding the payload in ABI format
+        bytes memory packetData = abi.encode(
+            ICS20Lib.FungibleTokenPacketData({
+                denom: fullDenomPath,
+                sender: Strings.toHexString(sender),
+                receiver: msg_.receiver,
+                amount: msg_.amount,
+                memo: msg_.memo
+            })
         );
-    }
 
-    /// @notice unmarshalJSON unmarshals JSON bytes into PacketData.
-    /// @param bz JSON bytes
-    /// @return Unmarshalled PacketData
-    function unmarshalJSON(bytes calldata bz) internal pure returns (PacketDataJSON memory) {
-        // TODO: Consider if this should support other orders of fields (currently fixed order: denom, amount...) (#22)
-        PacketDataJSON memory pd;
-        uint256 pos = 0;
-
-        unchecked {
-            require(
-                bytes32(bz[pos:pos + 10]) == bytes32("{\"denom\":\""),
-                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"denom\":\""), bytes32(bz[pos:pos + 10]))
-            );
-            (pd.denom, pos) = parseString(bz, pos + 10);
-
-            require(
-                bytes32(bz[pos:pos + 11]) == bytes32(",\"amount\":\""),
-                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32("{\"amount\":\""), bytes32(bz[pos:pos + 11]))
-            );
-            (pd.amount, pos) = parseUint256String(bz, pos + 11);
-
-            require(
-                bytes32(bz[pos:pos + 11]) == bytes32(",\"sender\":\""),
-                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"sender\":\""), bytes32(bz[pos:pos + 11]))
-            );
-            (pd.sender, pos) = parseString(bz, pos + 11);
-
-            require(
-                bytes32(bz[pos:pos + 13]) == bytes32(",\"receiver\":\""),
-                IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"receiver\":\""), bytes32(bz[pos:pos + 13]))
-            );
-            (pd.receiver, pos) = parseString(bz, pos + 13);
-
-            // check if the memo field is present, if not, we leave it empty
-            if (pos != bz.length - 1 && uint256(uint8(bz[pos + 2])) == CHAR_M) {
-                require(
-                    bytes32(bz[pos:pos + 9]) == bytes32(",\"memo\":\""),
-                    IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(",\"memo\":\""), bytes32(bz[pos:pos + 9]))
-                );
-                (pd.memo, pos) = parseString(bz, pos + 9);
-            }
-
-            require(
-                pos == bz.length - 1 && uint256(uint8(bz[pos])) == CHAR_CLOSING_BRACE,
-                IICS20Errors.ICS20JSONClosingBraceNotFound(pos, bz[pos])
-            );
-        }
-
-        return pd;
-    }
-
-    /// @notice parseUint256String parses `bz` from a position `pos` to produce a uint256.
-    /// @param bz bytes
-    /// @param pos position in the bytes
-    /// @return ret uint256 value
-    /// @return pos position after parsing
-    function parseUint256String(bytes calldata bz, uint256 pos) private pure returns (uint256, uint256) {
-        uint256 ret = 0;
-        unchecked {
-            for (; pos < bz.length; pos++) {
-                uint256 c = uint256(uint8(bz[pos]));
-                if (c < 48 || c > 57) {
-                    break;
-                }
-                ret = ret * 10 + (c - 48);
-            }
-            require(
-                pos < bz.length && uint256(uint8(bz[pos])) == CHAR_DOUBLE_QUOTE,
-                IICS20Errors.ICS20JSONStringClosingDoubleQuoteNotFound(pos, bz[pos])
-            );
-            return (ret, pos + 1);
-        }
-    }
-
-    /// @notice parseString parses `bz` from a position `pos` to produce a string.
-    /// @param bz bytes
-    /// @param pos position in the bytes
-    /// @return string value
-    /// @return pos position after parsing
-    function parseString(bytes calldata bz, uint256 pos) private pure returns (string memory, uint256) {
-        unchecked {
-            for (uint256 i = pos; i < bz.length; i++) {
-                uint256 c = uint256(uint8(bz[i]));
-                if (c == CHAR_DOUBLE_QUOTE) {
-                    return (string(bz[pos:i]), i + 1);
-                } else if (c == CHAR_BACKSLASH && i + 1 < bz.length) {
-                    i++;
-                    c = uint256(uint8(bz[i]));
-                    require(
-                        c == CHAR_DOUBLE_QUOTE || c == CHAR_SLASH || c == CHAR_BACKSLASH || c == CHAR_F || c == CHAR_R
-                            || c == CHAR_N || c == CHAR_B || c == CHAR_T,
-                        IICS20Errors.ICS20JSONInvalidEscape(i, bz[i])
-                    );
-                }
-            }
-        }
-        revert IICS20Errors.ICS20JSONStringUnclosed(bz, pos);
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: msg_.destPort,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: packetData
+        });
+        return IICS26RouterMsgs.MsgSendPacket({
+            sourceChannel: msg_.sourceChannel,
+            timeoutTimestamp: msg_.timeoutTimestamp,
+            payloads: payloads
+        });
     }
 
     /// @notice hexStringToAddress converts a hex string to an address.

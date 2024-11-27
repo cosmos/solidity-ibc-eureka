@@ -9,6 +9,7 @@ import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
+import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
@@ -116,5 +117,18 @@ contract IBCERC20Test is Test, IICS20Transfer {
     // Dummy implementation of IICS20Transfer
     function escrow() external view override returns (address) {
         return address(_escrow);
+    }
+
+    // Dummy implementation of IICS20Transfer
+    function newMsgSendPacketV1(
+        address,
+        SendTransferMsg calldata
+    )
+        external
+        pure
+        override
+        returns (IICS26RouterMsgs.MsgSendPacket memory)
+    {
+        return IICS26RouterMsgs.MsgSendPacket("", 0, new IICS26RouterMsgs.Payload[](0));
     }
 }
