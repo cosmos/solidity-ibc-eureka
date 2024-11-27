@@ -60,7 +60,7 @@ just install-operator
 > Nix users can enter a development shell with all the necessary dependencies by running:
 > 
 > ```sh
-> nix-shell shell.nix
+> nix develop
 > ```
 
 ## Unit Testing
