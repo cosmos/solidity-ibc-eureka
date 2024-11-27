@@ -799,6 +799,7 @@ contract ICS20TransferTest is Test {
         assertEq(contractBalanceAfterReceive, 0);
     }
     // This test uses event data to validate behaviour
+
     function test_success_onRecvPacketWithForeignBaseDenom() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
@@ -824,7 +825,6 @@ contract ICS20TransferTest is Test {
         string memory expectedFullDenomPath =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destChannel, "/", foreignDenom));
 
-        
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -836,14 +836,16 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-        (address erc20Address, ) = ics20Transfer.getReceiveERC20AddressAndSource(
-        packet.payloads[0].sourcePort,
-        packet.sourceChannel,
-        packet.payloads[0].destPort,
-        packet.destChannel,
-        receivePayload);
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+            packet.payloads[0].sourcePort,
+            packet.sourceChannel,
+            packet.payloads[0].destPort,
+            packet.destChannel,
+            receivePayload
+        );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(packet.payloads[0].value);//,(ICS20Lib.FungibleTokenPacketData, address));
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(packet.payloads[0].value); //,(ICS20Lib.FungibleTokenPacketData,
+            // address));
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
         assertEq(packetData.sender, senderStr);
@@ -861,6 +863,7 @@ contract ICS20TransferTest is Test {
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
     }
     // This test uses event data to validate behaviour
+
     function test_success_onRecvPacketWithForeignIBCDenom() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
@@ -897,15 +900,16 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-        (address erc20Address, ) = ics20Transfer.getReceiveERC20AddressAndSource(
-        packet.payloads[0].sourcePort,
-        packet.sourceChannel,
-        packet.payloads[0].destPort,
-        packet.destChannel,
-        receivePayload);
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+            packet.payloads[0].sourcePort,
+            packet.sourceChannel,
+            packet.payloads[0].destPort,
+            packet.destChannel,
+            receivePayload
+        );
 
         ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.decodePayload(packet.payloads[0].value);
-        
+
         assertEq(packetData.denom, foreignDenom);
         assertEq(packetData.sender, senderStr);
         assertEq(packetData.receiver, receiverStr);
