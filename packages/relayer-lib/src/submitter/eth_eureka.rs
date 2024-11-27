@@ -1,6 +1,6 @@
 //! The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
 
-use std::str::FromStr;
+use std::{env, str::FromStr};
 
 use alloy::{
     primitives::Address,
@@ -56,20 +56,32 @@ pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
     pub tm_client: HttpClient,
     /// The proof type to use for [`SP1ICS07TendermintProver`].
     pub proof_type: SupportedProofType,
+    /// The SP1 private key for the prover network
+    /// Uses the local prover if not set
+    pub sp1_private_key: Option<String>,
 }
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> ChainSubmitter<T, P> {
     /// Create a new `ChainListenerService` instance.
-    pub const fn new(
+    pub fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
         proof_type: SupportedProofType,
+        sp1_private_key: Option<String>,
     ) -> Self {
+        if let Some(sp1_private_key) = &sp1_private_key {
+            env::set_var("SP1_PROVER", "network");
+            env::set_var("SP1_PRIVATE_KEY", sp1_private_key);
+        } else {
+            env::set_var("SP1_PROVER", "local");
+        }
+
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
             proof_type,
+            sp1_private_key,
         }
     }
 

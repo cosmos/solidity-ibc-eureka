@@ -65,6 +65,8 @@ pub struct CosmosToEthConfig {
     /// The proof type to use for the SP1 ICS07 Tendermint prover.
     /// This is either groth16 or plonk.
     pub proof_type: String,
+    /// The SP1 prover network private key.
+    pub sp1_private_key: String,
 }
 
 #[tonic::async_trait]
@@ -103,6 +105,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
             provider,
             tm_client,
             config.proof_type(),
+            Some(config.sp1_private_key),
         );
 
         Self {
