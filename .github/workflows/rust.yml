@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: "Set up environment"
+        uses: ./.github/setup
       - name: Install SP1 toolchain
         shell: bash
         run: |
