@@ -104,7 +104,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/relayer
-          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock') }}
+          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'relayer/**') }}
 
       - name: Install SP1 toolchain
         if: (steps.cache-operator.outputs.cache-hit != 'true') || (steps.cache-relayer.outputs.cache-hit != 'true')
