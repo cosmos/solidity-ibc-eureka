@@ -10,7 +10,7 @@ build-contracts: clean
 # Build the relayer using `cargo build`
 build-relayer:
 	cargo build --bin relayer --release --locked
- 
+
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"
@@ -77,6 +77,10 @@ test-e2e-relayer testname: clean
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
+
+# Install the relayer using `cargo install`
+install-relayer:
+	cargo install --bin relayer --path relayer --locked
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures: clean

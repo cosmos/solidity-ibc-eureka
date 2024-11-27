@@ -12,7 +12,7 @@ import (
 )
 
 func BinaryPath() string {
-	return "./target/release/relayer"
+	return "relayer"
 }
 
 func StartRelayer(configPath string) (*os.Process, error) {
