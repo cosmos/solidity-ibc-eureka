@@ -19,7 +19,4 @@ runs:
       shell: bash
       run: bun install
     - name: Setup Protoc
-      shell: bash
-      run: |
-        sudo apt update
-        sudo apt install protobuf-compiler
+      uses: taiki-e/install-action@protoc
