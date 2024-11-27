@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use futures::future;
+
 use super::modules::RelayerModuleServer;
 
 /// The `RelayerBuilder` struct is used to build the relayer binary.
@@ -52,7 +54,46 @@ impl RelayerBuilder {
 
     /// Start the relayer server.
     #[allow(clippy::pedantic)]
-    pub async fn start_server(self) {
-        todo!()
+    pub async fn start_server(self) -> anyhow::Result<()> {
+        // Ensure the starting port and address are set
+        let starting_port = self
+            .starting_port
+            .expect("Starting port must be set before starting the server");
+        let address = self
+            .address
+            .as_ref()
+            .expect("Address must be set before starting the server");
+
+        // Vector to store spawned tasks for each module
+        let mut tasks = Vec::new();
+
+        // Iterate through all registered modules
+        for (index, (name, module)) in self.modules.into_iter().enumerate() {
+            // Calculate the port for this module, panic if overflow
+            let port = starting_port
+                .checked_add(index as u16)
+                .expect("Port overflow");
+
+            // Construct the socket address
+            let socket_addr = format!("{}:{}", address, port);
+
+            // Log the module and address
+            tracing::info!(%name, %socket_addr, "Starting relayer module...");
+
+            // Clone the module and socket address for the async task
+            let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
+
+            // Spawn an async task to run the module's server
+            tasks.push(tokio::spawn(async move {
+                if let Err(err) = module.serve(socket_addr).await {
+                    tracing::error!(%name, %err, "Failed to start module");
+                }
+            }));
+        }
+
+        // Wait for all tasks to complete
+        future::try_join_all(tasks).await?;
+
+        Ok(())
     }
 }

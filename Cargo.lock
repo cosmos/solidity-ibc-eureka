@@ -5848,6 +5848,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "clap",
+ "futures",
  "ibc-eureka-relayer-lib",
  "prost",
  "serde",

@@ -22,6 +22,7 @@ async fn main() -> anyhow::Result<()> {
             let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
 
             // Initialize a Cosmos to Ethereum relayer module.
+            // TODO: improve builder so that we don't need to manually initialize the module.
             let cosmos_to_eth_config_value = config
                 .modules
                 .iter()
@@ -43,7 +44,10 @@ async fn main() -> anyhow::Result<()> {
                 Box::new(cosmos_to_eth_module),
             );
 
-            todo!()
+            // Start the relayer server.
+            relayer_builder.start_server().await?;
+
+            Ok(())
         }
     }
 }
