@@ -123,8 +123,6 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
-        //vm.expectEmit();
-        //emit IICS20Transfer.ICS20Transfer(defaultPacketData, address(erc20));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -153,8 +151,6 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
-        //vm.expectEmit();
-        //emit IICS20Transfer.ICS20Transfer(defaultPacketData, address(erc20));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -190,8 +186,6 @@ contract ICS20TransferTest is Test {
         data = abi.encode(defaultPacketData);
         packet.payloads[0].value = data;
 
-        //vm.expectEmit();
-        //emit IICS20Transfer.ICS20Transfer(defaultPacketData, address(erc20));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -496,8 +490,6 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
-        //vm.expectEmit();
-        //emit IICS20Transfer.ICS20Acknowledgement(defaultPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -798,7 +790,6 @@ contract ICS20TransferTest is Test {
         assertEq(senderBalanceAfterReceive, defaultAmount);
         assertEq(contractBalanceAfterReceive, 0);
     }
-    // This test uses event data to validate behaviour
 
     function test_success_onRecvPacketWithForeignBaseDenom() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
@@ -845,8 +836,8 @@ contract ICS20TransferTest is Test {
         );
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData)); //,(ICS20Lib.FungibleTokenPacketData,
-            // address));
+            abi.decode(packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
+
         assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
         assertEq(packetData.sender, senderStr);
@@ -863,7 +854,6 @@ contract ICS20TransferTest is Test {
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
     }
-    // This test uses event data to validate behaviour
 
     function test_success_onRecvPacketWithForeignIBCDenom() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();

@@ -369,23 +369,12 @@ contract IntegrationTest is Test {
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             payloads: payloads
         });
-        /*
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: receivedDenom,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }),
-            address(erc20)
-        );
+
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(packet, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(packet);
-        */
+
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: packet,
@@ -549,7 +538,6 @@ contract IntegrationTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ErroneousIBCStore.CallFailure.selector, "setPacketReceipt"));
         ics26Router.recvPacket(msgRecvPacket);
     }
-    // This test uses the event data to validate things
 
     function test_success_receiveICS20PacketWithForeignBaseDenom() public {
         string memory foreignDenom = "uatom";
@@ -841,7 +829,6 @@ contract IntegrationTest is Test {
         );
         ics26Router.multicall(multicallData);
     }
-    // This test uses event data to validate things
 
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {
         string memory foreignDenom = "transfer/channel-42/uatom";
@@ -982,7 +969,6 @@ contract IntegrationTest is Test {
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(expectedPacketSent));
     }
-    // This test use event data to validate things
 
     function test_success_receiveICS20PacketWithLargeAmountAndForeignIBCDenom() public {
         string memory foreignDenom = "transfer/channel-42/uatom";
@@ -1215,8 +1201,6 @@ contract IntegrationTest is Test {
             })
         );
 
-        //vm.expectEmit();
-        //emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
         uint32 sequence = ics26Router.sendPacket(msgSendPacket);
         assertEq(sequence, 1);
 
