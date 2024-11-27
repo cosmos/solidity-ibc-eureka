@@ -70,6 +70,8 @@ pub struct ModuleConfig {
 impl RelayerModule for CosmosToEthRelayerModule {
     type Config = ModuleConfig;
 
+    const NAME: &'static str = "cosmos_to_eth";
+
     async fn new(config: Self::Config) -> Self {
         let tm_client = HttpClient::new(
             Url::from_str(&config.tm_rpc_url)
@@ -191,10 +193,6 @@ impl RelayerService for CosmosToEthRelayerModule {
 
 #[tonic::async_trait]
 impl RelayerModuleServer for CosmosToEthRelayerModule {
-    fn name(&self) -> &'static str {
-        "cosmos_to_eth"
-    }
-
     #[tracing::instrument(skip(self))]
     async fn serve(self: Box<Self>, addr: SocketAddr) -> Result<(), tonic::transport::Error> {
         tracing::info!("Starting Cosmos to Ethereum relayer module server at {addr}...");
