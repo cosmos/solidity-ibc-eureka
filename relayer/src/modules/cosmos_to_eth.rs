@@ -118,7 +118,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
 
 #[tonic::async_trait]
 impl RelayerService for CosmosToEthRelayerModule {
-    #[tracing::instrument(skip(self, _request))]
+    #[tracing::instrument(skip_all)]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -146,7 +146,7 @@ impl RelayerService for CosmosToEthRelayerModule {
         }))
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -197,9 +197,9 @@ impl RelayerService for CosmosToEthRelayerModule {
 
 #[tonic::async_trait]
 impl RelayerModuleServer for CosmosToEthRelayerModule {
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     async fn serve(self: Box<Self>, addr: SocketAddr) -> Result<(), tonic::transport::Error> {
-        tracing::info!("Starting Cosmos to Ethereum relayer module server at {addr}...");
+        tracing::info!(%addr, "Started Cosmos to Ethereum relayer server.");
 
         Server::builder()
             .add_service(RelayerServiceServer::new(*self))

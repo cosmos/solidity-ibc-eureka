@@ -12,7 +12,10 @@ use solidity_ibc_eureka_relayer::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    // Initialize the logger with default log level.
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
 
     let cli = RelayerCli::parse();
     match cli.command {
