@@ -51,7 +51,8 @@ pub struct CosmosToEthRelayerModule {
 
 /// The configuration for the Cosmos to Ethereum relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct ModuleConfig {
+#[allow(clippy::module_name_repetitions)]
+pub struct CosmosToEthConfig {
     /// The tendermint RPC URL.
     pub tm_rpc_url: String,
     /// The ICS26 address.
@@ -68,7 +69,7 @@ pub struct ModuleConfig {
 
 #[tonic::async_trait]
 impl RelayerModule for CosmosToEthRelayerModule {
-    type Config = ModuleConfig;
+    type Config = CosmosToEthConfig;
 
     const NAME: &'static str = "cosmos_to_eth";
 
@@ -204,7 +205,7 @@ impl RelayerModuleServer for CosmosToEthRelayerModule {
     }
 }
 
-impl ModuleConfig {
+impl CosmosToEthConfig {
     /// Parses the proof type from the configuration.
     /// # Panics
     /// Panics if the proof type is not recognized.
