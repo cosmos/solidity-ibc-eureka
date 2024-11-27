@@ -7,10 +7,10 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::{
         fillers::{FillProvider, JoinFill, WalletFiller},
-        Identity, Provider, ProviderBuilder, RootProvider,
+        Identity, ProviderBuilder, RootProvider,
     },
     signers::local::PrivateKeySigner,
-    transports::{BoxTransport, Transport},
+    transports::BoxTransport,
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
@@ -23,19 +23,27 @@ use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
 use tonic::{Request, Response};
 
-use crate::api::{self, relayer_service_server::RelayerService};
+use crate::{
+    api::{self, relayer_service_server::RelayerService},
+    core::modules::{RelayerModule, RelayerModuleServer},
+};
 
-use super::r#trait::RelayerModule;
+type Provider = FillProvider<
+    JoinFill<Identity, WalletFiller<EthereumWallet>>,
+    RootProvider<BoxTransport>,
+    BoxTransport,
+    Ethereum,
+>;
 
 /// The `RelayerModule` defines the relayer module for Cosmos to Ethereum.
 #[allow(clippy::module_name_repetitions)]
-pub struct CosmosToEthRelayerModule<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct CosmosToEthRelayerModule {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
-    pub eth_listener: eth_eureka::ChainListener<T, P>,
+    pub eth_listener: eth_eureka::ChainListener<BoxTransport, Provider>,
     /// The chain submitter for `EthEureka`.
-    pub submitter: ChainSubmitter<T, P>,
+    pub submitter: ChainSubmitter<BoxTransport, Provider>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -56,20 +64,8 @@ pub struct ModuleConfig {
 }
 
 #[tonic::async_trait]
-impl RelayerModule
-    for CosmosToEthRelayerModule<
-        BoxTransport,
-        FillProvider<
-            JoinFill<Identity, WalletFiller<EthereumWallet>>,
-            RootProvider<BoxTransport>,
-            BoxTransport,
-            Ethereum,
-        >,
-    >
-{
+impl RelayerModule for CosmosToEthRelayerModule {
     type Config = ModuleConfig;
-
-    const NAME: &'static str = "cosmos_to_eth";
 
     async fn new(config: Self::Config) -> Self {
         let tm_client = HttpClient::new(
@@ -112,9 +108,7 @@ impl RelayerModule
 }
 
 #[tonic::async_trait]
-impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
-    for CosmosToEthRelayerModule<T, P>
-{
+impl RelayerService for CosmosToEthRelayerModule {
     #[tracing::instrument(skip(self, _request))]
     async fn info(
         &self,
@@ -189,6 +183,17 @@ impl<T: Transport + Clone, P: Provider<T> + Clone + 'static> RelayerService
             tx: multicall_tx,
             address: self.submitter.ics26_router.address().to_string(),
         }))
+    }
+}
+
+#[tonic::async_trait]
+impl RelayerModuleServer for CosmosToEthRelayerModule {
+    fn name(&self) -> &'static str {
+        "cosmos_to_eth"
+    }
+
+    async fn serve(&self, _addr: String) -> Result<(), tonic::transport::Error> {
+        todo!()
     }
 }
 
