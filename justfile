@@ -98,3 +98,8 @@ DOCKER := `which docker`
 union-proto-gen:
     @echo "Generating Protobuf files"
     {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
+
+# Generate the relayer proto files
+relayer-proto-gen:
+    @echo "Generating Protobuf files for relayer"
+    buf generate --template buf.gen.yaml
