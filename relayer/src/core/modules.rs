@@ -1,13 +1,13 @@
 //! Defines the [`RelayerModule`] trait that must be implemented by all relayer modules.
 
 use serde::{de::DeserializeOwned, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, net::SocketAddr};
 
 use crate::api::relayer_service_server::RelayerService;
 
 /// The `RelayerModule` trait defines the interface for a relayer module.
 #[tonic::async_trait]
-pub trait RelayerModule: RelayerService + RelayerModuleServer {
+pub trait RelayerModule: RelayerModuleServer {
     /// The configuration type for the relayer module.
     type Config: Clone + Serialize + DeserializeOwned + Debug;
 
@@ -18,11 +18,11 @@ pub trait RelayerModule: RelayerService + RelayerModuleServer {
 
 /// The `RelayerModuleServer` trait defines the interface for launching a relayer module server.
 #[tonic::async_trait]
-pub trait RelayerModuleServer {
+pub trait RelayerModuleServer: RelayerService {
     /// The name of the relayer module.
     /// This name is used to identify the module in the larger configuration file.
     fn name(&self) -> &'static str;
 
     /// Serve the relayer module RPC on the given address.
-    async fn serve(&self, _addr: String) -> Result<(), tonic::transport::Error>;
+    async fn serve(self: Box<Self>, _addr: SocketAddr) -> Result<(), tonic::transport::Error>;
 }

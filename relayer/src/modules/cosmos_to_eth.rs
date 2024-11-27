@@ -1,6 +1,6 @@
 //! Defines Cosmos to Ethereum relayer module.
 
-use std::str::FromStr;
+use std::{net::SocketAddr, str::FromStr};
 
 use alloy::{
     network::{Ethereum, EthereumWallet},
@@ -21,10 +21,13 @@ use ibc_eureka_relayer_lib::{
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
-use tonic::{Request, Response};
+use tonic::{transport::Server, Request, Response};
 
 use crate::{
-    api::{self, relayer_service_server::RelayerService},
+    api::{
+        self,
+        relayer_service_server::{RelayerService, RelayerServiceServer},
+    },
     core::modules::{RelayerModule, RelayerModuleServer},
 };
 
@@ -192,8 +195,14 @@ impl RelayerModuleServer for CosmosToEthRelayerModule {
         "cosmos_to_eth"
     }
 
-    async fn serve(&self, _addr: String) -> Result<(), tonic::transport::Error> {
-        todo!()
+    #[tracing::instrument(skip(self))]
+    async fn serve(self: Box<Self>, addr: SocketAddr) -> Result<(), tonic::transport::Error> {
+        tracing::info!("Starting Cosmos to Ethereum relayer module server at {addr}...");
+
+        Server::builder()
+            .add_service(RelayerServiceServer::new(*self))
+            .serve(addr)
+            .await
     }
 }
 
