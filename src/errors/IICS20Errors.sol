@@ -37,34 +37,7 @@ interface IICS20Errors {
     /// @notice Abi encoding/decoding failure
     error ICS20AbiEncodingFailure();
 
-<<<<<<< HEAD
     /// @notice Bytes slice overflow
-=======
-    /// @notice Abi encoding/decoding failure 
-    error ICS20AbiEncodingFailure();
-
-    /// @notice JSON closing brace not found
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONClosingBraceNotFound(uint256 position, bytes1 actual);
-
-    /// @notice JSON closing double quote not found
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONStringClosingDoubleQuoteNotFound(uint256 position, bytes1 actual);
-
-    /// @notice JSON string unclosed
-    /// @param bz json string value
-    /// @param position position in packet data bytes
-    error ICS20JSONStringUnclosed(bytes bz, uint256 position);
-
-    /// @notice JSON invalid escape
-    /// @param position position in packet data bytes
-    /// @param actual actual value
-    error ICS20JSONInvalidEscape(uint256 position, bytes1 actual);
-
-    /// @notice JSON bytes slice overflow
->>>>>>> 0d643e0 (fix transfer tests)
     /// @param length length of the slice
     error ICS20BytesSliceOverflow(uint256 length);
 
