@@ -31,7 +31,7 @@ abstract contract MembershipTest is SP1ICS07TendermintTest {
 
     function loadFixture(string memory fileName) public view returns (SP1ICS07MembershipFixtureJson memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/contracts/fixtures/", fileName);
+        string memory path = string.concat(root, FIXTURE_DIR, fileName);
         string memory json = vm.readFile(path);
         bytes memory proofHeightBz = json.readBytes(".proofHeight");
         bytes memory membershipProofBz = json.readBytes(".membershipProof");

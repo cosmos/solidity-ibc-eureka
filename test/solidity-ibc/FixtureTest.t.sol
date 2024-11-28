@@ -23,6 +23,8 @@ abstract contract FixtureTest is Test {
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
+    string internal constant FIXTURE_DIR = "/test/solidity-ibc/fixtures/";
+
     using stdJson for string;
 
     struct SP1ICS07GenesisFixtureJson {
@@ -79,7 +81,7 @@ abstract contract FixtureTest is Test {
 
     function loadFixture(string memory fixtureFileName) internal returns (Fixture memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/test/fixtures/", fixtureFileName);
+        string memory path = string.concat(root, FIXTURE_DIR, fixtureFileName);
         string memory json = vm.readFile(path);
 
         bytes memory sp1GenesisBz = json.readBytes(".sp1_genesis_fixture");

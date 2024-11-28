@@ -43,6 +43,8 @@ abstract contract SP1ICS07TendermintTest is
 
     SP1ICS07GenesisFixtureJson internal genesisFixture;
 
+    string internal constant FIXTURE_DIR = "/test/sp1-ics07/fixtures/";
+
     function setUpTest(string memory fileName) public {
         genesisFixture = loadGenesisFixture(fileName);
 
@@ -83,7 +85,7 @@ abstract contract SP1ICS07TendermintTest is
 
     function loadGenesisFixture(string memory fileName) public view returns (SP1ICS07GenesisFixtureJson memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/contracts/fixtures/", fileName);
+        string memory path = string.concat(root, FIXTURE_DIR, fileName);
         string memory json = vm.readFile(path);
         bytes memory trustedClientState = json.readBytes(".trustedClientState");
         bytes memory trustedConsensusState = json.readBytes(".trustedConsensusState");
