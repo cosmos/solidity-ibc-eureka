@@ -85,10 +85,6 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
@@ -122,8 +118,6 @@ contract IntegrationTest is Test {
         });
 
         vm.startPrank(sender);
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
         uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
         assertEq(sequence, 1);
 
@@ -161,10 +155,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -186,8 +177,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(expectedDefaultSendPacketData, ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON);
+
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
@@ -260,8 +250,7 @@ contract IntegrationTest is Test {
             proofTimeout: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Timeout(expectedDefaultSendPacketData);
+
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
@@ -336,10 +325,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -381,17 +367,7 @@ contract IntegrationTest is Test {
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             payloads: payloads
         });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: receivedDenom,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }),
-            address(erc20)
-        );
+
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(packet, singleSuccessAck);
         vm.expectEmit();
@@ -425,10 +401,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -499,10 +472,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -603,9 +573,7 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        address erc20Address;
-        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
+
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
@@ -626,19 +594,23 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        // find and extract data from the ICS20ReceiveTransfer event
-        Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+            receivePacket.payloads[0].sourcePort,
+            receivePacket.sourceChannel,
+            receivePacket.payloads[0].destPort,
+            receivePacket.destChannel,
+            receivePacketData
+        );
 
-        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
-        (eventPacketData, erc20Address) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
-        assertEq(eventPacketData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
+
+        assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(eventPacketData.sender, senderStr);
-        assertEq(eventPacketData.receiver, receiverStr);
-        assertEq(eventPacketData.amount, transferAmount);
-        assertEq(eventPacketData.memo, "memo");
+        assertEq(packetData.sender, senderStr);
+        assertEq(packetData.receiver, receiverStr);
+        assertEq(packetData.amount, transferAmount);
+        assertEq(packetData.memo, "memo");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -668,18 +640,6 @@ contract IntegrationTest is Test {
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "backmemo"
         });
-
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: expectedFullDenomPath,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }),
-            erc20Address
-        );
 
         ICS20Lib.FungibleTokenPacketData memory sendPacketData = ICS20Lib.FungibleTokenPacketData({
             denom: expectedFullDenomPath,
@@ -904,15 +864,11 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        address erc20Address;
-        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
-        vm.recordLogs();
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
@@ -927,19 +883,23 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        // find and extract data from the ICS20ReceiveTransfer event
-        Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+            receivePacket.payloads[0].sourcePort,
+            receivePacket.sourceChannel,
+            receivePacket.payloads[0].destPort,
+            receivePacket.destChannel,
+            receivePacketData
+        );
 
-        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
-        (eventPacketData, erc20Address) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
-        assertEq(eventPacketData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
+
+        assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(eventPacketData.sender, senderStr);
-        assertEq(eventPacketData.receiver, receiverStr);
-        assertEq(eventPacketData.amount, transferAmount);
-        assertEq(eventPacketData.memo, "memo");
+        assertEq(packetData.sender, senderStr);
+        assertEq(packetData.receiver, receiverStr);
+        assertEq(packetData.amount, transferAmount);
+        assertEq(packetData.memo, "memo");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -969,18 +929,6 @@ contract IntegrationTest is Test {
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "backmemo"
         });
-
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: expectedFullDenomPath,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: transferAmount,
-                memo: "backmemo"
-            }),
-            erc20Address
-        );
 
         vm.expectEmit();
 
@@ -1058,15 +1006,12 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        address erc20Address;
-        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
+       
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
-        vm.recordLogs();
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
@@ -1081,19 +1026,23 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        // find and extract data from the ICS20ReceiveTransfer event
-        Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
-        assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+            receivePacket.payloads[0].sourcePort,
+            receivePacket.sourceChannel,
+            receivePacket.payloads[0].destPort,
+            receivePacket.destChannel,
+            receivePacketData
+        );
 
-        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
-        (eventPacketData, erc20Address) =
-            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
-        assertEq(eventPacketData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory packetData =
+            abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
+
+        assertEq(packetData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(eventPacketData.sender, senderStr);
-        assertEq(eventPacketData.receiver, receiverStr);
-        assertEq(eventPacketData.amount, largeAmount);
-        assertEq(eventPacketData.memo, "");
+        assertEq(packetData.sender, senderStr);
+        assertEq(packetData.receiver, receiverStr);
+        assertEq(packetData.amount, largeAmount);
+        assertEq(packetData.memo, "");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -1123,18 +1072,6 @@ contract IntegrationTest is Test {
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: ""
         });
-
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: expectedFullDenomPath,
-                sender: senderStr,
-                receiver: receiverStr,
-                amount: largeAmount,
-                memo: ""
-            }),
-            erc20Address
-        );
 
         vm.expectEmit();
 
@@ -1185,10 +1122,7 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Acknowledgement(
-            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
-        );
+
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
@@ -1268,8 +1202,6 @@ contract IntegrationTest is Test {
             })
         );
 
-        vm.expectEmit();
-        emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
         uint32 sequence = ics26Router.sendPacket(msgSendPacket);
         assertEq(sequence, 1);
 

@@ -87,8 +87,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             IBCERC20 ibcERC20Contract = IBCERC20(erc20Address);
             ibcERC20Contract.burn(packetData.amount);
         }
-
-        emit ICS20Transfer(packetData, erc20Address);
     }
 
     /// @inheritdoc IIBCApp
@@ -123,9 +121,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         // transfer the tokens to the receiver
         ESCROW.send(IERC20(erc20Address), receiver, packetData.amount);
 
-        // Note the event don't take into account the conversion
-        emit ICS20ReceiveTransfer(packetData, erc20Address);
-
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
@@ -140,8 +135,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             _refundTokens(packetData, erc20Address);
         }
 
-        // Nothing needed to be done if the acknowledgement was successful, tokens are already in escrow or burnt
-        emit ICS20Acknowledgement(packetData, msg_.acknowledgement);
     }
 
     /// @inheritdoc IIBCApp
@@ -151,7 +144,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
         _refundTokens(packetData, erc20Address);
 
-        emit ICS20Timeout(packetData);
     }
 
     /// @notice Refund the tokens to the sender
@@ -233,7 +225,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string calldata destChannel,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
-        private
+        public
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);
