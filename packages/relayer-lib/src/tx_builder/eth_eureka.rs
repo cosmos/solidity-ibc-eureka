@@ -45,11 +45,11 @@ use crate::{
     events::EurekaEvent,
 };
 
-use super::r#trait::ChainSubmitterService;
+use super::r#trait::TxBuilderService;
 
-/// The `ChainSubmitter` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
+/// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
-pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<T, P>,
     /// The HTTP client for the Cosmos SDK.
@@ -61,8 +61,8 @@ pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
     pub sp1_private_key: Option<String>,
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone> ChainSubmitter<T, P> {
-    /// Create a new `ChainSubmitter` instance.
+impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
+    /// Create a new [`TxBuilder`] instance.
     pub fn new(
         ics26_address: Address,
         provider: P,
@@ -108,7 +108,7 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> ChainSubmitter<T, P> {
 }
 
 #[async_trait::async_trait]
-impl<T, P> ChainSubmitterService<EthEureka, CosmosSdk> for ChainSubmitter<T, P>
+impl<T, P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<T, P>
 where
     T: Transport + Clone,
     P: Provider<T> + Clone,

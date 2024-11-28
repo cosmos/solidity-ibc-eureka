@@ -5,4 +5,4 @@
 pub mod chain;
 pub mod events;
 pub mod listener;
-pub mod submitter;
+pub mod tx_builder;

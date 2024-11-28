@@ -14,9 +14,9 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    submitter::{
-        eth_eureka::{ChainSubmitter, SupportedProofType},
-        ChainSubmitterService,
+    tx_builder::{
+        eth_eureka::{SupportedProofType, TxBuilder},
+        TxBuilderService,
     },
 };
 use tendermint::Hash;
@@ -46,7 +46,7 @@ pub struct CosmosToEthRelayerModule {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<BoxTransport, Provider>,
     /// The chain submitter for `EthEureka`.
-    pub submitter: ChainSubmitter<BoxTransport, Provider>,
+    pub submitter: TxBuilder<BoxTransport, Provider>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -100,7 +100,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
-        let submitter = ChainSubmitter::new(
+        let submitter = TxBuilder::new(
             config.ics26_address,
             provider,
             tm_client,
