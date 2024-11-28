@@ -1,10 +1,9 @@
 [package]
-name = "solidity-ibc-eureka-relayer"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
+name       = "solidity-ibc-eureka-relayer"
+version    = { workspace = true }
+edition    = { workspace = true }
 repository = { workspace = true }
-license = { workspace = true }
+license    = { workspace = true }
 
 [dependencies]
 ibc-eureka-relayer-lib = { workspace = true, default-features = true }

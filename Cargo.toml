@@ -7,12 +7,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version       = "0.1.0"
-edition       = "2021"
-license       = "MIT"
-repository    = "https://github.com/srdtrk/solidity-ibc-eureka"
-keywords      = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
-authors       = ["srdtrk <srdtrk@hotmail.com>"]
+version    = "0.1.0"
+edition    = "2021"
+license    = "MIT"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
 ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }

@@ -1,10 +1,9 @@
 [package]
-name = "ibc-eureka-relayer-lib"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
+name       = "ibc-eureka-relayer-lib"
+version    = { workspace = true }
+edition    = { workspace = true }
 repository = { workspace = true }
-license = { workspace = true }
+license    = { workspace = true }
 
 [features]
 default = ["sp1-toolchain"]

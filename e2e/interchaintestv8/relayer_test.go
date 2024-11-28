@@ -49,14 +49,14 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 			SP1PrivateKey: os.Getenv(testvalues.EnvKeySp1PrivateKey),
 		}
 
-		err = configInfo.GenerateConfigFile("relayer_config.json")
+		err = configInfo.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer("relayer_config.json")
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove("relayer_config.json")
+			os.Remove(testvalues.RelayerConfigFilePath)
 		})
 	}))
 

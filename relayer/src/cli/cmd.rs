@@ -4,7 +4,7 @@ use clap::{command, Parser};
 
 /// The command line interface for the relayer.
 #[derive(Clone, Debug, Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(version, about, long_about = None)]
 pub struct RelayerCli {
     /// The subcommand to run.
     #[command(subcommand)]
