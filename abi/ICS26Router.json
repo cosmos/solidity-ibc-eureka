@@ -38,6 +38,19 @@
   },
   {
     "type": "function",
+    "name": "ICS04_CHANNEL",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IICS04Channel"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "ackPacket",
     "inputs": [
       {
@@ -575,6 +588,12 @@
   },
   {
     "type": "event",
+    "name": "Noop",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -940,11 +959,6 @@
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "IBCMultiPayloadPacketNotSupported",
-    "inputs": []
   },
   {
     "type": "error",
