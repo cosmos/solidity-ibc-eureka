@@ -126,7 +126,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
 			"-o", testvalues.Sp1GenesisFilePath,
-		}, proofType.ToOpGenesisArgs()...)
+		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
 		var (
