@@ -1,22 +1,8 @@
+# Learn more about the buf.gen.yaml file at https://buf.build/docs/configuration/v2/buf-gen-yaml/
 version: v2
 managed:
-  # 'enabled: true' turns managed mode on, 'enabled: false' ignores all managed mode options.
   enabled: true # default: false
 
-# 'plugins' is a list of plugin configurations used for buf generate.
-#
-# A 'plugin' configuration has 8 possible keys:
-#  - one of (required):
-#    - 'remote': remote plugin name (e.g. buf.build/protocolbuffers/go)
-#    - 'protoc_builtin': a 'protoc' built-in plugin (e.g. 'cpp' for 'protoc-gen-cpp')
-#    - 'local': a string or list of strings that point to a protoc plugin binary on your
-#      '${PATH}'. If a list of strings is specified, the first is the binary name, and the
-#      subsequent strings are considered arguments passed to the binary.
-#  - 'out': <string> path to the file output, which is the same as v1 (required)
-#  - 'opt': a list of plugin options, which is the same as v1 (optional)
-#  - 'strategy': a string for the invocation strategy, which is the same as v1 (optional)
-#  - 'include_imports': <boolean> (optional, precedence given to CLI flag)
-#  - 'include_wkt': <boolean> (optional, precedence given to CLI flag)
 plugins:
   - local: protoc-gen-go
     out: e2e/interchaintestv8/types/
@@ -25,9 +11,5 @@ plugins:
     out: e2e/interchaintestv8/types/
     opt: paths=source_relative
 
-# 'inputs' is a list of inputs that will be run for buf generate. It's a
-# required key for v2 buf.gen.yaml and allows you to specify options based on the type
-# of input (https://buf.build/docs/reference/inputs.md#source) being configured.
 inputs:
-  # Local module at provided directory path
   - directory: relayer/proto

@@ -5,12 +5,19 @@ import (
 	"text/template"
 )
 
+// ConfigInfo is a struct that holds the configuration information for the config template
 type ConfigInfo struct {
-	TMRPCURL      string
-	ICS26Address  string
-	ETHRPCURL     string
-	PrivateKey    string
-	ProofType     string
+	// Tendermint RPC URL
+	TmRPC string
+	// ICS26 Router address
+	ICS26Address string
+	// Ethereum RPC URL
+	EthRPC string
+	// Private key of the relayer
+	PrivateKey string
+	// Proof type
+	ProofType string
+	// SP1 private key
 	SP1PrivateKey string
 }
 

@@ -16,7 +16,7 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
-// IbcEurekaTestSuite is a suite of tests that wraps TestSuite
+// RelayerTestSuite is a suite of tests that wraps IbcEurekaTestSuite
 // and can provide additional functionality
 type RelayerTestSuite struct {
 	IbcEurekaTestSuite
@@ -41,9 +41,9 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 		s.Require().NoError(err)
 
 		configInfo := relayer.ConfigInfo{
-			TMRPCURL:      simd.GetHostRPCAddress(),
+			TmRPC:         simd.GetHostRPCAddress(),
 			ICS26Address:  s.contractAddresses.Ics26Router,
-			ETHRPCURL:     eth.RPC,
+			EthRPC:        eth.RPC,
 			PrivateKey:    hex.EncodeToString(crypto.FromECDSA(relayerKey)),
 			ProofType:     proofType.String(),
 			SP1PrivateKey: os.Getenv(testvalues.EnvKeySp1PrivateKey),

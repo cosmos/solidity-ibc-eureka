@@ -1,3 +1,4 @@
+# Learn more at https://buf.build/docs/configuration/v2/buf-yaml/
 version: v2
 modules:
   - path: relayer/proto

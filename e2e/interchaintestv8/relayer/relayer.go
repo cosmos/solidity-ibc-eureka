@@ -27,13 +27,9 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	}
 
 	// wait for the relayer to start
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	return cmd.Process, nil
-}
-
-func StopRelayer() error {
-	return exec.Command("pkill", "-9", "relayer").Run()
 }
 
 func defaultGRPCAddress() string {
