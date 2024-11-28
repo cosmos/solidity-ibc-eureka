@@ -14,7 +14,7 @@ import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07Tend
 import { ICS02Client } from "../contracts/ICS02Client.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
-import { TestERC20 } from "../test/mocks/TestERC20.sol";
+import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 
@@ -30,6 +30,8 @@ struct SP1ICS07TendermintGenesisJson {
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script {
     using stdJson for string;
+
+    string internal constant SP1_GENESIS_DIR = "/scripts/";
 
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
@@ -82,7 +84,7 @@ contract E2ETestDeploy is Script {
 
     function loadGenesis(string memory fileName) public view returns (SP1ICS07TendermintGenesisJson memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/e2e/", fileName);
+        string memory path = string.concat(root, SP1_GENESIS_DIR, fileName);
         string memory json = vm.readFile(path);
         bytes memory trustedClientState = json.readBytes(".trustedClientState");
         bytes memory trustedConsensusState = json.readBytes(".trustedConsensusState");
