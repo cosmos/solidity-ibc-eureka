@@ -54,7 +54,7 @@ const (
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "e2e/genesis.json"
 	// FixturesDir is the directory where the Solidity fixtures are stored.
-	FixturesDir = "test/fixtures/"
+	FixturesDir = "test/solidity-ibc/fixtures/"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
 	RelayerConfigFilePath = "relayer/config.json"
 
