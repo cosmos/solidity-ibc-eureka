@@ -93,7 +93,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 			s.Require().NoError(err)
 		})
 
-		stdout, err := eth.ForgeScript(s.key, testvalues.SP1ICS07DeployScriptPath)
+		stdout, err := eth.ForgeScript(s.key, testvalues.SP1ICS07DeployScriptPath, "--json")
 		s.Require().NoError(err)
 
 		contractAddress, err := ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))

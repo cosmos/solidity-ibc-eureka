@@ -54,8 +54,14 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 	}, nil
 }
 
-func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string) ([]byte, error) {
-	cmd := exec.Command("forge", "script", "--rpc-url", e.RPC, "--private-key", hex.EncodeToString(deployer.D.Bytes()), "--broadcast", "--non-interactive", "-vvvv", solidityContract)
+func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
+	args = append(args, "script", "--rpc-url", e.RPC, "--private-key",
+		hex.EncodeToString(deployer.D.Bytes()), "--broadcast",
+		"--non-interactive", "-vvvv", solidityContract,
+	)
+	cmd := exec.Command(
+		"forge", args...,
+	)
 
 	faucetAddress := crypto.PubkeyToAddress(e.Faucet.PublicKey)
 	extraEnv := []string{
