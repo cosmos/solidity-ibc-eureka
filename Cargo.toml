@@ -37,11 +37,16 @@ anyhow             = { version = "1.0", default-features = false }
 async-trait        = { version = "0.1", default-features = false }
 futures            = { version = "0.3", default-features = false }
 clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
+time               = { version = "0.3", default-features = false }
 
-tendermint     = { version = "0.40", default-features = false }
-tendermint-rpc = { version = "0.40", default-features = false }
+tendermint                       = { version = "0.40", default-features = false }
+tendermint-rpc                   = { version = "0.40", default-features = false }
+tendermint-light-client-verifier = { version = "0.40", default-features = false }
 
-ibc-core-host-types = { version = "0.56", default-features = false }
+ibc-core-host-types         = { version = "0.56", default-features = false }
+ibc-core-client-types       = { version = "0.56", default-features = false }
+ibc-core-commitment-types   = { version = "0.56", default-features = false }
+ibc-client-tendermint-types = { version = "0.56", default-features = false }
 
 alloy = { version = "0.6", default-features = false }
 alloy-contract    = "0.6"

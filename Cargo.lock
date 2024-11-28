@@ -3224,7 +3224,13 @@ dependencies = [
  "alloy-contract",
  "alloy-sol-types 0.8.13",
  "hex",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
  "serde",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "time",
 ]
 
 [[package]]
