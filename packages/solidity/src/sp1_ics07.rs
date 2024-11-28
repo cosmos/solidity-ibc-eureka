@@ -20,7 +20,7 @@ alloy_sol_types::sol!(
     #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
     #[allow(missing_docs, clippy::pedantic)]
     sp1_ics07_tendermint,
-    "../../contracts/abi/SP1ICS07Tendermint.json"
+    "../../abi/SP1ICS07Tendermint.json"
 );
 
 #[cfg(feature = "rpc")]
