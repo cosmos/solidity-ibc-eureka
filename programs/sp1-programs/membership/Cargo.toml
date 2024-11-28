@@ -1,0 +1,15 @@
+[package]
+name = "sp1-ics07-tendermint-membership"
+description = "Verify (non)membership program for sp1-ics07-tendermint"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+sp1-zkvm = { workspace = true, default-features = true }
+ibc-core-commitment-types = { workspace = true }
+alloy-sol-types = { workspace = true }
+sp1-ics07-tendermint-solidity = { workspace = true }
+ibc-proto = { workspace = true }
+bincode = { workspace = true }

@@ -3133,6 +3133,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-client-tendermint"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5b02fb5248a9fdf1b8242792fbd5528f2d51aded7cb1a7a9c016b4e9df49610"
+dependencies = [
+ "derive_more 1.0.0",
+ "ibc-client-tendermint-types",
+ "ibc-core-client",
+ "ibc-core-commitment-types",
+ "ibc-core-handler-types",
+ "ibc-core-host",
+ "ibc-primitives",
+ "tendermint",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "ibc-client-tendermint-types"
 version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3148,6 +3165,56 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
+]
+
+[[package]]
+name = "ibc-core-channel-types"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cd8a7707fad74232cc5a306382a2c60a43346ea13bf6acc08b6b5289508b0c8"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-connection-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "ibc-proto",
+ "sha2 0.10.8",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-client"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5397f176e100ea3023734d9deb2ae1cc9e19b4561bf1aba2ae38a4d49272c6ad"
+dependencies = [
+ "ibc-core-client-context",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-handler-types",
+ "ibc-core-host",
+ "ibc-primitives",
+]
+
+[[package]]
+name = "ibc-core-client-context"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46639dacb4915502a5f22417ed2b5759919ea52b24906d139903d557555ca2c6"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-handler-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "subtle-encoding",
+ "tendermint",
 ]
 
 [[package]]
@@ -3184,6 +3251,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-core-connection-types"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f851d007b1c269eb849208e080a8790a2a5b37546b3e741d835316a739483492"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "ibc-proto",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-handler-types"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f69ac81e331c0740b0ee47ef9cbbf5f6f5c9cbbe4ca620d156224b653e63ac21"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-channel-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-connection-types",
+ "ibc-core-host-types",
+ "ibc-core-router-types",
+ "ibc-primitives",
+ "ibc-proto",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-host"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a48b932c262deb91616535a690f5c9e31182d32f1d8d0cf1caf01b1a7d370277"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-channel-types",
+ "ibc-core-client-context",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-connection-types",
+ "ibc-core-handler-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "subtle-encoding",
+]
+
+[[package]]
 name = "ibc-core-host-types"
 version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3195,6 +3318,21 @@ dependencies = [
  "ibc-primitives",
  "prost",
  "serde",
+]
+
+[[package]]
+name = "ibc-core-router-types"
+version = "0.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6e4fe4d5f146a06ba7fe9de72643edb92140297cbe639b457fe6a6863c9763c"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "ibc-proto",
+ "subtle-encoding",
+ "tendermint",
 ]
 
 [[package]]
@@ -6061,6 +6199,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-ics07-tendermint-membership"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.8.13",
+ "bincode",
+ "ibc-core-commitment-types",
+ "ibc-proto",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "sp1-ics07-tendermint-misbehaviour"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.8.13",
+ "bincode",
+ "ibc-client-tendermint",
+ "ibc-core-client",
+ "ibc-core-handler-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "serde_cbor",
+ "sha2 0.10.8",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-zkvm",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
 source = "git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223#f67f5fec9423a4744092ee98b62bc60e3354f223"
@@ -6094,6 +6262,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-ics07-tendermint-uc-and-membership"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.8.13",
+ "bincode",
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-proto",
+ "serde_cbor",
+ "sp1-ics07-tendermint-membership",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-ics07-tendermint-update-client",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "sp1-ics07-tendermint-update-client"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.8.13",
+ "bincode",
+ "ibc-client-tendermint",
+ "ibc-core-client",
+ "ibc-core-handler-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "serde_cbor",
+ "sha2 0.10.8",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-zkvm",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
 name = "sp1-ics07-tendermint-utils"
 version = "0.1.0"
 source = "git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223#f67f5fec9423a4744092ee98b62bc60e3354f223"
@@ -6112,6 +6314,16 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa1fe3d3e2a4cfe6b7259f0c00f770a4376fba892af20695b6ba450e0d02771c"
+dependencies = [
+ "bincode",
+ "serde",
 ]
 
 [[package]]
@@ -6377,6 +6589,21 @@ dependencies = [
  "sysinfo",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "sp1-zkvm"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7123d0e616c6641a9088c604f5d00f728f396823e8a91ef805d54d6e1d8ccc1b"
+dependencies = [
+ "cfg-if",
+ "getrandom",
+ "lazy_static",
+ "libm",
+ "rand",
+ "sha2 0.10.8",
+ "sp1-lib",
 ]
 
 [[package]]

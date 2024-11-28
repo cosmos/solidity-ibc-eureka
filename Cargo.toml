@@ -2,7 +2,8 @@
 members = [
     "packages/*",
 
-    "programs/*",
+    "programs/relayer",
+    "programs/sp1-programs/*",
 ]
 resolver = "2"
 
@@ -14,8 +15,10 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
-ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }
-ibc-eureka-relayer-lib    = { path = "packages/relayer-lib", default-features = false }
+ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
+ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
+sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
+sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
 
 sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
 sp1-ics07-tendermint-prover   = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
@@ -27,6 +30,8 @@ serde_cbor = { version = "0.11", default-features = false }
 hex        = { version = "0.4", default-features = false }
 prost      = { version = "0.13", default-features = false }
 bincode    = { version = "1.3", default-features = false }
+
+sha2 = { version = "0.10", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
@@ -47,14 +52,19 @@ tendermint-light-client-verifier = { version = "0.40", default-features = false 
 
 ibc-proto = { version = "0.51", default-features = false }
 
+ibc-primitives              = { version = "0.56", default-features = false }
+ibc-client-tendermint       = { version = "0.56", default-features = false }
+ibc-core-client             = { version = "0.56", default-features = false }
 ibc-core-host-types         = { version = "0.56", default-features = false }
 ibc-core-client-types       = { version = "0.56", default-features = false }
 ibc-core-commitment-types   = { version = "0.56", default-features = false }
+ibc-core-handler-types      = { version = "0.56", default-features = false }
 ibc-client-tendermint-types = { version = "0.56", default-features = false }
 
-alloy = { version = "0.6", default-features = false }
-alloy-contract    = "0.6"
-alloy-sol-types   = "0.8"
+alloy             = { version = "0.6", default-features = false }
+alloy-contract    = { version = "0.6", default-features = false }
+alloy-sol-types   = { version = "0.8", default-features = false }
 
 sp1-sdk = { version = "3.0", default-features = false }
+sp1-zkvm = { version = "3.0", default-features = false }
 sp1-helper = { version = "3.0", default-features = false }
