@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 // solhint-disable no-empty-blocks
 
-import { IIBCStore } from "../../contracts/interfaces/IIBCStore.sol";
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IIBCStore } from "../../../contracts/interfaces/IIBCStore.sol";
+import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 
 /// @title Erroneous IBC Store
 /// @dev This contract is used to override some functions of the IBC store contract using cheatcodes

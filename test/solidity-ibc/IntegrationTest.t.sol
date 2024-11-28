@@ -4,22 +4,22 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length,max-states-count
 
 import { Test } from "forge-std/Test.sol";
-import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
-import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
-import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
-import { IICS20TransferMsgs } from "../contracts/msgs/IICS20TransferMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
+import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
-import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
-import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
-import { IIBCStore } from "../contracts/interfaces/IIBCStore.sol";
-import { IICS26RouterErrors } from "../contracts/errors/IICS26RouterErrors.sol";
-import { ICS26Router } from "../contracts/ICS26Router.sol";
-import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { IIBCStore } from "../../contracts/interfaces/IIBCStore.sol";
+import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
-import { ILightClientMsgs } from "../contracts/msgs/ILightClientMsgs.sol";
-import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
-import { ICS24Host } from "../contracts/utils/ICS24Host.sol";
+import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
+import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 

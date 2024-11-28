@@ -4,9 +4,9 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { ICS24Host } from "../contracts/utils/ICS24Host.sol";
-import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
-import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 
 contract ICS24HostTest is Test {
