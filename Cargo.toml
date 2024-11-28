@@ -1,0 +1,50 @@
+[workspace]
+members = [
+    "packages/*",
+
+    "relayer/",
+]
+resolver = "2"
+
+[workspace.package]
+version    = "0.1.0"
+edition    = "2021"
+license    = "MIT"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
+
+[workspace.dependencies]
+ibc-eureka-solidity-types = { path = "packages/solidity", default-features = false }
+ibc-eureka-relayer-lib    = { path = "packages/relayer-lib", default-features = false }
+
+sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
+sp1-ics07-tendermint-prover   = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
+sp1-ics07-tendermint-utils    = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
+
+serde      = { version = "1.0", default-features = false }
+serde_json = { version = "1.0", default-features = false }
+hex        = { version = "0.4", default-features = false }
+prost      = { version = "0.13", default-features = false }
+
+tokio       = { version = "1.0", default-features = false }
+axum        = { version = "0.7", default-features = false }
+tonic       = { version = "0.12", default-features = false }
+tonic-build = { version = "0.12", default-features = false }
+
+tracing            = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
+anyhow             = { version = "1.0", default-features = false }
+async-trait        = { version = "0.1", default-features = false }
+futures            = { version = "0.3", default-features = false }
+clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
+
+tendermint     = { version = "0.40", default-features = false }
+tendermint-rpc = { version = "0.40", default-features = false }
+
+ibc-core-host-types = { version = "0.56", default-features = false }
+
+alloy = { version = "0.6", default-features = false }
+alloy-contract    = "0.6"
+alloy-sol-types   = "0.8"
+
+sp1-sdk = { version = "3.0", default-features = false }

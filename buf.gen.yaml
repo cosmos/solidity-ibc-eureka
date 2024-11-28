@@ -1,0 +1,15 @@
+# Learn more about the buf.gen.yaml file at https://buf.build/docs/configuration/v2/buf-gen-yaml/
+version: v2
+managed:
+  enabled: true # default: false
+
+plugins:
+  - local: protoc-gen-go
+    out: e2e/interchaintestv8/types/
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: e2e/interchaintestv8/types/
+    opt: paths=source_relative
+
+inputs:
+  - directory: relayer/proto

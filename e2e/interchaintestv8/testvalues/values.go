@@ -55,6 +55,8 @@ const (
 	Sp1GenesisFilePath = "e2e/genesis.json"
 	// FixturesDir is the directory where the Solidity fixtures are stored.
 	FixturesDir = "test/fixtures/"
+	// RelayerConfigFilePath is the path to generate the relayer config file.
+	RelayerConfigFilePath = "relayer/config.json"
 
 	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
 	DefaultGovV1ProposalTokenAmount = 500_000_000

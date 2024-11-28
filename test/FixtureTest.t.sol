@@ -4,14 +4,14 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
-import { IICS02ClientMsgs } from "../../src/msgs/IICS02ClientMsgs.sol";
-import { ICS26Router } from "../../src/ICS26Router.sol";
-import { IICS26RouterMsgs } from "../../src/msgs/IICS26RouterMsgs.sol";
+import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
+import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { ICS20Transfer } from "../../src/ICS20Transfer.sol";
+import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
-import { ICS20Lib } from "../../src/utils/ICS20Lib.sol";
+import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 abstract contract FixtureTest is Test {

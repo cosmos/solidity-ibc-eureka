@@ -1,0 +1,14 @@
+# Learn more at https://buf.build/docs/configuration/v2/buf-yaml/
+version: v2
+modules:
+  - path: relayer/proto
+    name: buf.build/cosmos/solidity-ibc-eureka-relayer
+lint:
+  use:
+    - STANDARD
+    - COMMENTS
+    - FILE_LOWER_SNAKE_CASE
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  ignore:
+    - node_modules

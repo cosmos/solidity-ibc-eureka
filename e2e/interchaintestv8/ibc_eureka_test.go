@@ -74,6 +74,11 @@ type IbcEurekaTestSuite struct {
 	escrowContractAddr ethcommon.Address
 }
 
+// TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
+func TestWithIbcEurekaTestSuite(t *testing.T) {
+	suite.Run(t, new(IbcEurekaTestSuite))
+}
+
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
@@ -210,11 +215,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
-}
-
-// TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
-func TestWithIbcEurekaTestSuite(t *testing.T) {
-	suite.Run(t, new(IbcEurekaTestSuite))
 }
 
 func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {

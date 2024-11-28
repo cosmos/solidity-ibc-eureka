@@ -1,12 +1,16 @@
 set dotenv-load
 
 # Use the SP1_OPERATOR_REV environment variable if it is set, otherwise use a default commit hash
-sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', '07e23bba5000c9d67dfc1d975ac477164e56db1f')
+sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', 'f67f5fec9423a4744092ee98b62bc60e3354f223')
 
 # Build the contracts using `forge build`
-build: clean
+build-contracts: clean
 	forge build
- 
+
+# Build the relayer using `cargo build`
+build-relayer:
+	cargo build --bin relayer --release --locked
+
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"
@@ -22,6 +26,11 @@ test-foundry testname=".\\*":
 test-benchmark testname=".\\*":
 	forge test -vvv --show-progress --gas-report --match-path test/BenchmarkTest.t.sol --match-test {{testname}}
 
+# Run the cargo tests
+test-cargo:
+	cargo test --all --locked
+
+# Run the tests in abigen
 test-abigen:
 	@echo "Running abigen tests..."
 	cd abigen && go test -v ./...
@@ -29,14 +38,16 @@ test-abigen:
 # Run forge fmt and bun solhint
 lint:
 	@echo "Linting the Solidity code..."
-	forge fmt --check && bun solhint -w 0 '{script,src,test}/**/*.sol'
+	forge fmt --check && bun solhint -w 0 '{script,contracts,test}/**/*.sol'
 	@echo "Linting the Go code..."
-	cd e2e/interchaintestv8 && golangci-lint run --fix
-	cd abigen && golangci-lint run --fix
+	cd e2e/interchaintestv8 && golangci-lint run .
+	@echo "Linting the Rust code..."
+	cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings
+	@echo "Linting the Protobuf files..."
+	buf lint
 
 # Generate the ABI files for the contracts
-generate-abi:
-	just build
+generate-abi: build-contracts
 	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
 	jq '.abi' out/ICS02Client.sol/ICS02Client.json > abi/ICS02Client.json   
 	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
@@ -58,9 +69,18 @@ test-e2e testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
 
+# Run the e2e tests in the relayer test suite
+test-e2e-relayer testname: clean
+	@echo "Running {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
+
+# Install the relayer using `cargo install`
+install-relayer:
+	cargo install --bin relayer --path relayer --locked
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures: clean
@@ -91,3 +111,8 @@ DOCKER := `which docker`
 union-proto-gen:
     @echo "Generating Protobuf files"
     {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
+
+# Generate the relayer proto files
+relayer-proto-gen:
+    @echo "Generating Protobuf files for relayer"
+    buf generate --template buf.gen.yaml

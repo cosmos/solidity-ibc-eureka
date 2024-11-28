@@ -4,17 +4,17 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
-import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
-import { IIBCAppCallbacks } from "../src/msgs/IIBCAppCallbacks.sol";
-import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
-import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
+import { IIBCAppCallbacks } from "../contracts/msgs/IIBCAppCallbacks.sol";
+import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../contracts/msgs/IICS20TransferMsgs.sol";
+import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
-import { IBCERC20 } from "../src/utils/IBCERC20.sol";
+import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
-import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
-import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
+import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { IICS20Errors } from "../contracts/errors/IICS20Errors.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";

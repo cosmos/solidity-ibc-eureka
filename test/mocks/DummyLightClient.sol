@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 // solhint-disable no-empty-blocks
 
-import { ILightClient } from "../../src/interfaces/ILightClient.sol";
+import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 
 contract DummyLightClient is ILightClient {
     UpdateResult public updateResult;

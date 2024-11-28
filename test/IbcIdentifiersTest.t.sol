@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 // solhint-disable max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IBCIdentifiers } from "../src/utils/IBCIdentifiers.sol";
+import { IBCIdentifiers } from "../contracts/utils/IBCIdentifiers.sol";
 
 contract IBCIdentifiersTest is Test {
     struct ValidatePortIdentifierTestCase {

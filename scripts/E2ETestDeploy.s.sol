@@ -11,12 +11,12 @@ import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
-import { ICS02Client } from "../src/ICS02Client.sol";
-import { ICS26Router } from "../src/ICS26Router.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
+import { ICS02Client } from "../contracts/ICS02Client.sol";
+import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
-import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
+import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
