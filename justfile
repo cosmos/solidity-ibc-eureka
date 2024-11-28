@@ -89,6 +89,11 @@ test-e2e-relayer testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
 
+# Run the e2e tests in the relayer test suite
+test-e2e-ics07 testname: clean
+	@echo "Running {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithSP1ICS07TendermintTestSuite/{{testname}}$' -timeout 40m
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --bin operator --path programs/relayer --locked

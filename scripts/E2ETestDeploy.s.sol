@@ -40,9 +40,8 @@ contract E2ETestDeploy is Script {
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
 
         string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
 
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
