@@ -737,7 +737,7 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-          (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
+        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
             packet.payloads[0].sourcePort,
             packet.sourceChannel,
             packet.payloads[0].destPort,

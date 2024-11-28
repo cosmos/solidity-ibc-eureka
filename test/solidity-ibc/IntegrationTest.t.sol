@@ -573,7 +573,6 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
@@ -1006,7 +1005,6 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-       
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();

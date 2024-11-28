@@ -134,7 +134,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
                 getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
             _refundTokens(packetData, erc20Address);
         }
-
     }
 
     /// @inheritdoc IIBCApp
@@ -143,7 +142,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
         _refundTokens(packetData, erc20Address);
-
     }
 
     /// @notice Refund the tokens to the sender
