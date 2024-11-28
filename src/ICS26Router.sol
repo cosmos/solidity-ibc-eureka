@@ -119,7 +119,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
-       
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
@@ -230,7 +229,6 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
-        
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];

@@ -7,7 +7,8 @@ import { IICS04ChannelMsgs } from "../msgs/IICS04ChannelMsgs.sol";
 /// @notice IICS04CHANNEL is an interface for the IBC Eureka channel router
 interface IICS04Channel is IICS04ChannelMsgs {
     /// @notice Emitted when a new channel is added to the channel router.
-    /// @param channelId The newly created channel identifier. NOTE: In this implementation, the channelId is the client identifier.
+    /// @param channelId The newly created channel identifier. NOTE: In this implementation, the channelId is the client
+    /// identifier.
     /// @param channel The counterparty client information, if provided
     event ICS04ChannelAdded(string channelId, Channel channel);
 

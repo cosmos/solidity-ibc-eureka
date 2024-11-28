@@ -65,9 +65,7 @@ abstract contract FixtureTest is Test {
         );
 
         ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint",
-            IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix),
-            address(ics07Tendermint)
+            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
 
         ics20Transfer = new ICS20Transfer(address(ics26Router));

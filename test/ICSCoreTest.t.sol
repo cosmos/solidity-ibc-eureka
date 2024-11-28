@@ -24,8 +24,7 @@ contract icsCoreTest is Test {
 
     function test_icsCore() public {
         string memory counterpartyId = "42-dummy-01";
-        IICS04ChannelMsgs.Channel memory channel =
-            IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix);
+        IICS04ChannelMsgs.Channel memory channel = IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix);
         vm.expectEmit();
         emit IICS04Channel.ICS04ChannelAdded("07-tendermint-0", channel);
         string memory clientIdentifier = icsCore.addChannel("07-tendermint", channel, address(lightClient));
