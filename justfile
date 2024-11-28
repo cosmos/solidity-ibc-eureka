@@ -10,7 +10,7 @@ build-relayer:
 
 # Build the operator using `cargo build`
 build-operator:
-	cargo build --bin relayer --release --locked
+	cargo build --bin operator --release --locked
 
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 build-sp1-programs:
