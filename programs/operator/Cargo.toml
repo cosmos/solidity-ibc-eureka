@@ -1,0 +1,43 @@
+[package]
+name       = "sp1-ics07-tendermint-operator"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+sp1-sdk = { workspace = true }
+
+serde_json      = { workspace = true }
+serde           = { workspace = true }
+serde_with      = { workspace = true, features = ["hex", "macros"] }
+hex             = { workspace = true }
+subtle-encoding = { workspace = true }
+
+reqwest            = { workspace = true }
+tokio              = { workspace = true }
+futures            = { workspace = true }
+dotenv             = { workspace = true }
+anyhow             = { workspace = true }
+clap               = { workspace = true }
+tracing            = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true }
+
+cosmos-sdk-proto = { workspace = true }
+ibc-proto        = { workspace = true }
+
+tendermint                       = { workspace = true }
+tendermint-rpc                   = { workspace = true }
+tendermint-light-client-verifier = { workspace = true }
+
+ibc-client-tendermint-types = { workspace = true }
+ibc-core-client-types       = { workspace = true }
+ibc-core-commitment-types   = { workspace = true }
+
+ibc-eureka-solidity-types     = { workspace = true, features = ["rpc"] }
+sp1-ics07-tendermint-utils    = { workspace = true }
+sp1-ics07-tendermint-prover   = { workspace = true }
+
+alloy-sol-types  = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy            = { workspace = true, features = ["full", "node-bindings"] }

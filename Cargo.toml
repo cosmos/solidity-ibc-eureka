@@ -3,6 +3,7 @@ members = [
     "packages/*",
 
     "programs/relayer",
+    "programs/operator",
     "programs/sp1-programs/*",
 ]
 resolver = "2"
@@ -22,12 +23,14 @@ sp1-ics07-tendermint-utils         = { path = "packages/utils", default-features
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
 
-serde      = { version = "1.0", default-features = false }
-serde_json = { version = "1.0", default-features = false }
-serde_cbor = { version = "0.11", default-features = false }
-hex        = { version = "0.4", default-features = false }
-prost      = { version = "0.13", default-features = false }
-bincode    = { version = "1.3", default-features = false }
+serde           = { version = "1.0", default-features = false }
+serde_json      = { version = "1.0", default-features = false }
+serde_cbor      = { version = "0.11", default-features = false }
+serde_with      = { version = "3.11", default-features = false }
+hex             = { version = "0.4", default-features = false }
+prost           = { version = "0.13", default-features = false }
+bincode         = { version = "1.3", default-features = false }
+subtle-encoding = { version = "0.5", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
 
@@ -35,6 +38,7 @@ tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
 tonic       = { version = "0.12", default-features = false }
 tonic-build = { version = "0.12", default-features = false }
+reqwest     = { version = "0.12", default-features = false }
 
 tracing            = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
@@ -43,6 +47,7 @@ async-trait        = { version = "0.1", default-features = false }
 futures            = { version = "0.3", default-features = false }
 clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
 time               = { version = "0.3", default-features = false }
+dotenv             = { version = "0.15", default-features = false }
 
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
@@ -63,7 +68,8 @@ ibc-client-tendermint-types = { version = "0.56", default-features = false }
 alloy             = { version = "0.6", default-features = false }
 alloy-contract    = { version = "0.6", default-features = false }
 alloy-sol-types   = { version = "0.8", default-features = false }
+alloy-primitives  = { version = "0.8", default-features = false }
 
-sp1-sdk = { version = "3.0", default-features = false }
-sp1-zkvm = { version = "3.0", default-features = false }
-sp1-helper = { version = "3.0", default-features = false }
+sp1-sdk    = { version = "3.3", default-features = false }
+sp1-zkvm   = { version = "3.3", default-features = false }
+sp1-helper = { version = "3.3", default-features = false }
