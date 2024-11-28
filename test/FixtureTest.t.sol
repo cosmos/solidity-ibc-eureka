@@ -8,9 +8,9 @@ import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
-import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
+import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
-import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
