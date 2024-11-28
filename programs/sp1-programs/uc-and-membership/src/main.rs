@@ -17,7 +17,7 @@ use sp1_ics07_tendermint_uc_and_membership::update_client_and_membership;
 use ibc_core_commitment_types::merkle::MerkleProof;
 
 use ibc_client_tendermint_types::Header;
-use sp1_ics07_tendermint_solidity::IICS07TendermintMsgs::{
+use ibc_eureka_solidity_types::sp1_ics07::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 

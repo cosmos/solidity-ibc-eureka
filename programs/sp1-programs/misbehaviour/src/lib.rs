@@ -9,7 +9,7 @@ use ibc_client_tendermint::client_state::{
 };
 use ibc_client_tendermint::types::{ConsensusState, Misbehaviour, TENDERMINT_CLIENT_TYPE};
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use sp1_ics07_tendermint_solidity::{
+use ibc_eureka_solidity_types::sp1_ics07::{
     IICS07TendermintMsgs::ClientState, IMisbehaviourMsgs::MisbehaviourOutput,
 };
 use std::collections::HashMap;

@@ -1,7 +1,7 @@
 //! The crate that contains the types and utilities for `sp1-ics07-tendermint-membership` program.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
 
-use sp1_ics07_tendermint_solidity::{
+use ibc_eureka_solidity_types::sp1_ics07::{
     IICS07TendermintMsgs::ClientState, IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
 };
 

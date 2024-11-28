@@ -6,11 +6,11 @@ use crate::programs::{
 };
 use ibc_client_tendermint_types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_proto::Protobuf;
-use sp1_ics07_tendermint_solidity::{
+use ibc_eureka_solidity_types::sp1_ics07::{
     IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
     ISP1Msgs::SupportedZkAlgorithm,
 };
+use ibc_proto::Protobuf;
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
 /// A prover for for [`SP1Program`] programs.

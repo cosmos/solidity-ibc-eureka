@@ -22,8 +22,6 @@ sp1-ics07-tendermint-utils         = { path = "packages/utils", default-features
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
 
-sp1-ics07-tendermint-solidity = { git = "https://github.com/cosmos/sp1-ics07-tendermint", rev = "f67f5fec9423a4744092ee98b62bc60e3354f223", default-features = false }
-
 serde      = { version = "1.0", default-features = false }
 serde_json = { version = "1.0", default-features = false }
 serde_cbor = { version = "0.11", default-features = false }

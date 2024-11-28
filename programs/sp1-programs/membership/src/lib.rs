@@ -1,7 +1,7 @@
 //! The crate that contains the types and utilities for `sp1-ics07-tendermint-membership` program.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
 
-use sp1_ics07_tendermint_solidity::IMembershipMsgs::{KVPair, MembershipOutput};
+use ibc_eureka_solidity_types::sp1_ics07::IMembershipMsgs::{KVPair, MembershipOutput};
 
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,

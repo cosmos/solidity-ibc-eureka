@@ -12,7 +12,7 @@ serde                            = { workspace = true }
 prost                            = { workspace = true }
 cosmos-sdk-proto                 = { workspace = true }
 tendermint-rpc                   = { workspace = true }
-sp1-ics07-tendermint-solidity    = { workspace = true }
+ibc-eureka-solidity-types        = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
 ibc-client-tendermint-types      = { workspace = true }
 ibc-core-client-types            = { workspace = true }

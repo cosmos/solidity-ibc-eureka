@@ -4,7 +4,7 @@ use ibc_client_tendermint_types::{ConsensusState, Header};
 use ibc_core_client_types::Height as IbcHeight;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use ibc_core_host_types::{error::IdentifierError, identifiers::ChainId};
-use sp1_ics07_tendermint_solidity::{
+use ibc_eureka_solidity_types::sp1_ics07::{
     IICS02ClientMsgs::Height,
     IICS07TendermintMsgs::{ClientState, TrustThreshold},
     ISP1Msgs::SupportedZkAlgorithm,

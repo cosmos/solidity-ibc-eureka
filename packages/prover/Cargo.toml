@@ -8,7 +8,7 @@ license    = { workspace = true }
 [dependencies]
 sp1-sdk = { workspace = true }
 
-sp1-ics07-tendermint-solidity = { workspace = true }
+ibc-eureka-solidity-types = { workspace = true }
 
 bincode    = { workspace = true }
 serde_cbor = { workspace = true }

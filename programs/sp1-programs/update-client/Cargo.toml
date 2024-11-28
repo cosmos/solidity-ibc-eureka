@@ -1,14 +1,14 @@
 [package]
-name = "sp1-ics07-tendermint-update-client"
+name        = "sp1-ics07-tendermint-update-client"
 description = "Update client program for sp1-ics07-tendermint"
-version = { workspace = true }
-edition = { workspace = true }
-repository = { workspace = true }
-license = { workspace = true }
+version     = { workspace = true }
+edition     = { workspace = true }
+repository  = { workspace = true }
+license     = { workspace = true }
 
 [dependencies]
 sp1-zkvm                         = { workspace = true, default-features = true }
-sp1-ics07-tendermint-solidity    = { workspace = true }
+ibc-eureka-solidity-types        = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }

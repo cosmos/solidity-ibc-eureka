@@ -13,7 +13,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint::types::Header;
-use sp1_ics07_tendermint_solidity::IICS07TendermintMsgs::{
+use ibc_eureka_solidity_types::sp1_ics07::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use sp1_ics07_tendermint_update_client::update_client;

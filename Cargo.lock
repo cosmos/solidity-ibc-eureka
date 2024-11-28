@@ -2766,7 +2766,6 @@ dependencies = [
  "ibc-eureka-solidity-types",
  "serde",
  "sp1-ics07-tendermint-prover",
- "sp1-ics07-tendermint-solidity",
  "sp1-ics07-tendermint-utils",
  "sp1-sdk",
  "tendermint",
@@ -5298,8 +5297,8 @@ dependencies = [
  "alloy-sol-types",
  "bincode",
  "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types",
  "ibc-proto",
- "sp1-ics07-tendermint-solidity",
  "sp1-zkvm",
 ]
 
@@ -5313,10 +5312,10 @@ dependencies = [
  "ibc-core-client",
  "ibc-core-handler-types",
  "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
  "ibc-primitives",
  "serde_cbor",
  "sha2 0.10.8",
- "sp1-ics07-tendermint-solidity",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
 ]
@@ -5328,29 +5327,12 @@ dependencies = [
  "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types",
  "ibc-proto",
  "serde_cbor",
  "sp1-helper",
- "sp1-ics07-tendermint-solidity",
  "sp1-sdk",
  "tracing",
-]
-
-[[package]]
-name = "sp1-ics07-tendermint-solidity"
-version = "0.1.0"
-source = "git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223#f67f5fec9423a4744092ee98b62bc60e3354f223"
-dependencies = [
- "alloy-contract",
- "alloy-sol-types",
- "hex",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "serde",
- "tendermint",
- "tendermint-light-client-verifier",
- "time",
 ]
 
 [[package]]
@@ -5361,10 +5343,10 @@ dependencies = [
  "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types",
  "ibc-proto",
  "serde_cbor",
  "sp1-ics07-tendermint-membership",
- "sp1-ics07-tendermint-solidity",
  "sp1-ics07-tendermint-update-client",
  "sp1-zkvm",
 ]
@@ -5379,10 +5361,10 @@ dependencies = [
  "ibc-core-client",
  "ibc-core-handler-types",
  "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
  "ibc-primitives",
  "serde_cbor",
  "sha2 0.10.8",
- "sp1-ics07-tendermint-solidity",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
 ]
@@ -5399,9 +5381,9 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
  "prost",
  "serde",
- "sp1-ics07-tendermint-solidity",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
