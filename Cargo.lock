@@ -3341,21 +3341,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-prover"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "ibc-client-tendermint-types",
- "ibc-core-commitment-types",
- "ibc-proto",
- "serde_cbor",
- "sp1-helper",
- "sp1-ics07-tendermint-solidity",
- "sp1-sdk",
- "tracing",
-]
-
-[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
@@ -3367,7 +3352,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "serde",
- "sp1-ics07-tendermint-prover",
+ "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223)",
  "sp1-ics07-tendermint-solidity",
  "sp1-ics07-tendermint-utils",
  "sp1-sdk",
@@ -6231,6 +6216,21 @@ dependencies = [
  "sp1-ics07-tendermint-solidity",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-ics07-tendermint-prover"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-proto",
+ "serde_cbor",
+ "sp1-helper",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-sdk",
+ "tracing",
 ]
 
 [[package]]

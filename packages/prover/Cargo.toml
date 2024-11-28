@@ -1,9 +1,9 @@
 [package]
-name = "ibc-eureka-prover"
-version = { workspace = true }
-edition = { workspace = true }
+name       = "sp1-ics07-tendermint-prover"
+version    = { workspace = true }
+edition    = { workspace = true }
 repository = { workspace = true }
-license = { workspace = true }
+license    = { workspace = true }
 
 [dependencies]
 sp1-sdk = { workspace = true }
