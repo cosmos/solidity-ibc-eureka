@@ -3354,7 +3354,7 @@ dependencies = [
  "serde",
  "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223)",
  "sp1-ics07-tendermint-solidity",
- "sp1-ics07-tendermint-utils",
+ "sp1-ics07-tendermint-utils 0.1.0 (git+https://github.com/cosmos/sp1-ics07-tendermint?rev=f67f5fec9423a4744092ee98b62bc60e3354f223)",
  "sp1-sdk",
  "tendermint",
  "tendermint-rpc",
@@ -6298,6 +6298,26 @@ dependencies = [
  "sp1-ics07-tendermint-solidity",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-ics07-tendermint-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "cosmos-sdk-proto",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "prost",
+ "serde",
+ "sp1-ics07-tendermint-solidity",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
 ]
 
 [[package]]

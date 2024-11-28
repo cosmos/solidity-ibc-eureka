@@ -1,0 +1,22 @@
+[package]
+name       = "sp1-ics07-tendermint-utils"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+anyhow                           = { workspace = true, features = ["std"] }
+async-trait                      = { workspace = true }
+serde                            = { workspace = true }
+prost                            = { workspace = true }
+cosmos-sdk-proto                 = { workspace = true }
+tendermint-rpc                   = { workspace = true }
+sp1-ics07-tendermint-solidity    = { workspace = true }
+tendermint-light-client-verifier = { workspace = true }
+ibc-client-tendermint-types      = { workspace = true }
+ibc-core-client-types            = { workspace = true }
+ibc-core-host-types              = { workspace = true, features = ["std"] }
+tendermint                       = { workspace = true }
+ibc-core-commitment-types        = { workspace = true }
+alloy                            = { workspace = true, features = ["full", "node-bindings"] }
