@@ -11,6 +11,17 @@ build-contracts: clean
 build-relayer:
 	cargo build --bin relayer --release --locked
 
+# Build riscv elf files using `~/.sp1/bin/cargo-prove`
+build-sp1-programs:
+  cd programs/sp1-programs/update-client && ~/.sp1/bin/cargo-prove prove build --elf-name update-client-riscv32im-succinct-zkvm-elf
+  @echo "ELF created at 'elf/update-client-riscv32im-succinct-zkvm-elf'"
+  cd programs/sp1-programs/membership && ~/.sp1/bin/cargo-prove prove build --elf-name membership-riscv32im-succinct-zkvm-elf
+  @echo "ELF created at 'elf/membership-riscv32im-succinct-zkvm-elf'"
+  cd programs/sp1-programs/uc-and-membership && ~/.sp1/bin/cargo-prove prove build --elf-name uc-and-membership-riscv32im-succinct-zkvm-elf
+  @echo "ELF created at 'elf/uc-and-membership-riscv32im-succinct-zkvm-elf'"
+  cd programs/sp1-programs/misbehaviour && ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf
+  @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
+
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"

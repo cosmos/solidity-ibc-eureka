@@ -7,15 +7,15 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-sp1-zkvm = { workspace = true, default-features = true }
-sp1-ics07-tendermint-solidity = { workspace = true }
+sp1-zkvm                         = { workspace = true, default-features = true }
+sp1-ics07-tendermint-solidity    = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
-ibc-client-tendermint = { workspace = true }
-ibc-core-host-types = { workspace = true }
-ibc-core-client = { workspace = true }
-ibc-primitives = { workspace = true }
-ibc-core-handler-types = { workspace = true }
-sha2 = { workspace = true }
-alloy-sol-types = { workspace = true }
-serde_cbor = { workspace = true }
-bincode = { workspace = true }
+ibc-client-tendermint            = { workspace = true, features = ["serde"] }
+ibc-core-host-types              = { workspace = true }
+ibc-core-client                  = { workspace = true }
+ibc-primitives                   = { workspace = true }
+ibc-core-handler-types           = { workspace = true }
+sha2                             = { workspace = true }
+alloy-sol-types                  = { workspace = true }
+serde_cbor                       = { workspace = true, features = ["std"] }
+bincode                          = { workspace = true }
