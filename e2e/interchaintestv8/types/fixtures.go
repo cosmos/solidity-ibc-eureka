@@ -116,7 +116,7 @@ func GenerateAndSaveFixture(fileName, erc20Address, methodName string, msg any, 
 		return err
 	}
 
-	filePath := testvalues.FixturesDir + fileName
+	filePath := testvalues.SolidityFixturesDir + "/" + fileName
 	// nolint:gosec
 	return os.WriteFile(filePath, fixtureBz, 0o644)
 }

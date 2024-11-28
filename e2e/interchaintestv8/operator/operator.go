@@ -19,6 +19,7 @@ import (
 
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
@@ -80,7 +81,7 @@ func MembershipProof(trusted_height uint64, paths string, writeFixtureName strin
 	output = output[jsonStartIdx:]
 
 	if writeFixtureName != "" {
-		fixtureFileName := fmt.Sprintf("contracts/fixtures/%s_fixture.json", writeFixtureName)
+		fixtureFileName := fmt.Sprintf("%s/%s_fixture.json", testvalues.SP1ICS07FixturesDir, writeFixtureName)
 		if err := os.WriteFile(fixtureFileName, output, 0o600); err != nil {
 			return nil, nil, err
 		}
@@ -222,7 +223,7 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	}
 
 	if writeFixtureName != "" {
-		fixtureFileName := fmt.Sprintf("contracts/fixtures/misbehaviour_%s_fixture.json", writeFixtureName)
+		fixtureFileName := fmt.Sprintf("%s/misbehaviour_%s_fixture.json", testvalues.SP1ICS07FixturesDir, writeFixtureName)
 		if err := os.WriteFile(fixtureFileName, output, 0o600); err != nil {
 			return nil, err
 		}
