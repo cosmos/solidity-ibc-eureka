@@ -11,12 +11,14 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
-func BinaryPath() string {
+// binaryPath returns the path to the relayer binary.
+func binaryPath() string {
 	return "relayer"
 }
 
+// StartRelayer starts the relayer with the given config file.
 func StartRelayer(configPath string) (*os.Process, error) {
-	cmd := exec.Command(BinaryPath(), "start", "--config", configPath)
+	cmd := exec.Command(binaryPath(), "start", "--config", configPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -32,10 +34,12 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	return cmd.Process, nil
 }
 
+// defaultGRPCAddress returns the default address for the gRPC server.
 func defaultGRPCAddress() string {
 	return "127.0.0.1:3000"
 }
 
+// GetGRPCClient returns a gRPC client for the relayer.
 func GetGRPCClient() (relayertypes.RelayerServiceClient, error) {
 	conn, err := grpc.NewClient(defaultGRPCAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

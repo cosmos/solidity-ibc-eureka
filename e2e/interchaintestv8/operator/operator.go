@@ -46,10 +46,15 @@ type misbehaviourFixture struct {
 	SubmitMsg string `json:"submitMsg"`
 }
 
+// binaryPath is a function that returns the path to the operator binary
+func binaryPath() string {
+	return "operator"
+}
+
 // RunGenesis is a function that runs the genesis script to generate genesis.json
 func RunGenesis(args ...string) error {
 	args = append([]string{"genesis"}, args...)
-	cmd := exec.Command("target/release/operator", args...)
+	cmd := exec.Command(binaryPath(), args...)
 	cmd.Stdout = os.Stdout
 	return cmd.Run()
 }
@@ -57,7 +62,7 @@ func RunGenesis(args ...string) error {
 // StartOperator is a function that runs the operator
 func StartOperator(args ...string) error {
 	args = append([]string{"start"}, args...)
-	cmd := exec.Command("target/release/operator", args...)
+	cmd := exec.Command(binaryPath(), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -67,7 +72,7 @@ func StartOperator(args ...string) error {
 func MembershipProof(trusted_height uint64, paths string, writeFixtureName string, args ...string) (*sp1ics07tendermint.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--key-paths", paths}, args...)
 
-	cmd := exec.Command("target/release/operator", args...)
+	cmd := exec.Command(binaryPath(), args...)
 	output, err := execOperatorCommand(cmd)
 	if err != nil {
 		return nil, nil, err
@@ -134,7 +139,7 @@ func MembershipProof(trusted_height uint64, paths string, writeFixtureName strin
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*sp1ics07tendermint.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
 
-	output, err := execOperatorCommand(exec.Command("target/release/operator", args...))
+	output, err := execOperatorCommand(exec.Command(binaryPath(), args...))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +209,7 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	defer os.Remove(misbehaviourFileName)
 
 	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-path", misbehaviourFileName}, args...)
-	output, err := execOperatorCommand(exec.Command("target/release/operator", args...))
+	output, err := execOperatorCommand(exec.Command(binaryPath(), args...))
 	if err != nil {
 		return nil, err
 	}
