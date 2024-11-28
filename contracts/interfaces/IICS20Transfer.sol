@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ICS20Lib } from "../utils/ICS20Lib.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
