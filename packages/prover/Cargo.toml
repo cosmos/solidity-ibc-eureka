@@ -1,0 +1,19 @@
+[package]
+name = "solidity-ibc-eureka-prover"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+sp1-sdk = { workspace = true }
+ibc-client-tendermint-types = { workspace = true, features = ["serde"] }
+ibc-core-commitment-types = { workspace = true }
+ibc-proto = { workspace = true }
+sp1-ics07-tendermint-solidity = { workspace = true }
+tracing = { workspace = true }
+bincode = { workspace = true }
+serde_cbor = { workspace = true }
+
+[build-dependencies]
+sp1-helper = { workspace = true }

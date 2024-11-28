@@ -5889,6 +5889,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "solidity-ibc-eureka-prover"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-proto",
+ "serde_cbor",
+ "sp1-helper",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-sdk",
+ "tracing",
+]
+
+[[package]]
 name = "solidity-ibc-eureka-relayer"
 version = "0.1.0"
 dependencies = [

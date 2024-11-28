@@ -23,8 +23,10 @@ sp1-ics07-tendermint-utils    = { git = "https://github.com/cosmos/sp1-ics07-ten
 
 serde      = { version = "1.0", default-features = false }
 serde_json = { version = "1.0", default-features = false }
+serde_cbor = { version = "0.11", default-features = false }
 hex        = { version = "0.4", default-features = false }
 prost      = { version = "0.13", default-features = false }
+bincode    = { version = "1.3", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
@@ -43,6 +45,8 @@ tendermint                       = { version = "0.40", default-features = false 
 tendermint-rpc                   = { version = "0.40", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 
+ibc-proto = { version = "0.51", default-features = false }
+
 ibc-core-host-types         = { version = "0.56", default-features = false }
 ibc-core-client-types       = { version = "0.56", default-features = false }
 ibc-core-commitment-types   = { version = "0.56", default-features = false }
@@ -53,3 +57,4 @@ alloy-contract    = "0.6"
 alloy-sol-types   = "0.8"
 
 sp1-sdk = { version = "3.0", default-features = false }
+sp1-helper = { version = "3.0", default-features = false }
