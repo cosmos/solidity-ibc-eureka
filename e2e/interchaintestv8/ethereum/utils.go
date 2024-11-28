@@ -68,6 +68,19 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	return embeddedContracts, nil
 }
 
+func GetOnlySp1Ics07AddressFromStdout(stdout string) (string, error) {
+	// Define the regular expression pattern
+	re := regexp.MustCompile(`"value":"(0x[0-9a-fA-F]+)"`)
+
+	// Find the first match
+	matches := re.FindStringSubmatch(stdout)
+	if len(matches) <= 1 {
+		return "", fmt.Errorf("no matches found in stdout")
+	}
+	// Extract the value
+	return matches[1], nil
+}
+
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff
 func GetCommitmentsStorageKey(path []byte) ethcommon.Hash {
 	commitmentStorageSlot := ethcommon.FromHex(testvalues.IbcCommitmentSlotHex)
