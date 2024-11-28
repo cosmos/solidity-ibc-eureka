@@ -27,7 +27,6 @@ on:
       - 'bun.lockb'
 env:
   FOUNDRY_PROFILE: ci
-  SP1_OPERATOR_REV: f67f5fec9423a4744092ee98b62bc60e3354f223
 permissions:
   contents: read
 
@@ -67,6 +66,20 @@ jobs:
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
           - TestWithRelayerTestSuite/TestRelayerInfo
+          - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/TestMembership_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestMembership_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClientAndMembership_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClientAndMembership_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Plonk
+          - TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16
+          - TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk
     name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     env:
@@ -85,47 +98,35 @@ jobs:
           check-latest: true
           cache-dependency-path: e2e/interchaintestv8/go.sum
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: rustfmt, clippy
-
-      - name: "Cache Operator"
-        id: cache-operator
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/operator
-          key: ${{ runner.os }}-operator-${{ env.SP1_OPERATOR_REV }}
-
-      - name: "Cache Relayer"
+      - name: "Cache Relayer and Operator"
         id: cache-relayer
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/bin/relayer
-          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'relayer/**') }}
+          path: |
+            ~/.cargo/bin/relayer
+            ~/.cargo/bin/operator
+          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'programs/**') }}
 
       - name: Install SP1 toolchain
-        if: (steps.cache-operator.outputs.cache-hit != 'true') || (steps.cache-relayer.outputs.cache-hit != 'true')
+        if: (steps.cache-relayer.outputs.cache-hit != 'true')
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 
       - name: Install operator
-        if: steps.cache-operator.outputs.cache-hit != 'true'
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --git https://github.com/cosmos/sp1-ics07-tendermint --rev ${{ env.SP1_OPERATOR_REV }} sp1-ics07-tendermint-operator --bin operator --locked
+          args: --bin operator --path programs/operator --locked
 
       - name: Install relayer
         if: steps.cache-relayer.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --bin relayer --path relayer --locked
+          args: --bin relayer --path programs/relayer --locked
 
       - name: Setup Kurtosis
         if: env.ETH_TESTNET_TYPE == 'pos'
