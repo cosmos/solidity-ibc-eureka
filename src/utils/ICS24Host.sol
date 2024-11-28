@@ -152,13 +152,13 @@ library ICS24Host {
     /// @dev each payload get one ack each from their application, so this function accepts a list of acks
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
-    function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
+    function packetAcknowledgementCommitmentBytes32(bool recvSuccess, bytes[] memory acks) internal pure returns (bytes32) {
         bytes memory ackBytes = "";
         for (uint256 i = 0; i < acks.length; i++) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
         }
 
-        return sha256(abi.encodePacked(uint8(2), ackBytes));
+        return sha256(abi.encodePacked(uint8(2), recvSuccess, ackBytes));
     }
 
     /// @notice Create a prefixed path

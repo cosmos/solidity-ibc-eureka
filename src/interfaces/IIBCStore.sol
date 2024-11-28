@@ -34,8 +34,9 @@ interface IIBCStore {
 
     /// @notice Commits a packet acknowledgement
     /// @param packet The packet to commit the acknowledgement for
+    /// @param recvSuccess The success of the receivePacket app callback
     /// @param acks The list of acknowledgements (one for each payload) to commit
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) external;
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bool recvSuccess, bytes[] memory acks) external;
 
     // --------------------- Events --------------------- //
 

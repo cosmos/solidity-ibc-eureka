@@ -56,11 +56,13 @@ interface IICS26RouterMsgs {
 
     /// @notice Message for acknowledging packets, submitted by relayer
     /// @param packet The packet to be acknowledged
+    /// @param recvSuccess The success of receivePacket app callback
     /// @param acknowledgement The acknowledgement
     /// @param proofAcked The proof of the acknowledgement commitment
     /// @param proofHeight The proof height
     struct MsgAckPacket {
         Packet packet;
+        bool recvSuccess;
         bytes acknowledgement;
         bytes proofAcked;
         IICS02ClientMsgs.Height proofHeight;
