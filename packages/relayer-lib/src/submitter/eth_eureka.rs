@@ -47,7 +47,7 @@ use crate::{
 
 use super::r#trait::ChainSubmitterService;
 
-/// The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
+/// The `ChainSubmitter` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
 pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
     /// The IBC Eureka router instance.
@@ -62,7 +62,7 @@ pub struct ChainSubmitter<T: Transport + Clone, P: Provider<T> + Clone> {
 }
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> ChainSubmitter<T, P> {
-    /// Create a new `ChainListenerService` instance.
+    /// Create a new `ChainSubmitter` instance.
     pub fn new(
         ics26_address: Address,
         provider: P,
