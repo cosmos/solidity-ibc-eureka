@@ -80,7 +80,7 @@ install-operator:
 
 # Install the relayer using `cargo install`
 install-relayer:
-	cargo install --bin relayer --path relayer --locked
+	cargo install --bin relayer --path programs/relayer --locked
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures: clean

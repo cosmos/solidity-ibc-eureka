@@ -2,7 +2,7 @@
 members = [
     "packages/*",
 
-    "relayer/",
+    "programs/*",
 ]
 resolver = "2"
 

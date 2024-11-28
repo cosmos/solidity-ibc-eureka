@@ -3198,6 +3198,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-prover"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-proto",
+ "serde_cbor",
+ "sp1-helper",
+ "sp1-ics07-tendermint-solidity",
+ "sp1-sdk",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
@@ -5886,21 +5901,6 @@ checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "solidity-ibc-eureka-prover"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "ibc-client-tendermint-types",
- "ibc-core-commitment-types",
- "ibc-proto",
- "serde_cbor",
- "sp1-helper",
- "sp1-ics07-tendermint-solidity",
- "sp1-sdk",
- "tracing",
 ]
 
 [[package]]

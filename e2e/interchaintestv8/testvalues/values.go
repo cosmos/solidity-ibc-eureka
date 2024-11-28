@@ -56,7 +56,7 @@ const (
 	// FixturesDir is the directory where the Solidity fixtures are stored.
 	FixturesDir = "test/solidity-ibc/fixtures/"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
-	RelayerConfigFilePath = "relayer/config.json"
+	RelayerConfigFilePath = "programs/relayer/config.json"
 
 	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
 	DefaultGovV1ProposalTokenAmount = 500_000_000
