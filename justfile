@@ -11,6 +11,10 @@ build-contracts: clean
 build-relayer:
 	cargo build --bin relayer --release --locked
 
+# Build the operator using `cargo build`
+build-operator:
+	cargo build --bin relayer --release --locked
+
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 build-sp1-programs:
   cd programs/sp1-programs/update-client && ~/.sp1/bin/cargo-prove prove build --elf-name update-client-riscv32im-succinct-zkvm-elf
@@ -87,7 +91,7 @@ test-e2e-relayer testname: clean
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
-	cargo install --git https://github.com/cosmos/sp1-ics07-tendermint --rev {{sp1_operator_rev}} sp1-ics07-tendermint-operator --bin operator --locked
+	cargo install --bin operator --path programs/relayer --locked
 
 # Install the relayer using `cargo install`
 install-relayer:
