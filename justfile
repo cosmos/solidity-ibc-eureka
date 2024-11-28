@@ -1,8 +1,5 @@
 set dotenv-load
 
-# Use the SP1_OPERATOR_REV environment variable if it is set, otherwise use a default commit hash
-sp1_operator_rev := env_var_or_default('SP1_OPERATOR_REV', 'f67f5fec9423a4744092ee98b62bc60e3354f223')
-
 # Build the contracts using `forge build`
 build-contracts: clean
 	forge build
@@ -103,7 +100,7 @@ install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
 
 # Generate the fixtures for the Solidity tests using the e2e tests
-generate-fixtures: clean
+generate-fixtures-solidity: clean
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
@@ -123,6 +120,30 @@ generate-fixtures: clean
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
 	@echo "Generating timeoutPacket plonk fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk$' -timeout 40m
+
+# Generate the fixture files for the Celestia Mocha testnet using the prover parameter.
+# The prover parameter should be one of: ["mock", "network", "local"]
+# This generates the fixtures for all programs in parallel using GNU parallel.
+# If prover is set to network, this command requires the `SP1_PRIVATE_KEY` environment variable to be set.
+generate-fixtures-sp1-ics07: build-operator
+  @echo "Generating fixtures... This may take a while (up to 20 minutes)"
+  TENDERMINT_RPC_URL="${TENDERMINT_RPC_URL%/}" && \
+  CURRENT_HEIGHT=$(curl "$TENDERMINT_RPC_URL"/block | jq -r ".result.block.header.height") && \
+  TRUSTED_HEIGHT=$(($CURRENT_HEIGHT-100)) && \
+  TARGET_HEIGHT=$(($CURRENT_HEIGHT-10)) && \
+  echo "For celestia fixtures, trusted block: $TRUSTED_HEIGHT, target block: $TARGET_HEIGHT, from $TENDERMINT_RPC_URL" && \
+  parallel --progress --shebang --ungroup -j 6 ::: \
+    "RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures update-client --trusted-block $TRUSTED_HEIGHT --target-block $TARGET_HEIGHT -o 'test/sp1-ics07/fixtures/update_client_fixture-plonk.json'" \
+    "sleep 20 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures update-client --trusted-block $TRUSTED_HEIGHT --target-block $TARGET_HEIGHT -p groth16 -o 'test/sp1-ics07/fixtures/update_client_fixture-groth16.json'" \
+    "sleep 40 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures update-client-and-membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT --target-block $TARGET_HEIGHT -o 'test/sp1-ics07/fixtures/uc_and_memberships_fixture-plonk.json'" \
+    "sleep 60 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures update-client-and-membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT --target-block $TARGET_HEIGHT -p groth16 -o 'test/sp1-ics07/fixtures/uc_and_memberships_fixture-groth16.json'" \
+    "sleep 80 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT -o 'test/sp1-ics07/fixtures/memberships_fixture-plonk.json'" \
+    "sleep 100 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT -p groth16 -o 'test/sp1-ics07/fixtures/memberships_fixture-groth16.json'"
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Plonk$' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Groth16' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
+  @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
 protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
 DOCKER := `which docker`
