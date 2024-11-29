@@ -15,7 +15,6 @@ use sp1_sdk::utils::setup_logger;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     setup_logger();
-    tracing_subscriber::fmt::init();
 
     if dotenv::dotenv().is_err() {
         tracing::warn!("No .env file found");
