@@ -162,9 +162,10 @@ contract SP1ICS07Tendermint is
             return handleSP1UpdateClientAndMembership(
                 msgMembership.proofHeight, membershipProof.proof, msgMembership.path, msgMembership.value
             );
-        } else {
-            revert UnknownMembershipProofType(uint8(membershipProof.proofType));
         }
+
+        // unreachable
+        revert UnknownMembershipProofType(uint8(membershipProof.proofType));
     }
 
     /// @notice The entrypoint for misbehaviour.

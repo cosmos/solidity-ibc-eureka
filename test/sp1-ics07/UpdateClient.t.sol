@@ -96,6 +96,42 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         ics07Tendermint.updateClient(bytes("invalid"));
     }
 
+    // Confirm that submitting a real proof passes the verifier.
+    function test_MockMisbehaviorUpdateClient() public {
+        // Doesn't matter which fixture we use since this is a misbehaviour
+        setUpTestWithFixture("update_client_fixture-plonk.json");
+        // set a correct timestamp
+        vm.warp(output.time + 300);
+
+        // update mock client
+        MsgUpdateClient memory updateMsg = abi.decode(fixture.updateMsg, (MsgUpdateClient));
+        updateMsg.sp1Proof.proof = bytes("");
+
+        UpdateResult res = mockIcs07Tendermint.updateClient(abi.encode(updateMsg));
+        assert(res == UpdateResult.Update);
+
+        // change output so that it is a misbehaviour
+        output.newConsensusState.timestamp = output.time + 1;
+        // re-encode output
+        updateMsg.sp1Proof.publicValues = abi.encode(output);
+
+        // run verify again
+        res = mockIcs07Tendermint.updateClient(abi.encode(updateMsg));
+        assert(res == UpdateResult.Misbehaviour);
+        assert(mockIcs07Tendermint.getClientState().isFrozen == true);
+    }
+
+    function test_MockUpgradeClient() public {
+        // Doesn't matter which fixture we use since this is not implemented
+        setUpTestWithFixture("update_client_fixture-plonk.json");
+        // set a correct timestamp
+        vm.warp(output.time + 300);
+
+        // upgrade client
+        vm.expectRevert(abi.encodeWithSelector(FeatureNotSupported.selector));
+        mockIcs07Tendermint.upgradeClient(bytes(""));
+    }
+
     function loadFixture(string memory fileName) public view returns (SP1ICS07UpdateClientFixtureJson memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, FIXTURE_DIR, fileName);

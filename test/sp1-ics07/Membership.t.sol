@@ -159,7 +159,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
         // It doesn't matter which fixture we use, as we use mock verifier
         setUpMembershipTestWithFixture("memberships_fixture-plonk.json");
 
-        MockInvalidMembershipTestCase[] memory testCases = new MockInvalidMembershipTestCase[](9);
+        MockInvalidMembershipTestCase[] memory testCases = new MockInvalidMembershipTestCase[](10);
         testCases[0] = MockInvalidMembershipTestCase({
             name: "success: valid mock",
             sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
@@ -204,8 +204,17 @@ contract SP1ICS07MembershipTest is MembershipTest {
             value: bytes(""),
             expPass: false
         });
-        testCases[4].path[0] = bytes("invalid");
+        testCases[4].path[0] = bytes("abc");
         testCases[5] = MockInvalidMembershipTestCase({
+            name: "Invalid prefix, same length",
+            sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
+            proofHeight: fixture.proofHeight.revisionHeight,
+            path: verifyNonMembershipPath,
+            value: bytes(""),
+            expPass: false
+        });
+        testCases[5].path[0] = bytes("invalid");
+        testCases[6] = MockInvalidMembershipTestCase({
             name: "Invalid suffix",
             sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
             proofHeight: fixture.proofHeight.revisionHeight,
@@ -213,8 +222,8 @@ contract SP1ICS07MembershipTest is MembershipTest {
             value: bytes(""),
             expPass: false
         });
-        testCases[5].path[1] = bytes("invalid");
-        testCases[6] = MockInvalidMembershipTestCase({
+        testCases[6].path[1] = bytes("invalid");
+        testCases[7] = MockInvalidMembershipTestCase({
             name: "Invalid value",
             sp1Proof: SP1Proof({ proof: bytes(""), publicValues: proof.sp1Proof.publicValues, vKey: proof.sp1Proof.vKey }),
             proofHeight: fixture.proofHeight.revisionHeight,
@@ -222,7 +231,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             value: bytes("invalid"),
             expPass: false
         });
-        testCases[7] = MockInvalidMembershipTestCase({
+        testCases[8] = MockInvalidMembershipTestCase({
             name: "Invalid vKey",
             sp1Proof: SP1Proof({
                 proof: bytes(""),
@@ -234,7 +243,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             value: bytes(""),
             expPass: false
         });
-        testCases[8] = MockInvalidMembershipTestCase({
+        testCases[9] = MockInvalidMembershipTestCase({
             name: "Invalid public values",
             sp1Proof: SP1Proof({ proof: bytes(""), publicValues: bytes("invalid"), vKey: proof.sp1Proof.vKey }),
             proofHeight: fixture.proofHeight.revisionHeight,
