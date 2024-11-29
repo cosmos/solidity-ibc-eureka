@@ -632,7 +632,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 			}
 
 			// Send the messages
-			_, err := s.BroadcastMessages(ctx, simd, s.UserB, 2_000_000, msgs...)
+			_, err := s.BroadcastMessages(ctx, simd, s.UserB, 20_000_000, msgs...)
 			s.Require().NoError(err)
 		}))
 
