@@ -44,6 +44,111 @@
   },
   {
     "type": "function",
+    "name": "newMsgSendPacketV1",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "msg_",
+        "type": "tuple",
+        "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
+        "components": [
+          {
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "receiver",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "memo",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.MsgSendPacket",
+        "components": [
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "payloads",
+            "type": "tuple[]",
+            "internalType": "struct IICS26RouterMsgs.Payload[]",
+            "components": [
+              {
+                "name": "sourcePort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "destPort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "encoding",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "value",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "onAcknowledgementPacket",
     "inputs": [
       {
@@ -418,7 +523,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -464,7 +569,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -510,7 +615,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -550,7 +655,7 @@
         "name": "packetData",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct ICS20Lib.PacketDataJSON",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
         "components": [
           {
             "name": "denom",
@@ -625,6 +730,11 @@
   },
   {
     "type": "error",
+    "name": "ICS20AbiEncodingFailure",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ICS20BytesSliceOutOfBounds",
     "inputs": [
       {
@@ -685,91 +795,6 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONClosingBraceNotFound",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONInvalidEscape",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONStringClosingDoubleQuoteNotFound",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "actual",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONStringUnclosed",
-    "inputs": [
-      {
-        "name": "bz",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20JSONUnexpectedBytes",
-    "inputs": [
-      {
-        "name": "position",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "expected",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "actual",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ]
   },

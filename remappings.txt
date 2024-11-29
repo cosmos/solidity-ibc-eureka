@@ -1,6 +1,6 @@
 forge-std/=node_modules/forge-std/src/
 @openzeppelin/=node_modules/@openzeppelin/contracts/
 @cosmos/sp1-ics07-tendermint/=node_modules/@cosmos/sp1-ics07-tendermint/contracts/src/
-solidity-ibc/=src/
+solidity-ibc/=contracts/
 @sp1-contracts/=node_modules/sp1-contracts/contracts/src/
 union-lib/=node_modules/union/evm/contracts/lib/

@@ -22,3 +22,9 @@ broadcast/*/31337/
 # ide files
 .idea/
 *.iml
+
+# Rust
+target
+
+# Config files and test artifacts
+relayer/config.json

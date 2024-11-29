@@ -4,24 +4,23 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length,max-states-count
 
 import { Test } from "forge-std/Test.sol";
-import { IICS02ClientMsgs } from "../src/msgs/IICS02ClientMsgs.sol";
-import { IICS04ChannelMsgs } from "../src/msgs/IICS04ChannelMsgs.sol";
-import { ICS20Transfer } from "../src/ICS20Transfer.sol";
-import { IICS20Transfer } from "../src/interfaces/IICS20Transfer.sol";
-import { IICS20Errors } from "../src/errors/IICS20Errors.sol";
-import { IICS20TransferMsgs } from "../src/msgs/IICS20TransferMsgs.sol";
+import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "../contracts/msgs/IICS04ChannelMsgs.sol";
+import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../contracts/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
-import { IBCERC20 } from "../src/utils/IBCERC20.sol";
-import { IICS26Router } from "../src/interfaces/IICS26Router.sol";
-import { IIBCStore } from "../src/interfaces/IIBCStore.sol";
-import { IICS26RouterErrors } from "../src/errors/IICS26RouterErrors.sol";
-import { ICS26Router } from "../src/ICS26Router.sol";
-import { IICS26RouterMsgs } from "../src/msgs/IICS26RouterMsgs.sol";
+import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
+import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
+import { IIBCStore } from "../contracts/interfaces/IIBCStore.sol";
+import { IICS26RouterErrors } from "../contracts/errors/IICS26RouterErrors.sol";
+import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { IICS26RouterMsgs } from "../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
-import { ILightClientMsgs } from "../src/msgs/ILightClientMsgs.sol";
-import { ICS20Lib } from "../src/utils/ICS20Lib.sol";
-import { ICS24Host } from "../src/utils/ICS24Host.sol";
+import { ILightClientMsgs } from "../contracts/msgs/ILightClientMsgs.sol";
+import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { ICS24Host } from "../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Vm } from "forge-std/Vm.sol";
 
@@ -45,7 +44,7 @@ contract IntegrationTest is Test {
     /// @dev the default send amount for sendTransfer
     uint256 public transferAmount = 1_000_000_000_000_000_000;
 
-    ICS20Lib.PacketDataJSON public expectedDefaultSendPacketData;
+    ICS20Lib.FungibleTokenPacketData public expectedDefaultSendPacketData;
 
     function setUp() public {
         ics26Router = new ICS26Router(address(this));
@@ -68,7 +67,7 @@ contract IntegrationTest is Test {
         sender = makeAddr("sender");
         senderStr = Strings.toHexString(sender);
 
-        expectedDefaultSendPacketData = ICS20Lib.PacketDataJSON({
+        expectedDefaultSendPacketData = ICS20Lib.FungibleTokenPacketData({
             denom: erc20AddressStr,
             sender: senderStr,
             receiver: receiverStr,
@@ -77,8 +76,8 @@ contract IntegrationTest is Test {
         });
     }
 
-    function test_success_sendICS20PacketFromICS20Contract() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+    function test_success_sendICS20PacketDirectlyFromRouter() public {
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -102,22 +101,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceAfter, transferAmount);
     }
 
-    function test_failure_sendICS20PacketDirectlyFromRouter() public {
-        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(erc20AddressStr, transferAmount, senderStr, receiverStr, "memo")
-        });
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: clientIdentifier,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            payloads: payloads
-        });
-
-        // We don't allow sending packets directly through the router, only through ICS20Transfer sendTransfer
+    function test_success_sendICS20PacketFromICS20Contract() public {
         erc20.mint(sender, transferAmount);
         vm.startPrank(sender);
         erc20.approve(address(ics20Transfer), transferAmount);
@@ -127,12 +111,74 @@ contract IntegrationTest is Test {
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, sender));
-        ics26Router.sendPacket(msgSendPacket);
+        IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
+            denom: erc20AddressStr,
+            amount: transferAmount,
+            receiver: receiverStr,
+            sourceChannel: clientIdentifier,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        vm.startPrank(sender);
+        vm.expectEmit();
+        emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
+        uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
+        assertEq(sequence, 1);
+
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            denom: erc20AddressStr,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "memo"
+        });
+
+        IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
+        packetPayloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: "transfer",
+            destPort: "transfer",
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: abi.encode(packetData)
+        });
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+            sequence: sequence,
+            sourceChannel: transferMsg.sourceChannel,
+            destChannel: counterpartyId, // If we test with something else, we need to add this to the args
+            timeoutTimestamp: transferMsg.timeoutTimestamp,
+            payloads: packetPayloads
+        });
+
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceChannel, sequence);
+        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
+        assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
+
+        IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
+            packet: packet,
+            acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
+            proofAcked: bytes("doesntmatter"), // dummy client will accept
+            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
+         });
+        vm.expectEmit();
+        emit IICS20Transfer.ICS20Acknowledgement(
+            expectedDefaultSendPacketData, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON
+        );
+        ics26Router.ackPacket(ackMsg);
+
+        // commitment should be deleted
+        storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
+        assertEq(storedCommitment, 0);
+
+        uint256 senderBalanceAfter = erc20.balanceOf(sender);
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
+        assertEq(senderBalanceAfter, 0);
+        assertEq(contractBalanceAfter, transferAmount);
     }
 
     function test_success_failedCounterpartyAckForICS20Packet() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -156,7 +202,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_ackNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -178,7 +224,7 @@ contract IntegrationTest is Test {
 
     // This test case tests the scenario where IBCStore.deletePacketCommitment fails with custom error
     function test_failure_ackNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -204,7 +250,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_timeoutICS20Packet() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         // make light client return timestamp that is after our timeout
         lightClient.setMembershipResult(packet.timeoutTimestamp + 1, false);
@@ -230,7 +276,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_timeoutNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         // make light client return timestamp that is after our timeout
         lightClient.setMembershipResult(packet.timeoutTimestamp + 1, false);
@@ -254,7 +300,7 @@ contract IntegrationTest is Test {
 
     // This test case tests the scenario where IBCStore.deletePacketCommitment fails with custom error
     function test_failure_timeoutNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         // make light client return timestamp that is after our timeout
         lightClient.setMembershipResult(packet.timeoutTimestamp + 1, false);
@@ -282,7 +328,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_receiveICS20PacketWithSourceDenom() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -312,14 +358,21 @@ contract IntegrationTest is Test {
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: receivedDenom,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
+
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(receivedDenom, transferAmount, senderStr, receiverStr, "backmemo")
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -330,7 +383,7 @@ contract IntegrationTest is Test {
         });
         vm.expectEmit();
         emit IICS20Transfer.ICS20ReceiveTransfer(
-            ICS20Lib.PacketDataJSON({
+            ICS20Lib.FungibleTokenPacketData({
                 denom: receivedDenom,
                 sender: senderStr,
                 receiver: receiverStr,
@@ -364,7 +417,7 @@ contract IntegrationTest is Test {
     }
 
     function test_success_recvNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -394,14 +447,20 @@ contract IntegrationTest is Test {
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: receivedDenom,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(receivedDenom, transferAmount, senderStr, receiverStr, "backmemo")
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -432,7 +491,7 @@ contract IntegrationTest is Test {
 
     // This test case tests the scenario where IBCStore.setPacketReceipt fails with custom error
     function test_failure_recvNoop() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -462,14 +521,20 @@ contract IntegrationTest is Test {
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: receivedDenom,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(receivedDenom, transferAmount, senderStr, receiverStr, "backmemo")
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -510,14 +575,21 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "memo"
+        });
+
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -531,10 +603,9 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
         vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
@@ -559,13 +630,15 @@ contract IntegrationTest is Test {
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
-        assertEq(packetData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
+        (eventPacketData, erc20Address) =
+            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
+        assertEq(eventPacketData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(packetData.sender, senderStr);
-        assertEq(packetData.receiver, receiverStr);
-        assertEq(packetData.amount, transferAmount);
-        assertEq(packetData.memo, "memo");
+        assertEq(eventPacketData.sender, senderStr);
+        assertEq(eventPacketData.receiver, receiverStr);
+        assertEq(eventPacketData.amount, transferAmount);
+        assertEq(eventPacketData.memo, "memo");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -598,7 +671,7 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.PacketDataJSON({
+            ICS20Lib.FungibleTokenPacketData({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
                 receiver: receiverStr,
@@ -607,13 +680,21 @@ contract IntegrationTest is Test {
             }),
             erc20Address
         );
+
+        ICS20Lib.FungibleTokenPacketData memory sendPacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: expectedFullDenomPath,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -645,13 +726,20 @@ contract IntegrationTest is Test {
         receiverStr = Strings.toHexString(receiver);
 
         // First packet
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            amount: transferAmount,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: "memo"
+        });
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
         payloads1[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -668,7 +756,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket2 = IICS26RouterMsgs.Packet({
             sequence: 2,
@@ -717,13 +805,21 @@ contract IntegrationTest is Test {
         receiverStr = Strings.toHexString(receiver);
 
         // First packet
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            amount: transferAmount,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: "memo"
+        });
+
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
         payloads1[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -740,7 +836,7 @@ contract IntegrationTest is Test {
             destPort: "invalid-port",
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(packetData)
         });
         IICS26RouterMsgs.Packet memory invalidPacket = IICS26RouterMsgs.Packet({
             sequence: 2,
@@ -781,14 +877,20 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            amount: transferAmount,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: "memo"
+        });
         IICS26RouterMsgs.Payload[] memory receievePayloads = new IICS26RouterMsgs.Payload[](1);
         receievePayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, transferAmount, senderStr, receiverStr, "memo")
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -802,10 +904,9 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
+        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
@@ -830,13 +931,15 @@ contract IntegrationTest is Test {
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
-        assertEq(packetData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
+        (eventPacketData, erc20Address) =
+            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
+        assertEq(eventPacketData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(packetData.sender, senderStr);
-        assertEq(packetData.receiver, receiverStr);
-        assertEq(packetData.amount, transferAmount);
-        assertEq(packetData.memo, "memo");
+        assertEq(eventPacketData.sender, senderStr);
+        assertEq(eventPacketData.receiver, receiverStr);
+        assertEq(eventPacketData.amount, transferAmount);
+        assertEq(eventPacketData.memo, "memo");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -869,7 +972,7 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.PacketDataJSON({
+            ICS20Lib.FungibleTokenPacketData({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
                 receiver: receiverStr,
@@ -880,13 +983,21 @@ contract IntegrationTest is Test {
         );
 
         vm.expectEmit();
+
+        ICS20Lib.FungibleTokenPacketData memory sendPacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: expectedFullDenomPath,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(expectedFullDenomPath, transferAmount, senderStr, receiverStr, "backmemo")
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -920,14 +1031,20 @@ contract IntegrationTest is Test {
 
         uint256 largeAmount = 1_000_000_000_000_000_001;
 
-        // For the packet back we pretend this is ibc-go and that the timeout is in nanoseconds
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            amount: largeAmount,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: ""
+        });
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(foreignDenom, largeAmount, senderStr, receiverStr, "")
+            value: abi.encode(receivePacketData)
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -941,10 +1058,9 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
-        ICS20Lib.PacketDataJSON memory packetData;
         address erc20Address;
-        emit IICS20Transfer.ICS20ReceiveTransfer(packetData, erc20Address); // we check these values later
+        vm.expectEmit(true, true, true, false); // Not checking data because we don't know the address yet
+        emit IICS20Transfer.ICS20ReceiveTransfer(receivePacketData, erc20Address); // we check these values later
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
@@ -969,13 +1085,15 @@ contract IntegrationTest is Test {
         Vm.Log memory receiveTransferLog = vm.getRecordedLogs()[3];
         assertEq(receiveTransferLog.topics[0], IICS20Transfer.ICS20ReceiveTransfer.selector);
 
-        (packetData, erc20Address) = abi.decode(receiveTransferLog.data, (ICS20Lib.PacketDataJSON, address));
-        assertEq(packetData.denom, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory eventPacketData;
+        (eventPacketData, erc20Address) =
+            abi.decode(receiveTransferLog.data, (ICS20Lib.FungibleTokenPacketData, address));
+        assertEq(eventPacketData.denom, foreignDenom);
         assertNotEq(erc20Address, address(0));
-        assertEq(packetData.sender, senderStr);
-        assertEq(packetData.receiver, receiverStr);
-        assertEq(packetData.amount, largeAmount);
-        assertEq(packetData.memo, "");
+        assertEq(eventPacketData.sender, senderStr);
+        assertEq(eventPacketData.receiver, receiverStr);
+        assertEq(eventPacketData.amount, largeAmount);
+        assertEq(eventPacketData.memo, "");
 
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenomPath(), expectedFullDenomPath);
@@ -1008,7 +1126,7 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(
-            ICS20Lib.PacketDataJSON({
+            ICS20Lib.FungibleTokenPacketData({
                 denom: expectedFullDenomPath,
                 sender: senderStr,
                 receiver: receiverStr,
@@ -1019,13 +1137,21 @@ contract IntegrationTest is Test {
         );
 
         vm.expectEmit();
+
+        ICS20Lib.FungibleTokenPacketData memory sendPacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: expectedFullDenomPath,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: largeAmount,
+            memo: ""
+        });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: ICS20Lib.marshalJSON(expectedFullDenomPath, largeAmount, senderStr, receiverStr, "")
+            value: abi.encode(sendPacketData)
         });
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1051,7 +1177,7 @@ contract IntegrationTest is Test {
     }
 
     function test_failure_receiveICS20PacketHasTimedOut() public {
-        IICS26RouterMsgs.Packet memory packet = _sendICS20Transfer();
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -1079,8 +1205,14 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
         string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
-        bytes memory data = ICS20Lib.marshalJSON(ibcDenom, transferAmount, senderStr, receiverStr, "backmemo");
 
+        ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: ibcDenom,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: transferAmount,
+            memo: "backmemo"
+        });
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -1088,7 +1220,7 @@ contract IntegrationTest is Test {
             destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: data
+            value: abi.encode(receivePacketData)
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -1112,7 +1244,7 @@ contract IntegrationTest is Test {
         );
     }
 
-    function _sendICS20Transfer() internal returns (IICS26RouterMsgs.Packet memory) {
+    function _sendICS20TransferPacket() internal returns (IICS26RouterMsgs.Packet memory) {
         erc20.mint(sender, transferAmount);
         vm.startPrank(sender);
         erc20.approve(address(ics20Transfer), transferAmount);
@@ -1122,41 +1254,42 @@ contract IntegrationTest is Test {
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 
-        IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
-            amount: transferAmount,
-            receiver: receiverStr,
-            sourceChannel: clientIdentifier,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            memo: "memo"
-        });
+        uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
+            sender,
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: erc20AddressStr,
+                amount: transferAmount,
+                receiver: receiverStr,
+                sourceChannel: clientIdentifier,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: timeoutTimestamp,
+                memo: "memo"
+            })
+        );
 
-        vm.startPrank(sender);
         vm.expectEmit();
         emit IICS20Transfer.ICS20Transfer(expectedDefaultSendPacketData, address(erc20));
-        uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
+        uint32 sequence = ics26Router.sendPacket(msgSendPacket);
         assertEq(sequence, 1);
-
-        bytes memory value = ICS20Lib.marshalJSON(erc20AddressStr, transferAmount, senderStr, receiverStr, "memo");
 
         IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
         packetPayloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: "transfer",
-            destPort: "transfer",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
-            value: value
+            value: abi.encode(expectedDefaultSendPacketData)
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
-            sourceChannel: transferMsg.sourceChannel,
-            destChannel: counterpartyId, // If we test with something else, we need to add this to the args
-            timeoutTimestamp: transferMsg.timeoutTimestamp,
+            sourceChannel: msgSendPacket.sourceChannel,
+            destChannel: counterpartyId,
+            timeoutTimestamp: timeoutTimestamp,
             payloads: packetPayloads
         });
 
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceChannel, sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(msgSendPacket.sourceChannel, sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 
