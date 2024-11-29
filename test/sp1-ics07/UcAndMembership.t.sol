@@ -152,7 +152,6 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         console.log("Cached UpdateClientAndNonVerifyMembership gas used: ", vm.lastCallGas().gasTotalUsed);
     }
 
-    // Confirm that submitting a real proof passes the verifier.
     function test_Invalid_UpdateClientAndMembership() public {
         // It doesn't matter which fixture we use since this is an invalid proof
         setUpUcAndMemTestWithFixtures("uc_and_memberships_fixture-groth16.json");
@@ -178,5 +177,43 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         vm.expectRevert();
         ics07Tendermint.membership(membershipMsg);
+    }
+
+    function test_MockMisbehavior_UpdateClientAndMembership() public {
+        // It doesn't matter which fixture we use since this is a mock contract
+        setUpUcAndMemTestWithFixtures("uc_and_memberships_fixture-groth16.json");
+
+        UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
+        // set a correct timestamp
+        vm.warp(output.updateClientOutput.time + 300);
+
+        SP1MembershipAndUpdateClientProof memory ucAndMemProof = proof;
+        ucAndMemProof.sp1Proof.proof = bytes("");
+
+        MembershipProof memory membershipProof = MembershipProof({
+            proofType: MembershipProofType.SP1MembershipAndUpdateClientProof,
+            proof: abi.encode(ucAndMemProof)
+        });
+
+        MsgMembership memory membershipMsg = MsgMembership({
+            proof: abi.encode(membershipProof),
+            proofHeight: fixture.proofHeight,
+            path: verifyNonMembershipPath,
+            value: bytes("")
+        });
+
+        mockIcs07Tendermint.membership(membershipMsg);
+
+        // change output so that it is a misbehaviour
+        output.updateClientOutput.newConsensusState.timestamp = output.updateClientOutput.time + 1;
+        // re-encode output
+        ucAndMemProof.sp1Proof.publicValues = abi.encode(output);
+
+        membershipProof.proof = abi.encode(ucAndMemProof);
+        membershipMsg.proof = abi.encode(membershipProof);
+
+        // run verify again
+        vm.expectRevert(abi.encodeWithSelector(CannotHandleMisbehavior.selector));
+        mockIcs07Tendermint.membership(membershipMsg);
     }
 }

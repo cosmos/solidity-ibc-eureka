@@ -96,9 +96,8 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         ics07Tendermint.updateClient(bytes("invalid"));
     }
 
-    // Confirm that submitting a real proof passes the verifier.
-    function test_MockMisbehaviorUpdateClient() public {
-        // Doesn't matter which fixture we use since this is a misbehaviour
+    function test_MockMisbehavior_UpdateClient() public {
+        // Doesn't matter which fixture we use since this is a mock contract
         setUpTestWithFixture("update_client_fixture-plonk.json");
         // set a correct timestamp
         vm.warp(output.time + 300);
