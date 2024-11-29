@@ -1716,14 +1716,15 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "4.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
+source = "git+https://github.com/sp1-patches/curve25519-dalek?branch=patch-curve25519-v4.1.3#a9d46282f5660dfb7e3850ef957fe884089daeda"
 dependencies = [
+ "anyhow",
  "cfg-if",
  "cpufeatures",
  "curve25519-dalek-derive",
  "fiat-crypto",
  "rustc_version 0.4.1",
+ "sp1-lib",
  "subtle",
  "zeroize",
 ]
@@ -1731,8 +1732,7 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek-derive"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+source = "git+https://github.com/sp1-patches/curve25519-dalek?branch=patch-curve25519-v4.1.3#a9d46282f5660dfb7e3850ef957fe884089daeda"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1742,12 +1742,14 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek-ng"
 version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
+source = "git+https://github.com/sp1-patches/curve25519-dalek-ng?branch=patch-v4.1.1#3fb3e7f6047ddeef0f0c9212f4604bd30d64bd28"
 dependencies = [
+ "anyhow",
  "byteorder",
+ "cfg-if",
  "digest 0.9.0",
  "rand_core",
+ "sp1-lib",
  "subtle-ng",
  "zeroize",
 ]
@@ -2029,14 +2031,17 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 [[package]]
 name = "ecdsa"
 version = "0.16.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee27f32b5c5292967d2d4a9d7f1e0b0aed2c15daded5a60300e4abb9d8020bca"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#475daa8834035cc170a567e7656329ab8de8cc44"
 dependencies = [
+ "anyhow",
+ "cfg-if",
  "der",
  "digest 0.10.7",
  "elliptic-curve",
+ "hex-literal",
  "rfc6979",
  "signature",
+ "sp1-lib",
  "spki",
 ]
 
@@ -2053,8 +2058,7 @@ dependencies = [
 [[package]]
 name = "ed25519-consensus"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c8465edc8ee7436ffea81d21a019b16676ee3db267aa8d5a8d729581ecf998b"
+source = "git+https://github.com/sp1-patches/ed25519-consensus?branch=patch-v2.1.0#2b2c4b43344bc4daf5b1326f367f2d9d661eeabb"
 dependencies = [
  "curve25519-dalek-ng",
  "hex",
@@ -5359,8 +5363,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#475daa8834035cc170a567e7656329ab8de8cc44"
 dependencies = [
  "hmac",
  "subtle",
@@ -5974,8 +5977,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.9.9#db82a4848f8d033eab544255e1efa036cc06f054"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if",
@@ -5987,8 +5989,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-v0.10.8#1f224388fdede7cef649bce0d63876d1a9e3f515"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -7110,9 +7111,9 @@ dependencies = [
 [[package]]
 name = "tiny-keccak"
 version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+source = "git+https://github.com/sp1-patches/tiny-keccak?branch=patch-v2.0.2#bf0b28f63510a90c7b6c21ac6ff461c93ecd2331"
 dependencies = [
+ "cfg-if",
  "crunchy",
 ]
 
