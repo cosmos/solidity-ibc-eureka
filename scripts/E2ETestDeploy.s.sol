@@ -11,7 +11,6 @@ import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { ICS02Client } from "../contracts/ICS02Client.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
