@@ -24,6 +24,11 @@ jobs:
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build SP1 Programs
+        run: just build-programs
+
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
