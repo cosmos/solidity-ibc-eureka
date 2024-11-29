@@ -31,15 +31,6 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
     - `sp1-programs/`: Contains the SP1 programs for the light client.
 - `packages/`: Contains the Rust packages for the project.
 
-### SP1 Programs for the Light Client
-
-|     **Programs**    |                                                                                                                                     **Description**                                                                                                                                     | **Status** |
-|:-------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------:|
-|   `update-client`   | Once the initial client state and consensus state are submitted, future consensus states can be added to the client by submitting IBC Headers. These headers contain all necessary information to run the Comet BFT Light Client protocol. Also supports partial misbehavior check.     |      ✅     |
-|     `membership`    | As consensus states are added to the client, they can be used for proof verification by relayers wishing to prove packet flow messages against a particular height on the counterparty. This uses the `verify_membership` and `verify_non_membership` methods on the tendermint client. |      ✅     |
-| `uc-and-membership` | This is a program that combines `update-client` and `membership` to update the client, and prove membership of packet flow messages against the new consensus state.                                                                                                                    |      ✅     |
-|    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
-
 ### Contracts
 
 | **Contracts** | **Description** | **Status** |
@@ -50,6 +41,16 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
+
+### SP1 Programs for the Light Client
+
+|     **Programs**    |                                                                                                                                     **Description**                                                                                                                                     | **Status** |
+|:-------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------:|
+|   `update-client`   | Once the initial client state and consensus state are submitted, future consensus states can be added to the client by submitting IBC Headers. These headers contain all necessary information to run the Comet BFT Light Client protocol. Also supports partial misbehavior check.     |      ✅     |
+|     `membership`    | As consensus states are added to the client, they can be used for proof verification by relayers wishing to prove packet flow messages against a particular height on the counterparty. This uses the `verify_membership` and `verify_non_membership` methods on the tendermint client. |      ✅     |
+| `uc-and-membership` | This is a program that combines `update-client` and `membership` to update the client, and prove membership of packet flow messages against the new consensus state.                                                                                                                    |      ✅     |
+|    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
+
 
 ## Requirements
 
