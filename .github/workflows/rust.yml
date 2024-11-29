@@ -27,7 +27,7 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
       - name: Build SP1 Programs
-        run: just build-programs
+        run: just build-sp1-programs
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1

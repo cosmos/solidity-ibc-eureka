@@ -26,7 +26,7 @@ cosmos-sdk-proto = { workspace = true }
 ibc-proto        = { workspace = true }
 
 tendermint                       = { workspace = true }
-tendermint-rpc                   = { workspace = true }
+tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
 
 ibc-client-tendermint-types = { workspace = true }

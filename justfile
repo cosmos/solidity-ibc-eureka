@@ -93,7 +93,7 @@ test-e2e-sp1-ics07 testname: clean
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
-	cargo install --bin operator --path programs/relayer --locked
+	cargo install --bin operator --path programs/operator --locked
 
 # Install the relayer using `cargo install`
 install-relayer:
