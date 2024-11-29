@@ -21,6 +21,12 @@ use ibc_eureka_solidity_types::{
         IICS02ClientMsgs::Height,
         IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
     },
+    sp1_ics07::{
+        sp1_ics07_tendermint,
+        IICS07TendermintMsgs::ClientState,
+        IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
+        ISP1Msgs::SP1Proof,
+    },
 };
 // Re-export the `SupportedProofType` enum.
 pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
@@ -28,12 +34,6 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
 
-use sp1_ics07_tendermint_solidity::{
-    sp1_ics07_tendermint,
-    IICS07TendermintMsgs::ClientState,
-    IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
-    ISP1Msgs::SP1Proof,
-};
 use sp1_ics07_tendermint_utils::{
     light_block::LightBlockExt, merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt,
 };

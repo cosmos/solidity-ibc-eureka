@@ -9,12 +9,11 @@ pragma solidity ^0.8.28;
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
-import { SP1ICS07Tendermint } from "@cosmos/sp1-ics07-tendermint/SP1ICS07Tendermint.sol";
-import { IICS07TendermintMsgs } from "@cosmos/sp1-ics07-tendermint/msgs/IICS07TendermintMsgs.sol";
-import { ICS02Client } from "../contracts/ICS02Client.sol";
+import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
-import { TestERC20 } from "../test/mocks/TestERC20.sol";
+import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 
@@ -31,6 +30,8 @@ struct SP1ICS07TendermintGenesisJson {
 contract E2ETestDeploy is Script {
     using stdJson for string;
 
+    string internal constant SP1_GENESIS_DIR = "/scripts/";
+
     function run() public returns (string memory) {
         // Read the initialization parameters for the SP1 Tendermint contract.
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
@@ -38,9 +39,8 @@ contract E2ETestDeploy is Script {
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
 
         string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
 
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
@@ -82,7 +82,7 @@ contract E2ETestDeploy is Script {
 
     function loadGenesis(string memory fileName) public view returns (SP1ICS07TendermintGenesisJson memory) {
         string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/e2e/", fileName);
+        string memory path = string.concat(root, SP1_GENESIS_DIR, fileName);
         string memory json = vm.readFile(path);
         bytes memory trustedClientState = json.readBytes(".trustedClientState");
         bytes memory trustedConsensusState = json.readBytes(".trustedConsensusState");

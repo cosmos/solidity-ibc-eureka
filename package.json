@@ -12,7 +12,6 @@
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#275691af9bfaf67158f6df1f4c3c1646eb03eed0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "@cosmos/sp1-ics07-tendermint": "github:cosmos/sp1-ics07-tendermint#f67f5fec9423a4744092ee98b62bc60e3354f223",
     "solhint": "^5.0.3",
     "@defi-wonderland/natspec-smells": "^1.1.5"
   },
@@ -27,7 +26,7 @@
   ],
   "private": true,
   "scripts": {
-    "lint:sol": "forge fmt --check && bun solhint -w 0 '{script,contracts,test}/**/*.sol' && bun natspec-smells --include 'contracts/**/*.sol'",
+    "lint:sol": "forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }

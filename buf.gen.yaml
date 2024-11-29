@@ -12,4 +12,4 @@ plugins:
     opt: paths=source_relative
 
 inputs:
-  - directory: relayer/proto
+  - directory: programs/relayer/proto

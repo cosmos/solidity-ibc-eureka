@@ -5,3 +5,4 @@
 pub mod ibc_store;
 pub mod ics02;
 pub mod ics26;
+pub mod sp1_ics07;
