@@ -87,7 +87,7 @@ test-e2e-relayer testname: clean
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
 
 # Run the e2e tests in the relayer test suite
-test-e2e-ics07 testname: clean
+test-e2e-sp1-ics07 testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithSP1ICS07TendermintTestSuite/{{testname}}$' -timeout 40m
 
@@ -98,6 +98,18 @@ install-operator:
 # Install the relayer using `cargo install`
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
+
+# Generate the `genesis.json` file using $TENDERMINT_RPC_URL in the `.env` file
+# Note that the `scripts/genesis.json` file is ignored in the `.gitignore` file
+genesis-sp1-ics07: build-sp1-programs
+  @echo "Generating the genesis file..."
+  RUST_LOG=info cargo run --bin operator --release -- genesis -o scripts/genesis.json
+
+# Deploy the SP1ICS07Tendermint contract to the Eth Sepolia testnet if the `.env` file is present
+deploy-sp1-ics07: genesis-sp1-ics07
+  @echo "Deploying the SP1ICS07Tendermint contract"
+  forge install
+  forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean

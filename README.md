@@ -9,7 +9,7 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic.
+This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This project also includes an [SP1](https://github.com/succinctlabs/sp1) based tendermint light client for the Ethereum chain, and a POC relayer implementation.
 
 ## Overview
 
@@ -25,8 +25,20 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
-- `relayer/`: Contains the relayer implementation in Rust.
-- `packages/`: Contains the Rust packages for the relayer.
+- `programs/`: Contains the Rust programs for the project.
+    - `relayer/`: Contains the relayer implementation.
+    - `operator/`: Contains the operator for the SP1 light client.
+    - `sp1-programs/`: Contains the SP1 programs for the light client.
+- `packages/`: Contains the Rust packages for the project.
+
+### SP1 Programs for the Light Client
+
+|     **Programs**    |                                                                                                                                     **Description**                                                                                                                                     | **Status** |
+|:-------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------:|
+|   `update-client`   | Once the initial client state and consensus state are submitted, future consensus states can be added to the client by submitting IBC Headers. These headers contain all necessary information to run the Comet BFT Light Client protocol. Also supports partial misbehavior check.     |      ✅     |
+|     `membership`    | As consensus states are added to the client, they can be used for proof verification by relayers wishing to prove packet flow messages against a particular height on the counterparty. This uses the `verify_membership` and `verify_non_membership` methods on the tendermint client. |      ✅     |
+| `uc-and-membership` | This is a program that combines `update-client` and `membership` to update the client, and prove membership of packet flow messages against the new consensus state.                                                                                                                    |      ✅     |
+|    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
 
 ### Contracts
 
@@ -35,11 +47,13 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 | `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to `ICS02Client.sol` for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
 | `ICS02Client.sol` | IBC Eureka light client router resolves `clientId` for proof verification. It also stores the counterparty information for each client. | ✅ |
 | `ICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from another Eureka transfer implementation. | ✅ |
+| `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
 
 ## Requirements
 
+- [Rust](https://rustup.rs/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
@@ -152,10 +166,54 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 Note: These gas benchmarks are with Groth16.
 
+## Run ICS-07 Tendermint Light Client End to End
+
+1. Set the environment variables by filling in the `.env` file with the following:
+
+    ```sh
+    cp .env.example .env
+    ```
+
+    You need to fill in the `PRIVATE_KEY`, `SP1_PROVER`, `TENDERMINT_RPC_URL`, and `RPC_URL`. You also need the `SP1_PRIVATE_KEY` field if you are using the SP1 prover network.
+
+2. Deploy the `SP1ICS07Tendermint` contract:
+
+    ```sh
+    just deploy-sp1-ics07
+    ```
+
+    This will generate the `contracts/script/genesis.json` file which contains the initialization parameters for the contract. And then deploy the contract using `contracts/script/SP1ICS07Tendermint.s.sol`.
+    If you see the following error, add `--legacy` to the command in the `justfile`:
+    ```text
+    Error: Failed to get EIP-1559 fees    
+    ```
+
+3. Your deployed contract address will be printed to the terminal.
+
+    ```text
+    == Return ==
+    0: address <CONTRACT_ADDRESS>
+    ```
+
+    This will be used when you run the operator in step 5. So add this to your `.env` file.
+
+    ```.env
+    CONTRACT_ADDRESS=<CONTRACT_ADDRESS>
+    ```
+
+4. Run the Tendermint operator.
+
+    To run the operator, you need to select the prover type for SP1. This is set in the `.env` file with the `SP1_PROVER` value (`network|local|mock`).
+    If you run the operator with the `network` prover, you need to provide your SP1 network private key with `SP1_PRIVATE_KEY=0xyourprivatekey` in `.env`.
+
+    ```sh
+    RUST_LOG=info cargo run --bin operator --release -- start
+    ```
+
 ## License
 
 This project is licensed under MIT.
 
 ## Acknowledgements
 
-This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references.
+This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references. We are also grateful to [unionlabs](https://github.com/unionlabs/union/) for their `08-wasm` ethereum light client implementation for ibc-go.
