@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -67,7 +67,7 @@ type IbcEurekaTestSuite struct {
 	contractAddresses ethereum.DeployedContracts
 
 	sp1Ics07Contract   *sp1ics07tendermint.Contract
-	ics02Contract      *ics02client.Contract
+	icsCoreContract    *icscore.Contract
 	ics26Contract      *ics26router.Contract
 	ics20Contract      *ics20transfer.Contract
 	erc20Contract      *erc20.Contract
@@ -153,7 +153,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), ethClient)
 		s.Require().NoError(err)
-		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), ethClient)
+		s.icsCoreContract, err = icscore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IcsCore), ethClient)
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), ethClient)
 		s.Require().NoError(err)
@@ -182,20 +182,20 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
-		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     ibctesting.FirstChannelID,
-			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+		channel := icscore.IICS04ChannelMsgsChannel{
+			CounterpartyId: ibctesting.FirstChannelID,
+			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.key), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.icsCoreContract.ParseICS04ChannelAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
-		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
-		s.TendermintLightClientID = event.ClientId
+		s.Require().Equal(ibctesting.FirstClientID, event.ChannelId)
+		s.Require().Equal(ibctesting.FirstChannelID, event.Channel.CounterpartyId)
+		s.TendermintLightClientID = event.ChannelId
 	}))
 
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
@@ -251,17 +251,17 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		owner, err := s.ics02Contract.Owner(nil)
+		owner, err := s.icsCoreContract.Owner(nil)
 		s.Require().NoError(err)
 		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
 
-		clientAddress, err := s.ics02Contract.GetClient(nil, s.TendermintLightClientID)
+		clientAddress, err := s.icsCoreContract.GetClient(nil, s.TendermintLightClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, s.TendermintLightClientID)
+		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, s.TendermintLightClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
+		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
