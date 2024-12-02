@@ -59,4 +59,14 @@ contract ICSCoreTest is Test {
         assertEq(fetchedChannel.counterpartyId, counterpartyId, "channel not migrated");
         assertEq(fetchedChannel.merklePrefix, randomPrefix, "channel not migrated");
     }
+
+    function test_Misbehaviour() public {
+        bytes memory misbehaviourMsg = "testMisbehaviourMsg";
+        icsCore.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
+    }
+
+    function test_UpgradeClient() public {
+        bytes memory upgradeMsg = "testUpgradeMsg";
+        icsCore.upgradeClient(clientIdentifier, upgradeMsg);
+    }
 }
