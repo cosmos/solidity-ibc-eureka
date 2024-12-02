@@ -369,8 +369,6 @@ contract IntegrationTest is Test {
         });
 
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(packet, singleSuccessAck);
-        vm.expectEmit();
         emit IICS26Router.RecvPacket(packet);
 
         ics26Router.recvPacket(
@@ -573,8 +571,6 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
@@ -864,8 +860,6 @@ contract IntegrationTest is Test {
         );
 
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
-        vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
         ics26Router.recvPacket(
@@ -1005,8 +999,6 @@ contract IntegrationTest is Test {
             abi.encodePacked(receivePacket.payloads[0].destPort, "/", receivePacket.destChannel, "/", foreignDenom)
         );
 
-        vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(receivePacket, singleSuccessAck);
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
