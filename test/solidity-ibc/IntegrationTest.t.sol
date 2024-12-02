@@ -7,7 +7,6 @@ import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
-import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
