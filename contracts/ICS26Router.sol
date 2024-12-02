@@ -287,7 +287,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param acks The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
         IBC_STORE.commitPacketAcknowledgement(packet, acks);
-       // emit WriteAcknowledgement(packet, acks);
+        // emit WriteAcknowledgement(packet, acks);
     }
 
     /// @notice No-op if the reason is correct, otherwise reverts with the same reason
