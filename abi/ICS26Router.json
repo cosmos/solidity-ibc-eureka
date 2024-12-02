@@ -813,6 +813,79 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "WriteAcknowledgement",
+    "inputs": [
+      {
+        "name": "packet",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct IICS26RouterMsgs.Packet",
+        "components": [
+          {
+            "name": "sequence",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "payloads",
+            "type": "tuple[]",
+            "internalType": "struct IICS26RouterMsgs.Payload[]",
+            "components": [
+              {
+                "name": "sourcePort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "destPort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "encoding",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "value",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "acknowledgements",
+        "type": "bytes[]",
+        "indexed": false,
+        "internalType": "bytes[]"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "AddressEmptyCode",
     "inputs": [
