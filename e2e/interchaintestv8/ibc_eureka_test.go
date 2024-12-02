@@ -126,7 +126,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
 			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
 			"-o", testvalues.Sp1GenesisFilePath,
-		}, proofType.ToOpGenesisArgs()...)
+		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
 		var (
@@ -140,7 +140,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			// make sure that the SP1_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
-			stdout, err = eth.ForgeScript(s.deployer, "scripts/E2ETestDeploy.s.sol:E2ETestDeploy")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
@@ -1284,5 +1284,9 @@ func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
 		uint64(trustedHeight), uint64(latestHeight), proofPathsStr, args...,
 	)
 	s.Require().NoError(err)
-	return proofHeight, ucAndMemProof
+
+	return &ics26router.IICS02ClientMsgsHeight{
+		RevisionNumber: proofHeight.RevisionNumber,
+		RevisionHeight: proofHeight.RevisionHeight,
+	}, ucAndMemProof
 }

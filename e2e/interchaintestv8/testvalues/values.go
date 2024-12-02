@@ -31,6 +31,8 @@ const (
 	EnvKeyGenerateFixtures = "GENERATE_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
+	// Address of the SP1ICS07Tendermint contract for operator.
+	EnvKeyContractAddress = "CONTRACT_ADDRESS"
 
 	// Log level for the Rust logger.
 	EnvValueRustLog_Info = "info"
@@ -52,11 +54,17 @@ const (
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
-	Sp1GenesisFilePath = "e2e/genesis.json"
-	// FixturesDir is the directory where the Solidity fixtures are stored.
-	FixturesDir = "test/fixtures/"
+	Sp1GenesisFilePath = "scripts/genesis.json"
+	// SolidityFixturesDir is the directory where the Solidity fixtures are stored.
+	SolidityFixturesDir = "test/solidity-ibc/fixtures/"
+	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
+	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
-	RelayerConfigFilePath = "relayer/config.json"
+	RelayerConfigFilePath = "programs/relayer/config.json"
+	// E2EDeployScriptPath is the path to the E2E deploy script.
+	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+	// SP1ICS07DeployScriptPath is the path to the SP1ICS07 deploy script.
+	SP1ICS07DeployScriptPath = "scripts/SP1ICS07Tendermint.s.sol:SP1TendermintScript"
 
 	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
 	DefaultGovV1ProposalTokenAmount = 500_000_000
