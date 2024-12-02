@@ -5,6 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
@@ -45,10 +46,10 @@ contract ICS26RouterTest is Test {
     }
 
     function test_RecvPacketWithFailedMembershipVerification() public {
-        string memory counterpartyClientID = "42-dummy-01";
+        string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClientID, merklePrefix), address(lightClient)
+        string memory clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
+            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyID, merklePrefix), address(lightClient)
         );
 
         ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
@@ -64,7 +65,7 @@ contract ICS26RouterTest is Test {
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClientID,
+            sourceChannel: counterpartyID,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads

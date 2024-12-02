@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
-import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
@@ -19,7 +19,7 @@ abstract contract FixtureTest is Test {
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyClient = "channel-0";
+    string public counterpartyId = "channel-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
@@ -64,10 +64,8 @@ abstract contract FixtureTest is Test {
             trustedConsensusHash
         );
 
-        ics26Router.ICS02_CLIENT().addClient(
-            "07-tendermint",
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix),
-            address(ics07Tendermint)
+        ics26Router.ICS04_CHANNEL().addChannel(
+            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
 
         ics20Transfer = new ICS20Transfer(address(ics26Router));

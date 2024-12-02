@@ -4,7 +4,8 @@ pragma solidity ^0.8.28;
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
-import { ICS02Client } from "./ICS02Client.sol";
+import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
+import { ICSCore } from "./ICSCore.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -15,7 +16,7 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 
@@ -24,14 +25,25 @@ import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
-    /// @inheritdoc IICS26Router
-    IICS02Client public immutable ICS02_CLIENT;
+
     /// @inheritdoc IICS26Router
     IIBCStore public immutable IBC_STORE;
+    /// @notice ICSCore implements IICS02Client and IICS04Channel
+    address private immutable ICS_CORE;
 
     constructor(address owner) Ownable(owner) {
-        ICS02_CLIENT = new ICS02Client(owner); // using the same owner
+        ICS_CORE = address(new ICSCore(owner)); // using the same owner
         IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
+    }
+
+    /// @inheritdoc IICS26Router
+    function ICS02_CLIENT() public view returns (IICS02Client) {
+        return IICS02Client(ICS_CORE);
+    }
+
+    /// @inheritdoc IICS26Router
+    function ICS04_CHANNEL() public view returns (IICS04Channel) {
+        return IICS04Channel(ICS_CORE);
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -75,7 +87,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
-        string memory counterpartyId = ICS02_CLIENT.getCounterparty(msg_.sourceChannel).clientId;
+        string memory counterpartyId = ICS04_CHANNEL().getChannel(msg_.sourceChannel).counterpartyId;
 
         // TODO: validate all identifiers
         require(
@@ -116,11 +128,12 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.destChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.destChannel);
         require(
-            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceChannel)),
-            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel)
+            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.sourceChannel)),
+            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.sourceChannel)
         );
+
         require(
             msg_.packet.timeoutTimestamp > block.timestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, block.timestamp)
@@ -133,11 +146,11 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofCommitment,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
+        ICS02_CLIENT().getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
@@ -171,10 +184,10 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
         require(
-            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
-            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
+            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
         );
 
         bytes memory commitmentPath =
@@ -187,11 +200,11 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofAcked,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
         try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
@@ -225,10 +238,10 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT.getCounterparty(msg_.packet.sourceChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
         require(
-            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
-            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
+            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
         );
 
         bytes memory receiptPath =
@@ -236,11 +249,11 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
+            path: ICS24Host.prefixedPath(channel.merklePrefix, receiptPath),
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)

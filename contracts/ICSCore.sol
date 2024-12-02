@@ -2,15 +2,16 @@
 pragma solidity ^0.8.28;
 
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
-contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
-    /// @dev clientId => counterpartyInfo
-    mapping(string clientId => CounterpartyInfo info) private counterpartyInfos;
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+    /// @dev channelId => channel
+    mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract
     mapping(string clientId => ILightClient client) private clients;
     /// @dev clientType => nextClientSeq
@@ -30,12 +31,12 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return string.concat(clientType, "-", Strings.toString(seq));
     }
 
-    /// @inheritdoc IICS02Client
-    function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
-        CounterpartyInfo memory counterpartyInfo = counterpartyInfos[clientId];
-        require(bytes(counterpartyInfo.clientId).length != 0, IBCCounterpartyClientNotFound(clientId));
+    /// @inheritdoc IICS04Channel
+    function getChannel(string calldata channelId) public view returns (Channel memory) {
+        Channel memory channel = channels[channelId];
+        require(bytes(channel.counterpartyId).length != 0, IBCCounterpartyClientNotFound(channelId));
 
-        return counterpartyInfo;
+        return channel;
     }
 
     /// @inheritdoc IICS02Client
@@ -46,10 +47,10 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         return client;
     }
 
-    /// @inheritdoc IICS02Client
-    function addClient(
+    /// @inheritdoc IICS04Channel
+    function addChannel(
         string calldata clientType,
-        CounterpartyInfo calldata counterpartyInfo,
+        Channel calldata channel,
         address client
     )
         external
@@ -57,9 +58,11 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
     {
         string memory clientId = getNextClientId(clientType);
         clients[clientId] = ILightClient(client);
-        counterpartyInfos[clientId] = counterpartyInfo;
+        // use the same identifier for channelId and clientId
+        // for Solidity implementation
+        channels[clientId] = channel;
 
-        emit ICS02ClientAdded(clientId, counterpartyInfo);
+        emit ICS04ChannelAdded(clientId, channel);
 
         return clientId;
     }
@@ -69,10 +72,10 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Ownable {
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
 
-        getCounterparty(subjectClientId); // Ensure subject client's counterparty exists
-        CounterpartyInfo memory substituteCounterpartyInfo = getCounterparty(substituteClientId);
+        getChannel(subjectClientId); // Ensure channel exists for this clientId
+        Channel memory substituteChannel = getChannel(substituteClientId);
 
-        counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
+        channels[subjectClientId] = substituteChannel;
         clients[subjectClientId] = substituteClient;
     }
 

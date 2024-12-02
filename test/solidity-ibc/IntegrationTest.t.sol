@@ -5,6 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
@@ -31,7 +32,7 @@ contract IntegrationTest is Test {
     string public ics20AddressStr;
     TestERC20 public erc20;
     string public erc20AddressStr;
-    string public counterpartyClient = "42-dummy-01";
+    string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
@@ -52,8 +53,8 @@ contract IntegrationTest is Test {
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
-        clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyClient, merklePrefix), address(lightClient)
+        clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
+            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
@@ -145,7 +146,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
             sourceChannel: transferMsg.sourceChannel,
-            destChannel: counterpartyClient, // If we test with something else, we need to add this to the args
+            destChannel: counterpartyId, // If we test with something else, we need to add this to the args
             timeoutTimestamp: transferMsg.timeoutTimestamp,
             payloads: packetPayloads
         });
@@ -355,7 +356,7 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
         ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
             denom: receivedDenom,
@@ -375,7 +376,7 @@ contract IntegrationTest is Test {
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             payloads: payloads
@@ -444,7 +445,7 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
         ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
             denom: receivedDenom,
@@ -463,7 +464,7 @@ contract IntegrationTest is Test {
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             payloads: payloads
@@ -518,7 +519,7 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory receivedDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
         ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
             denom: receivedDenom,
@@ -537,7 +538,7 @@ contract IntegrationTest is Test {
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: packet.timeoutTimestamp + 1000,
             payloads: payloads
@@ -592,7 +593,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
@@ -698,7 +699,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceChannel: clientIdentifier,
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
             payloads: expectedPayloads
         });
@@ -742,7 +743,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads1
@@ -759,7 +760,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket2 = IICS26RouterMsgs.Packet({
             sequence: 2,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads2
@@ -822,7 +823,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads1
@@ -839,7 +840,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory invalidPacket = IICS26RouterMsgs.Packet({
             sequence: 2,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads2
@@ -893,7 +894,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: receievePayloads
@@ -1001,7 +1002,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceChannel: clientIdentifier,
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
             payloads: expectedPayloads
         });
@@ -1047,7 +1048,7 @@ contract IntegrationTest is Test {
         });
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
@@ -1155,7 +1156,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory expectedPacketSent = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceChannel: clientIdentifier,
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
             payloads: expectedPayloads
         });
@@ -1203,7 +1204,7 @@ contract IntegrationTest is Test {
         // Send back
         receiverStr = senderStr;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyClient, "/", erc20AddressStr));
+        string memory ibcDenom = string(abi.encodePacked("transfer/", counterpartyId, "/", erc20AddressStr));
 
         ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
             denom: ibcDenom,
@@ -1223,7 +1224,7 @@ contract IntegrationTest is Test {
         });
         packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyClient,
+            sourceChannel: counterpartyId,
             destChannel: clientIdentifier,
             timeoutTimestamp: timeoutTimestamp,
             payloads: payloads
@@ -1283,7 +1284,7 @@ contract IntegrationTest is Test {
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
             sourceChannel: msgSendPacket.sourceChannel,
-            destChannel: counterpartyClient,
+            destChannel: counterpartyId,
             timeoutTimestamp: timeoutTimestamp,
             payloads: packetPayloads
         });

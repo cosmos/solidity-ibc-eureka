@@ -61,7 +61,7 @@ lint:
 # Generate the ABI files for the contracts
 generate-abi: build-contracts
 	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
-	jq '.abi' out/ICS02Client.sol/ICS02Client.json > abi/ICS02Client.json   
+	jq '.abi' out/ICSCore.sol/ICSCore.json > abi/ICSCore.json   
 	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
 	jq '.abi' ./out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
@@ -70,7 +70,7 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS20Lib.sol/ICS20Lib.json > abi/ICS20Lib.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out e2e/interchaintestv8/types/sp1ics07tendermint/contract.go
-	abigen --abi abi/ICS02Client.json --pkg ics02client --type Contract --out abigen/ics02client/contract.go
+	abigen --abi abi/ICSCore.json --pkg icscore --type Contract --out abigen/icscore/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
