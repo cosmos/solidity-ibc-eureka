@@ -11,7 +11,7 @@ import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 
-contract icsCoreTest is Test {
+contract ICSCoreTest is Test {
     ICSCore public icsCore;
     DummyLightClient public lightClient;
 

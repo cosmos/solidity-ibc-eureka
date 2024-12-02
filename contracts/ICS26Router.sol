@@ -16,9 +16,7 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
 import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
-import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 

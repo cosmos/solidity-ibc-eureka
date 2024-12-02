@@ -5,8 +5,6 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
-import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS04Channel } from "../../contracts/interfaces/IICS04Channel.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
