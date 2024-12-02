@@ -27,16 +27,23 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     mapping(string portId => IIBCApp app) private apps;
 
     /// @inheritdoc IICS26Router
-    IICS02Client public immutable ICS02_CLIENT;
-    /// @dev ICS04Channel contract
-    IICS04Channel public immutable ICS04_CHANNEL;
-    /// @inheritdoc IICS26Router
     IIBCStore public immutable IBC_STORE;
+    /// @notice ICSCore implements IICS02Client and IICS04Channel
+    address private immutable ICS_CORE;
 
     constructor(address owner) Ownable(owner) {
-        ICS02_CLIENT = new ICSCore(owner); // using the same owner
-        ICS04_CHANNEL = IICS04Channel(address(ICS02_CLIENT)); // using the same contract
+        ICS_CORE = address(new ICSCore(owner)); // using the same owner
         IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
+    }
+
+    /// @inheritdoc IICS26Router
+    function ICS02_CLIENT() public view returns (IICS02Client) {
+        return IICS02Client(ICS_CORE);
+    }
+
+    /// @inheritdoc IICS26Router
+    function ICS04_CHANNEL() public view returns (IICS04Channel) {
+        return IICS04Channel(ICS_CORE);
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -80,7 +87,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
-        string memory counterpartyId = ICS04_CHANNEL.getChannel(msg_.sourceChannel).counterpartyId;
+        string memory counterpartyId = ICS04_CHANNEL().getChannel(msg_.sourceChannel).counterpartyId;
 
         // TODO: validate all identifiers
         require(
@@ -121,7 +128,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.destChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.destChannel);
         require(
             keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.sourceChannel)),
             IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.sourceChannel)
@@ -143,7 +150,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT.getClient(msg_.packet.destChannel).membership(membershipMsg);
+        ICS02_CLIENT().getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
@@ -177,7 +184,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.sourceChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
@@ -197,7 +204,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
         try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
@@ -231,7 +238,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL.getChannel(msg_.packet.sourceChannel);
+        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
@@ -246,7 +253,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = ICS02_CLIENT.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
