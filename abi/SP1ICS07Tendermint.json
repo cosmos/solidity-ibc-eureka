@@ -636,40 +636,6 @@
             ]
           }
         ]
-      },
-      {
-        "name": "o9",
-        "type": "tuple",
-        "internalType": "struct IMembershipMsgs.UnionMembershipProof",
-        "components": [
-          {
-            "name": "ics23Proof",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "trustedConsensusState",
-            "type": "tuple",
-            "internalType": "struct IICS07TendermintMsgs.ConsensusState",
-            "components": [
-              {
-                "name": "timestamp",
-                "type": "uint64",
-                "internalType": "uint64"
-              },
-              {
-                "name": "root",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              },
-              {
-                "name": "nextValidatorsHash",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              }
-            ]
-          }
-        ]
       }
     ],
     "outputs": [],
@@ -764,52 +730,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "handleUnionMembershipProof",
-    "inputs": [
-      {
-        "name": "proofHeight",
-        "type": "tuple",
-        "internalType": "struct IICS02ClientMsgs.Height",
-        "components": [
-          {
-            "name": "revisionNumber",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "revisionHeight",
-            "type": "uint32",
-            "internalType": "uint32"
-          }
-        ]
-      },
-      {
-        "name": "proofBytes",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "kvPath",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      },
-      {
-        "name": "kvValue",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -929,7 +849,7 @@
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "error",
