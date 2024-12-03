@@ -19,6 +19,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -806,15 +807,14 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
 
-	// var denomOnEthereum transfertypes.Denom
-
+	var denomOnEthereum transfertypes.Denom
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
 	var recvBlockNumber int64
+
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
 		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
-
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(sendPacket.Sequence),
 			SourceChannel:    sendPacket.SourceChannel,
@@ -841,27 +841,67 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		recvBlockNumber = receipt.BlockNumber.Int64()
-
 		if s.generateFixtures {
 			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
+		// We removed this event, so we have to find a way to read the contract address that has been generated (or find) on ethereum when cosmos coin are received
+		// ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
+		// s.Require().NoError(err)
+		// An option is to read the _ibcDenomContracts[denom] state after the receive happened
+
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
+		ethClient, err := ethclient.Dial(eth.RPC)
+		s.Require().NoError(err)
+		// Here we need to use in input the result of the call to _ibcDenomContracts[denom]
+
+		callOpts := &bind.CallOpts{
+			Context: ctx,
+		}
+
+		ibcERC20Address, err := s.ics20Contract.IbcDenomContracts(callOpts, transferCoin.Denom)
+
+		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, ethClient)
+		s.Require().NoError(err)
+
+		denomOnEthereum = transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
+
+		actualDenom, err := ibcERC20.Name(nil)
+		s.Require().NoError(err)
+		s.Require().Equal(denomOnEthereum.IBCDenom(), actualDenom)
+
+		actualBaseDenom, err := ibcERC20.Symbol(nil)
+		s.Require().NoError(err)
+		s.Require().Equal(transferCoin.Denom, actualBaseDenom)
+
+		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
+		s.Require().NoError(err)
+		s.Require().Equal(denomOnEthereum.Path(), actualFullDenom)
+
+		// Remove event field checks
+		/*
+			ethReceiveTransferPacket = ethReceiveTransferEvent.PacketData
+			s.Require().Equal(transferCoin.Denom, ethReceiveTransferPacket.Denom)
+			s.Require().Equal(transferAmount, ethReceiveTransferPacket.Amount)
+			s.Require().Equal(cosmosUserAddress, ethReceiveTransferPacket.Sender)
+			s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
+			s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
+		*/
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
-			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, userBalance)
 
 			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
-	}))
 
+	}))
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 

@@ -27,11 +27,16 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @notice The escrow contract address
     IEscrow private immutable ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
-    mapping(string denom => IBCERC20 ibcERC20Contract) public _ibcDenomContracts;
+    mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
 
     /// @param owner_ The owner of the contract
     constructor(address owner_) Ownable(owner_) {
         ESCROW = new Escrow(address(this));
+    }
+
+    // Public getter
+    function ibcDenomContracts(string memory denom) external view returns (address) {
+        return address(_ibcDenomContracts[denom]);
     }
 
     /// @inheritdoc IICS20Transfer
