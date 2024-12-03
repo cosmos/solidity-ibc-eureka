@@ -3445,6 +3445,7 @@ dependencies = [
  "sp1-sdk",
  "tendermint",
  "tendermint-rpc",
+ "tracing",
 ]
 
 [[package]]

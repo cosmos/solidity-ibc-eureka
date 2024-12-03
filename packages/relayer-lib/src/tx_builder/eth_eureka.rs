@@ -114,6 +114,7 @@ where
     P: Provider<T> + Clone,
 {
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEvent>,
@@ -134,7 +135,7 @@ where
         };
 
         let filter_channel = target_channel_id.clone();
-        let timeout_msgs = src_events.into_iter().filter_map(|e| match e {
+        let timeout_msgs = dest_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == filter_channel {
                     Some(routerCalls::timeoutPacket(timeoutPacketCall {
@@ -151,7 +152,7 @@ where
             _ => None,
         });
 
-        let recv_and_ack_msgs = dest_events.into_iter().filter_map(|e| match e {
+        let recv_and_ack_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if se.packet.timeoutTimestamp > now && se.packet.destChannel == filter_channel {
                     Some(routerCalls::recvPacket(recvPacketCall {
@@ -183,6 +184,8 @@ where
         });
 
         let mut all_msgs = timeout_msgs.chain(recv_and_ack_msgs).collect::<Vec<_>>();
+
+        tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
 
         // TODO: Filter already submitted packets
 
