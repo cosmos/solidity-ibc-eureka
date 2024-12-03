@@ -38,6 +38,10 @@ pub const ATTRIBUTE_KEY_ACK_DATA_HEX: &str = "acknowledgement_data_hex";
 pub mod proto {
     #![allow(missing_docs)]
 
+    use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
+        Packet as SolPacket, Payload as SolPayload,
+    };
+
     /// IBC Eureka packet.
     #[derive(::prost::Message)]
     pub struct Packet {
@@ -50,7 +54,7 @@ pub mod proto {
         #[prost(uint64, tag = "4")]
         pub timeout_timestamp: u64,
         #[prost(message, repeated, tag = "5")]
-        pub requests: ::prost::alloc::vec::Vec<Payload>,
+        pub payloads: ::prost::alloc::vec::Vec<Payload>,
     }
 
     /// IBC Eureka acknowledgement.
@@ -73,5 +77,31 @@ pub mod proto {
         pub encoding: String,
         #[prost(bytes = "vec", tag = "5")]
         pub value: ::prost::alloc::vec::Vec<u8>,
+    }
+
+    impl TryFrom<Packet> for SolPacket {
+        type Error = <u64 as TryInto<u32>>::Error;
+
+        fn try_from(packet: Packet) -> Result<Self, Self::Error> {
+            Ok(Self {
+                sequence: packet.sequence.try_into()?,
+                sourceChannel: packet.source_channel,
+                destChannel: packet.destination_channel,
+                timeoutTimestamp: packet.timeout_timestamp,
+                payloads: packet.payloads.into_iter().map(Into::into).collect(),
+            })
+        }
+    }
+
+    impl From<Payload> for SolPayload {
+        fn from(payload: Payload) -> Self {
+            Self {
+                sourcePort: payload.source_port,
+                destPort: payload.destination_port,
+                version: payload.version,
+                encoding: payload.encoding,
+                value: payload.value.into(),
+            }
+        }
     }
 }

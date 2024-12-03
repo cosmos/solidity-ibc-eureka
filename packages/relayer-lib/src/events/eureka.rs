@@ -1,10 +1,13 @@
 //! Define the events that can be retrieved by the relayer.
 
-use alloy::sol_types::SolEvent;
+use alloy::{hex, sol_types::SolEvent};
 use ibc_eureka_solidity_types::ics26::router::{
     routerEvents, AckPacket, RecvPacket, SendPacket, TimeoutPacket, WriteAcknowledgement,
 };
+use prost::Message;
 use tendermint::abci::Event as TmEvent;
+
+use super::cosmos_sdk;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -59,7 +62,28 @@ impl TryFrom<routerEvents> for EurekaEvent {
 impl TryFrom<TmEvent> for EurekaEvent {
     type Error = anyhow::Error;
 
-    fn try_from(_event: TmEvent) -> anyhow::Result<Self> {
-        todo!()
+    fn try_from(event: TmEvent) -> anyhow::Result<Self> {
+        match event.kind.as_str() {
+            cosmos_sdk::EVENT_TYPE_SEND_PACKET => event
+                .attributes
+                .into_iter()
+                .find_map(|attr| {
+                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
+                        let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
+                        let packet = cosmos_sdk::proto::Packet::decode(packet.as_slice()).ok()?;
+                        Some(Self::SendPacket(SendPacket {
+                            packet: packet.try_into().ok()?,
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| anyhow::anyhow!("No packet data found")),
+            cosmos_sdk::EVENT_TYPE_RECV_PACKET => todo!(),
+            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET => todo!(),
+            cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => todo!(),
+            cosmos_sdk::EVENT_TYPE_WRITE_ACK => todo!(),
+            _ => Err(anyhow::anyhow!("Unwanted event type: {}", event.kind)),
+        }
     }
 }
