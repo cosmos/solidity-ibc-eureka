@@ -18,10 +18,8 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -863,80 +861,14 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
-		packetData, _ := transfertypes.DecodeABIFungibleTokenPacketData(sendPacket.Payloads[0].Value)
-
-		// Prepare the transaction options
-		// opts := s.GetTransactOpts(s.key)
-		// Create call options for a read-only operation
-		callOpts := &bind.TransactOpts{
-			Context: context.Background(),
-		}
-
-		// Replace with the transaction hash of interest
-
-		tx_h, _ := s.ics20Contract.GetReceiveERC20AddressAndSource(callOpts,
-			sendPacket.Payloads[0].SourcePort,
-			sendPacket.SourceChannel,
-			sendPacket.Payloads[0].DestinationPort,
-			sendPacket.DestinationChannel,
-			ics20transfer.ICS20LibFungibleTokenPacketData{
-				Denom:    packetData.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
-				Sender:   packetData.Sender,
-				Receiver: packetData.Receiver,
-				Memo:     packetData.Memo,
-			},
-		)
-
-		txHash := common.HexToHash(tx_h.Hash().String())
-		client, err := ethclient.Dial(eth.RPC)
-		erc20Address, err := ExtractContractAddress(client, txHash)
-
-		//IbcDenomContracts(callOpts, packetData.Denom)
-		/* denomOnEthereum, _ := s.ics20Contract.GetReceiveERC20AddressAndSource(
-			opts,
-			sendPacket.Payloads[0].SourcePort,
-			sendPacket.SourceChannel,
-			sendPacket.Payloads[0].DestinationPort,
-			sendPacket.DestinationChannel,
-			ics20transfer.ICS20LibFungibleTokenPacketData{
-				Denom:    packetData.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
-				Sender:   packetData.Sender,
-				Receiver: packetData.Receiver,
-				Memo:     packetData.Memo,
-			},
-		) */
-		s.Require().NotNil(erc20Address)
-
-		// ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseRecvPacket)
-		// s.Require().NoError(err)
-
-		// Extract Payload from packet in the recv event. From there use it
-
-		ethClient, err := ethclient.Dial(eth.RPC)
-		s.Require().NoError(err)
-		ibcERC20, err = ibcerc20.NewContract(erc20Address, ethClient)
-		s.Require().NoError(err)
-
-		ibcERC20Address = strings.ToLower(erc20Address.Hex())
-
-		actualBaseDenom, err := ibcERC20.Symbol(nil)
-		s.Require().NoError(err)
-		s.Require().Equal(transferCoin.Denom, actualBaseDenom)
-
-		// actualFullDenom, err := ibcERC20.FullDenomPath(nil)
-		// s.Require().NoError(err)
-		// s.Require().Equal(denomOnEthereum.Path(), actualFullDenom)
-
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
-			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, userBalance)
 
 			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
+			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
@@ -1009,12 +941,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(transfertypes.EncodingABI, returnPacket.Payloads[0].Encoding)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
-			// userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
-			// s.Require().NoError(err)
-			// s.Require().Equal(int64(0), userBalance.Int64())
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(int64(0), userBalance.Int64())
 
 			// the whole balance should have been burned
-			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
+			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
