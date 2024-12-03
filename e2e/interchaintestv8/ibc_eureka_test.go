@@ -17,16 +17,19 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
+
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
 	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -39,8 +42,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -49,6 +50,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -215,6 +217,17 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
+}
+
+func ExtractContractAddress(client *ethclient.Client, txHash common.Hash) (common.Address, error) {
+	// Get the transaction receipt
+	receipt, err := client.TransactionReceipt(context.Background(), txHash)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	// Return the contract address
+	return receipt.ContractAddress, nil
 }
 
 func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
@@ -855,10 +868,31 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		// Prepare the transaction options
 		// opts := s.GetTransactOpts(s.key)
 		// Create call options for a read-only operation
-		callOpts := &bind.CallOpts{
+		callOpts := &bind.TransactOpts{
 			Context: context.Background(),
 		}
-		erc20Address, _ := s.ics20Contract.IbcDenomContracts(callOpts, packetData.Denom)
+
+		// Replace with the transaction hash of interest
+
+		tx_h, _ := s.ics20Contract.GetReceiveERC20AddressAndSource(callOpts,
+			sendPacket.Payloads[0].SourcePort,
+			sendPacket.SourceChannel,
+			sendPacket.Payloads[0].DestinationPort,
+			sendPacket.DestinationChannel,
+			ics20transfer.ICS20LibFungibleTokenPacketData{
+				Denom:    packetData.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   packetData.Sender,
+				Receiver: packetData.Receiver,
+				Memo:     packetData.Memo,
+			},
+		)
+
+		txHash := common.HexToHash(tx_h.Hash().String())
+		client, err := ethclient.Dial(eth.RPC)
+		erc20Address, err := ExtractContractAddress(client, txHash)
+
+		//IbcDenomContracts(callOpts, packetData.Denom)
 		/* denomOnEthereum, _ := s.ics20Contract.GetReceiveERC20AddressAndSource(
 			opts,
 			sendPacket.Payloads[0].SourcePort,
