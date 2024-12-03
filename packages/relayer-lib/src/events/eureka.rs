@@ -79,7 +79,21 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
-            cosmos_sdk::EVENT_TYPE_RECV_PACKET => todo!(),
+            cosmos_sdk::EVENT_TYPE_RECV_PACKET => event
+                .attributes
+                .into_iter()
+                .find_map(|attr| {
+                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
+                        let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
+                        let packet = cosmos_sdk::proto::Packet::decode(packet.as_slice()).ok()?;
+                        Some(Self::RecvPacket(RecvPacket {
+                            packet: packet.try_into().ok()?,
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET => todo!(),
             cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => todo!(),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => todo!(),
