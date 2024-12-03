@@ -19,7 +19,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -215,17 +214,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
-}
-
-func ExtractContractAddress(client *ethclient.Client, txHash common.Hash) (common.Address, error) {
-	// Get the transaction receipt
-	receipt, err := client.TransactionReceipt(context.Background(), txHash)
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	// Return the contract address
-	return receipt.ContractAddress, nil
 }
 
 func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
