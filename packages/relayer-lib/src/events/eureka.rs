@@ -94,8 +94,6 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
-            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET => Err(anyhow::anyhow!("Not implemented")),
-            cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => todo!(),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
                 let (ack, packet) = event
                     .attributes
@@ -131,6 +129,9 @@ impl TryFrom<TmEvent> for EurekaEvent {
                         .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
                         .try_into()?,
                 }))
+            }
+            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET | cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => {
+                Err(anyhow::anyhow!("Not implemented"))
             }
             _ => Err(anyhow::anyhow!("Unwanted event type: {}", event.kind)),
         }
