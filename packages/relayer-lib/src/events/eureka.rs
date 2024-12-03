@@ -94,9 +94,44 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
-            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET => todo!(),
+            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET => Err(anyhow::anyhow!("Not implemented")),
             cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => todo!(),
-            cosmos_sdk::EVENT_TYPE_WRITE_ACK => todo!(),
+            cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
+                let (ack, packet) = event
+                    .attributes
+                    .into_iter()
+                    .filter_map(|attr| match attr.key_str().ok()? {
+                        cosmos_sdk::ATTRIBUTE_KEY_ACK_DATA_HEX => {
+                            let ack_data = hex::decode(attr.value_str().ok()?).ok()?;
+                            let ack =
+                                cosmos_sdk::proto::Acknowledgement::decode(ack_data.as_slice())
+                                    .ok()?;
+                            Some((Some(ack), None))
+                        }
+                        cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX => {
+                            let packet_data = hex::decode(attr.value_str().ok()?).ok()?;
+                            let packet =
+                                cosmos_sdk::proto::Packet::decode(packet_data.as_slice()).ok()?;
+                            Some((None, Some(packet)))
+                        }
+                        _ => None,
+                    })
+                    .fold((None, None), |(ack_acc, packet_acc), (ack, packet)| {
+                        (ack.or(ack_acc), packet.or(packet_acc))
+                    });
+
+                Ok(Self::WriteAcknowledgement(WriteAcknowledgement {
+                    acknowledgements: ack
+                        .ok_or_else(|| anyhow::anyhow!("No ack data found"))?
+                        .app_acknowledgements
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                    packet: packet
+                        .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
+                        .try_into()?,
+                }))
+            }
             _ => Err(anyhow::anyhow!("Unwanted event type: {}", event.kind)),
         }
     }
