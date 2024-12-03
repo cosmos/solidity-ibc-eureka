@@ -3438,6 +3438,7 @@ dependencies = [
  "futures",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
+ "prost",
  "serde",
  "sp1-ics07-tendermint-prover",
  "sp1-ics07-tendermint-utils",

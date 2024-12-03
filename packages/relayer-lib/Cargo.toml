@@ -16,7 +16,9 @@ ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
 sp1-ics07-tendermint-prover   = { workspace = true, optional = true }
 sp1-ics07-tendermint-utils    = { workspace = true, optional = true }
 
-serde       = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+prost = { workspace = true }
+
 async-trait = { workspace = true }
 anyhow      = { workspace = true, features = ["std"] }
 futures     = { workspace = true, default-features = true }
