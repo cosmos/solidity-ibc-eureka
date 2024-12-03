@@ -12,6 +12,25 @@
   },
   {
     "type": "function",
+    "name": "_ibcDenomContracts",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ibcERC20Contract",
+        "type": "address",
+        "internalType": "contract IBCERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "escrow",
     "inputs": [],
     "outputs": [
