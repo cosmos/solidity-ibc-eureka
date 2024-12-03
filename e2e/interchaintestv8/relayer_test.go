@@ -125,7 +125,7 @@ func (s *RelayerTestSuite) TestRelayToEth() {
 
 	var (
 		transferCoin sdk.Coin
-		txHash       string
+		txHash       []byte
 	)
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		// We need the timeout to be a whole number of seconds to be received by eth
@@ -162,7 +162,8 @@ func (s *RelayerTestSuite) TestRelayToEth() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
 
-		txHash = resp.TxHash
+		txHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
@@ -179,7 +180,7 @@ func (s *RelayerTestSuite) TestRelayToEth() {
 	var multicallTx []byte
 	s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SourceTxIds:     [][]byte{[]byte(txHash)},
+			SourceTxIds:     [][]byte{txHash},
 			TargetChannelId: s.TendermintLightClientID,
 		})
 		s.Require().NoError(err)
