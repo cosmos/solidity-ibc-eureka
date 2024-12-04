@@ -467,6 +467,10 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 			// Wait for the tx to be mined
 			receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
