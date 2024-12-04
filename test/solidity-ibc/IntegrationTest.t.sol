@@ -870,6 +870,89 @@ contract IntegrationTest is Test {
         ics26Router.multicall(multicallData);
     }
 
+    function test_success_receiveMultipassPacketWithForeignBaseDenom() public {
+        string memory foreignDenom = "uatom";
+
+        senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
+        receiver = makeAddr("receiver_of_foreign_denom");
+        receiverStr = Strings.toHexString(receiver);
+
+        // First packet
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            denom: foreignDenom,
+            amount: transferAmount,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: "memo"
+        });
+
+        IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
+        payloads1[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: abi.encode(packetData)
+        });
+        IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            sourceChannel: counterpartyId,
+            destChannel: clientIdentifier,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads1
+        });
+
+        // Second packet
+        IICS26RouterMsgs.Payload[] memory payloads2 = new IICS26RouterMsgs.Payload[](1);
+        payloads2[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: "invalid-port",
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: abi.encode(packetData)
+        });
+        IICS26RouterMsgs.Packet memory invalidPacket = IICS26RouterMsgs.Packet({
+            sequence: 2,
+            sourceChannel: counterpartyId,
+            destChannel: clientIdentifier,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads2
+        });
+
+        bytes[] memory multipassData = new bytes[](2);
+        multipassData[0] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+        multipassData[1] = abi.encodeCall(
+            IICS26Router.recvPacket,
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: invalidPacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+
+        bytes[] memory multipassRes = ics26Router.multipass(multipassData);
+        assertEq(multipassRes.length, 2, "multipass should return 2 results");
+        assertEq(multipassRes[0].length, 0, "first result should be empty (success)");
+        assertEq(multipassRes[1], abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort), "second result should be IBCAppNotFound");
+
+        // Check that the ack is written
+        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destChannel, receivePacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        bytes32 missingAck = ics26Router.IBC_STORE().getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(invalidPacket.destChannel, invalidPacket.sequence)
+        );
+        assertEq(missingAck, bytes32(0), "ack should not be written for invalid packet");
+    }
+
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {
         string memory foreignDenom = "transfer/channel-42/uatom";
 
