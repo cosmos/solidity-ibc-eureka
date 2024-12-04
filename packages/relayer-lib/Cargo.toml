@@ -16,10 +16,13 @@ ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
 sp1-ics07-tendermint-prover   = { workspace = true, optional = true }
 sp1-ics07-tendermint-utils    = { workspace = true, optional = true }
 
-serde       = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+prost = { workspace = true }
+
 async-trait = { workspace = true }
 anyhow      = { workspace = true, features = ["std"] }
 futures     = { workspace = true, default-features = true }
+tracing     = { workspace = true, default-features = true }
 
 tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
@@ -29,4 +32,4 @@ ibc-core-host-types = { workspace = true }
 alloy          = { workspace = true, features = ["full", "node-bindings"] }
 alloy-contract = { workspace = true }
 
-sp1-sdk = { workspace = true }
+sp1-sdk = { workspace = true, default-features = true }

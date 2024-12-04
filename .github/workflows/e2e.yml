@@ -66,6 +66,7 @@ jobs:
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
           - TestWithRelayerTestSuite/TestRelayerInfo
+          - TestWithRelayerTestSuite/TestRelayToEth
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16

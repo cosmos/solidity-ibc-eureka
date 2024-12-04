@@ -54,8 +54,6 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     pub ics26_router: routerInstance<T, P>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
-    /// The proof type to use for [`SP1ICS07TendermintProver`].
-    pub proof_type: SupportedProofType,
     /// The SP1 private key for the prover network
     /// Uses the local prover if not set
     pub sp1_private_key: Option<String>,
@@ -67,7 +65,6 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
-        proof_type: SupportedProofType,
         sp1_private_key: Option<String>,
     ) -> Self {
         if let Some(sp1_private_key) = &sp1_private_key {
@@ -80,7 +77,6 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
-            proof_type,
             sp1_private_key,
         }
     }
@@ -114,6 +110,7 @@ where
     P: Provider<T> + Clone,
 {
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEvent>,
@@ -134,7 +131,7 @@ where
         };
 
         let filter_channel = target_channel_id.clone();
-        let timeout_msgs = src_events.into_iter().filter_map(|e| match e {
+        let timeout_msgs = dest_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == filter_channel {
                     Some(routerCalls::timeoutPacket(timeoutPacketCall {
@@ -151,7 +148,7 @@ where
             _ => None,
         });
 
-        let recv_and_ack_msgs = dest_events.into_iter().filter_map(|e| match e {
+        let recv_and_ack_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if se.packet.timeoutTimestamp > now && se.packet.destChannel == filter_channel {
                     Some(routerCalls::recvPacket(recvPacketCall {
@@ -183,6 +180,8 @@ where
         });
 
         let mut all_msgs = timeout_msgs.chain(recv_and_ack_msgs).collect::<Vec<_>>();
+
+        tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
 
         // TODO: Filter already submitted packets
 
@@ -234,8 +233,12 @@ where
         // Get the proposed header from the target light block.
         let proposed_header = latest_light_block.into_header(&trusted_light_block);
 
-        let uc_and_mem_prover =
-            SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(self.proof_type);
+        let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(
+            client_state
+                .zkAlgorithm
+                .try_into()
+                .map_err(|e: String| anyhow::anyhow!(e))?,
+        );
 
         let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
             &client_state,

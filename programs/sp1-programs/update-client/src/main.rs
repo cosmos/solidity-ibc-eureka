@@ -38,7 +38,7 @@ pub fn main() {
     let proposed_header = serde_cbor::from_slice::<Header>(&encoded_3).unwrap();
     // input 4: time
     let time = u64::from_le_bytes(encoded_4.try_into().unwrap());
-    // TODO: find an encoding that works for all the structs above.
+    // TODO: find an encoding that works for all the structs above. (#132)
 
     let output = update_client(client_state, trusted_consensus_state, proposed_header, time);
 

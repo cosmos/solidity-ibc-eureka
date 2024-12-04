@@ -1,18 +1,16 @@
 {
   "server": {
     "log_level": "info",
-    "address": "127.0.0.1",
-    "starting_port": 3000
+    "address": "127.0.0.1"
   },
   "modules": [
     {
       "name": "cosmos_to_eth",
+      "port": 3000,
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "ics26_address": "0x1234567890abcdef1234567890abcdef",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "private_key": "0x1234567890abcdef1234567890abcdef",
-        "proof_type": "groth16",
         "sp1_private_key": "0x1234567890abcdef1234567890abcdef"
       }
     }

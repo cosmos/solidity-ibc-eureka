@@ -169,7 +169,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
 		s.Require().NoError(err)
 
 		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
@@ -187,7 +187,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key), ibcexported.Tendermint, channel, lightClientAddress)
+		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -343,7 +343,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
-		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, totalTransferAmount)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -375,7 +375,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			transferMulticall[i] = encodedMsg
 		}
 
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key), transferMulticall)
+		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -501,7 +501,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 		}
 
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key), ackMulticall)
+		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), ackMulticall)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -530,7 +530,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	var returnPacket channeltypesv2.Packet
 	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
-		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		ibcCoin := sdk.NewCoin(denomOnCosmos.Path(), sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -652,7 +651,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			multicallRecvMsg[i] = encodedMsg
 		}
 
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key), multicallRecvMsg)
+		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), multicallRecvMsg)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -748,7 +747,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var sendPacket channeltypesv2.Packet
 	var transferCoin sdk.Coin
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
-		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -856,7 +854,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ProofHeight:     *proofHeight,
 		}
 
-		tx, err := s.ics26Contract.RecvPacket(s.GetTransactOpts(s.key), msg)
+		tx, err := s.ics26Contract.RecvPacket(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -933,7 +931,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
-		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
+		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -958,7 +956,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			returnMemo,
 		)
 
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key), msgSendPacket)
+		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -1060,7 +1058,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ProofHeight:     *proofHeight,
 		}
 
-		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key), msg)
+		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
@@ -1091,7 +1089,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	var packet ics26router.IICS26RouterMsgsPacket
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key), ics20Address, transferAmount)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -1115,7 +1113,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 			"testmemo",
 		)
 
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key), msgSendPacket)
+		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
@@ -1166,7 +1164,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 			ProofHeight:  *proofHeight,
 		}
 
-		tx, err := s.ics26Contract.TimeoutPacket(s.GetTransactOpts(s.key), msg)
+		tx, err := s.ics26Contract.TimeoutPacket(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())

@@ -19,8 +19,8 @@ message RelayByTxRequest {
     // The identifiers for the IBC transactions to be relayed
     // This is usually the transaction hash
     repeated bytes source_tx_ids = 1;
-    // The identifiers for the IBC transactions to be timed out
-    repeated bytes target_tx_ids = 2;
+    // The identifiers for the IBC transactions on the target chain to be timed out
+    repeated bytes timeout_tx_ids = 2;
     // The identifier for the target channel
     // Used for event filtering
     string target_channel_id = 3;
