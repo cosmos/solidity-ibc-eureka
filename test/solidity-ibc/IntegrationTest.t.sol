@@ -940,7 +940,11 @@ contract IntegrationTest is Test {
         bytes[] memory multipassRes = ics26Router.multipass(multipassData);
         assertEq(multipassRes.length, 2, "multipass should return 2 results");
         assertEq(multipassRes[0].length, 0, "first result should be empty (success)");
-        assertEq(multipassRes[1], abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort), "second result should be IBCAppNotFound");
+        assertEq(
+            multipassRes[1],
+            abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort),
+            "second result should be IBCAppNotFound"
+        );
 
         // Check that the ack is written
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
