@@ -588,13 +588,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
-            receivePacket.payloads[0].sourcePort,
-            receivePacket.sourceChannel,
-            receivePacket.payloads[0].destPort,
-            receivePacket.destChannel,
-            receivePacketData
-        );
+        address erc20Address = address(ics20Transfer.ibcDenomContracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
@@ -875,13 +869,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
-            receivePacket.payloads[0].sourcePort,
-            receivePacket.sourceChannel,
-            receivePacket.payloads[0].destPort,
-            receivePacket.destChannel,
-            receivePacketData
-        );
+        address erc20Address = address(ics20Transfer.ibcDenomContracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
@@ -1015,13 +1003,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        (address erc20Address,) = ics20Transfer.getReceiveERC20AddressAndSource(
-            receivePacket.payloads[0].sourcePort,
-            receivePacket.sourceChannel,
-            receivePacket.payloads[0].destPort,
-            receivePacket.destChannel,
-            receivePacketData
-        );
+        address erc20Address = address(ics20Transfer.ibcDenomContracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));

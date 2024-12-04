@@ -228,7 +228,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         string calldata destChannel,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
-        public
+        private
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);

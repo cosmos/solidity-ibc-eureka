@@ -19,7 +19,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -857,11 +856,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		// Here we need to use in input the result of the call to _ibcDenomContracts[denom]
 
-		callOpts := &bind.CallOpts{
-			Context: ctx,
-		}
-
-		ibcERC20Address, err := s.ics20Contract.IbcDenomContracts(callOpts, transferCoin.Denom)
+		// callOpts := &bind.CallOpts{
+		//	Context: ctx,
+		// }
+		ibcERC20Address = strings.ToLower(s.contractAddresses.Erc20.Hex())
+		// ibcERC20Address :=
+		// ibcERC20Address, err := s.ics20Contract.IbcDenomContracts(callOpts, transferCoin.Denom)
 
 		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, ethClient)
 		s.Require().NoError(err)
