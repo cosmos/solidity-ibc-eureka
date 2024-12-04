@@ -105,9 +105,18 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 	})
 }
 
-func (s *RelayerTestSuite) TestRelayToEth() {
+func (s *RelayerTestSuite) TestRecvPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.SetupSuite(ctx, operator.ProofTypeGroth16)
+	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *RelayerTestSuite) TestRecvPacketToEth_Plonk() {
+	ctx := context.Background()
+	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk)
+}
+
+func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.ChainA, s.ChainB
 
