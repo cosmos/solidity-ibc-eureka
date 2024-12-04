@@ -115,6 +115,16 @@ func (s *RelayerTestSuite) TestRecvPacketToEth_Plonk() {
 	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 1)
 }
 
+func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
+	ctx := context.Background()
+	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 10)
+}
+
+func (s *RelayerTestSuite) Test_5_RecvPacketToEth_Plonk() {
+	ctx := context.Background()
+	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5)
+}
+
 func (s *RelayerTestSuite) RecvPacketToEthTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {

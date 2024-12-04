@@ -68,6 +68,8 @@ jobs:
           - TestWithRelayerTestSuite/TestRelayerInfo
           - TestWithRelayerTestSuite/TestRecvPacketToEth_Groth16
           - TestWithRelayerTestSuite/TestRecvPacketToEth_Plonk
+          - TestWithRelayerTestSuite/Test_10_RecvPacketToEth_Groth16
+          - TestWithRelayerTestSuite/Test_5_RecvPacketToEth_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
