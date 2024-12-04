@@ -26,24 +26,24 @@ async fn main() -> anyhow::Result<()> {
 
             // Initialize a Cosmos to Ethereum relayer module.
             // TODO: improve builder so that we don't need to manually initialize the module.
-            let cosmos_to_eth_config_value = config
+            let cosmos_to_eth_config = config
                 .modules
                 .iter()
                 .find(|module| module.name == CosmosToEthRelayerModule::NAME)
                 .expect("Cosmos to Ethereum module not found")
-                .config
                 .clone();
-            let cosmos_to_eth_config: CosmosToEthConfig =
-                serde_json::from_value(cosmos_to_eth_config_value)?;
+            let cosmos_to_eth_custom_config: CosmosToEthConfig =
+                serde_json::from_value(cosmos_to_eth_config.config)?;
 
-            let cosmos_to_eth_module = CosmosToEthRelayerModule::new(cosmos_to_eth_config).await;
+            let cosmos_to_eth_module =
+                CosmosToEthRelayerModule::new(cosmos_to_eth_custom_config).await;
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
             relayer_builder.set_address(&config.server.address);
-            relayer_builder.set_starting_port(config.server.starting_port);
             relayer_builder.add_module(
                 CosmosToEthRelayerModule::NAME,
+                cosmos_to_eth_config.port,
                 Box::new(cosmos_to_eth_module),
             );
 

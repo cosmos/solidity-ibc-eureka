@@ -2,11 +2,11 @@
   "server": {
     "log_level": "info",
     "address": "127.0.0.1",
-    "starting_port": 3000
   },
   "modules": [
     {
       "name": "cosmos_to_eth",
+      "port": 3000,
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "ics26_address": "0x1234567890abcdef1234567890abcdef",

@@ -2,11 +2,11 @@
   "server": {
     "log_level": "info",
     "address": "127.0.0.1",
-    "starting_port": 3000
   },
   "modules": [
     {
       "name": "cosmos_to_eth",
+      "port": 3000,
       "config": {
         "tm_rpc_url": "{{ .TmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",

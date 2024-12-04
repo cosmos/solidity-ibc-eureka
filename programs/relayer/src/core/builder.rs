@@ -10,10 +10,8 @@ use super::modules::RelayerModuleServer;
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct RelayerBuilder {
-    /// The relayer modules to include in the relayer binary.
-    modules: HashMap<String, Box<dyn RelayerModuleServer>>,
-    /// The starting port for the relayer binary.
-    starting_port: Option<u16>,
+    /// The relayer modules to include in the relayer binary and their ports.
+    modules: HashMap<String, (u16, Box<dyn RelayerModuleServer>)>,
     /// The address to bind the relayer server to.
     address: Option<String>,
 }
@@ -28,20 +26,12 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
-    pub fn add_module(&mut self, name: &str, module: Box<dyn RelayerModuleServer>) {
+    pub fn add_module(&mut self, name: &str, port: u16, module: Box<dyn RelayerModuleServer>) {
         assert!(
             !self.modules.contains_key(name),
             "Relayer module already added"
         );
-        self.modules.insert(name.to_string(), module);
-    }
-
-    /// Set the starting port for the relayer binary.
-    /// # Panics
-    /// Panics if the starting port has already been set.
-    pub fn set_starting_port(&mut self, starting_port: u16) {
-        assert!(self.starting_port.is_none(), "Starting port already set");
-        self.starting_port = Some(starting_port);
+        self.modules.insert(name.to_string(), (port, module));
     }
 
     /// Set the address to bind the relayer server to.
@@ -56,9 +46,6 @@ impl RelayerBuilder {
     #[allow(clippy::pedantic)]
     pub async fn start_server(self) -> anyhow::Result<()> {
         // Ensure the starting port and address are set
-        let starting_port = self
-            .starting_port
-            .expect("Starting port must be set before starting the server");
         let address = self
             .address
             .as_ref()
@@ -68,12 +55,7 @@ impl RelayerBuilder {
         let mut tasks = Vec::new();
 
         // Iterate through all registered modules
-        for (index, (name, module)) in self.modules.into_iter().enumerate() {
-            // Calculate the port for this module, panic if overflow
-            let port = starting_port
-                .checked_add(index as u16)
-                .expect("Port overflow");
-
+        for (name, (port, module)) in self.modules.into_iter() {
             // Construct the socket address
             let socket_addr = format!("{}:{}", address, port);
 
