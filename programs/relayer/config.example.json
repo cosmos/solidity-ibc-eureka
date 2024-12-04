@@ -1,7 +1,7 @@
 {
   "server": {
     "log_level": "info",
-    "address": "127.0.0.1",
+    "address": "127.0.0.1"
   },
   "modules": [
     {
