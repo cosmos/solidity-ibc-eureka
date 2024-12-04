@@ -174,8 +174,8 @@ impl RelayerService for CosmosToEthRelayerModule {
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
-        tracing::debug!(
-            ?cosmos_events,
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
+        tracing::info!(
             "Fetched {} eureka events from CosmosSDK.",
             cosmos_events.len()
         );
@@ -186,11 +186,8 @@ impl RelayerService for CosmosToEthRelayerModule {
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
-        tracing::debug!(
-            ?eth_events,
-            "Fetched {} eureka events from EVM.",
-            eth_events.len()
-        );
+        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
+        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
         let multicall_tx = self
             .submitter
