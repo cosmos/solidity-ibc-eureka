@@ -107,15 +107,19 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 
 func (s *RelayerTestSuite) TestRecvPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16)
+	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 1)
 }
 
 func (s *RelayerTestSuite) TestRecvPacketToEth_Plonk() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk)
+	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 1)
 }
 
-func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *RelayerTestSuite) RecvPacketToEthTest(
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+) {
+	s.Require().Greater(numOfTransfers, 0)
+
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.ChainA, s.ChainB
@@ -123,6 +127,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType op
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.UserB
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
@@ -130,44 +135,48 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType op
 
 	var (
 		transferCoin sdk.Coin
-		txHash       []byte
+		txHashes     [][]byte
 	)
-	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.BigInt(),
-			Sender:   cosmosUserAddress,
-			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
-			Memo:     sendMemo,
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   cosmosUserAddress,
+				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
+				Memo:     sendMemo,
+			}
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingABI,
+				Value:           transferBz,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			txHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+
+			txHashes = append(txHashes, txHash)
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-		s.Require().NoError(err)
-
-		payload := channeltypesv2.Payload{
-			SourcePort:      transfertypes.PortID,
-			DestinationPort: transfertypes.PortID,
-			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingABI,
-			Value:           transferBz,
-		}
-		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.FirstChannelID,
-			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-			Signer: cosmosUserWallet.FormattedAddress(),
-		}
-
-		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.TxHash)
-
-		txHash, err = hex.DecodeString(resp.TxHash)
-		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
@@ -177,14 +186,14 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType op
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), resp.Balance.Amount.Int64())
 		}))
 	}))
 
 	var multicallTx []byte
 	s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SourceTxIds:     [][]byte{txHash},
+			SourceTxIds:     txHashes,
 			TargetChannelId: s.TendermintLightClientID,
 		})
 		s.Require().NoError(err)
@@ -233,7 +242,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(ctx context.Context, proofType op
 			// User balance on Ethereum
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, userBalance)
+			s.Require().Equal(totalTransferAmount, userBalance)
 
 			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
