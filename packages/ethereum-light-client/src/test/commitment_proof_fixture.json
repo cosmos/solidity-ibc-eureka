@@ -1,0 +1,54 @@
+{
+    "path": "MDctdGVuZGVybWludC0wAQAAAAAAAAAB",
+    "storage_proof": {
+        "key": "dddBHLAdqtFncTtam3IZZw8OUAZTy7zUXP4b/gQiJFk=",
+        "value": "2I8ZMhvV5J49VMMoiXCqKJDaElVciHse1occSXuIqDU=",
+        "proof": [
+            "+LGAgKA1vP+FdEX62HLO0mDDznSBAnq4E0EvC3+NzysP+DCE1aAYkNFrQJMgx1j+VH6PJvOUGbkjS5sk/DvOLqhtJmkR1YCAoFexbZo7uy0Qa00bEtyjUE9hiZx8ZgsDaEhRFCbtNC3WgICAgICg2ewz2fYL/2sT+bFjbDoKx8vxyGbecuNvIGkP63MwSQugKk2h+7aafsHLGXnx0xO7YYjriGJC1JcwMGXs13gsanKAgIA=",
+            "+EOgPTw7zwMABq/qKmd6b/W/P38RHodGHIhIzwYqV1bRqIihoNiPGTIb1eSePVTDKIlwqiiQ2hJVXIh7HtaHHEl7iKg1"
+        ]
+    },
+    "proof_height": {
+        "revision_number": 0,
+        "revision_height": 144
+    },
+    "client_state": {
+        "chain_id": "3151908",
+        "genesis_validators_root": "1h6khP66z65SmNUqK1gfPjBaUfMRKpJBuWjczwGfexE=",
+        "genesis_time": 1733323331,
+        "fork_parameters": {
+            "genesis_fork_version": "EAAAOA==",
+            "altair": {
+                "version": "IAAAOA=="
+            },
+            "bellatrix": {
+                "version": "MAAAOA=="
+            },
+            "capella": {
+                "version": "QAAAOA=="
+            },
+            "deneb": {
+                "version": "UAAAOA=="
+            }
+        },
+        "seconds_per_slot": 6,
+        "slots_per_epoch": 8,
+        "epochs_per_sync_committee_period": 8,
+        "latest_slot": 144,
+        "frozen_height": {
+            "revision_number": 0,
+            "revision_height": 0
+        },
+        "ibc_commitment_slot": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=",
+        "ibc_contract_address": "kLJZNUYUcyqmuyyK25qXaVWAujs=",
+        "min_sync_committee_participants": 32
+    },
+    "consensus_state": {
+        "slot": 144,
+        "state_root": "QlGpbOzuzjivfYy30jZyL0/oe0QRoXcEiZQdd2Cee+g=",
+        "storage_root": "CB2+UVpo5UlCwDuzbKY++v3wS24w3J/u5vNmCLcmkEQ=",
+        "timestamp": 1733324195000000000,
+        "current_sync_committee": "p7kUGHfzl+nSo2zYZAc4e7zsbVV7MMzZ5ircohfkWNdJW1geBI+hCEIYyt+PRbn/",
+        "next_sync_committee": "i2YT7mQ5VjqF+copuvosuCOeOrl00GkwUvJXJxdLnyCWBMTyt0bdErb/XRyVjOAG"
+    }
+}

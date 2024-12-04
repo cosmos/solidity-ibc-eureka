@@ -1,0 +1,32 @@
+{
+  "chain_id": "3151908",
+  "genesis_validators_root": "1h6khP66z65SmNUqK1gfPjBaUfMRKpJBuWjczwGfexE=",
+  "genesis_time": 1733323331,
+  "fork_parameters": {
+    "genesis_fork_version": "EAAAOA==",
+    "altair": {
+      "version": "IAAAOA=="
+    },
+    "bellatrix": {
+      "version": "MAAAOA=="
+    },
+    "capella": {
+      "version": "QAAAOA=="
+    },
+    "deneb": {
+      "version": "UAAAOA=="
+    }
+  },
+  "seconds_per_slot": 6,
+  "slots_per_epoch": 8,
+  "epochs_per_sync_committee_period": 8,
+  "latest_slot": 32,
+  "frozen_height": {
+    "revision_number": 0,
+    "revision_height": 0
+  },
+  "ibc_commitment_slot": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=",
+  "ibc_contract_address": "kLJZNUYUcyqmuyyK25qXaVWAujs=",
+  "min_sync_committee_participants": 32
+
+}
