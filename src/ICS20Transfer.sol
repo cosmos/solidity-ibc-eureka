@@ -113,24 +113,17 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @inheritdoc IIBCApp
     function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
-        if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
-            // TODO: Figure out if should actually error out, or if just error acking is enough
-            return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
-        }
+        require(keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)), IICS20Errors.ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version));
 
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
         );
 
-        if (packetData.amount == 0) {
-            return ICS20Lib.errorAck("invalid amount: 0");
-        }
+        require(packetData.amount != 0, IICS20Errors.ICS20InvalidAmount(packetData.amount));
 
         (address receiver, bool receiverConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.receiver);
-        if (!receiverConvertSuccess) {
-            return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
-        }
+        require(receiverConvertSuccess, IICS20Errors.ICS20InvalidAddress(packetData.receiver));
 
         if (originatorChainIsSource) {
             // sender is source, so we mint vouchers
@@ -151,7 +144,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
         ICS20Lib.PacketDataJSON memory packetData = ICS20Lib.unmarshalJSON(msg_.payload.value);
 
-        if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
+        if (!msg_.recvSuccess) {
             (address erc20Address,) =
                 getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
             _refundTokens(packetData, erc20Address);

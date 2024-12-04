@@ -38,6 +38,7 @@ interface IIBCAppCallbacks {
     /// @param destinationChannel The destination channel identifier
     /// @param sequence The sequence number of the packet
     /// @param payload The packet payload
+    /// @param recvSuccess the success boolean flag of the receive packet on counterparty
     /// @param acknowledgement The acknowledgement
     /// @param relayer The relayer of this message
     struct OnAcknowledgementPacketCallback {
@@ -45,6 +46,7 @@ interface IIBCAppCallbacks {
         string destinationChannel;
         uint64 sequence;
         IICS26RouterMsgs.Payload payload;
+        bool recvSuccess;
         bytes acknowledgement;
         address relayer;
     }

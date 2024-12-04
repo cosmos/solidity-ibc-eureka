@@ -370,6 +370,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
+                recvSuccess: true,
                 acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
                 relayer: makeAddr("relayer")
             })
@@ -419,6 +420,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
+                recvSuccess: false,
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
                 relayer: makeAddr("relayer")
             })
@@ -444,6 +446,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
+                recvSuccess: false,
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
                 relayer: makeAddr("relayer")
             })
@@ -459,6 +462,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
+                recvSuccess: false,
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
                 relayer: makeAddr("relayer")
             })
@@ -474,6 +478,7 @@ contract ICS20TransferTest is Test {
                 destinationChannel: packet.destChannel,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
+                recvSuccess: false,
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
                 relayer: makeAddr("relayer")
             })
@@ -773,6 +778,9 @@ contract ICS20TransferTest is Test {
 
         // test invalid version
         packet.payloads[0].version = "invalid";
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedVersion.selector, ICS20Lib.ICS20_VERSION, "invalid")
+        );
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -782,7 +790,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"unexpected version: invalid\"}");
         // Reset version
         packet.payloads[0].version = ICS20Lib.ICS20_VERSION;
 
@@ -803,6 +810,7 @@ contract ICS20TransferTest is Test {
         // test invalid amount
         data = ICS20Lib.marshalJSON(ibcDenom, 0, receiverStr, senderStr, "memo");
         packet.payloads[0].value = data;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -812,7 +820,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"invalid amount: 0\"}");
 
         // test receiver chain is source, but denom is not erc20 address
         string memory invalidErc20Denom =
@@ -833,6 +840,7 @@ contract ICS20TransferTest is Test {
         // test invalid receiver
         data = ICS20Lib.marshalJSON(ibcDenom, defaultAmount, receiverStr, "invalid", "memo");
         packet.payloads[0].value = data;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -842,7 +850,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"invalid receiver: invalid\"}");
 
         // just to document current limitations: JSON needs to be in a very specific order
         bytes memory wrongOrderJSON = abi.encodePacked(

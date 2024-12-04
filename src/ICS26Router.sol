@@ -159,14 +159,10 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ) returns (bytes memory ack) {
             require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
 
-            acks[0] = abi.encodePacked(
-                ack
-            );
+            acks[0] = ack;
         } catch (bytes memory errorData) {
             recvSuccess = false;
-            acks[0] = abi.encodePacked(
-                errorData
-            );
+            acks[0] = errorData;
         }
 
         writeAcknowledgement(msg_.packet, recvSuccess, acks);
@@ -220,6 +216,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
                 destinationChannel: msg_.packet.destChannel,
                 sequence: msg_.packet.sequence,
                 payload: payload,
+                recvSuccess: msg_.recvSuccess,
                 acknowledgement: msg_.acknowledgement,
                 relayer: _msgSender()
             })
