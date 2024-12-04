@@ -122,7 +122,7 @@ func (s *RelayerTestSuite) TestRecvPacketToEth_Plonk() {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 10)
+	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10)
 }
 
 func (s *RelayerTestSuite) Test_5_RecvPacketToEth_Plonk() {
