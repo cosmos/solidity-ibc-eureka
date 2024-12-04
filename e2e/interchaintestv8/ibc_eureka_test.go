@@ -863,11 +863,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
-		// We removed this event, so we have to find a way to read the contract address that has been generated (or find) on ethereum when cosmos coin are received
-		// ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
-		// s.Require().NoError(err)
-		// An option is to read the _ibcDenomContracts[denom] state after the receive happened
-
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
@@ -1028,9 +1023,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 
 		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		// cosmosReceiveAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
-		// s.Require().NoError(err)
-		// s.Require().NotNil(cosmosReceiveAck)
 		ack := channeltypesv1.NewResultAcknowledgement([]byte{byte(1)})
 		cosmosReceiveAck = ack.Acknowledgement()
 
