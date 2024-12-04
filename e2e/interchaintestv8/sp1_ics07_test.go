@@ -259,7 +259,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key), msg)
+		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -295,7 +295,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 			Value:       []byte(""),
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key), msg)
+		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -380,7 +380,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key), msg)
+		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -489,7 +489,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 		submitMsg, err := operator.MisbehaviourProof(simd.GetCodec(), misbehaviour, fixtureName, args...)
 		s.Require().NoError(err)
 
-		tx, err := s.contract.Misbehaviour(s.GetTransactOpts(s.key), submitMsg)
+		tx, err := s.contract.Misbehaviour(s.GetTransactOpts(s.key, eth), submitMsg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -580,7 +580,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 		submitMsg, err := operator.MisbehaviourProof(simd.GetCodec(), misbehaviour, fixtureName, args...)
 		s.Require().NoError(err)
 
-		tx, err := s.contract.Misbehaviour(s.GetTransactOpts(s.key), submitMsg)
+		tx, err := s.contract.Misbehaviour(s.GetTransactOpts(s.key, eth), submitMsg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -673,7 +673,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 				Value:       expValue,
 			}
 
-			tx, err := s.contract.Membership(s.GetTransactOpts(s.key), msg)
+			tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
 			s.Require().NoError(err)
 
 			// wait until transaction is included in a block

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"strconv"
 	"time"
 	"unicode"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	errorsmod "cosmossdk.io/errors"
@@ -154,9 +156,25 @@ func (s *TestSuite) GetTxReciept(ctx context.Context, chain ethereum.Ethereum, h
 	return receipt
 }
 
-func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey) *bind.TransactOpts {
+func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethereum) *bind.TransactOpts {
+	ethClient, err := ethclient.Dial(chain.RPC)
+	s.Require().NoError(err)
+
+	fromAddress := crypto.PubkeyToAddress(key.PublicKey)
+	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		nonce = 0
+	}
+
+	gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
 	txOpts, err := bind.NewKeyedTransactorWithChainID(key, s.ChainA.ChainID)
 	s.Require().NoError(err)
+	txOpts.Nonce = big.NewInt(int64(nonce))
+	txOpts.GasPrice = gasPrice
 
 	return txOpts
 }

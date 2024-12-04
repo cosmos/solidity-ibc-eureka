@@ -194,14 +194,14 @@ func (s *RelayerTestSuite) TestRelayToEth() {
 		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 
-		txOpts := s.GetTransactOpts(s.key)
+		txOpts := s.GetTransactOpts(s.key, eth)
 		s.Require().NoError(err)
 
 		tx := ethtypes.NewTransaction(
 			txOpts.Nonce.Uint64(),
 			ics26Address,
 			txOpts.Value,
-			txOpts.GasLimit,
+			5_000_000,
 			txOpts.GasPrice,
 			multicallTx,
 		)
