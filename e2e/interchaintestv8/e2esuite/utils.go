@@ -171,7 +171,7 @@ func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethere
 		panic(err)
 	}
 
-	txOpts, err := bind.NewKeyedTransactorWithChainID(key, s.ChainA.ChainID)
+	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chain.ChainID)
 	s.Require().NoError(err)
 	txOpts.Nonce = big.NewInt(int64(nonce))
 	txOpts.GasPrice = gasPrice
