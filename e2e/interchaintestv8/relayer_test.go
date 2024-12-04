@@ -55,14 +55,10 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
-		relayerKey, _ := s.GetRelayerUsers(ctx)
-
 		configInfo := relayer.ConfigInfo{
 			TmRPC:         simd.GetHostRPCAddress(),
 			ICS26Address:  s.contractAddresses.Ics26Router,
 			EthRPC:        eth.RPC,
-			PrivateKey:    hex.EncodeToString(crypto.FromECDSA(relayerKey)),
-			ProofType:     proofType.String(),
 			SP1PrivateKey: os.Getenv(testvalues.EnvKeySp1PrivateKey),
 		}
 

@@ -3,21 +3,13 @@
 use std::{net::SocketAddr, str::FromStr};
 
 use alloy::{
-    network::{Ethereum, EthereumWallet},
     primitives::{Address, TxHash},
-    providers::{
-        fillers::{FillProvider, JoinFill, WalletFiller},
-        Identity, ProviderBuilder, RootProvider,
-    },
-    signers::local::PrivateKeySigner,
+    providers::{ProviderBuilder, RootProvider},
     transports::BoxTransport,
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    tx_builder::{
-        eth_eureka::{SupportedProofType, TxBuilder},
-        TxBuilderService,
-    },
+    tx_builder::{eth_eureka::TxBuilder, TxBuilderService},
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
@@ -31,22 +23,15 @@ use crate::{
     core::modules::{RelayerModule, RelayerModuleServer},
 };
 
-type Provider = FillProvider<
-    JoinFill<Identity, WalletFiller<EthereumWallet>>,
-    RootProvider<BoxTransport>,
-    BoxTransport,
-    Ethereum,
->;
-
 /// The `RelayerModule` defines the relayer module for Cosmos to Ethereum.
 #[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthRelayerModule {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
-    pub eth_listener: eth_eureka::ChainListener<BoxTransport, Provider>,
+    pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
     /// The chain submitter for `EthEureka`.
-    pub submitter: TxBuilder<BoxTransport, Provider>,
+    pub submitter: TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -59,12 +44,6 @@ pub struct CosmosToEthConfig {
     pub ics26_address: Address,
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
-    /// The private key for the Ethereum account.
-    // TODO: Use a more secure way to store the private key.
-    pub private_key: String,
-    /// The proof type to use for the SP1 ICS07 Tendermint prover.
-    /// This is either groth16 or plonk.
-    pub proof_type: String,
     /// The SP1 prover network private key.
     pub sp1_private_key: String,
 }
@@ -84,17 +63,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
 
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let wallet = EthereumWallet::from(
-            config
-                .private_key
-                .strip_prefix("0x")
-                .unwrap_or(&config.private_key)
-                .parse::<PrivateKeySigner>()
-                .expect("Failed to parse private key"),
-        );
-
         let provider = ProviderBuilder::new()
-            .wallet(wallet.clone())
             .on_builtin(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
@@ -104,7 +73,6 @@ impl RelayerModule for CosmosToEthRelayerModule {
             config.ics26_address,
             provider,
             tm_client,
-            config.proof_type(),
             Some(config.sp1_private_key),
         );
 
@@ -214,19 +182,5 @@ impl RelayerModuleServer for CosmosToEthRelayerModule {
             .add_service(RelayerServiceServer::new(*self))
             .serve(addr)
             .await
-    }
-}
-
-impl CosmosToEthConfig {
-    /// Parses the proof type from the configuration.
-    /// # Panics
-    /// Panics if the proof type is not recognized.
-    #[must_use]
-    pub fn proof_type(&self) -> SupportedProofType {
-        match self.proof_type.as_str() {
-            "groth16" => SupportedProofType::Groth16,
-            "plonk" => SupportedProofType::Plonk,
-            _ => panic!("invalid proof type: {}", self.proof_type),
-        }
     }
 }

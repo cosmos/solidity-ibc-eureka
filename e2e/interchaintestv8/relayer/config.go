@@ -13,10 +13,6 @@ type ConfigInfo struct {
 	ICS26Address string
 	// Ethereum RPC URL
 	EthRPC string
-	// Private key of the relayer
-	PrivateKey string
-	// Proof type
-	ProofType string
 	// SP1 private key
 	SP1PrivateKey string
 }
