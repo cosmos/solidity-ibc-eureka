@@ -26,6 +26,7 @@ abstract contract Multipass is Context {
 
         results = new bytes[](data.length);
         for (uint256 i = 0; i < data.length; i++) {
+            // solhint-disable-next-line avoid-low-level-calls
             (, results[i]) = address(this).delegatecall(bytes.concat(data[i], context));
         }
         return results;
