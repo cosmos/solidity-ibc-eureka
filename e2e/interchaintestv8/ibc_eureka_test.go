@@ -530,7 +530,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	var returnPacket channeltypesv2.Packet
 	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
-		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		ibcCoin := sdk.NewCoin(denomOnCosmos.Path(), sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -748,7 +747,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var sendPacket channeltypesv2.Packet
 	var transferCoin sdk.Coin
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
-		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 

@@ -124,7 +124,6 @@ func (s *RelayerTestSuite) TestRelayToEth() {
 		txHash       []byte
 	)
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
-		// We need the timeout to be a whole number of seconds to be received by eth
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
