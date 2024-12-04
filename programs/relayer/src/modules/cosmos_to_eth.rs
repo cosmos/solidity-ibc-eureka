@@ -161,7 +161,7 @@ impl RelayerService for CosmosToEthRelayerModule {
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
         let eth_txs = inner_req
-            .target_tx_ids
+            .timeout_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
             .map(|tx_hash| tx_hash.map(TxHash::from))
