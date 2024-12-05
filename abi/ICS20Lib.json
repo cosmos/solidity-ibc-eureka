@@ -119,6 +119,111 @@
   },
   {
     "type": "function",
+    "name": "newMsgSendPacketV1",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "msg_",
+        "type": "tuple",
+        "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
+        "components": [
+          {
+            "name": "denom",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "receiver",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "memo",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.MsgSendPacket",
+        "components": [
+          {
+            "name": "sourceChannel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "payloads",
+            "type": "tuple[]",
+            "internalType": "struct IICS26RouterMsgs.Payload[]",
+            "components": [
+              {
+                "name": "sourcePort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "destPort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "encoding",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "value",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "toHexHash",
     "inputs": [
       {
@@ -154,6 +259,28 @@
       }
     ],
     "stateMutability": "pure"
+  },
+  {
+    "type": "error",
+    "name": "ICS20InvalidAddress",
+    "inputs": [
+      {
+        "name": "addr",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20InvalidAmount",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
