@@ -21,7 +21,6 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -830,7 +829,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
 	var recvBlockNumber int64
-
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
 		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
@@ -870,24 +868,15 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 
-		// Extract values from the test for constructing the full denom path
-		destPort := sendPacket.Payloads[0].DestinationPort
-		destChannel := sendPacket.DestinationChannel
-		baseDenom := transferCoin.Denom
-
 		// Recreate the full denom path
-		fullDenomPath := fmt.Sprintf("%s/%s/%s", destPort, destChannel, baseDenom)
-
-		ibcDenom := toIBCDenom(fullDenomPath)
-		callOpts := &bind.CallOpts{
-			Context: ctx,
-		}
-		ibcERC20Address, err := s.ics20Contract.IbcERC20Contracts(callOpts, ibcDenom)
-		s.Require().NoError(err)
-
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
 
-		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Address.Hex()), ethClient)
+		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contracts(nil, denomOnEthereum.IBCDenom())
+		s.Require().NoError(err)
+
+		ibcERC20Address = ibcERC20Addr.Hex()
+
+		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), ethClient)
 		s.Require().NoError(err)
 
 		actualDenom, err := ibcERC20.Name(nil)
@@ -981,12 +970,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(transfertypes.EncodingABI, returnPacket.Payloads[0].Encoding)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
-			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), userBalance.Int64())
 
 			// the whole balance should have been burned
-			ics20TransferBalance, err := s.erc20Contract.BalanceOf(nil, ics20Address)
+			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
