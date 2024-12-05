@@ -74,6 +74,10 @@ jobs:
           - TestWithRelayerTestSuite/TestBatchedAckPacketToEth_Plonk
           - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToEth_Groth16
           - TestWithRelayerTestSuite/Test_5_BatchedAckPacketToEth_Plonk
+          - TestWithRelayerTestSuite/TestTimeoutPacketFromEth_Groth16
+          - TestWithRelayerTestSuite/TestTimeoutPacketFromEth_Plonk
+          - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromEth_Groth16
+          - TestWithRelayerTestSuite/Test_5_TimeoutPacketFromEth_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
