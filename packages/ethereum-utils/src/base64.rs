@@ -1,5 +1,21 @@
-use base64::prelude::*;
+use alloy_primitives::B256;
+use base64::{prelude::*, DecodeError};
 use serde::{de, Deserialize, Deserializer};
+
+pub trait FromBase64: Sized {
+    fn from_base64(s: &str) -> Result<Self, DecodeError>;
+}
+
+pub fn from_base64(s: &str) -> Result<Vec<u8>, DecodeError> {
+    BASE64_STANDARD.decode(s.as_bytes())
+}
+
+impl FromBase64 for B256 {
+    fn from_base64(s: &str) -> Result<Self, DecodeError> {
+        let data = from_base64(s)?;
+        Ok(B256::from_slice(data.as_slice()))
+    }
+}
 
 pub fn serialize<S, T: AsRef<[u8]>>(data: T, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -14,15 +30,15 @@ where
     T: TryFrom<Vec<u8>>,
 {
     let s = String::deserialize(deserializer)?;
-    let decoded = BASE64_STANDARD
-        .decode(s.as_bytes())
-        .map_err(de::Error::custom)?;
+    let decoded = from_base64(&s).map_err(de::Error::custom)?;
     T::try_from(decoded).map_err(|_| de::Error::custom("Invalid base64 data"))
 }
 
 pub mod fixed_size {
     use base64::prelude::*;
     use serde::{de, Deserialize, Deserializer};
+
+    use super::from_base64;
 
     pub fn serialize<S, T: AsRef<[u8]>>(data: T, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -37,9 +53,7 @@ pub mod fixed_size {
         T: TryFrom<[u8; N]>,
     {
         let s = String::deserialize(deserializer)?;
-        let decoded = BASE64_STANDARD
-            .decode(s.as_bytes())
-            .map_err(de::Error::custom)?;
+        let decoded = from_base64(&s).map_err(de::Error::custom)?;
 
         let fixed_sized: [u8; N] = decoded
             .as_slice()
@@ -51,6 +65,8 @@ pub mod fixed_size {
     pub mod vec {
         use base64::prelude::*;
         use serde::{de, Deserialize, Deserializer, Serializer};
+
+        use crate::base64::from_base64;
 
         pub fn serialize<S: Serializer, T: AsRef<[u8]>>(
             #[allow(clippy::ptr_arg)] // required by serde
@@ -68,9 +84,7 @@ pub mod fixed_size {
             let vec = Vec::<String>::deserialize(deserializer)?;
             vec.into_iter()
                 .map(|s| {
-                    let decoded = BASE64_STANDARD
-                        .decode(s.as_bytes())
-                        .map_err(de::Error::custom)?;
+                    let decoded = from_base64(&s).map_err(de::Error::custom)?;
                     let fixed_sized: [u8; N] = decoded
                         .as_slice()
                         .try_into()
@@ -83,6 +97,8 @@ pub mod fixed_size {
         pub mod fixed_size {
             use base64::prelude::*;
             use serde::{de, Deserialize, Deserializer, Serializer};
+
+            use crate::base64::from_base64;
 
             pub fn serialize<S: Serializer, T: AsRef<[u8]>, const NN: usize>(
                 #[allow(clippy::ptr_arg)] // required by serde
@@ -103,9 +119,7 @@ pub mod fixed_size {
                 let items: Vec<T> = vec
                     .into_iter()
                     .map(|s| {
-                        let decoded = BASE64_STANDARD
-                            .decode(s.as_bytes())
-                            .map_err(de::Error::custom)?;
+                        let decoded = from_base64(&s).map_err(de::Error::custom)?;
                         let fixed_sized: [u8; N] = decoded
                             .as_slice()
                             .try_into()
@@ -124,6 +138,8 @@ pub mod fixed_size {
         pub mod fixed_size_with_option {
             use base64::prelude::*;
             use serde::{de, Deserialize, Deserializer, Serializer};
+
+            use crate::base64::from_base64;
 
             pub fn serialize<S: Serializer, T: AsRef<[u8]>, const NN: usize>(
                 #[allow(clippy::ptr_arg)] // required by serde
@@ -151,9 +167,7 @@ pub mod fixed_size {
                 let items: Vec<T> = vec
                     .into_iter()
                     .map(|s| {
-                        let decoded = BASE64_STANDARD
-                            .decode(s.as_bytes())
-                            .map_err(de::Error::custom)?;
+                        let decoded = from_base64(&s).map_err(de::Error::custom)?;
                         let fixed_sized: [u8; N] = decoded
                             .as_slice()
                             .try_into()
@@ -178,6 +192,8 @@ pub mod uint256 {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer};
 
+    use super::from_base64;
+
     pub fn serialize<S>(data: &U256, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -190,9 +206,7 @@ pub mod uint256 {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let decoded = BASE64_STANDARD
-            .decode(s.as_bytes())
-            .map_err(de::Error::custom)?;
+        let decoded = from_base64(&s).map_err(de::Error::custom)?;
 
         Ok(U256::from_be_slice(decoded.as_slice()))
     }
@@ -226,6 +240,8 @@ pub mod option_with_default {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer};
 
+    use super::from_base64;
+
     pub fn serialize<S, T: AsRef<[u8]>>(data: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -247,9 +263,7 @@ pub mod option_with_default {
             return Ok(None);
         }
 
-        let decoded = BASE64_STANDARD
-            .decode(s.as_bytes())
-            .map_err(de::Error::custom)?;
+        let decoded = from_base64(&s).map_err(de::Error::custom)?;
 
         let data: T = T::try_from(decoded.as_slice())
             .map_err(|_| de::Error::custom("Invalid base64 data"))?;

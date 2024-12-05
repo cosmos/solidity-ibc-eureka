@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::wrappers::Version;
+use crate::types::wrappers::WrappedVersion;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
 pub struct ForkData {
-    pub current_version: Version,
+    pub current_version: WrappedVersion,
     pub genesis_validators_root: B256,
 }
 
@@ -15,7 +15,10 @@ pub struct ForkData {
 /// This is used primarily in signature domains to avoid collisions across forks/chains.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_fork_data_root)
-pub fn compute_fork_data_root(current_version: Version, genesis_validators_root: B256) -> B256 {
+pub fn compute_fork_data_root(
+    current_version: WrappedVersion,
+    genesis_validators_root: B256,
+) -> B256 {
     let fork_data = ForkData {
         current_version,
         genesis_validators_root,

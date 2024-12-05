@@ -24,7 +24,7 @@ where
 {
     // Construct the path relative to the Cargo manifest directory
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("src/test");
+    path.push("src/test/fixtures");
     path.push(format!("{}.json", name));
 
     // Open the file and deserialize its contents

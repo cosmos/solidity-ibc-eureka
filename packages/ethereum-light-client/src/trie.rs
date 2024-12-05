@@ -30,14 +30,16 @@ pub fn validate_merkle_branch(
     if value == root {
         Ok(())
     } else {
-        Err(EthereumIBCError::InvalidMerkleBranch(InvalidMerkleBranch {
-            leaf,
-            branch,
-            depth,
-            index,
-            root,
-            found: value,
-        }))
+        Err(EthereumIBCError::InvalidMerkleBranch(Box::new(
+            InvalidMerkleBranch {
+                leaf,
+                branch,
+                depth,
+                index,
+                root,
+                found: value,
+            },
+        )))
     }
 }
 
@@ -55,7 +57,7 @@ mod test {
         trie::validate_merkle_branch,
         types::{
             light_client::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-            wrappers::{MyBloom, MyBranch, MyBytes},
+            wrappers::{WrappedBloom, WrappedBranch, WrappedBytes},
         },
         verify::get_lc_execution_root,
     };
@@ -86,13 +88,13 @@ mod test {
                 receipts_root: B256::from_hex(
                     "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
                 ).unwrap(),
-                logs_bloom: MyBloom(Bloom::from_hex("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()),
+                logs_bloom: WrappedBloom(Bloom::from_hex("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()),
                 prev_randao: B256::from_hex("707a729f27185bfd88c746532e0909f7f4604dc5b25b6d9ffb5cfec6ca7987d9").unwrap(),
                 block_number: 80,
                 gas_limit: 30000000,
                 gas_used: 0,
                 timestamp: 1732901097,
-                extra_data: MyBytes(Bytes::from_hex("0xd883010e06846765746888676f312e32322e34856c696e7578").unwrap()),
+                extra_data: WrappedBytes(Bytes::from_hex("0xd883010e06846765746888676f312e32322e34856c696e7578").unwrap()),
                 base_fee_per_gas: U256::from(27136),
                 block_hash: B256::from_hex("c001e15851608006eb33999e829bb265706929091f4c9a08f6853f6fbe96a730").unwrap(),
                 transactions_root: B256::from_hex("0x7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1").unwrap(),
@@ -100,7 +102,7 @@ mod test {
                 blob_gas_used: 0,
                 excess_blob_gas: 0,
             },
-            execution_branch: MyBranch([
+            execution_branch: WrappedBranch([
                 B256::from_hex("0xd320d2b395e1065b0b2e3dbb7843c6d77cb7830ef340ffc968caa0f92e26f080")
                     .unwrap(),
                 B256::from_hex("0x6c6dd63656639d153a2e86a9cab291e7a26e957ad635fec872d2836e92340c23")

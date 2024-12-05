@@ -87,7 +87,7 @@ mod test {
         client_state::ClientState,
         consensus_state::ConsensusState,
         test::fixtures::{load_fixture, CommitmentProofFixture},
-        types::{storage_proof::StorageProof, wrappers::MyBytes},
+        types::{storage_proof::StorageProof, wrappers::WrappedBytes},
     };
     use alloy_primitives::{
         hex::{self, FromHex},
@@ -99,8 +99,9 @@ mod test {
 
     #[test]
     fn test_with_fixture() {
-        let commitment_proof_fixture: CommitmentProofFixture =
-            load_fixture("commitment_proof_fixture");
+        let commitment_proof_fixture: CommitmentProofFixture = load_fixture(
+            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_4_commitment_proof",
+        );
 
         let trusted_consensus_state = commitment_proof_fixture.consensus_state;
         let client_state = commitment_proof_fixture.client_state;
@@ -142,8 +143,8 @@ mod test {
             U256::from_be_hex("0xb2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db");
 
         let proof = vec![
-            MyBytes(Bytes::from_hex("0xf8718080a0911797c4b8cdbd1d8fa643b31ff0a469fae0f9b2ecbb0fa45a5ebe497f5e7130a065ea7eb6ae4e9747a131961beda4e9fd3040521e58845f4a286fb472eb0415168080a057b16d9a3bbb2d106b4d1b12dca3504f61899c7c660b036848511426ed342dd680808080808080808080").unwrap()),
-            MyBytes(Bytes::from_hex("0xf843a03d3c3bcf030006afea2a677a6ff5bf3f7f111e87461c8848cf062a5756d1a888a1a0b2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db").unwrap()),
+            WrappedBytes(Bytes::from_hex("0xf8718080a0911797c4b8cdbd1d8fa643b31ff0a469fae0f9b2ecbb0fa45a5ebe497f5e7130a065ea7eb6ae4e9747a131961beda4e9fd3040521e58845f4a286fb472eb0415168080a057b16d9a3bbb2d106b4d1b12dca3504f61899c7c660b036848511426ed342dd680808080808080808080").unwrap()),
+            WrappedBytes(Bytes::from_hex("0xf843a03d3c3bcf030006afea2a677a6ff5bf3f7f111e87461c8848cf062a5756d1a888a1a0b2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db").unwrap()),
         ];
 
         let path = vec![hex::decode("0x30372d74656e6465726d696e742d30010000000000000001").unwrap()];
@@ -194,7 +195,7 @@ mod test {
                 .unwrap();
 
         let proof = vec![
-            MyBytes(Bytes::from_hex("0xf838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594eb9407e2a087056b69d43d21df69b82e31533c8a").unwrap()),
+            WrappedBytes(Bytes::from_hex("0xf838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594eb9407e2a087056b69d43d21df69b82e31533c8a").unwrap()),
         ];
 
         let path = vec![hex::decode("0x30372d74656e6465726d696e742d30020000000000000001").unwrap()];

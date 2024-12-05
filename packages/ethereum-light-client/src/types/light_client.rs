@@ -8,7 +8,7 @@ use crate::config::consts::{
 
 use super::{
     sync_committee::{SyncAggregate, SyncCommittee, TrustedSyncCommittee},
-    wrappers::{MyBloom, MyBranch, MyBytes},
+    wrappers::{WrappedBloom, WrappedBranch, WrappedBytes},
 };
 
 const EXECUTION_BRANCH_SIZE: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
@@ -31,10 +31,10 @@ pub struct LightClientUpdate {
     // TODO: Remove the Option and improve ethereum::header::Header to be an enum, instead of using optional fields and bools.
     #[serde(default)]
     pub next_sync_committee: Option<SyncCommittee>,
-    pub next_sync_committee_branch: Option<MyBranch<NEXT_SYNC_COMMITTEE_BRANCH_SIZE>>,
+    pub next_sync_committee_branch: Option<WrappedBranch<NEXT_SYNC_COMMITTEE_BRANCH_SIZE>>,
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
-    pub finality_branch: MyBranch<FINALITY_BRANCH_SIZE>,
+    pub finality_branch: WrappedBranch<FINALITY_BRANCH_SIZE>,
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
@@ -50,14 +50,14 @@ pub struct AccountUpdate {
 pub struct AccountProof {
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub storage_root: B256,
-    pub proof: Vec<MyBytes>,
+    pub proof: Vec<WrappedBytes>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
 pub struct LightClientHeader {
     pub beacon: BeaconBlockHeader,
     pub execution: ExecutionPayloadHeader,
-    pub execution_branch: MyBranch<EXECUTION_BRANCH_SIZE>,
+    pub execution_branch: WrappedBranch<EXECUTION_BRANCH_SIZE>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
@@ -82,7 +82,7 @@ pub struct ExecutionPayloadHeader {
     pub state_root: B256,
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub receipts_root: B256,
-    pub logs_bloom: MyBloom,
+    pub logs_bloom: WrappedBloom,
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub prev_randao: B256,
     pub block_number: u64,
@@ -90,7 +90,7 @@ pub struct ExecutionPayloadHeader {
     #[serde(default)]
     pub gas_used: u64,
     pub timestamp: u64,
-    pub extra_data: MyBytes,
+    pub extra_data: WrappedBytes,
     #[serde(with = "ethereum_utils::base64::uint256")]
     pub base_fee_per_gas: U256,
     #[serde(with = "ethereum_utils::base64::fixed_size")]

@@ -6,12 +6,12 @@ use tree_hash_derive::TreeHash;
 use super::{
     bls::{BlsPublicKey, BlsSignature},
     height::Height,
-    wrappers::VecBlsPublicKey,
+    wrappers::WrappedVecBlsPublicKey,
 };
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
 pub struct SyncCommittee {
-    pub pubkeys: VecBlsPublicKey,
+    pub pubkeys: WrappedVecBlsPublicKey,
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub aggregate_pubkey: BlsPublicKey,
 }
@@ -25,7 +25,7 @@ pub enum ActiveSyncCommittee {
 impl Default for ActiveSyncCommittee {
     fn default() -> Self {
         ActiveSyncCommittee::Current(SyncCommittee {
-            pubkeys: VecBlsPublicKey::default(),
+            pubkeys: WrappedVecBlsPublicKey::default(),
             aggregate_pubkey: BlsPublicKey::default(),
         })
     }
@@ -103,24 +103,20 @@ pub fn compute_sync_committee_period_at_slot(
 
 #[cfg(test)]
 mod test {
-    use crate::{test::fixtures::load_fixture, types::light_client::Header};
+    use crate::{test::fixtures::load_fixture, types::sync_committee::SyncCommittee};
     use alloy_primitives::{hex::FromHex, B256};
     use tree_hash::TreeHash;
 
     #[test]
     fn test_sync_committee_tree_hash_root() {
-        let header: Header = load_fixture("client_update_ack_0");
-        assert_ne!(header, Header::default());
-        let sync_committee = header
-            .consensus_update
-            .next_sync_committee
-            .unwrap()
-            .tree_hash_root();
+        let sync_committee: SyncCommittee = load_fixture("sync_committee_fixture");
+        assert_ne!(sync_committee, SyncCommittee::default());
 
-        let expected =
+        let actual_tree_hash_root = sync_committee.tree_hash_root();
+        let expected_tree_hash_root =
             B256::from_hex("0x5361eb179f7499edbf09e514d317002f1d365d72e14a56c931e9edaccca3ff29")
                 .unwrap();
 
-        assert_eq!(expected, sync_committee);
+        assert_eq!(expected_tree_hash_root, actual_tree_hash_root);
     }
 }

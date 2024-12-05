@@ -115,23 +115,23 @@ deploy-sp1-ics07: genesis-sp1-ics07
 generate-fixtures-solidity: clean
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket plonk fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures for 25 packets..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures for 50 packets..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
 	@echo "Generating recvPacket and acknowledgePacket plonk fixtures for 50 packets..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket plonk fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk$' -timeout 40m
 	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
 	@echo "Generating timeoutPacket plonk fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk$' -timeout 40m
 
 # Generate the fixture files for the Celestia Mocha testnet using the prover parameter.
 # The prover parameter should be one of: ["mock", "network", "local"]
@@ -151,10 +151,10 @@ generate-fixtures-sp1-ics07: build-operator
     "sleep 60 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures update-client-and-membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT --target-block $TARGET_HEIGHT -p groth16 -o 'test/sp1-ics07/fixtures/uc_and_memberships_fixture-groth16.json'" \
     "sleep 80 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT -o 'test/sp1-ics07/fixtures/memberships_fixture-plonk.json'" \
     "sleep 100 && RUST_LOG=info SP1_PROVER=network ./target/release/operator fixtures membership --key-paths clients/07-tendermint-0/clientState,clients/07-tendermint-001/clientState --trusted-block $TRUSTED_HEIGHT -p groth16 -o 'test/sp1-ics07/fixtures/memberships_fixture-groth16.json'"
-  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Plonk$' -timeout 40m
-  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Groth16' -timeout 40m
-  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16' -timeout 40m
-  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Plonk$' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Groth16' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16' -timeout 40m
+  cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
 protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"

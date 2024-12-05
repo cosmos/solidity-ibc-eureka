@@ -1,7 +1,7 @@
 {
   "chain_id": "3151908",
   "genesis_validators_root": "1h6khP66z65SmNUqK1gfPjBaUfMRKpJBuWjczwGfexE=",
-  "genesis_time": 1733323331,
+  "genesis_time": 1733407803,
   "fork_parameters": {
     "genesis_fork_version": "EAAAOA==",
     "altair": {
@@ -26,7 +26,6 @@
     "revision_height": 0
   },
   "ibc_commitment_slot": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=",
-  "ibc_contract_address": "kLJZNUYUcyqmuyyK25qXaVWAujs=",
+  "ibc_contract_address": "Pus1Pj9GbHF70jfiXjd1yeYfhpY=",
   "min_sync_committee_participants": 32
-
 }

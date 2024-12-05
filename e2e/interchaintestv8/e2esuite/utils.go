@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 	"unicode"
 
@@ -438,4 +439,13 @@ func (s *TestSuite) CreateTMClientHeader(
 		TrustedHeight:     oldHeader.TrustedHeight,
 		TrustedValidators: oldHeader.TrustedValidators,
 	}
+}
+
+func (s *TestSuite) GetTopLevelTestName() string {
+	parts := strings.Split(s.T().Name(), "/")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+
+	return s.T().Name()
 }

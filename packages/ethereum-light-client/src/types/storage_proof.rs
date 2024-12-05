@@ -1,7 +1,7 @@
 use alloy_primitives::{B256, U256};
 use serde::{Deserialize, Serialize};
 
-use super::wrappers::MyBytes;
+use super::wrappers::WrappedBytes;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
 pub struct StorageProof {
@@ -9,5 +9,5 @@ pub struct StorageProof {
     pub key: B256,
     #[serde(with = "ethereum_utils::base64::uint256")]
     pub value: U256,
-    pub proof: Vec<MyBytes>,
+    pub proof: Vec<WrappedBytes>,
 }

@@ -27,8 +27,10 @@ const (
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeySp1PrivateKey Private key for the prover network.
 	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
-	// EnvKeyGenerateFixtures Generate fixtures for the solidity tests if set to true.
-	EnvKeyGenerateFixtures = "GENERATE_FIXTURES"
+	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
+	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
+	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
+	EnvKeyGenerateRustFixtures = "GENERATE_RUST_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
 	// Address of the SP1ICS07Tendermint contract for operator.
@@ -59,6 +61,8 @@ const (
 	SolidityFixturesDir = "test/solidity-ibc/fixtures/"
 	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
 	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
+	// RustFixturesDir is the directory where the Rust fixtures are stored.
+	RustFixturesDir = "packages/ethereum-light-client/src/test/fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.

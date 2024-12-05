@@ -350,13 +350,19 @@ mod test {
     fn test_verify_header() {
         let bls_verifier = TestBlsVerifier;
 
-        let client_state: ClientState = load_fixture("initial_client_state_fixture");
+        let client_state: ClientState = load_fixture(
+            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_1_initial_client_state",
+        );
         assert_ne!(client_state, ClientState::default());
 
-        let consensus_state: ConsensusState = load_fixture("initial_consensus_state_fixture");
+        let consensus_state: ConsensusState = load_fixture(
+            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
+        );
         assert_ne!(consensus_state, ConsensusState::default());
 
-        let header: Header = load_fixture("client_update_ack_0");
+        let header: Header = load_fixture(
+            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
+        );
         assert_ne!(header, Header::default());
 
         verify_header(

@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use super::{fork::Fork, wrappers::Version};
+use super::{fork::Fork, wrappers::WrappedVersion};
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
 pub struct ForkParameters {
-    pub genesis_fork_version: Version,
+    pub genesis_fork_version: WrappedVersion,
     #[serde(default)] // TODO: REMOVE AND FIX IN E2E
     pub genesis_slot: u64,
     pub altair: Fork,
@@ -17,7 +17,7 @@ pub struct ForkParameters {
 /// NOTE: This implementation is based on capella.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/fork.md#modified-compute_fork_version)
-pub fn compute_fork_version(fork_parameters: &ForkParameters, epoch: u64) -> Version {
+pub fn compute_fork_version(fork_parameters: &ForkParameters, epoch: u64) -> WrappedVersion {
     if epoch >= fork_parameters.deneb.epoch {
         fork_parameters.deneb.version.clone()
     } else if epoch >= fork_parameters.capella.epoch {

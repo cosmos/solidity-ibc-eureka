@@ -28,7 +28,7 @@ pub enum EthereumIBCError {
     InvalidChainVersion,
 
     #[error(transparent)]
-    InvalidMerkleBranch(#[from] InvalidMerkleBranch),
+    InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size
 
     #[error("finalized slot cannot be the genesis slot")]
     FinalizedSlotIsGenesis,
