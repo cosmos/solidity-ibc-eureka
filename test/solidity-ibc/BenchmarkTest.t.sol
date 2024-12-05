@@ -131,7 +131,7 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         erc20.approve(address(ics20Transfer), amountToSend);
 
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ICS20Lib.newMsgSendPacketV1(
             user,
             IICS20TransferMsgs.SendTransferMsg({
                 denom: packetData.denom,

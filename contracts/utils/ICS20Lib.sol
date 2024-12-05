@@ -57,14 +57,16 @@ library ICS20Lib {
         // The function is not used in the contract.
     }
 
-    /// @notice Create a MsgSendPacket for an ics20-1 transfer
-    /// @notice This function is meant as a helper function to easily construct a correct MsgSendPacket
+    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
+    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
+    /// @param sender The sender of the transfer
+    /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
     function newMsgSendPacketV1(
         address sender,
         IICS20TransferMsgs.SendTransferMsg memory msg_
     )
-        internal
+        external
         view
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {

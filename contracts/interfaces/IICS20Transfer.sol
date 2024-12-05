@@ -9,24 +9,16 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @notice This function is not strictly necessary. You can construct IICS26RouterMsgs.SendPacketMsg
     /// @notice yourself and call IICS26Router.sendPacket, which uses less gas than this function
     /// @notice There is also a helper function newMsgSendPacketV1 to help construct the message
-    /// @param msg The message for sending a transfer
+    /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
-    function sendTransfer(SendTransferMsg calldata msg) external returns (uint32 sequence);
+    function sendTransfer(SendTransferMsg calldata msg_) external returns (uint32 sequence);
 
     /// @notice Retrieve the escrow contract address
     /// @return The escrow contract address
     function escrow() external view returns (address);
 
-    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
-    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
-    /// @param sender The sender of the transfer
-    /// @param msg The message for sending a transfer
-    /// @return The constructed MsgSendPacket
-    function newMsgSendPacketV1(
-        address sender,
-        SendTransferMsg calldata msg
-    )
-        external
-        view
-        returns (IICS26RouterMsgs.MsgSendPacket memory);
+    /// @notice Retrieve the ERC20 contract address for the given IBC denom
+    /// @param denom The IBC denom
+    /// @return The ERC20 contract address
+    function ibcERC20Contracts(string calldata denom) external view returns (address);
 }

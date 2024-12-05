@@ -120,15 +120,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function newMsgSendPacketV1(
-        address,
-        SendTransferMsg calldata
-    )
-        external
-        pure
-        override
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
-    {
-        return IICS26RouterMsgs.MsgSendPacket("", 0, new IICS26RouterMsgs.Payload[](0));
+    function ibcERC20Contracts(string calldata) external pure override returns (address) {
+        return address(0);
     }
 }

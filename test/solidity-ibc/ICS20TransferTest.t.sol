@@ -735,7 +735,7 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-        address erc20Address = address(ics20Transfer.ibcDenomContracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
+        address erc20Address = address(ics20Transfer.ibcERC20Contracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
@@ -792,7 +792,7 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-        address erc20Address = address(ics20Transfer.ibcDenomContracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
+        address erc20Address = address(ics20Transfer.ibcERC20Contracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));

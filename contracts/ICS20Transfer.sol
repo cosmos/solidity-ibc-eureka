@@ -34,9 +34,11 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
         ESCROW = new Escrow(address(this));
     }
 
-    // Public getter
-    function ibcDenomContracts(string memory denom) external view returns (address) {
-        return address(_ibcDenomContracts[denom]);
+    /// @inheritdoc IICS20Transfer
+    function ibcERC20Contracts(string calldata denom) external view returns (address) {
+        address contractAddress = address(_ibcDenomContracts[denom]);
+        require(contractAddress != address(0), ICS20DenomNotFound(denom));
+        return contractAddress;
     }
 
     /// @inheritdoc IICS20Transfer
@@ -47,19 +49,6 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
         return IICS26Router(owner()).sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function newMsgSendPacketV1(
-        address sender,
-        SendTransferMsg calldata msg_
-    )
-        external
-        view
-        override
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
-    {
-        return ICS20Lib.newMsgSendPacketV1(sender, msg_);
     }
 
     /// @inheritdoc IIBCApp
