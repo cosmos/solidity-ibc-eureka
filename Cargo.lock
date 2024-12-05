@@ -231,8 +231,8 @@ dependencies = [
  "alloy-serde",
  "c-kzg",
  "derive_more 1.0.0",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.8.0",
+ "ethereum_ssz_derive 0.8.0",
  "once_cell",
  "serde",
  "sha2 0.10.8",
@@ -359,9 +359,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9db948902dfbae96a73c2fbf1f7abec62af034ab883e4c777c3fd29702bd6e2c"
 dependencies = [
  "alloy-rlp",
+ "arbitrary",
  "bytes",
  "cfg-if",
  "const-hex",
+ "derive_arbitrary",
  "derive_more 1.0.0",
  "foldhash",
  "hashbrown 0.15.2",
@@ -372,6 +374,7 @@ dependencies = [
  "keccak-asm",
  "paste",
  "proptest",
+ "proptest-derive",
  "rand",
  "ruint",
  "rustc-hash 2.1.0",
@@ -537,8 +540,8 @@ dependencies = [
  "alloy-primitives 0.8.14",
  "alloy-rpc-types-engine",
  "alloy-serde",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.8.0",
+ "ethereum_ssz_derive 0.8.0",
  "serde",
  "serde_with",
  "thiserror 2.0.4",
@@ -556,8 +559,8 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "derive_more 1.0.0",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.8.0",
+ "ethereum_ssz_derive 0.8.0",
  "serde",
  "strum",
 ]
@@ -941,6 +944,12 @@ name = "anyhow"
 version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1fd03a028ef38ba2276dce7e33fcd6369c158a1bca17946c4b1b701891c1ff7"
+
+[[package]]
+name = "arbitrary"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dde20b3d026af13f561bdd0f15edf01fc734f0dafcedbaf42bba506a9517f223"
 
 [[package]]
 name = "ark-bls12-381"
@@ -2250,6 +2259,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_arbitrary"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30542c1ad912e0e3d22a1935c290e12e8a29d704a420177a31faad4a601a0800"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2598,8 +2618,8 @@ dependencies = [
  "base64 0.22.1",
  "ethereum-trie-db",
  "ethereum-utils",
- "ethereum_ssz",
- "ethereum_ssz_derive",
+ "ethereum_ssz 0.8.0",
+ "ethereum_ssz_derive 0.8.0",
  "milagro_bls",
  "serde",
  "serde_json",
@@ -2655,17 +2675,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum_hashing"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c853bd72c9e5787f8aafc3df2907c2ed03cff3150c3acd94e2e53a98ab70a8ab"
-dependencies = [
- "cpufeatures",
- "ring 0.17.8",
- "sha2 0.10.8",
-]
-
-[[package]]
 name = "ethereum_serde_utils"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2676,6 +2685,17 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+]
+
+[[package]]
+name = "ethereum_ssz"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e999563461faea0ab9bc0024e5e66adcee35881f3d5062f52f31a4070fe1522"
+dependencies = [
+ "alloy-primitives 0.8.14",
+ "itertools 0.13.0",
+ "smallvec",
 ]
 
 [[package]]
@@ -2692,6 +2712,18 @@ dependencies = [
  "serde_derive",
  "smallvec",
  "typenum",
+]
+
+[[package]]
+name = "ethereum_ssz_derive"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3deae99c8e74829a00ba7a92d49055732b3c1f093f2ccfa3cbc621679b6fa91"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -4179,6 +4211,7 @@ version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62f822373a4fe84d4bb149bf54e584a7f4abec90e072ed49cda0edea5b95471f"
 dependencies = [
+ "arbitrary",
  "equivalent",
  "hashbrown 0.15.2",
  "serde",
@@ -4782,9 +4815,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95f06be0417d97f81fe4e5c86d7d01b392655a9cac9c19a848aa033e18937b23"
 dependencies = [
- "alloy-rlp",
  "const-hex",
- "proptest",
  "serde",
  "smallvec",
 ]
@@ -5562,6 +5593,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "proptest-derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ff7ff745a347b87471d859a377a9a404361e7efc2a971d73424a6d183c0fc77"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "prost"
 version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6045,6 +6087,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c3cc4c2511671f327125da14133d0c5c5d137f006a1017a16f557bc85b16286"
 dependencies = [
  "alloy-rlp",
+ "arbitrary",
  "ark-ff 0.3.0",
  "ark-ff 0.4.2",
  "bytes",
@@ -8124,12 +8167,14 @@ dependencies = [
 [[package]]
 name = "tree_hash"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "373495c23db675a5192de8b610395e1bec324d596f9e6111192ce903dc11403a"
 dependencies = [
  "alloy-primitives 0.8.14",
- "ethereum_hashing",
+ "ethereum_ssz 0.7.1",
+ "ethereum_ssz_derive 0.7.1",
+ "rand",
+ "sha2 0.10.8",
  "smallvec",
+ "tree_hash_derive",
 ]
 
 [[package]]

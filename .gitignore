@@ -26,6 +26,7 @@ broadcast/*/31337/
 # Rust
 target
 elf
+artifacts
 
 # Config files and test artifacts
 programs/relayer/config.json

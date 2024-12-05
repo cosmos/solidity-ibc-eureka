@@ -8,7 +8,7 @@ repository = { workspace = true }
 ethereum-trie-db = { workspace = true }
 ethereum-utils = { workspace = true }
 
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
 alloy-rpc-types-eth = { workspace = true }
 alloy-rpc-types-beacon = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }

@@ -101,3 +101,20 @@ jobs:
         with:
           command: build
           args: --bin operator --release --locked
+
+  build-08-wasm-eth:
+    name: build-08-wasm-eth
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: "Set up environment"
+        uses: ./.github/setup
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: run-script
+          args: build-08-wasm-eth
+
+
