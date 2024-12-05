@@ -15,5 +15,5 @@ go test -v . -run=$TEST_SUITE_FN/$TEST_NAME
 where `$TEST_NAME` is one of the test names of the `$TEST_SUITE_FN`. For example, to run the `TestDeploy` test, you would run:
 
 ```text
-go test -v . -run=TestWithIbcEurekaTestSuite/TestDeploy
+go test -v . -run=TestWithIbcEurekaTestSuite/TestDeploy_Groth16
 ```

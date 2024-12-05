@@ -59,7 +59,6 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
 - [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html) (for end-to-end tests)
-- [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint) (for end-to-end tests)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
@@ -67,10 +66,11 @@ Foundry typically uses git submodules to manage contract dependencies, but this 
 bun install
 ```
 
-You also need to have the `sp1-ics07-tendermint` operator binary installed on your machine to run the end-to-end tests. You can install it by running the following command:
+You also need to have the operator and relayer binaries installed on your machine to run some of the end-to-end tests. You can install them by running the following commands:
 
 ```sh
 just install-operator
+just install-relayer
 ```
 
 > [!TIP]
@@ -119,16 +119,28 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 ### Running the tests
 
-To run the tests, run the following command:
+There are three test suites in the `e2e/interchaintestv8` directory:
 
-```sh
-just test-e2e $TEST_NAME
-```
+- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC Eureka contracts via manual relaying (requires the operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e $TEST_NAME
+        ```
+- `TestWithRelayerTestSuite`: This test suite tests the IBC Eureka contracts via the relayer (requires the relayer and operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-relayer $TEST_NAME
+        ```
+- `TestWithSP1ICS07TendermintTestSuite`: This test suite tests the SP1 ICS07 Tendermint light client (requires the operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-sp1-ics07 $TEST_NAME
+        ```
 
 Where `$TEST_NAME` is the name of the test you want to run, for example:
 
 ```sh
-just test-e2e TestDeploy
+just test-e2e TestDeploy_Groth16
 ```
 
 ## Linting
