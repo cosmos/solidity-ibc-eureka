@@ -47,7 +47,10 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     /// @inheritdoc IICS20Transfer
-    function newMsgSendPacketV1(address sender, SendTransferMsg calldata msg_)
+    function newMsgSendPacketV1(
+        address sender,
+        SendTransferMsg calldata msg_
+    )
         external
         view
         override
