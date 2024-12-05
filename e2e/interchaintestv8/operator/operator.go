@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
+
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -20,7 +22,6 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
 )
 
 type GenesisFixture struct {
