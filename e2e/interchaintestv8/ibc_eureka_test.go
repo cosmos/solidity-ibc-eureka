@@ -18,7 +18,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -216,24 +215,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
-}
-
-const (
-	IBC_DENOM_PREFIX = "ibc/" // Matches the Solidity constant
-)
-
-// toIBCDenom replicates the Solidity toIBCDenom function
-func toIBCDenom(fullDenomPath string) string {
-	// Compute Keccak256 hash of the fullDenomPath
-	hasher := sha3.NewLegacyKeccak256()
-	hasher.Write([]byte(fullDenomPath))
-	hash := hasher.Sum(nil)
-
-	// Convert hash to hex string
-	hashHex := hex.EncodeToString(hash)
-
-	// Prepend the IBC_DENOM_PREFIX
-	return IBC_DENOM_PREFIX + hashHex
 }
 
 func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
