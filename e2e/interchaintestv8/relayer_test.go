@@ -436,7 +436,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
-			s.Require().Equal(resp.Address, ics26Address.String())
+			s.Require().Equal(resp.Address, s.contractAddresses.Ics26Router)
 
 			multicallTx = resp.Tx
 		}))
@@ -483,6 +483,140 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount.Int64(), escrowBalance.Int64())
+		}))
+	}))
+}
+
+func (s *RelayerTestSuite) TestTimeoutPacketFromEth_Groth16() {
+	ctx := context.Background()
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *RelayerTestSuite) TestTimeoutPacketFromEth_Plonk() {
+	ctx := context.Background()
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypePlonk)
+}
+
+func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(ctx context.Context, pt operator.SupportedProofType) {
+	s.SetupSuite(ctx, pt)
+
+	eth, _ := s.ChainA, s.ChainB
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.UserB
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount, allowance)
+	}))
+
+	var txHash []byte
+	s.Require().True(s.Run("Send transfer on Ethereum", func() {
+		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+
+		msgSendPacket := s.createICS20MsgSendPacket(
+			ethereumUserAddress,
+			s.contractAddresses.Erc20,
+			transferAmount,
+			cosmosUserAddress,
+			s.TendermintLightClientID,
+			timeout,
+			"testmemo",
+		)
+
+		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+		s.Require().NoError(err)
+		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		txHash = tx.Hash().Bytes()
+
+		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
+		s.Require().NoError(err)
+		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.Erc20Address.Hex()))
+		s.Require().Equal(testvalues.TransferAmount, transferEvent.PacketData.Amount.Int64()) // Because the amount is converted to the sdk amount
+		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
+		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
+		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
+
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Etherem
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			s.Require().NoError(err)
+			s.Require().Equal(transferAmount, escrowBalance)
+		}))
+	}))
+
+	// sleep for 45 seconds to let the packet timeout
+	time.Sleep(45 * time.Second)
+
+	s.True(s.Run("Timeout packet on Ethereum", func() {
+		var multicallTx []byte
+		s.Require().True(s.Run("Retrieve timeout tx to Ethereum", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				TimeoutTxIds:    [][]byte{txHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			multicallTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			ethClient, err := ethclient.Dial(eth.RPC)
+			s.Require().NoError(err)
+
+			txOpts := s.GetTransactOpts(s.key, eth)
+			s.Require().NoError(err)
+
+			tx := ethtypes.NewTransaction(
+				txOpts.Nonce.Uint64(),
+				ics26Address,
+				txOpts.Value,
+				5_000_000,
+				txOpts.GasPrice,
+				multicallTx,
+			)
+
+			signedTx, err := txOpts.Signer(txOpts.From, tx)
+			s.Require().NoError(err)
+
+			// Submit the relay tx to Ethereum
+			err = ethClient.SendTransaction(ctx, signedTx)
+			s.Require().NoError(err)
+
+			// Wait for the tx to be mined
+			receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify balances on Ethereum", func() {
+			// User balance on Ethereum
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+
+			// ICS20 contract balance on Ethereum
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			s.Require().NoError(err)
+			s.Require().Equal(int64(0), escrowBalance.Int64())
 		}))
 	}))
 }
