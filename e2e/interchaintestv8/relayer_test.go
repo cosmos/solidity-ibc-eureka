@@ -436,7 +436,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
-			s.Require().Equal(resp.Address, s.contractAddresses.Ics26Router)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
 			multicallTx = resp.Tx
 		}))
