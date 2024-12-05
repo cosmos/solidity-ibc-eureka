@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -26,9 +27,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/stretchr/testify/suite"
-
 	sdkmath "cosmossdk.io/math"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -41,6 +41,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -49,7 +51,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sp1ics07tendermint"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
