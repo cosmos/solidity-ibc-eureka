@@ -18,10 +18,10 @@ use sp1_ics07_tendermint_prover::{
     programs::MembershipProgram,
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
-use sp1_ics07_tendermint_utils::{merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt};
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::HashableKey;
 use std::path::PathBuf;
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`MembershipProgram`] tests.
 #[serde_with::serde_as]
@@ -122,22 +122,9 @@ pub async fn run_sp1_membership(
             };
             assert_eq!(path.len(), 2);
 
-            let res = tm_rpc_client
-                .abci_query(
-                    Some(format!("store/{}/key", str::from_utf8(&path[0])?)),
-                    path[1].as_slice(),
-                    // Proof height should be the block before the target block.
-                    Some((trusted_block - 1).into()),
-                    true,
-                )
-                .await?;
+            let (value, proof) = tm_rpc_client.prove_path(&path, trusted_block).await?;
 
-            assert_eq!(u32::try_from(res.height.value())? + 1, trusted_block);
-            assert_eq!(res.key.as_slice(), path[1].as_slice());
-            let vm_proof = convert_tm_to_ics_merkle_proof(&res.proof.unwrap())?;
-            assert!(!vm_proof.proofs.is_empty());
-
-            anyhow::Ok((path, res.value, vm_proof))
+            anyhow::Ok((path, value, proof))
         }))
         .await?;
 
