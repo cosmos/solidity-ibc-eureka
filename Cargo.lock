@@ -231,8 +231,6 @@ dependencies = [
  "alloy-serde",
  "c-kzg",
  "derive_more 1.0.0",
- "ethereum_ssz 0.8.0",
- "ethereum_ssz_derive 0.8.0",
  "once_cell",
  "serde",
  "sha2 0.10.8",
@@ -540,8 +538,6 @@ dependencies = [
  "alloy-primitives 0.8.14",
  "alloy-rpc-types-engine",
  "alloy-serde",
- "ethereum_ssz 0.8.0",
- "ethereum_ssz_derive 0.8.0",
  "serde",
  "serde_with",
  "thiserror 2.0.4",
@@ -559,8 +555,6 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "derive_more 1.0.0",
- "ethereum_ssz 0.8.0",
- "ethereum_ssz_derive 0.8.0",
  "serde",
  "strum",
 ]
@@ -841,7 +835,6 @@ dependencies = [
  "derive_more 1.0.0",
  "hashbrown 0.14.5",
  "nybbles",
- "serde",
  "smallvec",
  "tracing",
 ]
@@ -4816,7 +4809,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95f06be0417d97f81fe4e5c86d7d01b392655a9cac9c19a848aa033e18937b23"
 dependencies = [
  "const-hex",
- "serde",
  "smallvec",
 ]
 
@@ -6043,7 +6035,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa24e92bb2a83198bb76d661a71df9f7076b8c420b8696e4d3d97d50d94479e3"
 dependencies = [
  "bytes",
- "rlp-derive 0.2.0",
  "rustc-hex",
 ]
 
@@ -6779,9 +6770,6 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "snowbridge-amcl"
