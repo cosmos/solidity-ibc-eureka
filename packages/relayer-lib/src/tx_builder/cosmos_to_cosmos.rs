@@ -1,11 +1,13 @@
 //! The `ChainSubmitter` submits txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
 
 use anyhow::Result;
-use ibc_proto_eureka::ibc::core::channel::v2::{
-    Channel, QueryChannelRequest, QueryChannelResponse,
+use futures::future;
+use ibc_proto_eureka::ibc::{
+    core::channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
+    lightclients::tendermint::v1::ClientState,
 };
 use prost::Message;
-//use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::{chain::CosmosSdk, events::EurekaEvent};
@@ -56,9 +58,39 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     async fn relay_events(
         &self,
         _src_events: Vec<EurekaEvent>,
-        _target_events: Vec<EurekaEvent>,
-        _target_channel_id: String,
+        target_events: Vec<EurekaEvent>,
+        target_channel_id: String,
     ) -> Result<Vec<u8>> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let channel = self.channel(target_channel_id).await?;
+        let client_state = ClientState::decode(
+            self.target_tm_client
+                .client_state(channel.client_id)
+                .await?
+                .value
+                .as_slice(),
+        )?;
+
+        let light_block = self.source_tm_client.get_light_block(None).await?;
+
+        //let timeout_msgs = future::try_join_all(target_events.into_iter().filter_map(|e| async {
+        //    match e {
+        //        EurekaEvent::SendPacket(se) => {
+        //            if now >= se.packet.timeoutTimestamp
+        //                && se.packet.sourceChannel == target_channel_id
+        //            {
+        //                todo!()
+        //            } else {
+        //                None
+        //            }
+        //        }
+        //        _ => None,
+        //    }
+        //}));
+
         todo!()
     }
 }
