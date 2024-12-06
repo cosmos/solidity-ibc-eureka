@@ -25,6 +25,7 @@ use crate::{
 
 /// The `CosmosToEthRelayerModule` struct defines the Cosmos to Ethereum relayer module.
 #[derive(Clone, Copy, Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthRelayerModule;
 
 /// The `RelayerModule` defines the relayer module for Cosmos to Ethereum.
