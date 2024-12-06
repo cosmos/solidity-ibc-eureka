@@ -20,7 +20,7 @@ use crate::{
         self,
         relayer_service_server::{RelayerService, RelayerServiceServer},
     },
-    core::modules::RelayerModuleServer,
+    core::modules::ModuleServer,
 };
 
 /// The `CosmosToEthRelayerModule` struct defines the Cosmos to Ethereum relayer module.
@@ -172,7 +172,7 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl RelayerModuleServer for CosmosToEthRelayerModule {
+impl ModuleServer for CosmosToEthRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_eth"
     }

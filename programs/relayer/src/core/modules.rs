@@ -7,7 +7,7 @@ use std::{
 
 /// The `RelayerModuleServer` trait defines the interface for launching a relayer module server.
 #[tonic::async_trait]
-pub trait RelayerModuleServer: Send + Sync + 'static {
+pub trait ModuleServer: Send + Sync + 'static {
     /// Returns the name of the relayer module.
     fn name(&self) -> &'static str;
 

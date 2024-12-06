@@ -6,14 +6,14 @@ use futures::future;
 
 use crate::cli::config::RelayerConfig;
 
-use super::modules::RelayerModuleServer;
+use super::modules::ModuleServer;
 
 /// The `RelayerBuilder` struct is used to build the relayer binary.
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct RelayerBuilder {
     /// The relayer modules to include in the relayer binary and their ports.
-    modules: HashMap<String, Arc<dyn RelayerModuleServer>>,
+    modules: HashMap<String, Arc<dyn ModuleServer>>,
 }
 
 impl RelayerBuilder {
@@ -26,7 +26,7 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
-    pub fn add_module<T: RelayerModuleServer>(&mut self, module: T) {
+    pub fn add_module<T: ModuleServer>(&mut self, module: T) {
         assert!(
             !self.modules.contains_key(module.name()),
             "Relayer module already added"
