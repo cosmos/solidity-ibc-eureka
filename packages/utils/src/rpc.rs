@@ -102,7 +102,7 @@ impl TendermintRpcExt for HttpClient {
         let res = self
             .abci_query(
                 Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
-                path[1].as_slice(),
+                path[1..].concat(),
                 // Proof height should be the block before the target block.
                 Some((height - 1).into()),
                 true,
@@ -119,7 +119,7 @@ impl TendermintRpcExt for HttpClient {
 
         let vm_proof = convert_tm_to_ics_merkle_proof(
             &res.proof
-                .ok_or_else(|| anyhow::anyhow!("No proof can be generated"))?,
+                .ok_or_else(|| anyhow::anyhow!("Proof could not be retrieved"))?,
         )?;
         if vm_proof.proofs.is_empty() {
             anyhow::bail!("Empty proof");
