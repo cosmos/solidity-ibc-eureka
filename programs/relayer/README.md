@@ -22,7 +22,7 @@ This is a work-in-progress implementation, and the relayer is not yet usuable. T
 
 | **Source Chain** | **Target Chain** | **Light Client** | **Development Status** |
 |:---:|:---:|:---:|:---:|
-| Cosmos SDK | EVM | `sp1-ics07-tendermint` | ⏳ |
+| Cosmos SDK | EVM | `sp1-ics07-tendermint` | ✅ |
 | EVM | Cosmos SDK | `08-wasm-ethereum` | ❌ |
 
 ## Usage
