@@ -25,7 +25,7 @@
   },
   {
     "type": "function",
-    "name": "ibcERC20Contracts",
+    "name": "ibcERC20Contract",
     "inputs": [
       {
         "name": "denom",
