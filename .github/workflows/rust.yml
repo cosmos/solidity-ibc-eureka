@@ -114,7 +114,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          components: rustfmt, clippy, cargo-run-script
+          components: rustfmt, clippy, run-script
+          target: wasm32-unknown-unknown
       - name: Build
         uses: actions-rs/cargo@v1
         with:
