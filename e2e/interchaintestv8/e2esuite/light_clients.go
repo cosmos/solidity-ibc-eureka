@@ -317,8 +317,10 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 
-	rustFixtureGenerator.GenerateRustFixture("initial_client_state", ethClientState)
-	rustFixtureGenerator.GenerateRustFixture("initial_consensus_state", ethConsensusState)
+	err = rustFixtureGenerator.GenerateRustFixture("initial_client_state", ethClientState)
+	s.Require().NoError(err)
+	err = rustFixtureGenerator.GenerateRustFixture("initial_consensus_state", ethConsensusState)
+	s.Require().NoError(err)
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {

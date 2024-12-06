@@ -52,7 +52,7 @@ lint:
 	@echo "Linting the Solidity code..."
 	forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'
 	@echo "Linting the Go code..."
-	cd e2e/interchaintestv8 && golangci-lint run .
+	cd e2e/interchaintestv8 && golangci-lint run
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings
 	@echo "Linting the Protobuf files..."

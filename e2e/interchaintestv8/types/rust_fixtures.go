@@ -6,6 +6,7 @@ import (
 	"os"
 
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
@@ -47,7 +48,8 @@ func (g *RustFixtureGenerator) GenerateRustFixture(name string, jsonMarshalble i
 	fixtureName := fmt.Sprintf("%s_%d_%s", g.prefix, g.fixtureCount, name)
 	filePath := fmt.Sprintf("%s/%s.json", testvalues.RustFixturesDir, fixtureName)
 
-	return os.WriteFile(filePath, fixturesBz, 0644)
+	// nolint:gosec
+	return os.WriteFile(filePath, fixturesBz, 0o644)
 }
 
 func (g *RustFixtureGenerator) ShouldGenerateFixture() bool {
