@@ -20,7 +20,7 @@ interface IICS20Transfer is IICS20TransferMsgs {
     /// @notice Retrieve the ERC20 contract address for the given IBC denom
     /// @param denom The IBC denom
     /// @return The ERC20 contract address
-    function ibcERC20Contracts(string calldata denom) external view returns (address);
+    function ibcERC20Contract(string calldata denom) external view returns (address);
 
     /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
     /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.

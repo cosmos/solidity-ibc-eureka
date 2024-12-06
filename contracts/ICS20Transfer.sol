@@ -40,7 +40,7 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
     }
 
     /// @inheritdoc IICS20Transfer
-    function ibcERC20Contracts(string calldata denom) external view returns (address) {
+    function ibcERC20Contract(string calldata denom) external view returns (address) {
         address contractAddress = address(_ibcDenomContracts[denom]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
         return contractAddress;
@@ -91,8 +91,8 @@ contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, Reentr
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
-            IBCERC20 ibcERC20Contract = IBCERC20(erc20Address);
-            ibcERC20Contract.burn(packetData.amount);
+            IBCERC20 ibcERC20 = IBCERC20(erc20Address);
+            ibcERC20.burn(packetData.amount);
         }
     }
 

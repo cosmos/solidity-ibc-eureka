@@ -587,7 +587,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        address erc20Address = address(ics20Transfer.ibcERC20Contracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
+        address erc20Address = address(ics20Transfer.ibcERC20Contract(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
@@ -868,7 +868,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        address erc20Address = address(ics20Transfer.ibcERC20Contracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
+        address erc20Address = address(ics20Transfer.ibcERC20Contract(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
@@ -1002,7 +1002,7 @@ contract IntegrationTest is Test {
         );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
-        address erc20Address = address(ics20Transfer.ibcERC20Contracts(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
+        address erc20Address = address(ics20Transfer.ibcERC20Contract(ICS20Lib.toIBCDenom(expectedFullDenomPath)));
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(receivePacket.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
