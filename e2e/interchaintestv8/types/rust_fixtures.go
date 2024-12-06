@@ -38,6 +38,10 @@ func NewRustFixtureGenerator(prefix string, shouldGenerateFixture bool) *RustFix
 
 // GenerateRustFixture generates a fixture by json marshalling jsonMarshalble and saves it to a file
 func (g *RustFixtureGenerator) GenerateRustFixture(name string, jsonMarshalble interface{}) error {
+	if !g.shouldGenerateFixture {
+		return nil
+	}
+
 	fixturesBz, err := json.MarshalIndent(jsonMarshalble, "", "  ")
 	if err != nil {
 		return err
