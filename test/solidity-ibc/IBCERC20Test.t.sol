@@ -120,6 +120,11 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
+    function ibcERC20Contract(string calldata) external pure override returns (address) {
+        return address(0);
+    }
+
+    // Dummy implementation of IICS20Transfer
     function newMsgSendPacketV1(
         address,
         SendTransferMsg calldata

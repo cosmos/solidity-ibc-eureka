@@ -382,14 +382,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
 		sendBlockNumber = receipt.BlockNumber.Int64()
 
-		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
-		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.Erc20Address.Hex()))
-		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount) // converted from erc20 amount to sdk coin amount
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
-		s.Require().Equal("", transferEvent.PacketData.Memo)
-
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
 		sendPacket = sendPacketEvent.Packet
@@ -670,16 +662,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
 
-		receiveEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
-		s.Require().NoError(err)
-		ethReceiveData := receiveEvent.PacketData
-		s.Require().Equal(denomOnCosmos.Path(), ethReceiveData.Denom)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(receiveEvent.Erc20Address.Hex()))
-		s.Require().Equal(cosmosUserAddress, ethReceiveData.Sender)
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), ethReceiveData.Receiver)
-		s.Require().Equal(transferAmount, ethReceiveData.Amount) // the amount transferred the user on the evm side is converted, but the packet doesn't change
-		s.Require().Equal("", ethReceiveData.Memo)
-
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance should be back to the starting point
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
@@ -824,15 +806,13 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
-	var ethReceiveTransferPacket ics20transfer.ICS20LibFungibleTokenPacketData
-	var denomOnEthereum transfertypes.Denom
+
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
 	var recvBlockNumber int64
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
 		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
-
 		packet := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         uint32(sendPacket.Sequence),
 			SourceChannel:    sendPacket.SourceChannel,
@@ -859,24 +839,27 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		recvBlockNumber = receipt.BlockNumber.Int64()
-
 		if s.generateFixtures {
 			s.Require().NoError(types.GenerateAndSaveFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
 		}
 
 		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
-		ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
-		s.Require().NoError(err)
 
 		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
-		ibcERC20, err = ibcerc20.NewContract(ethReceiveTransferEvent.Erc20Address, ethClient)
+
+		// Recreate the full denom path
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
+
+		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
-		ibcERC20Address = strings.ToLower(ethReceiveTransferEvent.Erc20Address.Hex())
+		ibcERC20Address = ibcERC20Addr.Hex()
 
-		denomOnEthereum = transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
+		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), ethClient)
+		s.Require().NoError(err)
+
 		actualDenom, err := ibcERC20.Name(nil)
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.IBCDenom(), actualDenom)
@@ -888,13 +871,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.Path(), actualFullDenom)
-
-		ethReceiveTransferPacket = ethReceiveTransferEvent.PacketData
-		s.Require().Equal(transferCoin.Denom, ethReceiveTransferPacket.Denom)
-		s.Require().Equal(transferAmount, ethReceiveTransferPacket.Amount)
-		s.Require().Equal(cosmosUserAddress, ethReceiveTransferPacket.Sender)
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(ethReceiveTransferPacket.Receiver))
-		s.Require().Equal(sendMemo, ethReceiveTransferPacket.Memo)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
@@ -908,7 +884,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
 	}))
-
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser)
 
@@ -962,14 +937,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		sendBlockNumber = receipt.BlockNumber.Int64()
-
-		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
-		s.Require().NoError(err)
-		s.Require().Equal(denomOnEthereum.Path(), transferEvent.PacketData.Denom)
-		s.Require().Equal(transferAmount, transferEvent.PacketData.Amount)
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
-		s.Require().Equal(returnMemo, transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -1028,9 +995,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 
 		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		// cosmosReceiveAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
-		// s.Require().NoError(err)
-		// s.Require().NotNil(cosmosReceiveAck)
 		ack := channeltypesv1.NewResultAcknowledgement([]byte{byte(1)})
 		cosmosReceiveAck = ack.Acknowledgement()
 
@@ -1117,14 +1081,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		transferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20Transfer)
-		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Erc20, strings.ToLower(transferEvent.Erc20Address.Hex()))
-		s.Require().Equal(testvalues.TransferAmount, transferEvent.PacketData.Amount.Int64()) // Because the amount is converted to the sdk amount
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), strings.ToLower(transferEvent.PacketData.Sender))
-		s.Require().Equal(cosmosUserAddress, transferEvent.PacketData.Receiver)
-		s.Require().Equal("testmemo", transferEvent.PacketData.Memo)
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)

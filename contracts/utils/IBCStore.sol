@@ -44,7 +44,6 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
         bytes32 commitment = ICS24Host.packetCommitmentBytes32(packet);
         commitments[path] = commitment;
-        emit PacketCommitted(path, commitment);
     }
 
     /// @inheritdoc IIBCStore
@@ -84,7 +83,6 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         );
 
         bytes32 commitment = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
-        emit AckCommitted(path, commitment);
         commitments[path] = commitment;
     }
 }

@@ -25,6 +25,25 @@
   },
   {
     "type": "function",
+    "name": "ibcERC20Contract",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "multicall",
     "inputs": [
       {
@@ -517,184 +536,6 @@
   },
   {
     "type": "event",
-    "name": "ICS20Acknowledgement",
-    "inputs": [
-      {
-        "name": "packetData",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
-        "components": [
-          {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "sender",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "receiver",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "acknowledgement",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ICS20ReceiveTransfer",
-    "inputs": [
-      {
-        "name": "packetData",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
-        "components": [
-          {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "sender",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "receiver",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "erc20Address",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ICS20Timeout",
-    "inputs": [
-      {
-        "name": "packetData",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
-        "components": [
-          {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "sender",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "receiver",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ICS20Transfer",
-    "inputs": [
-      {
-        "name": "packetData",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
-        "components": [
-          {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "sender",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "receiver",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "erc20Address",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -887,22 +728,6 @@
         "name": "token",
         "type": "address",
         "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "StringsInsufficientHexLength",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ]
   }
