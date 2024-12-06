@@ -852,7 +852,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		// Recreate the full denom path
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
 
-		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contracts(nil, denomOnEthereum.IBCDenom())
+		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
 		ibcERC20Address = ibcERC20Addr.Hex()
