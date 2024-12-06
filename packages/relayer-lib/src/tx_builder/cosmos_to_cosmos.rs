@@ -1,7 +1,12 @@
 //! The `ChainSubmitter` submits txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
 
 use anyhow::Result;
-use tendermint_rpc::HttpClient;
+use ibc_proto_eureka::ibc::core::channel::v2::{
+    Channel, QueryChannelRequest, QueryChannelResponse,
+};
+use prost::Message;
+//use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use tendermint_rpc::{Client, HttpClient};
 
 use crate::{chain::CosmosSdk, events::EurekaEvent};
 
@@ -24,6 +29,25 @@ impl TxBuilder {
             source_tm_client,
             target_tm_client,
         }
+    }
+
+    /// Fetches the eureka channel state from the target chain.
+    /// # Errors
+    /// Returns an error if the channel state cannot be fetched or decoded.
+    pub async fn channel(&self, channel_id: String) -> Result<Channel> {
+        let abci_resp = self
+            .target_tm_client
+            .abci_query(
+                Some("/ibc.core.channel.v2.Query/Channel".to_string()),
+                QueryChannelRequest { channel_id }.encode_to_vec(),
+                None,
+                false,
+            )
+            .await?;
+
+        QueryChannelResponse::decode(abci_resp.value.as_slice())?
+            .channel
+            .ok_or_else(|| anyhow::anyhow!("No channel state found"))
     }
 }
 

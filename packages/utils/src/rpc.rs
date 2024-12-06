@@ -9,7 +9,9 @@ use cosmos_sdk_proto::{
     cosmos::staking::v1beta1::{Params, QueryParamsRequest, QueryParamsResponse},
     prost::Message,
     traits::MessageExt,
+    Any,
 };
+use ibc_core_client_types::proto::v1::{QueryClientStateRequest, QueryClientStateResponse};
 use tendermint::{block::signed_header::SignedHeader, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
@@ -33,6 +35,8 @@ pub trait TendermintRpcExt {
     async fn get_light_block(&self, block_height: Option<u32>) -> Result<LightBlock>;
     /// Queries the Cosmos SDK for staking parameters.
     async fn sdk_staking_params(&self) -> Result<Params>;
+    /// Fetches the client state from the Tendermint node.
+    async fn client_state(&self, client_id: String) -> Result<Any>;
 }
 
 #[async_trait::async_trait]
@@ -90,6 +94,21 @@ impl TendermintRpcExt for HttpClient {
         QueryParamsResponse::decode(abci_resp.value.as_slice())?
             .params
             .ok_or_else(|| anyhow::anyhow!("No staking params found"))
+    }
+
+    async fn client_state(&self, client_id: String) -> Result<Any> {
+        let abci_resp = self
+            .abci_query(
+                Some("/ibc.core.client.v1.Query/ClientState".to_string()),
+                QueryClientStateRequest { client_id }.to_bytes()?,
+                None,
+                false,
+            )
+            .await?;
+
+        QueryClientStateResponse::decode(abci_resp.value.as_slice())?
+            .client_state
+            .ok_or_else(|| anyhow::anyhow!("No client state found"))
     }
 }
 
