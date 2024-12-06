@@ -34,11 +34,9 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
 
-use sp1_ics07_tendermint_utils::{
-    light_block::LightBlockExt, merkle::convert_tm_to_ics_merkle_proof, rpc::TendermintRpcExt,
-};
+use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::HashableKey;
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
@@ -197,30 +195,8 @@ where
 
         let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
             future::try_join_all(ibc_paths.into_iter().map(|path| async {
-                let res = self
-                    .tm_client
-                    .abci_query(
-                        Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
-                        path[1].as_slice(),
-                        // Proof height should be the block before the target block.
-                        Some((revision_height - 1).into()),
-                        true,
-                    )
-                    .await?;
-
-                if u32::try_from(res.height.value())? + 1 != revision_height {
-                    anyhow::bail!("Proof height mismatch");
-                }
-
-                if res.key.as_slice() != path[1].as_slice() {
-                    anyhow::bail!("Key mismatch");
-                }
-                let vm_proof = convert_tm_to_ics_merkle_proof(&res.proof.unwrap())?;
-                if vm_proof.proofs.is_empty() {
-                    anyhow::bail!("Empty proof");
-                }
-
-                anyhow::Ok((path, res.value, vm_proof))
+                let (value, proof) = self.tm_client.prove_path(&path, revision_height).await?;
+                anyhow::Ok((path, value, proof))
             }))
             .await?;
 

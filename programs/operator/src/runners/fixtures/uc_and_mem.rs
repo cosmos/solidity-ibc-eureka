@@ -7,7 +7,6 @@ use crate::{
     },
 };
 use alloy_sol_types::SolValue;
-use core::str;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_eureka_solidity_types::sp1_ics07::{
@@ -19,11 +18,10 @@ use ibc_eureka_solidity_types::sp1_ics07::{
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
-use sp1_ics07_tendermint_utils::merkle::convert_tm_to_ics_merkle_proof;
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::HashableKey;
 use std::path::PathBuf;
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
@@ -71,22 +69,9 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
             };
             assert_eq!(path.len(), 2);
 
-            let res = tm_rpc_client
-                .abci_query(
-                    Some(format!("store/{}/key", str::from_utf8(&path[0])?)),
-                    path[1].as_slice(),
-                    // Proof height should be the block before the target block.
-                    Some((args.target_block - 1).into()),
-                    true,
-                )
-                .await?;
+            let (value, proof) = tm_rpc_client.prove_path(&path, args.target_block).await?;
 
-            assert_eq!(u32::try_from(res.height.value())? + 1, args.target_block);
-            assert_eq!(res.key.as_slice(), path[1].as_slice());
-            let vm_proof = convert_tm_to_ics_merkle_proof(&res.proof.unwrap())?;
-            assert!(!vm_proof.proofs.is_empty());
-
-            anyhow::Ok((path, res.value, vm_proof))
+            anyhow::Ok((path, value, proof))
         }))
         .await?;
 
