@@ -26,17 +26,18 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
-    pub fn add_module(&mut self, module: Arc<dyn RelayerModuleServer>) {
+    pub fn add_module<T: RelayerModuleServer>(&mut self, module: T) {
         assert!(
             !self.modules.contains_key(module.name()),
             "Relayer module already added"
         );
-        self.modules.insert(module.name().to_string(), module);
+        self.modules
+            .insert(module.name().to_string(), Arc::new(module));
     }
 
     /// Start the relayer server.
     #[allow(clippy::pedantic)]
-    pub async fn start_server(self, config: RelayerConfig) -> anyhow::Result<()> {
+    pub async fn start(self, config: RelayerConfig) -> anyhow::Result<()> {
         // Ensure the starting port and address are set
         let address = config.server.address;
 

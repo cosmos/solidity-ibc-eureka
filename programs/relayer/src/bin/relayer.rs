@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use clap::Parser;
 use solidity_ibc_eureka_relayer::{
@@ -26,10 +26,10 @@ async fn main() -> anyhow::Result<()> {
 
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
-            relayer_builder.add_module(Arc::new(CosmosToEthRelayerModule));
+            relayer_builder.add_module(CosmosToEthRelayerModule);
 
             // Start the relayer server.
-            relayer_builder.start_server(config).await?;
+            relayer_builder.start(config).await?;
 
             Ok(())
         }
