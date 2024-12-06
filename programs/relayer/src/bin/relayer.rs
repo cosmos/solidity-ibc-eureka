@@ -6,8 +6,8 @@ use solidity_ibc_eureka_relayer::{
         cmd::{Commands, RelayerCli},
         config::RelayerConfig,
     },
-    core::{builder::RelayerBuilder, modules::RelayerModule},
-    modules::cosmos_to_eth::{CosmosToEthConfig, CosmosToEthRelayerModule},
+    core::builder::RelayerBuilder,
+    modules::cosmos_to_eth::CosmosToEthRelayerModule,
 };
 
 #[tokio::main]
@@ -24,31 +24,12 @@ async fn main() -> anyhow::Result<()> {
                 .with_max_level(config.server.log_level())
                 .init();
 
-            // Initialize a Cosmos to Ethereum relayer module.
-            // TODO: improve builder so that we don't need to manually initialize the module.
-            let cosmos_to_eth_config = config
-                .modules
-                .iter()
-                .find(|module| module.name == CosmosToEthRelayerModule::NAME)
-                .expect("Cosmos to Ethereum module not found")
-                .clone();
-            let cosmos_to_eth_custom_config: CosmosToEthConfig =
-                serde_json::from_value(cosmos_to_eth_config.config)?;
-
-            let cosmos_to_eth_module =
-                CosmosToEthRelayerModule::new(cosmos_to_eth_custom_config).await;
-
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
-            relayer_builder.set_address(&config.server.address);
-            relayer_builder.add_module(
-                CosmosToEthRelayerModule::NAME,
-                cosmos_to_eth_config.port,
-                Box::new(cosmos_to_eth_module),
-            );
+            relayer_builder.add_module(CosmosToEthRelayerModule);
 
             // Start the relayer server.
-            relayer_builder.start_server().await?;
+            relayer_builder.start(config).await?;
 
             Ok(())
         }

@@ -20,12 +20,17 @@ use crate::{
         self,
         relayer_service_server::{RelayerService, RelayerServiceServer},
     },
-    core::modules::{RelayerModule, RelayerModuleServer},
+    core::modules::ModuleServer,
 };
+
+/// The `CosmosToEthRelayerModule` struct defines the Cosmos to Ethereum relayer module.
+#[derive(Clone, Copy, Debug)]
+#[allow(clippy::module_name_repetitions)]
+pub struct CosmosToEthRelayerModule;
 
 /// The `RelayerModule` defines the relayer module for Cosmos to Ethereum.
 #[allow(clippy::module_name_repetitions)]
-pub struct CosmosToEthRelayerModule {
+struct CosmosToEthRelayerModuleServer {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
@@ -48,13 +53,8 @@ pub struct CosmosToEthConfig {
     pub sp1_private_key: String,
 }
 
-#[tonic::async_trait]
-impl RelayerModule for CosmosToEthRelayerModule {
-    type Config = CosmosToEthConfig;
-
-    const NAME: &'static str = "cosmos_to_eth";
-
-    async fn new(config: Self::Config) -> Self {
+impl CosmosToEthRelayerModuleServer {
+    async fn new(config: CosmosToEthConfig) -> Self {
         let tm_client = HttpClient::new(
             Url::from_str(&config.tm_rpc_url)
                 .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
@@ -85,7 +85,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToEthRelayerModule {
+impl RelayerService for CosmosToEthRelayerModuleServer {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -173,13 +173,26 @@ impl RelayerService for CosmosToEthRelayerModule {
 }
 
 #[tonic::async_trait]
-impl RelayerModuleServer for CosmosToEthRelayerModule {
+impl ModuleServer for CosmosToEthRelayerModule {
+    fn name(&self) -> &'static str {
+        "cosmos_to_eth"
+    }
+
     #[tracing::instrument(skip_all)]
-    async fn serve(self: Box<Self>, addr: SocketAddr) -> Result<(), tonic::transport::Error> {
+    async fn serve(
+        &self,
+        config: serde_json::Value,
+        addr: SocketAddr,
+    ) -> Result<(), tonic::transport::Error> {
+        let config = serde_json::from_value::<CosmosToEthConfig>(config)
+            .unwrap_or_else(|e| panic!("failed to parse config: {e}"));
+
+        let server = CosmosToEthRelayerModuleServer::new(config).await;
+
         tracing::info!(%addr, "Started Cosmos to Ethereum relayer server.");
 
         Server::builder()
-            .add_service(RelayerServiceServer::new(*self))
+            .add_service(RelayerServiceServer::new(server))
             .serve(addr)
             .await
     }
