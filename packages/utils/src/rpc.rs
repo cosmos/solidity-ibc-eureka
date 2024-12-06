@@ -10,9 +10,12 @@ use cosmos_sdk_proto::{
     prost::Message,
     traits::MessageExt,
 };
+use ibc_core_commitment_types::merkle::MerkleProof;
 use tendermint::{block::signed_header::SignedHeader, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
+
+use crate::merkle::convert_tm_to_ics_merkle_proof;
 
 /// An extension trait for [`HttpClient`] that provides additional methods for
 /// obtaining light blocks.
@@ -33,6 +36,9 @@ pub trait TendermintRpcExt {
     async fn get_light_block(&self, block_height: Option<u32>) -> Result<LightBlock>;
     /// Queries the Cosmos SDK for staking parameters.
     async fn sdk_staking_params(&self) -> Result<Params>;
+    /// Proves a path in the chain's Merkle tree and returns the value at the path and the proof.
+    /// If the value is empty, then this is a non-inclusion proof.
+    async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)>;
 }
 
 #[async_trait::async_trait]
@@ -90,6 +96,36 @@ impl TendermintRpcExt for HttpClient {
         QueryParamsResponse::decode(abci_resp.value.as_slice())?
             .params
             .ok_or_else(|| anyhow::anyhow!("No staking params found"))
+    }
+
+    async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)> {
+        let res = self
+            .abci_query(
+                Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
+                path[1].as_slice(),
+                // Proof height should be the block before the target block.
+                Some((height - 1).into()),
+                true,
+            )
+            .await?;
+
+        if u32::try_from(res.height.value())? + 1 != height {
+            anyhow::bail!("Proof height mismatch");
+        }
+
+        if res.key.as_slice() != path[1].as_slice() {
+            anyhow::bail!("Key mismatch");
+        }
+
+        let vm_proof = convert_tm_to_ics_merkle_proof(
+            &res.proof
+                .ok_or_else(|| anyhow::anyhow!("No proof can be generated"))?,
+        )?;
+        if vm_proof.proofs.is_empty() {
+            anyhow::bail!("Empty proof");
+        }
+
+        anyhow::Ok((res.value, vm_proof))
     }
 }
 
