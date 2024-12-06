@@ -1,19 +1,19 @@
 //! Defines the `RelayerBuilder` struct that is used to build the relayer server.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use futures::future;
 
-use super::modules::RelayerModuleServer;
+use crate::cli::config::RelayerConfig;
+
+use super::modules::ModuleServer;
 
 /// The `RelayerBuilder` struct is used to build the relayer binary.
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct RelayerBuilder {
     /// The relayer modules to include in the relayer binary and their ports.
-    modules: HashMap<String, (u16, Box<dyn RelayerModuleServer>)>,
-    /// The address to bind the relayer server to.
-    address: Option<String>,
+    modules: HashMap<String, Arc<dyn ModuleServer>>,
 }
 
 impl RelayerBuilder {
@@ -26,48 +26,50 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
-    pub fn add_module(&mut self, name: &str, port: u16, module: Box<dyn RelayerModuleServer>) {
+    pub fn add_module<T: ModuleServer>(&mut self, module: T) {
         assert!(
-            !self.modules.contains_key(name),
+            !self.modules.contains_key(module.name()),
             "Relayer module already added"
         );
-        self.modules.insert(name.to_string(), (port, module));
-    }
-
-    /// Set the address to bind the relayer server to.
-    /// # Panics
-    /// Panics if the address has already been set.
-    pub fn set_address(&mut self, address: &str) {
-        assert!(self.address.is_none(), "Address already set");
-        self.address = Some(address.to_string());
+        self.modules
+            .insert(module.name().to_string(), Arc::new(module));
     }
 
     /// Start the relayer server.
     #[allow(clippy::pedantic)]
-    pub async fn start_server(self) -> anyhow::Result<()> {
+    pub async fn start(self, config: RelayerConfig) -> anyhow::Result<()> {
         // Ensure the starting port and address are set
-        let address = self
-            .address
-            .as_ref()
-            .expect("Address must be set before starting the server");
+        let address = config.server.address;
 
         // Vector to store spawned tasks for each module
         let mut tasks = Vec::new();
 
         // Iterate through all registered modules
-        for (name, (port, module)) in self.modules.into_iter() {
+        for module_config in config.modules.into_iter() {
+            if !module_config.enabled {
+                continue;
+            }
+
+            let name = module_config.name;
+            let config = module_config.config;
+            let port = module_config.port;
+            let module = self
+                .modules
+                .get(&name)
+                .unwrap_or_else(|| {
+                    panic!("Relayer module not found: {}", name);
+                })
+                .clone();
+
             // Construct the socket address
             let socket_addr = format!("{}:{}", address, port);
-
-            // Log the module and address
             tracing::info!(%name, %socket_addr, "Starting relayer module...");
+            let socket_addr = socket_addr
+                .parse::<std::net::SocketAddr>()
+                .unwrap_or_else(|err| panic!("Failed to parse socket address: {}", err));
 
-            // Clone the module and socket address for the async task
-            let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
-
-            // Spawn an async task to run the module's server
             tasks.push(tokio::spawn(async move {
-                if let Err(err) = module.serve(socket_addr).await {
+                if let Err(err) = module.serve(config, socket_addr).await {
                     tracing::error!(%name, %err, "Failed to start module");
                 }
             }));
