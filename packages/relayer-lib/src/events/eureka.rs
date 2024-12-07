@@ -4,6 +4,7 @@ use alloy::{hex, sol_types::SolEvent};
 use ibc_eureka_solidity_types::ics26::router::{
     routerEvents, AckPacket, RecvPacket, SendPacket, TimeoutPacket, WriteAcknowledgement,
 };
+use ibc_proto_eureka::ibc::core::channel::v2::{Acknowledgement, Packet};
 use prost::Message;
 use tendermint::abci::Event as TmEvent;
 
@@ -70,7 +71,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 .find_map(|attr| {
                     if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
                         let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
-                        let packet = cosmos_sdk::proto::Packet::decode(packet.as_slice()).ok()?;
+                        let packet = Packet::decode(packet.as_slice()).ok()?;
                         Some(Self::SendPacket(SendPacket {
                             packet: packet.try_into().ok()?,
                         }))
@@ -85,7 +86,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 .find_map(|attr| {
                     if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
                         let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
-                        let packet = cosmos_sdk::proto::Packet::decode(packet.as_slice()).ok()?;
+                        let packet = Packet::decode(packet.as_slice()).ok()?;
                         Some(Self::RecvPacket(RecvPacket {
                             packet: packet.try_into().ok()?,
                         }))
@@ -101,15 +102,12 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     .filter_map(|attr| match attr.key_str().ok()? {
                         cosmos_sdk::ATTRIBUTE_KEY_ACK_DATA_HEX => {
                             let ack_data = hex::decode(attr.value_str().ok()?).ok()?;
-                            let ack =
-                                cosmos_sdk::proto::Acknowledgement::decode(ack_data.as_slice())
-                                    .ok()?;
+                            let ack = Acknowledgement::decode(ack_data.as_slice()).ok()?;
                             Some((Some(ack), None))
                         }
                         cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX => {
                             let packet_data = hex::decode(attr.value_str().ok()?).ok()?;
-                            let packet =
-                                cosmos_sdk::proto::Packet::decode(packet_data.as_slice()).ok()?;
+                            let packet = Packet::decode(packet_data.as_slice()).ok()?;
                             Some((None, Some(packet)))
                         }
                         _ => None,
