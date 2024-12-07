@@ -82,6 +82,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         //            if now >= se.packet.timeoutTimestamp
         //                && se.packet.sourceChannel == target_channel_id
         //            {
+        //                let ibc_path = se.packet.receipt_commitment_path();
         //                todo!()
         //            } else {
         //                None
