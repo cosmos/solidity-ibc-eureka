@@ -1,5 +1,7 @@
 //! Solidity types for ICS26Router.sol
 
+use ibc_proto_eureka::ibc::core::channel::v2::{Packet, Payload};
+
 #[cfg(feature = "rpc")]
 alloy_sol_types::sol!(
     #[sol(rpc)]
@@ -47,5 +49,31 @@ impl IICS26RouterMsgs::Packet {
         path.push(3_u8);
         path.extend_from_slice(&u64::from(self.sequence).to_be_bytes());
         path
+    }
+}
+
+impl TryFrom<Packet> for IICS26RouterMsgs::Packet {
+    type Error = <u64 as TryInto<u32>>::Error;
+
+    fn try_from(packet: Packet) -> Result<Self, Self::Error> {
+        Ok(Self {
+            sequence: packet.sequence.try_into()?,
+            sourceChannel: packet.source_channel,
+            destChannel: packet.destination_channel,
+            timeoutTimestamp: packet.timeout_timestamp,
+            payloads: packet.payloads.into_iter().map(Into::into).collect(),
+        })
+    }
+}
+
+impl From<Payload> for IICS26RouterMsgs::Payload {
+    fn from(payload: Payload) -> Self {
+        Self {
+            sourcePort: payload.source_port,
+            destPort: payload.destination_port,
+            version: payload.version,
+            encoding: payload.encoding,
+            value: payload.value.into(),
+        }
     }
 }
