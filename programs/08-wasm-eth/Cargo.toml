@@ -20,8 +20,9 @@ cw-storage-plus = { workspace = true }
 tendermint-proto = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }
-alloy-primitives = { workspace = true }
+ethereum-test-utils = { workspace = true }

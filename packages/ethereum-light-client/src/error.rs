@@ -3,6 +3,9 @@ use alloy_rpc_types_beacon::BlsPublicKey;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
 pub enum EthereumIBCError {
+    #[error(transparent)]
+    EthereumUtilsError(#[from] ethereum_utils::error::EthereumUtilsError),
+
     #[error("IBC path is empty")]
     EmptyPath,
 

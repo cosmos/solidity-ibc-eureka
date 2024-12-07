@@ -44,7 +44,7 @@ pub fn verify_header<V: BlsVerify>(
         client_state.seconds_per_slot,
         current_timestamp,
     )
-    .unwrap();
+    .map_err(EthereumIBCError::EthereumUtilsError)?;
 
     validate_light_client_update::<V>(
         client_state,
@@ -342,9 +342,29 @@ pub fn get_lc_execution_root(client_state: &ClientState, header: &LightClientHea
 
 #[cfg(test)]
 mod test {
-    use crate::test::{bls_verifier::TestBlsVerifier, fixtures::load_fixture};
+    use crate::types::bls::{BlsPublicKey, BlsSignature};
 
     use super::*;
+
+    use ethereum_test_utils::{
+        bls_verifier::{fast_aggregate_verify, BlsError},
+        fixtures::load_fixture,
+    };
+
+    struct TestBlsVerifier;
+
+    impl BlsVerify for TestBlsVerifier {
+        type Error = BlsError;
+
+        fn fast_aggregate_verify(
+            &self,
+            public_keys: Vec<&BlsPublicKey>,
+            msg: B256,
+            signature: BlsSignature,
+        ) -> Result<(), BlsError> {
+            fast_aggregate_verify(public_keys, msg, signature)
+        }
+    }
 
     #[test]
     fn test_verify_header() {

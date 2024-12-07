@@ -32,6 +32,8 @@ sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership"
 ethereum-trie-db                   = { path = "packages/ethereum-trie-db", default-features = false }
 ethereum-utils                     = { path = "packages/ethereum-utils", default-features = false }
 ethereum-light-client              = { path = "packages/ethereum-light-client", default-features = false }
+ethereum-test-utils                = { path = "packages/ethereum-test-utils", default-features = false }
+tree_hash                          = { path = "packages/tree_hash", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
@@ -102,7 +104,6 @@ cw-storage-plus = { version = "2.0", default-features = false }
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
 ethereum_ssz        = { version = "0.8", default-features = false }
 ethereum_ssz_derive = { version = "0.8", default-features = false }
-tree_hash           = { path = "packages/tree_hash", version = "0.8", default-features = false }
 tree_hash_derive    = { version = "0.8", default-features = false }
 
 # The dependencies below are maintained by Parity Tech

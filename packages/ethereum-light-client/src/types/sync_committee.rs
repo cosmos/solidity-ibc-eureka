@@ -103,8 +103,10 @@ pub fn compute_sync_committee_period_at_slot(
 
 #[cfg(test)]
 mod test {
-    use crate::{test::fixtures::load_fixture, types::sync_committee::SyncCommittee};
+    use crate::types::sync_committee::SyncCommittee;
+
     use alloy_primitives::{hex::FromHex, B256};
+    use ethereum_test_utils::fixtures::load_fixture;
     use tree_hash::TreeHash;
 
     #[test]

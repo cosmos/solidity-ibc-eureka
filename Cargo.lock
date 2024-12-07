@@ -2036,10 +2036,12 @@ dependencies = [
  "cw-multi-test",
  "cw-storage-plus",
  "ethereum-light-client",
+ "ethereum-test-utils",
  "ethereum-utils",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
+ "serde_json",
  "tendermint-proto",
  "thiserror 2.0.4",
 ]
@@ -2609,6 +2611,7 @@ dependencies = [
  "alloy-serde",
  "alloy-trie 0.5.3",
  "base64 0.22.1",
+ "ethereum-test-utils",
  "ethereum-trie-db",
  "ethereum-utils",
  "ethereum_ssz 0.8.0",
@@ -2622,6 +2625,19 @@ dependencies = [
  "tree_hash",
  "tree_hash_derive",
  "typenum",
+]
+
+[[package]]
+name = "ethereum-test-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives 0.8.14",
+ "ethereum-light-client",
+ "ethereum-utils",
+ "milagro_bls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -2665,6 +2681,7 @@ dependencies = [
  "alloy-primitives 0.8.14",
  "base64 0.22.1",
  "serde",
+ "thiserror 2.0.4",
 ]
 
 [[package]]

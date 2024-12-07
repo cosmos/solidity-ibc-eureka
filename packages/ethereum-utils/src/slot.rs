@@ -1,6 +1,23 @@
+use crate::error::EthereumUtilsError;
+
 pub const GENESIS_SLOT: u64 = 0;
 
 pub fn compute_slot_at_timestamp(
+    genesis_time: u64,
+    seconds_per_slot: u64,
+    timestamp_seconds: u64,
+) -> Result<u64, EthereumUtilsError> {
+    checked_compute_slot_at_timestamp(genesis_time, seconds_per_slot, timestamp_seconds).ok_or(
+        EthereumUtilsError::FailedToComputeSlotAtTimestamp {
+            timestamp: timestamp_seconds,
+            genesis: genesis_time,
+            seconds_per_slot,
+            genesis_slot: GENESIS_SLOT,
+        },
+    )
+}
+
+fn checked_compute_slot_at_timestamp(
     genesis_time: u64,
     seconds_per_slot: u64,
     timestamp_seconds: u64,
