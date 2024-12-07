@@ -3,7 +3,7 @@
 use anyhow::Result;
 use futures::future;
 use ibc_proto_eureka::ibc::{
-    core::channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
+    core::channel::v2::{Channel, MsgTimeout, QueryChannelRequest, QueryChannelResponse},
     lightclients::tendermint::v1::ClientState,
 };
 use prost::Message;
@@ -75,6 +75,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )?;
 
         let light_block = self.source_tm_client.get_light_block(None).await?;
+        let target_height = light_block.height().value().try_into()?;
 
         //let timeout_msgs = future::try_join_all(target_events.into_iter().filter_map(|e| async {
         //    match e {
@@ -83,6 +84,11 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         //                && se.packet.sourceChannel == target_channel_id
         //            {
         //                let ibc_path = se.packet.receipt_commitment_path();
+        //                let (value, proof) = self
+        //                    .source_tm_client
+        //                    .prove_path(vec![b"ibc", ibc_path], target_height)
+        //                    .await.map(|v, p| MsgTimeout {
+        //                    })
         //                todo!()
         //            } else {
         //                None
