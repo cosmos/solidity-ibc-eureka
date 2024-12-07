@@ -115,7 +115,7 @@ rlp                = { version = "0.6", default-features = false }
 rlp-derive         = { version = "0.2", default-features = false }
 primitive-types    = { version = "0.13", default-features = false }
 
-# From union (might be removed if they are replaced by something more standard)
+# TODO: From union (might be removed if they are replaced by something more standard). #147
 typenum = { version = "1.17.0", default-features = false }
 
 # dev-dependencies

@@ -45,7 +45,6 @@ pub fn validate_merkle_branch(
 
 #[cfg(test)]
 mod test {
-
     use alloy_primitives::{hex::FromHex, Address, Bloom, Bytes, B256, U256};
 
     use crate::{
@@ -126,12 +125,6 @@ mod test {
         let depth = floorlog2(EXECUTION_PAYLOAD_INDEX);
         let index = get_subtree_index(EXECUTION_PAYLOAD_INDEX);
         let root = header.beacon.body_root;
-
-        println!("Leaf: {:?}", leaf);
-        println!("Branch: {:?}", header.execution_branch);
-        println!("Depth: {:?}", depth);
-        println!("Index: {:?}", index);
-        println!("Root: {:?}", root);
 
         validate_merkle_branch(leaf, header.execution_branch.0.into(), depth, index, root).unwrap();
     }
