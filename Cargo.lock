@@ -2037,7 +2037,7 @@ dependencies = [
  "cw-storage-plus",
  "ethereum-light-client",
  "ethereum-utils",
- "ibc-proto",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
  "tendermint-proto",
