@@ -1,0 +1,8 @@
+{
+  "slot": 32,
+  "state_root": "yIADlPrcUUOqTri8ZYeoYh9e0nQndM7TrJVp4gQPD0k=",
+  "storage_root": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  "timestamp": 1733407995000000000,
+  "current_sync_committee": "p8wWXo3JZ8KBDBoaJFolrp7yjc3lWcpaeoOds4cUb4SD5NmwbJc8DuRWqAbyVYCD",
+  "next_sync_committee": "p8wWXo3JZ8KBDBoaJFolrp7yjc3lWcpaeoOds4cUb4SD5NmwbJc8DuRWqAbyVYCD"
+}

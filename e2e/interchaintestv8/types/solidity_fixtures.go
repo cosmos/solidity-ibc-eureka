@@ -14,8 +14,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
-// GenericFixture is the fixture to be unmarshalled into a test case in Solidity tests
-type GenericFixture struct {
+// GenericSolidityFixture is the fixture to be unmarshalled into a test case in Solidity tests
+type GenericSolidityFixture struct {
 	// Hex encoded bytes for sp1 genesis fixture
 	Sp1GenesisFixture string `json:"sp1_genesis_fixture"`
 	// Hex encoded bytes to be fed into the router contract
@@ -28,29 +28,46 @@ type GenericFixture struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
-func generateFixture(erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) (GenericFixture, error) {
+// GenerateAndSaveSolidityFixture generates a fixture and saves it to a file
+func GenerateAndSaveSolidityFixture(fileName, erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) error {
+	fixture, err := generateFixture(erc20Address, methodName, msg, packet)
+	if err != nil {
+		return err
+	}
+
+	fixtureBz, err := json.Marshal(fixture)
+	if err != nil {
+		return err
+	}
+
+	filePath := testvalues.SolidityFixturesDir + "/" + fileName
+	// nolint:gosec
+	return os.WriteFile(filePath, fixtureBz, 0o644)
+}
+
+func generateFixture(erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
 	genesisBz, err := getGenesisFixture()
 	if err != nil {
-		return GenericFixture{}, err
+		return GenericSolidityFixture{}, err
 	}
 
 	ics26Abi, err := abi.JSON(strings.NewReader(ics26router.ContractMetaData.ABI))
 	if err != nil {
-		return GenericFixture{}, err
+		return GenericSolidityFixture{}, err
 	}
 
 	packetBz, err := abiEncodePacket(packet)
 	if err != nil {
-		return GenericFixture{}, err
+		return GenericSolidityFixture{}, err
 	}
 
 	msgBz, err := ics26Abi.Pack(methodName, msg)
 	if err != nil {
-		return GenericFixture{}, err
+		return GenericSolidityFixture{}, err
 	}
 
 	// Generate the fixture
-	fixture := GenericFixture{
+	fixture := GenericSolidityFixture{
 		Sp1GenesisFixture: hex.EncodeToString(genesisBz),
 		Msg:               hex.EncodeToString(msgBz),
 		Erc20Address:      erc20Address,
@@ -102,21 +119,4 @@ func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) 
 	}
 
 	return args.Pack(packet)
-}
-
-// GenerateAndSaveFixture generates a fixture and saves it to a file
-func GenerateAndSaveFixture(fileName, erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) error {
-	fixture, err := generateFixture(erc20Address, methodName, msg, packet)
-	if err != nil {
-		return err
-	}
-
-	fixtureBz, err := json.Marshal(fixture)
-	if err != nil {
-		return err
-	}
-
-	filePath := testvalues.SolidityFixturesDir + "/" + fileName
-	// nolint:gosec
-	return os.WriteFile(filePath, fixtureBz, 0o644)
 }
