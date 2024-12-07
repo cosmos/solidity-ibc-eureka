@@ -120,9 +120,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateSolidityFixtures = true
 		}
-		if os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True {
-			s.rustFixtureGenerator = types.NewRustFixtureGenerator(s.GetTopLevelTestName(), true)
-		}
+
+		shouldGenerateRustFixtures := os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
+		s.rustFixtureGenerator = types.NewRustFixtureGenerator(s.GetTopLevelTestName(), shouldGenerateRustFixtures)
 	}))
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
