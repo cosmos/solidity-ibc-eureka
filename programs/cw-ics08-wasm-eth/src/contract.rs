@@ -7,14 +7,16 @@ use ethereum_light_client::{
     client_state::ClientState as EthClientState,
     consensus_state::ConsensusState as EthConsensusState,
 };
-use ibc_proto::ibc::{
-    core::client::v1::Height as IbcProtoHeight,
-    lightclients::wasm::v1::{
-        ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+use ibc_proto::{
+    google::protobuf::Any,
+    ibc::{
+        core::client::v1::Height as IbcProtoHeight,
+        lightclients::wasm::v1::{
+            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
     },
 };
 use prost::Message;
-use tendermint_proto::google::protobuf::Any;
 
 use crate::custom_query::{BlsVerifier, EthereumCustomQuery};
 use crate::error::ContractError;
@@ -259,11 +261,13 @@ mod tests {
             consensus_state::ConsensusState as EthConsensusState,
             types::{fork::Fork, fork_parameters::ForkParameters, wrappers::WrappedVersion},
         };
-        use ibc_proto::ibc::lightclients::wasm::v1::{
-            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        use ibc_proto::{
+            google::protobuf::Any,
+            ibc::lightclients::wasm::v1::{
+                ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+            },
         };
         use prost::{Message, Name};
-        use tendermint_proto::google::protobuf::Any;
 
         use crate::{
             contract::{instantiate, tests::mk_deps},

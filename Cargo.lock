@@ -2042,7 +2042,6 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
- "tendermint-proto",
  "thiserror 2.0.4",
 ]
 
