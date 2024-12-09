@@ -110,7 +110,7 @@ pub struct Height {
     /// the revision that the client is currently on
     #[serde(default)]
     pub revision_number: u64,
-    /// **height** is a height of remote chain
+    /// **revision_height** is a height of remote chain
     #[serde(default)]
     pub revision_height: u64,
 }
