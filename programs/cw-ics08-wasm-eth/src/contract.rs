@@ -21,8 +21,8 @@ use prost::Message;
 use crate::custom_query::{BlsVerifier, EthereumCustomQuery};
 use crate::error::ContractError;
 use crate::msg::{
-    CheckForMisbehaviourResult, ExecuteMsg, ExportMetadataResult, Height, InstantiateMsg, QueryMsg,
-    StatusResult, SudoMsg, TimestampAtHeightResult, UpdateStateResult, VerifyClientMessageMsg,
+    CheckForMisbehaviourResult, ExecuteMsg, Height, InstantiateMsg, QueryMsg, StatusResult,
+    SudoMsg, TimestampAtHeightResult, UpdateStateResult, VerifyClientMessageMsg,
     VerifyMembershipMsg, VerifyNonMembershipMsg,
 };
 use crate::state::{
@@ -86,9 +86,9 @@ pub fn sudo(
             verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
         }
         SudoMsg::UpdateState(_) => update_state()?,
-        SudoMsg::UpdateStateOnMisbehaviour(_) => unimplemented!(),
-        SudoMsg::VerifyUpgradeAndUpdateState(_) => unimplemented!(),
-        SudoMsg::MigrateClientStore(_) => unimplemented!(),
+        SudoMsg::UpdateStateOnMisbehaviour(_) => todo!(),
+        SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
+        SudoMsg::MigrateClientStore(_) => todo!(),
     };
 
     Ok(Response::default().set_data(result))
@@ -169,7 +169,6 @@ pub fn query(
         QueryMsg::CheckForMisbehaviour(_) => check_for_misbehaviour(),
         QueryMsg::TimestampAtHeight(_) => timestamp_at_height(env),
         QueryMsg::Status(_) => status(),
-        QueryMsg::ExportMetadata(_) => export_metadata(),
     }
 }
 
@@ -216,12 +215,6 @@ pub fn timestamp_at_height(env: Env) -> Result<Binary, ContractError> {
 pub fn status() -> Result<Binary, ContractError> {
     Ok(to_json_binary(&StatusResult {
         status: "Active".to_string(),
-    })?)
-}
-
-pub fn export_metadata() -> Result<Binary, ContractError> {
-    Ok(to_json_binary(&ExportMetadataResult {
-        genesis_metadata: vec![],
     })?)
 }
 
@@ -440,23 +433,6 @@ mod tests {
             assert_eq!(0, res.messages.len());
         }
 
-        //#[test]
-        //fn test_verify_non_membership() {
-        //    let mut deps = mk_deps();
-        //    let msg = SudoMsg::VerifyNonMembership(VerifyNonMembershipMsg {
-        //        height: Height {
-        //            revision_number: 0,
-        //            revision_height: 1,
-        //        },
-        //        delay_time_period: 0,
-        //        delay_block_period: 0,
-        //        proof: Binary::default(),
-        //        merkle_path: MerklePath { key_path: vec![] },
-        //    });
-        //    let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
-        //    assert_eq!(0, res.messages.len());
-        //}
-
         #[test]
         fn test_update_state() {
             let mut deps = mk_deps();
@@ -483,9 +459,9 @@ mod tests {
         use crate::{
             contract::{instantiate, query, tests::mk_deps},
             msg::{
-                CheckForMisbehaviourMsg, CheckForMisbehaviourResult, ExportMetadataMsg,
-                ExportMetadataResult, Height, QueryMsg, StatusMsg, StatusResult,
-                TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+                CheckForMisbehaviourMsg, CheckForMisbehaviourResult, Height, QueryMsg, StatusMsg,
+                StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult,
+                VerifyClientMessageMsg,
             },
         };
 
@@ -576,19 +552,6 @@ mod tests {
             let res = query(deps.as_ref(), mock_env(), QueryMsg::Status(StatusMsg {})).unwrap();
             let status_response: StatusResult = from_json(&res).unwrap();
             assert_eq!("Active", status_response.status);
-        }
-
-        #[test]
-        fn test_export_metadata() {
-            let deps = mk_deps();
-            let res = query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::ExportMetadata(ExportMetadataMsg {}),
-            )
-            .unwrap();
-            let export_metadata_result: ExportMetadataResult = from_json(&res).unwrap();
-            assert_eq!(0, export_metadata_result.genesis_metadata.len());
         }
     }
 

@@ -79,9 +79,6 @@ pub enum QueryMsg {
 
     #[returns[StatusResult]]
     Status(StatusMsg),
-
-    #[returns[ExportMetadataResult]]
-    ExportMetadata(ExportMetadataMsg),
 }
 
 #[cw_serde]
@@ -101,9 +98,6 @@ pub struct TimestampAtHeightMsg {
 
 #[cw_serde]
 pub struct StatusMsg {}
-
-#[cw_serde]
-pub struct ExportMetadataMsg {}
 
 #[cw_serde]
 pub struct Height {
@@ -138,15 +132,4 @@ pub struct CheckForMisbehaviourResult {
 #[cw_serde]
 pub struct TimestampAtHeightResult {
     pub timestamp: u64,
-}
-
-#[cw_serde]
-pub struct GenesisMetadata {
-    pub key: Vec<Binary>,
-    pub value: Vec<Binary>,
-}
-
-#[cw_serde]
-pub struct ExportMetadataResult {
-    pub genesis_metadata: Vec<GenesisMetadata>,
 }
