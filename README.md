@@ -66,9 +66,11 @@ Foundry typically uses git submodules to manage contract dependencies, but this 
 bun install
 ```
 
-You also need to have the operator and relayer binaries installed on your machine to run some of the end-to-end tests. You can install them by running the following commands:
+You also need to have the operator and relayer binaries installed on your machine to run some of the end-to-end tests. Since one of the dependencies uses non-stable Rust features, you must configure rustup to use the nightly release channel. You can configure Rust and install the binaries by running the following commands:
 
 ```sh
+rustup install nightly
+rustup override set nightly
 just install-operator
 just install-relayer
 ```
