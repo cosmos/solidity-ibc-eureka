@@ -1,0 +1,15 @@
+[package]
+name = "ethereum-test-utils"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+ethereum-light-client = { workspace = true }
+ethereum-utils = { workspace = true }
+
+alloy-primitives = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+milagro_bls = { workspace = true }
+thiserror = { workspace = true }

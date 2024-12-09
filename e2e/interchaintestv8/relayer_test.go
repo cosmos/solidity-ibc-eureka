@@ -373,12 +373,12 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 
 	var txHash []byte
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser)
+		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser, s.rustFixtureGenerator)
 
 		recvPacketMsgs := make([]sdk.Msg, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
 			path := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, uint64(i+1))
-			storageProofBz := s.getCommitmentProof(path)
+			storageProofBz := s.getCommitmentProof(ctx, path)
 
 			packet := channeltypesv2.Packet{
 				Sequence:           uint64(i + 1),
