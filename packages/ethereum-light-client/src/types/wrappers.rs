@@ -42,7 +42,7 @@ impl TreeHash for WrappedBytes {
     }
 
     fn tree_hash_root(&self) -> tree_hash::Hash256 {
-        let leaves = (self.0.len() + BYTES_PER_CHUNK - 1) / BYTES_PER_CHUNK;
+        let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
 
@@ -77,7 +77,7 @@ impl TreeHash for WrappedBloom {
     }
 
     fn tree_hash_root(&self) -> tree_hash::Hash256 {
-        let leaves = (self.0.len() + BYTES_PER_CHUNK - 1) / BYTES_PER_CHUNK;
+        let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
 
@@ -108,7 +108,7 @@ impl<const N: usize> TreeHash for WrappedBranch<N> {
     }
 
     fn tree_hash_root(&self) -> tree_hash::Hash256 {
-        let leaves = (self.0.len() + BYTES_PER_CHUNK - 1) / BYTES_PER_CHUNK;
+        let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
         let mut hasher = MerkleHasher::with_leaves(leaves);
 
         for item in &self.0 {

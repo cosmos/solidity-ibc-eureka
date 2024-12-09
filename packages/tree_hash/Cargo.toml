@@ -6,8 +6,6 @@ repository = { workspace = true }
 description = "Efficient Merkle-hashing as used in Ethereum consensus"
 license = { workspace = true }
 documentation = "https://docs.rs/tree_hash"
-keywords = ["ethereum"]
-categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
 alloy-primitives = { workspace = true }
