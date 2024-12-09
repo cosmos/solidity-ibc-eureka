@@ -67,8 +67,8 @@ impl SyncAggregate {
     pub fn num_sync_committe_participants(&self) -> usize {
         self.sync_committee_bits
             .iter()
-            .map(|byte| byte.count_ones() as usize)
-            .sum()
+            .map(|byte| byte.count_ones())
+            .sum::<u32>() as usize
     }
 
     // TODO: Unit test
