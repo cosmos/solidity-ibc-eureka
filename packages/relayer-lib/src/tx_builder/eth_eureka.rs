@@ -146,6 +146,8 @@ where
             _ => None,
         });
 
+        // TODO: We might wanna filter out send packets that have been actually received
+
         let recv_and_ack_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
                 if se.packet.timeoutTimestamp > now && se.packet.destChannel == filter_channel {

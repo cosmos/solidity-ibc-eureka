@@ -2,9 +2,15 @@
 
 use anyhow::Result;
 use futures::future;
-use ibc_proto_eureka::ibc::{
-    core::channel::v2::{Channel, MsgTimeout, QueryChannelRequest, QueryChannelResponse},
-    lightclients::tendermint::v1::ClientState,
+use ibc_proto_eureka::{
+    ibc::{
+        core::{
+            channel::v2::{Channel, MsgTimeout, QueryChannelRequest, QueryChannelResponse},
+            client::v1::Height,
+        },
+        lightclients::tendermint::v1::ClientState,
+    },
+    Protobuf,
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
@@ -65,7 +71,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
 
-        let channel = self.channel(target_channel_id).await?;
+        let channel = self.channel(target_channel_id.clone()).await?;
         let client_state = ClientState::decode(
             self.target_tm_client
                 .client_state(channel.client_id)
@@ -77,26 +83,50 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let light_block = self.source_tm_client.get_light_block(None).await?;
         let target_height = light_block.height().value().try_into()?;
 
-        //let timeout_msgs = future::try_join_all(target_events.into_iter().filter_map(|e| async {
-        //    match e {
-        //        EurekaEvent::SendPacket(se) => {
-        //            if now >= se.packet.timeoutTimestamp
-        //                && se.packet.sourceChannel == target_channel_id
-        //            {
-        //                let ibc_path = se.packet.receipt_commitment_path();
-        //                let (value, proof) = self
-        //                    .source_tm_client
-        //                    .prove_path(vec![b"ibc", ibc_path], target_height)
-        //                    .await.map(|v, p| MsgTimeout {
-        //                    })
-        //                todo!()
-        //            } else {
-        //                None
-        //            }
-        //        }
-        //        _ => None,
-        //    }
-        //}));
+        let _timeout_msgs = future::try_join_all(
+            target_events
+                .into_iter()
+                .filter(|e| match e {
+                    EurekaEvent::SendPacket(se) => {
+                        now >= se.packet.timeoutTimestamp
+                            && se.packet.sourceChannel == target_channel_id
+                    }
+                    _ => false,
+                })
+                .map(|e| async {
+                    match e {
+                        EurekaEvent::SendPacket(se) => {
+                            let ibc_path = se.packet.receipt_commitment_path();
+                            self.source_tm_client
+                                .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+                                .await
+                                .map(|(v, p)| {
+                                    if v.is_empty() {
+                                        Some(MsgTimeout {
+                                            packet: Some(se.packet.into()),
+                                            proof_unreceived: p.encode_vec(),
+                                            proof_height: Some(Height {
+                                                revision_number: client_state
+                                                    .latest_height
+                                                    .unwrap_or_default()
+                                                    .revision_number,
+                                                revision_height: target_height.into(),
+                                            }),
+                                            signer: String::new(),
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                })
+                        }
+                        _ => unreachable!(),
+                    }
+                }),
+        )
+        .await?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
 
         todo!()
     }
