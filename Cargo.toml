@@ -5,7 +5,7 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/sp1-programs/*",
-    "programs/08-wasm-eth"
+    "programs/cw-ics08-wasm-eth"
 ]
 resolver = "2"
 

@@ -1,5 +1,5 @@
 [package]
-name = "cw-08-wasm-etheruem-light-client"
+name = "cw-ics08-wasm-eth"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }

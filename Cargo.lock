@@ -2027,7 +2027,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-08-wasm-etheruem-light-client"
+name = "cw-ics08-wasm-eth"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.8.14",

@@ -24,7 +24,7 @@ build-sp1-programs:
   @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
 
 build-optimized-wasm:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/08-wasm-eth
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
 
 # Clean up the cache and out directories
 clean:
