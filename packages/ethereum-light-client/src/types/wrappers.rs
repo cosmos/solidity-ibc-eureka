@@ -79,7 +79,6 @@ impl TreeHash for WrappedBloom {
         let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
-
         for item in &self.0 {
             hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
         }
@@ -108,8 +107,8 @@ impl<const N: usize> TreeHash for WrappedBranch<N> {
 
     fn tree_hash_root(&self) -> tree_hash::Hash256 {
         let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
-        let mut hasher = MerkleHasher::with_leaves(leaves);
 
+        let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
             hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
         }
@@ -150,8 +149,8 @@ impl TreeHash for WrappedVecBlsPublicKey {
 
     fn tree_hash_root(&self) -> tree_hash::Hash256 {
         let leaves = self.0.len();
-        let mut hasher = MerkleHasher::with_leaves(leaves);
 
+        let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
             hasher.write(item.tree_hash_root().as_ref()).unwrap()
         }
