@@ -29,7 +29,8 @@ pub fn get_eth_client_state(deps: Deps<EthereumCustomQuery>) -> EthClientState {
     let wasm_client_state =
         WasmClientState::decode(wasm_client_state_any.value.as_slice()).unwrap();
 
-    EthClientState::from(wasm_client_state.data)
+    // TODO: map to ContractError
+    serde_json::from_slice(&wasm_client_state.data).unwrap()
 }
 
 // TODO: Proper errors
@@ -45,7 +46,7 @@ pub fn get_eth_consensus_state(
     let wasm_consensus_state =
         WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice()).unwrap();
 
-    EthConsensusState::from(wasm_consensus_state.data)
+    serde_json::from_slice(&wasm_consensus_state.data).unwrap()
 }
 
 /*

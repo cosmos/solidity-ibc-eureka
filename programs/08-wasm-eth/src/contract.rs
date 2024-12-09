@@ -1,9 +1,12 @@
 use std::convert::Into;
 
-use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response};
-use ethereum_light_client::types::light_client::Header;
-use ethereum_light_client::{client_state::ClientState, consensus_state::ConsensusState};
+use cosmwasm_std::{
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response,
+};
+use ethereum_light_client::{
+    client_state::ClientState as EthClientState,
+    consensus_state::ConsensusState as EthConsensusState,
+};
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::{
@@ -32,10 +35,11 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let client_state_bz: Vec<u8> = msg.client_state.into();
-    let client_state = ClientState::from(client_state_bz);
+    let client_state: EthClientState = serde_json::from_slice(&client_state_bz)
+        .map_err(ContractError::DeserializeClientStateFailed)?;
     let wasm_client_state = WasmClientState {
         checksum: msg.checksum.into(),
-        data: client_state.clone().into(),
+        data: client_state_bz,
         latest_height: Some(IbcProtoHeight {
             revision_number: 0,
             revision_height: client_state.latest_slot,
@@ -48,9 +52,10 @@ pub fn instantiate(
     );
 
     let consensus_state_bz: Vec<u8> = msg.consensus_state.into();
-    let consensus_state = ConsensusState::from(consensus_state_bz);
+    let consensus_state: EthConsensusState = serde_json::from_slice(&consensus_state_bz)
+        .map_err(ContractError::DeserializeClientStateFailed)?;
     let wasm_consensus_state = WasmConsensusState {
-        data: consensus_state.clone().into(),
+        data: consensus_state_bz,
     };
     let wasm_consensus_state_any = Any::from_msg(&wasm_consensus_state).unwrap();
     let height = Height {
@@ -179,9 +184,8 @@ pub fn verify_client_message(
             revision_height: eth_client_state.latest_slot,
         },
     );
-    let header = Header::from(Into::<Vec<u8>>::into(
-        verify_client_message_msg.client_message,
-    ));
+    let header = serde_json::from_slice(&verify_client_message_msg.client_message)
+        .map_err(ContractError::DeserializeClientStateFailed)?;
     let bls_verifier = BlsVerifier { deps };
 
     ethereum_light_client::verify::verify_header(
@@ -306,7 +310,7 @@ mod tests {
                 ibc_contract_address: Default::default(),
                 frozen_height: ethereum_light_client::types::height::Height::default(),
             };
-            let client_state_bz: Vec<u8> = client_state.clone().into();
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
             let consensus_state = EthConsensusState {
                 slot: 0,
@@ -316,7 +320,7 @@ mod tests {
                 current_sync_committee: FixedBytes::<48>::from([0; 48]),
                 next_sync_committee: None,
             };
-            let consensus_state_bz: Vec<u8> = consensus_state.clone().into();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
             let msg = InstantiateMsg {
                 client_state: client_state_bz.into(),
@@ -398,9 +402,9 @@ mod tests {
             );
 
             let client_state = commitment_proof_fixture.client_state;
-            let client_state_bz: Vec<u8> = client_state.clone().into();
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state = commitment_proof_fixture.consensus_state;
-            let consensus_state_bz: Vec<u8> = consensus_state.clone().into();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
             let msg = crate::msg::InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
@@ -495,8 +499,8 @@ mod tests {
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
             );
 
-            let client_state_bz: Vec<u8> = client_state.clone().into();
-            let consensus_state_bz: Vec<u8> = consensus_state.clone().into();
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
             let msg = crate::msg::InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
@@ -509,7 +513,7 @@ mod tests {
             let header: Header = load_fixture(
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
             );
-            let header_bz: Vec<u8> = header.clone().into();
+            let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
             let mut env = mock_env();
             env.block.time = Timestamp::from_seconds(

@@ -10,6 +10,12 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized,
 
+    #[error("deserializing client state failed: {0}")]
+    DeserializeClientStateFailed(#[source] serde_json::Error),
+
+    #[error("deserializing consensus state failed: {0}")]
+    DeserializeConsensusStateFailed(#[source] serde_json::Error),
+
     #[error("Verify membership failed: {0}")]
     VerifyMembershipFailed(#[source] EthereumIBCError),
 

@@ -25,15 +25,3 @@ pub struct ClientState {
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub ibc_contract_address: Address,
 }
-
-impl From<Vec<u8>> for ClientState {
-    fn from(value: Vec<u8>) -> Self {
-        serde_json::from_slice(&value).unwrap()
-    }
-}
-
-impl From<ClientState> for Vec<u8> {
-    fn from(value: ClientState) -> Self {
-        serde_json::to_vec(&value).unwrap()
-    }
-}

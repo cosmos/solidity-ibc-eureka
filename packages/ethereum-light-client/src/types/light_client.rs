@@ -22,18 +22,6 @@ pub struct Header {
     pub account_update: AccountUpdate,
 }
 
-impl From<Vec<u8>> for Header {
-    fn from(value: Vec<u8>) -> Self {
-        serde_json::from_slice(&value).unwrap()
-    }
-}
-
-impl From<Header> for Vec<u8> {
-    fn from(value: Header) -> Self {
-        serde_json::to_vec(&value).unwrap()
-    }
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
 pub struct LightClientUpdate {
     /// Header attested to by the sync committee

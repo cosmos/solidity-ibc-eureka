@@ -19,18 +19,6 @@ pub struct ConsensusState {
     pub next_sync_committee: Option<FixedBytes<48>>,
 }
 
-impl From<Vec<u8>> for ConsensusState {
-    fn from(value: Vec<u8>) -> Self {
-        serde_json::from_slice(&value).unwrap()
-    }
-}
-
-impl From<ConsensusState> for Vec<u8> {
-    fn from(value: ConsensusState) -> Self {
-        serde_json::to_vec(&value).unwrap()
-    }
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
 pub struct TrustedConsensusState {
     pub state: ConsensusState,
