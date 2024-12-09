@@ -5,7 +5,9 @@ use futures::future;
 use ibc_proto_eureka::{
     ibc::{
         core::{
-            channel::v2::{Channel, MsgTimeout, QueryChannelRequest, QueryChannelResponse},
+            channel::v2::{
+                Channel, MsgRecvPacket, MsgTimeout, QueryChannelRequest, QueryChannelResponse,
+            },
             client::v1::Height,
         },
         lightclients::tendermint::v1::ClientState,
@@ -61,9 +63,10 @@ impl TxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
+    #[allow(clippy::too_many_lines)]
     async fn relay_events(
         &self,
-        _src_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEvent>,
         target_events: Vec<EurekaEvent>,
         target_channel_id: String,
     ) -> Result<Vec<u8>> {
@@ -112,6 +115,51 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                                                     .revision_number,
                                                 revision_height: target_height.into(),
                                             }),
+                                            signer: String::new(),
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                })
+                        }
+                        _ => unreachable!(),
+                    }
+                }),
+        )
+        .await?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+        let _recv_msgs = future::try_join_all(
+            src_events
+                .into_iter()
+                .filter(|e| match e {
+                    EurekaEvent::SendPacket(se) => {
+                        se.packet.timeoutTimestamp > now
+                            && se.packet.destChannel == target_channel_id
+                    }
+                    _ => false,
+                })
+                .map(|e| async {
+                    match e {
+                        EurekaEvent::SendPacket(se) => {
+                            let ibc_path = se.packet.commitment_path();
+                            self.source_tm_client
+                                .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+                                .await
+                                .map(|(v, p)| {
+                                    if v.is_empty() {
+                                        Some(MsgRecvPacket {
+                                            packet: Some(se.packet.into()),
+                                            proof_height: Some(Height {
+                                                revision_number: client_state
+                                                    .latest_height
+                                                    .unwrap_or_default()
+                                                    .revision_number,
+                                                revision_height: target_height.into(),
+                                            }),
+                                            proof_commitment: p.encode_vec(),
                                             signer: String::new(),
                                         })
                                     } else {
