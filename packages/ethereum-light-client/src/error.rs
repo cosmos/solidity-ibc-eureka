@@ -112,10 +112,10 @@ pub enum EthereumIBCError {
     #[error("not enough signatures")]
     NotEnoughSignatures,
 
-    #[error("failed to verify finalized_header is finalized")]
+    #[error("failed to verify finalized_header is finalized: {0}")]
     ValidateFinalizedHeaderFailed(#[source] Box<EthereumIBCError>),
 
-    #[error("failed to verify next sync committee against attested header")]
+    #[error("failed to verify next sync committee against attested header: {0}")]
     ValidateNextSyncCommitteeFailed(#[source] Box<EthereumIBCError>),
 }
 

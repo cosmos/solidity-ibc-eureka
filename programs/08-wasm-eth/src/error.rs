@@ -10,12 +10,12 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized,
 
-    #[error("Verify membership failed")]
+    #[error("Verify membership failed: {0}")]
     VerifyMembershipFailed(#[source] EthereumIBCError),
 
-    #[error("Verify non-membership failed")]
+    #[error("Verify non-membership failed: {0}")]
     VerifyNonMembershipFailed(#[source] EthereumIBCError),
 
-    #[error("Verify client message failed")]
+    #[error("Verify client message failed: {0}")]
     VerifyClientMessageFailed(#[source] EthereumIBCError),
 }
