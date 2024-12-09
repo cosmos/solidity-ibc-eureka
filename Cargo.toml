@@ -16,12 +16,6 @@ license    = "MIT"
 repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
-[workspace.metadata.scripts]
-build-08-wasm-eth = """docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/optimizer:0.16.1 ./programs/08-wasm-eth"""
-
 [workspace.dependencies]
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }

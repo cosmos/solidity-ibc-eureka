@@ -121,11 +121,10 @@ jobs:
         with:
           command: install
           args: cargo-run-script cosmwasm-check
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: run-script
-          args: build-08-wasm-eth
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build optimized wasm binary
+        run: just build-optimized-wasm
       # checks that the wasm binary is a proper cosmwasm smart contract
       # it checks for things like memories, exports, imports, available capabilities, and non-determinism
       - name: Check cosmwasm file
