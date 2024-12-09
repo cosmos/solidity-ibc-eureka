@@ -45,7 +45,6 @@ impl TreeHash for WrappedBytes {
         let leaves = self.0.len().div_ceil(BYTES_PER_CHUNK);
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
-
         for item in &self.0 {
             hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
         }
