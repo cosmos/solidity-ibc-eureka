@@ -39,6 +39,8 @@ pub struct TrustedSyncCommittee {
 }
 
 impl TrustedSyncCommittee {
+    // TODO: should this actually return default at any point? If not, panic or error
+    // also, if not returning default, remove the impl Default
     pub fn get_active_sync_committee(&self) -> ActiveSyncCommittee {
         if let Some(sync_committee) = &self.current_sync_committee {
             ActiveSyncCommittee::Current(sync_committee.clone())
@@ -106,12 +108,12 @@ mod test {
     use crate::types::sync_committee::SyncCommittee;
 
     use alloy_primitives::{hex::FromHex, B256};
-    use ethereum_test_utils::fixtures::load_fixture;
+    use ethereum_test_utils::fixtures;
     use tree_hash::TreeHash;
 
     #[test]
     fn test_sync_committee_tree_hash_root() {
-        let sync_committee: SyncCommittee = load_fixture("sync_committee_fixture");
+        let sync_committee: SyncCommittee = fixtures::load("sync_committee_fixture");
         assert_ne!(sync_committee, SyncCommittee::default());
 
         let actual_tree_hash_root = sync_committee.tree_hash_root();

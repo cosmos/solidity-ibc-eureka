@@ -207,7 +207,6 @@ pub fn validate_light_client_update<V: BlsVerify>(
 
     // Verify that the `finality_branch`, if present, confirms `finalized_header`
     // to match the finalized checkpoint root saved in the state of `attested_header`.
-    // NOTE(aeryz): We always expect to get `finalized_header` and it's embedded into the type definition.
     is_valid_light_client_header(client_state, &update.finalized_header)?;
     let finalized_root = update.finalized_header.beacon.tree_hash_root();
 
@@ -348,7 +347,7 @@ mod test {
 
     use ethereum_test_utils::{
         bls_verifier::{fast_aggregate_verify, BlsError},
-        fixtures::load_fixture,
+        fixtures,
     };
 
     struct TestBlsVerifier;
@@ -370,17 +369,17 @@ mod test {
     fn test_verify_header() {
         let bls_verifier = TestBlsVerifier;
 
-        let client_state: ClientState = load_fixture(
+        let client_state: ClientState = fixtures::load(
             "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_1_initial_client_state",
         );
         assert_ne!(client_state, ClientState::default());
 
-        let consensus_state: ConsensusState = load_fixture(
+        let consensus_state: ConsensusState = fixtures::load(
             "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
         );
         assert_ne!(consensus_state, ConsensusState::default());
 
-        let header: Header = load_fixture(
+        let header: Header = fixtures::load(
             "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
         );
         assert_ne!(header, Header::default());

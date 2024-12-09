@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-pub fn load_fixture<T>(name: &str) -> T
+pub fn load<T>(name: &str) -> T
 where
     T: serde::de::DeserializeOwned,
 {

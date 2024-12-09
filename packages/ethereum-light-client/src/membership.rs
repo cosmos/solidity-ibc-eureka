@@ -93,7 +93,7 @@ mod test {
         hex::{self, FromHex},
         Bytes, B256, U256,
     };
-    use ethereum_test_utils::fixtures::load_fixture;
+    use ethereum_test_utils::fixtures;
     use ethereum_utils::hex::FromBeHex;
     use serde::{Deserialize, Serialize};
 
@@ -111,7 +111,7 @@ mod test {
 
     #[test]
     fn test_with_fixture() {
-        let commitment_proof_fixture: CommitmentProofFixture = load_fixture(
+        let commitment_proof_fixture: CommitmentProofFixture = fixtures::load(
             "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_4_commitment_proof",
         );
 

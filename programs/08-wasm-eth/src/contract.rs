@@ -381,7 +381,7 @@ mod tests {
             testing::{message_info, mock_env},
             Binary,
         };
-        use ethereum_test_utils::fixtures::load_fixture;
+        use ethereum_test_utils::fixtures;
 
         use crate::{
             contract::{
@@ -397,7 +397,7 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let commitment_proof_fixture: CommitmentProofFixture = load_fixture(
+            let commitment_proof_fixture: CommitmentProofFixture = fixtures::load(
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_4_commitment_proof",
             );
 
@@ -474,7 +474,7 @@ mod tests {
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState, types::light_client::Header,
         };
-        use ethereum_test_utils::fixtures::load_fixture;
+        use ethereum_test_utils::fixtures::load;
 
         use crate::{
             contract::{instantiate, query, tests::mk_deps},
@@ -491,11 +491,11 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state: EthClientState = load_fixture(
+            let client_state: EthClientState = load(
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_1_initial_client_state",
             );
 
-            let consensus_state: EthConsensusState = load_fixture(
+            let consensus_state: EthConsensusState = load(
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
             );
 
@@ -510,7 +510,7 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            let header: Header = load_fixture(
+            let header: Header = load(
                 "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
             );
             let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
