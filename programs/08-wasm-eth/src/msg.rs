@@ -77,7 +77,7 @@ pub enum QueryMsg {
     #[returns[TimestampAtHeightResult]]
     TimestampAtHeight(TimestampAtHeightMsg),
 
-    #[returns(StatusResult)]
+    #[returns[StatusResult]]
     Status(StatusMsg),
 
     #[returns[ExportMetadataResult]]
