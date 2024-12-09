@@ -1,25 +1,24 @@
 [package]
 name = "tree_hash"
-version = "0.8.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
 description = "Efficient Merkle-hashing as used in Ethereum consensus"
-license = "Apache-2.0"
-readme = "../README.md"
-repository = "https://github.com/sigp/tree_hash"
+license = { workspace = true }
 documentation = "https://docs.rs/tree_hash"
 keywords = ["ethereum"]
 categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
-alloy-primitives = "0.8.0"
-smallvec = "1.6.1"
-sha2 = "0.10"
+alloy-primitives = { workspace = true }
+smallvec = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
-rand = "0.8.5"
-tree_hash_derive = "0.8.0"
-ethereum_ssz = "0.7"
-ethereum_ssz_derive = "0.7"
+rand = { workspace = true }
+tree_hash_derive = { workspace = true }
+ethereum_ssz = { workspace = true }
+ethereum_ssz_derive = { workspace = true }
 
 [features]
 arbitrary = ["alloy-primitives/arbitrary"]

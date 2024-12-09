@@ -47,6 +47,7 @@ subtle-encoding = { version = "0.5", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.8", default-features = false }
+rand = { version = "0.8.5", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
@@ -62,7 +63,7 @@ futures            = { version = "0.3", default-features = false }
 clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
 time               = { version = "0.3", default-features = false }
 dotenv             = { version = "0.15", default-features = false }
-thiserror          = { version = "2.0", default-features = false } 
+thiserror          = { version = "2.0", default-features = false }
 
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
@@ -121,6 +122,7 @@ typenum = { version = "1.17.0", default-features = false }
 # dev-dependencies
 cw-multi-test = { version = "2.2.0", default-features = false }
 milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!
+smallvec      = { version = "1.6.1", default-features = false }
 
 [patch.crates-io]
 sha2-v0-9-8         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.9" }
