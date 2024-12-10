@@ -1,7 +1,7 @@
 use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, Deps, QueryRequest};
 use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature, BlsVerify};
-use ethereum_utils::{ensure::ensure, hex::to_hex};
+use ethereum_utils::{ensure, hex::to_hex};
 use thiserror::Error;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -61,19 +61,22 @@ impl<'a> BlsVerify for BlsVerifier<'a> {
                 message: Binary::from(msg.to_vec()),
                 signature: Binary::from(signature.to_vec()),
             });
-        let is_valid = self
+
+        let is_valid: bool = self
             .deps
             .querier
             .query(&request)
             .map_err(|e| BlsVerifierError::FastAggregateVerify(e.to_string()))?;
 
-        ensure(
+        ensure!(
             is_valid,
             BlsVerifierError::InvalidSignature(InvalidSignatureErr {
                 public_keys: public_keys.into_iter().copied().collect(),
                 msg,
                 signature,
-            }),
-        )
+            })
+        );
+
+        Ok(())
     }
 }

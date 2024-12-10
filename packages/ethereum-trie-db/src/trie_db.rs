@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, B256};
-use ethereum_utils::ensure::ensure;
+use ethereum_utils::ensure;
 use hash_db::HashDB;
 use memory_db::{HashKey, MemoryDB};
 use primitive_types::{H160, H256, U256};
@@ -36,17 +36,18 @@ pub fn verify_account_storage_root(
     let storage_root: H256 = H256(storage_root.into());
     let address: H160 = H160(address.into());
 
+    print!("test");
     match get_node(root, address.as_ref(), proof)? {
         Some(account) => {
             let account =
                 rlp::decode::<Account>(account.as_ref()).map_err(TrieDBError::RlpDecode)?;
-            ensure(
+            ensure!(
                 account.storage_root == storage_root,
                 TrieDBError::ValueMismatch {
                     expected: storage_root.as_ref().into(),
                     actual: account.storage_root.as_ref().into(),
-                },
-            )?;
+                }
+            );
             Ok(())
         }
         None => Err(TrieDBError::ValueMissing {

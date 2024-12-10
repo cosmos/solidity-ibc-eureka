@@ -2,7 +2,7 @@ use alloy_primitives::B256;
 
 use ethereum_trie_db::trie_db::verify_account_storage_root;
 use ethereum_utils::{
-    ensure::ensure,
+    ensure,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
 };
 use tree_hash::TreeHash;
@@ -57,13 +57,13 @@ pub fn verify_header<V: BlsVerify>(
     )?;
 
     // check whether at least 2/3 of the sync committee signed
-    ensure(
+    ensure!(
         header
             .consensus_update
             .sync_aggregate
             .validate_signature_supermajority(),
-        EthereumIBCError::NotEnoughSignatures,
-    )?;
+        EthereumIBCError::NotEnoughSignatures
+    );
 
     let proof_data = header.account_update.account_proof.clone();
 
@@ -103,7 +103,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
     // Verify sync committee has sufficient participants
-    ensure(
+    ensure!(
         update.sync_aggregate.num_sync_committe_participants()
             >= client_state
                 .min_sync_committee_participants
@@ -111,8 +111,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
                 .unwrap(),
         EthereumIBCError::InsufficientSyncCommitteeParticipants(
             update.sync_aggregate.num_sync_committe_participants(),
-        ),
-    )?;
+        )
+    );
 
     is_valid_light_client_header(client_state, &update.attested_header)?;
 
@@ -120,28 +120,28 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let update_attested_slot = update.attested_header.beacon.slot;
     let update_finalized_slot = update.finalized_header.beacon.slot;
 
-    ensure(
+    ensure!(
         update_finalized_slot != GENESIS_SLOT,
-        EthereumIBCError::FinalizedSlotIsGenesis,
-    )?;
+        EthereumIBCError::FinalizedSlotIsGenesis
+    );
 
-    ensure(
+    ensure!(
         current_slot >= update.signature_slot,
         EthereumIBCError::UpdateMoreRecentThanCurrentSlot {
             current_slot,
-            update_signature_slot: update.signature_slot,
-        },
-    )?;
+            update_signature_slot: update.signature_slot
+        }
+    );
 
-    ensure(
+    ensure!(
         update.signature_slot > update_attested_slot
             && update_attested_slot >= update_finalized_slot,
         EthereumIBCError::InvalidSlots {
             update_signature_slot: update.signature_slot,
             update_attested_slot,
             update_finalized_slot,
-        },
-    )?;
+        }
+    );
 
     // Let's say N is the signature period of the header we store, we can only do updates with
     // the following settings:
@@ -161,21 +161,21 @@ pub fn validate_light_client_update<V: BlsVerify>(
     );
 
     if trusted_consensus_state.next_sync_committee().is_some() {
-        ensure(
+        ensure!(
             signature_period == stored_period || signature_period == stored_period + 1,
             EthereumIBCError::InvalidSignaturePeriodWhenNextSyncCommitteeExists {
                 signature_period,
                 stored_period,
-            },
-        )?;
+            }
+        );
     } else {
-        ensure(
+        ensure!(
             signature_period == stored_period,
             EthereumIBCError::InvalidSignaturePeriodWhenNextSyncCommitteeDoesNotExist {
                 signature_period,
                 stored_period,
-            },
-        )?;
+            }
+        );
     }
 
     // Verify update is relevant
@@ -190,7 +190,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     // 2. We haven't set the next sync committee yet and we can use any attested header within the same
     // signature period to set the next sync committee. This means that the stored header could be larger.
     // The light client implementation needs to take care of it.
-    ensure(
+    ensure!(
         update_attested_slot > trusted_consensus_state.finalized_slot()
             || (update_attested_period == stored_period
                 && update.next_sync_committee.is_some()
@@ -204,8 +204,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
             trusted_next_sync_committee_is_set: trusted_consensus_state
                 .next_sync_committee()
                 .is_some(),
-        },
-    )?;
+        }
+    );
 
     // Verify that the `finality_branch`, if present, confirms `finalized_header`
     // to match the finalized checkpoint root saved in the state of `attested_header`.
@@ -229,13 +229,13 @@ pub fn validate_light_client_update<V: BlsVerify>(
         trusted_consensus_state.next_sync_committee(),
     ) {
         if update_attested_period == stored_period {
-            ensure(
+            ensure!(
                 next_sync_committee == stored_next_sync_committee,
                 EthereumIBCError::NextSyncCommitteeMismatch {
                     expected: stored_next_sync_committee.aggregate_pubkey,
                     found: next_sync_committee.aggregate_pubkey,
-                },
-            )?;
+                }
+            );
         }
         // This validates the given next sync committee against the attested header's state root.
         validate_merkle_branch(
@@ -309,19 +309,19 @@ pub fn is_valid_light_client_header(
     let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
 
     if epoch < client_state.fork_parameters.deneb.epoch {
-        ensure(
+        ensure!(
             header.execution.blob_gas_used == 0 && header.execution.excess_blob_gas == 0,
-            EthereumIBCError::MustBeDeneb,
-        )?;
+            EthereumIBCError::MustBeDeneb
+        );
     }
 
-    ensure(
+    ensure!(
         epoch >= client_state.fork_parameters.capella.epoch,
-        EthereumIBCError::InvalidChainVersion,
-    )?;
+        EthereumIBCError::InvalidChainVersion
+    );
 
     validate_merkle_branch(
-        get_lc_execution_root(client_state, header),
+        get_lc_execution_root(client_state, header)?,
         header.execution_branch.0.into(),
         EXECUTION_BRANCH_DEPTH,
         get_subtree_index(EXECUTION_PAYLOAD_INDEX),
@@ -329,16 +329,18 @@ pub fn is_valid_light_client_header(
     )
 }
 
-pub fn get_lc_execution_root(client_state: &ClientState, header: &LightClientHeader) -> B256 {
+pub fn get_lc_execution_root(
+    client_state: &ClientState,
+    header: &LightClientHeader,
+) -> Result<B256, EthereumIBCError> {
     let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
 
-    ensure(
+    ensure!(
         epoch >= client_state.fork_parameters.deneb.epoch,
-        "only deneb or higher epochs are supported",
-    )
-    .unwrap();
+        EthereumIBCError::MustBeDeneb
+    );
 
-    header.execution.tree_hash_root()
+    Ok(header.execution.tree_hash_root())
 }
 
 #[cfg(test)]

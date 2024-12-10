@@ -121,7 +121,8 @@ mod test {
                 ..Default::default()
             },
             &header,
-        );
+        )
+        .unwrap();
         let depth = floorlog2(EXECUTION_PAYLOAD_INDEX);
         let index = get_subtree_index(EXECUTION_PAYLOAD_INDEX);
         let root = header.beacon.body_root;

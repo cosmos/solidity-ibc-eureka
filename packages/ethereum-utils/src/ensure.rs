@@ -1,3 +1,8 @@
-pub fn ensure<E>(expr: bool, err: E) -> Result<(), E> {
-    expr.then_some(()).ok_or(err)
+#[macro_export]
+macro_rules! ensure {
+    ($cond:expr, $err:expr) => {
+        if !$cond {
+            return Err($err);
+        }
+    };
 }
