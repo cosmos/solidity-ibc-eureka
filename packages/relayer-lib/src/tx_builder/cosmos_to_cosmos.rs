@@ -22,22 +22,29 @@ use crate::{chain::CosmosSdk, events::EurekaEvent};
 
 use super::r#trait::TxBuilderService;
 
-/// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
+/// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
 pub struct TxBuilder {
     /// The HTTP client for the source chain.
     pub source_tm_client: HttpClient,
     /// The HTTP client for the target chain.
     pub target_tm_client: HttpClient,
+    /// The signer address for the Cosmos messages.
+    pub signer_address: String,
 }
 
 impl TxBuilder {
     /// Creates a new `TxBuilder`.
     #[must_use]
-    pub const fn new(source_tm_client: HttpClient, target_tm_client: HttpClient) -> Self {
+    pub const fn new(
+        source_tm_client: HttpClient,
+        target_tm_client: HttpClient,
+        signer_address: String,
+    ) -> Self {
         Self {
             source_tm_client,
             target_tm_client,
+            signer_address,
         }
     }
 
@@ -115,7 +122,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                                                     .revision_number,
                                                 revision_height: target_height.into(),
                                             }),
-                                            signer: String::new(),
+                                            signer: self.signer_address.clone(),
                                         })
                                     } else {
                                         None
@@ -167,7 +174,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                                         revision_height: target_height.into(),
                                     }),
                                     proof_commitment: p.encode_vec(),
-                                    signer: String::new(),
+                                    signer: self.signer_address.clone(),
                                 })
                             } else {
                                 None
@@ -201,7 +208,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                                         revision_height: target_height.into(),
                                     }),
                                     proof_commitment: p.encode_vec(),
-                                    signer: String::new(),
+                                    signer: self.signer_address.clone(),
                                 })
                             } else {
                                 None
@@ -228,7 +235,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let _update_msg = MsgUpdateClient {
             client_id: channel.client_id,
             client_message: Some(proposed_header.into()),
-            signer: String::new(),
+            signer: self.signer_address.clone(),
         };
 
         todo!()
