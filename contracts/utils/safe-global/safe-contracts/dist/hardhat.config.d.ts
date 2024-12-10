@@ -1,0 +1,11 @@
+import "@nomiclabs/hardhat-ethers";
+import type { HardhatUserConfig } from "hardhat/types";
+import "@nomiclabs/hardhat-etherscan";
+import "@nomiclabs/hardhat-waffle";
+import "solidity-coverage";
+import "hardhat-deploy";
+import "./src/tasks/local_verify";
+import "./src/tasks/deploy_contracts";
+import "./src/tasks/show_codesize";
+declare const userConfig: HardhatUserConfig;
+export default userConfig;
