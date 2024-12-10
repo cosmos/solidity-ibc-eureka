@@ -2,8 +2,15 @@
 
 use std::str::FromStr;
 
-use ibc_eureka_relayer_lib::{listener::cosmos_sdk, tx_builder::cosmos_to_cosmos};
+use ibc_eureka_relayer_lib::{
+    listener::{cosmos_sdk, ChainListenerService},
+    tx_builder::{cosmos_to_cosmos, TxBuilderService},
+};
+use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
+use tonic::{Request, Response};
+
+use crate::api::{self, relayer_service_server::RelayerService};
 
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
@@ -61,5 +68,95 @@ impl CosmosToCosmosRelayerModuleServer {
             target_listener,
             tx_builder,
         }
+    }
+}
+
+#[tonic::async_trait]
+impl RelayerService for CosmosToCosmosRelayerModuleServer {
+    #[tracing::instrument(skip_all)]
+    async fn info(
+        &self,
+        _request: Request<api::InfoRequest>,
+    ) -> Result<Response<api::InfoResponse>, tonic::Status> {
+        tracing::info!("Received info request.");
+        Ok(Response::new(api::InfoResponse {
+            target_chain: Some(api::Chain {
+                chain_id: self
+                    .target_listener
+                    .chain_id()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                ibc_version: "2".to_string(),
+                ibc_contract: String::new(),
+            }),
+            source_chain: Some(api::Chain {
+                chain_id: self
+                    .src_listener
+                    .chain_id()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                ibc_version: "2".to_string(),
+                ibc_contract: String::new(),
+            }),
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn relay_by_tx(
+        &self,
+        request: Request<api::RelayByTxRequest>,
+    ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        tracing::info!("Handling relay by tx request...");
+        let inner_req = request.into_inner();
+        let src_txs = inner_req
+            .source_tx_ids
+            .into_iter()
+            .map(Hash::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        let target_txs = inner_req
+            .timeout_tx_ids
+            .into_iter()
+            .map(Hash::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        let src_events = self
+            .src_listener
+            .fetch_tx_events(src_txs)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source cosmos events.");
+        tracing::info!(
+            "Fetched {} source eureka events from CosmosSDK.",
+            src_events.len()
+        );
+
+        let target_events = self
+            .target_listener
+            .fetch_tx_events(target_txs)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        tracing::debug!(cosmos_target_events = ?target_events, "Fetched target cosmos events.");
+        tracing::info!(
+            "Fetched {} target eureka events from CosmosSDK.",
+            target_events.len()
+        );
+
+        let tx = self
+            .tx_builder
+            .relay_events(src_events, target_events, inner_req.target_channel_id)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+
+        tracing::info!("Relay by tx request completed.");
+
+        Ok(Response::new(api::RelayByTxResponse {
+            tx,
+            address: String::new(),
+        }))
     }
 }
