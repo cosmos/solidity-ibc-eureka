@@ -229,16 +229,8 @@ mod tests {
         },
         Binary, OwnedDeps, SystemResult,
     };
-    use ethereum_light_client::{
-        client_state::ClientState as EthClientState,
-        consensus_state::ConsensusState as EthConsensusState,
-        types::{
-            bls::{BlsPublicKey, BlsSignature},
-            storage_proof::StorageProof,
-        },
-    };
+    use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature};
     use ethereum_test_utils::bls_verifier::{aggreagate, fast_aggregate_verify};
-    use serde::{Deserialize, Serialize};
 
     use crate::custom_query::EthereumCustomQuery;
 
@@ -378,14 +370,12 @@ mod tests {
             testing::{message_info, mock_env},
             Binary,
         };
-        use ethereum_test_utils::fixtures;
+        use ethereum_test_utils::fixtures::{self, StepFixture};
 
         use crate::{
-            contract::{
-                instantiate, sudo,
-                tests::{mk_deps, CommitmentProofFixture},
-            },
+            contract::{instantiate, sudo, tests::mk_deps},
             msg::{Height, MerklePath, SudoMsg, UpdateStateMsg, VerifyMembershipMsg},
+            test::fixture_types::CommitmentProof,
         };
 
         #[test]
@@ -394,9 +384,10 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let commitment_proof_fixture: CommitmentProofFixture = fixtures::load(
-                "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_4_commitment_proof",
-            );
+            let fixture: StepFixture =
+                fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+            let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
 
             let client_state = commitment_proof_fixture.client_state;
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -450,11 +441,7 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
-        use ethereum_light_client::{
-            client_state::ClientState as EthClientState,
-            consensus_state::ConsensusState as EthConsensusState, types::light_client::Header,
-        };
-        use ethereum_test_utils::fixtures::load;
+        use ethereum_test_utils::fixtures::{self, StepFixture};
 
         use crate::{
             contract::{instantiate, query, tests::mk_deps},
@@ -463,6 +450,7 @@ mod tests {
                 StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult,
                 VerifyClientMessageMsg,
             },
+            test::fixture_types::{InitialState, UpdateClient},
         };
 
         #[test]
@@ -471,13 +459,14 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let client_state: EthClientState = load(
-                "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_1_initial_client_state",
-            );
+            let fixture: StepFixture =
+                fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
 
-            let consensus_state: EthConsensusState = load(
-                "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
-            );
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let consensus_state = initial_state.consensus_state;
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -490,9 +479,8 @@ mod tests {
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-            let header: Header = load(
-                "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
-            );
+            let update_client: UpdateClient = fixture.get_data_at_step(1);
+            let header = update_client.updates[0].clone();
             let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
             let mut env = mock_env();
@@ -553,16 +541,6 @@ mod tests {
             let status_response: StatusResult = from_json(&res).unwrap();
             assert_eq!("Active", status_response.status);
         }
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-    pub struct CommitmentProofFixture {
-        #[serde(with = "ethereum_utils::base64")]
-        pub path: Vec<u8>,
-        pub storage_proof: StorageProof,
-        pub proof_height: ethereum_light_client::types::height::Height,
-        pub client_state: EthClientState,
-        pub consensus_state: EthConsensusState,
     }
 
     // TODO: Find a way to reuse the test handling code that already exists in the

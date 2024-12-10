@@ -109,10 +109,8 @@ pub fn compute_sync_committee_period_at_slot(
 
 #[cfg(test)]
 mod test {
-    use crate::types::{
-        light_client::Header,
-        sync_committee::{SyncAggregate, SyncCommittee},
-    };
+    use crate::test::fixture_types::UpdateClient;
+    use crate::types::sync_committee::{SyncAggregate, SyncCommittee};
 
     use alloy_primitives::{hex::FromHex, B256};
     use alloy_rpc_types_beacon::BlsSignature;
@@ -171,10 +169,13 @@ mod test {
         assert!(sync_aggregate.validate_signature_supermajority());
 
         // valid sync aggregate from fixtures with supermajority
-        let fixture: Header = fixtures::load(
-            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
-        );
-        let sync_aggregate = fixture.consensus_update.sync_aggregate;
+        let fixture: fixtures::StepFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+        let client_update: UpdateClient = fixture.get_data_at_step(1);
+        let sync_aggregate = client_update.updates[0]
+            .consensus_update
+            .sync_aggregate
+            .clone();
         assert!(sync_aggregate.validate_signature_supermajority());
     }
 }

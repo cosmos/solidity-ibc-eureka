@@ -180,10 +180,11 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		headers = []ethereumligthclient.Header{}
 	}
 
-	wasmClientState, _ := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
+	wasmClientState, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
 	_, unionConsensusState = s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
 
-	for i, header := range headers {
+	var updatedHeaders []ethereumligthclient.Header
+	for _, header := range headers {
 		logHeader("Updating eth light client", header)
 		headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
 		wasmHeader := ibcwasmtypes.ClientMessage{
@@ -202,8 +203,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.Slot
 		fmt.Println("Updated eth light client to block number", s.LastEtheruemLightClientUpdate)
 
-		err = rustFixtureGenerator.GenerateRustFixture(fmt.Sprintf("update_header_%d", i), header)
-		s.Require().NoError(err)
+		updatedHeaders = append(updatedHeaders, header)
 
 		time.Sleep(10 * time.Second)
 
@@ -212,6 +212,11 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			break
 		}
 	}
+	rustFixtureGenerator.AddFixtureStep("updated_light_client", types.UpdateClientFixture{
+		ClientState:    unionClientState,
+		ConsensusState: unionConsensusState,
+		Updates:        updatedHeaders,
+	})
 
 	s.Require().Greater(s.LastEtheruemLightClientUpdate, uint64(minimumUpdateTo))
 }
@@ -317,10 +322,10 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 
-	err = rustFixtureGenerator.GenerateRustFixture("initial_client_state", ethClientState)
-	s.Require().NoError(err)
-	err = rustFixtureGenerator.GenerateRustFixture("initial_consensus_state", ethConsensusState)
-	s.Require().NoError(err)
+	rustFixtureGenerator.AddFixtureStep("initial_state", types.InitialStateFixture{
+		ClientState:    ethClientState,
+		ConsensusState: ethConsensusState,
+	})
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {

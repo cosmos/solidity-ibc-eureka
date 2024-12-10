@@ -86,7 +86,7 @@ mod test {
     use crate::{
         client_state::ClientState,
         consensus_state::ConsensusState,
-        test::commitment_proof_fixture::CommitmentProofFixture,
+        test::fixture_types::CommitmentProof,
         types::{storage_proof::StorageProof, wrappers::WrappedBytes},
     };
 
@@ -101,9 +101,10 @@ mod test {
 
     #[test]
     fn test_with_fixture() {
-        let commitment_proof_fixture: CommitmentProofFixture = fixtures::load(
-            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_4_commitment_proof",
-        );
+        let fixture: fixtures::StepFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
 
         let trusted_consensus_state = commitment_proof_fixture.consensus_state;
         let client_state = commitment_proof_fixture.client_state;

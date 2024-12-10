@@ -62,7 +62,7 @@ const (
 	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
 	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
 	// RustFixturesDir is the directory where the Rust fixtures are stored.
-	RustFixturesDir = "packages/ethereum-test-utils/src/test/fixtures"
+	RustFixturesDir = "packages/ethereum-test-utils/src/fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.

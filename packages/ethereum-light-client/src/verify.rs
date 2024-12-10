@@ -345,7 +345,10 @@ pub fn get_lc_execution_root(
 
 #[cfg(test)]
 mod test {
-    use crate::types::bls::{BlsPublicKey, BlsSignature};
+    use crate::{
+        test::fixture_types::{InitialState, UpdateClient},
+        types::bls::{BlsPublicKey, BlsSignature},
+    };
 
     use super::*;
 
@@ -373,21 +376,17 @@ mod test {
     fn test_verify_header() {
         let bls_verifier = TestBlsVerifier;
 
-        let client_state: ClientState = fixtures::load(
-            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_1_initial_client_state",
-        );
-        assert_ne!(client_state, ClientState::default());
+        let fixture: fixtures::StepFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
 
-        let consensus_state: ConsensusState = fixtures::load(
-            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_2_initial_consensus_state",
-        );
-        assert_ne!(consensus_state, ConsensusState::default());
+        let initial_state: InitialState = fixture.get_data_at_step(0);
 
-        let header: Header = fixtures::load(
-            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
-        );
-        assert_ne!(header, Header::default());
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
 
+        let update_state: UpdateClient = fixture.get_data_at_step(1);
+
+        let header = update_state.updates[0].clone();
         verify_header(
             &consensus_state,
             &client_state,

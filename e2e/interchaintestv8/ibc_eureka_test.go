@@ -88,6 +88,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	eth, simd := s.ChainA, s.ChainB
 
 	var prover string
+	shouldGenerateRustFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -121,9 +122,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			s.generateSolidityFixtures = true
 		}
 
-		shouldGenerateRustFixtures := os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
-		s.rustFixtureGenerator = types.NewRustFixtureGenerator(s.GetTopLevelTestName(), shouldGenerateRustFixtures)
+		shouldGenerateRustFixtures = os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
+
+	// Needs to be added here so the cleanup is called after the test suite is done
+	s.rustFixtureGenerator = types.NewRustFixtureGenerator(&s.Suite, shouldGenerateRustFixtures)
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
 		args := append([]string{
@@ -1214,7 +1217,7 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 			RevisionHeight: s.LastEtheruemLightClientUpdate,
 		})
 
-		err = s.rustFixtureGenerator.GenerateRustFixture("commitment_proof", &types.CommitmentProofFixture{
+		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &types.CommitmentProofFixture{
 			Path:         path,
 			StorageProof: storageProof,
 			ProofHeight: clienttypes.Height{
@@ -1224,7 +1227,6 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 			ClientState:    unionClientState,
 			ConsensusState: unionConsensusState,
 		})
-		s.Require().NoError(err)
 	}
 
 	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
