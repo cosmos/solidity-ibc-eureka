@@ -131,50 +131,86 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         .flatten()
         .collect::<Vec<_>>();
 
-        let _recv_msgs = future::try_join_all(
-            src_events
-                .into_iter()
-                .filter(|e| match e {
-                    EurekaEvent::SendPacket(se) => {
-                        se.packet.timeoutTimestamp > now
-                            && se.packet.destChannel == target_channel_id
-                    }
-                    _ => false,
-                })
-                .map(|e| async {
-                    match e {
-                        EurekaEvent::SendPacket(se) => {
-                            let ibc_path = se.packet.commitment_path();
-                            self.source_tm_client
-                                .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
-                                .await
-                                .map(|(v, p)| {
-                                    if v.is_empty() {
-                                        Some(MsgRecvPacket {
-                                            packet: Some(se.packet.into()),
-                                            proof_height: Some(Height {
-                                                revision_number: client_state
-                                                    .latest_height
-                                                    .unwrap_or_default()
-                                                    .revision_number,
-                                                revision_height: target_height.into(),
-                                            }),
-                                            proof_commitment: p.encode_vec(),
-                                            signer: String::new(),
-                                        })
-                                    } else {
-                                        None
-                                    }
+        let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
+            .into_iter()
+            .filter(|e| match e {
+                EurekaEvent::SendPacket(se) => {
+                    se.packet.timeoutTimestamp > now && se.packet.destChannel == target_channel_id
+                }
+                EurekaEvent::WriteAcknowledgement(we) => {
+                    we.packet.sourceChannel == target_channel_id
+                }
+                _ => false,
+            })
+            .partition(|e| match e {
+                EurekaEvent::SendPacket(_) => true,
+                EurekaEvent::WriteAcknowledgement(_) => false,
+                _ => unreachable!(),
+            });
+
+        let _recv_msgs = future::try_join_all(src_send_events.into_iter().map(|e| async {
+            match e {
+                EurekaEvent::SendPacket(se) => {
+                    let ibc_path = se.packet.commitment_path();
+                    self.source_tm_client
+                        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+                        .await
+                        .map(|(v, p)| {
+                            if v.is_empty() {
+                                Some(MsgRecvPacket {
+                                    packet: Some(se.packet.into()),
+                                    proof_height: Some(Height {
+                                        revision_number: client_state
+                                            .latest_height
+                                            .unwrap_or_default()
+                                            .revision_number,
+                                        revision_height: target_height.into(),
+                                    }),
+                                    proof_commitment: p.encode_vec(),
+                                    signer: String::new(),
                                 })
-                        }
-                        _ => unreachable!(),
-                    }
-                }),
-        )
+                            } else {
+                                None
+                            }
+                        })
+                }
+                _ => unreachable!(),
+            }
+        }))
         .await?
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
+
+        let _ack_msgs = future::try_join_all(src_ack_events.into_iter().map(|e| async {
+            match e {
+                EurekaEvent::WriteAcknowledgement(we) => {
+                    let ibc_path = we.packet.ack_commitment_path();
+                    self.source_tm_client
+                        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+                        .await
+                        .map(|(v, p)| {
+                            if v.is_empty() {
+                                Some(MsgRecvPacket {
+                                    packet: Some(we.packet.into()),
+                                    proof_height: Some(Height {
+                                        revision_number: client_state
+                                            .latest_height
+                                            .unwrap_or_default()
+                                            .revision_number,
+                                        revision_height: target_height.into(),
+                                    }),
+                                    proof_commitment: p.encode_vec(),
+                                    signer: String::new(),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                }
+                _ => unreachable!(),
+            }
+        }));
 
         todo!()
     }
