@@ -29,6 +29,7 @@ This project is structered as a [foundry](https://getfoundry.sh/) project with t
     - `relayer/`: Contains the relayer implementation.
     - `operator/`: Contains the operator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
+    - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
 
 ### Contracts
@@ -223,10 +224,17 @@ Note: These gas benchmarks are with Groth16.
     RUST_LOG=info cargo run --bin operator --release -- start
     ```
 
+## Etheruem Light Client
+> ⚠ The Ethereum Light Client is currently under heavy development, is expected to change and is not ready for production use.
+
+This repository contains an Ethereum light client which is implemented as two separate layers:
+* A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
+* A stateless light client verification package in `packages/ethereum-light-client`
+
 ## License
 
 This project is licensed under MIT.
 
 ## Acknowledgements
 
-This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references. We are also grateful to [unionlabs](https://github.com/unionlabs/union/) for their `08-wasm` ethereum light client implementation for ibc-go.
+This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references. We are also grateful to [unionlabs](https://github.com/unionlabs/union/) for their `08-wasm` ethereum light client implementation for ibc-go which our own implementation is based on.
