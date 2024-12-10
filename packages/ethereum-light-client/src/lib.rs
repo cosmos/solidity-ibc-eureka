@@ -9,3 +9,6 @@ pub mod verify;
 pub mod types;
 
 pub use typenum; // re-export (for some weird macro stuff in config.rs)
+
+#[cfg(test)]
+mod test;

@@ -73,12 +73,16 @@ impl SyncAggregate {
             .sum::<u32>() as usize
     }
 
+    pub fn sync_committee_size(&self) -> usize {
+        self.sync_committee_bits.len() * 8
+    }
+
     // TODO: Unit test
     // Returns if at least 2/3 of the sync committee signed
     //
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update
     pub fn validate_signature_supermajority(&self) -> bool {
-        self.num_sync_committe_participants() * 3 >= self.sync_committee_bits.len() * 8 * 2
+        self.num_sync_committe_participants() * 3 >= self.sync_committee_size() * 2
     }
 }
 
@@ -105,9 +109,13 @@ pub fn compute_sync_committee_period_at_slot(
 
 #[cfg(test)]
 mod test {
-    use crate::types::sync_committee::SyncCommittee;
+    use crate::types::{
+        light_client::Header,
+        sync_committee::{SyncAggregate, SyncCommittee},
+    };
 
     use alloy_primitives::{hex::FromHex, B256};
+    use alloy_rpc_types_beacon::BlsSignature;
     use ethereum_test_utils::fixtures;
     use tree_hash::TreeHash;
 
@@ -122,5 +130,51 @@ mod test {
                 .unwrap();
 
         assert_eq!(expected_tree_hash_root, actual_tree_hash_root);
+    }
+
+    #[test]
+    fn test_validate_signature_supermajority() {
+        // not supermajority
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b10001001].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert_eq!(sync_aggregate.num_sync_committe_participants(), 3);
+        assert_eq!(sync_aggregate.sync_committee_size(), 8);
+        assert!(!sync_aggregate.validate_signature_supermajority());
+
+        // not supermajority
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b10000001, 0b11111111, 0b00010000, 0b00000000].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert_eq!(sync_aggregate.num_sync_committe_participants(), 11);
+        assert_eq!(sync_aggregate.sync_committee_size(), 32);
+        assert!(!sync_aggregate.validate_signature_supermajority());
+
+        // not supermajority
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b11101001, 0b11111111, 0b01010000, 0b01111110].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert_eq!(sync_aggregate.num_sync_committe_participants(), 21);
+        assert_eq!(sync_aggregate.sync_committee_size(), 32);
+        assert!(!sync_aggregate.validate_signature_supermajority());
+
+        // supermajority
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b11101001, 0b11111111, 0b01011000, 0b01111110].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert_eq!(sync_aggregate.num_sync_committe_participants(), 22);
+        assert_eq!(sync_aggregate.sync_committee_size(), 32);
+        assert!(sync_aggregate.validate_signature_supermajority());
+
+        // valid sync aggregate from fixtures with supermajority
+        let fixture: Header = fixtures::load(
+            "TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16_3_update_header_0",
+        );
+        let sync_aggregate = fixture.consensus_update.sync_aggregate;
+        assert!(sync_aggregate.validate_signature_supermajority());
     }
 }
