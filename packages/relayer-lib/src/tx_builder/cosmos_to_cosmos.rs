@@ -8,14 +8,14 @@ use ibc_proto_eureka::{
             channel::v2::{
                 Channel, MsgRecvPacket, MsgTimeout, QueryChannelRequest, QueryChannelResponse,
             },
-            client::v1::Height,
+            client::v1::{Height, MsgUpdateClient},
         },
         lightclients::tendermint::v1::ClientState,
     },
     Protobuf,
 };
 use prost::Message;
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::{chain::CosmosSdk, events::EurekaEvent};
@@ -77,14 +77,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let channel = self.channel(target_channel_id.clone()).await?;
         let client_state = ClientState::decode(
             self.target_tm_client
-                .client_state(channel.client_id)
+                .client_state(channel.client_id.clone())
                 .await?
                 .value
                 .as_slice(),
         )?;
 
-        let light_block = self.source_tm_client.get_light_block(None).await?;
-        let target_height = light_block.height().value().try_into()?;
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+        let target_height = target_light_block.height().value().try_into()?;
 
         let _timeout_msgs = future::try_join_all(
             target_events
@@ -211,6 +211,25 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                 _ => unreachable!(),
             }
         }));
+
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(
+                client_state
+                    .latest_height
+                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                    .revision_height
+                    .try_into()?,
+            ))
+            .await?;
+
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+        let _update_msg = MsgUpdateClient {
+            client_id: channel.client_id,
+            client_message: Some(proposed_header.into()),
+            signer: String::new(),
+        };
 
         todo!()
     }
