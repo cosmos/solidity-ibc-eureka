@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tree_hash_derive::TreeHash;
 
 use crate::config::consts::{
-    floorlog2, EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX,
+    EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX,
 };
 
 use super::{
@@ -11,9 +11,9 @@ use super::{
     wrappers::{WrappedBloom, WrappedBranch, WrappedBytes},
 };
 
-const EXECUTION_BRANCH_SIZE: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
-const NEXT_SYNC_COMMITTEE_BRANCH_SIZE: usize = floorlog2(NEXT_SYNC_COMMITTEE_INDEX);
-const FINALITY_BRANCH_SIZE: usize = floorlog2(FINALIZED_ROOT_INDEX);
+pub const EXECUTION_BRANCH_DEPTH: usize = EXECUTION_PAYLOAD_INDEX.ilog2() as usize;
+pub const NEXT_SYNC_COMMITTEE_BRANCH_DEPTH: usize = NEXT_SYNC_COMMITTEE_INDEX.ilog2() as usize;
+pub const FINALITY_BRANCH_DEPTH: usize = FINALIZED_ROOT_INDEX.ilog2() as usize;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
 pub struct Header {
@@ -29,10 +29,10 @@ pub struct LightClientUpdate {
     /// Next sync committee corresponding to `attested_header.state_root`
     #[serde(default)] // TODO: Check if this can be removed in #143
     pub next_sync_committee: Option<SyncCommittee>,
-    pub next_sync_committee_branch: Option<WrappedBranch<NEXT_SYNC_COMMITTEE_BRANCH_SIZE>>,
+    pub next_sync_committee_branch: Option<WrappedBranch<NEXT_SYNC_COMMITTEE_BRANCH_DEPTH>>,
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
-    pub finality_branch: WrappedBranch<FINALITY_BRANCH_SIZE>,
+    pub finality_branch: WrappedBranch<FINALITY_BRANCH_DEPTH>,
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
@@ -55,7 +55,7 @@ pub struct AccountProof {
 pub struct LightClientHeader {
     pub beacon: BeaconBlockHeader,
     pub execution: ExecutionPayloadHeader,
-    pub execution_branch: WrappedBranch<EXECUTION_BRANCH_SIZE>,
+    pub execution_branch: WrappedBranch<EXECUTION_BRANCH_DEPTH>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]

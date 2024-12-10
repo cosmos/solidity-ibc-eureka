@@ -10,8 +10,7 @@ use tree_hash::TreeHash;
 use crate::{
     client_state::ClientState,
     config::consts::{
-        floorlog2, get_subtree_index, EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_INDEX,
-        NEXT_SYNC_COMMITTEE_INDEX,
+        get_subtree_index, EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX,
     },
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
@@ -20,7 +19,10 @@ use crate::{
         bls::BlsVerify,
         domain::{compute_domain, DomainType},
         fork_parameters::compute_fork_version,
-        light_client::{Header, LightClientHeader, LightClientUpdate},
+        light_client::{
+            Header, LightClientHeader, LightClientUpdate, EXECUTION_BRANCH_DEPTH,
+            FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
+        },
         signing_data::compute_signing_root,
         sync_committee::compute_sync_committee_period_at_slot,
     },
@@ -214,7 +216,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     validate_merkle_branch(
         finalized_root,
         update.finality_branch.clone().into(),
-        floorlog2(FINALIZED_ROOT_INDEX),
+        FINALITY_BRANCH_DEPTH,
         get_subtree_index(FINALIZED_ROOT_INDEX),
         update.attested_header.beacon.state_root,
     )
@@ -243,7 +245,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
                 .clone()
                 .unwrap_or_default()
                 .into(),
-            floorlog2(NEXT_SYNC_COMMITTEE_INDEX),
+            NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
             get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
             update.attested_header.beacon.state_root,
         )
@@ -321,7 +323,7 @@ pub fn is_valid_light_client_header(
     validate_merkle_branch(
         get_lc_execution_root(client_state, header),
         header.execution_branch.0.into(),
-        floorlog2(EXECUTION_PAYLOAD_INDEX),
+        EXECUTION_BRANCH_DEPTH,
         get_subtree_index(EXECUTION_PAYLOAD_INDEX),
         header.beacon.body_root,
     )

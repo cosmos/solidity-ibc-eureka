@@ -162,6 +162,11 @@ pub mod consts {
     pub const NEXT_SYNC_COMMITTEE_INDEX: u64 = 55;
     /// `get_generalized_index(BeaconBlockBody, "execution_payload")`
     pub const EXECUTION_PAYLOAD_INDEX: u64 = 25;
+
+    // Branch depths for different merkle trees related to ethereum consensus
+    pub const EXECUTION_BRANCH_DEPTH: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
+    pub const NEXT_SYNC_COMMITTEE_BRANCH_DEPTH: usize = floorlog2(NEXT_SYNC_COMMITTEE_INDEX);
+    pub const FINALITY_BRANCH_DEPTH: usize = floorlog2(FINALIZED_ROOT_INDEX);
 }
 
 pub mod preset {
