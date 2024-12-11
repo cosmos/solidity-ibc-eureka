@@ -1,3 +1,5 @@
+//! Types related to the sync committee
+
 use alloy_primitives::Bytes;
 use ethereum_utils::slot::compute_epoch_at_slot;
 use serde::{Deserialize, Serialize};
@@ -9,50 +11,66 @@ use super::{
     wrappers::WrappedVecBlsPublicKey,
 };
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
+/// The sync committee data
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct SyncCommittee {
+    /// The public keys of the sync committee
     pub pubkeys: WrappedVecBlsPublicKey,
+    /// The aggregate public key of the sync committee
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub aggregate_pubkey: BlsPublicKey,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+/// The active sync committee
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub enum ActiveSyncCommittee {
+    /// The current sync committee
     Current(SyncCommittee),
+    /// The next sync committee
     Next(SyncCommittee),
 }
 
+// TODO: should this actually return default at any point? If not, panic or error
 impl Default for ActiveSyncCommittee {
     fn default() -> Self {
-        ActiveSyncCommittee::Current(SyncCommittee {
+        Self::Current(SyncCommittee {
             pubkeys: WrappedVecBlsPublicKey::default(),
             aggregate_pubkey: BlsPublicKey::default(),
         })
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// The trusted sync committee
+// TODO: Could we use a enum to represent the current and next sync committee like
+// `ActiveSyncCommittee`?
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
 pub struct TrustedSyncCommittee {
+    /// The trusted height
     pub trusted_height: Height,
+    /// The current sync committee
     pub current_sync_committee: Option<SyncCommittee>,
+    /// The next sync committee
     pub next_sync_committee: Option<SyncCommittee>,
 }
 
 impl TrustedSyncCommittee {
+    /// Returns the active sync committee
     // TODO: should this actually return default at any point? If not, panic or error
     // also, if not returning default, remove the impl Default
+    #[must_use]
     pub fn get_active_sync_committee(&self) -> ActiveSyncCommittee {
-        if let Some(sync_committee) = &self.current_sync_committee {
-            ActiveSyncCommittee::Current(sync_committee.clone())
-        } else if let Some(sync_committee) = &self.next_sync_committee {
-            ActiveSyncCommittee::Next(sync_committee.clone())
-        } else {
-            ActiveSyncCommittee::default()
+        match (&self.current_sync_committee, &self.next_sync_committee) {
+            (Some(sync_committee), _) => ActiveSyncCommittee::Current(sync_committee.clone()),
+            (_, Some(sync_committee)) => ActiveSyncCommittee::Next(sync_committee.clone()),
+            _ => ActiveSyncCommittee::default(),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// The sync committee aggregate
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct SyncAggregate {
     /// The bits representing the sync committee's participation.
     #[serde(with = "ethereum_utils::base64")]
@@ -73,14 +91,15 @@ impl SyncAggregate {
             .sum::<u32>() as usize
     }
 
+    /// Returns the size of the sync committee.
     pub fn sync_committee_size(&self) -> usize {
         self.sync_committee_bits.len() * 8
     }
 
+    /// Returns if at least 2/3 of the sync committee signed
+    ///
+    /// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update>
     // TODO: Unit test
-    // Returns if at least 2/3 of the sync committee signed
-    //
-    // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update
     pub fn validate_signature_supermajority(&self) -> bool {
         self.num_sync_committe_participants() * 3 >= self.sync_committee_size() * 2
     }
@@ -89,13 +108,18 @@ impl SyncAggregate {
 /// Returns the sync committee period at a given `epoch`.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee)
-pub fn compute_sync_committee_period(epochs_per_sync_committee_period: u64, epoch: u64) -> u64 {
+#[must_use]
+pub const fn compute_sync_committee_period(
+    epochs_per_sync_committee_period: u64,
+    epoch: u64,
+) -> u64 {
     epoch / epochs_per_sync_committee_period
 }
 
 /// Returns the sync committee period at a given `slot`.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#compute_sync_committee_period_at_slot)
+#[must_use]
 pub fn compute_sync_committee_period_at_slot(
     slots_per_epoch: u64,
     epochs_per_sync_committee_period: u64,
@@ -108,6 +132,7 @@ pub fn compute_sync_committee_period_at_slot(
 }
 
 #[cfg(test)]
+#[allow(clippy::pedantic)]
 mod test {
     use crate::test::fixture_types::UpdateClient;
     use crate::types::sync_committee::{SyncAggregate, SyncCommittee};

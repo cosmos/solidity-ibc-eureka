@@ -1,3 +1,6 @@
+//! This module provides [`verify_membership`] function to verify the membership of a key in the
+//! storage trie.
+
 use alloy_primitives::{keccak256, Bytes, Keccak256, U256};
 use alloy_rlp::encode_fixed_size;
 use alloy_trie::{proof::verify_proof, Nibbles};
@@ -8,6 +11,10 @@ use crate::{
     types::storage_proof::StorageProof,
 };
 
+/// Verifies the membership of a key in the storage trie.
+/// # Errors
+/// Returns an error if the proof cannot be verified.
+#[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_membership(
     trusted_consensus_state: ConsensusState,
     client_state: ClientState,
@@ -21,7 +28,7 @@ pub fn verify_membership(
         .map_err(|_| EthereumIBCError::StorageProofDecode)?;
 
     check_commitment_key(
-        path.to_vec(),
+        path.clone(),
         client_state.ibc_commitment_slot,
         storage_proof.key.into(),
     )?;
@@ -59,13 +66,13 @@ fn check_commitment_key(
     let expected_commitment_key = ibc_commitment_key_v2(path, ibc_commitment_slot);
 
     // Data MUST be stored to the commitment path that is defined in ICS23.
-    if expected_commitment_key != key {
+    if expected_commitment_key == key {
+        Ok(())
+    } else {
         Err(EthereumIBCError::InvalidCommitmentKey(
             format!("0x{expected_commitment_key:x}"),
             format!("0x{key:x}"),
         ))
-    } else {
-        Ok(())
     }
 }
 

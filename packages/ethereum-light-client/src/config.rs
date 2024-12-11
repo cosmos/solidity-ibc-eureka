@@ -1,3 +1,5 @@
+//! The configuration module contains the configurations and presets for the beacon chains.
+
 use core::{
     fmt::{self, Debug},
     str::FromStr,
@@ -16,18 +18,21 @@ pub struct Minimal;
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Mainnet;
 
+/// The base kind of the preset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PresetBaseKind {
+    /// Minimal preset
     Minimal,
+    /// Mainnet preset
     Mainnet,
 }
 
 impl fmt::Display for PresetBaseKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            PresetBaseKind::Minimal => "minimal",
-            PresetBaseKind::Mainnet => "mainnet",
+            Self::Minimal => "minimal",
+            Self::Mainnet => "mainnet",
         })
     }
 }
@@ -55,7 +60,7 @@ macro_rules! with_dollar_sign {
 macro_rules! consts_traits {
     ($($CONST:ident $(,)?),+) => {
         $(
-            #[allow(non_camel_case_types)]
+            #[allow(non_camel_case_types, missing_docs)]
             pub trait $CONST: Send + Sync + Unpin + 'static {
                 // Extra traits are required because the builtin derives bound all generic
                 // types unconditionally
@@ -63,6 +68,7 @@ macro_rules! consts_traits {
             }
         )+
 
+        #[allow(missing_docs, clippy::trait_duplication_in_bounds)]
         pub trait ChainSpec: 'static + Debug + Clone + PartialEq + Eq + Default + Send + Sync + Unpin + Default + $($CONST+)+ {
             const PRESET: preset::Preset;
             // const PRESET_BASE_KIND: PresetBaseKind;
@@ -164,51 +170,77 @@ pub mod consts {
     pub const EXECUTION_PAYLOAD_INDEX: u64 = 25;
 
     // Branch depths for different merkle trees related to ethereum consensus
+
+    /// The depth of the merkle tree for execution payloads.
     pub const EXECUTION_BRANCH_DEPTH: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
+    /// The depth of the merkle tree for the next sync committee.
     pub const NEXT_SYNC_COMMITTEE_BRANCH_DEPTH: usize = floorlog2(NEXT_SYNC_COMMITTEE_INDEX);
+    /// The depth of the merkle tree for the finalized root.
     pub const FINALITY_BRANCH_DEPTH: usize = floorlog2(FINALIZED_ROOT_INDEX);
 }
 
+/// This module contains the preset values for the different configurations.
 pub mod preset {
+    /// The preset
     #[allow(non_snake_case)]
     #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     pub struct Preset {
-        /// Misc
-        /// ---------------------------------------------------------------
+        // Misc
+        // ---------------------------------------------------------------
+        /// The depth of the deposit contract tree.
         pub DEPOSIT_CONTRACT_TREE_DEPTH: usize,
+        /// The max number of validators per committee.
         pub MAX_VALIDATORS_PER_COMMITTEE: usize,
 
-        /// Time parameters
-        /// ---------------------------------------------------------------
+        // Time parameters
+        // ---------------------------------------------------------------
+        /// The number of seconds per slot.
         pub SECONDS_PER_SLOT: usize,
+        /// The number of slots per epoch.
         pub SLOTS_PER_EPOCH: usize,
 
-        /// Max operations per block
-        /// ---------------------------------------------------------------
+        // Max operations per block
+        // ---------------------------------------------------------------
+        /// The max number of proposer slashings per block.
         pub MAX_PROPOSER_SLASHINGS: usize,
+        /// The max number of attester slashings per block.
         pub MAX_ATTESTER_SLASHINGS: usize,
+        /// The max number of attestations per block.
         pub MAX_ATTESTATIONS: usize,
+        /// The max number of deposits per block.
         pub MAX_DEPOSITS: usize,
+        /// The max number of voluntary exits per block.
         pub MAX_VOLUNTARY_EXITS: usize,
+        /// The max number of BLS to execution changes per block.
         pub MAX_BLS_TO_EXECUTION_CHANGES: usize,
+        /// The max number of blob commitments per block.
         pub MAX_BLOB_COMMITMENTS_PER_BLOCK: usize,
 
-        /// Execution
-        /// ---------------------------------------------------------------
+        // Execution
+        // ---------------------------------------------------------------
+        /// The max number of bytes per transaction.
         pub MAX_BYTES_PER_TRANSACTION: usize,
+        /// The max number of transactions per payload.
         pub MAX_TRANSACTIONS_PER_PAYLOAD: usize,
+        /// The number of bytes per logs bloom.
         pub BYTES_PER_LOGS_BLOOM: usize,
+        /// The max number of extra data bytes.
         pub MAX_EXTRA_DATA_BYTES: usize,
+        /// The max number of withdrawals per payload.
         pub MAX_WITHDRAWALS_PER_PAYLOAD: usize,
 
-        /// Sync committee
-        /// ---------------------------------------------------------------
+        // Sync committee
+        // ---------------------------------------------------------------
+        /// The size of the sync committee.
         pub SYNC_COMMITTEE_SIZE: usize,
+        /// The number of epochs per sync committee period.
         pub EPOCHS_PER_SYNC_COMMITTEE_PERIOD: usize,
 
-        /// Sync protocol
-        /// ---------------------------------------------------------------
+        // Sync protocol
+        // ---------------------------------------------------------------
+        /// The min number of sync committee participants.
         pub MIN_SYNC_COMMITTEE_PARTICIPANTS: usize,
+        /// The update timeout.
         pub UPDATE_TIMEOUT: usize,
     }
 
@@ -268,13 +300,18 @@ pub mod preset {
     };
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// The configuration for the beacon chain.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Config {
+    /// The preset
     pub preset: preset::Preset,
+    /// The fork parameters
     pub fork_parameters: ForkParameters,
+    /// The minimum genesis time
     pub min_genesis_time: u64,
 }
 
+/// The Goerli testnet configuration.
 pub const GOERLI: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {
@@ -300,6 +337,7 @@ pub const GOERLI: Config = Config {
     min_genesis_time: 1_614_588_812,
 };
 
+/// The mainnet configuration.
 pub const MAINNET: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {
@@ -327,6 +365,7 @@ pub const MAINNET: Config = Config {
     min_genesis_time: 1_606_824_000,
 };
 
+/// The minimal configuration.
 pub const MINIMAL: Config = Config {
     preset: preset::MINIMAL,
     fork_parameters: ForkParameters {
@@ -357,6 +396,7 @@ pub const MINIMAL: Config = Config {
     min_genesis_time: 1_578_009_600,
 };
 
+/// The sepolia testnet configuration.
 pub const SEPOLIA: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {

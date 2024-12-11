@@ -1,3 +1,5 @@
+//! This module contains functions to verify the header of the light client.
+
 use alloy_primitives::B256;
 
 use ethereum_trie_db::trie_db::verify_account_storage_root;
@@ -10,7 +12,8 @@ use tree_hash::TreeHash;
 use crate::{
     client_state::ClientState,
     config::consts::{
-        get_subtree_index, EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX,
+        get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
+        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
     },
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
@@ -18,16 +21,16 @@ use crate::{
     types::{
         bls::BlsVerify,
         domain::{compute_domain, DomainType},
-        fork_parameters::compute_fork_version,
-        light_client::{
-            Header, LightClientHeader, LightClientUpdate, EXECUTION_BRANCH_DEPTH,
-            FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-        },
+        light_client::{Header, LightClientHeader, LightClientUpdate},
         signing_data::compute_signing_root,
         sync_committee::compute_sync_committee_period_at_slot,
     },
 };
 
+/// Verifies the header of the light client.
+/// # Errors
+/// Returns an error if the header cannot be verified.
+#[allow(clippy::module_name_repetitions)]
 pub fn verify_header<V: BlsVerify>(
     consensus_state: &ConsensusState,
     client_state: &ClientState,
@@ -76,7 +79,6 @@ pub fn verify_header<V: BlsVerify>(
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
 
-// TODO: Update comments
 /// Verifies if the light client `update` is valid.
 ///
 /// * `update`: The light client update we want to verify.
@@ -95,6 +97,12 @@ pub fn verify_header<V: BlsVerify>(
 ///   to be changed or removed.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update)
+/// # Errors
+/// Returns an error if the update cannot be verified.
+/// # Panics
+/// If the minimum sync committee participants is not a valid usize.
+// TODO: Update comments
+#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 pub fn validate_light_client_update<V: BlsVerify>(
     client_state: &ClientState,
     trusted_consensus_state: &TrustedConsensusState,
@@ -275,10 +283,12 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .collect::<Vec<_>>();
 
     let fork_version_slot = std::cmp::max(update.signature_slot, 1) - 1;
-    let fork_version = compute_fork_version(
-        &client_state.fork_parameters,
-        compute_epoch_at_slot(client_state.slots_per_epoch, fork_version_slot),
-    );
+    let fork_version = client_state
+        .fork_parameters
+        .compute_fork_version(compute_epoch_at_slot(
+            client_state.slots_per_epoch,
+            fork_version_slot,
+        ));
 
     let domain = compute_domain(
         DomainType::SYNC_COMMITTEE,
@@ -302,6 +312,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
 /// Validates a light client header.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header)
+/// # Errors
+/// Returns an error if the header cannot be validated.
 pub fn is_valid_light_client_header(
     client_state: &ClientState,
     header: &LightClientHeader,
@@ -329,6 +341,9 @@ pub fn is_valid_light_client_header(
     )
 }
 
+/// Returns the execution root of the light client header.
+/// # Errors
+/// Returns an error if the epoch is less than the Deneb epoch.
 pub fn get_lc_execution_root(
     client_state: &ClientState,
     header: &LightClientHeader,

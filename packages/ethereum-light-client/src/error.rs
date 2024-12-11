@@ -1,7 +1,10 @@
+//! This module defines [`EthereumIBCError`].
+
 use alloy_primitives::B256;
 use alloy_rpc_types_beacon::BlsPublicKey;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
+#[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum EthereumIBCError {
     #[error(transparent)]
     EthereumUtilsError(#[from] ethereum_utils::error::EthereumUtilsError),
@@ -119,12 +122,13 @@ pub enum EthereumIBCError {
     ValidateNextSyncCommitteeFailed(#[source] Box<EthereumIBCError>),
 }
 
-#[derive(Debug, PartialEq, Clone, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]
 #[error("invalid merkle branch \
     (leaf: {leaf}, branch: [{branch}], \
     depth: {depth}, index: {index}, root: {root}, found: {found})",
     branch = .branch.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ")
 )]
+#[allow(missing_docs)]
 pub struct InvalidMerkleBranch {
     pub leaf: B256,
     pub branch: Vec<B256>,
@@ -132,4 +136,26 @@ pub struct InvalidMerkleBranch {
     pub index: u64,
     pub root: B256,
     pub found: B256,
+}
+
+impl EthereumIBCError {
+    /// Constructs an [`EthereumIBCError::InvalidMerkleBranch`] variant.
+    #[must_use]
+    pub fn invalid_merkle_branch(
+        leaf: B256,
+        branch: Vec<B256>,
+        depth: usize,
+        index: u64,
+        root: B256,
+        found: B256,
+    ) -> Self {
+        Self::InvalidMerkleBranch(Box::new(InvalidMerkleBranch {
+            leaf,
+            branch,
+            depth,
+            index,
+            root,
+            found,
+        }))
+    }
 }

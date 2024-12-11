@@ -1,10 +1,12 @@
+//! This module defines [`compute_signing_root`].
+
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
-pub struct SigningData {
+struct SigningData {
     pub object_root: B256,
     pub domain: B256,
 }

@@ -1,10 +1,17 @@
+//! This module defines types and functions related to the signature domain.
+
 use alloy_primitives::{hex, FixedBytes, B256};
 use serde::{Deserialize, Serialize};
 
 use super::{fork_data::compute_fork_data_root, wrappers::WrappedVersion};
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// The signature domain type.
+/// Defined in
+/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types>
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
 pub struct DomainType(pub [u8; 4]);
+#[allow(missing_docs)]
 impl DomainType {
     pub const BEACON_PROPOSER: Self = Self(hex!("00000000"));
     pub const BEACON_ATTESTER: Self = Self(hex!("01000000"));
@@ -23,6 +30,8 @@ impl DomainType {
 /// Return the domain for the `domain_type` and `fork_version`.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_domain)
+#[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
+#[must_use]
 pub fn compute_domain(
     domain_type: DomainType,
     fork_version: Option<WrappedVersion>,
@@ -96,7 +105,7 @@ mod test {
             )
         );
 
-        let fork_data_root = compute_fork_data_root(genesis_version.clone(), Default::default());
+        let fork_data_root = compute_fork_data_root(genesis_version.clone(), FixedBytes::default());
         let mut domain = B256::default();
         domain.0[..4].copy_from_slice(&domain_type.0);
         domain.0[4..].copy_from_slice(&fork_data_root[..28]);

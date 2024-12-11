@@ -1,15 +1,23 @@
+//! This module defines [`ConsensusState`] and [`TrustedConsensusState`].
+
 use alloy_primitives::{FixedBytes, B256};
 use serde::{Deserialize, Serialize};
 
 use crate::types::sync_committee::{ActiveSyncCommittee, SyncCommittee};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+/// The consensus state of the Ethereum light client
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub struct ConsensusState {
+    /// The slot number
     pub slot: u64,
+    /// The state merkle root
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub state_root: B256,
+    /// The storage merkle root
     #[serde(with = "ethereum_utils::base64::fixed_size")]
     pub storage_root: B256,
+    /// The timestamp of the consensus state
+    // TODO: document the timestamp format (seconds since epoch?)
     pub timestamp: u64,
     /// aggregate public key of current sync committee
     #[serde(with = "ethereum_utils::base64::fixed_size")]
@@ -19,8 +27,11 @@ pub struct ConsensusState {
     pub next_sync_committee: Option<FixedBytes<48>>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// The trusted consensus state of the Ethereum light client
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
 pub struct TrustedConsensusState {
+    /// The consensus state
     pub state: ConsensusState,
     /// Full sync committee data which corresponds to the aggregate key that we
     /// store at the client.
@@ -32,11 +43,15 @@ pub struct TrustedConsensusState {
 }
 
 impl TrustedConsensusState {
-    pub fn finalized_slot(&self) -> u64 {
+    /// Returns the finalized slot of the trusted consensus state
+    #[must_use]
+    pub const fn finalized_slot(&self) -> u64 {
         self.state.slot
     }
 
-    pub fn current_sync_committee(&self) -> Option<&SyncCommittee> {
+    /// Returns the current slot of the trusted consensus state if it is available
+    #[must_use]
+    pub const fn current_sync_committee(&self) -> Option<&SyncCommittee> {
         if let ActiveSyncCommittee::Current(committee) = &self.sync_committee {
             Some(committee)
         } else {
@@ -44,7 +59,9 @@ impl TrustedConsensusState {
         }
     }
 
-    pub fn next_sync_committee(&self) -> Option<&SyncCommittee> {
+    /// Returns the next sync committee if it is available
+    #[must_use]
+    pub const fn next_sync_committee(&self) -> Option<&SyncCommittee> {
         if let ActiveSyncCommittee::Next(committee) = &self.sync_committee {
             Some(committee)
         } else {

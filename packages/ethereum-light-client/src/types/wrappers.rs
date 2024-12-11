@@ -1,10 +1,14 @@
+//! Wrappers around types that implement `TreeHash` to provide custom serialization and encoding.
+
 use alloy_primitives::{aliases::B32, Bloom, Bytes, FixedBytes, B256};
 use serde::{Deserialize, Serialize};
 use tree_hash::{MerkleHasher, TreeHash, BYTES_PER_CHUNK};
 
 use super::bls::BlsPublicKey;
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// A wrapper around a `B32` that represents a version, implements [`TreeHash`], and uses a
+/// fixed-size base64 encoding.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct WrappedVersion(#[serde(with = "ethereum_utils::base64::fixed_size")] pub B32);
 
 impl TreeHash for WrappedVersion {
@@ -25,7 +29,8 @@ impl TreeHash for WrappedVersion {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// A wrapper around [`Bytes`] that implements [`TreeHash`] and uses a base64 encoding.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct WrappedBytes(#[serde(with = "ethereum_utils::base64")] pub Bytes);
 
 impl TreeHash for WrappedBytes {
@@ -46,7 +51,7 @@ impl TreeHash for WrappedBytes {
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
         }
 
         tree_hash::mix_in_length(&hasher.finish().unwrap(), self.0.len())
@@ -59,7 +64,8 @@ impl AsRef<[u8]> for WrappedBytes {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// A wrapper around [`Bloom`] that implements [`TreeHash`] and uses a fixed-size base64 encoding.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct WrappedBloom(#[serde(with = "ethereum_utils::base64::fixed_size")] pub Bloom);
 
 impl TreeHash for WrappedBloom {
@@ -80,14 +86,16 @@ impl TreeHash for WrappedBloom {
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
         }
 
         hasher.finish().unwrap()
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+/// A fixed size wrapper around a list of [`B256`] that implements [`TreeHash`] and uses a
+/// fixed-size base64 encoding to represent a branch of a tree.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct WrappedBranch<const N: usize>(
     #[serde(with = "ethereum_utils::base64::fixed_size::vec::fixed_size")] pub [B256; N],
 );
@@ -110,7 +118,7 @@ impl<const N: usize> TreeHash for WrappedBranch<N> {
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
-            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap()
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
         }
 
         hasher.finish().unwrap()
@@ -129,7 +137,9 @@ impl<const N: usize> From<WrappedBranch<N>> for Vec<B256> {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default)]
+/// A wrapper around a list of [`BlsPublicKey`] that implements [`TreeHash`] and uses a fixed-size
+/// base64 encoding.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct WrappedVecBlsPublicKey(
     #[serde(with = "ethereum_utils::base64::fixed_size::vec")] pub Vec<BlsPublicKey>,
 );
@@ -152,7 +162,7 @@ impl TreeHash for WrappedVecBlsPublicKey {
 
         let mut hasher = MerkleHasher::with_leaves(leaves);
         for item in &self.0 {
-            hasher.write(item.tree_hash_root().as_ref()).unwrap()
+            hasher.write(item.tree_hash_root().as_ref()).unwrap();
         }
 
         hasher.finish().unwrap()

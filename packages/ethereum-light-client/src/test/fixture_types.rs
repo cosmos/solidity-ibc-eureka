@@ -8,20 +8,20 @@ use crate::{
 
 // TODO: Remove this file once these types are in a separate package #143
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub enum DataType {
     InitialState(Box<InitialState>),
     CommitmentProof(Box<CommitmentProof>),
     UpdateClient(Box<UpdateClient>),
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct InitialState {
     pub client_state: ClientState,
     pub consensus_state: ConsensusState,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct CommitmentProof {
     #[serde(with = "ethereum_utils::base64")]
     pub path: Vec<u8>,
@@ -31,7 +31,7 @@ pub struct CommitmentProof {
     pub consensus_state: ConsensusState,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct UpdateClient {
     pub client_state: ClientState,
     pub consensus_state: ConsensusState,

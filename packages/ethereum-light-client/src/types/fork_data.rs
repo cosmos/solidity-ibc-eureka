@@ -1,3 +1,5 @@
+//! This module defines [`compute_fork_data_root`].
+
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tree_hash::TreeHash;
@@ -5,9 +7,12 @@ use tree_hash_derive::TreeHash;
 
 use crate::types::wrappers::WrappedVersion;
 
+/// The fork data
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
-pub struct ForkData {
+struct ForkData {
+    /// The current version
     pub current_version: WrappedVersion,
+    /// The genesis validators root
     pub genesis_validators_root: B256,
 }
 
@@ -15,6 +20,7 @@ pub struct ForkData {
 /// This is used primarily in signature domains to avoid collisions across forks/chains.
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_fork_data_root)
+#[must_use]
 pub fn compute_fork_data_root(
     current_version: WrappedVersion,
     genesis_validators_root: B256,

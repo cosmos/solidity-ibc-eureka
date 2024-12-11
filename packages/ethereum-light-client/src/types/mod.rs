@@ -1,3 +1,5 @@
+//! This module contains the types that are used in the Ethereum light client
+
 pub mod bls;
 pub mod domain;
 pub mod fork;

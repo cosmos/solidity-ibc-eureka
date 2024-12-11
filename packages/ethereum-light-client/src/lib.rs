@@ -1,3 +1,6 @@
+#![doc = include_str!("../README.md")]
+#![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
+
 pub mod client_state;
 pub mod config;
 pub mod consensus_state;

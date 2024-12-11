@@ -1,8 +1,15 @@
+//! This module provides [`validate_merkle_branch`] function to validate a merkle branch.
+
 use alloy_primitives::B256;
 use sha2::{Digest, Sha256};
 
-use crate::error::{EthereumIBCError, InvalidMerkleBranch};
+use crate::error::EthereumIBCError;
 // https://github.com/ethereum/consensus-specs/blob/efb554f4c4848f8bfc260fcf3ff4b806971716f6/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+/// Validates a merkle branch.
+/// # Errors
+/// Returns an error if the merkle branch is invalid.
+/// # Panics
+/// Panics if the depth of the merkle branch is too large.
 pub fn validate_merkle_branch(
     leaf: B256,
     branch: Vec<B256>,
@@ -12,38 +19,28 @@ pub fn validate_merkle_branch(
 ) -> Result<(), EthereumIBCError> {
     let mut value = leaf;
     for (i, branch_node) in branch.iter().take(depth).enumerate() {
-        if (index / 2u64.checked_pow(i as u32).unwrap()) % 2 != 0 {
-            let mut hasher = Sha256::new();
+        let mut hasher = Sha256::new();
+        if (index / 2u64.checked_pow(u32::try_from(i).unwrap()).unwrap()) % 2 != 0 {
             hasher.update(branch_node);
             hasher.update(value);
-
-            value = B256::from_slice(&hasher.finalize()[..]);
         } else {
-            let mut hasher = Sha256::new();
             hasher.update(value);
             hasher.update(branch_node);
-
-            value = B256::from_slice(&hasher.finalize()[..]);
         }
+        value = B256::from_slice(&hasher.finalize()[..]);
     }
 
     if value == root {
         Ok(())
     } else {
-        Err(EthereumIBCError::InvalidMerkleBranch(Box::new(
-            InvalidMerkleBranch {
-                leaf,
-                branch,
-                depth,
-                index,
-                root,
-                found: value,
-            },
-        )))
+        Err(EthereumIBCError::invalid_merkle_branch(
+            leaf, branch, depth, index, root, value,
+        ))
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::pedantic)]
 mod test {
     use alloy_primitives::{hex::FromHex, Address, Bloom, Bytes, B256, U256};
 
