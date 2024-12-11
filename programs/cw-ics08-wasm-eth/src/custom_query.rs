@@ -54,7 +54,7 @@ pub enum BlsVerifierError {
     },
 }
 
-impl<'a> BlsVerify for BlsVerifier<'a> {
+impl BlsVerify for BlsVerifier<'_> {
     type Error = BlsVerifierError;
 
     fn fast_aggregate_verify(
