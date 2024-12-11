@@ -226,7 +226,9 @@ mod query {
         );
         let header = serde_json::from_slice(&verify_client_message_msg.client_message)
             .map_err(ContractError::DeserializeClientStateFailed)?;
-        let bls_verifier = BlsVerifier { deps };
+        let bls_verifier = BlsVerifier {
+            querier: deps.querier,
+        };
 
         ethereum_light_client::verify::verify_header(
             &eth_consensus_state,

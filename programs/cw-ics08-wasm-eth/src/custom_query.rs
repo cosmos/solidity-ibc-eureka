@@ -1,7 +1,7 @@
 //! This module contains the custom `CosmWasm` query for the Ethereum light client
 
 use alloy_primitives::B256;
-use cosmwasm_std::{Binary, CustomQuery, Deps, QueryRequest};
+use cosmwasm_std::{Binary, CustomQuery, QuerierWrapper, QueryRequest};
 use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature, BlsVerify};
 use ethereum_utils::{ensure, hex::to_hex};
 use thiserror::Error;
@@ -32,20 +32,8 @@ impl CustomQuery for EthereumCustomQuery {}
 
 /// The BLS verifier via [`EthereumCustomQuery`]
 pub struct BlsVerifier<'a> {
-    /// The `CosmWasm` deps used to query the custom query
-    pub deps: Deps<'a, EthereumCustomQuery>,
-}
-
-/// The error type for invalid signatures
-#[derive(Debug, PartialEq, Eq, thiserror::Error, Clone)]
-#[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = to_hex(.msg))]
-pub struct InvalidSignatureErr {
-    /// The public keys used to verify the signature
-    pub public_keys: Vec<BlsPublicKey>,
-    /// The message that was signed
-    pub msg: B256,
-    /// The signature that was verified
-    pub signature: BlsSignature,
+    /// The `CosmWasm` querier
+    pub querier: QuerierWrapper<'a, EthereumCustomQuery>,
 }
 
 /// The error type for the BLS verifier
@@ -55,8 +43,15 @@ pub enum BlsVerifierError {
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerify(String),
 
-    #[error("invalid signature: {0}")]
-    InvalidSignature(InvalidSignatureErr),
+    #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = to_hex(.msg))]
+    InvalidSignature {
+        /// The public keys used to verify the signature
+        public_keys: Vec<BlsPublicKey>,
+        /// The message that was signed
+        msg: B256,
+        /// The signature that was verified
+        signature: BlsSignature,
+    },
 }
 
 impl<'a> BlsVerify for BlsVerifier<'a> {
@@ -82,18 +77,17 @@ impl<'a> BlsVerify for BlsVerifier<'a> {
             });
 
         let is_valid: bool = self
-            .deps
             .querier
             .query(&request)
             .map_err(|e| BlsVerifierError::FastAggregateVerify(e.to_string()))?;
 
         ensure!(
             is_valid,
-            BlsVerifierError::InvalidSignature(InvalidSignatureErr {
+            BlsVerifierError::InvalidSignature {
                 public_keys: public_keys.into_iter().copied().collect(),
                 msg,
                 signature,
-            })
+            }
         );
 
         Ok(())
