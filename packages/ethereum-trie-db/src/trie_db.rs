@@ -1,3 +1,5 @@
+//! Defines the account trie and the account type.
+
 use alloy_primitives::{Address, B256};
 use ethereum_utils::ensure;
 use hash_db::HashDB;
@@ -7,15 +9,20 @@ use rlp_derive::RlpDecodable;
 use trie_db::{Trie, TrieDBBuilder};
 
 use crate::{
-    error::TrieDBError,
     types::{keccak_256, EthLayout, KeccakHasher},
+    TrieDBError,
 };
 
+/// A smart contract account.
 #[derive(Debug, Clone, RlpDecodable)]
 pub struct Account {
+    /// The nonce of the account.
     pub nonce: u64,
+    /// The balance of the account.
     pub balance: U256,
+    /// The storage root of the account.
     pub storage_root: H256,
+    /// The code hash of the account.
     pub code_hash: H256,
 }
 
@@ -26,7 +33,9 @@ pub struct Account {
 /// * `proof`: Proof of storage.
 /// * `storage_root`: Storage root of the contract.
 ///
-/// NOTE: You must not trust the `root` unless you've verified it.
+/// WARNING: You must not trust the `root` unless you've verified it.
+/// # Errors
+/// Returns an error if the verification fails.
 pub fn verify_account_storage_root(
     root: B256,
     address: Address,
@@ -36,7 +45,6 @@ pub fn verify_account_storage_root(
     let storage_root: H256 = H256(storage_root.into());
     let address: H160 = H160(address.into());
 
-    print!("test");
     match get_node(root, address.as_ref(), proof)? {
         Some(account) => {
             let account =

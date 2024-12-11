@@ -1,6 +1,9 @@
+//! This module defines [`TrieDBError`].
+
 use ethereum_utils::hex;
 
-#[derive(Debug, PartialEq, thiserror::Error, Clone)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error, Clone)]
+#[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum TrieDBError {
     #[error("get trie node failed: {0}")]
     GetTrieNodeFailed(String),

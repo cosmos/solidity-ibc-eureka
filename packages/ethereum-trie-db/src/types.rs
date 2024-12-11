@@ -27,6 +27,7 @@ use trie_db::{
     ChildReference, NodeCodec, TrieLayout,
 };
 
+/// Concrete implementation of `TrieLayout` for Ethereum
 #[derive(Default, Clone)]
 pub struct EthLayout;
 
@@ -55,6 +56,7 @@ impl Hasher for KeccakHasher {
 }
 
 /// Performs a Keccak-256 hash on the given input.
+#[must_use]
 pub fn keccak_256(input: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak256::new();
     hasher.input(input);
@@ -99,12 +101,14 @@ fn encode_partial_inner_iter<'a>(
     std::iter::once(first).chain(partial_remaining)
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn decode_value_range(rlp: Rlp, mut offset: usize) -> Result<Range<usize>, DecoderError> {
     let payload = rlp.payload_info()?;
     offset += payload.header_len;
     Ok(offset..(offset + payload.value_len))
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn decode_child_handle_plan<H: Hasher>(
     child_rlp: Rlp,
     mut offset: usize,
@@ -219,10 +223,9 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
 
     fn leaf_node(partial: impl Iterator<Item = u8>, _: usize, value: Value) -> Vec<u8> {
         let mut stream = RlpStream::new_list(2);
-        stream.append_iter(partial.collect::<Vec<_>>());
+        stream.append_iter(partial);
         stream.append(&match value {
-            Value::Inline(v) => v,
-            Value::Node(v) => v,
+            Value::Inline(v) | Value::Node(v) => v,
         });
         stream.out().into()
     }
@@ -269,8 +272,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
         }
         if let Some(value) = value {
             stream.append(&match value {
-                Value::Inline(v) => v,
-                Value::Node(v) => v,
+                Value::Inline(v) | Value::Node(v) => v,
             });
         } else {
             stream.append_empty_data();
