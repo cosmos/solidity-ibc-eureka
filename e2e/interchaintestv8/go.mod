@@ -6,6 +6,7 @@ toolchain go1.23.2
 
 require (
 	cosmossdk.io/api v0.7.6
+	cosmossdk.io/collections v0.4.0
 	cosmossdk.io/errors v1.0.1
 	cosmossdk.io/math v1.3.0
 	cosmossdk.io/x/tx v0.13.5
@@ -19,7 +20,7 @@ require (
 	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/ethereum/go-ethereum v1.14.12
-	github.com/kurtosis-tech/kurtosis/api/golang v1.4.1
+	github.com/kurtosis-tech/kurtosis/api/golang v1.4.2
 	github.com/rs/zerolog v1.33.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0
@@ -35,7 +36,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	cloud.google.com/go/iam v1.1.9 // indirect
 	cloud.google.com/go/storage v1.41.0 // indirect
-	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.1 // indirect
 	cosmossdk.io/depinject v1.0.0 // indirect
 	cosmossdk.io/log v1.4.1 // indirect
@@ -307,8 +307,8 @@ require (
 replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
 
 replace (
-	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20241123151201-3d84b47307b9
+	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20241123151201-3d84b47307b9
 )
 
 replace (

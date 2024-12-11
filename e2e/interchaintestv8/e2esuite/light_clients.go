@@ -19,21 +19,22 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
-func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
+func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
 		s.createDummyLightClient(ctx, simdRelayerUser)
 	case testvalues.EthTestnetTypePoS:
-		s.createUnionLightClient(ctx, simdRelayerUser, ibcContractAddress)
+		s.createUnionLightClient(ctx, simdRelayerUser, ibcContractAddress, rustFixtureGenerator)
 	default:
 		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
 }
 
-func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet) {
+func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet, rustFixtureGenerator *types.RustFixtureGenerator) {
 	if s.ethTestnetType != testvalues.EthTestnetTypePoS {
 		return
 	}
@@ -179,9 +180,10 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		headers = []ethereumligthclient.Header{}
 	}
 
-	wasmClientState, _ := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
+	wasmClientState, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
 	_, unionConsensusState = s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
 
+	var updatedHeaders []ethereumligthclient.Header
 	for _, header := range headers {
 		logHeader("Updating eth light client", header)
 		headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
@@ -200,6 +202,9 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.Slot
 		fmt.Println("Updated eth light client to block number", s.LastEtheruemLightClientUpdate)
+
+		updatedHeaders = append(updatedHeaders, header)
+
 		time.Sleep(10 * time.Second)
 
 		if s.LastEtheruemLightClientUpdate > uint64(updateTo) {
@@ -207,11 +212,16 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			break
 		}
 	}
+	rustFixtureGenerator.AddFixtureStep("updated_light_client", types.UpdateClientFixture{
+		ClientState:    unionClientState,
+		ConsensusState: unionConsensusState,
+		Updates:        updatedHeaders,
+	})
 
 	s.Require().Greater(s.LastEtheruemLightClientUpdate, uint64(minimumUpdateTo))
 }
 
-func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
+func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
 	eth, simd := s.ChainA, s.ChainB
 
 	file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
@@ -311,6 +321,11 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
+
+	rustFixtureGenerator.AddFixtureStep("initial_state", types.InitialStateFixture{
+		ClientState:    ethClientState,
+		ConsensusState: ethConsensusState,
+	})
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {
