@@ -101,3 +101,33 @@ jobs:
         with:
           command: build
           args: --bin operator --release --locked
+
+  build-08-wasm-eth:
+    name: build-08-wasm-eth
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: "Check out the repo"
+        uses: "actions/checkout@v4"
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+      - name: Install cargo-run-script and cosmwasm-check
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-run-script cosmwasm-check
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build optimized wasm binary
+        run: just build-optimized-wasm
+      # checks that the wasm binary is a proper cosmwasm smart contract
+      # it checks for things like memories, exports, imports, available capabilities, and non-determinism
+      - name: Check cosmwasm file
+        run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
+
+
