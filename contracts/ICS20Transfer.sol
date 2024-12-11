@@ -25,12 +25,22 @@ using SafeERC20 for IERC20;
  */
 contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @notice The escrow contract address
-    IEscrow private immutable ESCROW;
+    IEscrow private ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
 
-    /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) {
+    address private immutable SAFE_ADDRESS;
+
+     constructor(address _safeAddress) Ownable(address(0xdead)) {
+        SAFE_ADDRESS = _safeAddress; //  This should not be passed as input but instead Should be an hardcoded constant to be set after safe multisig deployment and before this contracts gets deployed. 
+        // Setting now in input for easy testing. 
+    }
+
+function initialize(address _safeAddress) external {
+        require(owner() == address(0), "Already initialized");
+        require(_safeAddress == SAFE_ADDRESS, "Only Safe can initialize");
+    
+        _transferOwnership(SAFE_ADDRESS); // Transfer ownership to Safe
         ESCROW = new Escrow(address(this));
     }
 

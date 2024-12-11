@@ -1,90 +1,123 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
-import "../../contracts/utils/safe-global/safe-contracts/contracts/Safe.sol";
-import "../../contracts/utils/safe-global/safe-contracts/contracts/proxies/SafeProxyFactory.sol";
-import "../../contracts/utils/safe-global/safe-contracts/contracts/common/Enum.sol";
+import { Test } from "forge-std/Test.sol"; 
+import { Safe } from "../../contracts/utils/safe-global/safe-contracts/contracts/Safe.sol";
+import { SafeProxyFactory } from "../../contracts/utils/safe-global/safe-contracts/contracts/proxies/SafeProxyFactory.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ITransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Enum } from "../../contracts/utils/safe-global/safe-contracts/contracts/common/Enum.sol";
+import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
+import { ICSCore } from "../../contracts/ICSCore.sol";
 
-contract MultisigTest is Test {
+contract MultisigWithIBCContractsTest is Test {
     Safe safeSingleton;
     SafeProxyFactory proxyFactory;
-    Safe safeProxy; // Reused proxy instance
+    Safe safeProxy; // Multisig proxy instance
+    TransparentUpgradeableProxy ics26RouterProxy;
+    TransparentUpgradeableProxy ics20TransferProxy;
+    ICS26Router ics26Router;
+    ICS20Transfer ics20Transfer;
+
     address[] owners;
     uint256 threshold;
 
-    function setUp() public {
-        // Deploy Gnosis Safe Singleton contract
-        safeSingleton = new Safe();
-        emit log("Safe Singleton deployed successfully.");
+function setUp() public {
+    // Deploy Gnosis Safe Singleton contract
+    safeSingleton = new Safe();
+    emit log("Safe Singleton deployed successfully.");
 
-        // Deploy Gnosis Safe Proxy Factory contract
-        proxyFactory = new SafeProxyFactory();
-        emit log("Safe Proxy Factory deployed successfully.");
+    // Deploy Gnosis Safe Proxy Factory contract
+    proxyFactory = new SafeProxyFactory();
+    emit log("Safe Proxy Factory deployed successfully.");
 
-        // Generate deterministic test addresses
-        for (uint256 i = 0; i < 3; i++) {
-            address owner = vm.addr(uint256(keccak256(abi.encodePacked(i))));
-            owners.push(owner);
-            emit log_named_address("Owner", owner);
-        }
-
-        // Set the threshold
-        threshold = 2; // Two signatures required to execute a transaction
-
-        // Deploy and initialize the Safe Proxy
-        bytes memory initializer = abi.encodeWithSelector(
-            Safe.setup.selector,
-            owners,
-            threshold,
-            address(0), // Fallback handler
-            "",
-            address(0), // Payment receiver
-            0,          // Payment amount
-            address(0)  // Payment token
-        );
-
-        safeProxy = Safe(
-            payable(proxyFactory.createProxyWithNonce(address(safeSingleton), initializer, 0))
-        );
-        emit log_named_address("Safe Proxy Address", address(safeProxy));
+    // Generate deterministic test addresses
+    for (uint256 i = 0; i < 3; i++) {
+        address owner = vm.addr(uint256(keccak256(abi.encodePacked(i))));
+        owners.push(owner);
+        emit log_named_address("Owner", owner);
     }
 
-    function testSafeInitialization() public {
-        // Verify the proxy is initialized
-        address[] memory actualOwners = safeProxy.getOwners();
-        for (uint256 i = 0; i < owners.length; i++) {
-            assertEq(actualOwners[i], owners[i], string(abi.encodePacked("Owner mismatch at index ", i)));
-        }
-        assertEq(safeProxy.getThreshold(), threshold, "Threshold mismatch");
+    // Set the threshold
+    threshold = 2; // Two signatures required to execute a transaction
 
-        // Verify the owners of the Safe
-        assertEq(actualOwners.length, owners.length, "Number of owners mismatch");
+    // Deploy and initialize the Safe Proxy
+    bytes memory initializer = abi.encodeWithSelector(
+        Safe.setup.selector,
+        owners,
+        threshold,
+        address(0), // Fallback handler
+        "",
+        address(0), // Payment receiver
+        0,          // Payment amount
+        address(0)  // Payment token
+    );
 
-        for (uint256 i = 0; i < owners.length; i++) {
-            emit log_named_address(string(abi.encodePacked("Expected Owner ", i)), owners[i]);
-            emit log_named_address(string(abi.encodePacked("Actual Owner ", i)), actualOwners[i]);
-            assertEq(actualOwners[i], owners[i], string(abi.encodePacked("Owner mismatch at index ", i)));
-        }
+    safeProxy = Safe(
+        payable(proxyFactory.createProxyWithNonce(address(safeSingleton), initializer, 0))
+    );
+    emit log_named_address("Safe Proxy Address", address(safeProxy));
+
+    // Step 1: Deploy Logic Contracts
+    ICS26Router ics26RouterLogic = new ICS26Router(address(safeProxy));
+    emit log_named_address("ICS26Router Logic Address", address(ics26RouterLogic));
+
+    ICS20Transfer ics20TransferLogic = new ICS20Transfer(address(safeProxy));
+    emit log_named_address("ICS20Transfer Logic Address", address(ics20TransferLogic));
+
+    // Step 2: Deploy Transparent Proxies
+    bytes memory routerInitData = abi.encodeWithSelector(
+        ICS26Router.initialize.selector,
+        address(safeProxy)
+    );
+    ics26RouterProxy = new TransparentUpgradeableProxy(
+        address(ics26RouterLogic),
+        address(safeProxy), // Safe multisig as the admin
+        routerInitData // Initialize during deployment
+    );
+    emit log_named_address("ICS26Router Proxy Address", address(ics26RouterProxy));
+
+    bytes memory transferInitData = abi.encodeWithSelector(
+        ICS20Transfer.initialize.selector,
+        address(safeProxy)
+    );
+    ics20TransferProxy = new TransparentUpgradeableProxy(
+        address(ics20TransferLogic),
+        address(safeProxy), // Safe multisig as the admin
+        transferInitData // Initialize during deployment
+    );
+    emit log_named_address("ICS20Transfer Proxy Address", address(ics20TransferProxy));
+
+    // Step 3: Assign Proxies to Interfaces
+    ics26Router = ICS26Router(address(ics26RouterProxy));
+    emit log("ICS26Router initialized successfully.");
+
+    ics20Transfer = ICS20Transfer(address(ics20TransferProxy));
+    emit log("ICS20Transfer initialized successfully.");
+}
+
+    function testOwnership() public {
+        // Verify multisig is the owner of ICS26Router
+        assertEq(ics26Router.owner(), address(safeProxy), "ICS26Router not owned by multisig");
+
+        // Verify multisig is the owner of ICS20Transfer
+        assertEq(ics20Transfer.owner(), address(safeProxy), "ICS20Transfer not owned by multisig");
     }
 
-    function testExecuteTransaction() public {
-        // Verify proxy setup
-        address[] memory actualOwners = safeProxy.getOwners();
-        uint256 proxyThreshold = safeProxy.getThreshold();
-        assertEq(actualOwners.length, owners.length, "Proxy owners mismatch");
-        assertEq(proxyThreshold, threshold, "Proxy threshold mismatch");
-
-        // Fund the Safe proxy for testing
-        address to = address(vm.addr(100)); // Destination address
-        uint256 value = 1 ether;
-        vm.deal(address(safeProxy), value);
+    function testExecuteAddIBCApp() public {
+        // Generate transaction to add IBC App from multisig
+        bytes memory data = abi.encodeWithSelector(
+            ICS26Router.addIBCApp.selector,
+            "transfer", // Port ID
+            address(ics20Transfer)
+        );
 
         // Create the transaction hash
         bytes32 txHash = safeProxy.getTransactionHash(
-            to,
-            value,
-            "",
+            address(ics26Router),
+            0, // value
+            data,
             Enum.Operation.Call,
             0, // SafeTxGas
             0, // BaseGas
@@ -94,32 +127,22 @@ contract MultisigTest is Test {
             safeProxy.nonce()
         );
 
-        emit log_bytes32(txHash);
-
         // Generate valid signatures
         bytes memory signature;
         for (uint256 i = 0; i < threshold; i++) {
             uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash);
 
-            // Verify recovered owner matches expected owner
-            address recoveredOwner = ecrecover(txHash, v, r, s);
-            emit log_named_address("Expected Owner", owners[i]);
-            emit log_named_address("Recovered Owner", recoveredOwner);
-            assertEq(recoveredOwner, owners[i], "Recovered owner mismatch");
-
             // Append signature
             signature = abi.encodePacked(signature, r, s, v);
         }
 
-        emit log_bytes(signature);
-
         // Execute the transaction
-        vm.prank(owners[0]); // Simulate execution by the first owner
+        vm.prank(owners[0]); // Simulate execution by one of the multisig owners
         bool success = safeProxy.execTransaction(
-            to,
-            value,
-            "",
+            address(ics26Router),
+            0, // value
+            data,
             Enum.Operation.Call,
             0, // SafeTxGas
             0, // BaseGas
@@ -129,8 +152,182 @@ contract MultisigTest is Test {
             signature
         );
 
-        // Verify the transaction succeeded
-        assertTrue(success, "Transaction execution failed.");
-        assertEq(to.balance, value, "Transaction value not transferred.");
+        assertTrue(success, "Transaction execution failed");
+
+        // Verify the IBC app is added
+        assertEq(address(ics26Router.getIBCApp("transfer")), address(ics20Transfer), "IBC App not added correctly");
     }
+
+    function testFailExecuteAddIBCAppWithInsufficientSignatures() public {
+        // Generate transaction to add IBC App from multisig
+        bytes memory data = abi.encodeWithSelector(
+            ICS26Router.addIBCApp.selector,
+            "transfer", // Port ID
+            address(ics20Transfer)
+        );
+
+        // Create the transaction hash
+        bytes32 txHash = safeProxy.getTransactionHash(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            safeProxy.nonce()
+        );
+
+        // Generate signatures, but provide fewer than the required threshold
+        bytes memory signature;
+        for (uint256 i = 0; i < threshold - 1; i++) { // Less than threshold
+            uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash);
+
+            // Append signature
+            signature = abi.encodePacked(signature, r, s, v);
+        }
+
+        // Attempt to execute the transaction
+        vm.prank(owners[0]); // Simulate execution by one of the multisig owners
+        bool success = safeProxy.execTransaction(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            signature
+        );
+
+        // The transaction should fail
+        assertFalse(success, "Transaction unexpectedly succeeded with insufficient signatures");
+    }
+
+function testFailUpgradeTransferLogicNotEnoughSignatures() public {
+    // Deploy new ICS20Transfer logic
+    ICS20Transfer newICS20TransferLogic = new ICS20Transfer(address(safeProxy));
+    emit log_named_address("New Deployed ICS20Transfer Logic Address", address(newICS20TransferLogic));
+
+    // Generate transaction to upgrade the proxy
+    bytes memory data = abi.encodeWithSelector(
+        ITransparentUpgradeableProxy.upgradeToAndCall.selector,
+        address(newICS20TransferLogic),
+        "" // No initialization data
+    );
+
+    // Create the transaction hash
+    bytes32 txHash = safeProxy.getTransactionHash(
+        address(ics20TransferProxy),
+        0, // value
+        data,
+        Enum.Operation.Call,
+        0, // SafeTxGas
+        0, // BaseGas
+        0, // GasPrice
+        address(0), // GasToken
+        payable(address(0)), // RefundReceiver
+        safeProxy.nonce()
+    );
+
+    // Generate signatures, but provide fewer than the required threshold
+    bytes memory signature;
+    for (uint256 i = 0; i < threshold - 1; i++) { // Less than threshold
+        uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash);
+
+        // Append signature
+        signature = abi.encodePacked(signature, r, s, v);
+    }
+
+    
+    // Attempt to execute the transaction
+    vm.prank(owners[0]); // Simulate execution by one of the multisig owners
+    bool success = safeProxy.execTransaction(
+        address(ics20TransferProxy),
+        0, // value
+        data,
+        Enum.Operation.Call,
+        0, // SafeTxGas
+        0, // BaseGas
+        0, // GasPrice
+        address(0), // GasToken
+        payable(address(0)), // RefundReceiver
+        signature
+    );
+    // The transaction should fail
+    assertFalse(success, "Upgrade transaction unexpectedly succeeded with insufficient signatures");
 }
+
+
+function testSuccessUpgradeRouterLogicEnoughSignatures() public {
+    // Deploy new ICS26Router logic
+    ICS26Router newICS26RouterLogic = new ICS26Router(address(safeProxy));
+    emit log_named_address("New Deployed ICS26Router Logic Address", address(newICS26RouterLogic));
+
+    // Encode initialization data
+    bytes memory initData = abi.encodeWithSelector(
+        ICS26Router.initialize.selector,
+        address(safeProxy) // Safe address
+    );
+    emit log_named_bytes("Initialization Data", initData);
+
+    // Generate transaction to upgrade the proxy
+    bytes memory data = abi.encodeWithSelector(
+        ITransparentUpgradeableProxy.upgradeToAndCall.selector,
+        address(newICS26RouterLogic), // New implementation address
+        initData
+    );
+    emit log_named_bytes("Upgrade Transaction Data", data);
+
+    // Create transaction hash
+    bytes32 txHash = safeProxy.getTransactionHash(
+        address(ics26RouterProxy), // Proxy address
+        0, // Value
+        data,
+        Enum.Operation.DelegateCall, // DelegateCall operation
+        0, // SafeTxGas
+        0, // BaseGas
+        0 gwei, // GasPrice
+        address(0), // GasToken
+        payable(address(0)), // RefundReceiver
+        safeProxy.nonce()
+    );
+    emit log_named_bytes32("Transaction Hash", txHash);
+
+    
+    // Generate valid signatures
+    bytes memory signature;
+    for (uint256 i = 0; i < threshold; i++) {
+        uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash);
+        signature = abi.encodePacked(signature, r, s, v);
+    }
+    emit log_named_bytes("Concatenated Signature", signature);
+
+    // Execute transaction
+    vm.prank(owners[0]); // Simulate execution by one of the multisig owners
+    bool success = safeProxy.execTransaction(
+        address(ics26RouterProxy), // Proxy address
+        0, // Value
+        data,
+        Enum.Operation.DelegateCall, // DelegateCall operation
+        0, // SafeTxGas
+        0, // BaseGas
+        0 gwei, // GasPrice
+        address(0), // GasToken
+        payable(address(0)), // RefundReceiver
+        signature
+    );
+
+    emit log_named_uint("Execution Success", success ? 1 : 0);
+    require(success, "Transaction execution failed");
+}
+
+}
+

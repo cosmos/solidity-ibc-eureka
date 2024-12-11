@@ -17,8 +17,19 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @dev clientType => nextClientSeq
     mapping(string clientType => uint32 nextClientSeq) private nextClientSeq;
 
-    /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) { }
+    address private immutable SAFE_ADDRESS;
+
+     constructor(address _safeAddress) Ownable(address(0xdead)) {
+        SAFE_ADDRESS = _safeAddress; //  This should not be passed as input but instead Should be an hardcoded constant to be set after safe multisig deployment and before this contracts gets deployed. 
+        // Setting now in input for easy testing. 
+    }
+
+    function initialize(address _safeAddress) external {
+        require(owner() == address(0), "Already initialized");
+        require(_safeAddress == SAFE_ADDRESS, "Only Safe can initialize");
+    
+        _transferOwnership(SAFE_ADDRESS); // Transfer ownership to Safe
+    }
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
