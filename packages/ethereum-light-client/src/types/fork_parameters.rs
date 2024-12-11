@@ -29,16 +29,12 @@ impl ForkParameters {
     /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/fork.md#modified-compute_fork_version)
     #[must_use]
     pub fn compute_fork_version(&self, epoch: u64) -> WrappedVersion {
-        if epoch >= self.deneb.epoch {
-            self.deneb.version.clone()
-        } else if epoch >= self.capella.epoch {
-            self.capella.version.clone()
-        } else if epoch >= self.bellatrix.epoch {
-            self.bellatrix.version.clone()
-        } else if epoch >= self.altair.epoch {
-            self.altair.version.clone()
-        } else {
-            self.genesis_fork_version.clone()
+        match epoch {
+            _ if epoch >= self.deneb.epoch => self.deneb.version.clone(),
+            _ if epoch >= self.capella.epoch => self.capella.version.clone(),
+            _ if epoch >= self.bellatrix.epoch => self.bellatrix.version.clone(),
+            _ if epoch >= self.altair.epoch => self.altair.version.clone(),
+            _ => self.genesis_fork_version.clone(),
         }
     }
 }
