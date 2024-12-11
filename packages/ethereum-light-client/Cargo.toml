@@ -8,7 +8,7 @@ repository = { workspace = true }
 ethereum-trie-db = { workspace = true }
 ethereum-utils = { workspace = true }
 
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }
 alloy-rpc-types-eth = { workspace = true }
 alloy-rpc-types-beacon = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
@@ -23,7 +23,8 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
-serde_with = { workspace = true, features = ["base64"] }
+serde_with = { workspace = true, features = ["base64", "hex"] }
+schemars = { workspace = true, features = ["derive", "schemars_derive", "arrayvec", "bytes", "bigdecimal", "impl_json_schema", "raw_value"] }
 
 # TODO: From union (might be removed if they are replaced by something more standard). #147
 typenum = { workspace = true, features = ["const-generics"] }
@@ -32,3 +33,4 @@ typenum = { workspace = true, features = ["const-generics"] }
 milagro_bls = { workspace = true }
 base64 = { workspace = true }
 ethereum-test-utils = { workspace = true }
+

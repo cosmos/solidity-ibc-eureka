@@ -3,7 +3,7 @@
 use alloy_primitives::{hex, FixedBytes, B256};
 use serde::{Deserialize, Serialize};
 
-use super::{fork_data::compute_fork_data_root, wrappers::WrappedVersion};
+use super::{fork_data::compute_fork_data_root, wrappers::Version};
 
 /// The signature domain type.
 /// Defined in
@@ -34,9 +34,9 @@ impl DomainType {
 #[must_use]
 pub fn compute_domain(
     domain_type: DomainType,
-    fork_version: Option<WrappedVersion>,
+    fork_version: Option<Version>,
     genesis_validators_root: Option<B256>,
-    genesis_fork_version: WrappedVersion,
+    genesis_fork_version: Version,
 ) -> B256 {
     let fork_version = fork_version.unwrap_or(genesis_fork_version);
     let genesis_validators_root = genesis_validators_root.unwrap_or_default();
@@ -51,7 +51,6 @@ pub fn compute_domain(
 
 #[cfg(test)]
 mod test {
-    use alloy_primitives::aliases::B32;
     use ethereum_utils::base64::FromBase64;
 
     use crate::config::MINIMAL;
@@ -83,11 +82,10 @@ mod test {
     fn test_compute_domain_with_union_data() {
         // this test is essentially a copy of the union unit test for compute_domain
         let domain_type = DomainType([1, 2, 3, 4]);
-        let current_version = WrappedVersion(B32::from([5, 6, 7, 8]));
+        let current_version = Version::from([5, 6, 7, 8]);
         let genesis_validators_root = B256::new([1; 32]);
-        let fork_data_root =
-            compute_fork_data_root(current_version.clone(), genesis_validators_root);
-        let genesis_version = WrappedVersion(B32::from([0, 0, 0, 0]));
+        let fork_data_root = compute_fork_data_root(current_version, genesis_validators_root);
+        let genesis_version = Version::from([0, 0, 0, 0]);
 
         let mut domain = B256::default();
         domain.0[..4].copy_from_slice(&domain_type.0);
@@ -101,11 +99,11 @@ mod test {
                 domain_type.clone(),
                 Some(current_version),
                 Some(genesis_validators_root),
-                genesis_version.clone(),
+                genesis_version,
             )
         );
 
-        let fork_data_root = compute_fork_data_root(genesis_version.clone(), FixedBytes::default());
+        let fork_data_root = compute_fork_data_root(genesis_version, FixedBytes::default());
         let mut domain = B256::default();
         domain.0[..4].copy_from_slice(&domain_type.0);
         domain.0[4..].copy_from_slice(&fork_data_root[..28]);

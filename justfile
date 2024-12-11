@@ -80,6 +80,14 @@ generate-abi: build-contracts
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
 	abigen --abi abi/ICS20Lib.json --pkg ics20lib --type Lib --out abigen/ics20lib/lib.go
 
+generate-ethereum-types:
+	cargo run --bin generate_json_schema --features="generate-json-schema"
+	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/ethereum_types.go
+	rm ethereum_types_schema.json
+	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/ethereum_types.go 
+	rm -f e2e/interchaintestv8/types/ethereum/ethereum_types.go.bak
+	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/ethereum_types.go
+
 # Run the e2e tests
 test-e2e testname: clean
 	@echo "Running {{testname}} test..."
@@ -160,14 +168,6 @@ generate-fixtures-sp1-ics07: build-operator
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16' -timeout 40m
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
-
-protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
-DOCKER := `which docker`
-
-# Generate the union proto files
-union-proto-gen:
-    @echo "Generating Protobuf files"
-    {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
 
 # Generate the relayer proto files
 relayer-proto-gen:

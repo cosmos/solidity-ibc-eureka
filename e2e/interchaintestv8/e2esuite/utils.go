@@ -50,7 +50,7 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 // FundAddressChainB sends funds to the given address on Chain B.
@@ -281,7 +281,7 @@ func IsLowercase(s string) bool {
 	return true
 }
 
-func (s *TestSuite) GetUnionClientState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string) (*ibcwasmtypes.ClientState, ethereumligthclient.ClientState) {
+func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string) (*ibcwasmtypes.ClientState, ethereumtypes.ClientState) {
 	clientStateResp, err := GRPCQuery[clienttypes.QueryClientStateResponse](ctx, cosmosChain, &clienttypes.QueryClientStateRequest{
 		ClientId: clientID,
 	})
@@ -295,14 +295,14 @@ func (s *TestSuite) GetUnionClientState(ctx context.Context, cosmosChain *cosmos
 	s.Require().True(ok)
 	s.Require().NotEmpty(wasmClientState.Data)
 
-	var ethClientState ethereumligthclient.ClientState
-	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmClientState.Data, &ethClientState)
+	var ethClientState ethereumtypes.ClientState
+	err = json.Unmarshal(wasmClientState.Data, &ethClientState)
 	s.Require().NoError(err)
 
 	return wasmClientState, ethClientState
 }
 
-func (s *TestSuite) GetUnionConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumligthclient.ConsensusState) {
+func (s *TestSuite) GetEthereumConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumtypes.ConsensusState) {
 	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, cosmosChain, &clienttypes.QueryConsensusStateRequest{
 		ClientId:       clientID,
 		RevisionNumber: height.RevisionNumber,
@@ -318,8 +318,8 @@ func (s *TestSuite) GetUnionConsensusState(ctx context.Context, cosmosChain *cos
 	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
 	s.Require().True(ok)
 
-	var ethConsensusState ethereumligthclient.ConsensusState
-	err = cosmosChain.Config().EncodingConfig.Codec.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
+	var ethConsensusState ethereumtypes.ConsensusState
+	err = json.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
 	s.Require().NoError(err)
 
 	return wasmConsenusState, ethConsensusState

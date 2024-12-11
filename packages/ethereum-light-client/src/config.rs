@@ -1,5 +1,7 @@
 //! The configuration module contains the configurations and presets for the beacon chains.
 
+use crate::types::{fork::Fork, fork_parameters::ForkParameters};
+
 use core::{
     fmt::{self, Debug},
     str::FromStr,
@@ -137,8 +139,6 @@ self::mk_chain_spec!(Minimal is preset::MINIMAL);
 self::mk_chain_spec!(Mainnet is preset::MAINNET);
 
 pub(crate) use mk_chain_spec;
-
-use crate::types::{fork::Fork, fork_parameters::ForkParameters, wrappers::WrappedVersion};
 
 /// Values that are constant across all configurations.
 pub mod consts {
@@ -315,22 +315,22 @@ pub struct Config {
 pub const GOERLI: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {
-        genesis_fork_version: WrappedVersion(FixedBytes([0, 0, 16, 32])),
+        genesis_fork_version: FixedBytes([0, 0, 16, 32]),
         genesis_slot: (0),
         altair: Fork {
-            version: WrappedVersion(FixedBytes([1, 0, 16, 32])),
+            version: FixedBytes([1, 0, 16, 32]),
             epoch: (36660),
         },
         bellatrix: Fork {
-            version: WrappedVersion(FixedBytes([2, 0, 16, 32])),
+            version: FixedBytes([2, 0, 16, 32]),
             epoch: 112_260,
         },
         capella: Fork {
-            version: WrappedVersion(FixedBytes([3, 0, 16, 32])),
+            version: FixedBytes([3, 0, 16, 32]),
             epoch: 162_304,
         },
         deneb: Fork {
-            version: WrappedVersion(FixedBytes([4, 0, 16, 32])),
+            version: FixedBytes([4, 0, 16, 32]),
             epoch: 231_680,
         },
     },
@@ -341,24 +341,24 @@ pub const GOERLI: Config = Config {
 pub const MAINNET: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {
-        genesis_fork_version: WrappedVersion(FixedBytes([0, 0, 0, 0])),
+        genesis_fork_version: FixedBytes([0, 0, 0, 0]),
         genesis_slot: 0,
 
         altair: Fork {
-            version: WrappedVersion(FixedBytes([1, 0, 0, 0])),
+            version: FixedBytes([1, 0, 0, 0]),
             epoch: 74_240,
         },
         bellatrix: Fork {
-            version: WrappedVersion(FixedBytes([2, 0, 0, 0])),
+            version: FixedBytes([2, 0, 0, 0]),
             epoch: 144_896,
         },
         capella: Fork {
-            version: WrappedVersion(FixedBytes([3, 0, 0, 0])),
+            version: FixedBytes([3, 0, 0, 0]),
             epoch: 194_048,
         },
         // TODO: enabled march 13th 2024
         deneb: Fork {
-            version: WrappedVersion(FixedBytes([4, 0, 0, 0])),
+            version: FixedBytes([4, 0, 0, 0]),
             epoch: u64::MAX,
         },
     },
@@ -369,27 +369,27 @@ pub const MAINNET: Config = Config {
 pub const MINIMAL: Config = Config {
     preset: preset::MINIMAL,
     fork_parameters: ForkParameters {
-        genesis_fork_version: WrappedVersion(FixedBytes([0, 0, 0, 1])),
+        genesis_fork_version: FixedBytes([0, 0, 0, 1]),
         genesis_slot: 0,
 
         altair: Fork {
-            version: WrappedVersion(FixedBytes([1, 0, 0, 1])),
+            version: FixedBytes([1, 0, 0, 1]),
             epoch: 0,
         },
 
         bellatrix: Fork {
-            version: WrappedVersion(FixedBytes([2, 0, 0, 1])),
+            version: FixedBytes([2, 0, 0, 1]),
             epoch: 0,
         },
 
         capella: Fork {
-            version: WrappedVersion(FixedBytes([3, 0, 0, 1])),
+            version: FixedBytes([3, 0, 0, 1]),
             epoch: 0,
         },
 
         // NOTE: dummy data
         deneb: Fork {
-            version: WrappedVersion(FixedBytes([4, 0, 0, 1])),
+            version: FixedBytes([4, 0, 0, 1]),
             epoch: 0,
         },
     },
@@ -400,26 +400,26 @@ pub const MINIMAL: Config = Config {
 pub const SEPOLIA: Config = Config {
     preset: preset::MAINNET,
     fork_parameters: ForkParameters {
-        genesis_fork_version: WrappedVersion(FixedBytes([144, 0, 0, 105])),
+        genesis_fork_version: FixedBytes([144, 0, 0, 105]),
         genesis_slot: 0,
 
         altair: Fork {
-            version: WrappedVersion(FixedBytes([144, 0, 0, 112])),
+            version: FixedBytes([144, 0, 0, 112]),
             epoch: 50,
         },
 
         bellatrix: Fork {
-            version: WrappedVersion(FixedBytes([144, 0, 0, 113])),
+            version: FixedBytes([144, 0, 0, 113]),
             epoch: 100,
         },
 
         capella: Fork {
-            version: WrappedVersion(FixedBytes([144, 0, 0, 114])),
+            version: FixedBytes([144, 0, 0, 114]),
             epoch: 56_832,
         },
 
         deneb: Fork {
-            version: WrappedVersion(FixedBytes([144, 0, 0, 115])),
+            version: FixedBytes([144, 0, 0, 115]),
             epoch: 132_608,
         },
     },

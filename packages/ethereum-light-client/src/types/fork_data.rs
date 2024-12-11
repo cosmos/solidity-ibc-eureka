@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
-use crate::types::wrappers::WrappedVersion;
+use crate::types::wrappers::Version;
 
 /// The fork data
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug, Default, TreeHash)]
 struct ForkData {
     /// The current version
-    pub current_version: WrappedVersion,
+    pub current_version: Version,
     /// The genesis validators root
     pub genesis_validators_root: B256,
 }
@@ -21,10 +21,7 @@ struct ForkData {
 ///
 /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_fork_data_root)
 #[must_use]
-pub fn compute_fork_data_root(
-    current_version: WrappedVersion,
-    genesis_validators_root: B256,
-) -> B256 {
+pub fn compute_fork_data_root(current_version: Version, genesis_validators_root: B256) -> B256 {
     let fork_data = ForkData {
         current_version,
         genesis_validators_root,

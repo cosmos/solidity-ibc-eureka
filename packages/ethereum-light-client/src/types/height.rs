@@ -1,9 +1,10 @@
 //! This module defines [`Height`].
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Height
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct Height {
     /// The revision number
     /// This is always 0 in the current implementation

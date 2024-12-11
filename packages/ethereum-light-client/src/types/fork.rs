@@ -1,15 +1,16 @@
 //! This module defines [`Fork`].
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::wrappers::WrappedVersion;
+use super::wrappers::Version;
 
 /// The fork data
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct Fork {
     /// The version of the fork
-    pub version: WrappedVersion,
+    #[schemars(with = "String")]
+    pub version: Version,
     /// The epoch at which this fork is activated
-    #[serde(default)] // TODO: Remove this when doing e2e integration #143
     pub epoch: u64,
 }

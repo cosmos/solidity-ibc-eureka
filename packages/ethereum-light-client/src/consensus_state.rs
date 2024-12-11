@@ -1,29 +1,30 @@
 //! This module defines [`ConsensusState`] and [`TrustedConsensusState`].
 
 use alloy_primitives::{FixedBytes, B256};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::types::sync_committee::{ActiveSyncCommittee, SyncCommittee};
 
 /// The consensus state of the Ethereum light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone, Default)]
 pub struct ConsensusState {
     /// The slot number
     pub slot: u64,
     /// The state merkle root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub state_root: B256,
     /// The storage merkle root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub storage_root: B256,
     /// The timestamp of the consensus state
     // TODO: document the timestamp format (seconds since epoch?)
     pub timestamp: u64,
     /// aggregate public key of current sync committee
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub current_sync_committee: FixedBytes<48>,
     /// aggregate public key of next sync committee
-    #[serde(with = "ethereum_utils::base64::option_with_default")]
+    #[schemars(with = "String")]
     pub next_sync_committee: Option<FixedBytes<48>>,
 }
 

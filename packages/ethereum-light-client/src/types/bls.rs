@@ -22,7 +22,15 @@ pub const BLS_SIGNATURE_BYTES_LEN: usize = 96;
 
 /// The bytes representing a BLS12-381 public key.
 #[allow(clippy::module_name_repetitions)]
+// TODO: REMOVE THIS
+//#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+//#[serde(transparent)]
+//pub struct BlsPublicKey {
+//    #[schemars(with = "String")]
+//    pub bytes: FixedBytes<BLS_PUBLIC_KEY_BYTES_LEN>,
+//}
 pub type BlsPublicKey = FixedBytes<BLS_PUBLIC_KEY_BYTES_LEN>;
+
 /// The bytes representing a BLS12-381 signature.
 #[allow(clippy::module_name_repetitions)]
 pub type BlsSignature = FixedBytes<BLS_SIGNATURE_BYTES_LEN>;

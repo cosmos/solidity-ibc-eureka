@@ -2,8 +2,8 @@
 
 use alloy_primitives::Bytes;
 use ethereum_utils::slot::compute_epoch_at_slot;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_with::{base64::Base64, serde_as};
 use tree_hash_derive::TreeHash;
 
 use super::{
@@ -13,12 +13,13 @@ use super::{
 };
 
 /// The sync committee data
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct SyncCommittee {
     /// The public keys of the sync committee
+    #[schemars(with = "Vec<String>")]
     pub pubkeys: WrappedVecBlsPublicKey,
     /// The aggregate public key of the sync committee
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub aggregate_pubkey: BlsPublicKey,
 }
 
@@ -45,7 +46,7 @@ impl Default for ActiveSyncCommittee {
 /// The trusted sync committee
 // TODO: Could we use a enum to represent the current and next sync committee like
 // `ActiveSyncCommittee`?
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct TrustedSyncCommittee {
     /// The trusted height
@@ -71,14 +72,13 @@ impl TrustedSyncCommittee {
 }
 
 /// The sync committee aggregate
-#[serde_as]
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct SyncAggregate {
     /// The bits representing the sync committee's participation.
-    #[serde_as(as = "Base64")]
+    #[schemars(with = "String")]
     pub sync_committee_bits: Bytes, // TODO: Consider changing this to a BitVector
     /// The aggregated signature of the sync committee.
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub sync_committee_signature: BlsSignature,
 }
 

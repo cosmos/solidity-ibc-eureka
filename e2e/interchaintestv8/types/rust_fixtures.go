@@ -11,26 +11,26 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type InitialStateFixture struct {
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
+	ClientState    ethereumtypes.ClientState    `json:"client_state"`
+	ConsensusState ethereumtypes.ConsensusState `json:"consensus_state"`
 }
 
 type CommitmentProofFixture struct {
-	Path           []byte                             `json:"path"`
-	StorageProof   ethereumlightclient.StorageProof   `json:"storage_proof"`
-	ProofHeight    clienttypes.Height                 `json:"proof_height"`
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
+	Path           []byte                       `json:"path"`
+	StorageProof   ethereumtypes.StorageProof   `json:"storage_proof"`
+	ProofHeight    clienttypes.Height           `json:"proof_height"`
+	ClientState    ethereumtypes.ClientState    `json:"client_state"`
+	ConsensusState ethereumtypes.ConsensusState `json:"consensus_state"`
 }
 
 type UpdateClientFixture struct {
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
-	Updates        []ethereumlightclient.Header       `json:"updates"`
+	ClientState    ethereumtypes.ClientState    `json:"client_state"`
+	ConsensusState ethereumtypes.ConsensusState `json:"consensus_state"`
+	Updates        []ethereumtypes.Header       `json:"updates"`
 }
 
 type Step struct {

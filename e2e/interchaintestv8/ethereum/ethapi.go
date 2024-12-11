@@ -48,7 +48,7 @@ func (e EthAPI) GetProof(address string, storageKeys []string, blockHex string) 
 	})
 }
 
-func (e EthAPI) GetBlockNumber() (string, int64, error) {
+func (e EthAPI) GetBlockNumber() (string, uint64, error) {
 	var blockNumberHex string
 	if err := e.client.Client().Call(&blockNumberHex, "eth_blockNumber"); err != nil {
 		return "", 0, err
@@ -59,5 +59,5 @@ func (e EthAPI) GetBlockNumber() (string, int64, error) {
 		return "", 0, err
 	}
 
-	return blockNumberHex, blockNumber, nil
+	return blockNumberHex, uint64(blockNumber), nil
 }

@@ -327,7 +327,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 	}))
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
-	var sendBlockNumber int64
+	var sendBlockNumber uint64
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
@@ -353,7 +353,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
-		sendBlockNumber = receipt.BlockNumber.Int64()
+		sendBlockNumber = receipt.BlockNumber.Uint64()
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
 		sendPacket = sendPacketEvent.Packet

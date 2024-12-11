@@ -1,34 +1,15 @@
 //! Wrappers around types that implement `TreeHash` to provide custom serialization and encoding.
 
-use alloy_primitives::{aliases::B32, Bloom, Bytes, FixedBytes, B256};
+use alloy_primitives::{aliases::B32, Bloom, Bytes, B256};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
 use tree_hash::{MerkleHasher, TreeHash, BYTES_PER_CHUNK};
 
 use super::bls::BlsPublicKey;
 
-/// A wrapper around a `B32` that represents a version, implements [`TreeHash`], and uses a
-/// fixed-size base64 encoding.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
-pub struct WrappedVersion(#[serde(with = "ethereum_utils::base64::fixed_size")] pub B32);
-
-impl TreeHash for WrappedVersion {
-    fn tree_hash_type() -> tree_hash::TreeHashType {
-        FixedBytes::tree_hash_type()
-    }
-
-    fn tree_hash_packed_encoding(&self) -> tree_hash::PackedEncoding {
-        self.0.tree_hash_packed_encoding()
-    }
-
-    fn tree_hash_packing_factor() -> usize {
-        FixedBytes::tree_hash_packing_factor()
-    }
-
-    fn tree_hash_root(&self) -> tree_hash::Hash256 {
-        self.0.tree_hash_root()
-    }
-}
+/// Type alias Etheruem Version which is a fixed 4 byte array
+pub type Version = B32;
 
 /// A wrapper around [`Bytes`] that implements [`TreeHash`] and uses a base64 encoding.
 #[serde_as]
@@ -94,12 +75,14 @@ impl TreeHash for WrappedBloom {
         hasher.finish().unwrap()
     }
 }
-
+// TODO: RENAME TO FIXED_SIZE_VECTOR or something like that
 /// A fixed size wrapper around a list of [`B256`] that implements [`TreeHash`] and uses a
 /// fixed-size base64 encoding to represent a branch of a tree.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct WrappedBranch<const N: usize>(
-    #[serde(with = "ethereum_utils::base64::fixed_size::vec::fixed_size")] pub [B256; N],
+    #[schemars(with = "[String]")]
+    #[serde(with = "ethereum_utils::hex::HexVec")]
+    pub [B256; N],
 );
 
 impl<const N: usize> TreeHash for WrappedBranch<N> {
@@ -139,12 +122,9 @@ impl<const N: usize> From<WrappedBranch<N>> for Vec<B256> {
     }
 }
 
-/// A wrapper around a list of [`BlsPublicKey`] that implements [`TreeHash`] and uses a fixed-size
-/// base64 encoding.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
-pub struct WrappedVecBlsPublicKey(
-    #[serde(with = "ethereum_utils::base64::fixed_size::vec")] pub Vec<BlsPublicKey>,
-);
+/// A wrapper around a list of [`BlsPublicKey`] that implements [`TreeHash`]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
+pub struct WrappedVecBlsPublicKey(#[schemars(with = "Vec<String>")] pub Vec<BlsPublicKey>);
 
 impl TreeHash for WrappedVecBlsPublicKey {
     fn tree_hash_type() -> tree_hash::TreeHashType {

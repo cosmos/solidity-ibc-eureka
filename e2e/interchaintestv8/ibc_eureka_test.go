@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -48,7 +49,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -361,7 +362,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	var sendPacket ics26router.IICS26RouterMsgsPacket
-	var sendBlockNumber int64
+	var sendBlockNumber uint64
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
@@ -387,7 +388,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
-		sendBlockNumber = receipt.BlockNumber.Int64()
+		sendBlockNumber = receipt.BlockNumber.Uint64()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -609,7 +610,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 	}))
 
-	var recvBlockNumber int64
+	var recvBlockNumber uint64
 	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
 	s.Require().True(s.Run(fmt.Sprintf("Receive %d packets on Ethereum", numOfTransfers), func() {
 		proofPaths := make([][]byte, numOfTransfers)
@@ -657,7 +658,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall receive %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
 
-		recvBlockNumber = receipt.BlockNumber.Int64()
+		recvBlockNumber = receipt.BlockNumber.Uint64()
 
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
@@ -816,7 +817,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var ibcERC20 *ibcerc20.Contract
 	var ibcERC20Address string
-	var recvBlockNumber int64
+	var recvBlockNumber uint64
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
 		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
@@ -845,7 +846,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		recvBlockNumber = receipt.BlockNumber.Int64()
+		recvBlockNumber = receipt.BlockNumber.Uint64()
 
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
@@ -926,7 +927,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var returnPacket ics26router.IICS26RouterMsgsPacket
 	returnMemo := "testreturnmemo"
-	var sendBlockNumber int64
+	var sendBlockNumber uint64
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendPacket := s.createICS20MsgSendPacket(
@@ -944,7 +945,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		sendBlockNumber = receipt.BlockNumber.Int64()
+		sendBlockNumber = receipt.BlockNumber.Uint64()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -1200,19 +1201,15 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.IbcStore, storageKeys, blockNumberHex)
 	s.Require().NoError(err)
 
-	var proofBz [][]byte
-	for _, proofStr := range proofResp.StorageProof[0].Proof {
-		proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-	}
-	storageProof := ethereumlightclient.StorageProof{
-		Key:   ethereum.HexToBeBytes(proofResp.StorageProof[0].Key),
-		Value: ethereum.HexToBeBytes(proofResp.StorageProof[0].Value),
-		Proof: proofBz,
+	storageProof := ethereumtypes.StorageProof{
+		Key:   proofResp.StorageProof[0].Key,
+		Value: proofResp.StorageProof[0].Value,
+		Proof: proofResp.StorageProof[0].Proof,
 	}
 
 	if s.rustFixtureGenerator.ShouldGenerateFixture() {
-		_, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
-		_, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
+		_, unionClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
+		_, unionConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
 			RevisionNumber: 0,
 			RevisionHeight: s.LastEtheruemLightClientUpdate,
 		})
@@ -1229,7 +1226,10 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 		})
 	}
 
-	return simd.Config().EncodingConfig.Codec.MustMarshal(&storageProof)
+	bz, err := json.Marshal(&storageProof)
+	s.Require().NoError(err)
+
+	return bz
 }
 
 func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(

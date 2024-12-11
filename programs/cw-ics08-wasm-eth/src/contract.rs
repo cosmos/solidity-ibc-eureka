@@ -278,7 +278,7 @@ mod tests {
     use crate::custom_query::EthereumCustomQuery;
 
     mod instantiate_tests {
-        use alloy_primitives::{aliases::B32, Address, FixedBytes, B256, U256};
+        use alloy_primitives::{Address, FixedBytes, B256, U256};
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -287,7 +287,7 @@ mod tests {
         use ethereum_light_client::{
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState,
-            types::{fork::Fork, fork_parameters::ForkParameters, wrappers::WrappedVersion},
+            types::{fork::Fork, fork_parameters::ForkParameters, wrappers::Version},
         };
         use ibc_proto::{
             google::protobuf::Any,
@@ -315,22 +315,22 @@ mod tests {
                 min_sync_committee_participants: 0,
                 genesis_time: 0,
                 fork_parameters: ForkParameters {
-                    genesis_fork_version: WrappedVersion(B32::from([0; 4])),
+                    genesis_fork_version: Version::from([0; 4]),
                     genesis_slot: 0,
                     altair: Fork {
-                        version: WrappedVersion(B32::from([0; 4])),
+                        version: Version::from([0; 4]),
                         epoch: 0,
                     },
                     bellatrix: Fork {
-                        version: WrappedVersion(B32::from([0; 4])),
+                        version: Version::from([0; 4]),
                         epoch: 0,
                     },
                     capella: Fork {
-                        version: WrappedVersion(B32::from([0; 4])),
+                        version: Version::from([0; 4]),
                         epoch: 0,
                     },
                     deneb: Fork {
-                        version: WrappedVersion(B32::from([0; 4])),
+                        version: Version::from([0; 4]),
                         epoch: 0,
                     },
                 },

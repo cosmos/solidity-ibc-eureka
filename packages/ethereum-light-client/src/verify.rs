@@ -294,7 +294,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         DomainType::SYNC_COMMITTEE,
         Some(fork_version),
         Some(client_state.genesis_validators_root),
-        client_state.fork_parameters.genesis_fork_version.clone(),
+        client_state.fork_parameters.genesis_fork_version,
     );
     let signing_root = compute_signing_root(&update.attested_header.beacon, domain);
 

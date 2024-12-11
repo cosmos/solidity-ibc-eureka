@@ -1,6 +1,7 @@
 //! This module defines the types used in the light client updates
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, Bytes, B256, U256};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_hash_derive::TreeHash;
 
@@ -14,7 +15,7 @@ use super::{
 };
 
 /// The header of a light client update
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct Header {
     /// The trusted sync committee
     pub trusted_sync_committee: TrustedSyncCommittee,
@@ -25,7 +26,7 @@ pub struct Header {
 }
 
 /// A light client update
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct LightClientUpdate {
     /// Header attested to by the sync committee
@@ -46,24 +47,25 @@ pub struct LightClientUpdate {
 }
 
 /// The account update
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct AccountUpdate {
     /// The account proof
     pub account_proof: AccountProof,
 }
 
 /// The account proof
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct AccountProof {
     /// The account storage root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub storage_root: B256,
     /// The account proof
-    pub proof: Vec<WrappedBytes>,
+    #[schemars(with = "Vec<String>")]
+    pub proof: Vec<Bytes>,
 }
 
 /// The header of a light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 #[allow(clippy::module_name_repetitions)]
 pub struct LightClientHeader {
     /// The beacon block header
@@ -75,42 +77,43 @@ pub struct LightClientHeader {
 }
 
 /// The beacon block header
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct BeaconBlockHeader {
     /// The slot to which this block corresponds
     pub slot: u64,
     /// The index of validator in validator registry
     pub proposer_index: u64,
     /// The signing merkle root of the parent `BeaconBlock`
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub parent_root: B256,
     /// The tree hash merkle root of the `BeaconState` for the `BeaconBlock`
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub state_root: B256,
     /// The tree hash merkle root of the `BeaconBlockBody` for the `BeaconBlock`
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub body_root: B256,
 }
 
 /// Header to track the execution block
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct ExecutionPayloadHeader {
     /// The parent hash of the execution payload header
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub parent_hash: B256,
     /// Block fee recipient
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub fee_recipient: Address,
     /// The state root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub state_root: B256,
     /// The root of the receipts trie
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub receipts_root: B256,
     /// The logs bloom filter
+    #[schemars(with = "Vec<String>")]
     pub logs_bloom: WrappedBloom,
     /// The previous Randao value, used to compute the randomness on the execution layer.
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub prev_randao: B256,
     /// The block number of the execution payload
     pub block_number: u64,
@@ -122,18 +125,19 @@ pub struct ExecutionPayloadHeader {
     /// The timestamp of the execution payload
     pub timestamp: u64,
     /// The extra data of the execution payload
+    #[schemars(with = "String")]
     pub extra_data: WrappedBytes,
     /// Block base fee per gas
-    #[serde(with = "ethereum_utils::base64::uint256")]
+    #[schemars(with = "String")]
     pub base_fee_per_gas: U256,
     /// The block hash
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub block_hash: B256,
     /// SSZ hash tree root of the transaction list
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub transactions_root: B256,
     /// Tree root of the withdrawals list
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub withdrawals_root: B256,
     /// Blob gas used (new in Deneb)
     #[serde(default)]
