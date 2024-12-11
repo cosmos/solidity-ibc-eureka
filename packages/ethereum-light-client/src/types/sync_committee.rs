@@ -3,6 +3,7 @@
 use alloy_primitives::Bytes;
 use ethereum_utils::slot::compute_epoch_at_slot;
 use serde::{Deserialize, Serialize};
+use serde_with::{base64::Base64, serde_as};
 use tree_hash_derive::TreeHash;
 
 use super::{
@@ -70,10 +71,11 @@ impl TrustedSyncCommittee {
 }
 
 /// The sync committee aggregate
+#[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 pub struct SyncAggregate {
     /// The bits representing the sync committee's participation.
-    #[serde(with = "ethereum_utils::base64")]
+    #[serde_as(as = "Base64")]
     pub sync_committee_bits: Bytes, // TODO: Consider changing this to a BitVector
     /// The aggregated signature of the sync committee.
     #[serde(with = "ethereum_utils::base64::fixed_size")]

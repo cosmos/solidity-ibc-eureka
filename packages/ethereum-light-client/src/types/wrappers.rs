@@ -2,6 +2,7 @@
 
 use alloy_primitives::{aliases::B32, Bloom, Bytes, FixedBytes, B256};
 use serde::{Deserialize, Serialize};
+use serde_with::{base64::Base64, serde_as};
 use tree_hash::{MerkleHasher, TreeHash, BYTES_PER_CHUNK};
 
 use super::bls::BlsPublicKey;
@@ -30,8 +31,9 @@ impl TreeHash for WrappedVersion {
 }
 
 /// A wrapper around [`Bytes`] that implements [`TreeHash`] and uses a base64 encoding.
+#[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
-pub struct WrappedBytes(#[serde(with = "ethereum_utils::base64")] pub Bytes);
+pub struct WrappedBytes(#[serde_as(as = "Base64")] pub Bytes);
 
 impl TreeHash for WrappedBytes {
     fn tree_hash_type() -> tree_hash::TreeHashType {

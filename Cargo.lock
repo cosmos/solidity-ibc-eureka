@@ -2042,6 +2042,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "serde_with",
  "thiserror 2.0.4",
 ]
 

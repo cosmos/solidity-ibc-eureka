@@ -20,6 +20,7 @@ cw-storage-plus = { workspace = true }
 prost = { workspace = true, features = ["std"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { workspace = true, features = ["base64"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]

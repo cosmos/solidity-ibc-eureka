@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_with::{base64::Base64, serde_as};
 
 use crate::{
     client_state::ClientState,
@@ -21,9 +22,10 @@ pub struct InitialState {
     pub consensus_state: ConsensusState,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct CommitmentProof {
-    #[serde(with = "ethereum_utils::base64")]
+    #[serde_as(as = "Base64")]
     pub path: Vec<u8>,
     pub storage_proof: StorageProof,
     pub proof_height: Height,

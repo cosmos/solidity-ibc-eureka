@@ -1,6 +1,5 @@
 use alloy_primitives::B256;
 use base64::{prelude::*, DecodeError};
-use serde::{de, Deserialize, Deserializer};
 
 pub trait FromBase64: Sized {
     fn from_base64(s: &str) -> Result<Self, DecodeError>;
@@ -15,23 +14,6 @@ impl FromBase64 for B256 {
         let data = from_base64(s)?;
         Ok(B256::from_slice(data.as_slice()))
     }
-}
-
-pub fn serialize<S, T: AsRef<[u8]>>(data: T, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&BASE64_STANDARD.encode(data))
-}
-
-pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: TryFrom<Vec<u8>>,
-{
-    let s = String::deserialize(deserializer)?;
-    let decoded = from_base64(&s).map_err(de::Error::custom)?;
-    T::try_from(decoded).map_err(|_| de::Error::custom("Invalid base64 data"))
 }
 
 pub mod fixed_size {
