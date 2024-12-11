@@ -225,11 +225,14 @@ Note: These gas benchmarks are with Groth16.
     ```
 
 ## Etheruem Light Client
-> ⚠ The Ethereum Light Client is currently under heavy development, is expected to change and is not ready for production use.
+
+> [!CAUTION]
+> ⚠ The Ethereum Light Client is currently under heavy development, and is not ready for use.
 
 This repository contains an Ethereum light client which is implemented as two separate layers:
-* A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
-* A stateless light client verification package in `packages/ethereum-light-client`
+
+- A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
+- A stateless light client verification package in `packages/ethereum-light-client`
 
 ## License
 
