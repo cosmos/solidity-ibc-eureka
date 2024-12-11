@@ -5,6 +5,7 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/sp1-programs/*",
+    "programs/cw-ics08-wasm-eth"
 ]
 resolver = "2"
 
@@ -18,21 +19,29 @@ keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solid
 [workspace.dependencies]
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
-sp1-ics07-tendermint-prover        = { path = "packages/prover", default-features = false }
-sp1-ics07-tendermint-utils         = { path = "packages/utils", default-features = false }
+sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
+sp1-ics07-tendermint-utils         = { path = "packages/sp1-ics07-tendermint-utils", default-features = false }
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
+ethereum-trie-db                   = { path = "packages/ethereum-trie-db", default-features = false }
+ethereum-utils                     = { path = "packages/ethereum-utils", default-features = false }
+ethereum-light-client              = { path = "packages/ethereum-light-client", default-features = false }
+ethereum-test-utils                = { path = "packages/ethereum-test-utils", default-features = false }
+tree_hash                          = { path = "packages/tree_hash", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
 serde_with      = { version = "3.11", default-features = false }
 hex             = { version = "0.4", default-features = false }
+base64          = { version = "0.22", default-features = false }
 prost           = { version = "0.13", default-features = false }
 bincode         = { version = "1.3", default-features = false }
 subtle-encoding = { version = "0.5", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
+sha3 = { version = "0.8", default-features = false }
+rand = { version = "0.8.5", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
@@ -47,6 +56,7 @@ futures            = { version = "0.3", default-features = false }
 clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
 time               = { version = "0.3", default-features = false }
 dotenv             = { version = "0.15", default-features = false }
+thiserror          = { version = "2.0", default-features = false }
 
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
@@ -65,14 +75,46 @@ ibc-core-commitment-types   = { version = "0.56", default-features = false }
 ibc-core-handler-types      = { version = "0.56", default-features = false }
 ibc-client-tendermint-types = { version = "0.56", default-features = false }
 
-alloy             = { version = "0.7", default-features = false }
-alloy-contract    = { version = "0.7", default-features = false }
-alloy-sol-types   = { version = "0.8", default-features = false }
-alloy-primitives  = { version = "0.8", default-features = false }
+alloy                  = { version = "0.7", default-features = false }
+alloy-contract         = { version = "0.7", default-features = false }
+alloy-sol-types        = { version = "0.8", default-features = false }
+alloy-primitives       = { version = "0.8", default-features = false }
+alloy-trie             = { version = "0.5", default-features = false }
+alloy-serde            = { version = "0.7", default-features = false }
+alloy-rlp              = { version = "0.3", default-features = false }
+alloy-rpc-types-eth    = { version = "0.7", default-features = false }
+alloy-rpc-types-beacon = { version = "0.7", default-features = false }
+alloy-rpc-types-engine = { version = "0.7", default-features = false }
 
 sp1-sdk    = { version = "3.3", default-features = false }
 sp1-zkvm   = { version = "3.3", default-features = false }
 sp1-helper = { version = "3.3", default-features = false }
+
+cosmwasm-schema = { version = "2.1", default-features = false }
+cosmwasm-std    = { version = "2.1", default-features = false }
+cw-storage-plus = { version = "2.0", default-features = false }
+
+# The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
+ethereum_ssz        = { version = "0.8", default-features = false }
+ethereum_ssz_derive = { version = "0.8", default-features = false }
+tree_hash_derive    = { version = "0.8", default-features = false }
+
+# The dependencies below are maintained by Parity Tech
+trie-db            = { version = "0.29", default-features = false }
+hash-db            = { version = "0.16", default-features = false }
+memory-db          = { version = "0.32", default-features = false }
+hash256-std-hasher = { version = "0.15", default-features = false }
+rlp                = { version = "0.6", default-features = false }
+rlp-derive         = { version = "0.2", default-features = false }
+primitive-types    = { version = "0.13", default-features = false }
+
+# TODO: From union (might be removed if they are replaced by something more standard). #147
+typenum = { version = "1.17.0", default-features = false }
+
+# dev-dependencies
+cw-multi-test = { version = "2.2.0", default-features = false }
+milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!
+smallvec      = { version = "1.6.1", default-features = false }
 
 [patch.crates-io]
 sha2-v0-9-8         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.9" }
