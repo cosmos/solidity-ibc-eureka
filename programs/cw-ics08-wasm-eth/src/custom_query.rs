@@ -1,37 +1,56 @@
+//! This module contains the custom `CosmWasm` query for the Ethereum light client
+
 use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, Deps, QueryRequest};
 use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature, BlsVerify};
 use ethereum_utils::{ensure, hex::to_hex};
 use thiserror::Error;
 
+/// The custom query for the Ethereum light client
+/// This is used to verify BLS signatures in `CosmosSDK`
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
+#[allow(clippy::module_name_repetitions)]
 pub enum EthereumCustomQuery {
+    /// Verify a BLS signature
     AggregateVerify {
+        /// The public keys to verify the signature
         public_keys: Vec<Binary>,
+        /// The message to verify
         message: Binary,
+        /// The signature to verify
         signature: Binary,
     },
+    /// Aggregate public keys
     Aggregate {
+        /// The public keys to aggregate
         public_keys: Vec<Binary>,
     },
 }
 
 impl CustomQuery for EthereumCustomQuery {}
 
+/// The BLS verifier via [`EthereumCustomQuery`]
 pub struct BlsVerifier<'a> {
+    /// The `CosmWasm` deps used to query the custom query
     pub deps: Deps<'a, EthereumCustomQuery>,
 }
 
-#[derive(Debug, PartialEq, thiserror::Error, Clone)]
+/// The error type for invalid signatures
+#[derive(Debug, PartialEq, Eq, thiserror::Error, Clone)]
 #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = to_hex(.msg))]
 pub struct InvalidSignatureErr {
+    /// The public keys used to verify the signature
     pub public_keys: Vec<BlsPublicKey>,
+    /// The message that was signed
     pub msg: B256,
+    /// The signature that was verified
     pub signature: BlsSignature,
 }
 
+/// The error type for the BLS verifier
 #[derive(Error, Debug)]
+#[allow(missing_docs)]
 pub enum BlsVerifierError {
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerify(String),

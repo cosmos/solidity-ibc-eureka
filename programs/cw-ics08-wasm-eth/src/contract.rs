@@ -1,3 +1,5 @@
+//! This module handles the execution logic of the contract.
+
 use std::convert::Into;
 
 use cosmwasm_std::{
@@ -18,18 +20,18 @@ use ibc_proto::{
 };
 use prost::Message;
 
-use crate::custom_query::{BlsVerifier, EthereumCustomQuery};
-use crate::error::ContractError;
-use crate::msg::{
-    CheckForMisbehaviourResult, ExecuteMsg, Height, InstantiateMsg, QueryMsg, StatusResult,
-    SudoMsg, TimestampAtHeightResult, UpdateStateResult, VerifyClientMessageMsg,
-    VerifyMembershipMsg, VerifyNonMembershipMsg,
-};
+use crate::custom_query::EthereumCustomQuery;
+use crate::msg::{ExecuteMsg, Height, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::state::{
     consensus_db_key, get_eth_client_state, get_eth_consensus_state, HOST_CLIENT_STATE_KEY,
 };
+use crate::ContractError;
 
+/// The instantiate entry point for the CosmWasm contract.
+/// # Errors
+/// Will return an error if the client state or consensus state cannot be deserialized.
 #[entry_point]
+#[allow(clippy::needless_pass_by_value)]
 pub fn instantiate(
     deps: DepsMut<EthereumCustomQuery>,
     _env: Env,
@@ -47,7 +49,7 @@ pub fn instantiate(
             revision_height: client_state.latest_slot,
         }),
     };
-    let wasm_client_state_any = Any::from_msg(&wasm_client_state).unwrap();
+    let wasm_client_state_any = Any::from_msg(&wasm_client_state)?;
     deps.storage.set(
         HOST_CLIENT_STATE_KEY.as_bytes(),
         wasm_client_state_any.encode_to_vec().as_slice(),
@@ -59,7 +61,7 @@ pub fn instantiate(
     let wasm_consensus_state = WasmConsensusState {
         data: consensus_state_bz,
     };
-    let wasm_consensus_state_any = Any::from_msg(&wasm_consensus_state).unwrap();
+    let wasm_consensus_state_any = Any::from_msg(&wasm_consensus_state)?;
     let height = Height {
         revision_number: 0,
         revision_height: consensus_state.slot,
@@ -72,7 +74,12 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
+/// The sudo entry point for the CosmWasm contract.
+/// It routes the message to the appropriate handler.
+/// # Errors
+/// Will return an error if the handler returns an error.
 #[entry_point]
+#[allow(clippy::needless_pass_by_value)]
 pub fn sudo(
     deps: DepsMut<EthereumCustomQuery>,
     _env: Env,
@@ -80,12 +87,12 @@ pub fn sudo(
 ) -> Result<Response, ContractError> {
     let result = match msg {
         SudoMsg::VerifyMembership(verify_membership_msg) => {
-            verify_membership(deps.as_ref(), verify_membership_msg)?
+            sudo::verify_membership(deps.as_ref(), verify_membership_msg)?
         }
         SudoMsg::VerifyNonMembership(verify_non_membership_msg) => {
-            verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
+            sudo::verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
         }
-        SudoMsg::UpdateState(_) => update_state()?,
+        SudoMsg::UpdateState(_) => sudo::update_state()?,
         SudoMsg::UpdateStateOnMisbehaviour(_) => todo!(),
         SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
         SudoMsg::MigrateClientStore(_) => todo!(),
@@ -94,59 +101,72 @@ pub fn sudo(
     Ok(Response::default().set_data(result))
 }
 
-pub fn verify_membership(
-    deps: Deps<EthereumCustomQuery>,
-    verify_membership_msg: VerifyMembershipMsg,
-) -> Result<Binary, ContractError> {
-    let eth_client_state = get_eth_client_state(deps);
-    let eth_consensus_state = get_eth_consensus_state(deps, &verify_membership_msg.height);
+mod sudo {
+    use crate::msg::{UpdateStateResult, VerifyMembershipMsg, VerifyNonMembershipMsg};
 
-    ethereum_light_client::membership::verify_membership(
-        eth_consensus_state,
-        eth_client_state,
-        verify_membership_msg.proof.into(),
-        verify_membership_msg
-            .merkle_path
-            .key_path
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        Some(verify_membership_msg.value.into()),
-    )
-    .map_err(ContractError::VerifyMembershipFailed)?;
+    use super::{
+        get_eth_client_state, get_eth_consensus_state, to_json_binary, Binary, ContractError, Deps,
+        EthereumCustomQuery,
+    };
 
-    Ok(to_json_binary(&Ok::<(), ()>(()))?)
+    pub fn verify_membership(
+        deps: Deps<EthereumCustomQuery>,
+        verify_membership_msg: VerifyMembershipMsg,
+    ) -> Result<Binary, ContractError> {
+        let eth_client_state = get_eth_client_state(deps.storage);
+        let eth_consensus_state =
+            get_eth_consensus_state(deps.storage, &verify_membership_msg.height);
+
+        ethereum_light_client::membership::verify_membership(
+            eth_consensus_state,
+            eth_client_state,
+            verify_membership_msg.proof.into(),
+            verify_membership_msg
+                .merkle_path
+                .key_path
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            Some(verify_membership_msg.value.into()),
+        )
+        .map_err(ContractError::VerifyMembershipFailed)?;
+
+        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+    }
+
+    pub fn verify_non_membership(
+        deps: Deps<EthereumCustomQuery>,
+        verify_non_membership_msg: VerifyNonMembershipMsg,
+    ) -> Result<Binary, ContractError> {
+        let eth_client_state = get_eth_client_state(deps.storage);
+        let eth_consensus_state =
+            get_eth_consensus_state(deps.storage, &verify_non_membership_msg.height);
+
+        ethereum_light_client::membership::verify_membership(
+            eth_consensus_state,
+            eth_client_state,
+            verify_non_membership_msg.proof.into(),
+            verify_non_membership_msg
+                .merkle_path
+                .key_path
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            None,
+        )
+        .map_err(ContractError::VerifyNonMembershipFailed)?;
+
+        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+    }
+
+    pub fn update_state() -> Result<Binary, ContractError> {
+        Ok(to_json_binary(&UpdateStateResult { heights: vec![] })?)
+    }
 }
 
-pub fn verify_non_membership(
-    deps: Deps<EthereumCustomQuery>,
-    verify_non_membership_msg: VerifyNonMembershipMsg,
-) -> Result<Binary, ContractError> {
-    let eth_client_state = get_eth_client_state(deps);
-    let eth_consensus_state = get_eth_consensus_state(deps, &verify_non_membership_msg.height);
-
-    ethereum_light_client::membership::verify_membership(
-        eth_consensus_state,
-        eth_client_state,
-        verify_non_membership_msg.proof.into(),
-        verify_non_membership_msg
-            .merkle_path
-            .key_path
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        None,
-    )
-    .map_err(ContractError::VerifyNonMembershipFailed)?;
-
-    Ok(to_json_binary(&Ok::<(), ()>(()))?)
-}
-
-pub fn update_state() -> Result<Binary, ContractError> {
-    Ok(to_json_binary(&UpdateStateResult { heights: vec![] })?)
-}
-
+/// Execute entry point is not used in this contract.
 #[entry_point]
+#[allow(clippy::needless_pass_by_value, clippy::missing_errors_doc)]
 pub fn execute(
     _deps: DepsMut,
     _env: Env,
@@ -156,6 +176,10 @@ pub fn execute(
     unimplemented!()
 }
 
+/// The query entry point for the CosmWasm contract.
+/// It routes the message to the appropriate handler.
+/// # Errors
+/// Will return an error if the handler returns an error.
 #[entry_point]
 pub fn query(
     deps: Deps<EthereumCustomQuery>,
@@ -164,58 +188,75 @@ pub fn query(
 ) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::VerifyClientMessage(verify_client_message_msg) => {
-            verify_client_message(deps, env, verify_client_message_msg)
+            query::verify_client_message(deps, env, verify_client_message_msg)
         }
-        QueryMsg::CheckForMisbehaviour(_) => check_for_misbehaviour(),
-        QueryMsg::TimestampAtHeight(_) => timestamp_at_height(env),
-        QueryMsg::Status(_) => status(),
+        QueryMsg::CheckForMisbehaviour(_) => query::check_for_misbehaviour(),
+        QueryMsg::TimestampAtHeight(_) => query::timestamp_at_height(env),
+        QueryMsg::Status(_) => query::status(),
     }
 }
 
-pub fn verify_client_message(
-    deps: Deps<EthereumCustomQuery>,
-    env: Env,
-    verify_client_message_msg: VerifyClientMessageMsg,
-) -> Result<Binary, ContractError> {
-    let eth_client_state = get_eth_client_state(deps);
-    let eth_consensus_state = get_eth_consensus_state(
-        deps,
-        &Height {
-            revision_number: 0,
-            revision_height: eth_client_state.latest_slot,
+mod query {
+    use crate::{
+        custom_query::BlsVerifier,
+        msg::{
+            CheckForMisbehaviourResult, Height, StatusResult, TimestampAtHeightResult,
+            VerifyClientMessageMsg,
         },
-    );
-    let header = serde_json::from_slice(&verify_client_message_msg.client_message)
-        .map_err(ContractError::DeserializeClientStateFailed)?;
-    let bls_verifier = BlsVerifier { deps };
+    };
 
-    ethereum_light_client::verify::verify_header(
-        &eth_consensus_state,
-        &eth_client_state,
-        env.block.time.seconds(),
-        &header,
-        bls_verifier,
-    )
-    .map_err(ContractError::VerifyClientMessageFailed)?;
+    use super::{
+        get_eth_client_state, get_eth_consensus_state, to_json_binary, Binary, ContractError, Deps,
+        Env, EthereumCustomQuery,
+    };
 
-    Ok(to_json_binary(&Ok::<(), ()>(()))?)
-}
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn verify_client_message(
+        deps: Deps<EthereumCustomQuery>,
+        env: Env,
+        verify_client_message_msg: VerifyClientMessageMsg,
+    ) -> Result<Binary, ContractError> {
+        let eth_client_state = get_eth_client_state(deps.storage);
+        let eth_consensus_state = get_eth_consensus_state(
+            deps.storage,
+            &Height {
+                revision_number: 0,
+                revision_height: eth_client_state.latest_slot,
+            },
+        );
+        let header = serde_json::from_slice(&verify_client_message_msg.client_message)
+            .map_err(ContractError::DeserializeClientStateFailed)?;
+        let bls_verifier = BlsVerifier { deps };
 
-pub fn check_for_misbehaviour() -> Result<Binary, ContractError> {
-    Ok(to_json_binary(&CheckForMisbehaviourResult {
-        found_misbehaviour: false,
-    })?)
-}
+        ethereum_light_client::verify::verify_header(
+            &eth_consensus_state,
+            &eth_client_state,
+            env.block.time.seconds(),
+            &header,
+            bls_verifier,
+        )
+        .map_err(ContractError::VerifyClientMessageFailed)?;
 
-pub fn timestamp_at_height(env: Env) -> Result<Binary, ContractError> {
-    let now = env.block.time.seconds();
-    Ok(to_json_binary(&TimestampAtHeightResult { timestamp: now })?)
-}
+        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+    }
 
-pub fn status() -> Result<Binary, ContractError> {
-    Ok(to_json_binary(&StatusResult {
-        status: "Active".to_string(),
-    })?)
+    pub fn check_for_misbehaviour() -> Result<Binary, ContractError> {
+        Ok(to_json_binary(&CheckForMisbehaviourResult {
+            found_misbehaviour: false,
+        })?)
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn timestamp_at_height(env: Env) -> Result<Binary, ContractError> {
+        let now = env.block.time.seconds();
+        Ok(to_json_binary(&TimestampAtHeightResult { timestamp: now })?)
+    }
+
+    pub fn status() -> Result<Binary, ContractError> {
+        Ok(to_json_binary(&StatusResult {
+            status: "Active".to_string(),
+        })?)
+    }
 }
 
 #[cfg(test)]
@@ -235,7 +276,7 @@ mod tests {
     use crate::custom_query::EthereumCustomQuery;
 
     mod instantiate_tests {
-        use alloy_primitives::{aliases::B32, FixedBytes, B256, U256};
+        use alloy_primitives::{aliases::B32, Address, FixedBytes, B256, U256};
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
@@ -296,7 +337,7 @@ mod tests {
                 epochs_per_sync_committee_period: 0,
                 latest_slot: 42,
                 ibc_commitment_slot: U256::from(0),
-                ibc_contract_address: Default::default(),
+                ibc_contract_address: Address::default(),
                 frozen_height: ethereum_light_client::types::height::Height::default(),
             };
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
@@ -314,7 +355,7 @@ mod tests {
             let msg = InstantiateMsg {
                 client_state: client_state_bz.into(),
                 consensus_state: consensus_state_bz.into(),
-                checksum: "also does not matter yet".as_bytes().into(),
+                checksum: b"also does not matter yet".into(),
             };
 
             let res = instantiate(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
@@ -397,7 +438,7 @@ mod tests {
             let msg = crate::msg::InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
-                checksum: "checksum".as_bytes().into(), // TODO: Real checksum important?
+                checksum: b"checksum".into(), // TODO: Real checksum important?
             };
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -474,7 +515,7 @@ mod tests {
             let msg = crate::msg::InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
-                checksum: "checksum".as_bytes().into(), // TODO: Real checksum important?
+                checksum: b"checksum".into(), // TODO: Real checksum important?
             };
 
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
