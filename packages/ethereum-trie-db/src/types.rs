@@ -58,9 +58,7 @@ impl Hasher for KeccakHasher {
 /// Performs a Keccak-256 hash on the given input.
 #[must_use]
 pub fn keccak_256(input: &[u8]) -> [u8; 32] {
-    let mut hasher = Keccak256::new();
-    hasher.input(input);
-    hasher.result().into()
+    Keccak256::digest(input).into()
 }
 
 /// Concrete implementation of a `NodeCodec` with Rlp encoding, generic over the `Hasher`
