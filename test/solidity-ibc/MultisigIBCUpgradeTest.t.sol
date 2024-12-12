@@ -10,6 +10,12 @@ import { Enum } from "../../contracts/utils/safe-global/safe-contracts/contracts
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICSCore } from "../../contracts/ICSCore.sol";
+import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
+import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 
 contract MultisigWithIBCContractsTest is Test {
     Safe safeSingleton;
@@ -25,7 +31,24 @@ contract MultisigWithIBCContractsTest is Test {
     address[] owners;
     uint256 threshold;
 
+    TestERC20 public erc20;
+
+    string public erc20AddressStr;
+
+    address public sender;
+    string public senderStr;
+    address public receiver;
+    string public receiverStr = "receiver";
+
+    /// @dev the default send amount for sendTransfer
+    uint256 public defaultAmount = 1_000_000_100_000_000_001;
+
+    ICS20Lib.FungibleTokenPacketData public defaultPacketData;
+    bytes public dataTransfer;
+
 function setUp() public {
+
+        // Safe Setup
         // Deploy Gnosis Safe Singleton contract
         safeSingleton = new Safe();
         emit log("Safe Singleton deployed successfully.");
@@ -60,7 +83,8 @@ function setUp() public {
             payable(proxyFactory.createProxyWithNonce(address(safeSingleton), initializer, 0))
         );
         emit log_named_address("Safe Proxy Address", address(safeProxy));
-
+        // End Safe Setup
+        
         // Step 1: Deploy Logic Contracts
         ICS26Router ics26RouterLogic = new ICS26Router(address(safeProxy));
         emit log_named_address("ICS26Router Logic Address", address(ics26RouterLogic));
@@ -76,6 +100,7 @@ function setUp() public {
             ICS26Router.initialize.selector,
             address(safeProxy)
         );
+        // In this step the owenship of ics26Router Logic passes to the safe contract
         ics26RouterProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(safeProxy), // Safe multisig as the admin
@@ -114,6 +139,25 @@ function setUp() public {
 
         icsCore = ICSCore(address(icsCoreProxy));
         emit log("ICSCore initialized successfully.");
+
+
+        // For Transfer 
+        erc20 = new TestERC20();
+
+        sender = makeAddr("sender");
+
+        erc20AddressStr = Strings.toHexString(address(erc20));
+        senderStr = Strings.toHexString(sender);
+
+        defaultPacketData = ICS20Lib.FungibleTokenPacketData({
+            denom: erc20AddressStr,
+            sender: senderStr,
+            receiver: receiverStr,
+            amount: defaultAmount,
+            memo: "memo"
+        });
+
+        dataTransfer = abi.encode(defaultPacketData);
     }
 
     function testOwnership() public {
@@ -354,4 +398,298 @@ function testFailUpgradeTransferLogicNotEnoughSignatures() public {
         }
     }
 
+    function testPauseAndUnpauseICS20Transfer() public {
+        // Generate transaction to pause the ICS20Transfer contract
+        bytes memory pauseData = abi.encodeWithSelector(ICS20Transfer.pause.selector);
+        bytes32 pauseTxHash = safeProxy.getTransactionHash(
+            address(ics20Transfer),
+            0, // Value
+            pauseData,
+            Enum.Operation.Call, // Call operation
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            safeProxy.nonce()
+        );
+
+        // Generate valid signatures
+        bytes memory pauseSignature;
+        for (uint256 i = 0; i < threshold; i++) {
+            uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, pauseTxHash);
+            pauseSignature = abi.encodePacked(pauseSignature, r, s, v);
+        }
+
+        // Execute the pause transaction
+        vm.prank(owners[0]);
+        bool pauseSuccess = safeProxy.execTransaction(
+            address(ics20Transfer),
+            0, // Value
+            pauseData,
+            Enum.Operation.Call, // Call operation
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            pauseSignature
+        );
+
+        assertTrue(pauseSuccess, "Pause transaction failed");
+
+        // Verify the contract is paused
+        vm.expectRevert();
+        IICS26RouterMsgs.Packet memory packet = _getTestPacket();
+
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: erc20AddressStr,
+            amount: defaultAmount,
+            receiver: receiverStr,
+            sourceChannel: packet.sourceChannel,
+            destPort: packet.payloads[0].sourcePort,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.expectRevert();
+        vm.prank(sender);
+        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        //assertEq(sequence, 0);
+        // Generate transaction to unpause the ICS20Transfer contract
+        bytes memory unpauseData = abi.encodeWithSelector(ICS20Transfer.unpause.selector);
+        bytes32 unpauseTxHash = safeProxy.getTransactionHash(
+            address(ics20Transfer),
+            0, // Value
+            unpauseData,
+            Enum.Operation.Call, // Call operation
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            safeProxy.nonce()
+        );
+
+        // Generate valid signatures for unpause
+        bytes memory unpauseSignature;
+        for (uint256 i = 0; i < threshold; i++) {
+            uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, unpauseTxHash);
+            unpauseSignature = abi.encodePacked(unpauseSignature, r, s, v);
+        }
+
+        // Execute the unpause transaction
+        vm.prank(owners[0]);
+        bool unpauseSuccess = safeProxy.execTransaction(
+            address(ics20Transfer),
+            0, // Value
+            unpauseData,
+            Enum.Operation.Call, // Call operation
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            unpauseSignature
+        );
+
+        assertTrue(unpauseSuccess, "Unpause transaction failed");
+
+    }
+
+
+ function testPauseUnpauseAndAddAppICS26Router() public {
+    // Pause the ICS26Router contract
+    bytes memory pauseData = abi.encodeWithSelector(ICS26Router.pause.selector);
+    bytes32 pauseTxHash = safeProxy.getTransactionHash(
+        address(ics26Router),
+        0,
+        pauseData,
+        Enum.Operation.Call,
+        0,
+        0,
+        0,
+        address(0),
+        payable(address(0)),
+        safeProxy.nonce()
+    );
+
+    bytes memory pauseSignature;
+    for (uint256 i = 0; i < threshold; i++) {
+        uint256 privateKey = uint256(keccak256(abi.encodePacked(i)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, pauseTxHash);
+        pauseSignature = abi.encodePacked(pauseSignature, r, s, v);
+    }
+
+    vm.prank(owners[0]);
+    bool pauseSuccess = safeProxy.execTransaction(
+        address(ics26Router),
+        0,
+        pauseData,
+        Enum.Operation.Call,
+        0,
+        0,
+        0,
+        address(0),
+        payable(address(0)),
+        pauseSignature
+    );
+    assertTrue(pauseSuccess, "Pause transaction failed");
+
+                // Generate transaction to add IBC App from multisig
+        bytes memory data = abi.encodeWithSelector(
+            ICS26Router.addIBCApp.selector,
+            "transfer", // Port ID
+            address(ics20Transfer)
+        );
+
+        // Create the transaction hash
+        bytes32 txHash = safeProxy.getTransactionHash(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            safeProxy.nonce()
+        );
+
+        // Generate valid signatures
+        bytes memory signature;
+        for (uint256 i = 0; i < threshold; i++) {
+            uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash);
+
+            // Append signature
+            signature = abi.encodePacked(signature, r, s, v);
+        }
+            
+        // Execute the transaction
+        vm.expectRevert();
+        vm.prank(owners[0]); // Simulate execution by one of the multisig owners
+        bool success = safeProxy.execTransaction(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            signature
+        );
+
+    bytes memory unpauseData = abi.encodeWithSelector(ICS26Router.unpause.selector);
+    bytes32 unpauseTxHash = safeProxy.getTransactionHash(
+        address(ics26Router),
+        0,
+        unpauseData,
+        Enum.Operation.Call,
+        0,
+        0,
+        0,
+        address(0),
+        payable(address(0)),
+        safeProxy.nonce()
+    );
+
+    bytes memory unpauseSignature;
+    for (uint256 i = 0; i < threshold; i++) {
+        uint256 privateKey = uint256(keccak256(abi.encodePacked(i)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, unpauseTxHash);
+        unpauseSignature = abi.encodePacked(unpauseSignature, r, s, v);
+    }
+
+    vm.prank(owners[0]);
+    bool unpauseSuccess = safeProxy.execTransaction(
+        address(ics26Router),
+        0,
+        unpauseData,
+        Enum.Operation.Call,
+        0,
+        0,
+        0,
+        address(0),
+        payable(address(0)),
+        unpauseSignature
+    );
+    assertTrue(unpauseSuccess, "Unpause transaction failed");
+
+            // Generate transaction to add IBC App from multisig
+        bytes memory data2 = abi.encodeWithSelector(
+            ICS26Router.addIBCApp.selector,
+            "transfer", // Port ID
+            address(ics20Transfer)
+        );
+
+        // Create the transaction hash
+        bytes32 txHash2 = safeProxy.getTransactionHash(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            safeProxy.nonce()
+        );
+
+        // Generate valid signatures
+        bytes memory signature2;
+        for (uint256 i = 0; i < threshold; i++) {
+            uint256 privateKey = uint256(keccak256(abi.encodePacked(i))); // Generate private key deterministically
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, txHash2);
+
+            // Append signature
+            signature2 = abi.encodePacked(signature2, r, s, v);
+        }
+
+        // Execute the transaction
+        vm.prank(owners[0]); // Simulate execution by one of the multisig owners
+        bool success2 = safeProxy.execTransaction(
+            address(ics26Router),
+            0, // value
+            data,
+            Enum.Operation.Call,
+            0, // SafeTxGas
+            0, // BaseGas
+            0, // GasPrice
+            address(0), // GasToken
+            payable(address(0)), // RefundReceiver
+            signature2
+        );
+
+        assertTrue(success2, "Transaction execution failed");
+
+        // Verify the IBC app is added
+        assertEq(address(ics26Router.getIBCApp("transfer")), address(ics20Transfer), "IBC App not added correctly");
+    
+}
+
+     function _getTestPacket() internal view returns (IICS26RouterMsgs.Packet memory) {
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: "sourcePort",
+            destPort: "destinationPort",
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: dataTransfer
+        });
+        return IICS26RouterMsgs.Packet({
+            sequence: 0,
+            sourceChannel: "sourceChannel",
+            destChannel: "destinationChannel",
+            timeoutTimestamp: 0,
+            payloads: payloads
+        });
+    }
 }

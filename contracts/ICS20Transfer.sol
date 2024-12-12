@@ -15,31 +15,35 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
+import { Pausable } from "@openzeppelin/utils/Pausable.sol";
 
 using SafeERC20 for IERC20;
 
-/*
- * Things not handled yet:
- * - Separate escrow balance tracking
- * - Related to escrow ^: invariant checking (where to implement that?)
+/**
+ * @title ICS20Transfer
+ * @notice Implements the ICS20 token transfer logic with pausable functionality.
  */
-contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
+contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall, Pausable {
     /// @notice The escrow contract address
     IEscrow private ESCROW;
+
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
 
     address private immutable SAFE_ADDRESS;
 
-     constructor(address _safeAddress) Ownable(address(0xdead)) {
-        SAFE_ADDRESS = _safeAddress; //  This should not be passed as input but instead Should be an hardcoded constant to be set after safe multisig deployment and before this contracts gets deployed. 
-        // Setting now in input for easy testing. 
+    /// @notice Constructor to initialize the contract with the Safe address
+    /// @param _safeAddress The address of the Safe multisig
+    constructor(address _safeAddress) Ownable(address(0xdead)) {
+        SAFE_ADDRESS = _safeAddress; // This should be hardcoded after deployment in a real setup.
     }
 
-function initialize(address _safeAddress) external {
+    /// @notice Initialize the contract
+    /// @param _safeAddress The Safe multisig address
+    function initialize(address _safeAddress) external {
         require(owner() == address(0), "Already initialized");
         require(_safeAddress == SAFE_ADDRESS, "Only Safe can initialize");
-    
+
         _transferOwnership(SAFE_ADDRESS); // Transfer ownership to Safe
         ESCROW = new Escrow(address(this));
     }
@@ -64,18 +68,19 @@ function initialize(address _safeAddress) external {
         external
         view
         override
+        whenNotPaused
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
         return ICS20Lib.newMsgSendPacketV1(sender, msg_);
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
+    function sendTransfer(SendTransferMsg calldata msg_) external override whenNotPaused returns (uint32) {
         return IICS26Router(owner()).sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
     /// @inheritdoc IIBCApp
-    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant whenNotPaused {
         require(
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
@@ -86,36 +91,30 @@ function initialize(address _safeAddress) external {
 
         require(packetData.amount > 0, ICS20InvalidAmount(packetData.amount));
 
-        // Note that if we use address instead of strings in the packetDataJson field definition
-        //we can avoid the next line operation and save extra gas
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
-        // only the sender in the payload or this contract (sendTransfer) can send the packet
         require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
 
         (address erc20Address, bool originatorChainIsSource) =
             getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
-        // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(sender, address(ESCROW), erc20Address, packetData.amount);
 
         if (!originatorChainIsSource) {
-            // receiver chain is source: burn the vouchers
             IBCERC20 ibcERC20 = IBCERC20(erc20Address);
             ibcERC20.burn(packetData.amount);
         }
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
-        // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
+    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant whenNotPaused returns (bytes memory) {
         if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
-            // TODO: Figure out if should actually error out, or if just error acking is enough
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
         );
@@ -130,19 +129,16 @@ function initialize(address _safeAddress) external {
         }
 
         if (originatorChainIsSource) {
-            // sender is source, so we mint vouchers
-            // NOTE: getReceiveTokenContractAndSource has already created a contract if it didn't exist
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
-        // transfer the tokens to the receiver
         ESCROW.send(IERC20(erc20Address), receiver, packetData.amount);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant whenNotPaused {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
@@ -154,39 +150,38 @@ function initialize(address _safeAddress) external {
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant whenNotPaused {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
         _refundTokens(packetData, erc20Address);
     }
 
+    /// @notice Pause the contract (only callable by owner)
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract (only callable by owner)
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /// @notice Refund the tokens to the sender
-    /// @param packetData The packet data
-    /// @param erc20Address The address of the ERC20 contract
     function _refundTokens(ICS20Lib.FungibleTokenPacketData memory packetData, address erc20Address) private {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         ESCROW.send(IERC20(erc20Address), refundee, packetData.amount);
     }
 
     /// @notice Transfer tokens from sender to receiver
-    /// @param sender The sender of the tokens
-    /// @param receiver The receiver of the tokens
-    /// @param tokenContract The address of the token contract
-    /// @param amount The amount of tokens to transfer
     function _transferFrom(address sender, address receiver, address tokenContract, uint256 amount) private {
-        // we snapshot current balance of this token
         uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
 
         IERC20(tokenContract).safeTransferFrom(sender, receiver, amount);
 
-        // check what this particular ERC20 implementation actually gave us, since it doesn't
-        // have to be at all related to the _amount
         uint256 actualEndingBalance = IERC20(tokenContract).balanceOf(receiver);
 
         uint256 expectedEndingBalance = ourStartingBalance + amount;
-        // a very strange ERC20 may trigger this condition, if we didn't have this we would
-        // underflow, so it's mostly just an error message printer
         require(
             actualEndingBalance > ourStartingBalance && actualEndingBalance == expectedEndingBalance,
             ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance)

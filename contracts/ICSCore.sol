@@ -8,8 +8,9 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/utils/Pausable.sol";
 
-contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable, Pausable {
     /// @dev channelId => channel
     mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract
@@ -64,7 +65,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
         Channel calldata channel,
         address client
     )
-        external
+        external whenNotPaused
         returns (string memory)
     {
         string memory clientId = getNextClientId(clientType);
@@ -79,7 +80,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     }
 
     /// @inheritdoc IICS02Client
-    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner {
+    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner whenNotPaused {
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
 
@@ -95,19 +96,19 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
         string calldata clientId,
         bytes calldata updateMsg
     )
-        external
+        external whenNotPaused
         returns (ILightClient.UpdateResult)
     {
         return getClient(clientId).updateClient(updateMsg);
     }
 
     /// @inheritdoc IICS02Client
-    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external whenNotPaused{
         getClient(clientId).misbehaviour(misbehaviourMsg);
     }
 
     /// @inheritdoc IICS02Client
-    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
+    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external whenNotPaused{
         getClient(clientId).upgradeClient(upgradeMsg);
     }
 }
