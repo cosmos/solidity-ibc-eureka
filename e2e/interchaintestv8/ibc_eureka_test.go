@@ -85,7 +85,7 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
 	shouldGenerateRustFixtures := false
@@ -182,10 +182,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
 	}))
 
-	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+	simdUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simdRelayerUser, s.contractAddresses.IbcStore, s.rustFixtureGenerator)
+		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore, s.rustFixtureGenerator)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -208,17 +208,17 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
 
-		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgCreateChannel{
+		_, err := s.BroadcastMessages(ctx, simd, simdUser, 200_000, &channeltypesv2.MsgCreateChannel{
 			ClientId:         s.EthereumLightClientID,
 			MerklePathPrefix: merklePathPrefix,
-			Signer:           simdRelayerUser.FormattedAddress(),
+			Signer:           simdUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 
-		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+		_, err = s.BroadcastMessages(ctx, simd, simdUser, 200_000, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
 			CounterpartyChannelId: s.TendermintLightClientID,
-			Signer:                simdRelayerUser.FormattedAddress(),
+			Signer:                simdUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
@@ -238,7 +238,7 @@ func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
 func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	simd := s.ChainB
+	simd := s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
@@ -333,7 +333,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
@@ -342,9 +342,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
 	s.Require().NoError(err)
@@ -723,21 +723,21 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 	sendMemo := "nonnativesend"
 
 	var sendPacket channeltypesv2.Packet
 	var transferCoin sdk.Coin
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+		transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
 			Denom:    transferCoin.Denom,
@@ -1051,11 +1051,11 @@ func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_P
 func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	var packet ics26router.IICS26RouterMsgsPacket
@@ -1191,7 +1191,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 }
 
 func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte) []byte {
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	storageKey := ethereum.GetCommitmentsStorageKey(path)
 	storageKeys := []string{storageKey.Hex()}

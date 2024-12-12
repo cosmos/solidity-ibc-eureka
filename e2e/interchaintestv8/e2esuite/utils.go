@@ -53,12 +53,6 @@ import (
 	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
 )
 
-// FundAddressChainB sends funds to the given address on Chain B.
-// The amount sent is 1,000,000,000 of the chain's denom.
-func (s *TestSuite) FundAddressChainB(ctx context.Context, address string) {
-	s.fundAddress(ctx, s.ChainB, s.UserB.KeyName(), address)
-}
-
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the broadcast response is returned, we wait for two blocks to be created on chain.
 func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
@@ -96,32 +90,12 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 	return &resp, nil
 }
 
-// fundAddress sends funds to the given address on the given chain
-func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, keyName, address string) {
-	err := chain.SendFunds(ctx, keyName, ibc.WalletAmount{
-		Address: address,
-		Denom:   chain.Config().Denom,
-		Amount:  sdkmath.NewInt(1_000_000_000),
-	})
-	s.Require().NoError(err)
-
-	// wait for 2 blocks for the funds to be received
-	err = testutil.WaitForBlocks(ctx, 2, chain)
-	s.Require().NoError(err)
-}
-
-// GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
-// on the two chains.
-func (s *TestSuite) GetRelayerUsers(ctx context.Context) (*ecdsa.PrivateKey, ibc.Wallet) {
-	eth, simd := s.EthChain, s.ChainB
-
-	ethKey, err := eth.CreateAndFundUser()
-	s.Require().NoError(err)
-
+// CreateAndFundCosmosUser returns a new cosmos user with the given initial balance and funds it with the native chain denom.
+func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, simd)
+	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
 
-	return ethKey, cosmosUsers[0]
+	return cosmosUsers[0]
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed

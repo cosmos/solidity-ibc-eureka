@@ -55,7 +55,7 @@ func TestWithRelayerTestSuite(t *testing.T) {
 func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.IbcEurekaTestSuite.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
@@ -95,7 +95,7 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Run("Relayer Info", func() {
 		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
@@ -136,17 +136,16 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
-	// ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
 	if totalTransferAmount.Int64() > testvalues.InitialBalance {
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	sendMemo := "nonnativesend"
 
@@ -157,7 +156,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
 		for i := 0; i < numOfTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-			transferCoin = sdk.NewCoin(s.ChainB.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
@@ -298,7 +297,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -308,9 +307,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	_, simdRelayerUser := s.GetRelayerUsers(ctx)
+	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
 	s.Require().NoError(err)
@@ -513,7 +512,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 ) {
 	s.SetupSuite(ctx, pt)
 
-	eth, _ := s.EthChain, s.ChainB
+	eth, _ := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
@@ -522,7 +521,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.UserB
+	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {

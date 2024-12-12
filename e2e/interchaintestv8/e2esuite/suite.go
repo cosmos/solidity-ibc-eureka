@@ -33,8 +33,8 @@ type TestSuite struct {
 
 	EthChain       ethereum.Ethereum
 	ethTestnetType string
-	ChainB         *cosmos.CosmosChain
-	UserB          ibc.Wallet
+	CosmosChains   []*cosmos.CosmosChain
+	CosmosUsers    []ibc.Wallet
 	dockerClient   *dockerclient.Client
 	network        string
 	logger         *zap.Logger
@@ -79,8 +79,6 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	chains, err := cf.Chains(s.T().Name())
 	s.Require().NoError(err)
 
-	s.ChainB = chains[0].(*cosmos.CosmosChain)
-
 	ic := interchaintest.NewInterchain()
 	for _, chain := range chains {
 		ic = ic.AddChain(chain)
@@ -96,23 +94,33 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		SkipPathCreation: true,
 	}))
 
-	// map all query request types to their gRPC method paths for cosmos chains
-	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
-
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[1].(*icethereum.EthereumChain)
+		anvil := chains[len(chains)-1].(*icethereum.EthereumChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
 
 		s.EthChain, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
 		s.Require().NoError(err)
+
+		// Remove the Ethereum chain from the cosmos chains
+		chains = chains[:len(chains)-1]
 	}
+
+	for _, chain := range chains {
+		cosmosChain := chain.(*cosmos.CosmosChain)
+		s.CosmosChains = append(s.CosmosChains, cosmosChain)
+	}
+
+	// map all query request types to their gRPC method paths for cosmos chains
+	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
 
 	// Fund user accounts
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, s.ChainB)
-	s.UserB = cosmosUsers[0]
+	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chains...)
+	s.CosmosUsers = cosmosUsers
 
 	s.proposalIDs = make(map[string]uint64)
-	s.proposalIDs[s.ChainB.Config().ChainID] = 1
+	for _, chain := range s.CosmosChains {
+		s.proposalIDs[chain.Config().ChainID] = 1
+	}
 }
