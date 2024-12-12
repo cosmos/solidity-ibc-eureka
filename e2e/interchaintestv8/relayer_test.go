@@ -55,7 +55,7 @@ func TestWithRelayerTestSuite(t *testing.T) {
 func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.IbcEurekaTestSuite.SetupSuite(ctx, proofType)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
@@ -95,7 +95,7 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	s.Run("Relayer Info", func() {
 		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
@@ -136,7 +136,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	// ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -298,7 +298,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -513,7 +513,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 ) {
 	s.SetupSuite(ctx, pt)
 
-	eth, _ := s.ChainA, s.ChainB
+	eth, _ := s.EthChain, s.ChainB
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	transferAmount := big.NewInt(testvalues.TransferAmount)

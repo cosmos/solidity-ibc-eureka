@@ -31,14 +31,13 @@ const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5ef
 type TestSuite struct {
 	suite.Suite
 
-	ChainA         ethereum.Ethereum
+	EthChain       ethereum.Ethereum
 	ethTestnetType string
 	ChainB         *cosmos.CosmosChain
 	UserB          ibc.Wallet
 	dockerClient   *dockerclient.Client
 	network        string
 	logger         *zap.Logger
-	ExecRep        *testreporter.RelayerExecReporter
 
 	EthereumLightClientID         string
 	TendermintLightClientID       string
@@ -59,7 +58,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypePoS:
 		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
-		s.ChainA, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
 			ctx := context.Background()
@@ -87,10 +86,10 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		ic = ic.AddChain(chain)
 	}
 
-	s.ExecRep = testreporter.NewNopReporter().RelayerExecReporter(s.T())
+	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
 
 	// TODO: Run this in a goroutine and wait for it to be ready
-	s.Require().NoError(ic.Build(ctx, s.ExecRep, interchaintest.InterchainBuildOptions{
+	s.Require().NoError(ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
 		TestName:         s.T().Name(),
 		Client:           s.dockerClient,
 		NetworkID:        s.network,
@@ -105,7 +104,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
 
-		s.ChainA, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
+		s.EthChain, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
 		s.Require().NoError(err)
 	}
 

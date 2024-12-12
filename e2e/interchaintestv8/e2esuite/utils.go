@@ -113,7 +113,7 @@ func (s *TestSuite) fundAddress(ctx context.Context, chain *cosmos.CosmosChain, 
 // GetRelayerUsers returns two ibc.Wallet instances which can be used for the relayer users
 // on the two chains.
 func (s *TestSuite) GetRelayerUsers(ctx context.Context) (*ecdsa.PrivateKey, ibc.Wallet) {
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	ethKey, err := eth.CreateAndFundUser()
 	s.Require().NoError(err)

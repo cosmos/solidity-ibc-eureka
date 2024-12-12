@@ -85,7 +85,7 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	var prover string
 	shouldGenerateRustFixtures := false
@@ -333,7 +333,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
@@ -723,7 +723,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack
 func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
@@ -1051,7 +1051,7 @@ func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_P
 func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
@@ -1191,7 +1191,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 }
 
 func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte) []byte {
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	storageKey := ethereum.GetCommitmentsStorageKey(path)
 	storageKeys := []string{storageKey.Hex()}

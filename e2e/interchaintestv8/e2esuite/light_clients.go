@@ -39,7 +39,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		return
 	}
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	// Wait until we have a block number greater than the minimum update to
 	var updateTo int64
@@ -222,7 +222,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 }
 
 func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
 	s.Require().NoError(err)
@@ -329,7 +329,7 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	file, err := os.Open("e2e/interchaintestv8/wasm/wasm_dummy_light_client.wasm.gz")
 	s.Require().NoError(err)

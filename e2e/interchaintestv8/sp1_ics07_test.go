@@ -60,7 +60,7 @@ type SP1ICS07TendermintTestSuite struct {
 func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
@@ -130,7 +130,7 @@ func (s *SP1ICS07TendermintTestSuite) TestDeploy_Plonk() {
 func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	_, simd := s.ChainA, s.ChainB
+	_, simd := s.EthChain, s.ChainB
 
 	s.Require().True(s.Run("Verify deployment", func() {
 		clientState, err := s.contract.GetClientState(nil)
@@ -164,7 +164,7 @@ func (s *SP1ICS07TendermintTestSuite) TestUpdateClient_Plonk() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	_, simd := s.ChainA, s.ChainB
+	_, simd := s.EthChain, s.ChainB
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClient does not support it (yet)")
@@ -211,7 +211,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestVerifyMembership does not support it (yet)")
@@ -318,7 +318,7 @@ func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership_Groth16() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClientAndMembership does not support it (yet)")
@@ -413,7 +413,7 @@ func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour_Groth16() {
 func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 	_ = eth
 
 	var height clienttypes.Height
@@ -518,7 +518,7 @@ func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour_G
 func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	var height clienttypes.Height
 	var trustedHeader tmclient.Header
@@ -607,7 +607,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.ChainB
 
 	s.Require().True(s.Run(fmt.Sprintf("Large membership test with %d key-value pairs", n), func() {
 		membershipKeys := make([][][]byte, n)
