@@ -78,6 +78,7 @@ jobs:
           - TestWithRelayerTestSuite/TestTimeoutPacketFromEth_Plonk
           - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromEth_Groth16
           - TestWithRelayerTestSuite/Test_5_TimeoutPacketFromEth_Plonk
+          - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
