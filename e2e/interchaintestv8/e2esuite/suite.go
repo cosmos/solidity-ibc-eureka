@@ -67,6 +67,8 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 			}
 			kurtosisChain.Destroy(ctx)
 		})
+	case testvalues.EthTestnetTypeNone:
+		// Do nothing
 	default:
 		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
