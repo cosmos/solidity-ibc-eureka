@@ -1,4 +1,5 @@
-//! The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
+//! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
+//! the Ethereum chain from events received from the Cosmos SDK chain.
 
 use std::{env, str::FromStr};
 

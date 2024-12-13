@@ -80,7 +80,10 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 
 	s.T().Cleanup(func() {
 		if relayerProcess != nil {
-			_ = relayerProcess.Kill()
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
 		}
 	})
 

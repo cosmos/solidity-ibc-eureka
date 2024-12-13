@@ -1,4 +1,5 @@
-//! The `ChainSubmitter` submits txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
+//! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
+//! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
 use anyhow::Result;
 use futures::future;
