@@ -39,11 +39,14 @@ func TestWithCosmosRelayerTestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
-	ibcSpecs2 := chainconfig.DefaultChainSpecs[0]
+	//nolint:govet
+	ibcSpecs2 := *chainconfig.DefaultChainSpecs[0]
 	ibcSpecs2.ChainID = "simd-2"
 	ibcSpecs2.Name = "ibc-go-simd-2"
 
-	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, ibcSpecs2)
+	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, &ibcSpecs2)
+
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -54,6 +57,9 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	var relayerProcess *os.Process
 	var configInfo relayer.CosmosToCosmosConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
+		err := os.Chdir("../..")
+		s.Require().NoError(err)
+
 		configInfo = relayer.CosmosToCosmosConfigInfo{
 			ChainATmRPC: s.SimdA.GetHostRPCAddress(),
 			ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
@@ -61,7 +67,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 			ChainBUser:  s.SimdBSubmitter.FormattedAddress(),
 		}
 
-		err := configInfo.GenerateCosmosToCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		err = configInfo.GenerateCosmosToCosmosConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)

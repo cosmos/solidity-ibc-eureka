@@ -91,6 +91,11 @@ test-e2e-relayer testname: clean
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
 
 # Run the e2e tests in the relayer test suite
+test-e2e-cosmos-relayer testname: clean
+	@echo "Running {{testname}} test..."
+	cd e2e/interchaintestv8 && go test -v -run '^TestWithCosmosRelayerTestSuite/{{testname}}$' -timeout 40m
+
+# Run the e2e tests in the relayer test suite
 test-e2e-sp1-ics07 testname: clean
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^TestWithSP1ICS07TendermintTestSuite/{{testname}}$' -timeout 40m
