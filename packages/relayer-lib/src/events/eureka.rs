@@ -69,7 +69,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 .attributes
                 .into_iter()
                 .find_map(|attr| {
-                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
+                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
                         let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                         let packet = Packet::decode(packet.as_slice()).ok()?;
                         Some(Self::SendPacket(SendPacket {
@@ -84,7 +84,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 .attributes
                 .into_iter()
                 .find_map(|attr| {
-                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX {
+                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
                         let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                         let packet = Packet::decode(packet.as_slice()).ok()?;
                         Some(Self::RecvPacket(RecvPacket {
@@ -100,12 +100,12 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     .attributes
                     .into_iter()
                     .filter_map(|attr| match attr.key_str().ok()? {
-                        cosmos_sdk::ATTRIBUTE_KEY_ACK_DATA_HEX => {
+                        cosmos_sdk::ATTRIBUTE_KEY_ENCODED_ACK_HEX => {
                             let ack_data = hex::decode(attr.value_str().ok()?).ok()?;
                             let ack = Acknowledgement::decode(ack_data.as_slice()).ok()?;
                             Some((Some(ack), None))
                         }
-                        cosmos_sdk::ATTRIBUTE_KEY_PACKET_DATA_HEX => {
+                        cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX => {
                             let packet_data = hex::decode(attr.value_str().ok()?).ok()?;
                             let packet = Packet::decode(packet_data.as_slice()).ok()?;
                             Some((None, Some(packet)))
