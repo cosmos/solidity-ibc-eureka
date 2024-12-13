@@ -39,12 +39,7 @@ func TestWithCosmosRelayerTestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
-	//nolint:govet
-	ibcSpecs2 := *chainconfig.DefaultChainSpecs[0]
-	ibcSpecs2.ChainID = "simd-2"
-	ibcSpecs2.Name = "ibc-go-simd-2"
-
-	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, &ibcSpecs2)
+	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
 

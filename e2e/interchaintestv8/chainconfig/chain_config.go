@@ -7,11 +7,15 @@ import (
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{
 	// -- IBC-Go --
-	{
+	IbcGoChainSpec("ibc-go-simd-1", "simd-1"),
+}
+
+func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
+	return &interchaintest.ChainSpec{
 		ChainConfig: ibc.ChainConfig{
 			Type:    "cosmos",
-			Name:    "ibc-go-simd",
-			ChainID: "simd-1",
+			Name:    name,
+			ChainID: chainId,
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
@@ -29,5 +33,5 @@ var DefaultChainSpecs = []*interchaintest.ChainSpec{
 			TrustingPeriod: "508h",
 			NoHostMount:    false,
 		},
-	},
+	}
 }
