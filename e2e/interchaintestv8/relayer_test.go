@@ -58,15 +58,16 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var relayerProcess *os.Process
+	var configInfo relayer.EthToCosmosConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
-		configInfo := relayer.ConfigInfo{
+		configInfo = relayer.EthToCosmosConfigInfo{
 			TmRPC:         simd.GetHostRPCAddress(),
 			ICS26Address:  s.contractAddresses.Ics26Router,
 			EthRPC:        eth.RPC,
 			SP1PrivateKey: os.Getenv(testvalues.EnvKeySp1PrivateKey),
 		}
 
-		err := configInfo.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := configInfo.GenerateEthToCosmosConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
@@ -85,7 +86,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient()
+		s.RelayerClient, err = relayer.GetGRPCClient(configInfo.EthToCosmosGRPCAddress())
 		s.Require().NoError(err)
 	}))
 }
