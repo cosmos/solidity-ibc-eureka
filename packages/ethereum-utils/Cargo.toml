@@ -9,3 +9,4 @@ alloy-primitives = { workspace = true, default-features = false }
 base64 = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tree_hash = { workspace = true }

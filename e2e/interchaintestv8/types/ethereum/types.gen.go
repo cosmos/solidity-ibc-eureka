@@ -1,6 +1,6 @@
 package ethereum
 
-type EthereumTypes struct {
+type TypesGen struct {
 	ClientState    ClientState    `json:"client_state"`
 	ConsensusState ConsensusState `json:"consensus_state"`
 	Header         Header         `json:"header"`
@@ -134,7 +134,7 @@ type LightClientUpdate struct {
 	// The branch of the next sync committee
 	NextSyncCommitteeBranch []string `json:"next_sync_committee_branch"`
 	// Slot at which the aggregate signature was created (untrusted)
-	SignatureSlot uint64 `json:"signature_slot"`
+	SignatureSlot string `json:"signature_slot"`
 	// Sync committee aggregate signature
 	SyncAggregate SyncAggregate `json:"sync_aggregate"`
 }
@@ -160,9 +160,9 @@ type BeaconBlockHeader struct {
 	// The signing merkle root of the parent `BeaconBlock`
 	ParentRoot string `json:"parent_root"`
 	// The index of validator in validator registry
-	ProposerIndex uint64 `json:"proposer_index"`
+	ProposerIndex string `json:"proposer_index"`
 	// The slot to which this block corresponds
-	Slot uint64 `json:"slot"`
+	Slot string `json:"slot"`
 	// The tree hash merkle root of the `BeaconState` for the `BeaconBlock`
 	StateRoot string `json:"state_root"`
 }
@@ -174,23 +174,23 @@ type ExecutionPayloadHeader struct {
 	// Block base fee per gas
 	BaseFeePerGas string `json:"base_fee_per_gas"`
 	// Blob gas used (new in Deneb)
-	BlobGasUsed *uint64 `json:"blob_gas_used,omitempty"`
+	BlobGasUsed string `json:"blob_gas_used"`
 	// The block hash
 	BlockHash string `json:"block_hash"`
 	// The block number of the execution payload
-	BlockNumber uint64 `json:"block_number"`
+	BlockNumber string `json:"block_number"`
 	// Excess blob gas (new in Deneb)
-	ExcessBlobGas *uint64 `json:"excess_blob_gas,omitempty"`
+	ExcessBlobGas string `json:"excess_blob_gas"`
 	// The extra data of the execution payload
 	ExtraData string `json:"extra_data"`
 	// Block fee recipient
 	FeeRecipient string `json:"fee_recipient"`
 	// Execution block gas limit
-	GasLimit uint64 `json:"gas_limit"`
+	GasLimit string `json:"gas_limit"`
 	// Execution block gas used
-	GasUsed *uint64 `json:"gas_used,omitempty"`
+	GasUsed string `json:"gas_used"`
 	// The logs bloom filter
-	LogsBloom []string `json:"logs_bloom"`
+	LogsBloom string `json:"logs_bloom"`
 	// The parent hash of the execution payload header
 	ParentHash string `json:"parent_hash"`
 	// The previous Randao value, used to compute the randomness on the execution layer.
@@ -200,7 +200,7 @@ type ExecutionPayloadHeader struct {
 	// The state root
 	StateRoot string `json:"state_root"`
 	// The timestamp of the execution payload
-	Timestamp uint64 `json:"timestamp"`
+	Timestamp string `json:"timestamp"`
 	// SSZ hash tree root of the transaction list
 	TransactionsRoot string `json:"transactions_root"`
 	// Tree root of the withdrawals list

@@ -26,6 +26,11 @@ build-sp1-programs:
 build-optimized-wasm:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
 
+full-wasm: generate-ethereum-types build-optimized-wasm
+	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
+	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm
+	mv e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz
+
 # Clean up the cache and out directories
 clean:
 	@echo "Cleaning up cache and out directories"
@@ -81,12 +86,12 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS20Lib.json --pkg ics20lib --type Lib --out abigen/ics20lib/lib.go
 
 generate-ethereum-types:
-	cargo run --bin generate_json_schema --features="generate-json-schema"
-	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/ethereum_types.go
+	cargo run --bin generate_json_schema
+	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go
 	rm ethereum_types_schema.json
-	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/ethereum_types.go 
-	rm -f e2e/interchaintestv8/types/ethereum/ethereum_types.go.bak
-	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/ethereum_types.go
+	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go 
+	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak
+	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
 
 # Run the e2e tests
 test-e2e testname: clean
@@ -168,6 +173,15 @@ generate-fixtures-sp1-ics07: build-operator
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16' -timeout 40m
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
+
+generate-fixtures-rust: clean
+	@echo "Generating fixtures... This may take a while."
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	@echo "Generating timeoutPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
 
 # Generate the relayer proto files
 relayer-proto-gen:

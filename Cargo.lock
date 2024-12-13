@@ -2700,6 +2700,7 @@ dependencies = [
  "base64 0.22.1",
  "serde",
  "thiserror 2.0.4",
+ "tree_hash",
 ]
 
 [[package]]

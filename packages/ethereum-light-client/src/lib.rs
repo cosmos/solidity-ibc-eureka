@@ -7,6 +7,7 @@ pub mod consensus_state;
 pub mod error;
 pub mod membership;
 pub mod trie;
+pub mod update;
 pub mod verify;
 
 pub mod types;

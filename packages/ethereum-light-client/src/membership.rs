@@ -47,7 +47,7 @@ pub fn verify_membership(
         value = Some(encode_fixed_size(&U256::from_be_slice(&proof_value)).to_vec());
     }
 
-    let proof: Vec<&Bytes> = storage_proof.proof.iter().map(|b| &b.0).collect();
+    let proof: Vec<&Bytes> = storage_proof.proof.iter().collect();
 
     verify_proof::<Vec<&Bytes>>(
         trusted_consensus_state.storage_root,
@@ -91,10 +91,8 @@ fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
 #[cfg(test)]
 mod test {
     use crate::{
-        client_state::ClientState,
-        consensus_state::ConsensusState,
-        test::fixture_types::CommitmentProof,
-        types::{storage_proof::StorageProof, wrappers::WrappedBytes},
+        client_state::ClientState, consensus_state::ConsensusState,
+        test::fixture_types::CommitmentProof, types::storage_proof::StorageProof,
     };
 
     use alloy_primitives::{
@@ -102,7 +100,6 @@ mod test {
         Bytes, B256, U256,
     };
     use ethereum_test_utils::fixtures;
-    use ethereum_utils::hex::FromBeHex;
 
     use super::verify_membership;
 
@@ -132,7 +129,7 @@ mod test {
     #[test]
     fn test_verify_membership() {
         let client_state: ClientState = ClientState {
-            ibc_commitment_slot: U256::from_be_hex(
+            ibc_commitment_slot: from_be_hex(
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
             ),
             ..Default::default()
@@ -150,11 +147,11 @@ mod test {
             B256::from_hex("0x75d7411cb01daad167713b5a9b7219670f0e500653cbbcd45cfe1bfe04222459")
                 .unwrap();
         let value =
-            U256::from_be_hex("0xb2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db");
+            from_be_hex("0xb2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db");
 
         let proof = vec![
-            WrappedBytes(Bytes::from_hex("0xf8718080a0911797c4b8cdbd1d8fa643b31ff0a469fae0f9b2ecbb0fa45a5ebe497f5e7130a065ea7eb6ae4e9747a131961beda4e9fd3040521e58845f4a286fb472eb0415168080a057b16d9a3bbb2d106b4d1b12dca3504f61899c7c660b036848511426ed342dd680808080808080808080").unwrap()),
-            WrappedBytes(Bytes::from_hex("0xf843a03d3c3bcf030006afea2a677a6ff5bf3f7f111e87461c8848cf062a5756d1a888a1a0b2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db").unwrap()),
+            Bytes::from_hex("0xf8718080a0911797c4b8cdbd1d8fa643b31ff0a469fae0f9b2ecbb0fa45a5ebe497f5e7130a065ea7eb6ae4e9747a131961beda4e9fd3040521e58845f4a286fb472eb0415168080a057b16d9a3bbb2d106b4d1b12dca3504f61899c7c660b036848511426ed342dd680808080808080808080").unwrap(),
+            Bytes::from_hex("0xf843a03d3c3bcf030006afea2a677a6ff5bf3f7f111e87461c8848cf062a5756d1a888a1a0b2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db").unwrap(),
         ];
 
         let path = vec![hex::decode("0x30372d74656e6465726d696e742d30010000000000000001").unwrap()];
@@ -186,7 +183,7 @@ mod test {
     #[test]
     fn test_verify_non_membership() {
         let client_state: ClientState = ClientState {
-            ibc_commitment_slot: U256::from_be_hex(
+            ibc_commitment_slot: from_be_hex(
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
             ),
             ..Default::default()
@@ -205,7 +202,7 @@ mod test {
                 .unwrap();
 
         let proof = vec![
-            WrappedBytes(Bytes::from_hex("0xf838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594eb9407e2a087056b69d43d21df69b82e31533c8a").unwrap()),
+            Bytes::from_hex("0xf838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594eb9407e2a087056b69d43d21df69b82e31533c8a").unwrap(),
         ];
 
         let path = vec![hex::decode("0x30372d74656e6465726d696e742d30020000000000000001").unwrap()];
@@ -232,5 +229,10 @@ mod test {
             Some(value.to_be_bytes_vec()),
         )
         .unwrap_err();
+    }
+
+    fn from_be_hex(hex_str: &str) -> U256 {
+        let data = hex::decode(hex_str).unwrap();
+        U256::from_be_slice(data.as_slice())
     }
 }

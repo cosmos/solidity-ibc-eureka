@@ -3,7 +3,7 @@
 use alloy_primitives::{hex, FixedBytes, B256};
 use serde::{Deserialize, Serialize};
 
-use super::{fork_data::compute_fork_data_root, wrappers::Version};
+use super::fork::{compute_fork_data_root, Version};
 
 /// The signature domain type.
 /// Defined in
@@ -51,7 +51,7 @@ pub fn compute_domain(
 
 #[cfg(test)]
 mod test {
-    use ethereum_utils::base64::FromBase64;
+    use hex::FromHex;
 
     use crate::config::MINIMAL;
 
@@ -62,7 +62,8 @@ mod test {
         let domain_type = DomainType::SYNC_COMMITTEE;
         let fork_version = MINIMAL.fork_parameters.deneb.version;
         let genesis_validators_root =
-            B256::from_base64("1h6khP66z65SmNUqK1gfPjBaUfMRKpJBuWjczwGfexE=").unwrap();
+            B256::from_hex("d61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11")
+                .unwrap();
         let genesis_fork_version = MINIMAL.fork_parameters.genesis_fork_version;
 
         let domain = compute_domain(
@@ -73,7 +74,9 @@ mod test {
         );
 
         // expected domain taken from running the same code in the union repo
-        let expected = B256::from_base64("BwAAAOqlZkuFxencFtZKxu4VzJLsR3mQBhswAkaW22c=").unwrap();
+        let expected =
+            B256::from_hex("07000000eaa5664b85c5e9dc16d64ac6ee15cc92ec477990061b30024696db67")
+                .unwrap();
 
         assert_eq!(domain, expected);
     }

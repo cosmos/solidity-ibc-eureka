@@ -1,10 +1,8 @@
 //! This module defines [`StorageProof`].
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{Bytes, B256, U256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-use super::wrappers::WrappedBytes;
 
 /// The key-value storage proof for a smart contract account
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
@@ -17,5 +15,5 @@ pub struct StorageProof {
     pub value: U256,
     /// The proof of the storage
     #[schemars(with = "Vec<String>")]
-    pub proof: Vec<WrappedBytes>,
+    pub proof: Vec<Bytes>,
 }

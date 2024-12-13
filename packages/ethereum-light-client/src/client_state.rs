@@ -4,7 +4,7 @@ use alloy_primitives::{Address, B256, U256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{fork_parameters::ForkParameters, height::Height};
+use crate::types::{fork::ForkParameters, height::Height};
 
 /// The ethereum client state
 //#[serde_as]

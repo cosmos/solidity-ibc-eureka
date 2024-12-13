@@ -1,6 +1,6 @@
 //! This module defines the types used in the light client updates
 
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, Bloom, Bytes, B256, U256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_hash_derive::TreeHash;
@@ -9,10 +9,7 @@ use crate::config::consts::{
     EXECUTION_BRANCH_DEPTH, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
 };
 
-use super::{
-    sync_committee::{SyncAggregate, SyncCommittee, TrustedSyncCommittee},
-    wrappers::{WrappedBloom, WrappedBranch, WrappedBytes},
-};
+use super::sync_committee::{SyncAggregate, SyncCommittee, TrustedSyncCommittee};
 
 /// The header of a light client update
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
@@ -35,14 +32,18 @@ pub struct LightClientUpdate {
     #[serde(default)] // TODO: Check if this can be removed in #143
     pub next_sync_committee: Option<SyncCommittee>,
     /// The branch of the next sync committee
-    pub next_sync_committee_branch: Option<WrappedBranch<NEXT_SYNC_COMMITTEE_BRANCH_DEPTH>>,
+    #[schemars(with = "Vec<String>")]
+    pub next_sync_committee_branch: Option<[B256; NEXT_SYNC_COMMITTEE_BRANCH_DEPTH]>,
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
-    pub finality_branch: WrappedBranch<FINALITY_BRANCH_DEPTH>,
+    #[schemars(with = "Vec<String>")]
+    pub finality_branch: [B256; FINALITY_BRANCH_DEPTH],
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub signature_slot: u64,
 }
 
@@ -73,15 +74,20 @@ pub struct LightClientHeader {
     /// The execution payload header
     pub execution: ExecutionPayloadHeader,
     /// The execution branch
-    pub execution_branch: WrappedBranch<EXECUTION_BRANCH_DEPTH>,
+    #[schemars(with = "Vec<String>")]
+    pub execution_branch: [B256; EXECUTION_BRANCH_DEPTH],
 }
 
 /// The beacon block header
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct BeaconBlockHeader {
     /// The slot to which this block corresponds
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub slot: u64,
     /// The index of validator in validator registry
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub proposer_index: u64,
     /// The signing merkle root of the parent `BeaconBlock`
     #[schemars(with = "String")]
@@ -110,23 +116,30 @@ pub struct ExecutionPayloadHeader {
     #[schemars(with = "String")]
     pub receipts_root: B256,
     /// The logs bloom filter
-    #[schemars(with = "Vec<String>")]
-    pub logs_bloom: WrappedBloom,
+    #[schemars(with = "String")]
+    pub logs_bloom: Bloom,
     /// The previous Randao value, used to compute the randomness on the execution layer.
     #[schemars(with = "String")]
     pub prev_randao: B256,
     /// The block number of the execution payload
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub block_number: u64,
     /// Execution block gas limit
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub gas_limit: u64,
     /// Execution block gas used
-    #[serde(default)]
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub gas_used: u64,
     /// The timestamp of the execution payload
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub timestamp: u64,
     /// The extra data of the execution payload
     #[schemars(with = "String")]
-    pub extra_data: WrappedBytes,
+    pub extra_data: Bytes,
     /// Block base fee per gas
     #[schemars(with = "String")]
     pub base_fee_per_gas: U256,
@@ -140,9 +153,11 @@ pub struct ExecutionPayloadHeader {
     #[schemars(with = "String")]
     pub withdrawals_root: B256,
     /// Blob gas used (new in Deneb)
-    #[serde(default)]
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub blob_gas_used: u64,
     /// Excess blob gas (new in Deneb)
-    #[serde(default)]
+    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[schemars(with = "String")]
     pub excess_blob_gas: u64,
 }

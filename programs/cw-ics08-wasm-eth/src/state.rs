@@ -11,7 +11,7 @@ use ibc_proto::{
 };
 use prost::Message;
 
-use crate::msg::Height;
+use crate::{msg::Height, ContractError};
 
 /// The store key used by `ibc-go` to store the client state
 pub const HOST_CLIENT_STATE_KEY: &str = "clientState";
@@ -28,17 +28,23 @@ pub fn consensus_db_key(height: &Height) -> String {
 }
 
 // TODO: Proper errors
+/// Get the Wasm client state
+/// # Panics
+/// Panics if the client state is not found or cannot be deserialized
+#[allow(clippy::module_name_repetitions)]
+pub fn get_wasm_client_state(storage: &dyn Storage) -> WasmClientState {
+    let wasm_client_state_any_bz = storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
+    let wasm_client_state_any = Any::decode(wasm_client_state_any_bz.as_slice()).unwrap();
+    WasmClientState::decode(wasm_client_state_any.value.as_slice()).unwrap()
+}
+
+// TODO: Proper errors
 /// Get the Ethereum client state
 /// # Panics
 /// Panics if the client state is not found or cannot be deserialized
 #[allow(clippy::module_name_repetitions)]
 pub fn get_eth_client_state(storage: &dyn Storage) -> EthClientState {
-    let wasm_client_state_any_bz = storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
-    let wasm_client_state_any = Any::decode(wasm_client_state_any_bz.as_slice()).unwrap();
-    let wasm_client_state =
-        WasmClientState::decode(wasm_client_state_any.value.as_slice()).unwrap();
-
-    // TODO: map to ContractError
+    let wasm_client_state = get_wasm_client_state(storage);
     serde_json::from_slice(&wasm_client_state.data).unwrap()
 }
 
@@ -54,4 +60,43 @@ pub fn get_eth_consensus_state(storage: &dyn Storage, height: &Height) -> EthCon
         WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice()).unwrap();
 
     serde_json::from_slice(&wasm_consensus_state.data).unwrap()
+}
+
+/// Store the consensus state
+/// # Errors
+/// Returns an error if the consensus state cannot be serialized into an Any
+#[allow(clippy::module_name_repetitions)]
+pub fn store_consensus_state(
+    storage: &mut dyn Storage,
+    wasm_consensus_state: &WasmConsensusState,
+    height: u64,
+) -> Result<(), ContractError> {
+    let wasm_consensus_state_any = Any::from_msg(wasm_consensus_state)?;
+    let height = Height {
+        revision_number: 0,
+        revision_height: height,
+    };
+    storage.set(
+        consensus_db_key(&height).as_bytes(),
+        wasm_consensus_state_any.encode_to_vec().as_slice(),
+    );
+
+    Ok(())
+}
+
+/// Store the client state
+/// # Errors
+/// Returns an error if the client state cannot be serialized into an Any
+#[allow(clippy::module_name_repetitions)]
+pub fn store_client_state(
+    storage: &mut dyn Storage,
+    wasm_client_state: &WasmClientState,
+) -> Result<(), ContractError> {
+    let wasm_client_state_any = Any::from_msg(wasm_client_state)?;
+    storage.set(
+        HOST_CLIENT_STATE_KEY.as_bytes(),
+        wasm_client_state_any.encode_to_vec().as_slice(),
+    );
+
+    Ok(())
 }

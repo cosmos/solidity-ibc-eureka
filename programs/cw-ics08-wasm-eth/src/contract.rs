@@ -1,7 +1,5 @@
 //! This module handles the execution logic of the contract.
 
-use std::convert::Into;
-
 use cosmwasm_std::{
     entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response,
 };
@@ -9,23 +7,19 @@ use ethereum_light_client::{
     client_state::ClientState as EthClientState,
     consensus_state::ConsensusState as EthConsensusState,
 };
-use ibc_proto::{
-    google::protobuf::Any,
-    ibc::{
-        core::client::v1::Height as IbcProtoHeight,
-        lightclients::wasm::v1::{
-            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-        },
+use ibc_proto::ibc::{
+    core::client::v1::Height as IbcProtoHeight,
+    lightclients::wasm::v1::{
+        ClientState as WasmClientState, ConsensusState as WasmConsensusState,
     },
 };
-use prost::Message;
 
-use crate::custom_query::EthereumCustomQuery;
-use crate::msg::{ExecuteMsg, Height, InstantiateMsg, QueryMsg, SudoMsg};
-use crate::state::{
-    consensus_db_key, get_eth_client_state, get_eth_consensus_state, HOST_CLIENT_STATE_KEY,
-};
 use crate::ContractError;
+use crate::{custom_query::EthereumCustomQuery, state::store_client_state};
+use crate::{
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
+    state::store_consensus_state,
+};
 
 /// The instantiate entry point for the CosmWasm contract.
 /// # Errors
@@ -49,27 +43,15 @@ pub fn instantiate(
             revision_height: client_state.latest_slot,
         }),
     };
-    let wasm_client_state_any = Any::from_msg(&wasm_client_state)?;
-    deps.storage.set(
-        HOST_CLIENT_STATE_KEY.as_bytes(),
-        wasm_client_state_any.encode_to_vec().as_slice(),
-    );
+    store_client_state(deps.storage, &wasm_client_state)?;
 
     let consensus_state_bz: Vec<u8> = msg.consensus_state.into();
     let consensus_state: EthConsensusState = serde_json::from_slice(&consensus_state_bz)
-        .map_err(ContractError::DeserializeClientStateFailed)?;
+        .map_err(ContractError::DeserializeConsensusStateFailed)?;
     let wasm_consensus_state = WasmConsensusState {
         data: consensus_state_bz,
     };
-    let wasm_consensus_state_any = Any::from_msg(&wasm_consensus_state)?;
-    let height = Height {
-        revision_number: 0,
-        revision_height: consensus_state.slot,
-    };
-    deps.storage.set(
-        consensus_db_key(&height).as_bytes(),
-        wasm_consensus_state_any.encode_to_vec().as_slice(),
-    );
+    store_consensus_state(deps.storage, &wasm_consensus_state, consensus_state.slot)?;
 
     Ok(Response::default())
 }
@@ -92,7 +74,7 @@ pub fn sudo(
         SudoMsg::VerifyNonMembership(verify_non_membership_msg) => {
             sudo::verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
         }
-        SudoMsg::UpdateState(_) => sudo::update_state()?,
+        SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
         SudoMsg::UpdateStateOnMisbehaviour(_) => todo!(),
         SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
         SudoMsg::MigrateClientStore(_) => todo!(),
@@ -102,12 +84,24 @@ pub fn sudo(
 }
 
 mod sudo {
-    use crate::msg::{UpdateStateResult, VerifyMembershipMsg, VerifyNonMembershipMsg};
-
-    use super::{
-        get_eth_client_state, get_eth_consensus_state, to_json_binary, Binary, ContractError, Deps,
-        EthereumCustomQuery,
+    use cosmwasm_std::DepsMut;
+    use ethereum_light_client::update::update_consensus_state;
+    use ibc_proto::ibc::{
+        core::client::v1::Height as IbcProtoHeight,
+        lightclients::wasm::v1::ConsensusState as WasmConsensusState,
     };
+
+    use crate::{
+        msg::{
+            Height, UpdateStateMsg, UpdateStateResult, VerifyMembershipMsg, VerifyNonMembershipMsg,
+        },
+        state::{
+            get_eth_client_state, get_eth_consensus_state, get_wasm_client_state,
+            store_client_state, store_consensus_state,
+        },
+    };
+
+    use super::{to_json_binary, Binary, ContractError, Deps, EthereumCustomQuery};
 
     pub fn verify_membership(
         deps: Deps<EthereumCustomQuery>,
@@ -159,8 +153,58 @@ mod sudo {
         Ok(to_json_binary(&Ok::<(), ()>(()))?)
     }
 
-    pub fn update_state() -> Result<Binary, ContractError> {
-        Ok(to_json_binary(&UpdateStateResult { heights: vec![] })?)
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn update_state(
+        deps: DepsMut<EthereumCustomQuery>,
+        update_state_msg: UpdateStateMsg,
+    ) -> Result<Binary, ContractError> {
+        let header_bz: Vec<u8> = update_state_msg.client_message.into();
+        let header = serde_json::from_slice(&header_bz)
+            .map_err(ContractError::DeserializeClientMessageFailed)?;
+
+        let eth_client_state = get_eth_client_state(deps.storage);
+        let eth_consensus_state = get_eth_consensus_state(
+            deps.storage,
+            &Height {
+                revision_number: 0,
+                revision_height: eth_client_state.latest_slot,
+            },
+        );
+
+        let (updated_height, updated_consensus_state, updated_client_state) =
+            update_consensus_state(&eth_consensus_state, &eth_client_state, header)
+                .map_err(ContractError::UpdateClientStateFailed)?;
+
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&updated_consensus_state)
+            .map_err(ContractError::SerializeConsensusStateFailed)?;
+        let wasm_consensus_state = WasmConsensusState {
+            data: consensus_state_bz,
+        };
+        store_consensus_state(
+            deps.storage,
+            &wasm_consensus_state,
+            updated_height.revision_height,
+        )?;
+
+        if let Some(client_state) = updated_client_state {
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state)
+                .map_err(ContractError::SerializeClientStateFailed)?;
+
+            let mut wasm_client_state = get_wasm_client_state(deps.storage);
+            wasm_client_state.data = client_state_bz;
+            wasm_client_state.latest_height = Some(IbcProtoHeight {
+                revision_number: 0,
+                revision_height: updated_height.revision_height,
+            });
+            store_client_state(deps.storage, &wasm_client_state)?;
+        }
+
+        Ok(to_json_binary(&UpdateStateResult {
+            heights: vec![Height {
+                revision_number: 0,
+                revision_height: updated_height.revision_height,
+            }],
+        })?)
     }
 }
 
@@ -203,12 +247,10 @@ mod query {
             CheckForMisbehaviourResult, Height, StatusResult, TimestampAtHeightResult,
             VerifyClientMessageMsg,
         },
+        state::{get_eth_client_state, get_eth_consensus_state},
     };
 
-    use super::{
-        get_eth_client_state, get_eth_consensus_state, to_json_binary, Binary, ContractError, Deps,
-        Env, EthereumCustomQuery,
-    };
+    use super::{to_json_binary, Binary, ContractError, Deps, Env, EthereumCustomQuery};
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn verify_client_message(
@@ -225,7 +267,7 @@ mod query {
             },
         );
         let header = serde_json::from_slice(&verify_client_message_msg.client_message)
-            .map_err(ContractError::DeserializeClientStateFailed)?;
+            .map_err(ContractError::DeserializeClientMessageFailed)?;
         let bls_verifier = BlsVerifier {
             querier: deps.querier,
         };
@@ -287,7 +329,7 @@ mod tests {
         use ethereum_light_client::{
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState,
-            types::{fork::Fork, fork_parameters::ForkParameters, wrappers::Version},
+            types::fork::{Fork, ForkParameters, Version},
         };
         use ibc_proto::{
             google::protobuf::Any,
@@ -409,7 +451,7 @@ mod tests {
 
     mod sudo_tests {
         use cosmwasm_std::{
-            coins,
+            coins, from_json,
             testing::{message_info, mock_env},
             Binary,
         };
@@ -417,8 +459,10 @@ mod tests {
 
         use crate::{
             contract::{instantiate, sudo, tests::mk_deps},
-            msg::{Height, MerklePath, SudoMsg, UpdateStateMsg, VerifyMembershipMsg},
-            test::fixture_types::CommitmentProof,
+            msg::{
+                Height, MerklePath, SudoMsg, UpdateStateMsg, UpdateStateResult, VerifyMembershipMsg,
+            },
+            test::fixture_types::{CommitmentProof, InitialState, UpdateClient},
         };
 
         #[test]
@@ -470,11 +514,44 @@ mod tests {
         #[test]
         fn test_update_state() {
             let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let fixture: StepFixture =
+                fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let consensus_state = initial_state.consensus_state;
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = crate::msg::InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(), // TODO: Real checksum important?
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            let update_client: UpdateClient = fixture.get_data_at_step(1);
+            let header = update_client.updates[0].clone();
+            let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
+
             let msg = SudoMsg::UpdateState(UpdateStateMsg {
-                client_message: Binary::default(),
+                client_message: Binary::from(header_bz),
             });
             let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
-            assert_eq!(0, res.messages.len());
+            let data = res.data.unwrap();
+            let update_state_result: UpdateStateResult = from_json(data).unwrap();
+            assert_eq!(1, update_state_result.heights.len());
+            assert_eq!(
+                header.consensus_update.attested_header.beacon.slot,
+                update_state_result.heights[0].revision_height
+            );
         }
     }
 

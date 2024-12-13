@@ -99,6 +99,15 @@ func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T,
 	return result, err
 }
 
+func printResponseJSON[T any](name string, response T) {
+	responseJsonBz, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println(name, err)
+		return
+	}
+	fmt.Println(name, string(responseJsonBz))
+}
+
 func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, error) {
 	return retry(b.Retries, b.RetryWait, func() (*apiv1.BeaconBlockHeader, error) {
 		headerResponse, err := b.client.(eth2client.BeaconBlockHeadersProvider).BeaconBlockHeader(b.ctx, &api.BeaconBlockHeaderOpts{
@@ -107,6 +116,8 @@ func (b BeaconAPIClient) GetHeader(blockID string) (*apiv1.BeaconBlockHeader, er
 		if err != nil {
 			return nil, err
 		}
+
+		printResponseJSON("headerResponse", headerResponse.Data)
 
 		return headerResponse.Data, nil
 	})
@@ -135,6 +146,8 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 		if resp.StatusCode != 200 {
 			return Bootstrap{}, fmt.Errorf("get bootstrap (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)
 		}
+
+		fmt.Println("Bootstrap", string(body))
 
 		var bootstrap Bootstrap
 		if err := json.Unmarshal(body, &bootstrap); err != nil {
@@ -165,6 +178,8 @@ func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64)
 			return LightClientUpdatesResponse{}, err
 		}
 
+		fmt.Println("LightClientUpdates", string(body))
+
 		var lightClientUpdatesResponse LightClientUpdatesResponse
 		if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
 			return LightClientUpdatesResponse{}, err
@@ -180,6 +195,9 @@ func (b BeaconAPIClient) GetGenesis() (*apiv1.Genesis, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		printResponseJSON("genesisResponse", genesisResponse.Data)
+
 		return genesisResponse.Data, nil
 	})
 }
@@ -199,6 +217,8 @@ func (b BeaconAPIClient) GetSpec() (Spec, error) {
 		if err := json.Unmarshal(specJsonBz, &spec); err != nil {
 			return Spec{}, err
 		}
+
+		fmt.Println("Spec", string(specJsonBz))
 
 		return spec, nil
 	})
@@ -223,6 +243,8 @@ func (b BeaconAPIClient) GetFinalityUpdate() (FinalityUpdateJSONResponse, error)
 		if err != nil {
 			return FinalityUpdateJSONResponse{}, err
 		}
+
+		fmt.Println("FinalityUpdate", string(body))
 
 		var finalityUpdate FinalityUpdateJSONResponse
 		if err := json.Unmarshal(body, &finalityUpdate); err != nil {
@@ -253,6 +275,8 @@ func (b BeaconAPIClient) GetBeaconBlocks(blockID string) (BeaconBlocksResponseJS
 		if err != nil {
 			return BeaconBlocksResponseJSON{}, err
 		}
+
+		fmt.Println("BeaconBlocks", blockID, string(body))
 
 		if resp.StatusCode != 200 {
 			return BeaconBlocksResponseJSON{}, fmt.Errorf("get execution height (%s) failed with status code: %d, body: %s", url, resp.StatusCode, body)

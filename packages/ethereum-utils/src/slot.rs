@@ -34,3 +34,11 @@ fn checked_compute_slot_at_timestamp(
 pub fn compute_epoch_at_slot(slots_per_epoch: u64, slot: u64) -> u64 {
     slot / slots_per_epoch
 }
+
+/// Returns the timestamp at a `slot`, respect to `genesis_time`.
+///
+/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot)
+pub fn compute_timestamp_at_slot(seconds_per_slot: u64, genesis_time: u64, slot: u64) -> u64 {
+    let slots_since_genesis = slot - GENESIS_SLOT;
+    genesis_time + (slots_since_genesis * seconds_per_slot)
+}

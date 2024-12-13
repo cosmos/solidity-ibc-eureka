@@ -70,18 +70,18 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 		s.Require().NoError(err)
 
-		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
+		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.GetSlot() / spec.Period()
 
 		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
 		s.Require().NoError(err)
 		var highestUpdateSlot uint64
 		for _, update := range lightClientUpdates {
-			if update.Data.AttestedHeader.Beacon.Slot > highestUpdateSlot {
-				highestUpdateSlot = update.Data.AttestedHeader.Beacon.Slot
+			if update.Data.AttestedHeader.Beacon.GetSlot() > highestUpdateSlot {
+				highestUpdateSlot = update.Data.AttestedHeader.Beacon.GetSlot()
 			}
 		}
 
-		return finalityUpdate.Data.FinalizedHeader.Beacon.Slot > updateTo &&
+		return finalityUpdate.Data.FinalizedHeader.Beacon.GetSlot() > updateTo &&
 				targetPeriod > trustedPeriod &&
 				highestUpdateSlot > updateTo,
 			nil
@@ -98,7 +98,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			unionClientState.SecondsPerSlot + spec.GenesisSlot
 
 		for _, update := range lightClientUpdates {
-			if computedSlot < update.Data.SignatureSlot {
+			if computedSlot < update.Data.GetSignatureSlot() {
 				return false, nil
 			}
 		}
@@ -118,12 +118,12 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	for _, update := range lightClientUpdates {
 
 		previousPeriod := uint64(1)
-		if update.Data.AttestedHeader.Beacon.Slot/spec.Period() > 1 {
-			previousPeriod = update.Data.AttestedHeader.Beacon.Slot / spec.Period()
+		if update.Data.AttestedHeader.Beacon.GetSlot()/spec.Period() > 1 {
+			previousPeriod = update.Data.AttestedHeader.Beacon.GetSlot() / spec.Period()
 		}
 		previousPeriod -= 1
 
-		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.Slot)))
+		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.GetSlot())))
 		s.Require().NoError(err)
 		executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
 		proofResp, err := eth.EthAPI.GetProof(ibcContractAddress, []string{}, executionHeightHex)
@@ -161,9 +161,8 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			AccountUpdate: accountUpdate,
 		}
 		headers = append(headers, header)
-		logHeader("Adding new header", header)
 
-		trustedSlot = update.Data.AttestedHeader.Beacon.Slot
+		trustedSlot = update.Data.AttestedHeader.Beacon.GetSlot()
 		prevPubAggKey = previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey
 	}
 
@@ -176,23 +175,24 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 
 	var updatedHeaders []ethereumtypes.Header
 	for _, header := range headers {
-		logHeader("Updating eth light client", header)
 		headerBz, err := json.Marshal(header)
 		s.Require().NoError(err)
+
+		fmt.Println("Updating with header", string(headerBz))
 		wasmHeader := ibcwasmtypes.ClientMessage{
 			Data: headerBz,
 		}
 
 		wasmHeaderAny, err := clienttypes.PackClientMessage(&wasmHeader)
 		s.Require().NoError(err)
-		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgUpdateClient{
+		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 500_000, &clienttypes.MsgUpdateClient{
 			ClientId:      s.EthereumLightClientID,
 			ClientMessage: wasmHeaderAny,
 			Signer:        simdRelayerUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 
-		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.Slot
+		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.GetSlot()
 		fmt.Println("Updated eth light client to block number", s.LastEtheruemLightClientUpdate)
 
 		updatedHeaders = append(updatedHeaders, header)
@@ -362,14 +362,4 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
-}
-
-func logHeader(prefix string, header ethereumtypes.Header) {
-	fmt.Printf("%s: header height: %d, trusted height: %d, signature slot: %d, finalized slot: %d, finalized execution block: %d\n",
-		prefix,
-		header.ConsensusUpdate.AttestedHeader.Beacon.Slot,
-		header.TrustedSyncCommittee.TrustedHeight.RevisionHeight,
-		header.ConsensusUpdate.SignatureSlot,
-		header.ConsensusUpdate.FinalizedHeader.Beacon.Slot,
-		header.ConsensusUpdate.FinalizedHeader.Execution.BlockNumber)
 }

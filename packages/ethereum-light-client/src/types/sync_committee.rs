@@ -1,15 +1,14 @@
 //! Types related to the sync committee
 
-use alloy_primitives::Bytes;
+use alloy_primitives::{Bytes, FixedBytes};
 use ethereum_utils::slot::compute_epoch_at_slot;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_hash_derive::TreeHash;
 
 use super::{
-    bls::{BlsPublicKey, BlsSignature},
+    bls::{BlsPublicKey, BlsSignature, BLS_PUBLIC_KEY_BYTES_LEN},
     height::Height,
-    wrappers::WrappedVecBlsPublicKey,
 };
 
 /// The sync committee data
@@ -17,7 +16,7 @@ use super::{
 pub struct SyncCommittee {
     /// The public keys of the sync committee
     #[schemars(with = "Vec<String>")]
-    pub pubkeys: WrappedVecBlsPublicKey,
+    pub pubkeys: Vec<FixedBytes<BLS_PUBLIC_KEY_BYTES_LEN>>,
     /// The aggregate public key of the sync committee
     #[schemars(with = "String")]
     pub aggregate_pubkey: BlsPublicKey,
@@ -33,13 +32,9 @@ pub enum ActiveSyncCommittee {
     Next(SyncCommittee),
 }
 
-// TODO: should this actually return default at any point? If not, panic or error
 impl Default for ActiveSyncCommittee {
     fn default() -> Self {
-        Self::Current(SyncCommittee {
-            pubkeys: WrappedVecBlsPublicKey::default(),
-            aggregate_pubkey: BlsPublicKey::default(),
-        })
+        Self::Current(SyncCommittee::default())
     }
 }
 

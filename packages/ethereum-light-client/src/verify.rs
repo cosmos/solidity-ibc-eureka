@@ -223,7 +223,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     // This confirms that the `finalized_header` is really finalized.
     validate_merkle_branch(
         finalized_root,
-        update.finality_branch.clone().into(),
+        update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(FINALIZED_ROOT_INDEX),
         update.attested_header.beacon.state_root,
@@ -248,11 +248,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         // This validates the given next sync committee against the attested header's state root.
         validate_merkle_branch(
             next_sync_committee.tree_hash_root(),
-            update
-                .next_sync_committee_branch
-                .clone()
-                .unwrap_or_default()
-                .into(),
+            update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
             get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
             update.attested_header.beacon.state_root,
@@ -271,6 +267,9 @@ pub fn validate_light_client_update<V: BlsVerify>(
             .ok_or(EthereumIBCError::ExpectedNextSyncCommittee)?
     };
 
+    sync_committee.aggregate_pubkey.tree_hash_root();
+    sync_committee.pubkeys.tree_hash_root();
+
     // It's not mandatory for all of the members of the sync committee to participate. So we are extracting the
     // public keys of the ones who participated.
     let participant_pubkeys = update
@@ -278,7 +277,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .sync_committee_bits
         .iter()
         .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
-        .zip(sync_committee.pubkeys.0.iter())
+        .zip(sync_committee.pubkeys.iter())
         .filter_map(|(included, pubkey)| included.then_some(pubkey))
         .collect::<Vec<_>>();
 
@@ -334,7 +333,7 @@ pub fn is_valid_light_client_header(
 
     validate_merkle_branch(
         get_lc_execution_root(client_state, header)?,
-        header.execution_branch.0.into(),
+        header.execution_branch.into(),
         EXECUTION_BRANCH_DEPTH,
         get_subtree_index(EXECUTION_PAYLOAD_INDEX),
         header.beacon.body_root,

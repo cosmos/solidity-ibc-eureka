@@ -120,6 +120,9 @@ pub enum EthereumIBCError {
 
     #[error("failed to verify next sync committee against attested header: {0}")]
     ValidateNextSyncCommitteeFailed(#[source] Box<EthereumIBCError>),
+
+    #[error("client's store period must be equal to update's finalized period")]
+    StorePeriodMustBeEqualToFinalizedPeriod,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]

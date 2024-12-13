@@ -1,6 +1,6 @@
 //! The configuration module contains the configurations and presets for the beacon chains.
 
-use crate::types::{fork::Fork, fork_parameters::ForkParameters};
+use crate::types::fork::{Fork, ForkParameters};
 
 use core::{
     fmt::{self, Debug},
