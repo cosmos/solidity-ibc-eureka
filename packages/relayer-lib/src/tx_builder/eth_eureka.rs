@@ -1,4 +1,5 @@
-//! The `ChainSubmitter` submits txs to [`EthEureka`] based on events from [`CosmosSdk`].
+//! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
+//! the Ethereum chain from events received from the Cosmos SDK chain.
 
 use std::{env, str::FromStr};
 
@@ -145,6 +146,8 @@ where
             }
             _ => None,
         });
+
+        // TODO: We might wanna filter out send packets that have been actually received
 
         let recv_and_ack_msgs = src_events.into_iter().filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {

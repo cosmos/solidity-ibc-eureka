@@ -31,14 +31,13 @@ const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5ef
 type TestSuite struct {
 	suite.Suite
 
-	ChainA         ethereum.Ethereum
+	EthChain       ethereum.Ethereum
 	ethTestnetType string
-	ChainB         *cosmos.CosmosChain
-	UserB          ibc.Wallet
+	CosmosChains   []*cosmos.CosmosChain
+	CosmosUsers    []ibc.Wallet
 	dockerClient   *dockerclient.Client
 	network        string
 	logger         *zap.Logger
-	ExecRep        *testreporter.RelayerExecReporter
 
 	EthereumLightClientID         string
 	TendermintLightClientID       string
@@ -59,7 +58,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypePoS:
 		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
-		s.ChainA, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
 			ctx := context.Background()
@@ -68,6 +67,8 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 			}
 			kurtosisChain.Destroy(ctx)
 		})
+	case testvalues.EthTestnetTypeNone:
+		// Do nothing
 	default:
 		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
 	}
@@ -80,40 +81,48 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	chains, err := cf.Chains(s.T().Name())
 	s.Require().NoError(err)
 
-	s.ChainB = chains[0].(*cosmos.CosmosChain)
-
 	ic := interchaintest.NewInterchain()
 	for _, chain := range chains {
 		ic = ic.AddChain(chain)
 	}
 
-	s.ExecRep = testreporter.NewNopReporter().RelayerExecReporter(s.T())
+	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
 
 	// TODO: Run this in a goroutine and wait for it to be ready
-	s.Require().NoError(ic.Build(ctx, s.ExecRep, interchaintest.InterchainBuildOptions{
+	s.Require().NoError(ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
 		TestName:         s.T().Name(),
 		Client:           s.dockerClient,
 		NetworkID:        s.network,
 		SkipPathCreation: true,
 	}))
 
-	// map all query request types to their gRPC method paths for cosmos chains
-	s.Require().NoError(populateQueryReqToPath(ctx, s.ChainB))
-
 	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[1].(*icethereum.EthereumChain)
+		anvil := chains[len(chains)-1].(*icethereum.EthereumChain)
 		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 		s.Require().NoError(err)
 
-		s.ChainA, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
+		s.EthChain, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
 		s.Require().NoError(err)
+
+		// Remove the Ethereum chain from the cosmos chains
+		chains = chains[:len(chains)-1]
 	}
+
+	for _, chain := range chains {
+		cosmosChain := chain.(*cosmos.CosmosChain)
+		s.CosmosChains = append(s.CosmosChains, cosmosChain)
+	}
+
+	// map all query request types to their gRPC method paths for cosmos chains
+	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
 
 	// Fund user accounts
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, s.ChainB)
-	s.UserB = cosmosUsers[0]
+	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chains...)
+	s.CosmosUsers = cosmosUsers
 
 	s.proposalIDs = make(map[string]uint64)
-	s.proposalIDs[s.ChainB.Config().ChainID] = 1
+	for _, chain := range s.CosmosChains {
+		s.proposalIDs[chain.Config().ChainID] = 1
+	}
 }

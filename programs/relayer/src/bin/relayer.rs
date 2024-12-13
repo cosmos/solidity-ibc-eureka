@@ -7,7 +7,9 @@ use solidity_ibc_eureka_relayer::{
         config::RelayerConfig,
     },
     core::builder::RelayerBuilder,
-    modules::cosmos_to_eth::CosmosToEthRelayerModule,
+    modules::{
+        cosmos_to_cosmos::CosmosToCosmosRelayerModule, cosmos_to_eth::CosmosToEthRelayerModule,
+    },
 };
 
 #[tokio::main]
@@ -27,6 +29,7 @@ async fn main() -> anyhow::Result<()> {
             // Build the relayer server.
             let mut relayer_builder = RelayerBuilder::default();
             relayer_builder.add_module(CosmosToEthRelayerModule);
+            relayer_builder.add_module(CosmosToCosmosRelayerModule);
 
             // Start the relayer server.
             relayer_builder.start(config).await?;

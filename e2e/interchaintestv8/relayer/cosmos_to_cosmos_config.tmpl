@@ -1,0 +1,26 @@
+{
+  "server": {
+    "log_level": "info",
+    "address": "127.0.0.1"
+  },
+  "modules": [
+    {
+      "name": "cosmos_to_cosmos",
+      "port": 3001,
+      "config": {
+        "src_rpc_url": "{{ .ChainATmRPC }}",
+        "target_rpc_url": "{{ .ChainBTmRPC }}",
+        "signer_address": "{{ .ChainBUser }}"
+      }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": 3002,
+      "config": {
+        "src_rpc_url": "{{ .ChainBTmRPC }}",
+        "target_rpc_url": "{{ .ChainATmRPC }}",
+        "signer_address": "{{ .ChainAUser }}"
+      }
+    }
+  ]
+}

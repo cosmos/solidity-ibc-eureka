@@ -1547,7 +1547,7 @@ checksum = "2d886547e41f740c616ae73108f6eb70afe6d940c7bc697cb30f13daec073037"
 dependencies = [
  "camino",
  "cargo-platform",
- "semver 1.0.23",
+ "semver 1.0.24",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -6090,7 +6090,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
- "semver 1.0.23",
+ "semver 1.0.24",
 ]
 
 [[package]]
@@ -6393,9 +6393,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.23"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
+checksum = "3cb6eb87a131f756572d7fb904f6e7b68633f09cca868c5df1c4b8d1a694bbba"
 dependencies = [
  "serde",
 ]
@@ -6934,7 +6934,6 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "reqwest 0.12.9",
  "serde",
  "serde_json",
  "serde_with",
@@ -7624,7 +7623,7 @@ dependencies = [
  "pin-project",
  "rand",
  "reqwest 0.11.27",
- "semver 1.0.23",
+ "semver 1.0.24",
  "serde",
  "serde_bytes",
  "serde_json",

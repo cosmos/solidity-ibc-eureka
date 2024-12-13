@@ -28,15 +28,14 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthRelayerModule;
 
-/// The `RelayerModule` defines the relayer module for Cosmos to Ethereum.
-#[allow(clippy::module_name_repetitions)]
+/// The `CosmosToEthRelayerModuleServer` defines the relayer server from Cosmos to Ethereum.
 struct CosmosToEthRelayerModuleServer {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
-    /// The chain submitter for `EthEureka`.
-    pub submitter: TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
+    /// The transaction builder for `EthEureka`.
+    pub tx_builder: TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -79,7 +78,7 @@ impl CosmosToEthRelayerModuleServer {
         Self {
             tm_listener,
             eth_listener,
-            submitter,
+            tx_builder: submitter,
         }
     }
 }
@@ -100,7 +99,7 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
                     .await
                     .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
                 ibc_version: "2".to_string(),
-                ibc_contract: self.submitter.ics26_router.address().to_string(),
+                ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
             source_chain: Some(api::Chain {
                 chain_id: self
@@ -158,7 +157,7 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
         let multicall_tx = self
-            .submitter
+            .tx_builder
             .relay_events(cosmos_events, eth_events, inner_req.target_channel_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
@@ -167,7 +166,7 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: multicall_tx,
-            address: self.submitter.ics26_router.address().to_string(),
+            address: self.tx_builder.ics26_router.address().to_string(),
         }))
     }
 }

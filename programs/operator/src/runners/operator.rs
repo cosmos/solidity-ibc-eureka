@@ -9,7 +9,6 @@ use anyhow::anyhow;
 use ibc_eureka_solidity_types::sp1_ics07::{
     sp1_ics07_tendermint, ISP1Msgs::SP1Proof, IUpdateClientMsgs::MsgUpdateClient,
 };
-use reqwest::Url;
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram,
     prover::{SP1ICS07TendermintProver, SupportedProofType},
@@ -35,7 +34,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
         .wallet(wallet)
-        .on_http(Url::parse(rpc_url.as_str())?);
+        .on_http(rpc_url.parse()?);
 
     let contract = sp1_ics07_tendermint::new(contract_address.parse()?, provider);
     let contract_client_state = contract.getClientState().call().await?._0;

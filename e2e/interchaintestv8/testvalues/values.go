@@ -49,6 +49,8 @@ const (
 	EthTestnetTypePoW = "pow"
 	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
 	EthTestnetTypePoS = "pos"
+	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
+	EthTestnetTypeNone = "none"
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
