@@ -2,7 +2,6 @@
 //! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
 use anyhow::Result;
-use futures::future;
 use ibc_proto_eureka::{
     google::protobuf::Any,
     ibc::{
@@ -20,9 +19,7 @@ use tendermint_rpc::{Client, HttpClient};
 use crate::{
     chain::CosmosSdk,
     events::EurekaEvent,
-    utils::cosmos::{
-        send_event_to_recv_packet, target_events_to_timeout_msgs, write_ack_event_to_ack_packet,
-    },
+    utils::cosmos::{src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs},
 };
 
 use super::r#trait::TxBuilderService;
@@ -75,17 +72,12 @@ impl TxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
-    #[allow(clippy::too_many_lines)]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEvent>,
         target_events: Vec<EurekaEvent>,
         target_channel_id: String,
     ) -> Result<Vec<u8>> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-
         let channel = self.channel(target_channel_id.clone()).await?;
         let client_state = ClientState::decode(
             self.target_tm_client
@@ -112,60 +104,15 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )
         .await?;
 
-        let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
-            .into_iter()
-            .filter(|e| match e {
-                EurekaEvent::SendPacket(se) => {
-                    se.packet.timeoutTimestamp > now && se.packet.destChannel == target_channel_id
-                }
-                EurekaEvent::WriteAcknowledgement(we) => {
-                    we.packet.sourceChannel == target_channel_id
-                }
-                _ => false,
-            })
-            .partition(|e| match e {
-                EurekaEvent::SendPacket(_) => true,
-                EurekaEvent::WriteAcknowledgement(_) => false,
-                _ => unreachable!(),
-            });
-
-        let _recv_msgs = future::try_join_all(src_send_events.into_iter().map(|e| async {
-            match e {
-                EurekaEvent::SendPacket(se) => {
-                    send_event_to_recv_packet(
-                        se,
-                        &self.source_tm_client,
-                        revision_number,
-                        target_height,
-                        self.signer_address.clone(),
-                    )
-                    .await
-                }
-                _ => unreachable!(),
-            }
-        }))
-        .await?
-        .into_iter()
-        .collect::<Vec<_>>();
-
-        let _ack_msgs = future::try_join_all(src_ack_events.into_iter().map(|e| async {
-            match e {
-                EurekaEvent::WriteAcknowledgement(we) => {
-                    write_ack_event_to_ack_packet(
-                        we,
-                        &self.source_tm_client,
-                        revision_number,
-                        target_height,
-                        self.signer_address.clone(),
-                    )
-                    .await
-                }
-                _ => unreachable!(),
-            }
-        }))
-        .await?
-        .into_iter()
-        .collect::<Vec<_>>();
+        let (_recv_msgs, _ack_msgs) = src_events_to_recv_and_ack_msgs(
+            src_events,
+            &self.source_tm_client,
+            &target_channel_id,
+            revision_number,
+            target_height,
+            &self.signer_address,
+        )
+        .await?;
 
         let trusted_light_block = self
             .source_tm_client
