@@ -4,6 +4,7 @@
 use anyhow::Result;
 use futures::future;
 use ibc_proto_eureka::{
+    google::protobuf::Any,
     ibc::{
         core::{
             channel::v2::{
@@ -111,23 +112,22 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                             self.source_tm_client
                                 .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
                                 .await
-                                .map(|(v, p)| {
-                                    if v.is_empty() {
-                                        Some(MsgTimeout {
-                                            packet: Some(se.packet.into()),
-                                            proof_unreceived: p.encode_vec(),
-                                            proof_height: Some(Height {
-                                                revision_number: client_state
-                                                    .latest_height
-                                                    .unwrap_or_default()
-                                                    .revision_number,
-                                                revision_height: target_height.into(),
-                                            }),
-                                            signer: self.signer_address.clone(),
-                                        })
-                                    } else {
-                                        None
+                                .and_then(|(v, p)| {
+                                    if !v.is_empty() {
+                                        anyhow::bail!("Non-membership value is not empty")
                                     }
+                                    Ok(MsgTimeout {
+                                        packet: Some(se.packet.into()),
+                                        proof_unreceived: p.encode_vec(),
+                                        proof_height: Some(Height {
+                                            revision_number: client_state
+                                                .latest_height
+                                                .unwrap_or_default()
+                                                .revision_number,
+                                            revision_height: target_height.into(),
+                                        }),
+                                        signer: self.signer_address.clone(),
+                                    })
                                 })
                         }
                         _ => unreachable!(),
@@ -136,7 +136,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )
         .await?
         .into_iter()
-        .flatten()
         .collect::<Vec<_>>();
 
         let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
@@ -163,23 +162,22 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                     self.source_tm_client
                         .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
                         .await
-                        .map(|(v, p)| {
+                        .and_then(|(v, p)| {
                             if v.is_empty() {
-                                Some(MsgRecvPacket {
-                                    packet: Some(se.packet.into()),
-                                    proof_height: Some(Height {
-                                        revision_number: client_state
-                                            .latest_height
-                                            .unwrap_or_default()
-                                            .revision_number,
-                                        revision_height: target_height.into(),
-                                    }),
-                                    proof_commitment: p.encode_vec(),
-                                    signer: self.signer_address.clone(),
-                                })
-                            } else {
-                                None
+                                anyhow::bail!("Membership value is empty")
                             }
+                            Ok(MsgRecvPacket {
+                                packet: Some(se.packet.into()),
+                                proof_height: Some(Height {
+                                    revision_number: client_state
+                                        .latest_height
+                                        .unwrap_or_default()
+                                        .revision_number,
+                                    revision_height: target_height.into(),
+                                }),
+                                proof_commitment: p.encode_vec(),
+                                signer: self.signer_address.clone(),
+                            })
                         })
                 }
                 _ => unreachable!(),
@@ -187,7 +185,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         }))
         .await?
         .into_iter()
-        .flatten()
         .collect::<Vec<_>>();
 
         let _ack_msgs = future::try_join_all(src_ack_events.into_iter().map(|e| async {
@@ -197,28 +194,30 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                     self.source_tm_client
                         .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
                         .await
-                        .map(|(v, p)| {
+                        .and_then(|(v, p)| {
                             if v.is_empty() {
-                                Some(MsgRecvPacket {
-                                    packet: Some(we.packet.into()),
-                                    proof_height: Some(Height {
-                                        revision_number: client_state
-                                            .latest_height
-                                            .unwrap_or_default()
-                                            .revision_number,
-                                        revision_height: target_height.into(),
-                                    }),
-                                    proof_commitment: p.encode_vec(),
-                                    signer: self.signer_address.clone(),
-                                })
-                            } else {
-                                None
+                                anyhow::bail!("Membership value is empty")
                             }
+                            Ok(MsgRecvPacket {
+                                packet: Some(we.packet.into()),
+                                proof_height: Some(Height {
+                                    revision_number: client_state
+                                        .latest_height
+                                        .unwrap_or_default()
+                                        .revision_number,
+                                    revision_height: target_height.into(),
+                                }),
+                                proof_commitment: p.encode_vec(),
+                                signer: self.signer_address.clone(),
+                            })
                         })
                 }
                 _ => unreachable!(),
             }
-        }));
+        }))
+        .await?
+        .into_iter()
+        .collect::<Vec<_>>();
 
         let trusted_light_block = self
             .source_tm_client
@@ -233,11 +232,11 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-        let _update_msg = MsgUpdateClient {
+        let _update_msg = Any::from_msg(&MsgUpdateClient {
             client_id: channel.client_id,
             client_message: Some(proposed_header.into()),
             signer: self.signer_address.clone(),
-        };
+        })?;
 
         todo!()
     }
