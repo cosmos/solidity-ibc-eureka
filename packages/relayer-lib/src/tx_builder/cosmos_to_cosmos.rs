@@ -3,6 +3,7 @@
 
 use anyhow::Result;
 use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
     ibc::{
         core::{
@@ -94,7 +95,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
             .revision_number;
 
-        let _timeout_msgs = target_events_to_timeout_msgs(
+        let timeout_msgs = target_events_to_timeout_msgs(
             target_events,
             &self.source_tm_client,
             &target_channel_id,
@@ -104,7 +105,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )
         .await?;
 
-        let (_recv_msgs, _ack_msgs) = src_events_to_recv_and_ack_msgs(
+        let (recv_msgs, ack_msgs) = src_events_to_recv_and_ack_msgs(
             src_events,
             &self.source_tm_client,
             &target_channel_id,
@@ -124,15 +125,23 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                     .try_into()?,
             ))
             .await?;
-
         let proposed_header = target_light_block.into_header(&trusted_light_block);
-
-        let _update_msg = Any::from_msg(&MsgUpdateClient {
+        let update_msg = MsgUpdateClient {
             client_id: channel.client_id,
             client_message: Some(proposed_header.into()),
             signer: self.signer_address.clone(),
-        })?;
+        };
 
-        todo!()
+        let all_msgs = std::iter::once(Any::from_msg(&update_msg))
+            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tx_body = TxBody {
+            messages: all_msgs,
+            ..Default::default()
+        };
+        Ok(tx_body.encode_to_vec())
     }
 }

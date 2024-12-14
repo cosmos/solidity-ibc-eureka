@@ -17,7 +17,7 @@ sp1-ics07-tendermint-prover   = { workspace = true, optional = true }
 sp1-ics07-tendermint-utils    = { workspace = true, optional = true }
 
 serde = { workspace = true, features = ["derive"] }
-prost = { workspace = true }
+prost = { workspace = true, features = ["std"] }
 
 async-trait = { workspace = true }
 anyhow      = { workspace = true, features = ["std"] }
