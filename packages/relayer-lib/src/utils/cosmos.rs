@@ -30,7 +30,7 @@ pub async fn target_events_to_timeout_msgs(
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs();
 
-    Ok(future::try_join_all(
+    future::try_join_all(
         target_events
             .into_iter()
             .filter(|e| match e {
@@ -56,9 +56,7 @@ pub async fn target_events_to_timeout_msgs(
                 }
             }),
     )
-    .await?
-    .into_iter()
-    .collect::<Vec<_>>())
+    .await
 }
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
