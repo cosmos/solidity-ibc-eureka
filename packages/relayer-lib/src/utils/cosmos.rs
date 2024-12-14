@@ -1,10 +1,10 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
 use anyhow::Result;
-use ibc_eureka_solidity_types::ics26::router::SendPacket;
+use ibc_eureka_solidity_types::ics26::router::{SendPacket, WriteAcknowledgement};
 use ibc_proto_eureka::{
     ibc::core::{
-        channel::v2::{MsgRecvPacket, MsgTimeout},
+        channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
         client::v1::Height,
     },
     Protobuf,
@@ -68,6 +68,39 @@ pub async fn send_event_to_timout_packet(
             revision_height: target_height.into(),
         }),
         proof_unreceived: proof.encode_vec(),
+        signer: signer_address,
+    })
+}
+
+/// Converts a [`WriteAcknowledgement`] event to a [`MsgAcknowledgement`].
+/// This function doesn't check whether the packet is already acknowledged.
+/// # Errors
+/// Returns an error if proof cannot be generated, or membership value is empty.
+pub async fn write_ack_event_to_ack_packet(
+    we: WriteAcknowledgement,
+    source_tm_client: &HttpClient,
+    revision_number: u64,
+    target_height: u32,
+    signer_address: String,
+) -> Result<MsgAcknowledgement> {
+    let ibc_path = we.packet.ack_commitment_path();
+    let (value, proof) = source_tm_client
+        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+        .await?;
+
+    if value.is_empty() {
+        anyhow::bail!("Membership value is empty")
+    }
+    Ok(MsgAcknowledgement {
+        packet: Some(we.packet.into()),
+        acknowledgement: Some(Acknowledgement {
+            app_acknowledgements: we.acknowledgements.into_iter().map(Into::into).collect(),
+        }),
+        proof_height: Some(Height {
+            revision_number,
+            revision_height: target_height.into(),
+        }),
+        proof_acked: proof.encode_vec(),
         signer: signer_address,
     })
 }

@@ -8,7 +8,8 @@ use ibc_proto_eureka::{
     ibc::{
         core::{
             channel::v2::{
-                Channel, MsgRecvPacket, MsgTimeout, QueryChannelRequest, QueryChannelResponse,
+                Acknowledgement, Channel, MsgAcknowledgement, QueryChannelRequest,
+                QueryChannelResponse,
             },
             client::v1::{Height, MsgUpdateClient},
         },
@@ -23,7 +24,9 @@ use tendermint_rpc::{Client, HttpClient};
 use crate::{
     chain::CosmosSdk,
     events::EurekaEvent,
-    utils::cosmos::{send_event_to_recv_packet, send_event_to_timout_packet},
+    utils::cosmos::{
+        send_event_to_recv_packet, send_event_to_timout_packet, write_ack_event_to_ack_packet,
+    },
 };
 
 use super::r#trait::TxBuilderService;
@@ -98,6 +101,10 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
         let target_height = target_light_block.height().value().try_into()?;
+        let revision_number = client_state
+            .latest_height
+            .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+            .revision_number;
 
         let _timeout_msgs = future::try_join_all(
             target_events
@@ -115,10 +122,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                             send_event_to_timout_packet(
                                 se,
                                 &self.source_tm_client,
-                                client_state
-                                    .latest_height
-                                    .unwrap_or_default()
-                                    .revision_number,
+                                revision_number,
                                 target_height,
                                 self.signer_address.clone(),
                             )
@@ -155,10 +159,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                     send_event_to_recv_packet(
                         se,
                         &self.source_tm_client,
-                        client_state
-                            .latest_height
-                            .unwrap_or_default()
-                            .revision_number,
+                        revision_number,
                         target_height,
                         self.signer_address.clone(),
                     )
@@ -174,27 +175,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let _ack_msgs = future::try_join_all(src_ack_events.into_iter().map(|e| async {
             match e {
                 EurekaEvent::WriteAcknowledgement(we) => {
-                    let ibc_path = we.packet.ack_commitment_path();
-                    self.source_tm_client
-                        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
-                        .await
-                        .and_then(|(v, p)| {
-                            if v.is_empty() {
-                                anyhow::bail!("Membership value is empty")
-                            }
-                            Ok(MsgRecvPacket {
-                                packet: Some(we.packet.into()),
-                                proof_height: Some(Height {
-                                    revision_number: client_state
-                                        .latest_height
-                                        .unwrap_or_default()
-                                        .revision_number,
-                                    revision_height: target_height.into(),
-                                }),
-                                proof_commitment: p.encode_vec(),
-                                signer: self.signer_address.clone(),
-                            })
-                        })
+                    write_ack_event_to_ack_packet(
+                        we,
+                        &self.source_tm_client,
+                        revision_number,
+                        target_height,
+                        self.signer_address.clone(),
+                    )
+                    .await
                 }
                 _ => unreachable!(),
             }
