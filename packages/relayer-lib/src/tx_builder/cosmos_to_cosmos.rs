@@ -7,15 +7,11 @@ use ibc_proto_eureka::{
     google::protobuf::Any,
     ibc::{
         core::{
-            channel::v2::{
-                Acknowledgement, Channel, MsgAcknowledgement, QueryChannelRequest,
-                QueryChannelResponse,
-            },
-            client::v1::{Height, MsgUpdateClient},
+            channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
+            client::v1::MsgUpdateClient,
         },
         lightclients::tendermint::v1::ClientState,
     },
-    Protobuf,
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
@@ -25,7 +21,7 @@ use crate::{
     chain::CosmosSdk,
     events::EurekaEvent,
     utils::cosmos::{
-        send_event_to_recv_packet, send_event_to_timout_packet, write_ack_event_to_ack_packet,
+        send_event_to_recv_packet, target_events_to_timeout_msgs, write_ack_event_to_ack_packet,
     },
 };
 
@@ -106,35 +102,15 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
             .revision_number;
 
-        let _timeout_msgs = future::try_join_all(
-            target_events
-                .into_iter()
-                .filter(|e| match e {
-                    EurekaEvent::SendPacket(se) => {
-                        now >= se.packet.timeoutTimestamp
-                            && se.packet.sourceChannel == target_channel_id
-                    }
-                    _ => false,
-                })
-                .map(|e| async {
-                    match e {
-                        EurekaEvent::SendPacket(se) => {
-                            send_event_to_timout_packet(
-                                se,
-                                &self.source_tm_client,
-                                revision_number,
-                                target_height,
-                                self.signer_address.clone(),
-                            )
-                            .await
-                        }
-                        _ => unreachable!(),
-                    }
-                }),
+        let _timeout_msgs = target_events_to_timeout_msgs(
+            target_events,
+            &self.source_tm_client,
+            &target_channel_id,
+            revision_number,
+            target_height,
+            &self.signer_address,
         )
-        .await?
-        .into_iter()
-        .collect::<Vec<_>>();
+        .await?;
 
         let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
             .into_iter()
