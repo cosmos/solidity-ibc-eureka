@@ -20,7 +20,7 @@ use prost::Message;
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::{chain::CosmosSdk, events::EurekaEvent};
+use crate::{chain::CosmosSdk, events::EurekaEvent, utils::cosmos::send_event_to_recv_packet};
 
 use super::r#trait::TxBuilderService;
 
@@ -158,27 +158,17 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let _recv_msgs = future::try_join_all(src_send_events.into_iter().map(|e| async {
             match e {
                 EurekaEvent::SendPacket(se) => {
-                    let ibc_path = se.packet.commitment_path();
-                    self.source_tm_client
-                        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
-                        .await
-                        .and_then(|(v, p)| {
-                            if v.is_empty() {
-                                anyhow::bail!("Membership value is empty")
-                            }
-                            Ok(MsgRecvPacket {
-                                packet: Some(se.packet.into()),
-                                proof_height: Some(Height {
-                                    revision_number: client_state
-                                        .latest_height
-                                        .unwrap_or_default()
-                                        .revision_number,
-                                    revision_height: target_height.into(),
-                                }),
-                                proof_commitment: p.encode_vec(),
-                                signer: self.signer_address.clone(),
-                            })
-                        })
+                    send_event_to_recv_packet(
+                        se,
+                        &self.source_tm_client,
+                        client_state
+                            .latest_height
+                            .unwrap_or_default()
+                            .revision_number,
+                        target_height,
+                        self.signer_address.clone(),
+                    )
+                    .await
                 }
                 _ => unreachable!(),
             }
