@@ -6,4 +6,4 @@ pub mod chain;
 pub mod events;
 pub mod listener;
 pub mod tx_builder;
-pub mod utils;
+pub(crate) mod utils;

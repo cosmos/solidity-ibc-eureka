@@ -15,12 +15,8 @@ use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
     ics02::client::clientInstance,
     ics26::{
-        router::{
-            ackPacketCall, multicallCall, recvPacketCall, routerCalls, routerInstance,
-            timeoutPacketCall,
-        },
+        router::{multicallCall, routerCalls, routerInstance},
         IICS02ClientMsgs::Height,
-        IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
     },
     sp1_ics07::{
         sp1_ics07_tendermint,
@@ -42,6 +38,7 @@ use tendermint_rpc::HttpClient;
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEvent,
+    utils::eth_eureka::{src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs},
 };
 
 use super::r#trait::TxBuilderService;
@@ -129,62 +126,18 @@ where
             revisionHeight: revision_height,
         };
 
-        let filter_channel = target_channel_id.clone();
-        let timeout_msgs = dest_events.into_iter().filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == filter_channel {
-                    Some(routerCalls::timeoutPacket(timeoutPacketCall {
-                        msg_: MsgTimeoutPacket {
-                            packet: se.packet,
-                            proofHeight: latest_height.clone(),
-                            proofTimeout: b"".into(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        });
+        let timeout_msgs =
+            target_events_to_timeout_msgs(dest_events, &target_channel_id, &latest_height)?;
 
-        // TODO: We might wanna filter out send packets that have been actually received
+        let recv_and_ack_msgs =
+            src_events_to_recv_and_ack_msgs(src_events, &target_channel_id, &latest_height)?;
 
-        let recv_and_ack_msgs = src_events.into_iter().filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if se.packet.timeoutTimestamp > now && se.packet.destChannel == filter_channel {
-                    Some(routerCalls::recvPacket(recvPacketCall {
-                        msg_: MsgRecvPacket {
-                            packet: se.packet,
-                            proofHeight: latest_height.clone(),
-                            proofCommitment: b"".into(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
-            EurekaEvent::WriteAcknowledgement(we) => {
-                if we.packet.sourceChannel == filter_channel {
-                    Some(routerCalls::ackPacket(ackPacketCall {
-                        msg_: MsgAckPacket {
-                            packet: we.packet,
-                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
-                            proofHeight: latest_height.clone(),
-                            proofAcked: b"".into(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        });
-
-        let mut all_msgs = timeout_msgs.chain(recv_and_ack_msgs).collect::<Vec<_>>();
+        let mut all_msgs = timeout_msgs
+            .into_iter()
+            .chain(recv_and_ack_msgs.into_iter())
+            .collect::<Vec<_>>();
 
         tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
-
-        // TODO: Filter already submitted packets
 
         let ibc_paths = all_msgs
             .iter()
