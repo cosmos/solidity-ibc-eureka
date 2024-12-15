@@ -65,30 +65,28 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 .attributes
                 .into_iter()
                 .find_map(|attr| {
-                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
-                        let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
-                        let packet = Packet::decode(packet.as_slice()).ok()?;
-                        Some(Self::SendPacket(SendPacket {
-                            packet: packet.try_into().ok()?,
-                        }))
-                    } else {
-                        None
+                    if attr.key_str().ok()? != cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
+                        return None;
                     }
+                    let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
+                    let packet = Packet::decode(packet.as_slice()).ok()?;
+                    Some(Self::SendPacket(SendPacket {
+                        packet: packet.try_into().ok()?,
+                    }))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_RECV_PACKET => event
                 .attributes
                 .into_iter()
                 .find_map(|attr| {
-                    if attr.key_str().ok()? == cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
-                        let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
-                        let packet = Packet::decode(packet.as_slice()).ok()?;
-                        Some(Self::RecvPacket(RecvPacket {
-                            packet: packet.try_into().ok()?,
-                        }))
-                    } else {
-                        None
+                    if attr.key_str().ok()? != cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
+                        return None;
                     }
+                    let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
+                    let packet = Packet::decode(packet.as_slice()).ok()?;
+                    Some(Self::RecvPacket(RecvPacket {
+                        packet: packet.try_into().ok()?,
+                    }))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
