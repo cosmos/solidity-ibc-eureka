@@ -95,7 +95,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                     None
                 }
             }
-            _ => None,
+            EurekaEvent::RecvPacket(_) => None,
         })
         .collect()
 }

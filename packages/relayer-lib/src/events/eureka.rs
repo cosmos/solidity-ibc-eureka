@@ -2,7 +2,7 @@
 
 use alloy::{hex, sol_types::SolEvent};
 use ibc_eureka_solidity_types::ics26::router::{
-    routerEvents, AckPacket, RecvPacket, SendPacket, TimeoutPacket, WriteAcknowledgement,
+    routerEvents, RecvPacket, SendPacket, WriteAcknowledgement,
 };
 use ibc_proto_eureka::ibc::core::channel::v2::{Acknowledgement, Packet};
 use prost::Message;
@@ -18,10 +18,6 @@ pub enum EurekaEvent {
     SendPacket(SendPacket),
     /// A packet was received.
     RecvPacket(RecvPacket),
-    /// A packet was acknowledged.
-    AckPacket(AckPacket),
-    /// A packet timed out.
-    TimeoutPacket(TimeoutPacket),
     /// An acknowledgement was written.
     WriteAcknowledgement(WriteAcknowledgement),
 }
@@ -30,12 +26,10 @@ impl EurekaEvent {
     /// Get the signature of the events for EVM.
     /// This is used to filter the logs.
     #[must_use]
-    pub const fn evm_signatures() -> [&'static str; 5] {
+    pub const fn evm_signatures() -> [&'static str; 3] {
         [
             SendPacket::SIGNATURE,
             RecvPacket::SIGNATURE,
-            AckPacket::SIGNATURE,
-            TimeoutPacket::SIGNATURE,
             WriteAcknowledgement::SIGNATURE,
         ]
     }
@@ -48,9 +42,11 @@ impl TryFrom<routerEvents> for EurekaEvent {
         match event {
             routerEvents::SendPacket(event) => Ok(Self::SendPacket(event)),
             routerEvents::RecvPacket(event) => Ok(Self::RecvPacket(event)),
-            routerEvents::AckPacket(event) => Ok(Self::AckPacket(event)),
-            routerEvents::TimeoutPacket(event) => Ok(Self::TimeoutPacket(event)),
             routerEvents::WriteAcknowledgement(event) => Ok(Self::WriteAcknowledgement(event)),
+            routerEvents::AckPacket(_) => Err(anyhow::anyhow!("AckPacket event is not used")),
+            routerEvents::TimeoutPacket(_) => {
+                Err(anyhow::anyhow!("TimeoutPacket event is not used"))
+            }
             routerEvents::Noop(_) => Err(anyhow::anyhow!("Noop event")),
             routerEvents::IBCAppAdded(_) => Err(anyhow::anyhow!("IBCAppAdded event")),
             routerEvents::OwnershipTransferred(_) => {

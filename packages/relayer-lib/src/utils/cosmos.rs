@@ -82,12 +82,12 @@ pub async fn src_events_to_recv_and_ack_msgs(
                 se.packet.timeoutTimestamp > now && se.packet.destChannel == target_channel_id
             }
             EurekaEvent::WriteAcknowledgement(we) => we.packet.sourceChannel == target_channel_id,
-            _ => false,
+            EurekaEvent::RecvPacket(_) => false,
         })
         .partition(|e| match e {
             EurekaEvent::SendPacket(_) => true,
             EurekaEvent::WriteAcknowledgement(_) => false,
-            _ => unreachable!(),
+            EurekaEvent::RecvPacket(_) => unreachable!(),
         });
 
     let recv_msgs = future::try_join_all(src_send_events.into_iter().map(|e| async {
