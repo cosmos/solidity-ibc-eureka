@@ -3,14 +3,8 @@
 
 use std::{env, str::FromStr};
 
-use alloy::{
-    primitives::Address,
-    providers::Provider,
-    sol_types::{SolCall, SolValue},
-    transports::Transport,
-};
+use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transports::Transport};
 use anyhow::Result;
-use futures::future;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
     ics02::client::clientInstance,
@@ -18,27 +12,20 @@ use ibc_eureka_solidity_types::{
         router::{multicallCall, routerCalls, routerInstance},
         IICS02ClientMsgs::Height,
     },
-    sp1_ics07::{
-        sp1_ics07_tendermint,
-        IICS07TendermintMsgs::ClientState,
-        IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
-        ISP1Msgs::SP1Proof,
-    },
+    sp1_ics07::{sp1_ics07_tendermint, IICS07TendermintMsgs::ClientState},
 };
 // Re-export the `SupportedProofType` enum.
 pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
-use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
-};
 
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::HashableKey;
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEvent,
-    utils::eth_eureka::{src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs},
+    utils::eth_eureka::{
+        inject_sp1_proof, src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs,
+    },
 };
 
 use super::r#trait::TxBuilderService;
@@ -105,7 +92,6 @@ where
     T: Transport + Clone,
     P: Provider<T> + Clone,
 {
-    #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
@@ -127,80 +113,31 @@ where
         };
 
         let timeout_msgs =
-            target_events_to_timeout_msgs(dest_events, &target_channel_id, &latest_height)?;
+            target_events_to_timeout_msgs(dest_events, &target_channel_id, &latest_height, now);
 
         let recv_and_ack_msgs =
-            src_events_to_recv_and_ack_msgs(src_events, &target_channel_id, &latest_height)?;
+            src_events_to_recv_and_ack_msgs(src_events, &target_channel_id, &latest_height, now);
 
         let mut all_msgs = timeout_msgs
             .into_iter()
             .chain(recv_and_ack_msgs.into_iter())
             .collect::<Vec<_>>();
+        if all_msgs.is_empty() {
+            anyhow::bail!("No messages to relay to Ethereum");
+        }
 
         tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
 
-        let ibc_paths = all_msgs
-            .iter()
-            .map(|msg| match msg {
-                routerCalls::timeoutPacket(call) => call.msg_.packet.receipt_commitment_path(),
-                routerCalls::recvPacket(call) => call.msg_.packet.commitment_path(),
-                routerCalls::ackPacket(call) => call.msg_.packet.ack_commitment_path(),
-                _ => unreachable!(),
-            })
-            .map(|path| vec![b"ibc".into(), path]);
-
-        let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
-            future::try_join_all(ibc_paths.into_iter().map(|path| async {
-                let (value, proof) = self.tm_client.prove_path(&path, revision_height).await?;
-                anyhow::Ok((path, value, proof))
-            }))
-            .await?;
-
         let client_state = self.client_state(target_channel_id).await?;
-        let trusted_light_block = self
-            .tm_client
-            .get_light_block(Some(client_state.latestHeight.revisionHeight))
-            .await?;
 
-        // Get the proposed header from the target light block.
-        let proposed_header = latest_light_block.into_header(&trusted_light_block);
-
-        let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(
-            client_state
-                .zkAlgorithm
-                .try_into()
-                .map_err(|e: String| anyhow::anyhow!(e))?,
-        );
-
-        let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
-            &client_state,
-            &trusted_light_block.to_consensus_state().into(),
-            &proposed_header,
+        inject_sp1_proof(
+            &mut all_msgs,
+            &self.tm_client,
+            latest_light_block,
+            client_state,
             now,
-            kv_proofs,
-        );
-
-        let sp1_proof = MembershipProof::from(SP1MembershipAndUpdateClientProof {
-            sp1Proof: SP1Proof::new(
-                &uc_and_mem_prover.vkey.bytes32(),
-                uc_and_mem_proof.bytes(),
-                uc_and_mem_proof.public_values.to_vec(),
-            ),
-        });
-
-        // inject proof
-        match all_msgs.first_mut() {
-            Some(routerCalls::timeoutPacket(ref mut call)) => {
-                *call.msg_.proofTimeout = sp1_proof.abi_encode().into();
-            }
-            Some(routerCalls::recvPacket(ref mut call)) => {
-                *call.msg_.proofCommitment = sp1_proof.abi_encode().into();
-            }
-            Some(routerCalls::ackPacket(ref mut call)) => {
-                *call.msg_.proofAcked = sp1_proof.abi_encode().into();
-            }
-            _ => unreachable!(),
-        }
+        )
+        .await?;
 
         let calls = all_msgs.into_iter().map(|msg| match msg {
             routerCalls::timeoutPacket(call) => call.abi_encode(),
