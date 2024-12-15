@@ -2,9 +2,10 @@
 
 use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, QuerierWrapper, QueryRequest};
-use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature, BlsVerify};
-use ethereum_utils::{ensure, hex::to_hex};
+use ethereum_light_client::verify::BlsVerify;
+use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
 use thiserror::Error;
+use utils::ensure;
 
 /// The custom query for the Ethereum light client
 /// This is used to verify BLS signatures in `CosmosSDK`
@@ -43,7 +44,7 @@ pub enum BlsVerifierError {
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerify(String),
 
-    #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = to_hex(.msg))]
+    #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = hex::encode(.msg))]
     InvalidSignature {
         /// The public keys used to verify the signature
         public_keys: Vec<BlsPublicKey>,

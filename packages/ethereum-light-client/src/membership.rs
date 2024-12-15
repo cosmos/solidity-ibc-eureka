@@ -4,12 +4,9 @@
 use alloy_primitives::{keccak256, Bytes, Keccak256, U256};
 use alloy_rlp::encode_fixed_size;
 use alloy_trie::{proof::verify_proof, Nibbles};
-use ethereum_utils::hex::to_hex;
+use ethereum_types::execution::storage_proof::StorageProof;
 
-use crate::{
-    client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError,
-    types::storage_proof::StorageProof,
-};
+use crate::{client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError};
 
 /// Verifies the membership of a key in the storage trie.
 /// # Errors
@@ -38,10 +35,10 @@ pub fn verify_membership(
         // membership proof (otherwise non-membership proof)
         let proof_value = storage_proof.value.to_be_bytes_vec();
         if proof_value != raw_value {
-            return Err(EthereumIBCError::StoredValueMistmatch(
-                to_hex(raw_value),
-                to_hex(proof_value),
-            ));
+            return Err(EthereumIBCError::StoredValueMistmatch {
+                expected: raw_value,
+                actual: proof_value,
+            });
         }
 
         value = Some(encode_fixed_size(&U256::from_be_slice(&proof_value)).to_vec());
@@ -91,15 +88,16 @@ fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
 #[cfg(test)]
 mod test {
     use crate::{
-        client_state::ClientState, consensus_state::ConsensusState,
-        test::fixture_types::CommitmentProof, types::storage_proof::StorageProof,
+        client_state::ClientState,
+        consensus_state::ConsensusState,
+        test_utils::fixtures::{self, CommitmentProof},
     };
 
     use alloy_primitives::{
         hex::{self, FromHex},
         Bytes, B256, U256,
     };
-    use ethereum_test_utils::fixtures;
+    use ethereum_types::execution::storage_proof::StorageProof;
 
     use super::verify_membership;
 
@@ -120,7 +118,7 @@ mod test {
             trusted_consensus_state,
             client_state,
             serde_json::to_vec(&storage_proof).unwrap(),
-            vec![path],
+            vec![path.to_vec()],
             Some(value),
         )
         .unwrap();

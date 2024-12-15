@@ -1,6 +1,12 @@
 //! Ethereum trie database utilities.
 
-#![deny(clippy::nursery, clippy::pedantic, warnings, missing_docs)]
+#![deny(
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    missing_docs,
+    unused_crate_dependencies
+)]
 
 mod error;
 pub mod trie_db;

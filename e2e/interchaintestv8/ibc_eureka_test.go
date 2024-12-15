@@ -1202,21 +1202,21 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 	storageProof := proofResp.StorageProof[0]
 
 	if s.rustFixtureGenerator.ShouldGenerateFixture() {
-		_, unionClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
-		_, unionConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
+		_, ethereumClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
+		_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
 			RevisionNumber: 0,
 			RevisionHeight: s.LastEtheruemLightClientUpdate,
 		})
 
 		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &types.CommitmentProofFixture{
-			Path:         path,
+			Path:         fmt.Sprintf("0x%x", path),
 			StorageProof: storageProof,
 			ProofHeight: clienttypes.Height{
 				RevisionNumber: 0,
 				RevisionHeight: s.LastEtheruemLightClientUpdate,
 			},
-			ClientState:    unionClientState,
-			ConsensusState: unionConsensusState,
+			ClientState:    ethereumClientState,
+			ConsensusState: ethereumConsensusState,
 		})
 	}
 

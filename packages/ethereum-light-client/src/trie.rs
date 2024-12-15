@@ -42,17 +42,15 @@ pub fn validate_merkle_branch(
 #[cfg(test)]
 #[allow(clippy::pedantic)]
 mod test {
-    use alloy_primitives::{hex::FromHex, Address, Bloom, Bytes, B256, U256};
+    use alloy_primitives::{hex::FromHex, Address, Bloom, Bytes, FixedBytes, B256, U256};
+    use ethereum_types::consensus::{
+        fork::{Fork, ForkParameters},
+        light_client_header::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
+        merkle::{floorlog2, get_subtree_index, EXECUTION_PAYLOAD_INDEX},
+    };
 
     use crate::{
-        client_state::ClientState,
-        config::{
-            consts::{floorlog2, get_subtree_index, EXECUTION_PAYLOAD_INDEX},
-            MINIMAL,
-        },
-        trie::validate_merkle_branch,
-        types::light_client::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-        verify::get_lc_execution_root,
+        client_state::ClientState, trie::validate_merkle_branch, verify::get_lc_execution_root,
     };
 
     #[test]
@@ -107,11 +105,36 @@ mod test {
             ],
         };
 
+        let minimal_config_fork_parameters = ForkParameters {
+            genesis_fork_version: FixedBytes([0, 0, 0, 1]),
+            genesis_slot: 0,
+
+            altair: Fork {
+                version: FixedBytes([1, 0, 0, 1]),
+                epoch: 0,
+            },
+
+            bellatrix: Fork {
+                version: FixedBytes([2, 0, 0, 1]),
+                epoch: 0,
+            },
+
+            capella: Fork {
+                version: FixedBytes([3, 0, 0, 1]),
+                epoch: 0,
+            },
+
+            deneb: Fork {
+                version: FixedBytes([4, 0, 0, 1]),
+                epoch: 0,
+            },
+        };
+
         // inputs
         let leaf = get_lc_execution_root(
             &ClientState {
                 slots_per_epoch: 32,
-                fork_parameters: MINIMAL.fork_parameters,
+                fork_parameters: minimal_config_fork_parameters,
                 ..Default::default()
             },
             &header,

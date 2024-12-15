@@ -24,10 +24,10 @@ sp1-ics07-tendermint-utils         = { path = "packages/sp1-ics07-tendermint-uti
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
 ethereum-trie-db                   = { path = "packages/ethereum-trie-db", default-features = false }
-ethereum-utils                     = { path = "packages/ethereum-utils", default-features = false }
 ethereum-light-client              = { path = "packages/ethereum-light-client", default-features = false }
-ethereum-test-utils                = { path = "packages/ethereum-test-utils", default-features = false }
+ethereum-types                     = { path = "packages/ethereum-types", default-features = false }
 tree_hash                          = { path = "packages/tree_hash", default-features = false }
+utils                              = { path = "packages/utils", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
@@ -84,9 +84,6 @@ alloy-primitives       = { version = "0.8", default-features = false }
 alloy-trie             = { version = "0.5", default-features = false }
 alloy-serde            = { version = "0.7", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
-alloy-rpc-types-eth    = { version = "0.7", default-features = false }
-alloy-rpc-types-beacon = { version = "0.7", default-features = false }
-alloy-rpc-types-engine = { version = "0.7", default-features = false }
 
 sp1-sdk    = { version = "3.3", default-features = false }
 sp1-zkvm   = { version = "3.3", default-features = false }
@@ -94,7 +91,6 @@ sp1-helper = { version = "3.3", default-features = false }
 
 cosmwasm-schema = { version = "2.1", default-features = false }
 cosmwasm-std    = { version = "2.1", default-features = false }
-cw-storage-plus = { version = "2.0", default-features = false }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
 ethereum_ssz        = { version = "0.8", default-features = false }
@@ -110,11 +106,7 @@ rlp                = { version = "0.6", default-features = false }
 rlp-derive         = { version = "0.2", default-features = false }
 primitive-types    = { version = "0.13", default-features = false }
 
-# TODO: From union (might be removed if they are replaced by something more standard). #147
-typenum = { version = "1.17.0", default-features = false }
-
-# dev-dependencies
-cw-multi-test = { version = "2.2.0", default-features = false }
+# test/dev-dependencies
 milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!
 smallvec      = { version = "1.6.1", default-features = false }
 

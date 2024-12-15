@@ -1,14 +1,13 @@
 //! This module provides [`update_consensus_state`] function to update the consensus state
 
-use ethereum_utils::{ensure, slot::compute_timestamp_at_slot};
+use ethereum_types::consensus::{
+    slot::compute_timestamp_at_slot, sync_committee::compute_sync_committee_period_at_slot,
+};
+use utils::ensure;
 
 use crate::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    error::EthereumIBCError,
-    types::{
-        height::Height, light_client::Header, sync_committee::compute_sync_committee_period_at_slot,
-    },
+    client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError,
+    header::Header,
 };
 
 /// Takes in the current client and consensus state and a new header and returns the updated
@@ -21,9 +20,9 @@ pub fn update_consensus_state(
     current_consensus_state: &ConsensusState,
     current_client_state: &ClientState,
     header: Header,
-) -> Result<(Height, ConsensusState, Option<ClientState>), EthereumIBCError> {
+) -> Result<(u64, ConsensusState, Option<ClientState>), EthereumIBCError> {
     let trusted_sync_committee = header.trusted_sync_committee;
-    let trusted_height = trusted_sync_committee.trusted_height;
+    let trusted_slot = trusted_sync_committee.trusted_slot;
 
     let mut new_consensus_state = current_consensus_state.clone();
     let mut new_client_state: Option<ClientState> = None;
@@ -64,10 +63,8 @@ pub fn update_consensus_state(
 
     // Some updates can be only for updating the sync committee, therefore the slot number can be
     // smaller. We don't want to save a new state if this is the case.
-    let updated_height = core::cmp::max(
-        trusted_height.revision_height,
-        consensus_update.attested_header.beacon.slot,
-    );
+    // TODO: we might to remove this functionality if we don't use it as it complicates the light client
+    let updated_slot = core::cmp::max(trusted_slot, consensus_update.attested_header.beacon.slot);
 
     if consensus_update.attested_header.beacon.slot > new_consensus_state.slot {
         new_consensus_state.slot = consensus_update.attested_header.beacon.slot;
@@ -88,13 +85,5 @@ pub fn update_consensus_state(
         }
     }
 
-    let updated_height = Height {
-        revision_number: trusted_height.revision_number,
-        revision_height: updated_height,
-    };
-
-    //save_consensus_state::<Self>(deps, consensus_state, &updated_height);
-
-    //Ok(vec![updated_height])
-    Ok((updated_height, new_consensus_state, new_client_state))
+    Ok((updated_slot, new_consensus_state, new_client_state))
 }

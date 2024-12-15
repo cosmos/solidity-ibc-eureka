@@ -3,29 +3,45 @@
 use alloy_primitives::B256;
 
 use ethereum_trie_db::trie_db::verify_account_storage_root;
-use ethereum_utils::{
-    ensure,
-    slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
-};
-use tree_hash::TreeHash;
-
-use crate::{
-    client_state::ClientState,
-    config::consts::{
+use ethereum_types::consensus::{
+    bls::{BlsPublicKey, BlsSignature},
+    domain::{compute_domain, DomainType},
+    light_client_header::{LightClientHeader, LightClientUpdate},
+    merkle::{
         get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
         FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
     },
+    signing_data::compute_signing_root,
+    slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
+    sync_committee::compute_sync_committee_period_at_slot,
+};
+use tree_hash::TreeHash;
+use utils::ensure;
+
+use crate::{
+    client_state::ClientState,
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
+    header::Header,
     trie::validate_merkle_branch,
-    types::{
-        bls::BlsVerify,
-        domain::{compute_domain, DomainType},
-        light_client::{Header, LightClientHeader, LightClientUpdate},
-        signing_data::compute_signing_root,
-        sync_committee::compute_sync_committee_period_at_slot,
-    },
 };
+
+/// The BLS verifier trait.
+#[allow(clippy::module_name_repetitions)]
+pub trait BlsVerify {
+    /// The error type for the BLS verifier.
+    type Error: std::fmt::Display;
+
+    /// Verify a BLS signature.
+    /// # Errors
+    /// Returns an error if the signature cannot be verified.
+    fn fast_aggregate_verify(
+        &self,
+        public_keys: Vec<&BlsPublicKey>,
+        msg: B256,
+        signature: BlsSignature,
+    ) -> Result<(), Self::Error>;
+}
 
 /// Verifies the header of the light client.
 /// # Errors
@@ -49,7 +65,12 @@ pub fn verify_header<V: BlsVerify>(
         client_state.seconds_per_slot,
         current_timestamp,
     )
-    .map_err(EthereumIBCError::EthereumUtilsError)?;
+    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+        timestamp: current_timestamp,
+        genesis: client_state.genesis_time,
+        seconds_per_slot: client_state.seconds_per_slot,
+        genesis_slot: GENESIS_SLOT,
+    })?;
 
     validate_light_client_update::<V>(
         client_state,
@@ -359,17 +380,12 @@ pub fn get_lc_execution_root(
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        test::fixture_types::{InitialState, UpdateClient},
-        types::bls::{BlsPublicKey, BlsSignature},
+    use crate::test_utils::{
+        bls_verifier::{fast_aggregate_verify, BlsError},
+        fixtures::{self, InitialState, UpdateClient},
     };
 
     use super::*;
-
-    use ethereum_test_utils::{
-        bls_verifier::{fast_aggregate_verify, BlsError},
-        fixtures,
-    };
 
     struct TestBlsVerifier;
 
@@ -382,7 +398,7 @@ mod test {
             msg: B256,
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
-            fast_aggregate_verify(public_keys, msg, signature)
+            fast_aggregate_verify(&public_keys, msg, signature)
         }
     }
 

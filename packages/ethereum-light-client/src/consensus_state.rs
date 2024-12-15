@@ -4,7 +4,9 @@ use alloy_primitives::{FixedBytes, B256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::types::sync_committee::{ActiveSyncCommittee, SyncCommittee};
+use ethereum_types::consensus::sync_committee::SyncCommittee;
+
+use crate::header::ActiveSyncCommittee;
 
 /// The consensus state of the Ethereum light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone, Default)]
@@ -39,7 +41,7 @@ pub struct TrustedConsensusState {
     ///
     /// This sync committee can either be the current sync committee or the next sync
     /// committee. That's because the verifier uses next or current sync committee's
-    /// public keys to verify the signature against. It is based on
+    /// public keys to verify the signature against.
     pub sync_committee: ActiveSyncCommittee,
 }
 

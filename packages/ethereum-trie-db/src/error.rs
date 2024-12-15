@@ -1,7 +1,5 @@
 //! This module defines [`TrieDBError`].
 
-use ethereum_utils::hex;
-
 #[derive(Debug, PartialEq, Eq, thiserror::Error, Clone)]
 #[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum TrieDBError {
@@ -13,11 +11,11 @@ pub enum TrieDBError {
 
     #[error(
         "proof is invalid due to value mismatch, expected: {expected}, actual: {actual}",
-        expected = hex::to_hex(expected),
-        actual = hex::to_hex(actual)
+        expected = hex::encode(expected),
+        actual = hex::encode(actual)
     )]
     ValueMismatch { expected: Vec<u8>, actual: Vec<u8> },
 
-    #[error("proof is invalid due to missing value: {v}", v = hex::to_hex(value))]
+    #[error("proof is invalid due to missing value: {v}", v = hex::encode(value))]
     ValueMissing { value: Vec<u8> },
 }

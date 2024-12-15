@@ -109,7 +109,7 @@ mod sudo {
     ) -> Result<Binary, ContractError> {
         let eth_client_state = get_eth_client_state(deps.storage);
         let eth_consensus_state =
-            get_eth_consensus_state(deps.storage, &verify_membership_msg.height);
+            get_eth_consensus_state(deps.storage, verify_membership_msg.height.revision_height);
 
         ethereum_light_client::membership::verify_membership(
             eth_consensus_state,
@@ -133,8 +133,10 @@ mod sudo {
         verify_non_membership_msg: VerifyNonMembershipMsg,
     ) -> Result<Binary, ContractError> {
         let eth_client_state = get_eth_client_state(deps.storage);
-        let eth_consensus_state =
-            get_eth_consensus_state(deps.storage, &verify_non_membership_msg.height);
+        let eth_consensus_state = get_eth_consensus_state(
+            deps.storage,
+            verify_non_membership_msg.height.revision_height,
+        );
 
         ethereum_light_client::membership::verify_membership(
             eth_consensus_state,
@@ -163,15 +165,10 @@ mod sudo {
             .map_err(ContractError::DeserializeClientMessageFailed)?;
 
         let eth_client_state = get_eth_client_state(deps.storage);
-        let eth_consensus_state = get_eth_consensus_state(
-            deps.storage,
-            &Height {
-                revision_number: 0,
-                revision_height: eth_client_state.latest_slot,
-            },
-        );
+        let eth_consensus_state =
+            get_eth_consensus_state(deps.storage, eth_client_state.latest_slot);
 
-        let (updated_height, updated_consensus_state, updated_client_state) =
+        let (updated_slot, updated_consensus_state, updated_client_state) =
             update_consensus_state(&eth_consensus_state, &eth_client_state, header)
                 .map_err(ContractError::UpdateClientStateFailed)?;
 
@@ -180,11 +177,7 @@ mod sudo {
         let wasm_consensus_state = WasmConsensusState {
             data: consensus_state_bz,
         };
-        store_consensus_state(
-            deps.storage,
-            &wasm_consensus_state,
-            updated_height.revision_height,
-        )?;
+        store_consensus_state(deps.storage, &wasm_consensus_state, updated_slot)?;
 
         if let Some(client_state) = updated_client_state {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state)
@@ -194,7 +187,7 @@ mod sudo {
             wasm_client_state.data = client_state_bz;
             wasm_client_state.latest_height = Some(IbcProtoHeight {
                 revision_number: 0,
-                revision_height: updated_height.revision_height,
+                revision_height: updated_slot,
             });
             store_client_state(deps.storage, &wasm_client_state)?;
         }
@@ -202,7 +195,7 @@ mod sudo {
         Ok(to_json_binary(&UpdateStateResult {
             heights: vec![Height {
                 revision_number: 0,
-                revision_height: updated_height.revision_height,
+                revision_height: updated_slot,
             }],
         })?)
     }
@@ -244,7 +237,7 @@ mod query {
     use crate::{
         custom_query::BlsVerifier,
         msg::{
-            CheckForMisbehaviourResult, Height, StatusResult, TimestampAtHeightResult,
+            CheckForMisbehaviourResult, StatusResult, TimestampAtHeightResult,
             VerifyClientMessageMsg,
         },
         state::{get_eth_client_state, get_eth_consensus_state},
@@ -259,13 +252,8 @@ mod query {
         verify_client_message_msg: VerifyClientMessageMsg,
     ) -> Result<Binary, ContractError> {
         let eth_client_state = get_eth_client_state(deps.storage);
-        let eth_consensus_state = get_eth_consensus_state(
-            deps.storage,
-            &Height {
-                revision_number: 0,
-                revision_height: eth_client_state.latest_slot,
-            },
-        );
+        let eth_consensus_state =
+            get_eth_consensus_state(deps.storage, eth_client_state.latest_slot);
         let header = serde_json::from_slice(&verify_client_message_msg.client_message)
             .map_err(ContractError::DeserializeClientMessageFailed)?;
         let bls_verifier = BlsVerifier {
@@ -314,8 +302,8 @@ mod tests {
         },
         Binary, OwnedDeps, SystemResult,
     };
-    use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature};
-    use ethereum_test_utils::bls_verifier::{aggreagate, fast_aggregate_verify};
+    use ethereum_light_client::test_utils::bls_verifier::{aggreagate, fast_aggregate_verify};
+    use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
 
     use crate::custom_query::EthereumCustomQuery;
 
@@ -329,8 +317,8 @@ mod tests {
         use ethereum_light_client::{
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState,
-            types::fork::{Fork, ForkParameters, Version},
         };
+        use ethereum_types::consensus::fork::{Fork, ForkParameters};
         use ibc_proto::{
             google::protobuf::Any,
             ibc::lightclients::wasm::v1::{
@@ -341,7 +329,7 @@ mod tests {
 
         use crate::{
             contract::{instantiate, tests::mk_deps},
-            msg::{Height, InstantiateMsg},
+            msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
         };
 
@@ -357,22 +345,22 @@ mod tests {
                 min_sync_committee_participants: 0,
                 genesis_time: 0,
                 fork_parameters: ForkParameters {
-                    genesis_fork_version: Version::from([0; 4]),
+                    genesis_fork_version: FixedBytes([0; 4]),
                     genesis_slot: 0,
                     altair: Fork {
-                        version: Version::from([0; 4]),
+                        version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
                     bellatrix: Fork {
-                        version: Version::from([0; 4]),
+                        version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
                     capella: Fork {
-                        version: Version::from([0; 4]),
+                        version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
                     deneb: Fork {
-                        version: Version::from([0; 4]),
+                        version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
                 },
@@ -382,7 +370,7 @@ mod tests {
                 latest_slot: 42,
                 ibc_commitment_slot: U256::from(0),
                 ibc_contract_address: Address::default(),
-                frozen_height: ethereum_light_client::types::height::Height::default(),
+                frozen_slot: 0,
             };
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
@@ -428,13 +416,7 @@ mod tests {
 
             let actual_wasm_consensus_state_any_bz = deps
                 .storage
-                .get(
-                    consensus_db_key(&Height {
-                        revision_number: 0,
-                        revision_height: consensus_state.slot,
-                    })
-                    .as_bytes(),
-                )
+                .get(consensus_db_key(consensus_state.slot).as_bytes())
                 .unwrap();
             let actual_wasm_consensus_state_any =
                 Any::decode(actual_wasm_consensus_state_any_bz.as_slice()).unwrap();
@@ -455,14 +437,15 @@ mod tests {
             testing::{message_info, mock_env},
             Binary,
         };
-        use ethereum_test_utils::fixtures::{self, StepFixture};
+        use ethereum_light_client::test_utils::fixtures::{
+            self, CommitmentProof, InitialState, StepFixture, UpdateClient,
+        };
 
         use crate::{
             contract::{instantiate, sudo, tests::mk_deps},
             msg::{
                 Height, MerklePath, SudoMsg, UpdateStateMsg, UpdateStateResult, VerifyMembershipMsg,
             },
-            test::fixture_types::{CommitmentProof, InitialState, UpdateClient},
         };
 
         #[test]
@@ -497,13 +480,13 @@ mod tests {
             let msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
-                    revision_height: commitment_proof_fixture.proof_height.revision_height,
+                    revision_height: commitment_proof_fixture.proof_slot,
                 },
                 delay_time_period: 0,
                 delay_block_period: 0,
                 proof: Binary::from(proof_bz),
                 merkle_path: MerklePath {
-                    key_path: vec![Binary::from(path)],
+                    key_path: vec![Binary::from(path.to_vec())],
                 },
                 value: Binary::from(value_bz),
             });
@@ -561,7 +544,9 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
-        use ethereum_test_utils::fixtures::{self, StepFixture};
+        use ethereum_light_client::test_utils::fixtures::{
+            self, InitialState, StepFixture, UpdateClient,
+        };
 
         use crate::{
             contract::{instantiate, query, tests::mk_deps},
@@ -570,7 +555,6 @@ mod tests {
                 StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult,
                 VerifyClientMessageMsg,
             },
-            test::fixture_types::{InitialState, UpdateClient},
         };
 
         #[test]
@@ -663,8 +647,6 @@ mod tests {
         }
     }
 
-    // TODO: Find a way to reuse the test handling code that already exists in the
-    // ethereum-light-client package
     pub fn custom_query_handler(query: &EthereumCustomQuery) -> MockQuerierCustomHandlerResult {
         match query {
             EthereumCustomQuery::AggregateVerify {
@@ -679,7 +661,7 @@ mod tests {
                 let message = B256::try_from(message.as_slice()).unwrap();
                 let signature = BlsSignature::try_from(signature.as_slice()).unwrap();
 
-                fast_aggregate_verify(public_keys, message, signature).unwrap();
+                fast_aggregate_verify(&public_keys, message, signature).unwrap();
 
                 SystemResult::Ok(cosmwasm_std::ContractResult::Ok::<Binary>(
                     serde_json::to_vec(&true).unwrap().into(),
@@ -691,7 +673,7 @@ mod tests {
                     .map(|pk| pk.as_ref().try_into().unwrap())
                     .collect::<Vec<&BlsPublicKey>>();
 
-                let aggregate_pubkey = aggreagate(public_keys).unwrap();
+                let aggregate_pubkey = aggreagate(&public_keys).unwrap();
 
                 SystemResult::Ok(cosmwasm_std::ContractResult::Ok::<Binary>(
                     serde_json::to_vec(&Binary::from(aggregate_pubkey.as_slice()))

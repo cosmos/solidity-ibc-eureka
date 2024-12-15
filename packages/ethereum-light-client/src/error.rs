@@ -1,14 +1,11 @@
 //! This module defines [`EthereumIBCError`].
 
 use alloy_primitives::B256;
-use alloy_rpc_types_beacon::BlsPublicKey;
+use ethereum_types::consensus::bls::BlsPublicKey;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
 #[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum EthereumIBCError {
-    #[error(transparent)]
-    EthereumUtilsError(#[from] ethereum_utils::error::EthereumUtilsError),
-
     #[error("IBC path is empty")]
     EmptyPath,
 
@@ -18,8 +15,11 @@ pub enum EthereumIBCError {
     #[error("invalid commitment key, expected ({0}) but found ({1})")]
     InvalidCommitmentKey(String, String),
 
-    #[error("expected value ({0}) and stored value ({1}) don't match")]
-    StoredValueMistmatch(String, String),
+    #[error("expected value ({expected}) and stored value ({actual}) don't match", 
+        expected = hex::encode(expected),
+        actual = hex::encode(actual)
+    )]
+    StoredValueMistmatch { expected: Vec<u8>, actual: Vec<u8> },
 
     #[error("verify storage proof error: {0}")]
     VerifyStorageProof(String),
@@ -123,6 +123,16 @@ pub enum EthereumIBCError {
 
     #[error("client's store period must be equal to update's finalized period")]
     StorePeriodMustBeEqualToFinalizedPeriod,
+
+    #[error("failed to compute slot at timestamp with  \
+        (timestamp ({timestamp}) - genesis ({genesis})) / seconds_per_slot ({seconds_per_slot}) + genesis_slot ({genesis_slot})"
+    )]
+    FailedToComputeSlotAtTimestamp {
+        timestamp: u64,
+        genesis: u64,
+        seconds_per_slot: u64,
+        genesis_slot: u64,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]

@@ -20,7 +20,7 @@ type InitialStateFixture struct {
 }
 
 type CommitmentProofFixture struct {
-	Path           []byte                       `json:"path"`
+	Path           string                       `json:"path"`
 	StorageProof   ethereumtypes.StorageProof   `json:"storage_proof"`
 	ProofHeight    clienttypes.Height           `json:"proof_height"`
 	ClientState    ethereumtypes.ClientState    `json:"client_state"`

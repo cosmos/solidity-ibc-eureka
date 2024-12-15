@@ -15,8 +15,8 @@ type ClientState struct {
 	EpochsPerSyncCommitteePeriod uint64 `json:"epochs_per_sync_committee_period"`
 	// The fork parameters
 	ForkParameters ForkParameters `json:"fork_parameters"`
-	// The height at which the client was frozen
-	FrozenHeight Height `json:"frozen_height"`
+	// The slot at which the client was frozen
+	FrozenSlot uint64 `json:"frozen_slot"`
 	// The time of genesis
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root
@@ -65,18 +65,6 @@ type Fork struct {
 	Epoch uint64 `json:"epoch"`
 	// The version of the fork
 	Version string `json:"version"`
-}
-
-// The height at which the client was frozen
-//
-// # Height
-//
-// The trusted height
-type Height struct {
-	// The block height
-	RevisionHeight uint64 `json:"revision_height"`
-	// The revision number This is always 0 in the current implementation
-	RevisionNumber *uint64 `json:"revision_number,omitempty"`
 }
 
 // The consensus state of the Ethereum light client
@@ -227,12 +215,12 @@ type SyncAggregate struct {
 
 // The trusted sync committee
 type TrustedSyncCommittee struct {
-	// The current sync committee
+	// Active sync committee The current sync committee
 	CurrentSyncCommittee *SyncCommittee `json:"current_sync_committee"`
 	// The next sync committee
 	NextSyncCommittee *SyncCommittee `json:"next_sync_committee"`
 	// The trusted height
-	TrustedHeight Height `json:"trusted_height"`
+	TrustedSlot uint64 `json:"trusted_slot"`
 }
 
 // The key-value storage proof for a smart contract account

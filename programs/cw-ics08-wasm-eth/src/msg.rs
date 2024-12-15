@@ -1,4 +1,5 @@
 //! The messages that are passed between the contract and the ibc-go module
+#![allow(clippy::module_name_repetitions)]
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
