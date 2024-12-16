@@ -103,14 +103,13 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		var (
-			height            clienttypes.Height
 			clientStateAny    *codectypes.Any
 			consensusStateAny *codectypes.Any
 		)
 		s.Require().True(s.Run("Construct the client and consensus state", func() {
 			tmConfig := ibctesting.NewTendermintConfig()
 			revision := clienttypes.ParseChainID(simdAHeader.ChainID)
-			height = clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
+			height := clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
 
 			clientState := ibctm.NewClientState(
 				simdAHeader.ChainID,
@@ -129,6 +128,40 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 			ClientState:    clientStateAny,
 			ConsensusState: consensusStateAny,
 			Signer:         s.SimdBSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
+		simdBHeader, err := s.FetchCosmosHeader(ctx, s.SimdB)
+		s.Require().NoError(err)
+
+		var (
+			clientStateAny    *codectypes.Any
+			consensusStateAny *codectypes.Any
+		)
+		s.Require().True(s.Run("Construct the client and consensus state", func() {
+			tmConfig := ibctesting.NewTendermintConfig()
+			revision := clienttypes.ParseChainID(simdBHeader.ChainID)
+			height := clienttypes.NewHeight(revision, uint64(simdBHeader.Height))
+
+			clientState := ibctm.NewClientState(
+				simdBHeader.ChainID,
+				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
+				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
+			)
+			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+			s.Require().NoError(err)
+
+			consensusState := ibctm.NewConsensusState(simdBHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdBHeader.ValidatorsHash)
+			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
+			s.Require().NoError(err)
+		}))
+
+		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:    clientStateAny,
+			ConsensusState: consensusStateAny,
+			Signer:         s.SimdASubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
