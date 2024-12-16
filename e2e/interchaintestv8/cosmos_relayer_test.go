@@ -8,14 +8,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
@@ -306,5 +308,36 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(testvalues.InitialBalance-transferAmount.Int64(), resp.Balance.Amount.Int64())
 		}))
+	}))
+
+	var multicallTx []byte
+	s.Require().True(s.Run("Retrieve relay tx to Chain B", func() {
+		resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SourceTxIds:     txHashes,
+			TargetChannelId: ibctesting.FirstChannelID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		multicallTx = resp.Tx
+	}))
+
+	s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
+		var txBody txtypes.TxBody
+		err := proto.Unmarshal(multicallTx, &txBody)
+		s.Require().NoError(err)
+
+		var msgs []sdk.Msg
+		for _, msg := range txBody.Messages {
+			var sdkMsg sdk.Msg
+			err = s.SimdB.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+			s.Require().NoError(err)
+
+			msgs = append(msgs, sdkMsg)
+		}
+
+		_, err = s.BroadcastMessages(ctx, s.SimdB, simdBUser, 200_000, msgs...)
+		s.Require().NoError(err)
 	}))
 }
