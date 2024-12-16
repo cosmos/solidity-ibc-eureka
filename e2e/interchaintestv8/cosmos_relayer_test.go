@@ -195,7 +195,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		// We can do this because we know what the counterparty channel ID will be
 		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstClientID,
+			CounterpartyChannelId: ibctesting.FirstChannelID,
 			Signer:                s.SimdASubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
@@ -213,7 +213,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 
 		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstClientID,
+			CounterpartyChannelId: ibctesting.FirstChannelID,
 			Signer:                s.SimdBSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
