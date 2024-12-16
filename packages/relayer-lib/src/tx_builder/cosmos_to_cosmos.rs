@@ -139,6 +139,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .collect::<Result<Vec<_>, _>>()?;
         if all_msgs.len() == 1 {
+            // The update message is the only message.
             anyhow::bail!("No messages to relay to Cosmos");
         }
 

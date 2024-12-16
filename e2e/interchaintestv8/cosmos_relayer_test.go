@@ -310,7 +310,7 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 		}))
 	}))
 
-	var multicallTx []byte
+	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx to Chain B", func() {
 		resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:     txHashes,
@@ -320,12 +320,12 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 		s.Require().NotEmpty(resp.Tx)
 		s.Require().Empty(resp.Address)
 
-		multicallTx = resp.Tx
+		txBodyBz = resp.Tx
 	}))
 
 	s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
 		var txBody txtypes.TxBody
-		err := proto.Unmarshal(multicallTx, &txBody)
+		err := proto.Unmarshal(txBodyBz, &txBody)
 		s.Require().NoError(err)
 
 		var msgs []sdk.Msg
