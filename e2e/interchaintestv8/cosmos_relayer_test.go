@@ -10,7 +10,10 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
+	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
@@ -162,6 +165,43 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 			ClientState:    clientStateAny,
 			ConsensusState: consensusStateAny,
 			Signer:         s.SimdASubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
+		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+
+		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
+			ClientId:         ibctesting.FirstClientID,
+			MerklePathPrefix: merklePathPrefix,
+			Signer:           s.SimdASubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+
+		// We can do this because we know what the counterparty channel ID will be
+		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+			ChannelId:             ibctesting.FirstChannelID,
+			CounterpartyChannelId: ibctesting.FirstClientID,
+			Signer:                s.SimdASubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
+		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+
+		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
+			ClientId:         ibctesting.FirstClientID,
+			MerklePathPrefix: merklePathPrefix,
+			Signer:           s.SimdBSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+
+		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+			ChannelId:             ibctesting.FirstChannelID,
+			CounterpartyChannelId: ibctesting.FirstClientID,
+			Signer:                s.SimdBSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
