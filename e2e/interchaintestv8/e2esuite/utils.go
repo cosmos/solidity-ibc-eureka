@@ -25,6 +25,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -422,4 +423,21 @@ func (s *TestSuite) GetTopLevelTestName() string {
 	}
 
 	return s.T().Name()
+}
+
+// FetchCosmosHeader fetches the latest header from the given chain.
+func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosChain) (*cmtservice.Header, error) {
+	latestHeight, err := chain.Height(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	headerResp, err := GRPCQuery[cmtservice.GetBlockByHeightResponse](ctx, chain, &cmtservice.GetBlockByHeightRequest{
+		Height: latestHeight,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &headerResp.SdkBlock.Header, nil
 }
