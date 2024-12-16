@@ -74,10 +74,19 @@ impl TendermintRpcExt for HttpClient {
         let mut signed_header = commit_response.signed_header;
 
         let validator_response = self.validators(height, Paging::All).await?;
-        let validators = Set::new(validator_response.validators, None);
+        let validators = Set::with_proposer(
+            validator_response.validators,
+            signed_header.header().proposer_address,
+        )?;
 
         let next_validator_response = self.validators(height + 1, Paging::All).await?;
-        let next_validators = Set::new(next_validator_response.validators, None);
+        let next_validators = Set::with_proposer(
+            next_validator_response.validators,
+            // WARN: This proposer is likely to be incorrect,
+            // but it is not used in the light block verification,
+            // and required by ibc-go's validate basic.
+            signed_header.header().proposer_address,
+        )?;
 
         sort_signatures_by_validators_power_desc(&mut signed_header, &validators);
         Ok(LightBlock::new(

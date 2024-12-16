@@ -73,6 +73,7 @@ impl TxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
+    #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEvent>,
@@ -137,6 +138,15 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .collect::<Result<Vec<_>, _>>()?;
+        if all_msgs.len() == 1 {
+            // The update message is the only message.
+            anyhow::bail!("No messages to relay to Cosmos");
+        }
+
+        tracing::debug!(
+            "Messages to be relayed to Cosmos: {:?}",
+            all_msgs[1..].to_vec()
+        );
 
         let tx_body = TxBody {
             messages: all_msgs,
