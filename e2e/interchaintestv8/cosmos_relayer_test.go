@@ -2,13 +2,22 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdkmath "cosmossdk.io/math"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
@@ -59,8 +68,10 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	s.SimdASubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdA)
 	s.SimdBSubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdB)
 
-	var relayerProcess *os.Process
-	var configInfo relayer.CosmosToCosmosConfigInfo
+	var (
+		relayerProcess *os.Process
+		configInfo     relayer.CosmosToCosmosConfigInfo
+	)
 	s.Require().True(s.Run("Start Relayer", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -233,4 +244,67 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 		s.Require().Equal(s.SimdB.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.TargetChain.ChainId)
 	})
+}
+
+func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+
+	var (
+		transferCoin sdk.Coin
+		txHashes     [][]byte
+	)
+	s.Require().True(s.Run("Send transfers on Chain A", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		transferCoin = sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+
+		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			Denom:    transferCoin.Denom,
+			Amount:   transferCoin.Amount.BigInt(),
+			Sender:   simdAUser.FormattedAddress(),
+			Receiver: simdBUser.FormattedAddress(),
+			Memo:     "",
+		}
+		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingABI,
+			Value:           transferBz,
+		}
+		msgSendPacket := channeltypesv2.MsgSendPacket{
+			SourceChannel:    ibctesting.FirstChannelID,
+			TimeoutTimestamp: timeout,
+			Payloads: []channeltypesv2.Payload{
+				payload,
+			},
+			Signer: simdAUser.FormattedAddress(),
+		}
+
+		resp, err := s.BroadcastMessages(ctx, s.SimdA, simdAUser, 200_000, &msgSendPacket)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		txHash, err := hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+
+		txHashes = append(txHashes, txHash)
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// Check the balance of UserB
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
+				Address: simdAUser.FormattedAddress(),
+				Denom:   transferCoin.Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.InitialBalance-transferAmount.Int64(), resp.Balance.Amount.Int64())
+		}))
+	}))
 }
