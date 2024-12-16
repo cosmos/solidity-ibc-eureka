@@ -3858,6 +3858,7 @@ dependencies = [
  "sp1-ics07-tendermint-utils",
  "sp1-sdk",
  "tendermint",
+ "tendermint-light-client-verifier",
  "tendermint-rpc",
  "tracing",
 ]
