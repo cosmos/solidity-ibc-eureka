@@ -1,6 +1,6 @@
 //! Relayer utilities for `solidity-ibc-eureka` chains.
 
-use alloy::sol_types::SolValue;
+use alloy::{primitives::Bytes, sol_types::SolValue};
 use anyhow::Result;
 use futures::future;
 use ibc_eureka_solidity_types::{
@@ -44,7 +44,7 @@ pub fn target_events_to_timeout_msgs(
                             msg_: MsgTimeoutPacket {
                                 packet: se.packet,
                                 proofHeight: target_height.clone(),
-                                proofTimeout: b"".into(),
+                                proofTimeout: Bytes::default(),
                             },
                         },
                     ))
@@ -74,7 +74,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                         msg_: MsgRecvPacket {
                             packet: se.packet,
                             proofHeight: target_height.clone(),
-                            proofCommitment: b"".into(),
+                            proofCommitment: Bytes::default(),
                         },
                     }))
                 } else {
@@ -88,7 +88,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                             packet: we.packet,
                             acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
                             proofHeight: target_height.clone(),
-                            proofAcked: b"".into(),
+                            proofAcked: Bytes::default(),
                         },
                     }))
                 } else {
