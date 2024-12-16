@@ -393,7 +393,7 @@ contract SP1ICS07Tendermint is
     function validateMisbehaviourOutput(MisbehaviourOutput memory output) private view {
         validateClientStateAndTime(output.clientState, output.time);
 
-        // make sure the trusted consensus state from header 1 is known (trusted) by matching it with the the one in the
+        // make sure the trusted consensus state from header 1 is known (trusted) by matching it with the one in the
         // mapping
         bytes32 outputConsensusStateHash1 = keccak256(abi.encode(output.trustedConsensusState1));
         bytes32 storedConsensusStateHash1 = getConsensusStateHash(output.trustedHeight1.revisionHeight);
@@ -402,7 +402,7 @@ contract SP1ICS07Tendermint is
             ConsensusStateHashMismatch(storedConsensusStateHash1, outputConsensusStateHash1)
         );
 
-        // make sure the trusted consensus state from header 2 is known (trusted) by matching it with the the one in the
+        // make sure the trusted consensus state from header 2 is known (trusted) by matching it with the one in the
         // mapping
         bytes32 outputConsensusStateHash2 = keccak256(abi.encode(output.trustedConsensusState2));
         bytes32 storedConsensusStateHash2 = getConsensusStateHash(output.trustedHeight2.revisionHeight);
