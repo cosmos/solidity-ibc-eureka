@@ -7,6 +7,13 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
+	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
@@ -88,6 +95,41 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		s.BtoARelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToChainAGRPCAddress())
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
+		simdAHeader, err := s.FetchCosmosHeader(ctx, s.SimdA)
+		s.Require().NoError(err)
+
+		var (
+			height            clienttypes.Height
+			clientStateAny    *codectypes.Any
+			consensusStateAny *codectypes.Any
+		)
+		s.Require().True(s.Run("Construct the client and consensus state", func() {
+			tmConfig := ibctesting.NewTendermintConfig()
+			revision := clienttypes.ParseChainID(simdAHeader.ChainID)
+			height = clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
+
+			clientState := ibctm.NewClientState(
+				simdAHeader.ChainID,
+				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
+				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
+			)
+			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+			s.Require().NoError(err)
+
+			consensusState := ibctm.NewConsensusState(simdAHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdAHeader.ValidatorsHash)
+			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
+			s.Require().NoError(err)
+		}))
+
+		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:    clientStateAny,
+			ConsensusState: consensusStateAny,
+			Signer:         s.SimdBSubmitter.FormattedAddress(),
+		})
 		s.Require().NoError(err)
 	}))
 }
