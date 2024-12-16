@@ -49,6 +49,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -1208,13 +1209,10 @@ func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte
 			RevisionHeight: s.LastEtheruemLightClientUpdate,
 		})
 
-		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &types.CommitmentProofFixture{
-			Path:         fmt.Sprintf("0x%x", path),
-			StorageProof: storageProof,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: 0,
-				RevisionHeight: s.LastEtheruemLightClientUpdate,
-			},
+		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &ethereumtypes.CommitmentProof{
+			Path:           fmt.Sprintf("0x%x", path),
+			StorageProof:   storageProof,
+			ProofSlot:      s.LastEtheruemLightClientUpdate,
 			ClientState:    ethereumClientState,
 			ConsensusState: ethereumConsensusState,
 		})

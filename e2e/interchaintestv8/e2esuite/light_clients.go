@@ -201,7 +201,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			break
 		}
 	}
-	rustFixtureGenerator.AddFixtureStep("updated_light_client", types.UpdateClientFixture{
+	rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
 		ClientState:    ethereumClientState,
 		ConsensusState: ethereumConsensusState,
 		Updates:        updatedHeaders,
@@ -307,7 +307,7 @@ func (s *TestSuite) createEthereumLightClient(ctx context.Context, simdRelayerUs
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 
-	rustFixtureGenerator.AddFixtureStep("initial_state", types.InitialStateFixture{
+	rustFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
 		ClientState:    ethClientState,
 		ConsensusState: ethConsensusState,
 	})

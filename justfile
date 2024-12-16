@@ -86,7 +86,7 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS20Lib.json --pkg ics20lib --type Lib --out abigen/ics20lib/lib.go
 
 generate-ethereum-types:
-	cargo run --bin generate_json_schema
+	cargo run --bin generate_json_schema --features test-utils
 	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go
 	rm ethereum_types_schema.json
 	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go 

@@ -25,3 +25,7 @@ milagro_bls = { workspace = true, optional = true }
 
 [features]
 test-utils = ["milagro_bls"]
+
+[[bin]]
+name = "generate_json_schema"
+path = "src/bin/generate_json_schema.rs"

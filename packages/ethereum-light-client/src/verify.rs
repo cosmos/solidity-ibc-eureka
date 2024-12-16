@@ -406,7 +406,7 @@ mod test {
     fn test_verify_header() {
         let bls_verifier = TestBlsVerifier;
 
-        let fixture: fixtures::StepFixture =
+        let fixture: fixtures::StepsFixture =
             fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);

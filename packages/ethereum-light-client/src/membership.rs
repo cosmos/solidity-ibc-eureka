@@ -103,7 +103,7 @@ mod test {
 
     #[test]
     fn test_with_fixture() {
-        let fixture: fixtures::StepFixture =
+        let fixture: fixtures::StepsFixture =
             fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
 
         let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);

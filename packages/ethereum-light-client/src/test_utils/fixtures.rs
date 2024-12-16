@@ -4,20 +4,21 @@ use std::path::PathBuf;
 
 use alloy_primitives::Bytes;
 use ethereum_types::execution::storage_proof::StorageProof;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{client_state::ClientState, consensus_state::ConsensusState, header::Header};
 
 /// A test fixture with an ordered list of light client operations from the e2e test
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct StepFixture {
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
+pub struct StepsFixture {
     /// steps is a list of light client operations
     pub steps: Vec<Step>,
 }
 
 /// Step is a light client operation such as an initial state, commitment proof, or update client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct Step {
     /// name is the name of the operation, only used for documentation and easy of reading
     pub name: String,
@@ -26,7 +27,54 @@ pub struct Step {
     pub data: Value,
 }
 
-impl StepFixture {
+/// The type of light client operations
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+pub enum DataType {
+    /// The initial state of the light client in the e2e tests
+    InitialState(Box<InitialState>),
+    /// The proof used to verify membership
+    CommitmentProof(Box<CommitmentProof>),
+    /// Operation to update the light client
+    UpdateClient(Box<UpdateClient>),
+}
+
+/// The initial state of the light client in the e2e tests
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
+pub struct InitialState {
+    /// The client state at the initial state
+    pub client_state: ClientState,
+    /// The consensus state at the initial state
+    pub consensus_state: ConsensusState,
+}
+
+/// The proof used to verify membership
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
+pub struct CommitmentProof {
+    /// The IBC path sent to verify membership
+    #[schemars(with = "String")]
+    pub path: Bytes,
+    /// The storage proof used to verify membership
+    pub storage_proof: StorageProof,
+    /// The slot of the proof (ibc height)
+    pub proof_slot: u64,
+    /// The client state at the time of the proof
+    pub client_state: ClientState,
+    /// The consensus state at the time of the proof
+    pub consensus_state: ConsensusState,
+}
+
+/// Operation to update the light client
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
+pub struct UpdateClient {
+    /// The client state after the update
+    pub client_state: ClientState,
+    /// The consensus state after the update
+    pub consensus_state: ConsensusState,
+    /// The headers used to update the light client, in order
+    pub updates: Vec<Header>,
+}
+
+impl StepsFixture {
     /// Deserializes the data at the given step into the given type
     /// # Panics
     /// Panics if the data cannot be deserialized into the given type
@@ -55,50 +103,4 @@ where
     // Open the file and deserialize its contents
     let file = std::fs::File::open(path).unwrap();
     serde_json::from_reader(file).unwrap()
-}
-
-/// The type of light client operations
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub enum DataType {
-    /// The initial state of the light client in the e2e tests
-    InitialState(Box<InitialState>),
-    /// The proof used to verify membership
-    CommitmentProof(Box<CommitmentProof>),
-    /// Operation to update the light client
-    UpdateClient(Box<UpdateClient>),
-}
-
-/// The initial state of the light client in the e2e tests
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct InitialState {
-    /// The client state at the initial state
-    pub client_state: ClientState,
-    /// The consensus state at the initial state
-    pub consensus_state: ConsensusState,
-}
-
-/// The proof used to verify membership
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct CommitmentProof {
-    /// The IBC path sent to verify membership
-    pub path: Bytes,
-    /// The storage proof used to verify membership
-    pub storage_proof: StorageProof,
-    /// The slot of the proof (ibc height)
-    pub proof_slot: u64,
-    /// The client state at the time of the proof
-    pub client_state: ClientState,
-    /// The consensus state at the time of the proof
-    pub consensus_state: ConsensusState,
-}
-
-/// Operation to update the light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct UpdateClient {
-    /// The client state after the update
-    pub client_state: ClientState,
-    /// The consensus state after the update
-    pub consensus_state: ConsensusState,
-    /// The headers used to update the light client, in order
-    pub updates: Vec<Header>,
 }
