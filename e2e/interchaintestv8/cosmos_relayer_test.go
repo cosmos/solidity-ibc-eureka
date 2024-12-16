@@ -337,7 +337,7 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 			msgs = append(msgs, sdkMsg)
 		}
 
-		_, err = s.BroadcastMessages(ctx, s.SimdB, simdBUser, 200_000, msgs...)
+		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, msgs...)
 		s.Require().NoError(err)
 	}))
 }
