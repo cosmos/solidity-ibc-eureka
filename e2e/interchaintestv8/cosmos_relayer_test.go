@@ -339,5 +339,18 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 
 		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, msgs...)
 		s.Require().NoError(err)
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID)).IBCDenom()
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+				Address: simdBUser.FormattedAddress(),
+				Denom:   ibcDenom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(transferAmount.Uint64(), resp.Balance.Amount.Uint64())
+			s.Require().Equal(ibcDenom, resp.Balance.Denom)
+		}))
 	}))
 }
