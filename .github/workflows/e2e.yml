@@ -81,6 +81,8 @@ jobs:
           - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
+          - TestWithCosmosRelayerTestSuite/TestICS20TimeoutPacket
+          - TestWithCosmosRelayerTestSuite/Test_10_ICS20TimeoutPacket
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16

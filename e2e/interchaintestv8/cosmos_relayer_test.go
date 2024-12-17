@@ -305,7 +305,6 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		}
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			// Check the balance of UserB
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
 				Denom:   s.SimdA.Config().Denom,
@@ -403,6 +402,124 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 				})
 				s.Require().ErrorContains(err, "packet commitment hash not found")
 			}
+		}))
+	}))
+}
+
+func (s *CosmosRelayerTestSuite) TestICS20TimeoutPacket() {
+	ctx := context.Background()
+	s.ICS20TimeoutPacketTest(ctx, 1)
+}
+
+func (s *CosmosRelayerTestSuite) Test_10_ICS20TimeoutPacket() {
+	ctx := context.Background()
+	s.ICS20TimeoutPacketTest(ctx, 10)
+}
+
+func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, numOfTransfers int) {
+	s.Require().Greater(numOfTransfers, 0)
+
+	s.SetupSuite(ctx)
+
+	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
+
+	var txHashes [][]byte
+	s.Require().True(s.Run("Send transfers on Chain A", func() {
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   simdAUser.FormattedAddress(),
+				Receiver: simdBUser.FormattedAddress(),
+				Memo:     "",
+			}
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingABI,
+				Value:           transferBz,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: simdAUser.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, s.SimdA, simdAUser, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			txHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(txHash)
+
+			txHashes = append(txHashes, txHash)
+		}
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
+				Address: simdAUser.FormattedAddress(),
+				Denom:   s.SimdA.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount, resp.Balance.Amount.Int64())
+		}))
+	}))
+
+	// Wait until timeout
+	time.Sleep(30 * time.Second)
+
+	var timeoutTxBodyBz []byte
+	s.Require().True(s.Run("Retrieve timeout tx to Chain A", func() {
+		resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			TimeoutTxIds:    txHashes,
+			TargetChannelId: ibctesting.FirstChannelID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		timeoutTxBodyBz = resp.Tx
+	}))
+
+	s.Require().True(s.Run("Broadcast timeout tx on Chain A", func() {
+		var txBody txtypes.TxBody
+		err := proto.Unmarshal(timeoutTxBodyBz, &txBody)
+		s.Require().NoError(err)
+
+		var msgs []sdk.Msg
+		for _, msg := range txBody.Messages {
+			var sdkMsg sdk.Msg
+			err = s.SimdA.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+			s.Require().NoError(err)
+
+			msgs = append(msgs, sdkMsg)
+		}
+
+		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, msgs...)
+		s.Require().NoError(err)
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
+				Address: simdAUser.FormattedAddress(),
+				Denom:   s.SimdA.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
 	}))
 }
