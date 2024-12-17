@@ -177,7 +177,6 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		headerBz, err := json.Marshal(header)
 		s.Require().NoError(err)
 
-		fmt.Println("Updating with header", string(headerBz))
 		wasmHeader := ibcwasmtypes.ClientMessage{
 			Data: headerBz,
 		}
