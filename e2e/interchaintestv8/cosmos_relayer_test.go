@@ -242,17 +242,17 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	})
 }
 
-func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
+func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
 	ctx := context.Background()
-	s.ICS20RecvPacketTest(ctx, 1)
+	s.ICS20RecvAndAckPacketTest(ctx, 1)
 }
 
-func (s *CosmosRelayerTestSuite) Test_10_ICS20RecvPacket() {
+func (s *CosmosRelayerTestSuite) Test_10_ICS20RecvAndAckPacket() {
 	ctx := context.Background()
-	s.ICS20RecvPacketTest(ctx, 10)
+	s.ICS20RecvAndAckPacketTest(ctx, 10)
 }
 
-func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfTransfers int) {
+func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, numOfTransfers int) {
 	s.Require().Greater(numOfTransfers, 0)
 
 	s.SetupSuite(ctx)
