@@ -530,40 +530,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-||||||| a30f974
-name = "alloy-rpc-types-beacon"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45c8db5fb70d2fece7bc1cd5adf42e72fc8a23547adeff8f558d9063f1e7788c"
-dependencies = [
- "alloy-eips",
- "alloy-primitives 0.8.14",
- "alloy-rpc-types-engine",
- "alloy-serde",
- "serde",
- "serde_with",
- "thiserror 2.0.4",
-]
-
-[[package]]
-=======
-name = "alloy-rpc-types-beacon"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e13e94be8f6f5cb735e604f9db436430bf3773fdd41db7221edaa58c07c4c8a"
-dependencies = [
- "alloy-eips",
- "alloy-primitives 0.8.15",
- "alloy-rpc-types-engine",
- "alloy-serde",
- "serde",
- "serde_with",
- "thiserror 2.0.6",
-]
-
-[[package]]
->>>>>>> main
 name = "alloy-rpc-types-engine"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2022,104 +1988,8 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
-<<<<<<< HEAD
- "thiserror 2.0.4",
+ "thiserror 2.0.6",
  "utils",
-||||||| a30f974
- "serde_with",
- "thiserror 2.0.4",
-]
-
-[[package]]
-name = "cw-multi-test"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1149fe104344cc4f4ca0fc784b7411042fd1626813fe85fd412b05252a0ae9d8"
-dependencies = [
- "anyhow",
- "bech32 0.11.0",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus",
- "cw-utils",
- "itertools 0.13.0",
- "prost",
- "schemars",
- "serde",
- "sha2 0.10.8",
- "thiserror 2.0.4",
-]
-
-[[package]]
-name = "cw-storage-plus"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f13360e9007f51998d42b1bc6b7fa0141f74feae61ed5fd1e5b0a89eec7b5de1"
-dependencies = [
- "cosmwasm-std",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw-utils"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07dfee7f12f802431a856984a32bce1cb7da1e6c006b5409e3981035ce562dec"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "schemars",
- "serde",
- "thiserror 1.0.69",
-=======
- "serde_with",
- "thiserror 2.0.6",
-]
-
-[[package]]
-name = "cw-multi-test"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1149fe104344cc4f4ca0fc784b7411042fd1626813fe85fd412b05252a0ae9d8"
-dependencies = [
- "anyhow",
- "bech32 0.11.0",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus",
- "cw-utils",
- "itertools 0.13.0",
- "prost",
- "schemars",
- "serde",
- "sha2 0.10.8",
- "thiserror 2.0.6",
-]
-
-[[package]]
-name = "cw-storage-plus"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f13360e9007f51998d42b1bc6b7fa0141f74feae61ed5fd1e5b0a89eec7b5de1"
-dependencies = [
- "cosmwasm-std",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw-utils"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07dfee7f12f802431a856984a32bce1cb7da1e6c006b5409e3981035ce562dec"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "schemars",
- "serde",
- "thiserror 1.0.69",
->>>>>>> main
 ]
 
 [[package]]
@@ -2628,25 +2498,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rlp",
-<<<<<<< HEAD
- "alloy-trie 0.5.3",
-||||||| a30f974
- "alloy-rpc-types-beacon",
- "alloy-rpc-types-engine",
- "alloy-rpc-types-eth",
- "alloy-serde",
- "alloy-trie 0.5.3",
- "base64 0.22.1",
- "ethereum-test-utils",
-=======
- "alloy-rpc-types-beacon",
- "alloy-rpc-types-engine",
- "alloy-rpc-types-eth",
- "alloy-serde",
  "alloy-trie",
- "base64 0.22.1",
- "ethereum-test-utils",
->>>>>>> main
  "ethereum-trie-db",
  "ethereum-types 0.1.0",
  "hex",
@@ -2657,56 +2509,14 @@ dependencies = [
  "sha2 0.10.8",
  "thiserror 2.0.6",
  "tree_hash",
-<<<<<<< HEAD
  "utils",
-||||||| a30f974
- "tree_hash_derive",
- "typenum",
-]
-
-[[package]]
-name = "ethereum-test-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 0.8.14",
- "ethereum-light-client",
- "ethereum-utils",
- "milagro_bls",
- "serde",
- "serde_json",
- "thiserror 2.0.4",
-=======
- "tree_hash_derive",
- "typenum",
-]
-
-[[package]]
-name = "ethereum-test-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 0.8.15",
- "ethereum-light-client",
- "ethereum-utils",
- "milagro_bls",
- "serde",
- "serde_json",
- "thiserror 2.0.6",
->>>>>>> main
 ]
 
 [[package]]
 name = "ethereum-trie-db"
 version = "0.1.0"
 dependencies = [
-<<<<<<< HEAD
- "alloy-primitives 0.8.14",
-||||||| a30f974
- "alloy-primitives 0.8.14",
- "ethereum-utils",
-=======
  "alloy-primitives 0.8.15",
- "ethereum-utils",
->>>>>>> main
  "hash-db",
  "hash256-std-hasher",
  "hex",
@@ -2714,18 +2524,8 @@ dependencies = [
  "primitive-types 0.13.1",
  "rlp 0.6.1",
  "rlp-derive 0.2.0",
-<<<<<<< HEAD
- "sha3 0.8.2",
- "thiserror 2.0.4",
-||||||| a30f974
- "serde",
- "sha3 0.8.2",
- "thiserror 2.0.4",
-=======
- "serde",
  "sha3",
  "thiserror 2.0.6",
->>>>>>> main
  "trie-db",
  "utils",
 ]
@@ -2734,7 +2534,7 @@ dependencies = [
 name = "ethereum-types"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.8.14",
+ "alloy-primitives 0.8.15",
  "schemars",
  "serde",
  "serde_json",
@@ -2760,30 +2560,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-||||||| a30f974
-name = "ethereum-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 0.8.14",
- "base64 0.22.1",
- "serde",
- "thiserror 2.0.4",
-]
-
-[[package]]
-=======
-name = "ethereum-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 0.8.15",
- "base64 0.22.1",
- "serde",
- "thiserror 2.0.6",
-]
-
-[[package]]
->>>>>>> main
 name = "ethereum_serde_utils"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7065,15 +6841,7 @@ name = "sp1-ics07-tendermint-operator"
 version = "0.1.0"
 dependencies = [
  "alloy",
-<<<<<<< HEAD
- "alloy-sol-types 0.8.14",
-||||||| a30f974
- "alloy-primitives 0.8.14",
- "alloy-sol-types 0.8.14",
-=======
- "alloy-primitives 0.8.15",
  "alloy-sol-types 0.8.15",
->>>>>>> main
  "anyhow",
  "clap",
  "dotenv",
