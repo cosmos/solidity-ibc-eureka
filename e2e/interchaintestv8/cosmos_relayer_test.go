@@ -299,6 +299,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfT
 
 			txHash, err := hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
+			s.Require().NotEmpty(txHash)
 
 			txHashes = append(txHashes, txHash)
 		}
@@ -328,6 +329,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfT
 		txBodyBz = resp.Tx
 	}))
 
+	var ackTxHash []byte
 	s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
 		var txBody txtypes.TxBody
 		err := proto.Unmarshal(txBodyBz, &txBody)
@@ -342,8 +344,12 @@ func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfT
 			msgs = append(msgs, sdkMsg)
 		}
 
-		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, msgs...)
+		resp, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
+
+		ackTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(ackTxHash)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID)).IBCDenom()
@@ -356,6 +362,47 @@ func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfT
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.Int64())
 			s.Require().Equal(ibcDenom, resp.Balance.Denom)
+		}))
+	}))
+
+	var ackTxBodyBz []byte
+	s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
+		resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SourceTxIds:     [][]byte{ackTxHash},
+			TargetChannelId: ibctesting.FirstChannelID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		ackTxBodyBz = resp.Tx
+	}))
+
+	s.Require().True(s.Run("Broadcast ack tx on Chain A", func() {
+		var txBody txtypes.TxBody
+		err := proto.Unmarshal(ackTxBodyBz, &txBody)
+		s.Require().NoError(err)
+
+		var msgs []sdk.Msg
+		for _, msg := range txBody.Messages {
+			var sdkMsg sdk.Msg
+			err = s.SimdA.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+			s.Require().NoError(err)
+
+			msgs = append(msgs, sdkMsg)
+		}
+
+		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, msgs...)
+		s.Require().NoError(err)
+
+		s.Require().True(s.Run("Verify commitments removed", func() {
+			for i := 0; i < numOfTransfers; i++ {
+				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
+					ChannelId: ibctesting.FirstChannelID,
+					Sequence:  uint64(i) + 1,
+				})
+				s.Require().ErrorContains(err, "packet commitment hash not found")
+			}
 		}))
 	}))
 }
