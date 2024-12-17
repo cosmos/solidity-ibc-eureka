@@ -41,14 +41,13 @@ subtle-encoding = { version = "0.5", default-features = false }
 schemars        = { version = "0.8", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
-sha3 = { version = "0.8", default-features = false }
+sha3 = { version = "0.10", default-features = false }
 rand = { version = "0.8.5", default-features = false }
 
 tokio       = { version = "1.0", default-features = false }
 axum        = { version = "0.7", default-features = false }
 tonic       = { version = "0.12", default-features = false }
 tonic-build = { version = "0.12", default-features = false }
-reqwest     = { version = "0.12", default-features = false }
 
 tracing            = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
@@ -77,12 +76,12 @@ ibc-core-commitment-types   = { version = "0.56", default-features = false }
 ibc-core-handler-types      = { version = "0.56", default-features = false }
 ibc-client-tendermint-types = { version = "0.56", default-features = false }
 
-alloy                  = { version = "0.7", default-features = false }
-alloy-contract         = { version = "0.7", default-features = false }
+alloy                  = { version = "0.8", default-features = false }
+alloy-contract         = { version = "0.8", default-features = false }
 alloy-sol-types        = { version = "0.8", default-features = false }
 alloy-primitives       = { version = "0.8", default-features = false }
-alloy-trie             = { version = "0.5", default-features = false }
-alloy-serde            = { version = "0.7", default-features = false }
+alloy-trie             = { version = "0.7", default-features = false }
+alloy-serde            = { version = "0.8", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
 
 sp1-sdk    = { version = "3.3", default-features = false }

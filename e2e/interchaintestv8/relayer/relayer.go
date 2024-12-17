@@ -34,14 +34,9 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	return cmd.Process, nil
 }
 
-// defaultGRPCAddress returns the default address for the gRPC server.
-func defaultGRPCAddress() string {
-	return "127.0.0.1:3000"
-}
-
 // GetGRPCClient returns a gRPC client for the relayer.
-func GetGRPCClient() (relayertypes.RelayerServiceClient, error) {
-	conn, err := grpc.NewClient(defaultGRPCAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+func GetGRPCClient(addr string) (relayertypes.RelayerServiceClient, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

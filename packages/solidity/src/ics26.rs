@@ -66,11 +66,35 @@ impl TryFrom<Packet> for IICS26RouterMsgs::Packet {
     }
 }
 
+impl From<IICS26RouterMsgs::Packet> for Packet {
+    fn from(packet: IICS26RouterMsgs::Packet) -> Self {
+        Self {
+            sequence: packet.sequence.into(),
+            source_channel: packet.sourceChannel,
+            destination_channel: packet.destChannel,
+            timeout_timestamp: packet.timeoutTimestamp,
+            payloads: packet.payloads.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 impl From<Payload> for IICS26RouterMsgs::Payload {
     fn from(payload: Payload) -> Self {
         Self {
             sourcePort: payload.source_port,
             destPort: payload.destination_port,
+            version: payload.version,
+            encoding: payload.encoding,
+            value: payload.value.into(),
+        }
+    }
+}
+
+impl From<IICS26RouterMsgs::Payload> for Payload {
+    fn from(payload: IICS26RouterMsgs::Payload) -> Self {
+        Self {
+            source_port: payload.sourcePort,
+            destination_port: payload.destPort,
             version: payload.version,
             encoding: payload.encoding,
             value: payload.value.into(),

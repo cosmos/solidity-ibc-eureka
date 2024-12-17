@@ -28,7 +28,7 @@ pub const ATTRIBUTE_KEY_DST_CHANNEL: &str = "packet_dest_channel";
 pub const ATTRIBUTE_KEY_SEQUENCE: &str = "packet_sequence";
 /// The attribute key for the timeout timestamp.
 pub const ATTRIBUTE_KEY_TIMEOUT_TIMESTAMP: &str = "packet_timeout_timestamp";
-/// The attribute key for the packet data hex.
-pub const ATTRIBUTE_KEY_PACKET_DATA_HEX: &str = "packet_data_hex";
-/// The attribute key for the acknowledgement data hex.
-pub const ATTRIBUTE_KEY_ACK_DATA_HEX: &str = "acknowledgement_data_hex";
+/// The attribute key for the encoded packet hex.
+pub const ATTRIBUTE_KEY_ENCODED_PACKET_HEX: &str = "encoded_packet_hex";
+/// The attribute key for the encoded acknowledgement hex.
+pub const ATTRIBUTE_KEY_ENCODED_ACK_HEX: &str = "encoded_acknowledgement_hex";

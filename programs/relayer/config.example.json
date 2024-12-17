@@ -13,6 +13,15 @@
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
         "sp1_private_key": "0x1234567890abcdef1234567890abcdef"
       }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": 3001,
+      "config": {
+        "src_rpc_url": "https://noble-testnet-rpc.polkachu.com:443",
+        "target_rpc_url": "http://public-celestia-mocha5-consensus.numia.xyz/",
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890"
+      }
     }
   ]
 }

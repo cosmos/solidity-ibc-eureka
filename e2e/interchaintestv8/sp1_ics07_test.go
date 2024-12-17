@@ -60,7 +60,7 @@ type SP1ICS07TendermintTestSuite struct {
 func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operator.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
@@ -72,7 +72,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
-		os.Setenv(testvalues.EnvKeySp1Prover, "network")
+		os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Network)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(s.key)))
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
 
@@ -130,7 +130,7 @@ func (s *SP1ICS07TendermintTestSuite) TestDeploy_Plonk() {
 func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	_, simd := s.ChainA, s.ChainB
+	_, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify deployment", func() {
 		clientState, err := s.contract.GetClientState(nil)
@@ -164,7 +164,7 @@ func (s *SP1ICS07TendermintTestSuite) TestUpdateClient_Plonk() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	_, simd := s.ChainA, s.ChainB
+	_, simd := s.EthChain, s.CosmosChains[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClient does not support it (yet)")
@@ -211,7 +211,8 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	simdUser := s.CosmosUsers[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestVerifyMembership does not support it (yet)")
@@ -221,7 +222,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		var membershipKey [][]byte
 		s.Require().True(s.Run("Generate keys", func() {
 			// Prove the bank balance of UserA
-			key, err := cosmos.BankBalanceKey(s.UserB.Address(), simd.Config().Denom)
+			key, err := cosmos.BankBalanceKey(simdUser.Address(), simd.Config().Denom)
 			s.Require().NoError(err)
 
 			membershipKey = [][]byte{[]byte(banktypes.StoreKey), key}
@@ -318,7 +319,8 @@ func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership_Groth16() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	simdUser := s.CosmosUsers[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClientAndMembership does not support it (yet)")
@@ -331,7 +333,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		)
 		s.Require().True(s.Run("Generate keys", func() {
 			// Prove the bank balance of UserA
-			key, err := cosmos.BankBalanceKey(s.UserB.Address(), simd.Config().Denom)
+			key, err := cosmos.BankBalanceKey(simdUser.Address(), simd.Config().Denom)
 			s.Require().NoError(err)
 
 			membershipKey = [][]byte{[]byte(banktypes.StoreKey), key}
@@ -413,7 +415,7 @@ func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour_Groth16() {
 func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 	_ = eth
 
 	var height clienttypes.Height
@@ -518,7 +520,7 @@ func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour_G
 func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var height clienttypes.Height
 	var trustedHeader tmclient.Header
@@ -607,7 +609,8 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.ChainA, s.ChainB
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	simdUser := s.CosmosUsers[0]
 
 	s.Require().True(s.Run(fmt.Sprintf("Large membership test with %d key-value pairs", n), func() {
 		membershipKeys := make([][][]byte, n)
@@ -623,16 +626,16 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 				acc := sdk.AccAddress(pub.Address())
 
 				// Send some funds to the address
-				msgs = append(msgs, banktypes.NewMsgSend(s.UserB.Address(), acc, sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1)))))
+				msgs = append(msgs, banktypes.NewMsgSend(simdUser.Address(), acc, sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1)))))
 
-				key, err := cosmos.BankBalanceKey(s.UserB.Address(), simd.Config().Denom)
+				key, err := cosmos.BankBalanceKey(simdUser.Address(), simd.Config().Denom)
 				s.Require().NoError(err)
 
 				membershipKeys[i] = [][]byte{[]byte(banktypes.StoreKey), key}
 			}
 
 			// Send the messages
-			_, err := s.BroadcastMessages(ctx, simd, s.UserB, 20_000_000, msgs...)
+			_, err := s.BroadcastMessages(ctx, simd, simdUser, 20_000_000, msgs...)
 			s.Require().NoError(err)
 		}))
 

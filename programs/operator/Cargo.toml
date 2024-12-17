@@ -13,7 +13,6 @@ serde           = { workspace = true }
 serde_with      = { workspace = true, features = ["hex", "macros"] }
 subtle-encoding = { workspace = true }
 
-reqwest            = { workspace = true }
 tokio              = { workspace = true }
 futures            = { workspace = true }
 dotenv             = { workspace = true }

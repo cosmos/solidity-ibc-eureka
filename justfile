@@ -82,6 +82,7 @@ generate-abi: build-contracts
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
 	abigen --abi abi/ICS20Lib.json --pkg ics20lib --type Lib --out abigen/ics20lib/lib.go
 
+# Generate go types for the e2e tests from the etheruem light client code
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
 	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go
@@ -91,19 +92,35 @@ generate-ethereum-types:
 	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
 
 # Run the e2e tests
+# Run any e2e test in the interchaintestv8 test suite using the test's full name
+# For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
 test-e2e testname: clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^TestWithIbcEurekaTestSuite/{{testname}}$' -timeout 40m
+	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 40m
 
-# Run the e2e tests in the relayer test suite
+# Run any e2e test in the IbcEurekaTestSuite using the test's name
+# For example, `just test-e2e-eureka TestDeploy_Groth16`
+test-e2e-eureka testname: clean
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaTestSuite/{{testname}}
+
+# Run any e2e test in the RelayerTestSuite using the test's name
+# For example, `just test-e2e-relayer TestRelayerInfo`
 test-e2e-relayer testname: clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^TestWithRelayerTestSuite/{{testname}}$' -timeout 40m
+	just test-e2e TestWithRelayerTestSuite/{{testname}}
 
-# Run the e2e tests in the relayer test suite
+# Run any e2e test in the CosmosRelayerTestSuite using the test's name
+# For example, `just test-e2e-cosmos-relayer TestRelayerInfo`
+test-e2e-cosmos-relayer testname: clean
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosRelayerTestSuite/{{testname}}
+
+# Run anu e2e test in the SP1ICS07TendermintTestSuite using the test's name
+# For example, `just test-e2e-sp1-ics07 TestDeploy_Groth16`
 test-e2e-sp1-ics07 testname: clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^TestWithSP1ICS07TendermintTestSuite/{{testname}}$' -timeout 40m
+	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:

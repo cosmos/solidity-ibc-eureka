@@ -9,7 +9,9 @@ use cosmos_sdk_proto::{
     cosmos::staking::v1beta1::{Params, QueryParamsRequest, QueryParamsResponse},
     prost::Message,
     traits::MessageExt,
+    Any,
 };
+use ibc_core_client_types::proto::v1::{QueryClientStateRequest, QueryClientStateResponse};
 use ibc_core_commitment_types::merkle::MerkleProof;
 use tendermint::{block::signed_header::SignedHeader, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
@@ -36,6 +38,8 @@ pub trait TendermintRpcExt {
     async fn get_light_block(&self, block_height: Option<u32>) -> Result<LightBlock>;
     /// Queries the Cosmos SDK for staking parameters.
     async fn sdk_staking_params(&self) -> Result<Params>;
+    /// Fetches the client state from the Tendermint node.
+    async fn client_state(&self, client_id: String) -> Result<Any>;
     /// Proves a path in the chain's Merkle tree and returns the value at the path and the proof.
     /// If the value is empty, then this is a non-inclusion proof.
     async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)>;
@@ -70,10 +74,19 @@ impl TendermintRpcExt for HttpClient {
         let mut signed_header = commit_response.signed_header;
 
         let validator_response = self.validators(height, Paging::All).await?;
-        let validators = Set::new(validator_response.validators, None);
+        let validators = Set::with_proposer(
+            validator_response.validators,
+            signed_header.header().proposer_address,
+        )?;
 
         let next_validator_response = self.validators(height + 1, Paging::All).await?;
-        let next_validators = Set::new(next_validator_response.validators, None);
+        let next_validators = Set::with_proposer(
+            next_validator_response.validators,
+            // WARN: This proposer is likely to be incorrect,
+            // but it is not used in the light block verification,
+            // and required by ibc-go's validate basic.
+            signed_header.header().proposer_address,
+        )?;
 
         sort_signatures_by_validators_power_desc(&mut signed_header, &validators);
         Ok(LightBlock::new(
@@ -96,6 +109,21 @@ impl TendermintRpcExt for HttpClient {
         QueryParamsResponse::decode(abci_resp.value.as_slice())?
             .params
             .ok_or_else(|| anyhow::anyhow!("No staking params found"))
+    }
+
+    async fn client_state(&self, client_id: String) -> Result<Any> {
+        let abci_resp = self
+            .abci_query(
+                Some("/ibc.core.client.v1.Query/ClientState".to_string()),
+                QueryClientStateRequest { client_id }.to_bytes()?,
+                None,
+                false,
+            )
+            .await?;
+
+        QueryClientStateResponse::decode(abci_resp.value.as_slice())?
+            .client_state
+            .ok_or_else(|| anyhow::anyhow!("No client state found"))
     }
 
     async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)> {
