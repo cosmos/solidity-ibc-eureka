@@ -185,15 +185,12 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
 
+		// We can do this because we know what the counterparty channel ID will be
 		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
 			ClientId:         ibctesting.FirstClientID,
 			MerklePathPrefix: merklePathPrefix,
 			Signer:           s.SimdASubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-
-		// We can do this because we know what the counterparty channel ID will be
-		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+		}, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
 			CounterpartyChannelId: ibctesting.FirstChannelID,
 			Signer:                s.SimdASubmitter.FormattedAddress(),
@@ -208,10 +205,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 			ClientId:         ibctesting.FirstClientID,
 			MerklePathPrefix: merklePathPrefix,
 			Signer:           s.SimdBSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-
-		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+		}, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
 			CounterpartyChannelId: ibctesting.FirstChannelID,
 			Signer:                s.SimdBSubmitter.FormattedAddress(),
@@ -250,63 +244,74 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 
 func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 	ctx := context.Background()
+	s.ICS20RecvPacketTest(ctx, 1)
+}
+
+func (s *CosmosRelayerTestSuite) Test_10_ICS20RecvPacket() {
+	ctx := context.Background()
+	s.ICS20RecvPacketTest(ctx, 10)
+}
+
+func (s *CosmosRelayerTestSuite) ICS20RecvPacketTest(ctx context.Context, numOfTransfers int) {
+	s.Require().Greater(numOfTransfers, 0)
+
 	s.SetupSuite(ctx)
 
 	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
 	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
 
-	var (
-		transferCoin sdk.Coin
-		txHashes     [][]byte
-	)
+	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		transferCoin = sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.BigInt(),
-			Sender:   simdAUser.FormattedAddress(),
-			Receiver: simdBUser.FormattedAddress(),
-			Memo:     "",
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   simdAUser.FormattedAddress(),
+				Receiver: simdBUser.FormattedAddress(),
+				Memo:     "",
+			}
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingABI,
+				Value:           transferBz,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: simdAUser.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, s.SimdA, simdAUser, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			txHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+
+			txHashes = append(txHashes, txHash)
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-		s.Require().NoError(err)
-
-		payload := channeltypesv2.Payload{
-			SourcePort:      transfertypes.PortID,
-			DestinationPort: transfertypes.PortID,
-			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingABI,
-			Value:           transferBz,
-		}
-		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.FirstChannelID,
-			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-			Signer: simdAUser.FormattedAddress(),
-		}
-
-		resp, err := s.BroadcastMessages(ctx, s.SimdA, simdAUser, 200_000, &msgSendPacket)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.TxHash)
-
-		txHash, err := hex.DecodeString(resp.TxHash)
-		s.Require().NoError(err)
-
-		txHashes = append(txHashes, txHash)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
-				Denom:   transferCoin.Denom,
+				Denom:   s.SimdA.Config().Denom,
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.InitialBalance-transferAmount.Int64(), resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount, resp.Balance.Amount.Int64())
 		}))
 	}))
 
@@ -337,7 +342,7 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 			msgs = append(msgs, sdkMsg)
 		}
 
-		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, msgs...)
+		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -349,7 +354,7 @@ func (s *CosmosRelayerTestSuite) TestICS20RecvPacket() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(transferAmount.Uint64(), resp.Balance.Amount.Uint64())
+			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.Int64())
 			s.Require().Equal(ibcDenom, resp.Balance.Denom)
 		}))
 	}))
