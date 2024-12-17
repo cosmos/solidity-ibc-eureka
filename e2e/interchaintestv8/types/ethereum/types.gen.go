@@ -229,11 +229,21 @@ type SyncAggregate struct {
 // The trusted sync committee
 type TrustedSyncCommittee struct {
 	// Active sync committee The current sync committee
-	CurrentSyncCommittee *SyncCommittee `json:"current_sync_committee"`
-	// The next sync committee
-	NextSyncCommittee *SyncCommittee `json:"next_sync_committee"`
+	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
 	// The trusted height
 	TrustedSlot uint64 `json:"trusted_slot"`
+}
+
+// Active sync committee The current sync committee
+//
+// # The active sync committee
+//
+// # The current sync committee
+//
+// The next sync committee
+type ActiveSyncCommittee struct {
+	Current *SyncCommittee `json:"Current,omitempty"`
+	Next    *SyncCommittee `json:"Next,omitempty"`
 }
 
 // The key-value storage proof for a smart contract account

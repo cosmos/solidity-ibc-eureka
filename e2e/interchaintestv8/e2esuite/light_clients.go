@@ -150,9 +150,11 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			ConsensusUpdate: update.Data,
 			TrustedSyncCommittee: ethereumtypes.TrustedSyncCommittee{
 				TrustedSlot: trustedSlot,
-				NextSyncCommittee: &ethereumtypes.SyncCommittee{
-					Pubkeys:         previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys,
-					AggregatePubkey: previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey,
+				SyncCommittee: ethereumtypes.ActiveSyncCommittee{
+					Next: &ethereumtypes.SyncCommittee{
+						Pubkeys:         previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys,
+						AggregatePubkey: previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey,
+					},
 				},
 			},
 			AccountUpdate: accountUpdate,
@@ -210,10 +212,15 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	s.Require().Greater(s.LastEtheruemLightClientUpdate, minimumUpdateTo)
 }
 
-func (s *TestSuite) createEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
+func (s *TestSuite) createEthereumLightClient(
+	ctx context.Context,
+	simdRelayerUser ibc.Wallet,
+	ibcContractAddress string,
+	rustFixtureGenerator *types.RustFixtureGenerator,
+) {
 	eth, simd := s.ChainA, s.ChainB
 
-	file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
+	file, err := os.Open("e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz")
 	s.Require().NoError(err)
 
 	etheruemClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)

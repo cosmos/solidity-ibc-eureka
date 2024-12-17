@@ -56,7 +56,7 @@ pub fn verify_header<V: BlsVerify>(
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState {
         state: consensus_state.clone(),
-        sync_committee: header.trusted_sync_committee.get_active_sync_committee(),
+        sync_committee: header.trusted_sync_committee.sync_committee.clone(),
     };
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.

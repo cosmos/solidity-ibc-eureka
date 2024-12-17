@@ -38,23 +38,7 @@ pub struct TrustedSyncCommittee {
     /// Active sync committee
     // pub active_sync_committee: ActiveSyncCommittee,
     /// The current sync committee
-    pub current_sync_committee: Option<SyncCommittee>,
-    /// The next sync committee
-    pub next_sync_committee: Option<SyncCommittee>,
-}
-
-impl TrustedSyncCommittee {
-    /// Returns the active sync committee
-    // TODO: should this actually return default at any point? If not, panic or error
-    // also, if not returning default, remove the impl Default
-    #[must_use]
-    pub fn get_active_sync_committee(&self) -> ActiveSyncCommittee {
-        match (&self.current_sync_committee, &self.next_sync_committee) {
-            (Some(sync_committee), _) => ActiveSyncCommittee::Current(sync_committee.clone()),
-            (_, Some(sync_committee)) => ActiveSyncCommittee::Next(sync_committee.clone()),
-            _ => ActiveSyncCommittee::default(),
-        }
-    }
+    pub sync_committee: ActiveSyncCommittee,
 }
 
 /// The active sync committee

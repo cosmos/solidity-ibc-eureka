@@ -125,7 +125,7 @@ mod sudo {
         )
         .map_err(ContractError::VerifyMembershipFailed)?;
 
-        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+        Ok(Binary::default())
     }
 
     pub fn verify_non_membership(
@@ -152,7 +152,7 @@ mod sudo {
         )
         .map_err(ContractError::VerifyNonMembershipFailed)?;
 
-        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+        Ok(Binary::default())
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -269,7 +269,7 @@ mod query {
         )
         .map_err(ContractError::VerifyClientMessageFailed)?;
 
-        Ok(to_json_binary(&Ok::<(), ()>(()))?)
+        Ok(Binary::default())
     }
 
     pub fn check_for_misbehaviour() -> Result<Binary, ContractError> {

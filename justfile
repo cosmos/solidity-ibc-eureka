@@ -23,13 +23,10 @@ build-sp1-programs:
   cd programs/sp1-programs/misbehaviour && ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf
   @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
 
-build-optimized-wasm:
+build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
-
-full-wasm: generate-ethereum-types build-optimized-wasm
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
-	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm
-	mv e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz
+	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Clean up the cache and out directories
 clean:
@@ -89,8 +86,8 @@ generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
 	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go
 	rm ethereum_types_schema.json
-	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go 
-	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak
+	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go # quicktype generates int64 instead of uint64 :(
+	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak # this is to be linux and mac compatible (coming from the sed command)
 	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
 
 # Run the e2e tests
