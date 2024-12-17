@@ -19,8 +19,8 @@ pub struct ConsensusState {
     /// The storage merkle root
     #[schemars(with = "String")]
     pub storage_root: B256,
-    /// The timestamp of the consensus state
-    // TODO: document the timestamp format (seconds since epoch?)
+    /// The unix timestamp at the time of the slot.
+    /// It is calculated from the genesis time and slots per.
     pub timestamp: u64,
     /// aggregate public key of current sync committee
     #[schemars(with = "String")]

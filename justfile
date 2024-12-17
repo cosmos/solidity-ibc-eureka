@@ -191,11 +191,11 @@ generate-fixtures-sp1-ics07: build-operator
 generate-fixtures-rust: clean
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
 	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
 
 # Generate the relayer proto files
 relayer-proto-gen:

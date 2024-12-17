@@ -27,12 +27,10 @@ pub struct AccountUpdate {
 }
 
 /// The trusted sync committee
-// TODO: Could we use a enum to represent the current and next sync committee like
-// `ActiveSyncCommittee`?
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct TrustedSyncCommittee {
-    /// The trusted height
+    /// The trusted slot
     pub trusted_slot: u64,
     // TODO:
     /// Active sync committee

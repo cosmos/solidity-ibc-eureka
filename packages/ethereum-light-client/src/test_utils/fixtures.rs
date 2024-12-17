@@ -23,19 +23,7 @@ pub struct Step {
     /// name is the name of the operation, only used for documentation and easy of reading
     pub name: String,
     /// data is the operation data as a JSON object to be deserialized into the appropriate type
-    // TODO: Change this to enum
     pub data: Value,
-}
-
-/// The type of light client operations
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub enum DataType {
-    /// The initial state of the light client in the e2e tests
-    InitialState(Box<InitialState>),
-    /// The proof used to verify membership
-    CommitmentProof(Box<CommitmentProof>),
-    /// Operation to update the light client
-    UpdateClient(Box<UpdateClient>),
 }
 
 /// The initial state of the light client in the e2e tests

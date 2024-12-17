@@ -102,13 +102,14 @@ pub fn verify_header<V: BlsVerify>(
 
 /// Verifies if the light client `update` is valid.
 ///
-/// * `update`: The light client update we want to verify.
+/// * `client_state`: The current client state.
+/// * `trusted_consensus_state`: The trusted consensus state (previously verified and stored)
+/// * `update`: The update to be verified.
 /// * `current_slot`: The slot number computed based on the current timestamp.
-/// * `genesis_validators_root`: The latest `genesis_validators_root` that is saved by the light client.
 /// * `bls_verifier`: BLS verification implementation.
 ///
 /// ## Important Notes
-/// * This verification does not assume that the updated header is greater (in terms of height) than the
+/// * This verification does not assume that the updated header is greater (in terms of slot) than the
 ///   light client state. When the updated header is in the next signature period, the light client uses
 ///   the next sync committee to verify the signature, then it saves the next sync committee as the current
 ///   sync committee. However, it's not mandatory for light clients to expect the next sync committee to be given
@@ -122,7 +123,6 @@ pub fn verify_header<V: BlsVerify>(
 /// Returns an error if the update cannot be verified.
 /// # Panics
 /// If the minimum sync committee participants is not a valid usize.
-// TODO: Update comments
 #[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 pub fn validate_light_client_update<V: BlsVerify>(
     client_state: &ClientState,

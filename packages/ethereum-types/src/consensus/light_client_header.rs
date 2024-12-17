@@ -17,7 +17,6 @@ pub struct LightClientUpdate {
     /// Header attested to by the sync committee
     pub attested_header: LightClientHeader,
     /// Next sync committee corresponding to `attested_header.state_root`
-    #[serde(default)] // TODO: Check if this can be removed in #143
     pub next_sync_committee: Option<SyncCommittee>,
     /// The branch of the next sync committee
     #[schemars(with = "Vec<String>")]

@@ -40,9 +40,19 @@ pub enum ContractError {
     #[error("update client state failed: {0}")]
     UpdateClientStateFailed(#[source] EthereumIBCError),
 
+    #[error("client state not found")]
+    ClientStateNotFound,
+
+    #[error("consensus state not found")]
+    ConsensusStateNotFound,
+
+    // Generic translation errors
     #[error("prost encoding error: {0}")]
     ProstEncodeError(#[from] prost::EncodeError),
 
     #[error("prost decoding error: {0}")]
     ProstDecodeError(#[from] prost::DecodeError),
+
+    #[error("serde json error: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
 }

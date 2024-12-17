@@ -24,39 +24,52 @@ pub fn consensus_db_key(slot: u64) -> String {
     format!("{}/{}-{}", HOST_CONSENSUS_STATES_KEY, 0, slot)
 }
 
-// TODO: Proper errors
 /// Get the Wasm client state
-/// # Panics
-/// Panics if the client state is not found or cannot be deserialized
+/// # Errors
+/// Returns an error if the client state is not found or cannot be deserialized
+/// # Returns
+/// The Wasm client state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_wasm_client_state(storage: &dyn Storage) -> WasmClientState {
-    let wasm_client_state_any_bz = storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
-    let wasm_client_state_any = Any::decode(wasm_client_state_any_bz.as_slice()).unwrap();
-    WasmClientState::decode(wasm_client_state_any.value.as_slice()).unwrap()
+pub fn get_wasm_client_state(storage: &dyn Storage) -> Result<WasmClientState, ContractError> {
+    let wasm_client_state_any_bz = storage
+        .get(HOST_CLIENT_STATE_KEY.as_bytes())
+        .ok_or(ContractError::ClientStateNotFound)?;
+    let wasm_client_state_any = Any::decode(wasm_client_state_any_bz.as_slice())?;
+
+    Ok(WasmClientState::decode(
+        wasm_client_state_any.value.as_slice(),
+    )?)
 }
 
-// TODO: Proper errors
 /// Get the Ethereum client state
-/// # Panics
-/// Panics if the client state is not found or cannot be deserialized
+/// # Errors
+/// Returns an error if the client state is not found or cannot be deserialized
+/// # Returns
+/// The Ethereum client state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_eth_client_state(storage: &dyn Storage) -> EthClientState {
-    let wasm_client_state = get_wasm_client_state(storage);
-    serde_json::from_slice(&wasm_client_state.data).unwrap()
+pub fn get_eth_client_state(storage: &dyn Storage) -> Result<EthClientState, ContractError> {
+    let wasm_client_state = get_wasm_client_state(storage)?;
+    Ok(serde_json::from_slice(&wasm_client_state.data)?)
 }
 
-// TODO: Proper errors
 /// Get the Ethereum consensus state at a given height
-/// # Panics
-/// Panics if the consensus state is not found or cannot be deserialized
+/// # Errors
+/// Returns an error if the consensus state is not found or cannot be deserialized
+/// # Returns
+/// The Ethereum consensus state
 #[allow(clippy::module_name_repetitions)]
-pub fn get_eth_consensus_state(storage: &dyn Storage, slot: u64) -> EthConsensusState {
-    let wasm_consensus_state_any_bz = storage.get(consensus_db_key(slot).as_bytes()).unwrap();
-    let wasm_consensus_state_any = Any::decode(wasm_consensus_state_any_bz.as_slice()).unwrap();
+pub fn get_eth_consensus_state(
+    storage: &dyn Storage,
+    slot: u64,
+) -> Result<EthConsensusState, ContractError> {
+    let wasm_consensus_state_any_bz = storage
+        .get(consensus_db_key(slot).as_bytes())
+        .ok_or(ContractError::ConsensusStateNotFound)?;
+    let wasm_consensus_state_any = Any::decode(wasm_consensus_state_any_bz.as_slice())?;
     let wasm_consensus_state =
-        WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice()).unwrap();
+        WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())?;
 
-    serde_json::from_slice(&wasm_consensus_state.data).unwrap()
+    Ok(serde_json::from_slice(&wasm_consensus_state.data)?)
 }
 
 /// Store the consensus state

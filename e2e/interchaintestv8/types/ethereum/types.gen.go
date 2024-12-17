@@ -92,7 +92,8 @@ type ConsensusState struct {
 	StateRoot string `json:"state_root"`
 	// The storage merkle root
 	StorageRoot string `json:"storage_root"`
-	// The timestamp of the consensus state
+	// The unix timestamp at the time of the slot. It is calculated from the genesis time and
+	// slots per.
 	Timestamp uint64 `json:"timestamp"`
 }
 
@@ -230,7 +231,7 @@ type SyncAggregate struct {
 type TrustedSyncCommittee struct {
 	// Active sync committee The current sync committee
 	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
-	// The trusted height
+	// The trusted slot
 	TrustedSlot uint64 `json:"trusted_slot"`
 }
 

@@ -26,7 +26,6 @@ pub enum SudoMsg {
     VerifyMembership(VerifyMembershipMsg),
     /// The message to verify non-membership
     VerifyNonMembership(VerifyNonMembershipMsg),
-
     /// The message to update the client state
     UpdateState(UpdateStateMsg),
     /// The message to update the client state on misbehaviour
