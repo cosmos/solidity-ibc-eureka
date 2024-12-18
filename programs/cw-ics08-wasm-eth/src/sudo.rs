@@ -99,7 +99,7 @@ pub fn update_state(
     let eth_consensus_state = get_eth_consensus_state(deps.storage, eth_client_state.latest_slot)?;
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
-        update_consensus_state(&eth_consensus_state, &eth_client_state, header)
+        update_consensus_state(eth_consensus_state, eth_client_state, header)
             .map_err(ContractError::UpdateClientStateFailed)?;
 
     let consensus_state_bz: Vec<u8> = serde_json::to_vec(&updated_consensus_state)

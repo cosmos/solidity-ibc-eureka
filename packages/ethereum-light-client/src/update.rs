@@ -15,16 +15,15 @@ use crate::{
 /// # Errors
 /// Returns an error if the store period is not equal to the finalized period
 #[allow(clippy::module_name_repetitions)]
-#[must_use = "the current client and consensus state are not updated in place, but new ones are returned"]
 pub fn update_consensus_state(
-    current_consensus_state: &ConsensusState,
-    current_client_state: &ClientState,
+    current_consensus_state: ConsensusState,
+    current_client_state: ClientState,
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), EthereumIBCError> {
     let trusted_sync_committee = header.trusted_sync_committee;
     let trusted_slot = trusted_sync_committee.trusted_slot;
 
-    let mut new_consensus_state = current_consensus_state.clone();
+    let mut new_consensus_state = current_consensus_state;
     let mut new_client_state: Option<ClientState> = None;
 
     let consensus_update = header.consensus_update;
@@ -79,7 +78,7 @@ pub fn update_consensus_state(
         );
 
         if current_client_state.latest_slot < consensus_update.attested_header.beacon.slot {
-            let mut updated_client_state = current_client_state.clone();
+            let mut updated_client_state = current_client_state;
             updated_client_state.latest_slot = consensus_update.attested_header.beacon.slot;
             new_client_state = Some(updated_client_state);
         }
