@@ -3,7 +3,7 @@
 use ethereum_types::consensus::{
     slot::compute_timestamp_at_slot, sync_committee::compute_sync_committee_period_at_slot,
 };
-use utils::ensure;
+use ethereum_utils::ensure;
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError,

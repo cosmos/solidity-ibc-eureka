@@ -13,7 +13,7 @@ path = "src/bin/generate_json_schema.rs"
 
 [dependencies]
 ethereum-trie-db = { workspace = true }
-utils = { workspace = true }
+ethereum-utils = { workspace = true }
 ethereum-types = { workspace = true }
 
 alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }

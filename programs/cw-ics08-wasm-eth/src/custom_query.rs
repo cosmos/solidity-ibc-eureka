@@ -4,8 +4,8 @@ use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, QuerierWrapper, QueryRequest};
 use ethereum_light_client::verify::BlsVerify;
 use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
+use ethereum_utils::ensure;
 use thiserror::Error;
-use utils::ensure;
 
 /// The custom query for the Ethereum light client
 /// This is used to verify BLS signatures in `CosmosSDK`

@@ -1,12 +1,12 @@
 //! Defines the account trie and the account type.
 
 use alloy_primitives::{Address, B256};
+use ethereum_utils::ensure;
 use hash_db::HashDB;
 use memory_db::{HashKey, MemoryDB};
 use primitive_types::{H160, H256, U256};
 use rlp_derive::RlpDecodable;
 use trie_db::{Trie, TrieDBBuilder};
-use utils::ensure;
 
 use crate::{
     types::{keccak_256, EthLayout, KeccakHasher},

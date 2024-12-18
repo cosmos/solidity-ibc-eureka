@@ -15,8 +15,8 @@ use ethereum_types::consensus::{
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
     sync_committee::compute_sync_committee_period_at_slot,
 };
+use ethereum_utils::ensure;
 use tree_hash::TreeHash;
-use utils::ensure;
 
 use crate::{
     client_state::ClientState,

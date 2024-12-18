@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 ibc-proto = { workspace = true }
 ethereum-light-client = { workspace = true }
 ethereum-types = { workspace = true }
-utils = { workspace = true }
+ethereum-utils = { workspace = true }
 
 alloy-primitives = { workspace = true, default-features = false }
 

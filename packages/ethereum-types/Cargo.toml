@@ -5,7 +5,7 @@ edition = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-utils = { workspace = true }
+ethereum-utils = { workspace = true }
 alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }
 serde = { workspace = true, features = ["derive"] }
 schemars = { workspace = true }
