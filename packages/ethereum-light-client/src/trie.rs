@@ -46,7 +46,7 @@ mod test {
     use ethereum_types::consensus::{
         fork::{Fork, ForkParameters},
         light_client_header::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-        merkle::{floorlog2, get_subtree_index, EXECUTION_PAYLOAD_INDEX},
+        merkle::{get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX},
     };
 
     use crate::{
@@ -140,7 +140,7 @@ mod test {
             &header,
         )
         .unwrap();
-        let depth = floorlog2(EXECUTION_PAYLOAD_INDEX);
+        let depth = EXECUTION_BRANCH_DEPTH;
         let index = get_subtree_index(EXECUTION_PAYLOAD_INDEX);
         let root = header.beacon.body_root;
 

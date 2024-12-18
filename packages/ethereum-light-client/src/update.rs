@@ -28,12 +28,11 @@ pub fn update_consensus_state(
     let mut new_client_state: Option<ClientState> = None;
 
     let consensus_update = header.consensus_update;
-    let account_update = header.account_update;
 
     let store_period = compute_sync_committee_period_at_slot(
         current_client_state.slots_per_epoch,
         current_client_state.epochs_per_sync_committee_period,
-        new_consensus_state.slot,
+        current_slot,
     );
 
     let update_finalized_period = compute_sync_committee_period_at_slot(
@@ -70,7 +69,7 @@ pub fn update_consensus_state(
         new_consensus_state.slot = consensus_update.attested_header.beacon.slot;
 
         new_consensus_state.state_root = consensus_update.attested_header.execution.state_root;
-        new_consensus_state.storage_root = account_update.account_proof.storage_root;
+        new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
 
         new_consensus_state.timestamp = compute_timestamp_at_slot(
             current_client_state.seconds_per_slot,
@@ -79,9 +78,10 @@ pub fn update_consensus_state(
         );
 
         if current_client_state.latest_slot < consensus_update.attested_header.beacon.slot {
-            let mut updated_client_state = current_client_state;
-            updated_client_state.latest_slot = consensus_update.attested_header.beacon.slot;
-            new_client_state = Some(updated_client_state);
+            new_client_state = Some(ClientState {
+                latest_slot: consensus_update.attested_header.beacon.slot,
+                ..current_client_state
+            });
         }
     }
 

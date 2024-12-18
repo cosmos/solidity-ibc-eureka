@@ -1,20 +1,5 @@
 //! This module defines constants related to merkle trees in the Ethereum consensus.
 
-/// Values that are constant across all configurations.
-/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#get_subtree_index>
-#[must_use]
-pub const fn get_subtree_index(idx: u64) -> u64 {
-    idx % 2_u64.pow(idx.ilog2())
-}
-
-/// Convenience function safely to call [`u64::ilog2`] and convert the result into a usize.
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-#[must_use]
-pub const fn floorlog2(n: u64) -> usize {
-    // conversion is safe since usize is either 32 or 64 bits as per cfg above
-    n.ilog2() as usize
-}
-
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#constants
 // REVIEW: Is it possible to implement get_generalized_index in const rust?
 
@@ -36,3 +21,18 @@ pub const EXECUTION_BRANCH_DEPTH: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
 pub const NEXT_SYNC_COMMITTEE_BRANCH_DEPTH: usize = floorlog2(NEXT_SYNC_COMMITTEE_INDEX);
 /// The depth of the merkle tree for the finalized root.
 pub const FINALITY_BRANCH_DEPTH: usize = floorlog2(FINALIZED_ROOT_INDEX);
+
+/// Values that are constant across all configurations.
+/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#get_subtree_index>
+#[must_use]
+pub const fn get_subtree_index(idx: u64) -> u64 {
+    idx % 2_u64.pow(idx.ilog2())
+}
+
+/// Convenience function safely to call [`u64::ilog2`] and convert the result into a usize.
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+#[must_use]
+const fn floorlog2(n: u64) -> usize {
+    // conversion is safe since usize is either 32 or 64 bits as per cfg above
+    n.ilog2() as usize
+}
