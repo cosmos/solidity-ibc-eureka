@@ -65,7 +65,7 @@ pub fn update_consensus_state(
     // TODO: we might to remove this functionality if we don't use it as it complicates the light client
     let updated_slot = core::cmp::max(trusted_slot, consensus_update.attested_header.beacon.slot);
 
-    if consensus_update.attested_header.beacon.slot > new_consensus_state.slot {
+    if consensus_update.attested_header.beacon.slot > current_consensus_state.slot {
         new_consensus_state.slot = consensus_update.attested_header.beacon.slot;
 
         new_consensus_state.state_root = consensus_update.attested_header.execution.state_root;
