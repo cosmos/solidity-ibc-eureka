@@ -1,6 +1,9 @@
 package ethereum
 
-type TypesGen struct {
+// The Ethereum types to export to JSON Schema and used to generate types in other languages
+// The structure itself is not used for anything else than being able to generate a single
+// schema
+type GeneratedTypes struct {
 	ClientState    ClientState    `json:"client_state"`
 	ConsensusState ConsensusState `json:"consensus_state"`
 	Header         Header         `json:"header"`
@@ -24,7 +27,7 @@ type ClientState struct {
 	ForkParameters ForkParameters `json:"fork_parameters"`
 	// The slot at which the client was frozen
 	FrozenSlot uint64 `json:"frozen_slot"`
-	// The time of genesis
+	// The time of genesis (unix timestamp)
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root
 	GenesisValidatorsRoot string `json:"genesis_validators_root"`
@@ -229,17 +232,15 @@ type SyncAggregate struct {
 
 // The trusted sync committee
 type TrustedSyncCommittee struct {
-	// Active sync committee The current sync committee
+	// The current sync committee
 	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
 	// The trusted slot
 	TrustedSlot uint64 `json:"trusted_slot"`
 }
 
-// Active sync committee The current sync committee
+// The current sync committee
 //
 // # The active sync committee
-//
-// # The current sync committee
 //
 // The next sync committee
 type ActiveSyncCommittee struct {

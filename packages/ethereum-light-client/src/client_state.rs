@@ -15,7 +15,7 @@ pub struct ClientState {
     pub genesis_validators_root: B256,
     /// The minimum number of participants in the sync committee
     pub min_sync_committee_participants: u64,
-    /// The time of genesis
+    /// The time of genesis (unix timestamp)
     pub genesis_time: u64,
     /// The fork parameters
     pub fork_parameters: ForkParameters,

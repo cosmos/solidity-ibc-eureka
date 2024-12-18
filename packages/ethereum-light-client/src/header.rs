@@ -9,7 +9,7 @@ use ethereum_types::{
 };
 
 /// The header of a light client update
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct Header {
     /// The trusted sync committee
     pub trusted_sync_committee: TrustedSyncCommittee,
@@ -27,8 +27,7 @@ pub struct AccountUpdate {
 }
 
 /// The trusted sync committee
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct TrustedSyncCommittee {
     /// The trusted slot
     pub trusted_slot: u64,
@@ -38,16 +37,9 @@ pub struct TrustedSyncCommittee {
 
 /// The active sync committee
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub enum ActiveSyncCommittee {
     /// The current sync committee
     Current(SyncCommittee),
     /// The next sync committee
     Next(SyncCommittee),
-}
-
-impl Default for ActiveSyncCommittee {
-    fn default() -> Self {
-        Self::Current(SyncCommittee::default())
-    }
 }

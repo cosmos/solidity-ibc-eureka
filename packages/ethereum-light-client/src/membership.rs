@@ -30,19 +30,19 @@ pub fn verify_membership(
         storage_proof.key.into(),
     )?;
 
-    let mut value = raw_value.clone();
-    if let Some(raw_value) = raw_value {
-        // membership proof (otherwise non-membership proof)
-        let proof_value = storage_proof.value.to_be_bytes_vec();
-        if proof_value != raw_value {
-            return Err(EthereumIBCError::StoredValueMistmatch {
-                expected: raw_value,
-                actual: proof_value,
-            });
+    let value = match raw_value {
+        Some(unwrapped_raw_value) => {
+            let proof_value = storage_proof.value.to_be_bytes_vec();
+            if proof_value != unwrapped_raw_value {
+                return Err(EthereumIBCError::StoredValueMistmatch {
+                    expected: unwrapped_raw_value,
+                    actual: proof_value,
+                });
+            }
+            Some(encode_fixed_size(&storage_proof.value).to_vec())
         }
-
-        value = Some(encode_fixed_size(&U256::from_be_slice(&proof_value)).to_vec());
-    }
+        None => None,
+    };
 
     let proof: Vec<&Bytes> = storage_proof.proof.iter().collect();
 
@@ -95,7 +95,7 @@ mod test {
 
     use alloy_primitives::{
         hex::{self, FromHex},
-        Bytes, B256, U256,
+        Bytes, FixedBytes, B256, U256,
     };
     use ethereum_types::execution::storage_proof::StorageProof;
 
@@ -138,7 +138,11 @@ mod test {
                 "0xe488caae2c0464e311e4a2df82bc74885fa81778d04131db6af3a451110a5eb5",
             )
             .unwrap(),
-            ..Default::default()
+            slot: 0,
+            state_root: FixedBytes::default(),
+            timestamp: 0,
+            current_sync_committee: FixedBytes::default(),
+            next_sync_committee: None,
         };
 
         let key =
@@ -192,7 +196,11 @@ mod test {
                 "0x8fce1302ff9ebea6343badec86e9814151872067d2dd47de08ec83e9bc7d22b3",
             )
             .unwrap(),
-            ..Default::default()
+            slot: 0,
+            state_root: FixedBytes::default(),
+            timestamp: 0,
+            current_sync_committee: FixedBytes::default(),
+            next_sync_committee: None,
         };
 
         let key =

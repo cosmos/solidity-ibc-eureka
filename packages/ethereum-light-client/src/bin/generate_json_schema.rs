@@ -13,8 +13,10 @@ use ethereum_types::execution::storage_proof::StorageProof;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// The Ethereum types to export to JSON Schema and used to generate types in other languages
+/// The structure itself is not used for anything else than being able to generate a single schema
 #[derive(Serialize, Deserialize, JsonSchema)]
-struct EthereumTypes {
+struct EthereumExportTypes {
     client_state: ClientState,
     consensus_state: ConsensusState,
     header: Header,
@@ -34,7 +36,7 @@ struct TestFixtures {
 }
 
 fn main() {
-    let schema = schemars::schema_for!(EthereumTypes);
+    let schema = schemars::schema_for!(EthereumExportTypes);
     std::fs::write(
         "ethereum_types_schema.json",
         serde_json::to_string_pretty(&schema).expect("Failed to serialize schema"),

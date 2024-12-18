@@ -7,8 +7,8 @@ use thiserror::Error;
 #[allow(clippy::module_name_repetitions)]
 pub struct TestBlsVerifier;
 
-#[allow(missing_docs)]
 #[derive(Error, Debug)]
+#[allow(missing_docs)]
 pub enum BlsError {
     #[error("bls error: {0}")]
     Bls(String),

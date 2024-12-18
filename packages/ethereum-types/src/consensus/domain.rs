@@ -11,6 +11,7 @@ use super::fork::{compute_fork_data_root, Version};
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct DomainType(pub [u8; 4]);
+
 #[allow(missing_docs)]
 impl DomainType {
     pub const BEACON_PROPOSER: Self = Self(hex!("00000000"));

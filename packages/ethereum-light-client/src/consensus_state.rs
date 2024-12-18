@@ -9,7 +9,7 @@ use ethereum_types::consensus::sync_committee::SyncCommittee;
 use crate::header::ActiveSyncCommittee;
 
 /// The consensus state of the Ethereum light client
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 pub struct ConsensusState {
     /// The slot number
     pub slot: u64,
@@ -31,7 +31,7 @@ pub struct ConsensusState {
 }
 
 /// The trusted consensus state of the Ethereum light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct TrustedConsensusState {
     /// The consensus state
