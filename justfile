@@ -23,6 +23,7 @@ build-sp1-programs:
   cd programs/sp1-programs/misbehaviour && ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf
   @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
 
+# Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
