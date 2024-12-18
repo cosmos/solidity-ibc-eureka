@@ -287,31 +287,6 @@ impl TreeHash for [FixedBytes<48>] {
     }
 }
 
-//impl TreeHash for Vec<BlsPublicKey> {
-//    fn tree_hash_type() -> TreeHashType {
-//        TreeHashType::Vector
-//    }
-//
-//    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
-//        unreachable!("Vector should never be packed.")
-//    }
-//
-//    fn tree_hash_packing_factor() -> usize {
-//        unreachable!("Vector should never be packed.")
-//    }
-//
-//    fn tree_hash_root(&self) -> Hash256 {
-//        let leaves = self.0.len();
-//
-//        let mut hasher = MerkleHasher::with_leaves(leaves);
-//        for item in &self.0 {
-//            hasher.write(item.tree_hash_root().as_ref()).unwrap();
-//        }
-//
-//        hasher.finish().unwrap()
-//    }
-//}
-
 #[cfg(test)]
 mod test {
     use super::*;

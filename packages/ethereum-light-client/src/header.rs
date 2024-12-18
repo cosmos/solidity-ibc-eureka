@@ -32,9 +32,6 @@ pub struct AccountUpdate {
 pub struct TrustedSyncCommittee {
     /// The trusted slot
     pub trusted_slot: u64,
-    // TODO:
-    /// Active sync committee
-    // pub active_sync_committee: ActiveSyncCommittee,
     /// The current sync committee
     pub sync_committee: ActiveSyncCommittee,
 }

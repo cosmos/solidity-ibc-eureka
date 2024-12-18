@@ -288,9 +288,6 @@ pub fn validate_light_client_update<V: BlsVerify>(
             .ok_or(EthereumIBCError::ExpectedNextSyncCommittee)?
     };
 
-    sync_committee.aggregate_pubkey.tree_hash_root();
-    sync_committee.pubkeys.tree_hash_root();
-
     // It's not mandatory for all of the members of the sync committee to participate. So we are extracting the
     // public keys of the ones who participated.
     let participant_pubkeys = update
