@@ -35,16 +35,16 @@ pub struct SyncAggregate {
 impl SyncAggregate {
     /// Returns the number of bits that are set to `true`.
     #[must_use]
-    pub fn num_sync_committe_participants(&self) -> usize {
+    pub fn num_sync_committe_participants(&self) -> u64 {
         self.sync_committee_bits
             .iter()
-            .map(|byte| byte.count_ones())
-            .sum::<u32>() as usize
+            .map(|byte| u64::from(byte.count_ones()))
+            .sum()
     }
 
     /// Returns the size of the sync committee.
-    pub fn sync_committee_size(&self) -> usize {
-        self.sync_committee_bits.len() * 8
+    pub fn sync_committee_size(&self) -> u64 {
+        self.sync_committee_bits.len() as u64 * 8
     }
 
     /// Returns if at least 2/3 of the sync committee signed
@@ -52,6 +52,11 @@ impl SyncAggregate {
     /// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update>
     pub fn validate_signature_supermajority(&self) -> bool {
         self.num_sync_committe_participants() * 3 >= self.sync_committee_size() * 2
+    }
+
+    /// Returns if the sync committee has sufficient participants
+    pub fn has_sufficient_participants(&self, min_sync_committee_participants: u64) -> bool {
+        self.num_sync_committe_participants() >= min_sync_committee_participants
     }
 }
 
@@ -179,5 +184,22 @@ mod test {
         assert_eq!(sync_aggregate.num_sync_committe_participants(), 22);
         assert_eq!(sync_aggregate.sync_committee_size(), 32);
         assert!(sync_aggregate.validate_signature_supermajority());
+    }
+
+    #[test]
+    fn test_has_sufficient_participants() {
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b00000001].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert!(sync_aggregate.has_sufficient_participants(1));
+        assert!(!sync_aggregate.has_sufficient_participants(2));
+
+        let sync_aggregate = SyncAggregate {
+            sync_committee_bits: vec![0b11111111, 0b11111111, 0b11111111, 0b11111111].into(),
+            sync_committee_signature: BlsSignature::default(),
+        };
+        assert!(sync_aggregate.has_sufficient_participants(32));
+        assert!(!sync_aggregate.has_sufficient_participants(33));
     }
 }

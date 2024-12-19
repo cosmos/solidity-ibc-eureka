@@ -1,7 +1,6 @@
 //! Defines the account trie and the account type.
 
 use alloy_primitives::{Address, B256};
-use ethereum_utils::ensure;
 use hash_db::HashDB;
 use memory_db::{HashKey, MemoryDB};
 use primitive_types::{H160, H256, U256};
@@ -49,13 +48,12 @@ pub fn verify_account_storage_root(
         Some(account) => {
             let account =
                 rlp::decode::<Account>(account.as_ref()).map_err(TrieDBError::RlpDecode)?;
-            ensure!(
-                account.storage_root == storage_root,
-                TrieDBError::ValueMismatch {
+            if account.storage_root != storage_root {
+                return Err(TrieDBError::ValueMismatch {
                     expected: storage_root.as_ref().into(),
                     actual: account.storage_root.as_ref().into(),
-                }
-            );
+                });
+            }
             Ok(())
         }
         None => Err(TrieDBError::ValueMissing {

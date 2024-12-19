@@ -4,7 +4,6 @@ use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, QuerierWrapper, QueryRequest};
 use ethereum_light_client::verify::BlsVerify;
 use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
-use ethereum_utils::ensure;
 use thiserror::Error;
 
 /// The custom query for the Ethereum light client
@@ -81,14 +80,13 @@ impl BlsVerify for BlsVerifier<'_> {
             .query(&request)
             .map_err(|e| BlsVerifierError::FastAggregateVerify(e.to_string()))?;
 
-        ensure!(
-            is_valid,
-            BlsVerifierError::InvalidSignature {
+        if !is_valid {
+            return Err(BlsVerifierError::InvalidSignature {
                 public_keys: public_keys.to_vec(),
                 msg,
                 signature,
-            }
-        );
+            });
+        }
 
         Ok(())
     }
