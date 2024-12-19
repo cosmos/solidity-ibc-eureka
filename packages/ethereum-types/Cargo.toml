@@ -7,7 +7,7 @@ repository = { workspace = true }
 [dependencies]
 alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }
 serde = { workspace = true, features = ["derive"] }
-serde_with = { workspace = true }
+serde_with = { workspace = true, features = ["macros"] }
 schemars = { workspace = true }
 tree_hash = { workspace = true }
 tree_hash_derive = { workspace = true }
