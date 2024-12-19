@@ -10,19 +10,18 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ibc-proto = { workspace = true }
 ethereum-light-client = { workspace = true }
+ethereum-types = { workspace = true }
 ethereum-utils = { workspace = true }
 
 alloy-primitives = { workspace = true, default-features = false }
 
-cosmwasm-std = { workspace = true }
+cosmwasm-std = { workspace = true, features = ["std"] }
 cosmwasm-schema = { workspace = true }
-cw-storage-plus = { workspace = true }
 prost = { workspace = true, features = ["std"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true, features = ["base64"] }
 thiserror = { workspace = true }
+hex = { workspace = true }
 
 [dev-dependencies]
-cw-multi-test = { workspace = true }
-ethereum-test-utils = { workspace = true }
+ethereum-light-client = { workspace = true, features = ["test-utils"] }

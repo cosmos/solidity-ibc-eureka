@@ -5,7 +5,3 @@ edition = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-alloy-primitives = { workspace = true, default-features = false }
-base64 = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }

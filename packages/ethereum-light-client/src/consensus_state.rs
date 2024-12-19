@@ -1,34 +1,37 @@
 //! This module defines [`ConsensusState`] and [`TrustedConsensusState`].
 
 use alloy_primitives::{FixedBytes, B256};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::types::sync_committee::{ActiveSyncCommittee, SyncCommittee};
+use ethereum_types::consensus::sync_committee::SyncCommittee;
+
+use crate::header::ActiveSyncCommittee;
 
 /// The consensus state of the Ethereum light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 pub struct ConsensusState {
     /// The slot number
     pub slot: u64,
     /// The state merkle root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub state_root: B256,
     /// The storage merkle root
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub storage_root: B256,
-    /// The timestamp of the consensus state
-    // TODO: document the timestamp format (seconds since epoch?)
+    /// The unix timestamp at the time of the slot.
+    /// It is calculated from the genesis time and slots per.
     pub timestamp: u64,
     /// aggregate public key of current sync committee
-    #[serde(with = "ethereum_utils::base64::fixed_size")]
+    #[schemars(with = "String")]
     pub current_sync_committee: FixedBytes<48>,
     /// aggregate public key of next sync committee
-    #[serde(with = "ethereum_utils::base64::option_with_default")]
+    #[schemars(with = "String")]
     pub next_sync_committee: Option<FixedBytes<48>>,
 }
 
 /// The trusted consensus state of the Ethereum light client
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct TrustedConsensusState {
     /// The consensus state
@@ -38,7 +41,7 @@ pub struct TrustedConsensusState {
     ///
     /// This sync committee can either be the current sync committee or the next sync
     /// committee. That's because the verifier uses next or current sync committee's
-    /// public keys to verify the signature against. It is based on
+    /// public keys to verify the signature against.
     pub sync_committee: ActiveSyncCommittee,
 }
 

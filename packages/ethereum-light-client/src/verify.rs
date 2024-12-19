@@ -3,29 +3,45 @@
 use alloy_primitives::B256;
 
 use ethereum_trie_db::trie_db::verify_account_storage_root;
-use ethereum_utils::{
-    ensure,
+use ethereum_types::consensus::{
+    bls::{BlsPublicKey, BlsSignature},
+    domain::{compute_domain, DomainType},
+    light_client_header::{LightClientHeader, LightClientUpdate},
+    merkle::{
+        get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
+        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
+    },
+    signing_data::compute_signing_root,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
+    sync_committee::compute_sync_committee_period_at_slot,
 };
+use ethereum_utils::ensure;
 use tree_hash::TreeHash;
 
 use crate::{
     client_state::ClientState,
-    config::consts::{
-        get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
-        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
-    },
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
+    header::Header,
     trie::validate_merkle_branch,
-    types::{
-        bls::BlsVerify,
-        domain::{compute_domain, DomainType},
-        light_client::{Header, LightClientHeader, LightClientUpdate},
-        signing_data::compute_signing_root,
-        sync_committee::compute_sync_committee_period_at_slot,
-    },
 };
+
+/// The BLS verifier trait.
+#[allow(clippy::module_name_repetitions)]
+pub trait BlsVerify {
+    /// The error type for the BLS verifier.
+    type Error: std::fmt::Display;
+
+    /// Verify a BLS signature.
+    /// # Errors
+    /// Returns an error if the signature cannot be verified.
+    fn fast_aggregate_verify(
+        &self,
+        public_keys: &[BlsPublicKey],
+        msg: B256,
+        signature: BlsSignature,
+    ) -> Result<(), Self::Error>;
+}
 
 /// Verifies the header of the light client.
 /// # Errors
@@ -40,7 +56,7 @@ pub fn verify_header<V: BlsVerify>(
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState {
         state: consensus_state.clone(),
-        sync_committee: header.trusted_sync_committee.get_active_sync_committee(),
+        sync_committee: header.trusted_sync_committee.sync_committee.clone(),
     };
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
@@ -49,7 +65,12 @@ pub fn verify_header<V: BlsVerify>(
         client_state.seconds_per_slot,
         current_timestamp,
     )
-    .map_err(EthereumIBCError::EthereumUtilsError)?;
+    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+        timestamp: current_timestamp,
+        genesis: client_state.genesis_time,
+        seconds_per_slot: client_state.seconds_per_slot,
+        genesis_slot: GENESIS_SLOT,
+    })?;
 
     validate_light_client_update::<V>(
         client_state,
@@ -81,13 +102,14 @@ pub fn verify_header<V: BlsVerify>(
 
 /// Verifies if the light client `update` is valid.
 ///
-/// * `update`: The light client update we want to verify.
+/// * `client_state`: The current client state.
+/// * `trusted_consensus_state`: The trusted consensus state (previously verified and stored)
+/// * `update`: The update to be verified.
 /// * `current_slot`: The slot number computed based on the current timestamp.
-/// * `genesis_validators_root`: The latest `genesis_validators_root` that is saved by the light client.
 /// * `bls_verifier`: BLS verification implementation.
 ///
 /// ## Important Notes
-/// * This verification does not assume that the updated header is greater (in terms of height) than the
+/// * This verification does not assume that the updated header is greater (in terms of slot) than the
 ///   light client state. When the updated header is in the next signature period, the light client uses
 ///   the next sync committee to verify the signature, then it saves the next sync committee as the current
 ///   sync committee. However, it's not mandatory for light clients to expect the next sync committee to be given
@@ -101,7 +123,6 @@ pub fn verify_header<V: BlsVerify>(
 /// Returns an error if the update cannot be verified.
 /// # Panics
 /// If the minimum sync committee participants is not a valid usize.
-// TODO: Update comments
 #[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 pub fn validate_light_client_update<V: BlsVerify>(
     client_state: &ClientState,
@@ -223,7 +244,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     // This confirms that the `finalized_header` is really finalized.
     validate_merkle_branch(
         finalized_root,
-        update.finality_branch.clone().into(),
+        update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(FINALIZED_ROOT_INDEX),
         update.attested_header.beacon.state_root,
@@ -248,11 +269,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         // This validates the given next sync committee against the attested header's state root.
         validate_merkle_branch(
             next_sync_committee.tree_hash_root(),
-            update
-                .next_sync_committee_branch
-                .clone()
-                .unwrap_or_default()
-                .into(),
+            update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
             get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
             update.attested_header.beacon.state_root,
@@ -278,8 +295,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .sync_committee_bits
         .iter()
         .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
-        .zip(sync_committee.pubkeys.0.iter())
-        .filter_map(|(included, pubkey)| included.then_some(pubkey))
+        .zip(sync_committee.pubkeys.iter())
+        .filter_map(|(included, pubkey)| included.then_some(*pubkey))
         .collect::<Vec<_>>();
 
     let fork_version_slot = std::cmp::max(update.signature_slot, 1) - 1;
@@ -294,13 +311,13 @@ pub fn validate_light_client_update<V: BlsVerify>(
         DomainType::SYNC_COMMITTEE,
         Some(fork_version),
         Some(client_state.genesis_validators_root),
-        client_state.fork_parameters.genesis_fork_version.clone(),
+        client_state.fork_parameters.genesis_fork_version,
     );
     let signing_root = compute_signing_root(&update.attested_header.beacon, domain);
 
     bls_verifier
         .fast_aggregate_verify(
-            participant_pubkeys,
+            &participant_pubkeys,
             signing_root,
             update.sync_aggregate.sync_committee_signature,
         )
@@ -334,7 +351,7 @@ pub fn is_valid_light_client_header(
 
     validate_merkle_branch(
         get_lc_execution_root(client_state, header)?,
-        header.execution_branch.0.into(),
+        header.execution_branch.into(),
         EXECUTION_BRANCH_DEPTH,
         get_subtree_index(EXECUTION_PAYLOAD_INDEX),
         header.beacon.body_root,
@@ -360,17 +377,12 @@ pub fn get_lc_execution_root(
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        test::fixture_types::{InitialState, UpdateClient},
-        types::bls::{BlsPublicKey, BlsSignature},
+    use crate::test_utils::{
+        bls_verifier::{fast_aggregate_verify, BlsError},
+        fixtures::{self, InitialState, UpdateClient},
     };
 
     use super::*;
-
-    use ethereum_test_utils::{
-        bls_verifier::{fast_aggregate_verify, BlsError},
-        fixtures,
-    };
 
     struct TestBlsVerifier;
 
@@ -379,7 +391,7 @@ mod test {
 
         fn fast_aggregate_verify(
             &self,
-            public_keys: Vec<&BlsPublicKey>,
+            public_keys: &[BlsPublicKey],
             msg: B256,
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
@@ -391,7 +403,7 @@ mod test {
     fn test_verify_header() {
         let bls_verifier = TestBlsVerifier;
 
-        let fixture: fixtures::StepFixture =
+        let fixture: fixtures::StepsFixture =
             fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);

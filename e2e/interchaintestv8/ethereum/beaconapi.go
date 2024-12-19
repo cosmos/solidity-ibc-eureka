@@ -15,7 +15,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 
-	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethcommon "github.com/ethereum/go-ethereum/common"
+
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type BeaconAPIClient struct {
@@ -29,24 +31,24 @@ type BeaconAPIClient struct {
 	RetryWait time.Duration
 }
 
-func (s Spec) ToForkParameters() *ethereumlightclient.ForkParameters {
-	return &ethereumlightclient.ForkParameters{
-		GenesisForkVersion: s.GenesisForkVersion[:],
+func (s Spec) ToForkParameters() ethereumtypes.ForkParameters {
+	return ethereumtypes.ForkParameters{
+		GenesisForkVersion: ethcommon.Bytes2Hex(s.GenesisForkVersion[:]),
 		GenesisSlot:        s.GenesisSlot,
-		Altair: &ethereumlightclient.Fork{
-			Version: s.AltairForkVersion[:],
+		Altair: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.AltairForkVersion[:]),
 			Epoch:   s.AltairForkEpoch,
 		},
-		Bellatrix: &ethereumlightclient.Fork{
-			Version: s.BellatrixForkVersion[:],
+		Bellatrix: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.BellatrixForkVersion[:]),
 			Epoch:   s.BellatrixForkEpoch,
 		},
-		Capella: &ethereumlightclient.Fork{
-			Version: s.CapellaForkVersion[:],
+		Capella: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.CapellaForkVersion[:]),
 			Epoch:   s.CapellaForkEpoch,
 		},
-		Deneb: &ethereumlightclient.Fork{
-			Version: s.DenebForkVersion[:],
+		Deneb: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.DenebForkVersion[:]),
 			Epoch:   s.DenebForkEpoch,
 		},
 	}
@@ -178,6 +180,7 @@ func (b BeaconAPIClient) GetGenesis() (*apiv1.Genesis, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		return genesisResponse.Data, nil
 	})
 }

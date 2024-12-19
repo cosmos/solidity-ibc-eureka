@@ -2,8 +2,9 @@
 
 use alloy_primitives::B256;
 use cosmwasm_std::{Binary, CustomQuery, QuerierWrapper, QueryRequest};
-use ethereum_light_client::types::bls::{BlsPublicKey, BlsSignature, BlsVerify};
-use ethereum_utils::{ensure, hex::to_hex};
+use ethereum_light_client::verify::BlsVerify;
+use ethereum_types::consensus::bls::{BlsPublicKey, BlsSignature};
+use ethereum_utils::ensure;
 use thiserror::Error;
 
 /// The custom query for the Ethereum light client
@@ -43,7 +44,7 @@ pub enum BlsVerifierError {
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerify(String),
 
-    #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = to_hex(.msg))]
+    #[error("signature cannot be verified (public_keys: {public_keys:?}, msg: {msg}, signature: {signature})", msg = hex::encode(.msg))]
     InvalidSignature {
         /// The public keys used to verify the signature
         public_keys: Vec<BlsPublicKey>,
@@ -59,13 +60,12 @@ impl BlsVerify for BlsVerifier<'_> {
 
     fn fast_aggregate_verify(
         &self,
-        public_keys: Vec<&BlsPublicKey>,
+        public_keys: &[BlsPublicKey],
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error> {
         let binary_public_keys: Vec<Binary> = public_keys
-            .clone()
-            .into_iter()
+            .iter()
             .map(|p| Binary::from(p.to_vec()))
             .collect();
 
@@ -84,7 +84,7 @@ impl BlsVerify for BlsVerifier<'_> {
         ensure!(
             is_valid,
             BlsVerifierError::InvalidSignature {
-                public_keys: public_keys.into_iter().copied().collect(),
+                public_keys: public_keys.to_vec(),
                 msg,
                 signature,
             }

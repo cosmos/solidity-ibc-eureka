@@ -1,5 +1,5 @@
 use super::*;
-use alloy_primitives::{Address, B256, U128, U256};
+use alloy_primitives::{Bloom, Bytes, FixedBytes, B256, U128, U256};
 use std::sync::Arc;
 
 fn int_to_hash256(int: u64) -> Hash256 {
@@ -103,6 +103,36 @@ impl TreeHash for [u8; 48] {
     }
 }
 
+/// Only valid for byte types less than 32 bytes.
+macro_rules! impl_for_lt_32byte_fixed_bytes {
+    ($len: expr) => {
+        impl TreeHash for FixedBytes<$len> {
+            fn tree_hash_type() -> TreeHashType {
+                TreeHashType::Vector
+            }
+
+            fn tree_hash_packed_encoding(&self) -> PackedEncoding {
+                let mut result = [0; 32];
+                result[0..$len].copy_from_slice(self.as_slice());
+                PackedEncoding::from_slice(&result)
+            }
+
+            fn tree_hash_packing_factor() -> usize {
+                HASHSIZE / $len
+            }
+
+            fn tree_hash_root(&self) -> Hash256 {
+                let mut result = [0; 32];
+                result[0..$len].copy_from_slice(self.as_slice());
+                Hash256::from_slice(&result)
+            }
+        }
+    };
+}
+
+impl_for_lt_32byte_fixed_bytes!(20);
+impl_for_lt_32byte_fixed_bytes!(32);
+
 impl TreeHash for U128 {
     fn tree_hash_type() -> TreeHashType {
         TreeHashType::Basic
@@ -139,46 +169,6 @@ impl TreeHash for U256 {
     }
 }
 
-impl TreeHash for Address {
-    fn tree_hash_type() -> TreeHashType {
-        TreeHashType::Vector
-    }
-
-    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
-        let mut result = [0; 32];
-        result[0..20].copy_from_slice(self.as_slice());
-        PackedEncoding::from_slice(&result)
-    }
-
-    fn tree_hash_packing_factor() -> usize {
-        1
-    }
-
-    fn tree_hash_root(&self) -> Hash256 {
-        let mut result = [0; 32];
-        result[0..20].copy_from_slice(self.as_slice());
-        Hash256::from_slice(&result)
-    }
-}
-
-impl TreeHash for B256 {
-    fn tree_hash_type() -> TreeHashType {
-        TreeHashType::Vector
-    }
-
-    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
-        PackedEncoding::from_slice(self.as_slice())
-    }
-
-    fn tree_hash_packing_factor() -> usize {
-        1
-    }
-
-    fn tree_hash_root(&self) -> Hash256 {
-        *self
-    }
-}
-
 impl<T: TreeHash> TreeHash for Arc<T> {
     fn tree_hash_type() -> TreeHashType {
         T::tree_hash_type()
@@ -194,6 +184,106 @@ impl<T: TreeHash> TreeHash for Arc<T> {
 
     fn tree_hash_root(&self) -> Hash256 {
         self.as_ref().tree_hash_root()
+    }
+}
+
+impl TreeHash for Bytes {
+    fn tree_hash_type() -> TreeHashType {
+        TreeHashType::List
+    }
+
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_packing_factor() -> usize {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_root(&self) -> Hash256 {
+        let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
+
+        let mut hasher = MerkleHasher::with_leaves(leaves);
+        for item in self {
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
+        }
+
+        mix_in_length(&hasher.finish().unwrap(), self.len())
+    }
+}
+
+impl TreeHash for Bloom {
+    fn tree_hash_type() -> TreeHashType {
+        TreeHashType::List
+    }
+
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_packing_factor() -> usize {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_root(&self) -> Hash256 {
+        let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
+
+        let mut hasher = MerkleHasher::with_leaves(leaves);
+        for item in self {
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
+        }
+
+        hasher.finish().unwrap()
+    }
+}
+
+impl TreeHash for [B256] {
+    fn tree_hash_type() -> TreeHashType {
+        TreeHashType::List
+    }
+
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_packing_factor() -> usize {
+        unreachable!("List should never be packed.")
+    }
+
+    fn tree_hash_root(&self) -> Hash256 {
+        let leaves = self.len().div_ceil(BYTES_PER_CHUNK);
+
+        let mut hasher = MerkleHasher::with_leaves(leaves);
+        for item in self {
+            hasher.write(item.tree_hash_root()[..1].as_ref()).unwrap();
+        }
+
+        hasher.finish().unwrap()
+    }
+}
+
+impl TreeHash for [FixedBytes<48>] {
+    fn tree_hash_type() -> TreeHashType {
+        TreeHashType::Vector
+    }
+
+    fn tree_hash_packed_encoding(&self) -> PackedEncoding {
+        unreachable!("Vector should never be packed.")
+    }
+
+    fn tree_hash_packing_factor() -> usize {
+        unreachable!("Vector should never be packed.")
+    }
+
+    fn tree_hash_root(&self) -> Hash256 {
+        let leaves = self.len();
+
+        let mut hasher = MerkleHasher::with_leaves(leaves);
+        for item in self {
+            hasher.write(item.tree_hash_root().as_ref()).unwrap();
+        }
+
+        hasher.finish().unwrap()
     }
 }
 
@@ -217,6 +307,12 @@ mod test {
         let one = U128::from(1);
         let one_arc = Arc::new(one);
         assert_eq!(one_arc.tree_hash_root(), one.tree_hash_root());
+    }
+
+    #[test]
+    fn b256() {
+        let b256 = B256::from([1; 32]);
+        assert_eq!(b256.tree_hash_root(), b256);
     }
 
     #[test]
