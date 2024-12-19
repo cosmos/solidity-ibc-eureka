@@ -9,8 +9,6 @@
     unused_crate_dependencies
 )]
 
-pub mod serde;
-
 /// Ensure that a condition is true, otherwise return an error.
 #[macro_export]
 macro_rules! ensure {

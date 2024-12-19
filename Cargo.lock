@@ -2535,10 +2535,10 @@ name = "ethereum-types"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.8.15",
- "ethereum-utils",
  "schemars",
  "serde",
  "serde_json",
+ "serde_with",
  "tree_hash",
  "tree_hash_derive",
 ]
@@ -2562,9 +2562,6 @@ dependencies = [
 [[package]]
 name = "ethereum-utils"
 version = "0.1.0"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "ethereum_serde_utils"

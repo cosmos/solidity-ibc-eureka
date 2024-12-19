@@ -3,6 +3,7 @@
 use alloy_primitives::{Address, Bloom, Bytes, B256, U256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use tree_hash_derive::TreeHash;
 
 use super::{
@@ -11,6 +12,7 @@ use super::{
 };
 
 /// A light client update
+#[serde_as]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct LightClientUpdate {
@@ -29,7 +31,7 @@ pub struct LightClientUpdate {
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub signature_slot: u64,
 }
@@ -48,14 +50,15 @@ pub struct LightClientHeader {
 }
 
 /// The beacon block header
+#[serde_as]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct BeaconBlockHeader {
     /// The slot to which this block corresponds
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub slot: u64,
     /// The index of validator in validator registry
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub proposer_index: u64,
     /// The signing merkle root of the parent `BeaconBlock`
@@ -70,6 +73,7 @@ pub struct BeaconBlockHeader {
 }
 
 /// Header to track the execution block
+#[serde_as]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct ExecutionPayloadHeader {
     /// The parent hash of the execution payload header
@@ -91,19 +95,19 @@ pub struct ExecutionPayloadHeader {
     #[schemars(with = "String")]
     pub prev_randao: B256,
     /// The block number of the execution payload
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub block_number: u64,
     /// Execution block gas limit
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub gas_limit: u64,
     /// Execution block gas used
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub gas_used: u64,
     /// The timestamp of the execution payload
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub timestamp: u64,
     /// The extra data of the execution payload
@@ -122,11 +126,11 @@ pub struct ExecutionPayloadHeader {
     #[schemars(with = "String")]
     pub withdrawals_root: B256,
     /// Blob gas used (new in Deneb)
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub blob_gas_used: u64,
     /// Excess blob gas (new in Deneb)
-    #[serde(with = "ethereum_utils::serde::number_as_string")]
+    #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub excess_blob_gas: u64,
 }
