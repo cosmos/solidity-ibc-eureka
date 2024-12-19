@@ -19,21 +19,32 @@ import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
-
+import { Pausable } from "@openzeppelin/utils/Pausable.sol";
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
+contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall, Pausable {
+
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
 
     /// @inheritdoc IICS26Router
-    IIBCStore public immutable IBC_STORE;
+    IIBCStore public IBC_STORE;
     /// @notice ICSCore implements IICS02Client and IICS04Channel
-    address private immutable ICS_CORE;
+    address private  ICS_CORE;
 
-    constructor(address owner) Ownable(owner) {
-        ICS_CORE = address(new ICSCore(owner)); // using the same owner
-        IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
+    address private immutable SAFE_ADDRESS;
+
+    constructor(address _safeAddress) Ownable(address(0xdead)) {
+        SAFE_ADDRESS = _safeAddress; //  This should not be passed as input but instead Should be an hardcoded constant to be set after safe multisig deployment and before this contracts gets deployed. 
+        // Setting now in input for easy testing. 
+    }
+
+    function initialize(address _safeAddress) external {
+        require(owner() == address(0), "Already initialized");
+        require(_safeAddress == SAFE_ADDRESS, "Only Safe can initialize");
+        _transferOwnership(SAFE_ADDRESS); // Transfer ownership to Safe
+        ICS_CORE = address(new ICSCore(SAFE_ADDRESS));
+        IBC_STORE = new IBCStore(address(this));
     }
 
     /// @inheritdoc IICS26Router
@@ -61,7 +72,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
     /// @inheritdoc IICS26Router
-    function addIBCApp(string calldata portId, address app) external {
+    function addIBCApp(string calldata portId, address app) external whenNotPaused {
         string memory newPortId;
         if (bytes(portId).length != 0) {
             Ownable._checkOwner();
@@ -82,7 +93,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
-    function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+    function sendPacket(MsgSendPacket calldata msg_) external nonReentrant whenNotPaused returns (uint32) {
         // TODO: Support multi-payload packets #93
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
@@ -123,7 +134,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
-    function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
+    function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant whenNotPaused{
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
@@ -179,7 +190,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
-    function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
+    function ackPacket(MsgAckPacket calldata msg_) external nonReentrant whenNotPaused{
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
@@ -233,7 +244,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
-    function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
+    function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant whenNotPaused{
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
@@ -280,6 +291,16 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         );
 
         emit TimeoutPacket(msg_.packet);
+    }
+
+    /// @notice Pause the contract (only callable by owner)
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract (only callable by owner)
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /// @notice Writes a packet acknowledgement and emits an event

@@ -8,8 +8,9 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/utils/Pausable.sol";
 
-contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable, Pausable {
     /// @dev channelId => channel
     mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract
@@ -17,8 +18,19 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @dev clientType => nextClientSeq
     mapping(string clientType => uint32 nextClientSeq) private nextClientSeq;
 
-    /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) { }
+    address private immutable SAFE_ADDRESS;
+
+     constructor(address _safeAddress) Ownable(address(0xdead)) {
+        SAFE_ADDRESS = _safeAddress; //  This should not be passed as input but instead Should be an hardcoded constant to be set after safe multisig deployment and before this contracts gets deployed. 
+        // Setting now in input for easy testing. 
+    }
+
+    function initialize(address _safeAddress) external {
+        require(owner() == address(0), "Already initialized");
+        require(_safeAddress == SAFE_ADDRESS, "Only Safe can initialize");
+    
+        _transferOwnership(SAFE_ADDRESS); // Transfer ownership to Safe
+    }
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
@@ -53,7 +65,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
         Channel calldata channel,
         address client
     )
-        external
+        external whenNotPaused
         returns (string memory)
     {
         string memory clientId = getNextClientId(clientType);
@@ -68,7 +80,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     }
 
     /// @inheritdoc IICS02Client
-    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner {
+    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner whenNotPaused {
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
 
@@ -84,19 +96,19 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
         string calldata clientId,
         bytes calldata updateMsg
     )
-        external
+        external whenNotPaused
         returns (ILightClient.UpdateResult)
     {
         return getClient(clientId).updateClient(updateMsg);
     }
 
     /// @inheritdoc IICS02Client
-    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external whenNotPaused{
         getClient(clientId).misbehaviour(misbehaviourMsg);
     }
 
     /// @inheritdoc IICS02Client
-    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
+    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external whenNotPaused{
         getClient(clientId).upgradeClient(upgradeMsg);
     }
 }
