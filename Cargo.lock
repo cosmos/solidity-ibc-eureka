@@ -1985,7 +1985,6 @@ dependencies = [
  "cosmwasm-std",
  "ethereum-light-client",
  "ethereum-types 0.1.0",
- "ethereum-utils",
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
@@ -2503,7 +2502,6 @@ dependencies = [
  "alloy-trie",
  "ethereum-trie-db",
  "ethereum-types 0.1.0",
- "ethereum-utils",
  "hex",
  "milagro_bls",
  "schemars",
@@ -2519,7 +2517,6 @@ name = "ethereum-trie-db"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.8.15",
- "ethereum-utils",
  "hash-db",
  "hash256-std-hasher",
  "hex",
@@ -2560,10 +2557,6 @@ dependencies = [
  "scale-info",
  "uint 0.9.5",
 ]
-
-[[package]]
-name = "ethereum-utils"
-version = "0.1.0"
 
 [[package]]
 name = "ethereum_serde_utils"

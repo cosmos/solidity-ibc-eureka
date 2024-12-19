@@ -15,7 +15,6 @@ use ethereum_types::consensus::{
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
     sync_committee::compute_sync_committee_period_at_slot,
 };
-use ethereum_utils::ensure;
 use tree_hash::TreeHash;
 
 use crate::{
@@ -133,11 +132,9 @@ pub fn validate_light_client_update<V: BlsVerify>(
 ) -> Result<(), EthereumIBCError> {
     // Verify sync committee has sufficient participants
     ensure!(
-        update.sync_aggregate.num_sync_committe_participants()
-            >= client_state
-                .min_sync_committee_participants
-                .try_into()
-                .unwrap(),
+        update
+            .sync_aggregate
+            .has_sufficient_participants(client_state.min_sync_committee_participants),
         EthereumIBCError::InsufficientSyncCommitteeParticipants(
             update.sync_aggregate.num_sync_committe_participants(),
         )

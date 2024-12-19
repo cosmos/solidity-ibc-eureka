@@ -5,8 +5,6 @@ edition = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-ethereum-utils = { workspace = true }
-
 hex = { workspace = true }
 trie-db = { workspace = true, features = ["std"] }
 hash-db = { workspace = true }
