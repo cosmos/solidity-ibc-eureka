@@ -1,5 +1,5 @@
 # `ethereum-types`
 
-This crate contains etheruem types that are compatible with standard API endpoints such as the beacon API and the exeuction API. 
+This crate contains ethereum types that are compatible with standard API endpoints such as the beacon API and the exeuction API. 
 
-It also has some implementations related to those types for extra functionality to make them easier to use for different use cases.
+It also contains implementations for these types to enable their use in different use cases.
