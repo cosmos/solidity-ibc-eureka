@@ -1,6 +1,13 @@
 [workspace]
 members = [
-    "packages/*",
+    "packages/ethereum/ethereum-light-client",
+    "packages/ethereum/ethereum-trie-db",
+    "packages/ethereum/ethereum-types",
+    "packages/ethereum/tree_hash",
+    "packages/solidity",
+    "packages/relayer-lib",
+    "packages/sp1-ics07-tendermint-prover",
+    "packages/sp1-ics07-tendermint-utils",
 
     "programs/relayer",
     "programs/operator",
@@ -23,10 +30,10 @@ sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-pro
 sp1-ics07-tendermint-utils         = { path = "packages/sp1-ics07-tendermint-utils", default-features = false }
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
-ethereum-trie-db                   = { path = "packages/ethereum-trie-db", default-features = false }
-ethereum-light-client              = { path = "packages/ethereum-light-client", default-features = false }
-ethereum-types                     = { path = "packages/ethereum-types", default-features = false }
-tree_hash                          = { path = "packages/tree_hash", default-features = false }
+ethereum-trie-db                   = { path = "packages/ethereum/ethereum-trie-db", default-features = false }
+ethereum-light-client              = { path = "packages/ethereum/ethereum-light-client", default-features = false }
+ethereum-types                     = { path = "packages/ethereum/ethereum-types", default-features = false }
+tree_hash                          = { path = "packages/ethereum/tree_hash", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
