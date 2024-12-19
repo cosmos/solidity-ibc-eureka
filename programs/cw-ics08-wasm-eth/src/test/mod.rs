@@ -22,7 +22,7 @@ pub fn custom_query_handler(query: &EthereumCustomQuery) -> MockQuerierCustomHan
             let public_keys = public_keys
                 .iter()
                 .map(|pk| pk.as_ref().try_into().unwrap())
-                .collect::<Vec<&BlsPublicKey>>();
+                .collect::<Vec<BlsPublicKey>>();
             let message = B256::try_from(message.as_slice()).unwrap();
             let signature = BlsSignature::try_from(signature.as_slice()).unwrap();
 

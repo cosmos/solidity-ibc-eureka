@@ -18,7 +18,7 @@ pub enum BlsError {
 /// # Errors
 /// Returns an error if the signature is invalid
 pub fn fast_aggregate_verify(
-    public_keys: &[&BlsPublicKey],
+    public_keys: &[BlsPublicKey],
     msg: alloy_primitives::B256,
     signature: BlsSignature,
 ) -> Result<(), BlsError> {

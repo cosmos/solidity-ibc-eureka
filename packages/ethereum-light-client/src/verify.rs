@@ -37,7 +37,7 @@ pub trait BlsVerify {
     /// Returns an error if the signature cannot be verified.
     fn fast_aggregate_verify(
         &self,
-        public_keys: Vec<&BlsPublicKey>,
+        public_keys: &[BlsPublicKey],
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error>;
@@ -296,7 +296,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .iter()
         .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
         .zip(sync_committee.pubkeys.iter())
-        .filter_map(|(included, pubkey)| included.then_some(pubkey))
+        .filter_map(|(included, pubkey)| included.then_some(*pubkey))
         .collect::<Vec<_>>();
 
     let fork_version_slot = std::cmp::max(update.signature_slot, 1) - 1;
@@ -317,7 +317,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
 
     bls_verifier
         .fast_aggregate_verify(
-            participant_pubkeys,
+            &participant_pubkeys,
             signing_root,
             update.sync_aggregate.sync_committee_signature,
         )
@@ -391,11 +391,11 @@ mod test {
 
         fn fast_aggregate_verify(
             &self,
-            public_keys: Vec<&BlsPublicKey>,
+            public_keys: &[BlsPublicKey],
             msg: B256,
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
-            fast_aggregate_verify(&public_keys, msg, signature)
+            fast_aggregate_verify(public_keys, msg, signature)
         }
     }
 

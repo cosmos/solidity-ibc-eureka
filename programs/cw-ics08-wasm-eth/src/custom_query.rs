@@ -60,13 +60,12 @@ impl BlsVerify for BlsVerifier<'_> {
 
     fn fast_aggregate_verify(
         &self,
-        public_keys: Vec<&BlsPublicKey>,
+        public_keys: &[BlsPublicKey],
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error> {
         let binary_public_keys: Vec<Binary> = public_keys
-            .clone()
-            .into_iter()
+            .iter()
             .map(|p| Binary::from(p.to_vec()))
             .collect();
 
@@ -85,7 +84,7 @@ impl BlsVerify for BlsVerifier<'_> {
         ensure!(
             is_valid,
             BlsVerifierError::InvalidSignature {
-                public_keys: public_keys.into_iter().copied().collect(),
+                public_keys: public_keys.to_vec(),
                 msg,
                 signature,
             }
