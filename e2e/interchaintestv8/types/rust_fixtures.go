@@ -8,44 +8,14 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
-
-type InitialStateFixture struct {
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
-}
-
-type CommitmentProofFixture struct {
-	Path           []byte                             `json:"path"`
-	StorageProof   ethereumlightclient.StorageProof   `json:"storage_proof"`
-	ProofHeight    clienttypes.Height                 `json:"proof_height"`
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
-}
-
-type UpdateClientFixture struct {
-	ClientState    ethereumlightclient.ClientState    `json:"client_state"`
-	ConsensusState ethereumlightclient.ConsensusState `json:"consensus_state"`
-	Updates        []ethereumlightclient.Header       `json:"updates"`
-}
-
-type Step struct {
-	Name string      `json:"name"`
-	Data interface{} `json:"data"`
-}
-
-type RustFixture struct {
-	Steps []Step `json:"steps"`
-}
 
 type RustFixtureGenerator struct {
 	shouldGenerateFixture bool
 
-	fixture RustFixture
+	fixture ethereumtypes.StepsFixture
 }
 
 // NewRustFixtureGenerator creates a new RustFixtureGenerator
@@ -75,7 +45,7 @@ func (g *RustFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble in
 		return
 	}
 
-	g.fixture.Steps = append(g.fixture.Steps, Step{
+	g.fixture.Steps = append(g.fixture.Steps, ethereumtypes.Step{
 		Name: stepName,
 		Data: jsonMarshalble,
 	})

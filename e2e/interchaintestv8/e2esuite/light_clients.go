@@ -3,6 +3,7 @@ package e2esuite
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -20,7 +21,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	ethereumligthclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
@@ -28,13 +29,13 @@ func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUs
 	case testvalues.EthTestnetTypePoW:
 		s.createDummyLightClient(ctx, simdRelayerUser)
 	case testvalues.EthTestnetTypePoS:
-		s.createUnionLightClient(ctx, simdRelayerUser, ibcContractAddress, rustFixtureGenerator)
+		s.createEthereumLightClient(ctx, simdRelayerUser, ibcContractAddress, rustFixtureGenerator)
 	default:
 		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
 }
 
-func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo int64, simdRelayerUser ibc.Wallet, rustFixtureGenerator *types.RustFixtureGenerator) {
+func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress string, minimumUpdateTo uint64, simdRelayerUser ibc.Wallet, rustFixtureGenerator *types.RustFixtureGenerator) {
 	if s.ethTestnetType != testvalues.EthTestnetTypePoS {
 		return
 	}
@@ -42,7 +43,7 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	// Wait until we have a block number greater than the minimum update to
-	var updateTo int64
+	var updateTo uint64
 	var err error
 	err = testutil.WaitForCondition(5*time.Minute, 5*time.Second, func() (bool, error) {
 		_, updateTo, err = eth.EthAPI.GetBlockNumber()
@@ -53,14 +54,14 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	s.Require().NoError(err)
 	fmt.Printf("Updating eth light client to at least block number %d (with minimum requested: %d)\n", updateTo, minimumUpdateTo)
 
-	_, unionConsensusState := s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
+	_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
 		RevisionNumber: 0,
 		RevisionHeight: s.LastEtheruemLightClientUpdate,
 	})
 	spec, err := eth.BeaconAPIClient.GetSpec()
 	s.Require().NoError(err)
 
-	trustedPeriod := unionConsensusState.Slot / spec.Period()
+	trustedPeriod := ethereumConsensusState.Slot / spec.Period()
 
 	var finalityUpdate ethereum.FinalityUpdateJSONResponse
 	var targetPeriod uint64
@@ -69,35 +70,35 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 		finalityUpdate, err = eth.BeaconAPIClient.GetFinalityUpdate()
 		s.Require().NoError(err)
 
-		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.Slot / spec.Period()
+		targetPeriod = finalityUpdate.Data.AttestedHeader.Beacon.GetSlot() / spec.Period()
 
 		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
 		s.Require().NoError(err)
 		var highestUpdateSlot uint64
 		for _, update := range lightClientUpdates {
-			if update.Data.AttestedHeader.Beacon.Slot > highestUpdateSlot {
-				highestUpdateSlot = update.Data.AttestedHeader.Beacon.Slot
+			if update.Data.AttestedHeader.Beacon.GetSlot() > highestUpdateSlot {
+				highestUpdateSlot = update.Data.AttestedHeader.Beacon.GetSlot()
 			}
 		}
 
-		return finalityUpdate.Data.FinalizedHeader.Beacon.Slot > uint64(updateTo) &&
+		return finalityUpdate.Data.FinalizedHeader.Beacon.GetSlot() > updateTo &&
 				targetPeriod > trustedPeriod &&
-				highestUpdateSlot > uint64(updateTo),
+				highestUpdateSlot > updateTo,
 			nil
 	})
 	s.Require().NoError(err)
 
-	_, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
+	_, ethereumClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
 	// Wait until computed slot is greater than all of the updates signature slots
 	err = testutil.WaitForCondition(8*time.Minute, 5*time.Second, func() (bool, error) {
 		lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
 		s.Require().NoError(err)
 
-		computedSlot := (uint64(time.Now().Unix())-unionClientState.GenesisTime)/
-			unionClientState.SecondsPerSlot + spec.GenesisSlot
+		computedSlot := (uint64(time.Now().Unix())-ethereumClientState.GenesisTime)/
+			ethereumClientState.SecondsPerSlot + spec.GenesisSlot
 
 		for _, update := range lightClientUpdates {
-			if computedSlot < update.Data.SignatureSlot {
+			if computedSlot < update.Data.GetSignatureSlot() {
 				return false, nil
 			}
 		}
@@ -111,32 +112,28 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 	lightClientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(trustedPeriod+1, targetPeriod-trustedPeriod)
 	s.Require().NoError(err)
 
-	headers := []ethereumligthclient.Header{}
-	trustedSlot := unionConsensusState.Slot
+	headers := []ethereumtypes.Header{}
+	trustedSlot := ethereumConsensusState.Slot
 	var prevPubAggKey string
 	for _, update := range lightClientUpdates {
 
 		previousPeriod := uint64(1)
-		if update.Data.AttestedHeader.Beacon.Slot/spec.Period() > 1 {
-			previousPeriod = update.Data.AttestedHeader.Beacon.Slot / spec.Period()
+		if update.Data.AttestedHeader.Beacon.GetSlot()/spec.Period() > 1 {
+			previousPeriod = update.Data.AttestedHeader.Beacon.GetSlot() / spec.Period()
 		}
 		previousPeriod -= 1
 
-		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.Slot)))
+		executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight(strconv.Itoa(int(update.Data.AttestedHeader.Beacon.GetSlot())))
 		s.Require().NoError(err)
 		executionHeightHex := fmt.Sprintf("0x%x", executionHeight)
 		proofResp, err := eth.EthAPI.GetProof(ibcContractAddress, []string{}, executionHeightHex)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(proofResp.AccountProof)
 
-		var proofBz [][]byte
-		for _, proofStr := range proofResp.AccountProof {
-			proofBz = append(proofBz, ethcommon.FromHex(proofStr))
-		}
-		accountUpdate := ethereumligthclient.AccountUpdate{
-			AccountProof: &ethereumligthclient.AccountProof{
-				StorageRoot: ethereum.HexToBeBytes(proofResp.StorageHash),
-				Proof:       proofBz,
+		accountUpdate := ethereumtypes.AccountUpdate{
+			AccountProof: ethereumtypes.AccountProof{
+				StorageRoot: proofResp.StorageHash,
+				Proof:       proofResp.AccountProof,
 			},
 		}
 
@@ -149,86 +146,84 @@ func (s *TestSuite) UpdateEthClient(ctx context.Context, ibcContractAddress stri
 			continue
 		}
 
-		var nextSyncCommitteePubkeys [][]byte
-		for _, pubkey := range previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys {
-			nextSyncCommitteePubkeys = append(nextSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
-		}
-
-		consensusUpdate := update.ToLightClientUpdate()
-		header := ethereumligthclient.Header{
-			ConsensusUpdate: &consensusUpdate,
-			TrustedSyncCommittee: &ethereumligthclient.TrustedSyncCommittee{
-				TrustedHeight: &clienttypes.Height{
-					RevisionNumber: 0,
-					RevisionHeight: trustedSlot,
-				},
-				NextSyncCommittee: &ethereumligthclient.SyncCommittee{
-					Pubkeys:         nextSyncCommitteePubkeys,
-					AggregatePubkey: ethcommon.FromHex(previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey),
+		header := ethereumtypes.Header{
+			ConsensusUpdate: update.Data,
+			TrustedSyncCommittee: ethereumtypes.TrustedSyncCommittee{
+				TrustedSlot: trustedSlot,
+				SyncCommittee: ethereumtypes.ActiveSyncCommittee{
+					Next: &ethereumtypes.SyncCommittee{
+						Pubkeys:         previousLightClientUpdate.Data.NextSyncCommittee.Pubkeys,
+						AggregatePubkey: previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey,
+					},
 				},
 			},
-			AccountUpdate: &accountUpdate,
+			AccountUpdate: accountUpdate,
 		}
 		headers = append(headers, header)
-		logHeader("Adding new header", header)
 
-		trustedSlot = update.Data.AttestedHeader.Beacon.Slot
+		trustedSlot = update.Data.AttestedHeader.Beacon.GetSlot()
 		prevPubAggKey = previousLightClientUpdate.Data.NextSyncCommittee.AggregatePubkey
 	}
 
 	if trustedPeriod >= targetPeriod {
-		headers = []ethereumligthclient.Header{}
+		headers = []ethereumtypes.Header{}
 	}
 
-	wasmClientState, unionClientState := s.GetUnionClientState(ctx, simd, s.EthereumLightClientID)
-	_, unionConsensusState = s.GetUnionConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
+	wasmClientState, ethereumClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
+	_, ethereumConsensusState = s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, wasmClientState.LatestHeight)
 
-	var updatedHeaders []ethereumligthclient.Header
+	var updatedHeaders []ethereumtypes.Header
 	for _, header := range headers {
-		logHeader("Updating eth light client", header)
-		headerBz := simd.Config().EncodingConfig.Codec.MustMarshal(&header)
+		headerBz, err := json.Marshal(header)
+		s.Require().NoError(err)
+
 		wasmHeader := ibcwasmtypes.ClientMessage{
 			Data: headerBz,
 		}
 
 		wasmHeaderAny, err := clienttypes.PackClientMessage(&wasmHeader)
 		s.Require().NoError(err)
-		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgUpdateClient{
+		_, err = s.BroadcastMessages(ctx, simd, simdRelayerUser, 500_000, &clienttypes.MsgUpdateClient{
 			ClientId:      s.EthereumLightClientID,
 			ClientMessage: wasmHeaderAny,
 			Signer:        simdRelayerUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 
-		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.Slot
+		s.LastEtheruemLightClientUpdate = header.ConsensusUpdate.AttestedHeader.Beacon.GetSlot()
 		fmt.Println("Updated eth light client to block number", s.LastEtheruemLightClientUpdate)
 
 		updatedHeaders = append(updatedHeaders, header)
 
 		time.Sleep(10 * time.Second)
 
-		if s.LastEtheruemLightClientUpdate > uint64(updateTo) {
+		if s.LastEtheruemLightClientUpdate > updateTo {
 			fmt.Println("Updated past target block number, skipping any further updates")
 			break
 		}
 	}
-	rustFixtureGenerator.AddFixtureStep("updated_light_client", types.UpdateClientFixture{
-		ClientState:    unionClientState,
-		ConsensusState: unionConsensusState,
+	rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
+		ClientState:    ethereumClientState,
+		ConsensusState: ethereumConsensusState,
 		Updates:        updatedHeaders,
 	})
 
-	s.Require().Greater(s.LastEtheruemLightClientUpdate, uint64(minimumUpdateTo))
+	s.Require().Greater(s.LastEtheruemLightClientUpdate, minimumUpdateTo)
 }
 
-func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
+func (s *TestSuite) createEthereumLightClient(
+	ctx context.Context,
+	simdRelayerUser ibc.Wallet,
+	ibcContractAddress string,
+	rustFixtureGenerator *types.RustFixtureGenerator,
+) {
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
-	file, err := os.Open("e2e/interchaintestv8/wasm/ethereum_light_client_minimal.wasm.gz")
+	file, err := os.Open("e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz")
 	s.Require().NoError(err)
 
-	unionClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
-	s.Require().NotEmpty(unionClientChecksum, "checksum was empty but should not have been")
+	etheruemClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+	s.Require().NotEmpty(etheruemClientChecksum, "checksum was empty but should not have been")
 
 	genesis, err := eth.BeaconAPIClient.GetGenesis()
 	s.Require().NoError(err)
@@ -239,28 +234,24 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
-	ibcCommitmentSlot := ethereum.HexToBeBytes(testvalues.IbcCommitmentSlotHex)
-
-	ethClientState := ethereumligthclient.ClientState{
-		ChainId:                      eth.ChainID.String(),
-		GenesisValidatorsRoot:        genesis.GenesisValidatorsRoot[:],
-		MinSyncCommitteeParticipants: 0,
+	ethClientState := ethereumtypes.ClientState{
+		ChainID:                      eth.ChainID.Uint64(),
+		GenesisValidatorsRoot:        ethcommon.Bytes2Hex(genesis.GenesisValidatorsRoot[:]),
+		MinSyncCommitteeParticipants: 32,
 		GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
 		ForkParameters:               spec.ToForkParameters(),
 		SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
 		LatestSlot:                   executionHeight,
-		FrozenHeight: &clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: 0,
-		},
-		IbcCommitmentSlot:  ibcCommitmentSlot,
-		IbcContractAddress: ethcommon.FromHex(ibcContractAddress),
+		FrozenSlot:                   0,
+		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
+		IbcContractAddress:           ibcContractAddress,
 	}
 
-	ethClientStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethClientState)
-	wasmClientChecksum, err := hex.DecodeString(unionClientChecksum)
+	ethClientStateBz, err := json.Marshal(&ethClientState)
+	s.Require().NoError(err)
+	wasmClientChecksum, err := hex.DecodeString(etheruemClientChecksum)
 	s.Require().NoError(err)
 	latestHeightSlot := clienttypes.Height{
 		RevisionNumber: 0,
@@ -287,7 +278,6 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	}
 
 	timestamp := bootstrap.Data.Header.Execution.Timestamp * 1_000_000_000
-	stateRoot := ethereum.HexToBeBytes(bootstrap.Data.Header.Execution.StateRoot)
 
 	currentPeriod := executionHeight / spec.Period()
 	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
@@ -295,16 +285,17 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NotEmpty(clientUpdates)
 
 	s.LastEtheruemLightClientUpdate = bootstrap.Data.Header.Beacon.Slot
-	ethConsensusState := ethereumligthclient.ConsensusState{
+	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
-		StateRoot:            stateRoot,
-		StorageRoot:          ethereum.HexToBeBytes(proofOfIBCContract.StorageHash),
+		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
+		StorageRoot:          proofOfIBCContract.StorageHash,
 		Timestamp:            timestamp,
-		CurrentSyncCommittee: ethcommon.FromHex(bootstrap.Data.CurrentSyncCommittee.AggregatePubkey),
-		NextSyncCommittee:    ethcommon.FromHex(clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey),
+		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
+		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}
 
-	ethConsensusStateBz := simd.Config().EncodingConfig.Codec.MustMarshal(&ethConsensusState)
+	ethConsensusStateBz, err := json.Marshal(&ethConsensusState)
+	s.Require().NoError(err)
 	consensusState := ibcwasmtypes.ConsensusState{
 		Data: ethConsensusStateBz,
 	}
@@ -322,7 +313,7 @@ func (s *TestSuite) createUnionLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 
-	rustFixtureGenerator.AddFixtureStep("initial_state", types.InitialStateFixture{
+	rustFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
 		ClientState:    ethClientState,
 		ConsensusState: ethConsensusState,
 	})
@@ -344,7 +335,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.Require().NoError(err)
 	latestHeight := clienttypes.Height{
 		RevisionNumber: 0,
-		RevisionHeight: uint64(ethHeight),
+		RevisionHeight: ethHeight,
 	}
 	s.Require().NoError(err)
 	clientState := ibcwasmtypes.ClientState{
@@ -371,14 +362,4 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
-}
-
-func logHeader(prefix string, header ethereumligthclient.Header) {
-	fmt.Printf("%s: header height: %d, trusted height: %d, signature slot: %d, finalized slot: %d, finalized execution block: %d\n",
-		prefix,
-		header.ConsensusUpdate.AttestedHeader.Beacon.Slot,
-		header.TrustedSyncCommittee.TrustedHeight.RevisionHeight,
-		header.ConsensusUpdate.SignatureSlot,
-		header.ConsensusUpdate.FinalizedHeader.Beacon.Slot,
-		header.ConsensusUpdate.FinalizedHeader.Execution.BlockNumber)
 }

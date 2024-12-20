@@ -20,7 +20,7 @@ require (
 	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/ethereum/go-ethereum v1.14.12
-	github.com/kurtosis-tech/kurtosis/api/golang v1.4.2
+	github.com/kurtosis-tech/kurtosis/api/golang v1.4.3
 	github.com/rs/zerolog v1.33.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0

@@ -8,7 +8,6 @@ license    = { workspace = true }
 [dependencies]
 anyhow                           = { workspace = true, features = ["std"] }
 async-trait                      = { workspace = true }
-serde                            = { workspace = true }
 prost                            = { workspace = true }
 cosmos-sdk-proto                 = { workspace = true }
 tendermint-rpc                   = { workspace = true }

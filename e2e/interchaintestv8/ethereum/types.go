@@ -1,14 +1,11 @@
 package ethereum
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
-
-	ethereumlightclient "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereumlightclient"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
 type Spec struct {
@@ -77,25 +74,8 @@ type ExecutionJSON struct {
 }
 
 type FinalityUpdateJSONResponse struct {
-	Version string `json:"version"`
-	Data    struct {
-		AttestedHeader struct {
-			Beacon          BeaconJSON    `json:"beacon"`
-			Execution       ExecutionJSON `json:"execution"`
-			ExecutionBranch []string      `json:"execution_branch"`
-		} `json:"attested_header"`
-		FinalizedHeader struct {
-			Beacon          BeaconJSON    `json:"beacon"`
-			Execution       ExecutionJSON `json:"execution"`
-			ExecutionBranch []string      `json:"execution_branch"`
-		} `json:"finalized_header"`
-		FinalityBranch []string `json:"finality_branch"`
-		SyncAggregate  struct {
-			SyncCommitteeBits      string `json:"sync_committee_bits"`
-			SyncCommitteeSignature string `json:"sync_committee_signature"`
-		} `json:"sync_aggregate"`
-		SignatureSlot uint64 `json:"signature_slot,string"`
-	} `json:"data"`
+	Version string                          `json:"version"`
+	Data    ethereumtypes.LightClientUpdate `json:"data"`
 }
 
 type BeaconBlocksResponseJSON struct {
@@ -152,155 +132,5 @@ type BeaconBlocksResponseJSON struct {
 }
 
 type LightClientUpdateJSON struct {
-	Data struct {
-		AttestedHeader struct {
-			Beacon          BeaconJSON    `json:"beacon"`
-			Execution       ExecutionJSON `json:"execution"`
-			ExecutionBranch []string      `json:"execution_branch"`
-		} `json:"attested_header"`
-		NextSyncCommittee       SyncCommittee `json:"next_sync_committee"`
-		NextSyncCommitteeBranch []string      `json:"next_sync_committee_branch"`
-		FinalizedHeader         struct {
-			Beacon          BeaconJSON    `json:"beacon"`
-			Execution       ExecutionJSON `json:"execution"`
-			ExecutionBranch []string      `json:"execution_branch"`
-		} `json:"finalized_header"`
-		FinalityBranch []string `json:"finality_branch"`
-		SyncAggregate  struct {
-			SyncCommitteeBits      string `json:"sync_committee_bits"`
-			SyncCommitteeSignature string `json:"sync_committee_signature"`
-		} `json:"sync_aggregate"`
-		SignatureSlot uint64 `json:"signature_slot,string"`
-	} `json:"data"`
-}
-
-func (l LightClientUpdateJSON) ToLightClientUpdate() ethereumlightclient.LightClientUpdate {
-	attestedHeaderBeacon := l.Data.AttestedHeader.Beacon.ToBeaconBlockHeader()
-	attestedHeaderExecution := l.Data.AttestedHeader.Execution.ToExecutionPayloadHeader()
-	var attestedheaderExecutionBranch [][]byte
-	for _, branch := range l.Data.AttestedHeader.ExecutionBranch {
-		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.FromHex(branch))
-	}
-
-	var nextSyncCommitteePubkeys [][]byte
-	for _, pubkey := range l.Data.NextSyncCommittee.Pubkeys {
-		nextSyncCommitteePubkeys = append(nextSyncCommitteePubkeys, ethcommon.FromHex(pubkey))
-	}
-	nextSyncCommitteeAggregatePubkey := ethcommon.FromHex(l.Data.NextSyncCommittee.AggregatePubkey)
-
-	finalizedHeaderBeacon := l.Data.FinalizedHeader.Beacon.ToBeaconBlockHeader()
-	finalizedHeaderExecution := l.Data.FinalizedHeader.Execution.ToExecutionPayloadHeader()
-
-	var nextSyncCommitteeBranch [][]byte
-	for _, branch := range l.Data.NextSyncCommitteeBranch {
-		nextSyncCommitteeBranch = append(nextSyncCommitteeBranch, ethcommon.FromHex(branch))
-	}
-
-	var finalityBranch [][]byte
-	for _, branch := range l.Data.FinalityBranch {
-		finalityBranch = append(finalityBranch, ethcommon.FromHex(branch))
-	}
-
-	var finalizedHeaderExecutionBranch [][]byte
-	for _, branch := range l.Data.FinalizedHeader.ExecutionBranch {
-		finalizedHeaderExecutionBranch = append(finalizedHeaderExecutionBranch, ethcommon.FromHex(branch))
-	}
-
-	return ethereumlightclient.LightClientUpdate{
-		AttestedHeader: &ethereumlightclient.LightClientHeader{
-			Beacon:          &attestedHeaderBeacon,
-			Execution:       &attestedHeaderExecution,
-			ExecutionBranch: attestedheaderExecutionBranch,
-		},
-		NextSyncCommittee: &ethereumlightclient.SyncCommittee{
-			Pubkeys:         nextSyncCommitteePubkeys,
-			AggregatePubkey: nextSyncCommitteeAggregatePubkey,
-		},
-		NextSyncCommitteeBranch: nextSyncCommitteeBranch,
-		FinalizedHeader: &ethereumlightclient.LightClientHeader{
-			Beacon:          &finalizedHeaderBeacon,
-			Execution:       &finalizedHeaderExecution,
-			ExecutionBranch: finalizedHeaderExecutionBranch,
-		},
-		FinalityBranch: finalityBranch,
-		SyncAggregate: &ethereumlightclient.SyncAggregate{
-			SyncCommitteeBits:      ethcommon.FromHex(l.Data.SyncAggregate.SyncCommitteeBits),
-			SyncCommitteeSignature: ethcommon.FromHex(l.Data.SyncAggregate.SyncCommitteeSignature),
-		},
-		SignatureSlot: l.Data.SignatureSlot,
-	}
-}
-
-func (b BeaconJSON) ToBeaconBlockHeader() ethereumlightclient.BeaconBlockHeader {
-	return ethereumlightclient.BeaconBlockHeader{
-		Slot:          b.Slot,
-		ProposerIndex: b.ProposerIndex,
-		ParentRoot:    HexToBeBytes(b.ParentRoot),
-		StateRoot:     HexToBeBytes(b.StateRoot),
-		BodyRoot:      HexToBeBytes(b.BodyRoot),
-	}
-}
-
-func (e ExecutionJSON) ToExecutionPayloadHeader() ethereumlightclient.ExecutionPayloadHeader {
-	baseFeePerGasBE := BigIntToBeBytes(big.NewInt(int64(e.BaseFeePerGas)))
-
-	return ethereumlightclient.ExecutionPayloadHeader{
-		ParentHash:       ethcommon.FromHex(e.ParentHash),
-		FeeRecipient:     ethcommon.FromHex(e.FeeRecipient),
-		StateRoot:        HexToBeBytes(e.StateRoot),
-		ReceiptsRoot:     ethcommon.FromHex(e.ReceiptsRoot),
-		LogsBloom:        ethcommon.FromHex(e.LogsBloom),
-		PrevRandao:       ethcommon.FromHex(e.PrevRandao),
-		BlockNumber:      e.BlockNumber,
-		GasLimit:         e.GasLimit,
-		GasUsed:          e.GasUsed,
-		Timestamp:        e.Timestamp,
-		ExtraData:        ethcommon.FromHex(e.ExtraData),
-		BaseFeePerGas:    baseFeePerGasBE[:],
-		BlockHash:        ethcommon.FromHex(e.BlockHash),
-		TransactionsRoot: ethcommon.FromHex(e.TransactionsRoot),
-		WithdrawalsRoot:  ethcommon.FromHex(e.WithdrawalsRoot),
-		BlobGasUsed:      e.BlobGasUsed,
-		ExcessBlobGas:    e.ExcessBlobGas,
-	}
-}
-
-func (f *FinalityUpdateJSONResponse) ToLightClientUpdate() ethereumlightclient.LightClientUpdate {
-	attestedHeaderBeacon := f.Data.AttestedHeader.Beacon.ToBeaconBlockHeader()
-	attestedHeaderExecution := f.Data.AttestedHeader.Execution.ToExecutionPayloadHeader()
-	var attestedheaderExecutionBranch [][]byte
-	for _, branch := range f.Data.AttestedHeader.ExecutionBranch {
-		attestedheaderExecutionBranch = append(attestedheaderExecutionBranch, ethcommon.FromHex(branch))
-	}
-
-	finalizedHeaderBeacon := f.Data.FinalizedHeader.Beacon.ToBeaconBlockHeader()
-	finalizedHeaderExecution := f.Data.FinalizedHeader.Execution.ToExecutionPayloadHeader()
-	var finalizedheaderExecutionBranch [][]byte
-	for _, branch := range f.Data.FinalizedHeader.ExecutionBranch {
-		finalizedheaderExecutionBranch = append(finalizedheaderExecutionBranch, ethcommon.FromHex(branch))
-	}
-
-	var finalityBranch [][]byte
-	for _, branch := range f.Data.FinalityBranch {
-		finalityBranch = append(finalityBranch, ethcommon.FromHex(branch))
-	}
-
-	return ethereumlightclient.LightClientUpdate{
-		AttestedHeader: &ethereumlightclient.LightClientHeader{
-			Beacon:          &attestedHeaderBeacon,
-			Execution:       &attestedHeaderExecution,
-			ExecutionBranch: attestedheaderExecutionBranch,
-		},
-		FinalizedHeader: &ethereumlightclient.LightClientHeader{
-			Beacon:          &finalizedHeaderBeacon,
-			Execution:       &finalizedHeaderExecution,
-			ExecutionBranch: finalizedheaderExecutionBranch,
-		},
-		FinalityBranch: finalityBranch,
-		SyncAggregate: &ethereumlightclient.SyncAggregate{
-			SyncCommitteeBits:      ethcommon.FromHex(f.Data.SyncAggregate.SyncCommitteeBits),
-			SyncCommitteeSignature: ethcommon.FromHex(f.Data.SyncAggregate.SyncCommitteeSignature),
-		},
-		SignatureSlot: f.Data.SignatureSlot,
-	}
+	Data ethereumtypes.LightClientUpdate `json:"data"`
 }

@@ -1,4 +1,5 @@
 //! The messages that are passed between the contract and the ibc-go module
+#![allow(clippy::module_name_repetitions)]
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
@@ -25,7 +26,6 @@ pub enum SudoMsg {
     VerifyMembership(VerifyMembershipMsg),
     /// The message to verify non-membership
     VerifyNonMembership(VerifyNonMembershipMsg),
-
     /// The message to update the client state
     UpdateState(UpdateStateMsg),
     /// The message to update the client state on misbehaviour

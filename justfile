@@ -23,8 +23,11 @@ build-sp1-programs:
   cd programs/sp1-programs/misbehaviour && ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf
   @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
 
-build-optimized-wasm:
+# Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
+	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
+	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Clean up the cache and out directories
 clean:
@@ -80,6 +83,16 @@ generate-abi: build-contracts
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
 	abigen --abi abi/ICS20Lib.json --pkg ics20lib --type Lib --out abigen/ics20lib/lib.go
 
+# Generate go types for the e2e tests from the etheruem light client code
+generate-ethereum-types:
+	cargo run --bin generate_json_schema --features test-utils
+	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go --top-level GeneratedTypes
+	rm ethereum_types_schema.json
+	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go # quicktype generates int64 instead of uint64 :(
+	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak # this is to be linux and mac compatible (coming from the sed command)
+	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
+
+# Run the e2e tests
 # Run any e2e test in the interchaintestv8 test suite using the test's full name
 # For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
 test-e2e testname: clean
@@ -176,13 +189,15 @@ generate-fixtures-sp1-ics07: build-operator
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
-protoImageName := "ghcr.io/cosmos/proto-builder:0.14.0"
-DOCKER := `which docker`
-
-# Generate the union proto files
-union-proto-gen:
-    @echo "Generating Protobuf files"
-    {{DOCKER}} run --rm -v {{`pwd`}}:/workspace --workdir /workspace {{protoImageName}} ./e2e/interchaintestv8/proto/protocgen.sh
+# Generate the fixtures for the Rust tests using the e2e tests
+generate-fixtures-rust: clean
+	@echo "Generating fixtures... This may take a while."
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	@echo "Generating timeoutPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
 
 # Generate the relayer proto files
 relayer-proto-gen:
