@@ -54,35 +54,32 @@ contract IntegrationTest is Test {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy Transparent Proxies ==============
-        bytes memory coreInitData = abi.encodeWithSelector(
-            ICSCore.initialize.selector,
-            address(this)
-        );
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
             address(icsCoreLogic),
             address(this),
-            coreInitData
+            abi.encodeWithSelector(
+                ICSCore.initialize.selector,
+                address(this)
+            )
         );
 
-        bytes memory routerInitData = abi.encodeWithSelector(
-            ICS26Router.initialize.selector,
-            address(this),
-            address(coreProxy)
-        );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
-            routerInitData
+            abi.encodeWithSelector(
+                ICS26Router.initialize.selector,
+                address(this),
+                address(coreProxy)
+            )
         );
 
-        bytes memory transferInitData = abi.encodeWithSelector(
-            ICS20Transfer.initialize.selector,
-            address(routerProxy)
-        );
         TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
             address(ics20TransferLogic),
             address(this),
-            transferInitData
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector,
+                address(routerProxy)
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============

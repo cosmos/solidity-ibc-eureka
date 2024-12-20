@@ -10,6 +10,7 @@ import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ICSCoreTest is Test {
     ICSCore public icsCore;
@@ -21,8 +22,18 @@ contract ICSCoreTest is Test {
     string public clientIdentifier;
 
     function setUp() public {
+        ICSCore icsCoreLogic = new ICSCore();
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        icsCore = new ICSCore(address(this));
+
+        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+            address(icsCoreLogic),
+            address(this),
+            abi.encodeWithSelector(
+                ICSCore.initialize.selector,
+                address(this)
+            )
+        );
+        icsCore = ICSCore(address(coreProxy));
 
         string memory counterpartyId = "42-dummy-01";
         IICS04ChannelMsgs.Channel memory channel = IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix);
