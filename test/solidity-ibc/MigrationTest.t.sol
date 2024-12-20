@@ -11,7 +11,8 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { DummyInitializable } from "./mocks/DummyInitializable.sol";
+import { TransparentUpgradeableProxy, ITransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract MigrationTest is Test {
     DummyLightClient public lightClient;
@@ -61,5 +62,18 @@ contract MigrationTest is Test {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+    }
+
+    function test_success_upgrade() public {
+        string memory testValue = "hello";
+        // ============== Step 4: Migrate the contracts ==============
+        DummyInitializable newLogic = new DummyInitializable();
+
+        ITransparentUpgradeableProxy(address(ics20Transfer)).upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initialize.selector, testValue));
+
+        // ============== Step 5: Verify the migration ==============
+        // assertEq(address(this), ics26Router.getCoreAddress());
+        // assertEq(address(this), ics20Transfer.getRouterAddress());
+        // assertEq(address(this), ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID));
     }
 }
