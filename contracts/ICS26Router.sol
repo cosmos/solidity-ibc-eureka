@@ -34,7 +34,6 @@ contract ICS26Router is Initializable, IICS26Router, IICS26RouterErrors, Ownable
     /// @dev Supposed to be immutable, but we need to set it in the initializer
     address private ICS_CORE;
 
-    /// @notice Constructor for the ICS26Router contract
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
         _disableInitializers();
@@ -42,10 +41,10 @@ contract ICS26Router is Initializable, IICS26Router, IICS26RouterErrors, Ownable
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param _owner The owner of the contract
+    /// @param owner_ The owner of the contract
     /// @param icsCore The address of the ICSCore contract
-    function initialize(address _owner, address icsCore) initializer public {
-        _transferOwnership(_owner);
+    function initialize(address owner_, address icsCore) initializer public {
+        _transferOwnership(owner_);
         ICS_CORE = icsCore; // using the same owner
         IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
     }

@@ -10,6 +10,7 @@ import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
+import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
@@ -23,15 +24,24 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
-contract ICS20Transfer is IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
+contract ICS20Transfer is Initializable, IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
     /// @notice The escrow contract address
-    IEscrow private immutable ESCROW;
+    /// @dev Supposed to be immutable, but we need to set it in the initializer
+    IEscrow private ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
 
-    /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) {
+    /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    constructor() Ownable(address(0xdead)) {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param ics26Router The ICS26Router contract address
+    function initialize(address ics26Router) initializer public {
         ESCROW = new Escrow(address(this));
+        _transferOwnership(ics26Router);
     }
 
     /// @inheritdoc IICS20Transfer
