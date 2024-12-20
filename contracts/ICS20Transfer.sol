@@ -35,6 +35,7 @@ contract ICS20Transfer is
 {
     /// @notice The escrow contract address
     /// @dev Supposed to be immutable, but we need to set it in the initializer
+    // solhint-disable-next-line var-name-mixedcase
     IEscrow private ESCROW;
     /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
     mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
