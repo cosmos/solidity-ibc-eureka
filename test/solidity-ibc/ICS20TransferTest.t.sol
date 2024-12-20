@@ -16,6 +16,7 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -34,7 +35,18 @@ contract ICS20TransferTest is Test {
     bytes public data;
 
     function setUp() public {
-        ics20Transfer = new ICS20Transfer(address(this));
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+            address(ics20TransferLogic),
+            address(this),
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector,
+                address(this)
+            )
+        );
+
+        ics20Transfer = ICS20Transfer(address(transferProxy));
         erc20 = new TestERC20();
 
         sender = makeAddr("sender");
