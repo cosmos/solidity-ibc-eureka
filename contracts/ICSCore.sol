@@ -10,7 +10,7 @@ import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
-contract ICSCore is Initializable, IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializable, Ownable {
     /// @dev channelId => channel
     mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract

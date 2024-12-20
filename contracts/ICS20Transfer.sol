@@ -25,10 +25,10 @@ using SafeERC20 for IERC20;
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
 contract ICS20Transfer is
-    Initializable,
     IIBCApp,
     IICS20Transfer,
     IICS20Errors,
+    Initializable,
     Ownable,
     ReentrancyGuardTransient,
     Multicall

@@ -24,9 +24,9 @@ import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
-    Initializable,
     IICS26Router,
     IICS26RouterErrors,
+    Initializable,
     Ownable,
     ReentrancyGuardTransient,
     Multicall
