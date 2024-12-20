@@ -14,6 +14,7 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIBCStore } from "../../contracts/interfaces/IIBCStore.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
@@ -21,6 +22,7 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract IntegrationTest is Test {
     ICS26Router public ics26Router;
@@ -45,9 +47,47 @@ contract IntegrationTest is Test {
     ICS20Lib.FungibleTokenPacketData public expectedDefaultSendPacketData;
 
     function setUp() public {
-        ics26Router = new ICS26Router(address(this));
+        // ============ Step 1: Deploy the logic contracts ==============
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ICSCore icsCoreLogic = new ICSCore();
+        ICS26Router ics26RouterLogic = new ICS26Router();
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        // ============== Step 2: Deploy Transparent Proxies ==============
+        bytes memory coreInitData = abi.encodeWithSelector(
+            ICSCore.initialize.selector,
+            address(this)
+        );
+        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+            address(icsCoreLogic),
+            address(this),
+            coreInitData
+        );
+
+        bytes memory routerInitData = abi.encodeWithSelector(
+            ICS26Router.initialize.selector,
+            address(this),
+            address(coreProxy)
+        );
+        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+            address(ics26RouterLogic),
+            address(this),
+            routerInitData
+        );
+
+        bytes memory transferInitData = abi.encodeWithSelector(
+            ICS20Transfer.initialize.selector,
+            address(routerProxy)
+        );
+        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+            address(ics20TransferLogic),
+            address(this),
+            transferInitData
+        );
+
+        // ============== Step 3: Wire up the contracts ==============
+        ics26Router = ICS26Router(address(routerProxy));
+        ics20Transfer = ICS20Transfer(address(transferProxy));
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
