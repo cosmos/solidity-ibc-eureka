@@ -8,8 +8,9 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
-contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
+contract ICSCore is Initializable, IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @dev channelId => channel
     mapping(string channelId => Channel channel) private channels;
     /// @dev clientId => light client contract
@@ -17,8 +18,17 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Ownable {
     /// @dev clientType => nextClientSeq
     mapping(string clientType => uint32 nextClientSeq) private nextClientSeq;
 
-    /// @param owner_ The owner of the contract
-    constructor(address owner_) Ownable(owner_) { }
+    /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    constructor() Ownable(address(0xdead)) {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param _owner The owner of the contract
+    function initialize(address _owner) initializer public {
+        _transferOwnership(_owner);
+    }
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
