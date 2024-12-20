@@ -26,12 +26,7 @@ contract ICSCoreTest is Test {
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic),
-            address(this),
-            abi.encodeWithSelector(
-                ICSCore.initialize.selector,
-                address(this)
-            )
+            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
         );
         icsCore = ICSCore(address(coreProxy));
 

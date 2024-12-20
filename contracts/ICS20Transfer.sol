@@ -24,7 +24,15 @@ using SafeERC20 for IERC20;
  * - Separate escrow balance tracking
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
-contract ICS20Transfer is Initializable, IIBCApp, IICS20Transfer, IICS20Errors, Ownable, ReentrancyGuardTransient, Multicall {
+contract ICS20Transfer is
+    Initializable,
+    IIBCApp,
+    IICS20Transfer,
+    IICS20Errors,
+    Ownable,
+    ReentrancyGuardTransient,
+    Multicall
+{
     /// @notice The escrow contract address
     /// @dev Supposed to be immutable, but we need to set it in the initializer
     IEscrow private ESCROW;
@@ -39,7 +47,7 @@ contract ICS20Transfer is Initializable, IIBCApp, IICS20Transfer, IICS20Errors, 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
-    function initialize(address ics26Router) initializer public {
+    function initialize(address ics26Router) public initializer {
         ESCROW = new Escrow(address(this));
         _transferOwnership(ics26Router);
     }

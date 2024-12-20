@@ -27,21 +27,12 @@ contract ICS26RouterTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic),
-            address(this),
-            abi.encodeWithSelector(
-                ICSCore.initialize.selector,
-                address(this)
-            )
+            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
         );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
-            abi.encodeWithSelector(
-                ICS26Router.initialize.selector,
-                address(this),
-                address(coreProxy)
-            )
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
         );
 
         ics26Router = ICS26Router(address(routerProxy));
@@ -79,10 +70,7 @@ contract ICS26RouterTest is Test {
         TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
             address(ics20TransferLogic),
             address(this),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(ics26Router)
-            )
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));

@@ -23,7 +23,14 @@ import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is Initializable, IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
+contract ICS26Router is
+    Initializable,
+    IICS26Router,
+    IICS26RouterErrors,
+    Ownable,
+    ReentrancyGuardTransient,
+    Multicall
+{
     /// @dev portId => IBC Application contract
     mapping(string portId => IIBCApp app) private apps;
 
@@ -43,7 +50,7 @@ contract ICS26Router is Initializable, IICS26Router, IICS26RouterErrors, Ownable
     /// @dev Meant to be called only once from the proxy
     /// @param owner_ The owner of the contract
     /// @param icsCore The address of the ICSCore contract
-    function initialize(address owner_, address icsCore) initializer public {
+    function initialize(address owner_, address icsCore) public initializer {
         _transferOwnership(owner_);
         ICS_CORE = icsCore; // using the same owner
         IBC_STORE = new IBCStore(address(this)); // using this contract as the owner

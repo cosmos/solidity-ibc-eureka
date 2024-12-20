@@ -55,31 +55,19 @@ contract IntegrationTest is Test {
 
         // ============== Step 2: Deploy Transparent Proxies ==============
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic),
-            address(this),
-            abi.encodeWithSelector(
-                ICSCore.initialize.selector,
-                address(this)
-            )
+            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
         );
 
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
-            abi.encodeWithSelector(
-                ICS26Router.initialize.selector,
-                address(this),
-                address(coreProxy)
-            )
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
         );
 
         TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
             address(ics20TransferLogic),
             address(this),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(routerProxy)
-            )
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
         );
 
         // ============== Step 3: Wire up the contracts ==============

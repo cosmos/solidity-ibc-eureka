@@ -26,7 +26,7 @@ contract ICSCore is Initializable, IICS02Client, IICS04Channel, IICS02ClientErro
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param owner_ The owner of the contract
-    function initialize(address owner_) initializer public {
+    function initialize(address owner_) public initializer {
         _transferOwnership(owner_);
     }
 
