@@ -12,10 +12,12 @@ import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { ICSCore } from "../contracts/ICSCore.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -33,13 +35,14 @@ contract E2ETestDeploy is Script {
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
     function run() public returns (string memory) {
-        // Read the initialization parameters for the SP1 Tendermint contract.
+        // ============ Step 1: Load parameters ==============
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
             abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
 
         string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
 
+        // ============ Step 2: Deploy the contracts ==============
         vm.startBroadcast();
 
         // Deploy the SP1 ICS07 Tendermint light client
@@ -52,9 +55,41 @@ contract E2ETestDeploy is Script {
             keccak256(abi.encode(trustedConsensusState))
         );
 
-        // Deploy IBC Eureka
-        ICS26Router ics26Router = new ICS26Router(msg.sender);
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        // Deploy IBC Eureka with proxy
+        ICSCore icsCoreLogic = new ICSCore();
+        ICS26Router ics26RouterLogic = new ICS26Router();
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+            address(icsCoreLogic),
+            address(this),
+            abi.encodeWithSelector(
+                ICSCore.initialize.selector,
+                msg.sender
+            )
+        );
+
+        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+            address(ics26RouterLogic),
+            address(this),
+            abi.encodeWithSelector(
+                ICS26Router.initialize.selector,
+                msg.sender,
+                address(coreProxy)
+            )
+        );
+
+        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+            address(ics20TransferLogic),
+            address(this),
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector,
+                address(routerProxy)
+            )
+        );
+
+        ICS26Router ics26Router = ICS26Router(address(routerProxy));
+        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         TestERC20 erc20 = new TestERC20();
 
         // Wire Transfer app
