@@ -3,7 +3,8 @@
 
 pub mod cosmos_to_cosmos;
 #[cfg(feature = "sp1-toolchain")]
-pub mod eth_eureka;
+pub mod cosmos_to_eth;
+pub mod eth_to_cosmos;
 mod r#trait;
 
 #[allow(clippy::module_name_repetitions)]

@@ -5,6 +5,8 @@ use clap::{command, Parser};
 /// The command line interface for the relayer.
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
+#[command(version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_HASH"),
+  ")"))]
 pub struct RelayerCli {
     /// The subcommand to run.
     #[command(subcommand)]

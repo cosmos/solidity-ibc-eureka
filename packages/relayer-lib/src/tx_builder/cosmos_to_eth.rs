@@ -23,9 +23,7 @@ use tendermint_rpc::HttpClient;
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEvent,
-    utils::eth_eureka::{
-        inject_sp1_proof, src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs,
-    },
+    utils::eth_eureka::{self, inject_sp1_proof},
 };
 
 use super::r#trait::TxBuilderService;
@@ -112,11 +110,19 @@ where
             revisionHeight: revision_height,
         };
 
-        let timeout_msgs =
-            target_events_to_timeout_msgs(dest_events, &target_channel_id, &latest_height, now);
+        let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
+            dest_events,
+            &target_channel_id,
+            &latest_height,
+            now,
+        );
 
-        let recv_and_ack_msgs =
-            src_events_to_recv_and_ack_msgs(src_events, &target_channel_id, &latest_height, now);
+        let recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &target_channel_id,
+            &latest_height,
+            now,
+        );
 
         let mut all_msgs = timeout_msgs
             .into_iter()

@@ -8,7 +8,7 @@ use ibc_proto_eureka::{
     ibc::{
         core::{
             channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
-            client::v1::MsgUpdateClient,
+            client::v1::{Height, MsgUpdateClient},
         },
         lightclients::tendermint::v1::ClientState,
     },
@@ -20,7 +20,7 @@ use tendermint_rpc::{Client, HttpClient};
 use crate::{
     chain::CosmosSdk,
     events::EurekaEvent,
-    utils::cosmos::{src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs},
+    utils::cosmos::{self},
 };
 
 use super::r#trait::TxBuilderService;
@@ -90,29 +90,43 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )?;
 
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
-        let target_height = target_light_block.height().value().try_into()?;
+        let revision_height = target_light_block.height().value();
         let revision_number = client_state
             .latest_height
             .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
             .revision_number;
 
-        let timeout_msgs = target_events_to_timeout_msgs(
-            target_events,
-            &self.source_tm_client,
-            &target_channel_id,
+        let target_height = Height {
             revision_number,
-            target_height,
-            &self.signer_address,
-        )
-        .await?;
+            revision_height,
+        };
 
-        let (recv_msgs, ack_msgs) = src_events_to_recv_and_ack_msgs(
-            src_events,
-            &self.source_tm_client,
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            target_events,
             &target_channel_id,
-            revision_number,
-            target_height,
+            &target_height,
             &self.signer_address,
+            now,
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        cosmos::inject_tendermint_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut timeout_msgs,
+            &self.source_tm_client,
+            &target_height,
         )
         .await?;
 

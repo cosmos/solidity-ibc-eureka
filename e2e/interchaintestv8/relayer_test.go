@@ -248,7 +248,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 
 		// Wait for the tx to be mined
 		receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
 		/* Commenting out this part for now, once the test with removed event work we can update it
 		s.True(s.Run("Verify balances on Ethereum", func() {
