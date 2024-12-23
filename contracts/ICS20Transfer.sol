@@ -64,7 +64,7 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function escrow() public view returns (address) {
-        return address(_getICS20TransferStorage().escrow);
+        return address(_getEscrow());
     }
 
     /// @inheritdoc IICS20Transfer
