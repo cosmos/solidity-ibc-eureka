@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
@@ -13,6 +14,9 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable } from "./mocks/DummyInitializable.sol";
 import { TransparentUpgradeableProxy, ITransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ProxyAdmin } from "@openzeppelin/proxy/transparent/ProxyAdmin.sol";
+import { IERC1967 } from "@openzeppelin/interfaces/IERC1967.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 
 contract MigrationTest is Test {
     DummyLightClient public lightClient;
@@ -20,6 +24,7 @@ contract MigrationTest is Test {
     ICS20Transfer public ics20Transfer;
     TestERC20 public erc20;
     string public clientIdentifier;
+    ProxyAdmin public transferProxyAdmin;
 
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
@@ -32,6 +37,8 @@ contract MigrationTest is Test {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy Transparent Proxies ==============
+        vm.recordLogs();
+
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
             address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
         );
@@ -47,6 +54,8 @@ contract MigrationTest is Test {
             address(this),
             abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
         );
+
+        transferProxyAdmin = ProxyAdmin(_getAdminFromLogs(vm.getRecordedLogs(), address(transferProxy)));
 
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
@@ -65,15 +74,19 @@ contract MigrationTest is Test {
     }
 
     function test_success_upgrade() public {
-        string memory testValue = "hello";
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        ITransparentUpgradeableProxy(address(ics20Transfer)).upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initialize.selector, testValue));
+        transferProxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(ics20Transfer)), address(newLogic), abi.encodeWithSelector(DummyInitializable.initialize.selector));
+    }
 
-        // ============== Step 5: Verify the migration ==============
-        // assertEq(address(this), ics26Router.getCoreAddress());
-        // assertEq(address(this), ics20Transfer.getRouterAddress());
-        // assertEq(address(this), ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID));
+    function _getAdminFromLogs(VmSafe.Log[] memory logs, address emitter) internal pure returns (address) {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == emitter && logs[i].topics[0] == IERC1967.AdminChanged.selector) {
+                (, address newAdmin) = abi.decode(logs[i].data, (address, address));
+                return newAdmin;
+            }
+        }
+        revert("Admin not found");
     }
 }

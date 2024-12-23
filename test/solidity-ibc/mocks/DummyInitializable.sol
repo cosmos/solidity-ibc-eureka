@@ -6,8 +6,7 @@ import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 contract DummyInitializable is Initializable {
     string public value;
 
-    function initialize(string calldata _value) public reinitializer(2) {
-        value = _value;
+    function initialize() public reinitializer(2) {
     }
 }
 
