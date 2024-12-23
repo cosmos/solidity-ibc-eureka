@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
@@ -19,6 +20,7 @@ import {
 import { ProxyAdmin } from "@openzeppelin/proxy/transparent/ProxyAdmin.sol";
 import { IERC1967 } from "@openzeppelin/interfaces/IERC1967.sol";
 import { VmSafe } from "forge-std/Vm.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 
 contract MigrationTest is Test {
     DummyLightClient public lightClient;
@@ -84,6 +86,10 @@ contract MigrationTest is Test {
             address(newLogic),
             abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
+
+        bytes32 slot = keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICSCore")) - 1)) & ~bytes32(uint256(0xff));
+
+        console.log("lol", Strings.toHexString(uint256(slot)));
     }
 
     function test_failure_upgrade() public {
