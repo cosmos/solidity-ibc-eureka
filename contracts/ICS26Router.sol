@@ -30,7 +30,6 @@ contract ICS26Router is
     ReentrancyGuardTransient,
     Multicall
 {
-
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -46,7 +45,8 @@ contract ICS26Router is
 
     /// @notice ERC-7201 slot for the ICS26Router storage
     /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICS26ROUTER_STORAGE_SLOT = 0xfe3fdec88e4c48b34bf06b700cefd11fbe5d40f4bdc480a03eaef10cb7f3f800;
+    bytes32 private constant ICS26ROUTER_STORAGE_SLOT =
+        0xfe3fdec88e4c48b34bf06b700cefd11fbe5d40f4bdc480a03eaef10cb7f3f800;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {

@@ -11,7 +11,6 @@ import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
 contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializable, Ownable {
-
     /// @notice Storage of the ICSCore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.

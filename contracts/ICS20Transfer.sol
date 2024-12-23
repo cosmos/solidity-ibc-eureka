@@ -33,7 +33,6 @@ contract ICS20Transfer is
     ReentrancyGuardTransient,
     Multicall
 {
-
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -47,7 +46,8 @@ contract ICS20Transfer is
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
     /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS20Transfer")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICS20TRANSFER_STORAGE_SLOT = 0x3976c57dbbc8c99cc1b6dfcbe9e8eaca34d25dd5bd61ff189e8ec925f137f300;
+    bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
+        0x3976c57dbbc8c99cc1b6dfcbe9e8eaca34d25dd5bd61ff189e8ec925f137f300;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
