@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable no-empty-blocks
+
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
 contract DummyInitializable is Initializable {
