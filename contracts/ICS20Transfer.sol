@@ -33,12 +33,21 @@ contract ICS20Transfer is
     ReentrancyGuardTransient,
     Multicall
 {
-    /// @notice The escrow contract address
-    /// @dev Supposed to be immutable, but we need to set it in the initializer
-    // solhint-disable-next-line var-name-mixedcase
-    IEscrow private ESCROW;
-    /// @notice Mapping of non-native denoms to their respective IBCERC20 contracts created here
-    mapping(string denom => IBCERC20 ibcERC20Contract) private _ibcDenomContracts;
+
+    /// @notice Storage of the ICS20Transfer contract
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
+    /// @dev risk of storage collisions when using with upgradeable contracts.
+    /// @param escrow The escrow contract
+    /// @param ibcDenomContracts Mapping of non-native denoms to their respective IBCERC20 contracts
+    /// @custom:storage-location erc7201:cosmos.storage.ICS20Transfer
+    struct ICS20TransferStorage {
+        IEscrow escrow;
+        mapping(string => IBCERC20) ibcDenomContracts;
+    }
+
+    /// @notice ERC-7201 slot for the ICS20Transfer storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS20Transfer")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant ICS20TRANSFER_STORAGE_SLOT = 0x3976c57dbbc8c99cc1b6dfcbe9e8eaca34d25dd5bd61ff189e8ec925f137f300;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
@@ -49,18 +58,18 @@ contract ICS20Transfer is
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
     function initialize(address ics26Router) public initializer {
-        ESCROW = new Escrow(address(this));
+        _getICS20TransferStorage().escrow = new Escrow(address(this));
         _transferOwnership(ics26Router);
     }
 
     /// @inheritdoc IICS20Transfer
-    function escrow() external view override returns (address) {
-        return address(ESCROW);
+    function escrow() public view returns (address) {
+        return address(_getICS20TransferStorage().escrow);
     }
 
     /// @inheritdoc IICS20Transfer
     function ibcERC20Contract(string calldata denom) external view returns (address) {
-        address contractAddress = address(_ibcDenomContracts[denom]);
+        address contractAddress = address(_getICS20TransferStorage().ibcDenomContracts[denom]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
         return contractAddress;
     }
@@ -106,7 +115,7 @@ contract ICS20Transfer is
             getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, address(ESCROW), erc20Address, packetData.amount);
+        _transferFrom(sender, escrow(), erc20Address, packetData.amount);
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
@@ -145,7 +154,7 @@ contract ICS20Transfer is
         }
 
         // transfer the tokens to the receiver
-        ESCROW.send(IERC20(erc20Address), receiver, packetData.amount);
+        _getEscrow().send(IERC20(erc20Address), receiver, packetData.amount);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
@@ -175,7 +184,7 @@ contract ICS20Transfer is
     /// @param erc20Address The address of the ERC20 contract
     function _refundTokens(ICS20Lib.FungibleTokenPacketData memory packetData, address erc20Address) private {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
-        ESCROW.send(IERC20(erc20Address), refundee, packetData.amount);
+        _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -228,7 +237,7 @@ contract ICS20Transfer is
         } else {
             // receiving chain is source of the token, so we've received and mapped this token before
             string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
-            erc20Address = address(_ibcDenomContracts[ibcDenom]);
+            erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
         }
         return (erc20Address, originatorChainIsSource);
@@ -280,16 +289,30 @@ contract ICS20Transfer is
     /// @param base The base denom of the token, used when creating a new IBCERC20 contract
     /// @return The address of the erc20 contract
     function findOrCreateERC20Address(string memory fullDenomPath, string memory base) internal returns (address) {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+
         // check if denom already has a foreign registered contract
         string memory ibcDenom = ICS20Lib.toIBCDenom(fullDenomPath);
-        address erc20Contract = address(_ibcDenomContracts[ibcDenom]);
+        address erc20Contract = address($.ibcDenomContracts[ibcDenom]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(this, ESCROW, ibcDenom, base, fullDenomPath);
-            _ibcDenomContracts[ibcDenom] = ibcERC20;
+            IBCERC20 ibcERC20 = new IBCERC20(this, _getEscrow(), ibcDenom, base, fullDenomPath);
+            $.ibcDenomContracts[ibcDenom] = ibcERC20;
             erc20Contract = address(ibcERC20);
         }
 
         return erc20Contract;
+    }
+
+    /// @notice Returns the storage of the ICS20Transfer contract
+    function _getICS20TransferStorage() private pure returns (ICS20TransferStorage storage $) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            $.slot := ICS20TRANSFER_STORAGE_SLOT
+        }
+    }
+
+    function _getEscrow() private view returns (IEscrow) {
+        return _getICS20TransferStorage().escrow;
     }
 }
