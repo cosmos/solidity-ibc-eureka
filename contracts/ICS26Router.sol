@@ -36,7 +36,7 @@ contract ICS26Router is
     /// @param apps The mapping of port identifiers to IBC application contracts
     /// @param ibcStore The IBC store contract
     /// @param icsCore The ICSCore contract
-    /// @custom:storage-location erc7201:cosmos.storage.ICS26Router
+    /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
         IIBCStore ibcStore;
@@ -44,9 +44,9 @@ contract ICS26Router is
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ICS26ROUTER_STORAGE_SLOT =
-        0xfe3fdec88e4c48b34bf06b700cefd11fbe5d40f4bdc480a03eaef10cb7f3f800;
+        0xc5779f3c2c21083eefa6d04f6a698bc0d8c10db124ad5e0df6ef394b6d7bf600;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {

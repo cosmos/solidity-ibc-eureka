@@ -38,16 +38,16 @@ contract ICS20Transfer is
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param escrow The escrow contract
     /// @param ibcDenomContracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @custom:storage-location erc7201:cosmos.storage.ICS20Transfer
+    /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(string => IBCERC20) ibcDenomContracts;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS20Transfer")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS20Transfer")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
-        0x3976c57dbbc8c99cc1b6dfcbe9e8eaca34d25dd5bd61ff189e8ec925f137f300;
+        0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {

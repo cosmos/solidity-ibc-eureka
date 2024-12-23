@@ -17,7 +17,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     /// @param channels Mapping of client identifiers to channels
     /// @param clients Mapping of client identifiers to light client contracts
     /// @param nextClientSeq Mapping of client types to the next client sequence
-    /// @custom:storage-location erc7201:cosmos.storage.ICSCore
+    /// @custom:storage-location erc7201:ibc.storage.ICSCore
     struct ICSCoreStorage {
         mapping(string clientId => Channel) channels;
         mapping(string clientId => ILightClient) clients;
@@ -25,8 +25,8 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     }
 
     /// @notice ERC-7201 slot for the ICSCore storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICSCore")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICSCORE_STORAGE_SLOT = 0xd77327ff2954bddd826a8a04ad1c6d0923c50f3ddca6ff0b4d10223afaa23000;
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICSCore")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant ICSCORE_STORAGE_SLOT = 0x96c0fa34415d0022ef5b75a694f23f508dd3f8a3506b45247b4c4b205af19a00;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {

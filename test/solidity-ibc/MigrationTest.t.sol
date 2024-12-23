@@ -88,7 +88,7 @@ contract MigrationTest is Test {
         );
 
         bytes32 slot =
-            keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS20Transfer")) - 1)) & ~bytes32(uint256(0xff));
+            keccak256(abi.encode(uint256(keccak256("ibc.storage.ICSCore")) - 1)) & ~bytes32(uint256(0xff));
 
         console.log("lol", Strings.toHexString(uint256(slot)));
     }
