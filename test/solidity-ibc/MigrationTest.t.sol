@@ -12,7 +12,7 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { DummyInitializable } from "./mocks/DummyInitializable.sol";
+import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { TransparentUpgradeableProxy, ITransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { ProxyAdmin } from "@openzeppelin/proxy/transparent/ProxyAdmin.sol";
 import { IERC1967 } from "@openzeppelin/interfaces/IERC1967.sol";
@@ -77,7 +77,15 @@ contract MigrationTest is Test {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        transferProxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(ics20Transfer)), address(newLogic), abi.encodeWithSelector(DummyInitializable.initialize.selector));
+        transferProxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(ics20Transfer)), address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
+    }
+
+    function test_failure_upgrade() public {
+        // ============== Step 4: Migrate the contracts ==============
+        ErroneousInitializable newLogic = new ErroneousInitializable();
+
+        vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
+        transferProxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(address(ics20Transfer)), address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
     }
 
     function _getAdminFromLogs(VmSafe.Log[] memory logs, address emitter) internal pure returns (address) {
