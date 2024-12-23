@@ -31,6 +31,10 @@ type BeaconAPIClient struct {
 	RetryWait time.Duration
 }
 
+func (b BeaconAPIClient) GetBeaconAPIURL() string {
+	return b.url
+}
+
 func (s Spec) ToForkParameters() ethereumtypes.ForkParameters {
 	return ethereumtypes.ForkParameters{
 		GenesisForkVersion: ethcommon.Bytes2Hex(s.GenesisForkVersion[:]),

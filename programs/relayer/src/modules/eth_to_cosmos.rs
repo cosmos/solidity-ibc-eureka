@@ -49,6 +49,8 @@ pub struct EthToCosmosConfig {
     pub tm_rpc_url: String,
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
+    /// The Ethereum Beacon API URL
+    pub eth_beacon_api_url: String,
 }
 
 impl EthToCosmosRelayerModuleServer {

@@ -5,19 +5,20 @@ import (
 	"text/template"
 )
 
-// EthToCosmosConfigInfo is a struct that holds the configuration information for the Ethereum to Cosmos config template
-type EthToCosmosConfigInfo struct {
+type EthCosmosConfigInfo struct {
 	// Tendermint RPC URL
 	TmRPC string
 	// ICS26 Router address
 	ICS26Address string
 	// Ethereum RPC URL
 	EthRPC string
+	// Ethereum Beacon API URL
+	BeaconAPI string
 	// SP1 private key
 	SP1PrivateKey string
 }
 
-func (c *EthToCosmosConfigInfo) GenerateEthToCosmosConfigFile(path string) error {
+func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
 	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/config.tmpl")
 	if err != nil {
 		return err
@@ -33,8 +34,13 @@ func (c *EthToCosmosConfigInfo) GenerateEthToCosmosConfigFile(path string) error
 }
 
 // EthToCosmosGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
-func (c *EthToCosmosConfigInfo) EthToCosmosGRPCAddress() string {
+func (c *EthCosmosConfigInfo) EthToCosmosGRPCAddress() string {
 	return "127.0.0.1:3000"
+}
+
+// CosmosToEthGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
+func (c *EthCosmosConfigInfo) CosmosToEthGRPCAddress() string {
+	return "127.0.0.1:3001"
 }
 
 // CosmosToCosmosConfigInfo is a struct that holds the configuration information for the Cosmos to Cosmos config template

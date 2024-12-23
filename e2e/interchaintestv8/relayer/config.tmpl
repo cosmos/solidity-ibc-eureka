@@ -13,6 +13,16 @@
         "eth_rpc_url": "{{ .EthRPC }}",
         "sp1_private_key": "{{ .SP1PrivateKey }}"
       }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "port": 3001,
+      "config": {
+        "tm_rpc_url": "{{ .TmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "eth_beacon_api_url": "{{ .BeaconAPI }}"
+      }
     }
   ]
 }

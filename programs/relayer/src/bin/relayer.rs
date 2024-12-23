@@ -9,6 +9,7 @@ use solidity_ibc_eureka_relayer::{
     core::builder::RelayerBuilder,
     modules::{
         cosmos_to_cosmos::CosmosToCosmosRelayerModule, cosmos_to_eth::CosmosToEthRelayerModule,
+        eth_to_cosmos::EthToCosmosRelayerModule,
     },
 };
 
@@ -30,6 +31,7 @@ async fn main() -> anyhow::Result<()> {
             let mut relayer_builder = RelayerBuilder::default();
             relayer_builder.add_module(CosmosToEthRelayerModule);
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
+            relayer_builder.add_module(EthToCosmosRelayerModule);
 
             // Start the relayer server.
             relayer_builder.start(config).await?;
