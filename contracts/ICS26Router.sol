@@ -35,16 +35,17 @@ contract ICS26Router is
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param apps The mapping of port identifiers to IBC application contracts
-    /// @param IBC_STORE The IBC store contract
-    /// @param ICS_CORE The ICSCore contract
+    /// @param ibcStore The IBC store contract
+    /// @param icsCore The ICSCore contract
     /// @custom:storage-location erc7201:cosmos.storage.ICS26Router
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
-        IIBCStore IBC_STORE;
-        address ICS_CORE;
+        IIBCStore ibcStore;
+        address icsCore;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
+    /// @notice ERC-7201 slot for the ICS26Router storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("cosmos.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ICS26ROUTER_STORAGE_SLOT = 0xfe3fdec88e4c48b34bf06b700cefd11fbe5d40f4bdc480a03eaef10cb7f3f800;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
@@ -58,26 +59,26 @@ contract ICS26Router is
     /// @param icsCore The address of the ICSCore contract
     function initialize(address owner_, address icsCore) public initializer {
         _transferOwnership(owner_);
-        
+
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        $.ICS_CORE = icsCore; // using the same owner
-        $.IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
+        $.icsCore = icsCore; // using the same owner
+        $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
     }
 
     /// @inheritdoc IICS26Router
     function ICS02_CLIENT() public view returns (IICS02Client) {
-        return IICS02Client(_getICS26RouterStorage().ICS_CORE);
+        return IICS02Client(_getICS26RouterStorage().icsCore);
     }
 
     /// @inheritdoc IICS26Router
     function ICS04_CHANNEL() public view returns (IICS04Channel) {
-        return IICS04Channel(_getICS26RouterStorage().ICS_CORE);
+        return IICS04Channel(_getICS26RouterStorage().icsCore);
     }
 
     /// @inheritdoc IICS26Router
     function IBC_STORE() public view returns (IIBCStore) {
-        return _getICS26RouterStorage().IBC_STORE;
+        return _getICS26RouterStorage().ibcStore;
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
