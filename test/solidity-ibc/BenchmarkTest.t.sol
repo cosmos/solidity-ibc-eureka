@@ -51,7 +51,9 @@ contract BenchmarkTest is FixtureTest {
 
         // Step 2: Cosmos has received the packet and commited an acknowledgement, which we will now prove and process
         (bool success,) = address(ics26Router).call(ackFixture.msg);
-        console.log("Avg (", numPackets ,"packets ) Multicall ack gas used: ", vm.lastCallGas().gasTotalUsed / numPackets);
+        console.log(
+            "Avg (", numPackets, "packets ) Multicall ack gas used: ", vm.lastCallGas().gasTotalUsed / numPackets
+        );
         assertTrue(success);
 
         // ack should be deleted
@@ -64,7 +66,9 @@ contract BenchmarkTest is FixtureTest {
         Fixture memory recvFixture = loadFixture(recvFix);
 
         (success,) = address(ics26Router).call(recvFixture.msg);
-        console.log("Avg (", numPackets, "packets ) Multicall recv gas used: ", vm.lastCallGas().gasTotalUsed / numPackets);
+        console.log(
+            "Avg (", numPackets, "packets ) Multicall recv gas used: ", vm.lastCallGas().gasTotalUsed / numPackets
+        );
         assertTrue(success);
 
         // ack is written
