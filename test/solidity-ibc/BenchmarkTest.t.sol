@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,avoid-low-level-calls
 
+// solhint-disable-next-line no-global-import
+import "forge-std/console.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
@@ -41,12 +43,15 @@ contract BenchmarkTest is FixtureTest {
         Fixture memory ackFixture = loadInitialFixture(ackFix);
 
         // Step 1: Transfer from Ethereum to Cosmos
+        uint64 sendGasUsed = 0;
         for (uint64 i = 0; i < numPackets; i++) {
-            sendTransfer(ackFixture);
+            sendGasUsed += sendTransfer(ackFixture);
         }
+        console.log("Avg (", numPackets, "packets ) Send packet gas used: ", sendGasUsed / numPackets);
 
         // Step 2: Cosmos has received the packet and commited an acknowledgement, which we will now prove and process
         (bool success,) = address(ics26Router).call(ackFixture.msg);
+        console.log("Avg (", numPackets ,"packets ) Multicall ack gas used: ", vm.lastCallGas().gasTotalUsed / numPackets);
         assertTrue(success);
 
         // ack should be deleted
@@ -59,6 +64,7 @@ contract BenchmarkTest is FixtureTest {
         Fixture memory recvFixture = loadFixture(recvFix);
 
         (success,) = address(ics26Router).call(recvFixture.msg);
+        console.log("Avg (", numPackets, "packets ) Multicall recv gas used: ", vm.lastCallGas().gasTotalUsed / numPackets);
         assertTrue(success);
 
         // ack is written
@@ -82,6 +88,7 @@ contract BenchmarkTest is FixtureTest {
         Fixture memory recvNativeFixture = loadInitialFixture(recvNatFix);
 
         (bool success,) = address(ics26Router).call(recvNativeFixture.msg);
+        console.log("Multicall native recv gas used: ", vm.lastCallGas().gasTotalUsed);
         assertTrue(success);
 
         bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
@@ -105,11 +112,13 @@ contract BenchmarkTest is FixtureTest {
 
         // Step 1: Transfer from Ethereum to Cosmos
         vm.warp(timeoutFixture.packet.timeoutTimestamp - 30);
-        sendTransfer(timeoutFixture);
+        uint64 sendGasUsed = sendTransfer(timeoutFixture);
+        console.log("Send packet gas used: ", sendGasUsed);
 
         // Step 2: Timeout
         vm.warp(timeoutFixture.packet.timeoutTimestamp + 45);
         (bool success,) = address(ics26Router).call(timeoutFixture.msg);
+        console.log("Multicall timeout gas used: ", vm.lastCallGas().gasTotalUsed);
         assertTrue(success);
 
         // ack should be deleted
@@ -118,7 +127,7 @@ contract BenchmarkTest is FixtureTest {
         assertEq(ics26Router.IBC_STORE().getCommitment(path), 0);
     }
 
-    function sendTransfer(Fixture memory fixture) internal {
+    function sendTransfer(Fixture memory fixture) internal returns (uint64) {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
@@ -147,7 +156,11 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         ics26Router.sendPacket(msgSendPacket);
 
+        uint64 gasUsed = vm.lastCallGas().gasTotalUsed;
+
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceChannel, fixture.packet.sequence);
         assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
+
+        return gasUsed;
     }
 }
