@@ -21,7 +21,10 @@ serde      = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
 
-alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy-primitives = { workspace = true }
+alloy-provider   = { workspace = true }
+alloy-network    = { workspace = true }
+alloy-transport  = { workspace = true }
 
 tendermint     = { workspace = true }
 tendermint-rpc = { workspace = true }

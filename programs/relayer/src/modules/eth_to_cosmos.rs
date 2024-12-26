@@ -2,11 +2,9 @@
 
 use std::{net::SocketAddr, str::FromStr};
 
-use alloy::{
-    primitives::{Address, TxHash},
-    providers::{ProviderBuilder, RootProvider},
-    transports::BoxTransport,
-};
+use alloy_primitives::{Address, TxHash};
+use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_transport::BoxTransport;
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{eth_to_cosmos, TxBuilderService},
@@ -51,6 +49,9 @@ pub struct EthToCosmosConfig {
     pub eth_rpc_url: String,
     /// The Ethereum Beacon API URL
     pub eth_beacon_api_url: String,
+    /// The address of the submitter.
+    /// Required since cosmos messages require a signer address.
+    pub signer_address: String,
 }
 
 impl EthToCosmosRelayerModuleServer {
@@ -68,7 +69,13 @@ impl EthToCosmosRelayerModuleServer {
         .expect("Failed to create tendermint HTTP client");
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let tx_builder = eth_to_cosmos::TxBuilder::new(config.ics26_address, provider, tm_client);
+        let tx_builder = eth_to_cosmos::TxBuilder::new(
+            config.ics26_address,
+            provider,
+            config.eth_beacon_api_url,
+            tm_client,
+            config.signer_address,
+        );
 
         Self {
             eth_listener,

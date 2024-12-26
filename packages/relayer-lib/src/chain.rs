@@ -33,6 +33,6 @@ pub struct EthEureka;
 
 impl Chain for EthEureka {
     type Event = EurekaEvent;
-    type TxId = alloy::primitives::TxHash;
+    type TxId = alloy_primitives::TxHash;
     type Height = u64;
 }

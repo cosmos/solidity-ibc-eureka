@@ -2,11 +2,9 @@
 
 use std::{net::SocketAddr, str::FromStr};
 
-use alloy::{
-    primitives::{Address, TxHash},
-    providers::{ProviderBuilder, RootProvider},
-    transports::BoxTransport,
-};
+use alloy_primitives::{Address, TxHash};
+use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_transport::BoxTransport;
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},

@@ -1,12 +1,10 @@
 //! This module defines the chain listener for 'solidity-ibc-eureka' contracts.
 
-use alloy::{
-    primitives::{Address, TxHash},
-    providers::Provider,
-    rpc::types::Filter,
-    sol_types::SolEventInterface,
-    transports::Transport,
-};
+use alloy_primitives::{Address, TxHash};
+use alloy_provider::Provider;
+use alloy_rpc_types_eth::Filter;
+use alloy_sol_types::SolEventInterface;
+use alloy_transport::Transport;
 use anyhow::{anyhow, Result};
 use futures::future;
 use ibc_eureka_solidity_types::ics26::router::{routerEvents, routerInstance};

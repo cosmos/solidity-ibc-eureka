@@ -3,7 +3,7 @@
 use std::env;
 
 use crate::cli::command::operator::Args;
-use alloy::providers::ProviderBuilder;
+use alloy_provider::ProviderBuilder;
 use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use ibc_eureka_solidity_types::sp1_ics07::{

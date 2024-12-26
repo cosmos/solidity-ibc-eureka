@@ -18,4 +18,5 @@ ibc-core-client-types            = { workspace = true }
 ibc-core-host-types              = { workspace = true, features = ["std"] }
 tendermint                       = { workspace = true }
 ibc-core-commitment-types        = { workspace = true }
-alloy                            = { workspace = true, features = ["full", "node-bindings"] }
+alloy-network                    = { workspace = true }
+alloy-signer-local               = { workspace = true }

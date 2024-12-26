@@ -2,7 +2,8 @@
 
 use std::env;
 
-use alloy::{network::EthereumWallet, signers::local::PrivateKeySigner};
+use alloy_network::EthereumWallet;
+use alloy_signer_local::PrivateKeySigner;
 
 /// Create an Ethereum wallet from the `PRIVATE_KEY` environment variable.
 ///

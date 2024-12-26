@@ -74,8 +74,9 @@ fn check_commitment_key(
 }
 
 // TODO: Unit test
+/// Computes the commitment key for a given path and slot.
 #[must_use = "calculating the commitment key has no effect"]
-fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
+pub fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
     let path_hash = keccak256(path);
 
     let mut hasher = Keccak256::new();
