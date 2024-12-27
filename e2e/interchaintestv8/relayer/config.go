@@ -16,6 +16,8 @@ type EthCosmosConfigInfo struct {
 	BeaconAPI string
 	// SP1 private key
 	SP1PrivateKey string
+	// Signer address cosmos
+	SignerAddress string
 }
 
 func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
@@ -35,12 +37,12 @@ func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
 
 // EthToCosmosGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
 func (c *EthCosmosConfigInfo) EthToCosmosGRPCAddress() string {
-	return "127.0.0.1:3000"
+	return "127.0.0.1:3001"
 }
 
 // CosmosToEthGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
 func (c *EthCosmosConfigInfo) CosmosToEthGRPCAddress() string {
-	return "127.0.0.1:3001"
+	return "127.0.0.1:3000"
 }
 
 // CosmosToCosmosConfigInfo is a struct that holds the configuration information for the Cosmos to Cosmos config template

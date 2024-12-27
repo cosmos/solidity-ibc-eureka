@@ -22,7 +22,7 @@ serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
 
 alloy-primitives = { workspace = true }
-alloy-provider   = { workspace = true }
+alloy-provider   = { workspace = true, features = ["reqwest"] }
 alloy-network    = { workspace = true }
 alloy-transport  = { workspace = true }
 
