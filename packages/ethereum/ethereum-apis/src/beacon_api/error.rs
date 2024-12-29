@@ -3,16 +3,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BeaconApiClientError {
-    #[error("http error")]
+    #[error("http error: {0}")]
     Http(#[from] reqwest::Error),
 
-    #[error("json deserialization error")]
+    #[error("json deserialization error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("not found")]
+    #[error("not found: {0}")]
     NotFound(#[from] NotFoundError),
 
-    #[error("internal error")]
+    #[error("internal error: {0}")]
     Internal(#[from] InternalServerError),
 
     #[error("unknown error ({code}): {text}")]

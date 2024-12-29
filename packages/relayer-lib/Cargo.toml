@@ -24,10 +24,11 @@ serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 
-async-trait = { workspace = true }
-anyhow      = { workspace = true, features = ["std"] }
-futures     = { workspace = true, default-features = true }
-tracing     = { workspace = true, default-features = true }
+async-trait   = { workspace = true }
+anyhow        = { workspace = true, features = ["std"] }
+futures       = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+tracing       = { workspace = true, default-features = true }
 
 tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }

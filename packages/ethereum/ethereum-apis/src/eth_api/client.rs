@@ -43,7 +43,7 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> EthApiClient<T, P> {
         Ok(self
             .provider
             .client()
-            .request("get_proof", (address, storage_keys, block_hex))
+            .request("eth_getProof", (address, storage_keys, block_hex))
             .await?)
     }
 

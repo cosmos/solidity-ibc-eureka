@@ -2313,6 +2313,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.8",
+ "tracing",
 ]
 
 [[package]]
@@ -3608,6 +3609,7 @@ dependencies = [
  "ethereum-light-client",
  "ethereum-types 0.1.0",
  "futures",
+ "futures-timer",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",

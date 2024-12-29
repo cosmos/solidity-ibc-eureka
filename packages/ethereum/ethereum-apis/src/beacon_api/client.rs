@@ -4,6 +4,7 @@ use ethereum_types::consensus::{
 };
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tracing::debug;
 
 use super::error::{BeaconApiClientError, InternalServerError, NotFoundError};
 
@@ -35,7 +36,7 @@ impl BeaconApiClient {
         &self,
         start_period: u64,
         count: u64,
-    ) -> Result<Vec<LightClientUpdate>, BeaconApiClientError> {
+    ) -> Result<Vec<Response<LightClientUpdate>>, BeaconApiClientError> {
         self.get_json(format!(
             "/eth/v1/beacon/light_client/updates?start_period={start_period}&count={count}"
         ))
@@ -43,14 +44,14 @@ impl BeaconApiClient {
     }
 
     // Helper functions
-
+    #[tracing::instrument(skip_all)]
     async fn get_json<T: DeserializeOwned>(
         &self,
         path: impl Into<String>,
     ) -> Result<T, BeaconApiClientError> {
         let url = format!("{}{}", self.base_url, path.into());
 
-        //debug!(%url, "get_json");
+        debug!(%url, "get_json");
 
         let res = self.client.get(url).send().await?;
 
@@ -58,7 +59,7 @@ impl BeaconApiClient {
             StatusCode::OK => {
                 let bytes = res.bytes().await?;
 
-                //trace!(response = %String::from_utf8_lossy(&bytes), "get_json");
+                debug!(response = %String::from_utf8_lossy(&bytes), "get_json");
 
                 Ok(serde_json::from_slice(&bytes).map_err(BeaconApiClientError::Json)?)
             }

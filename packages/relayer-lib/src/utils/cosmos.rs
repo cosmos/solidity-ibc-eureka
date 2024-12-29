@@ -264,7 +264,7 @@ async fn get_commitment_proof<T: Transport + Clone, P: Provider<T> + Clone>(
 ) -> Result<StorageProof> {
     let storage_key = ibc_commitment_key_v2(path, slot);
     let storage_key_hex = format!("0x{storage_key:x}");
-    let block_hex = format!("{block_number:x}");
+    let block_hex = format!("0x{block_number:x}");
 
     let proof = eth_client
         .get_proof(ibc_contrct_address, vec![storage_key_hex], block_hex)

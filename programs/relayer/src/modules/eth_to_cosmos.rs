@@ -158,7 +158,7 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
             cosmos_events.len()
         );
 
-        let multicall_tx = self
+        let tx = self
             .tx_builder
             .relay_events(eth_events, cosmos_events, inner_req.target_channel_id)
             .await
@@ -167,8 +167,8 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
-            tx: multicall_tx,
-            address: self.tx_builder.ics26_router.address().to_string(),
+            tx,
+            address: String::new(),
         }))
     }
 }

@@ -785,8 +785,11 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, proofType o
 			msgs = append(msgs, sdkMsg)
 		}
 
-		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
+		s.Require().NotZero(len(msgs))
+
+		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 20_000_000, msgs...)
 		s.Require().NoError(err)
+		fmt.Printf("Broadcasted tx: %s\n", resp)
 
 		ackTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
