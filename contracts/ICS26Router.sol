@@ -5,7 +5,6 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
 import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
-import { ICSCore } from "./ICSCore.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -19,31 +18,67 @@ import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
+import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
-contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGuardTransient, Multicall {
-    /// @dev portId => IBC Application contract
-    mapping(string portId => IIBCApp app) private apps;
+contract ICS26Router is
+    IICS26Router,
+    IICS26RouterErrors,
+    Initializable,
+    Ownable,
+    ReentrancyGuardTransient,
+    Multicall
+{
+    /// @notice Storage of the ICS26Router contract
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
+    /// @dev risk of storage collisions when using with upgradeable contracts.
+    /// @param apps The mapping of port identifiers to IBC application contracts
+    /// @param ibcStore The IBC store contract
+    /// @param icsCore The ICSCore contract
+    /// @custom:storage-location erc7201:ibc.storage.ICS26Router
+    struct ICS26RouterStorage {
+        mapping(string => IIBCApp) apps;
+        IIBCStore ibcStore;
+        address icsCore;
+    }
 
-    /// @inheritdoc IICS26Router
-    IIBCStore public immutable IBC_STORE;
-    /// @notice ICSCore implements IICS02Client and IICS04Channel
-    address private immutable ICS_CORE;
+    /// @notice ERC-7201 slot for the ICS26Router storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS26Router")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant ICS26ROUTER_STORAGE_SLOT =
+        0xc5779f3c2c21083eefa6d04f6a698bc0d8c10db124ad5e0df6ef394b6d7bf600;
 
-    constructor(address owner) Ownable(owner) {
-        ICS_CORE = address(new ICSCore(owner)); // using the same owner
-        IBC_STORE = new IBCStore(address(this)); // using this contract as the owner
+    /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    constructor() Ownable(address(0xdead)) {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param owner_ The owner of the contract
+    /// @param icsCore The address of the ICSCore contract
+    function initialize(address owner_, address icsCore) public initializer {
+        _transferOwnership(owner_);
+
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        $.icsCore = icsCore; // using the same owner
+        $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
     }
 
     /// @inheritdoc IICS26Router
     function ICS02_CLIENT() public view returns (IICS02Client) {
-        return IICS02Client(ICS_CORE);
+        return IICS02Client(_getICS26RouterStorage().icsCore);
     }
 
     /// @inheritdoc IICS26Router
     function ICS04_CHANNEL() public view returns (IICS04Channel) {
-        return IICS04Channel(ICS_CORE);
+        return IICS04Channel(_getICS26RouterStorage().icsCore);
+    }
+
+    /// @inheritdoc IICS26Router
+    function IBC_STORE() public view returns (IIBCStore) {
+        return _getICS26RouterStorage().ibcStore;
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -51,7 +86,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @return The address of the IBC application contract
     /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
-        IIBCApp app = apps[portId];
+        IIBCApp app = _getICS26RouterStorage().apps[portId];
         require(address(app) != address(0), IBCAppNotFound(portId));
         return app;
     }
@@ -70,10 +105,10 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             newPortId = Strings.toHexString(app);
         }
 
-        require(address(apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
+        require(address(_getICS26RouterStorage().apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
         require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
 
-        apps[newPortId] = IIBCApp(app);
+        _getICS26RouterStorage().apps[newPortId] = IIBCApp(app);
 
         emit IBCAppAdded(newPortId, app);
     }
@@ -94,7 +129,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
         );
 
-        uint32 sequence = IBC_STORE.nextSequenceSend(msg_.sourceChannel);
+        uint32 sequence = IBC_STORE().nextSequenceSend(msg_.sourceChannel);
 
         Packet memory packet = Packet({
             sequence: sequence,
@@ -114,7 +149,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             })
         );
 
-        IBC_STORE.commitPacket(packet);
+        IBC_STORE().commitPacket(packet);
 
         emit SendPacket(packet);
         return sequence;
@@ -154,7 +189,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
-        try IBC_STORE.setPacketReceipt(msg_.packet) { }
+        try IBC_STORE().setPacketReceipt(msg_.packet) { }
         catch (bytes memory reason) {
             return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector);
         }
@@ -207,7 +242,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
-        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+        try IBC_STORE().deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             require(
                 storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
@@ -260,7 +295,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
         );
 
         // timeoutPacket will no-op if the packet commitment does not exist
-        try IBC_STORE.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+        try IBC_STORE().deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             require(
                 storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
@@ -286,7 +321,7 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
     /// @param packet The packet to acknowledge
     /// @param acks The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
-        IBC_STORE.commitPacketAcknowledgement(packet, acks);
+        IBC_STORE().commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
     }
 
@@ -303,6 +338,14 @@ contract ICS26Router is IICS26Router, IICS26RouterErrors, Ownable, ReentrancyGua
             assembly ("memory-safe") {
                 revert(add(reason, 32), mload(reason))
             }
+        }
+    }
+
+    /// @notice Returns the storage of the ICS26Router contract
+    function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            $.slot := ICS26ROUTER_STORAGE_SLOT
         }
     }
 }

@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -14,6 +15,7 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
@@ -21,11 +23,23 @@ contract ICS26RouterTest is Test {
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ics26Router = new ICS26Router(address(this));
+        ICSCore icsCoreLogic = new ICSCore();
+        ICS26Router ics26RouterLogic = new ICS26Router();
+
+        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
+        );
+        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+            address(ics26RouterLogic),
+            address(this),
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
+        );
+
+        ics26Router = ICS26Router(address(routerProxy));
     }
 
     function test_AddIBCAppUsingAddress() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ICS20Transfer ics20Transfer = new ICS20Transfer();
         string memory ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
@@ -36,7 +50,7 @@ contract ICS26RouterTest is Test {
     }
 
     function test_AddIBCAppUsingNamedPort() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ICS20Transfer ics20Transfer = new ICS20Transfer();
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
@@ -52,7 +66,13 @@ contract ICS26RouterTest is Test {
             "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyID, merklePrefix), address(lightClient)
         );
 
-        ICS20Transfer ics20Transfer = new ICS20Transfer(address(ics26Router));
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+            address(ics20TransferLogic),
+            address(this),
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
+        );
+        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);

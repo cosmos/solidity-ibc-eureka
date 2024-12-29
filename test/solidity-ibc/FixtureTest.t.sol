@@ -7,12 +7,14 @@ import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 abstract contract FixtureTest is Test {
     ICS26Router public ics26Router;
@@ -45,7 +47,31 @@ abstract contract FixtureTest is Test {
     }
 
     function setUp() public {
-        ics26Router = new ICS26Router(address(this));
+        // ============ Step 1: Deploy the logic contracts ==============
+        ICSCore icsCoreLogic = new ICSCore();
+        ICS26Router ics26RouterLogic = new ICS26Router();
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        // ============== Step 2: Deploy Transparent Proxies ==============
+        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
+        );
+
+        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+            address(ics26RouterLogic),
+            address(this),
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
+        );
+
+        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+            address(ics20TransferLogic),
+            address(this),
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
+        );
+
+        // ============== Step 3: Wire up the contracts ==============
+        ics26Router = ICS26Router(address(routerProxy));
+        ics20Transfer = ICS20Transfer(address(transferProxy));
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
@@ -67,8 +93,6 @@ abstract contract FixtureTest is Test {
         ics26Router.ICS04_CHANNEL().addChannel(
             "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
-
-        ics20Transfer = new ICS20Transfer(address(ics26Router));
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
         // Deploy ERC20 to the expected address from the fixture

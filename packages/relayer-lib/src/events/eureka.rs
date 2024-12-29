@@ -53,6 +53,7 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::OwnershipTransferred(_) => {
                 Err(anyhow::anyhow!("OwnershipTransferred event"))
             }
+            routerEvents::Initialized(_) => Err(anyhow::anyhow!("Initialized event")),
         }
     }
 }
