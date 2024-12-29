@@ -666,7 +666,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 }
 
 func (s *RelayerTestSuite) TestRecvPacketToCosmos_Groth16() {
-	// TODO: Fail if not PoS?
+	// TODO: Skip if not PoS?
 	ctx := context.Background()
 	s.RecvPacketCosmosTest(ctx, operator.ProofTypeGroth16, 1)
 }
@@ -808,4 +808,6 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, proofType o
 		s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
+
+	// TODO: Ack back?
 }

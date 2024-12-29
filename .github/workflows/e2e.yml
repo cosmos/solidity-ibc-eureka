@@ -78,6 +78,7 @@ jobs:
           - TestWithRelayerTestSuite/TestTimeoutPacketFromEth_Plonk
           - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromEth_Groth16
           - TestWithRelayerTestSuite/Test_5_TimeoutPacketFromEth_Plonk
+          - TestWithRelayerTestSuite/TestRecvPacketToCosmos_Groth16
           - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
