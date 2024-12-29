@@ -24,10 +24,7 @@ pub type PackedEncoding = SmallVec<[u8; SMALLVEC_SIZE]>;
 ///
 /// `minimum_leaf_count` will only be used if it is greater than or equal to the minimum number of leaves that can be created from `bytes`.
 pub fn merkle_root(bytes: &[u8], minimum_leaf_count: usize) -> Hash256 {
-    let leaves = std::cmp::max(
-        (bytes.len() + (HASHSIZE - 1)) / HASHSIZE,
-        minimum_leaf_count,
-    );
+    let leaves = std::cmp::max(bytes.len().div_ceil(HASHSIZE), minimum_leaf_count);
 
     if leaves == 0 {
         // If there are no bytes then the hash is always zero.
@@ -121,7 +118,7 @@ pub trait TreeHash {
 }
 
 /// Punch through references.
-impl<'a, T> TreeHash for &'a T
+impl<T> TreeHash for &T
 where
     T: TreeHash,
 {

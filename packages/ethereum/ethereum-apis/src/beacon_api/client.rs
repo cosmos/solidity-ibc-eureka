@@ -1,19 +1,32 @@
+//! This module implements the `BeaconApiClient` to interact with the Ethereum Beacon API.
+
 use ethereum_types::consensus::{
     light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
     spec::Spec,
 };
 use reqwest::{Client, StatusCode};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 use tracing::debug;
 
-use super::error::{BeaconApiClientError, InternalServerError, NotFoundError};
+use super::{
+    error::{BeaconApiClientError, InternalServerError, NotFoundError},
+    response::{Response, Version},
+};
 
+const SPEC_PATH: &str = "/eth/v1/config/spec";
+const FINALITY_UPDATE_PATH: &str = "/eth/v1/beacon/light_client/finality_update";
+const LIGHT_CLIENT_UPDATES_PATH: &str = "/eth/v1/beacon/light_client/updates";
+
+/// The api client for interacting with the Beacon API
+#[allow(clippy::module_name_repetitions)]
 pub struct BeaconApiClient {
-    pub client: Client,
-    pub base_url: String,
+    client: Client,
+    base_url: String,
 }
 
 impl BeaconApiClient {
+    /// Create new `BeaconApiClient`
+    #[must_use]
     pub fn new(base_url: String) -> Self {
         Self {
             client: Client::new(),
@@ -21,35 +34,40 @@ impl BeaconApiClient {
         }
     }
 
+    /// Fetches the Beacon spec
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn spec(&self) -> Result<Response<Spec>, BeaconApiClientError> {
-        self.get_json("/eth/v1/config/spec").await
+        self.get_json(SPEC_PATH).await
     }
 
+    /// Fetches the latest Beacon light client finality update
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn finality_update(
         &self,
     ) -> Result<Response<LightClientFinalityUpdate, Version>, BeaconApiClientError> {
-        self.get_json("/eth/v1/beacon/light_client/finality_update")
-            .await
+        self.get_json(FINALITY_UPDATE_PATH).await
     }
 
+    /// Fetches Beacon light client updates starting from a given period
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn light_client_updates(
         &self,
         start_period: u64,
         count: u64,
     ) -> Result<Vec<Response<LightClientUpdate>>, BeaconApiClientError> {
-        self.get_json(format!(
-            "/eth/v1/beacon/light_client/updates?start_period={start_period}&count={count}"
+        self.get_json(&format!(
+            "{LIGHT_CLIENT_UPDATES_PATH}?start_period={start_period}&count={count}"
         ))
         .await
     }
 
     // Helper functions
     #[tracing::instrument(skip_all)]
-    async fn get_json<T: DeserializeOwned>(
-        &self,
-        path: impl Into<String>,
-    ) -> Result<T, BeaconApiClientError> {
-        let url = format!("{}{}", self.base_url, path.into());
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, BeaconApiClientError> {
+        let url = format!("{}{}", self.base_url, path);
 
         debug!(%url, "get_json");
 
@@ -75,42 +93,4 @@ impl BeaconApiClient {
             }),
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Response<Data, Extra = Nil> {
-    pub data: Data,
-    #[serde(flatten)]
-    pub extra: Extra,
-}
-
-impl<Data, Extra> Response<Data, Extra> {
-    pub fn map_data<T>(self, f: impl FnOnce(Data) -> T) -> Response<T, Extra> {
-        Response {
-            data: f(self.data),
-            extra: self.extra,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Nil {}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum EthConsensusVersion {
-    #[serde(rename = "phase0")]
-    Phase0,
-    #[serde(rename = "altair")]
-    Altair,
-    #[serde(rename = "bellatrix")]
-    Bellatrix,
-    #[serde(rename = "capella")]
-    Capella,
-    #[serde(rename = "deneb")]
-    Deneb,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Version {
-    pub version: EthConsensusVersion,
 }

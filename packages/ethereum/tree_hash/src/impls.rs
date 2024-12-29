@@ -98,7 +98,7 @@ impl TreeHash for [u8; 48] {
 
     fn tree_hash_root(&self) -> Hash256 {
         let values_per_chunk = BYTES_PER_CHUNK;
-        let minimum_chunk_count = (48 + values_per_chunk - 1) / values_per_chunk;
+        let minimum_chunk_count = 48_usize.div_ceil(values_per_chunk);
         merkle_root(self, minimum_chunk_count)
     }
 }

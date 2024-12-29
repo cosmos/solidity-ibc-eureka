@@ -33,7 +33,7 @@ struct EthToCosmosRelayerModuleServer {
     pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
-    /// The transaction builder for `EthEureka`.
+    /// The transaction builder for Ethereum to Cosmos.
     pub tx_builder: eth_to_cosmos::TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
 }
 
