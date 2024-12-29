@@ -75,12 +75,14 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 		}
 
 		configInfo = relayer.EthCosmosConfigInfo{
-			TmRPC:         simd.GetHostRPCAddress(),
-			ICS26Address:  s.contractAddresses.Ics26Router,
-			EthRPC:        eth.RPC,
-			BeaconAPI:     beaconAPI,
-			SP1PrivateKey: os.Getenv(testvalues.EnvKeySp1PrivateKey),
-			SignerAddress: s.SimdSubmitter.FormattedAddress(),
+			EthToCosmosPort: 3000,
+			CosmosToEthPort: 3001,
+			TmRPC:           simd.GetHostRPCAddress(),
+			ICS26Address:    s.contractAddresses.Ics26Router,
+			EthRPC:          eth.RPC,
+			BeaconAPI:       beaconAPI,
+			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
+			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -120,17 +122,6 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
-	s.Run("Eth to Cosmos Relayer Info", func() {
-		info, err := s.EthToCosmosRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
-		s.Require().NoError(err)
-		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
-		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
-		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
-	})
-
 	s.Run("Cosmos to Eth Relayer Info", func() {
 		info, err := s.CosmosToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
@@ -140,6 +131,17 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 
 		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
+	})
+
+	s.Run("Eth to Cosmos Relayer Info", func() {
+		info, err := s.EthToCosmosRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+
+		s.T().Logf("Relayer Info: %+v", info)
+
+		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
+		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
 	})
 }
 
@@ -242,7 +244,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 
 	var multicallTx []byte
 	s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
-		resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:     txHashes,
 			TargetChannelId: s.TendermintLightClientID,
 		})
@@ -329,6 +331,7 @@ func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
+	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoS)
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -464,7 +467,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{txHash},
 				TargetChannelId: s.TendermintLightClientID,
 			})
@@ -612,7 +615,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 	s.True(s.Run("Timeout packet on Ethereum", func() {
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve timeout tx to Ethereum", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				TimeoutTxIds:    txHashes,
 				TargetChannelId: s.TendermintLightClientID,
 			})
@@ -666,7 +669,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 }
 
 func (s *RelayerTestSuite) TestRecvPacketToCosmos_Groth16() {
-	// TODO: Skip if not PoS?
+	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	ctx := context.Background()
 	s.RecvPacketCosmosTest(ctx, operator.ProofTypeGroth16, 1)
 }
@@ -758,7 +761,7 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, proofType o
 
 	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
-		resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:     txHashes,
 			TargetChannelId: ibctesting.FirstChannelID,
 		})
