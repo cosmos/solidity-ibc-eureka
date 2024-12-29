@@ -13,7 +13,6 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -33,6 +32,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -128,7 +129,6 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 
 		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
 		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
-
 	})
 
 	s.Run("Cosmos to Eth Relayer Info", func() {
@@ -140,7 +140,6 @@ func (s *RelayerTestSuite) TestRelayerInfo() {
 
 		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
-
 	})
 }
 
@@ -809,5 +808,4 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, proofType o
 		s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
-
 }
