@@ -1,6 +1,8 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Ethereum.
 
+use std::time::Duration;
+
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 use alloy_transport::Transport;
@@ -12,13 +14,9 @@ use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::bls::BlsPublicKey;
 use ethereum_types::consensus::slot::compute_slot_at_timestamp;
 use ethereum_types::{
-    consensus::{
-        light_client_header::LightClientUpdate,
-        sync_committee::compute_sync_committee_period_at_slot,
-    },
+    consensus::sync_committee::compute_sync_committee_period_at_slot,
     execution::account_proof::AccountProof,
 };
-use futures_timer::Delay;
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
@@ -39,7 +37,7 @@ use ibc_proto_eureka::ibc::{
 use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::utils::cosmos;
+use crate::utils::{cosmos, wait_for_condition};
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEvent,
@@ -194,15 +192,11 @@ where
 
         // Now we wait for finalization and light client update availability to be after
         // target_height
-        let mut light_client_updates: Vec<LightClientUpdate>;
-        let mut try_count = 1;
-        loop {
-            tracing::debug!(
-                "Waiting for finality and light client updates (try: {})",
-                try_count
-            );
-            // TODO: Add some max retries or something
-            // TODO: Add some tracing
+        wait_for_condition(
+            Duration::from_secs(60 * 10),
+            Duration::from_secs(10),
+            || async move { 
+                tracing::debug!("Waiting for finality and light client updates");
             let finality_update = self.beacon_api_client.finality_update().await?.data;
             let latest_finalized_block_number =
                 finality_update.attested_header.execution.block_number;
@@ -212,7 +206,7 @@ where
                 ethereum_client_state.epochs_per_sync_committee_period,
                 finality_update.attested_header.beacon.slot,
             );
-            light_client_updates = self
+            let light_client_updates: Vec<_> = self
                 .beacon_api_client
                 .light_client_updates(trusted_period + 1, target_period - trusted_period)
                 .await?
@@ -253,14 +247,27 @@ where
                 && target_period > trusted_period
                 && computed_slot > latest_ligth_client_signature_slot
             {
-                break;
+return Ok(true);
             }
             tracing::debug!("Condition not met. Waiting for 5 seconds before retrying");
-            Delay::new(std::time::Duration::from_secs(5)).await;
-            try_count += 1;
-        }
+                Ok(false) 
+            },
+        )
+        .await?;
 
-        // TODO: Do we need to wait for computed slot to pass or be equal
+        let finality_update = self.beacon_api_client.finality_update().await?.data;
+            let target_period = compute_sync_committee_period_at_slot(
+                ethereum_client_state.slots_per_epoch,
+                ethereum_client_state.epochs_per_sync_committee_period,
+                finality_update.attested_header.beacon.slot,
+            );
+            let light_client_updates: Vec<_> = self
+                .beacon_api_client
+                .light_client_updates(trusted_period + 1, target_period - trusted_period)
+                .await?
+                .into_iter()
+                .map(|resp| resp.data)
+                .collect();
 
         tracing::debug!("light client updates: #{}", light_client_updates.len());
 

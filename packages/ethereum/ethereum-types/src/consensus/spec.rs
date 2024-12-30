@@ -37,11 +37,6 @@ pub struct Spec {
 }
 
 impl Spec {
-    /*
-    * func (s Spec) Period() uint64 {
-        return s.EpochsPerSyncCommitteePeriod * s.SlotsPerEpoch
-    }*/
-
     /// Returns the number of slots in a sync committee period.
     #[must_use]
     pub const fn period(&self) -> u64 {
