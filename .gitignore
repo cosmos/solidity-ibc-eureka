@@ -27,6 +27,8 @@ broadcast/*/31337/
 target
 elf
 artifacts
+bacon.toml
+.bacon-locations
 
 # Config files and test artifacts
 programs/relayer/config.json

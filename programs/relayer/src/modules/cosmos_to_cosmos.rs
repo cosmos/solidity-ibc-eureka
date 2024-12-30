@@ -112,7 +112,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request...");
+        tracing::info!("Handling relay by tx request for cosmos to cosmos...");
         let inner_req = request.into_inner();
         let src_txs = inner_req
             .source_tx_ids

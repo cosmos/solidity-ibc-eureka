@@ -766,7 +766,7 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, numOfTransf
 
 	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
-		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:     txHashes,
 			TargetChannelId: ibctesting.FirstChannelID,
 		})

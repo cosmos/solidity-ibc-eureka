@@ -19,6 +19,11 @@ where
         if condition().await? {
             return Ok(());
         }
+
+        tracing::debug!(
+            "Condition not met. Waiting for {} seconds before retrying",
+            interval.as_secs()
+        );
         Delay::new(interval).await;
     }
     anyhow::bail!("Timeout exceeded")
