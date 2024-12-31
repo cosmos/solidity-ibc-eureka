@@ -375,7 +375,7 @@ where
 
         let target_height = Height {
             revision_number: 0,
-            revision_height: target_block_number as u64,
+            revision_height: target_block_number,
         };
 
         let now = std::time::SystemTime::now()

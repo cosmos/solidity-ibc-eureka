@@ -794,9 +794,8 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, numOfTransf
 
 		s.Require().NotZero(len(msgs))
 
-		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 20_000_000, msgs...)
+		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
-		fmt.Printf("Broadcasted tx: %s\n", resp)
 
 		ackTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
@@ -816,6 +815,4 @@ func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, numOfTransf
 		s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
-
-	// TODO: Ack back?
 }

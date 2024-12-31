@@ -12,15 +12,6 @@ pub struct Response<Data, Extra = EmptyExtra> {
     pub extra: Extra,
 }
 
-//impl<Data, Extra> Response<Data, Extra> {
-//    pub fn map_data<T>(self, f: impl FnOnce(Data) -> T) -> Response<T, Extra> {
-//        Response {
-//            data: f(self.data),
-//            extra: self.extra,
-//        }
-//    }
-//}
-
 /// The default empty extra data for `Response`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EmptyExtra {}
