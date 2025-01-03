@@ -2,10 +2,12 @@
 
 use std::str::FromStr;
 
-use alloy_primitives::{Address, StorageKey};
-use alloy_provider::Provider;
-use alloy_rpc_types_eth::EIP1186AccountProofResponse;
-use alloy_transport::Transport;
+use alloy::{
+    primitives::{Address, StorageKey},
+    providers::Provider,
+    rpc::types::EIP1186AccountProofResponse,
+    transports::Transport,
+};
 
 use super::error::EthGetProofError;
 

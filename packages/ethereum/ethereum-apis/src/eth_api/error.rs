@@ -1,6 +1,6 @@
 //! This module defines errors for `EthApiClient`.
 
-use alloy_transport::TransportError;
+use alloy::transports::TransportError;
 
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs, clippy::module_name_repetitions)]

@@ -4,7 +4,7 @@ use crate::{
     cli::command::{fixtures::MisbehaviourCmd, OutputPath},
     runners::genesis::SP1ICS07TendermintGenesis,
 };
-use alloy_sol_types::SolValue;
+use alloy::sol_types::SolValue;
 use ibc_client_tendermint_types::Misbehaviour;
 use ibc_eureka_solidity_types::sp1_ics07::{
     IICS07TendermintMsgs::{ClientState, ConsensusState},

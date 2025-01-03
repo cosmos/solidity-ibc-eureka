@@ -3,9 +3,7 @@
 
 use std::time::Duration;
 
-use alloy_primitives::Address;
-use alloy_provider::Provider;
-use alloy_transport::Transport;
+use alloy::{primitives::Address, providers::Provider, transports::Transport};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;

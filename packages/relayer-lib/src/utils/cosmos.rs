@@ -1,8 +1,6 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
-use alloy_primitives::U256;
-use alloy_provider::Provider;
-use alloy_transport::Transport;
+use alloy::{primitives::U256, providers::Provider, transports::Transport};
 use anyhow::Result;
 use ethereum_apis::eth_api::client::EthApiClient;
 use ethereum_light_client::membership::ibc_commitment_key_v2;

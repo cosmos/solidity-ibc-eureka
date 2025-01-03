@@ -3,11 +3,7 @@
 
 use std::{env, str::FromStr};
 
-use alloy_primitives::Address;
-use alloy_provider::Provider;
-use alloy_sol_types::SolCall;
-
-use alloy_transport::Transport;
+use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transports::Transport};
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{

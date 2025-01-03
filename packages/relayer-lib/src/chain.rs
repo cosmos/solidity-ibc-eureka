@@ -1,8 +1,8 @@
 //! Defines the [`Chain`] interface and some of its implementations.
 
-use std::fmt::Debug;
-
+use alloy::primitives::TxHash;
 use serde::{de::DeserializeOwned, Serialize};
+use std::fmt::Debug;
 
 use crate::events::EurekaEvent;
 
@@ -33,6 +33,6 @@ pub struct EthEureka;
 
 impl Chain for EthEureka {
     type Event = EurekaEvent;
-    type TxId = alloy_primitives::TxHash;
+    type TxId = TxHash;
     type Height = u64;
 }

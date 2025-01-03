@@ -1,7 +1,6 @@
 //! Relayer utilities for `solidity-ibc-eureka` chains.
 
-use alloy_primitives::Bytes;
-use alloy_sol_types::SolValue;
+use alloy::{primitives::Bytes, sol_types::SolValue};
 use anyhow::Result;
 use futures::future;
 use ibc_eureka_solidity_types::{

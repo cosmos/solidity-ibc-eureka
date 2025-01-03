@@ -7,11 +7,7 @@ repository = { workspace = true }
 [dependencies]
 ethereum-types = { workspace = true }
 
-alloy-primitives = { workspace = true }
-alloy-provider = { workspace = true, features = ["reqwest"] }
-alloy-transport = { workspace = true }
-alloy-rpc-types-eth = { workspace = true, features = ["serde"] }
-
+alloy = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
 thiserror = { workspace = true }
 serde = { workspace = true }

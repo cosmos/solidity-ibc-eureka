@@ -1,7 +1,6 @@
 //! Define the events that can be retrieved by the relayer.
 
-use alloy_primitives::hex;
-use alloy_sol_types::SolEvent;
+use alloy::{primitives::hex, sol_types::SolEvent};
 use ibc_eureka_solidity_types::ics26::router::{
     routerEvents, RecvPacket, SendPacket, WriteAcknowledgement,
 };

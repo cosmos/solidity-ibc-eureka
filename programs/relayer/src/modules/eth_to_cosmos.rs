@@ -2,9 +2,11 @@
 
 use std::{net::SocketAddr, str::FromStr};
 
-use alloy_primitives::{Address, TxHash};
-use alloy_provider::{ProviderBuilder, RootProvider};
-use alloy_transport::BoxTransport;
+use alloy::{
+    primitives::{Address, TxHash},
+    providers::{ProviderBuilder, RootProvider},
+    transports::BoxTransport,
+};
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{eth_to_cosmos, TxBuilderService},
@@ -27,7 +29,6 @@ use crate::{
 pub struct EthToCosmosRelayerModule;
 
 /// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
-#[allow(dead_code)]
 struct EthToCosmosRelayerModuleServer {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,

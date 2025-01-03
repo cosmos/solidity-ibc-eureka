@@ -38,10 +38,6 @@ ibc-proto-eureka    = { workspace = true }
 ibc-core-host-types = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
 
-alloy-primitives    = { workspace = true }
-alloy-provider      = { workspace = true }
-alloy-sol-types     = { workspace = true }
-alloy-transport     = { workspace = true }
-alloy-rpc-types-eth = { workspace = true }
+alloy = { workspace = true }
 
 sp1-sdk = { workspace = true, default-features = true }

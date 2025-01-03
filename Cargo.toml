@@ -86,6 +86,7 @@ ibc-core-commitment-types   = { version = "0.56", default-features = false }
 ibc-core-handler-types      = { version = "0.56", default-features = false }
 ibc-client-tendermint-types = { version = "0.56", default-features = false }
 
+alloy                  = { version = "0.8", default-features = false }
 alloy-contract         = { version = "0.8", default-features = false }
 alloy-sol-types        = { version = "0.8", default-features = false }
 alloy-primitives       = { version = "0.8", default-features = false }

@@ -4,7 +4,7 @@ use crate::{
     cli::command::{fixtures::UpdateClientCmd, OutputPath},
     runners::genesis::SP1ICS07TendermintGenesis,
 };
-use alloy_sol_types::SolValue;
+use alloy::sol_types::SolValue;
 use ibc_eureka_solidity_types::sp1_ics07::{
     IICS07TendermintMsgs::{ClientState, ConsensusState},
     ISP1Msgs::SP1Proof,
