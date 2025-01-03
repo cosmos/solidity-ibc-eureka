@@ -6,16 +6,13 @@ use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
     ibc::{
-        core::{
-            channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
-            client::v1::{Height, MsgUpdateClient},
-        },
+        core::client::v1::{Height, MsgUpdateClient},
         lightclients::tendermint::v1::ClientState,
     },
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::CosmosSdk,
@@ -50,25 +47,6 @@ impl TxBuilder {
             signer_address,
         }
     }
-
-    /// Fetches the eureka channel state from the target chain.
-    /// # Errors
-    /// Returns an error if the channel state cannot be fetched or decoded.
-    pub async fn channel(&self, channel_id: String) -> Result<Channel> {
-        let abci_resp = self
-            .target_tm_client
-            .abci_query(
-                Some("/ibc.core.channel.v2.Query/Channel".to_string()),
-                QueryChannelRequest { channel_id }.encode_to_vec(),
-                None,
-                false,
-            )
-            .await?;
-
-        QueryChannelResponse::decode(abci_resp.value.as_slice())?
-            .channel
-            .ok_or_else(|| anyhow::anyhow!("No channel state found"))
-    }
 }
 
 #[async_trait::async_trait]
@@ -80,7 +58,10 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         target_events: Vec<EurekaEvent>,
         target_channel_id: String,
     ) -> Result<Vec<u8>> {
-        let channel = self.channel(target_channel_id.clone()).await?;
+        let channel = self
+            .target_tm_client
+            .channel(target_channel_id.clone())
+            .await?;
         let client_state = ClientState::decode(
             self.target_tm_client
                 .client_state(channel.client_id.clone())

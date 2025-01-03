@@ -21,20 +21,12 @@ use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
 use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
-use ibc_proto_eureka::ibc::{
-    core::{
-        channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
-        client::v1::{
-            QueryClientStateRequest, QueryClientStateResponse, QueryConsensusStateRequest,
-            QueryConsensusStateResponse,
-        },
-    },
-    lightclients::wasm::v1::{
-        ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-    },
+use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
+    ClientState as WasmClientState, ConsensusState as WasmConsensusState,
 };
 use prost::Message;
-use tendermint_rpc::{Client, HttpClient};
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use tendermint_rpc::HttpClient;
 
 use crate::utils::{cosmos, wait_for_condition};
 use crate::{
@@ -77,48 +69,16 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
         }
     }
 
-    /// Fetches the eureka channel state from the target chain.
-    /// # Errors
-    /// Returns an error if the channel state cannot be fetched or decoded.
-    pub async fn channel(&self, channel_id: String) -> Result<Channel> {
-        let abci_resp = self
-            .tm_client
-            .abci_query(
-                Some("/ibc.core.channel.v2.Query/Channel".to_string()),
-                QueryChannelRequest { channel_id }.encode_to_vec(),
-                None,
-                false,
-            )
-            .await?;
-
-        QueryChannelResponse::decode(abci_resp.value.as_slice())?
-            .channel
-            .ok_or_else(|| anyhow::anyhow!("No channel state found"))
-    }
-
-    /// Fetch the Etereum client state from the light client on cosmos.
+    /// Fetch the Ethereum client state from the light client on cosmos.
     /// # Errors
     /// Returns an error if the client state cannot be fetched or decoded.
     pub async fn ethereum_client_state(&self, client_id: String) -> Result<ClientState> {
-        let abci_resp = self
-            .tm_client
-            .abci_query(
-                Some("/ibc.core.client.v1.Query/ClientState".to_string()),
-                QueryClientStateRequest { client_id }.encode_to_vec(),
-                None,
-                false,
-            )
-            .await?;
-
-        let resp = QueryClientStateResponse::decode(abci_resp.value.as_slice())?;
-        let wasm_client_state_any = resp
-            .client_state
-            .ok_or_else(|| anyhow::anyhow!("No client state found"))?;
+        let wasm_client_state_any = self.tm_client.client_state(client_id).await?;
         let wasm_client_state = WasmClientState::decode(wasm_client_state_any.value.as_slice())?;
         Ok(serde_json::from_slice(&wasm_client_state.data)?)
     }
 
-    /// Fetches the Etheruem consensus state from the light client on cosmos.
+    /// Fetches the Ethereum consensus state from the light client on cosmos.
     /// # Errors
     /// Returns an error if the consensus state cannot be fetched or decoded.
     pub async fn ethereum_consensus_state(
@@ -126,26 +86,10 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
         client_id: String,
         revision_height: u64,
     ) -> Result<ConsensusState> {
-        let abci_resp = self
+        let wasm_consensus_state_any = self
             .tm_client
-            .abci_query(
-                Some("/ibc.core.client.v1.Query/ConsensusState".to_string()),
-                QueryConsensusStateRequest {
-                    client_id,
-                    revision_number: 0,
-                    revision_height,
-                    latest_height: revision_height == 0,
-                }
-                .encode_to_vec(),
-                None,
-                false,
-            )
+            .consensus_state(client_id, revision_height)
             .await?;
-
-        let resp = QueryConsensusStateResponse::decode(abci_resp.value.as_slice())?;
-        let wasm_consensus_state_any = resp
-            .consensus_state
-            .ok_or_else(|| anyhow::anyhow!("No consensus state found"))?;
         let wasm_consensus_state =
             WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())
                 .map_err(|e| anyhow::anyhow!("Failed to decode consensus state: {:?}", e))?;
@@ -256,7 +200,7 @@ where
         target_channel_id: String,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
-        let channel = self.channel(target_channel_id.clone()).await?;
+        let channel = self.tm_client.channel(target_channel_id.clone()).await?;
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for channel {}",
