@@ -670,15 +670,15 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 
 func (s *RelayerTestSuite) TestRecvPacketToCosmos() {
 	ctx := context.Background()
-	s.RecvPacketCosmosTest(ctx, 1)
+	s.RecvPacketToCosmosTest(ctx, 1)
 }
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
-	s.RecvPacketCosmosTest(ctx, 10)
+	s.RecvPacketToCosmosTest(ctx, 10)
 }
 
-func (s *RelayerTestSuite) RecvPacketCosmosTest(ctx context.Context, numOfTransfers int) {
+func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int) {
 	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
