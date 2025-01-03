@@ -70,6 +70,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 	var configInfo relayer.EthCosmosConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
+		// The BeaconAPIClient is nil when the testnet is `pow`
 		if eth.BeaconAPIClient != nil {
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}

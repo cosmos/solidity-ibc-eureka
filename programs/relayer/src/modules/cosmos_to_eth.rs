@@ -117,9 +117,10 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
         tracing::info!("Handling relay by tx request for cosmos to eth...");
+
         let inner_req = request.into_inner();
-        tracing::info!("Got {} source_tx_ids", inner_req.source_tx_ids.len());
-        tracing::info!("Got {} timeout_tx_ids", inner_req.timeout_tx_ids.len());
+        tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
+        tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let cosmos_txs = inner_req
             .source_tx_ids
             .into_iter()

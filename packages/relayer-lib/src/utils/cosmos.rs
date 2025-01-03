@@ -52,8 +52,6 @@ pub fn target_events_to_timeout_msgs(
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
-/// # Errors
-/// Returns an error if proof cannot be generated, or membership value is empty for a packet.
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEvent>,
     target_channel_id: &str,
@@ -108,6 +106,9 @@ pub fn src_events_to_recv_and_ack_msgs(
     (recv_msgs, ack_msgs)
 }
 
+/// Generates and injects tendermint proofs for rec, ack and timeout messages.
+/// # Errors
+/// Returns an error a proof cannot be generated for any of the provided messages.
 pub async fn inject_tendermint_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
