@@ -18,12 +18,12 @@ The relayer is composed of multiple one-sided relayer servers, each of which is 
 
 You can see the protocol buffer definition for the gRPC service [here](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto).
 
-This is a work-in-progress implementation, and the relayer is not yet usuable. The relayer will only be able to relay IBC Eureka packets. There is a tracking issue for the relayer [here](https://github.com/cosmos/solidity-ibc-eureka/issues/121).
+This is a work-in-progress implementation, and the relayer is not yet usable. The relayer will only be able to relay IBC Eureka packets. There is a tracking issue for the relayer [here](https://github.com/cosmos/solidity-ibc-eureka/issues/121).
 
 | **Source Chain** | **Target Chain** | **Light Client** | **Development Status** |
 |:---:|:---:|:---:|:---:|
 | Cosmos SDK | EVM | `sp1-ics07-tendermint` | ✅ |
-| EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ❌ |
+| EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ✅ |
 
 ## Usage
 
