@@ -38,6 +38,6 @@ ibc-proto-eureka    = { workspace = true }
 ibc-core-host-types = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
 
-alloy = { workspace = true }
+alloy = { workspace = true, features = ["full", "node-bindings"] }
 
 sp1-sdk = { workspace = true, default-features = true }
