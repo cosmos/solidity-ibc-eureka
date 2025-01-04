@@ -37,7 +37,6 @@ use crate::{
 use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
-#[allow(dead_code)]
 pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     /// The ETH API client.
     pub eth_client: EthApiClient<T, P>,
