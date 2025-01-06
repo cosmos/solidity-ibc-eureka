@@ -24,6 +24,7 @@ This is a work-in-progress implementation, and the relayer is not yet usable. Th
 |:---:|:---:|:---:|:---:|
 | Cosmos SDK | EVM | `sp1-ics07-tendermint` | ✅ |
 | EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ✅ |
+| Cosmos SDK | Cosmos SDK | `07-tendermint` | ✅ |
 
 ## Usage
 
