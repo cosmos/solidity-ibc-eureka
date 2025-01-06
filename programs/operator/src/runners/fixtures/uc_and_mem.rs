@@ -6,7 +6,7 @@ use crate::{
         fixtures::membership::SP1ICS07MembershipFixture, genesis::SP1ICS07TendermintGenesis,
     },
 };
-use alloy_sol_types::SolValue;
+use alloy::sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_eureka_solidity_types::sp1_ics07::{

@@ -6,21 +6,18 @@ use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
     ibc::{
-        core::{
-            channel::v2::{Channel, QueryChannelRequest, QueryChannelResponse},
-            client::v1::MsgUpdateClient,
-        },
+        core::client::v1::{Height, MsgUpdateClient},
         lightclients::tendermint::v1::ClientState,
     },
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::CosmosSdk,
     events::EurekaEvent,
-    utils::cosmos::{src_events_to_recv_and_ack_msgs, target_events_to_timeout_msgs},
+    utils::cosmos::{self},
 };
 
 use super::r#trait::TxBuilderService;
@@ -50,25 +47,6 @@ impl TxBuilder {
             signer_address,
         }
     }
-
-    /// Fetches the eureka channel state from the target chain.
-    /// # Errors
-    /// Returns an error if the channel state cannot be fetched or decoded.
-    pub async fn channel(&self, channel_id: String) -> Result<Channel> {
-        let abci_resp = self
-            .target_tm_client
-            .abci_query(
-                Some("/ibc.core.channel.v2.Query/Channel".to_string()),
-                QueryChannelRequest { channel_id }.encode_to_vec(),
-                None,
-                false,
-            )
-            .await?;
-
-        QueryChannelResponse::decode(abci_resp.value.as_slice())?
-            .channel
-            .ok_or_else(|| anyhow::anyhow!("No channel state found"))
-    }
 }
 
 #[async_trait::async_trait]
@@ -80,7 +58,10 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         target_events: Vec<EurekaEvent>,
         target_channel_id: String,
     ) -> Result<Vec<u8>> {
-        let channel = self.channel(target_channel_id.clone()).await?;
+        let channel = self
+            .target_tm_client
+            .channel(target_channel_id.clone())
+            .await?;
         let client_state = ClientState::decode(
             self.target_tm_client
                 .client_state(channel.client_id.clone())
@@ -90,29 +71,43 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         )?;
 
         let target_light_block = self.source_tm_client.get_light_block(None).await?;
-        let target_height = target_light_block.height().value().try_into()?;
+        let revision_height = target_light_block.height().value();
         let revision_number = client_state
             .latest_height
             .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
             .revision_number;
 
-        let timeout_msgs = target_events_to_timeout_msgs(
-            target_events,
-            &self.source_tm_client,
-            &target_channel_id,
+        let target_height = Height {
             revision_number,
-            target_height,
-            &self.signer_address,
-        )
-        .await?;
+            revision_height,
+        };
 
-        let (recv_msgs, ack_msgs) = src_events_to_recv_and_ack_msgs(
-            src_events,
-            &self.source_tm_client,
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            target_events,
             &target_channel_id,
-            revision_number,
-            target_height,
+            &target_height,
             &self.signer_address,
+            now,
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        cosmos::inject_tendermint_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut timeout_msgs,
+            &self.source_tm_client,
+            &target_height,
         )
         .await?;
 

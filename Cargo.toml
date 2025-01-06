@@ -3,6 +3,7 @@ members = [
     "packages/ethereum/ethereum-light-client",
     "packages/ethereum/ethereum-trie-db",
     "packages/ethereum/ethereum-types",
+    "packages/ethereum/ethereum-apis",
     "packages/ethereum/tree_hash",
     "packages/solidity",
     "packages/relayer-lib",
@@ -33,6 +34,7 @@ sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership"
 ethereum-trie-db                   = { path = "packages/ethereum/ethereum-trie-db", default-features = false }
 ethereum-light-client              = { path = "packages/ethereum/ethereum-light-client", default-features = false }
 ethereum-types                     = { path = "packages/ethereum/ethereum-types", default-features = false }
+ethereum-apis                      = { path = "packages/ethereum/ethereum-apis", default-features = false }
 tree_hash                          = { path = "packages/ethereum/tree_hash", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
@@ -60,10 +62,12 @@ tracing-subscriber = { version = "0.3", default-features = false }
 anyhow             = { version = "1.0", default-features = false }
 async-trait        = { version = "0.1", default-features = false }
 futures            = { version = "0.3", default-features = false }
+futures-timer      = { version = "3.0", default-features = false }
 clap               = { version = "4.5", default-features = false, features = ["std"] } # std feature is required for clap
 time               = { version = "0.3", default-features = false }
 dotenv             = { version = "0.15", default-features = false }
 thiserror          = { version = "2.0", default-features = false }
+reqwest            = { version = "0.12", default-features = false }
 
 tendermint                       = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
@@ -88,7 +92,12 @@ alloy-sol-types        = { version = "0.8", default-features = false }
 alloy-primitives       = { version = "0.8", default-features = false }
 alloy-trie             = { version = "0.7", default-features = false }
 alloy-serde            = { version = "0.8", default-features = false }
+alloy-network          = { version = "0.8", default-features = false }
+alloy-signer-local     = { version = "0.8", default-features = false }
 alloy-rlp              = { version = "0.3", default-features = false }
+alloy-provider         = { version = "0.8", default-features = false }
+alloy-transport        = { version = "0.8", default-features = false }
+alloy-rpc-types-eth    = { version = "0.8", default-features = false }
 
 sp1-sdk    = { version = "3.3", default-features = false }
 sp1-zkvm   = { version = "3.3", default-features = false }

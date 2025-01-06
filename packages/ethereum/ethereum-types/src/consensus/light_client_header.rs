@@ -36,6 +36,26 @@ pub struct LightClientUpdate {
     pub signature_slot: u64,
 }
 
+/// A light client finality update
+#[serde_as]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
+pub struct LightClientFinalityUpdate {
+    /// Header attested to by the sync committee
+    pub attested_header: LightClientHeader,
+    /// Finalized header corresponding to `attested_header.state_root`
+    pub finalized_header: LightClientHeader,
+    /// Branch of the finalized header
+    #[schemars(with = "Vec<String>")]
+    pub finality_branch: [B256; FINALITY_BRANCH_DEPTH],
+    /// Sync committee aggregate signature
+    pub sync_aggregate: SyncAggregate,
+    /// Slot at which the aggregate signature was created (untrusted)
+    #[serde_as(as = "DisplayFromStr")]
+    #[schemars(with = "String")]
+    pub signature_slot: u64,
+}
+
 /// The header of a light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 #[allow(clippy::module_name_repetitions)]

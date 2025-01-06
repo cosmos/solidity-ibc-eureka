@@ -4,7 +4,7 @@ use crate::{
     cli::command::{fixtures::MembershipCmd, OutputPath},
     runners::genesis::SP1ICS07TendermintGenesis,
 };
-use alloy_sol_types::SolValue;
+use alloy::sol_types::SolValue;
 use core::str;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_core_commitment_types::merkle::MerkleProof;

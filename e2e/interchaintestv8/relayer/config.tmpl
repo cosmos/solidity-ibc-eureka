@@ -1,12 +1,23 @@
 {
   "server": {
-    "log_level": "info",
+    "log_level": "debug",
     "address": "127.0.0.1"
   },
   "modules": [
     {
+      "name": "eth_to_cosmos",
+      "port": {{ .EthToCosmosPort }},
+      "config": {
+        "tm_rpc_url": "{{ .TmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "eth_beacon_api_url": "{{ .BeaconAPI }}",
+        "signer_address": "{{ .SignerAddress }}"
+      }
+    },
+    {
       "name": "cosmos_to_eth",
-      "port": 3000,
+      "port": {{ .CosmosToEthPort }},
       "config": {
         "tm_rpc_url": "{{ .TmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",

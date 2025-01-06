@@ -9,7 +9,7 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    tx_builder::{eth_eureka::TxBuilder, TxBuilderService},
+    tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
@@ -118,8 +118,11 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request...");
+        tracing::info!("Handling relay by tx request for cosmos to eth...");
+
         let inner_req = request.into_inner();
+        tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
+        tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let cosmos_txs = inner_req
             .source_tx_ids
             .into_iter()

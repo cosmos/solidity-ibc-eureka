@@ -30,8 +30,7 @@ impl tree_hash::TreeHash for HashVec {
     }
 
     fn tree_hash_root(&self) -> Hash256 {
-        let mut hasher =
-            MerkleHasher::with_leaves((self.vec.len() + BYTES_PER_CHUNK - 1) / BYTES_PER_CHUNK);
+        let mut hasher = MerkleHasher::with_leaves(self.vec.len().div_ceil(BYTES_PER_CHUNK));
 
         for item in &self.vec {
             hasher.write(&item.tree_hash_packed_encoding()).unwrap()

@@ -7,4 +7,5 @@ pub mod light_client_header;
 pub mod merkle;
 pub mod signing_data;
 pub mod slot;
+pub mod spec;
 pub mod sync_committee;

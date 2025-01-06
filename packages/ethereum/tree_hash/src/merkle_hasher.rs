@@ -19,7 +19,7 @@ enum Preimage<'a> {
     Slice(&'a [u8]),
 }
 
-impl<'a> Preimage<'a> {
+impl Preimage<'_> {
     /// Returns a 32-byte slice.
     fn as_bytes(&self) -> &[u8] {
         match self {
@@ -365,8 +365,8 @@ mod test {
     use crate::merkleize_padded;
 
     // TODO: The new size is 120, not sure if that matters or not 🙈
-    /// This test is just to ensure that the stack size of the `Context` remains the same. We choose
-    /// our smallvec size based upon this, so it's good to know if it suddenly changes in size.
+    // /// This test is just to ensure that the stack size of the `Context` remains the same. We choose
+    // /// our smallvec size based upon this, so it's good to know if it suddenly changes in size.
     //#[test]
     //fn context_size() {
     //    assert_eq!(

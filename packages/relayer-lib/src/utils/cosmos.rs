@@ -1,8 +1,12 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
+use alloy::{primitives::U256, providers::Provider, transports::Transport};
 use anyhow::Result;
+use ethereum_apis::eth_api::client::EthApiClient;
+use ethereum_light_client::membership::ibc_commitment_key_v2;
+use ethereum_types::execution::storage_proof::StorageProof;
 use futures::future;
-use ibc_eureka_solidity_types::ics26::router::{SendPacket, WriteAcknowledgement};
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_proto_eureka::{
     ibc::core::{
         channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
@@ -16,65 +20,43 @@ use tendermint_rpc::HttpClient;
 use crate::events::EurekaEvent;
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
-/// # Errors
-/// Returns an error if proof cannot be generated, or membership value is empty for a packet.
-pub async fn target_events_to_timeout_msgs(
+pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEvent>,
-    source_tm_client: &HttpClient,
     target_channel_id: &str,
-    revision_number: u64,
-    target_height: u32,
+    target_height: &Height,
     signer_address: &str,
-) -> Result<Vec<MsgTimeout>> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-
-    future::try_join_all(
-        target_events
-            .into_iter()
-            .filter(|e| match e {
-                EurekaEvent::SendPacket(se) => {
-                    now >= se.packet.timeoutTimestamp
-                        && se.packet.sourceChannel == target_channel_id
+    now: u64,
+) -> Vec<MsgTimeout> {
+    target_events
+        .into_iter()
+        .filter_map(|e| match e {
+            EurekaEvent::SendPacket(se) => {
+                if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == target_channel_id
+                {
+                    Some(MsgTimeout {
+                        packet: Some(se.packet.into()),
+                        proof_height: Some(*target_height),
+                        proof_unreceived: vec![],
+                        signer: signer_address.to_string(),
+                    })
+                } else {
+                    None
                 }
-                _ => false,
-            })
-            .map(|e| async {
-                match e {
-                    EurekaEvent::SendPacket(se) => {
-                        send_event_to_timout_packet(
-                            se,
-                            source_tm_client,
-                            revision_number,
-                            target_height,
-                            signer_address.to_string(),
-                        )
-                        .await
-                    }
-                    _ => unreachable!(),
-                }
-            }),
-    )
-    .await
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
-/// # Errors
-/// Returns an error if proof cannot be generated, or membership value is empty for a packet.
-pub async fn src_events_to_recv_and_ack_msgs(
+pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEvent>,
-    source_tm_client: &HttpClient,
     target_channel_id: &str,
-    revision_number: u64,
-    target_height: u32,
+    target_height: &Height,
     signer_address: &str,
-) -> Result<(Vec<MsgRecvPacket>, Vec<MsgAcknowledgement>)> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-
+    now: u64,
+) -> (Vec<MsgRecvPacket>, Vec<MsgAcknowledgement>) {
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
         .filter(|e| match e {
@@ -90,132 +72,207 @@ pub async fn src_events_to_recv_and_ack_msgs(
             EurekaEvent::RecvPacket(_) => unreachable!(),
         });
 
-    let recv_msgs = future::try_join_all(src_send_events.into_iter().map(|e| async {
-        match e {
-            EurekaEvent::SendPacket(se) => {
-                send_event_to_recv_packet(
-                    se,
-                    source_tm_client,
-                    revision_number,
-                    target_height,
-                    signer_address.to_string(),
-                )
-                .await
-            }
+    let recv_msgs = src_send_events
+        .into_iter()
+        .map(|e| match e {
+            EurekaEvent::SendPacket(se) => MsgRecvPacket {
+                packet: Some(se.packet.into()),
+                proof_height: Some(*target_height),
+                proof_commitment: vec![],
+                signer: signer_address.to_string(),
+            },
             _ => unreachable!(),
+        })
+        .collect::<Vec<MsgRecvPacket>>();
+
+    let ack_msgs = src_ack_events
+        .into_iter()
+        .map(|e| match e {
+            EurekaEvent::WriteAcknowledgement(we) => MsgAcknowledgement {
+                packet: Some(we.packet.into()),
+                acknowledgement: Some(Acknowledgement {
+                    app_acknowledgements: we.acknowledgements.into_iter().map(Into::into).collect(),
+                }),
+                proof_height: Some(*target_height),
+                proof_acked: vec![],
+                signer: signer_address.to_string(),
+            },
+            _ => unreachable!(),
+        })
+        .collect::<Vec<MsgAcknowledgement>>();
+
+    (recv_msgs, ack_msgs)
+}
+
+/// Generates and injects tendermint proofs for rec, ack and timeout messages.
+/// # Errors
+/// Returns an error a proof cannot be generated for any of the provided messages.
+pub async fn inject_tendermint_proofs(
+    recv_msgs: &mut [MsgRecvPacket],
+    ack_msgs: &mut [MsgAcknowledgement],
+    timeout_msgs: &mut [MsgTimeout],
+    source_tm_client: &HttpClient,
+    target_height: &Height,
+) -> Result<()> {
+    future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let commitment_path = packet.commitment_path();
+        let (value, proof) = source_tm_client
+            .prove_path(
+                &[b"ibc".to_vec(), commitment_path],
+                target_height.revision_height.try_into().unwrap(),
+            )
+            .await?;
+        if value.is_empty() {
+            anyhow::bail!("Membership value is empty")
         }
+
+        msg.proof_commitment = proof.encode_vec();
+        msg.proof_height = Some(*target_height);
+        anyhow::Ok(())
     }))
     .await?;
 
-    let ack_msgs = future::try_join_all(src_ack_events.into_iter().map(|e| async {
-        match e {
-            EurekaEvent::WriteAcknowledgement(we) => {
-                write_ack_event_to_ack_packet(
-                    we,
-                    source_tm_client,
-                    revision_number,
-                    target_height,
-                    signer_address.to_string(),
-                )
-                .await
-            }
-            _ => unreachable!(),
+    future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let ack_path = packet.ack_commitment_path();
+        let (value, proof) = source_tm_client
+            .prove_path(
+                &[b"ibc".to_vec(), ack_path],
+                target_height.revision_height.try_into().unwrap(),
+            )
+            .await?;
+        if value.is_empty() {
+            anyhow::bail!("Membership value is empty")
         }
+
+        msg.proof_acked = proof.encode_vec();
+        msg.proof_height = Some(*target_height);
+        anyhow::Ok(())
     }))
     .await?;
 
-    Ok((recv_msgs, ack_msgs))
+    future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let receipt_path = packet.receipt_commitment_path();
+        let (value, proof) = source_tm_client
+            .prove_path(
+                &[b"ibc".to_vec(), receipt_path],
+                target_height.revision_height.try_into().unwrap(),
+            )
+            .await?;
+
+        if !value.is_empty() {
+            anyhow::bail!("Non-Membership value is empty")
+        }
+        msg.proof_unreceived = proof.encode_vec();
+        msg.proof_height = Some(*target_height);
+        anyhow::Ok(())
+    }))
+    .await?;
+
+    Ok(())
 }
 
-/// Converts a [`SendPacket`] event to a [`MsgRecvPacket`].
-/// This function doesn't check whether the packet is already received or timed out.
-/// # Errors
-/// Returns an error if proof cannot be generated, or membership value is empty.
-async fn send_event_to_recv_packet(
-    se: SendPacket,
-    source_tm_client: &HttpClient,
-    revision_number: u64,
-    target_height: u32,
-    signer_address: String,
-) -> Result<MsgRecvPacket> {
-    let ibc_path = se.packet.commitment_path();
-    let (value, proof) = source_tm_client
-        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+#[allow(clippy::too_many_arguments)]
+pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone>(
+    recv_msgs: &mut [MsgRecvPacket],
+    ack_msgs: &mut [MsgAcknowledgement],
+    timeout_msgs: &mut [MsgTimeout],
+    eth_client: &EthApiClient<T, P>,
+    ibc_contrct_address: &str,
+    ibc_contract_slot: U256,
+    target_block_number: u64,
+    target_slot: u64,
+) -> Result<()> {
+    let target_height = Height {
+        revision_number: 0,
+        revision_height: target_slot,
+    };
+    future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let commitment_path = packet.commitment_path();
+        let storage_proof = get_commitment_proof(
+            eth_client,
+            ibc_contrct_address,
+            target_block_number,
+            commitment_path,
+            ibc_contract_slot,
+        )
         .await?;
+        if storage_proof.value.is_zero() {
+            anyhow::bail!("Membership value is empty")
+        }
 
-    if value.is_empty() {
-        anyhow::bail!("Membership value is empty")
-    }
-    Ok(MsgRecvPacket {
-        packet: Some(se.packet.into()),
-        proof_height: Some(Height {
-            revision_number,
-            revision_height: target_height.into(),
-        }),
-        proof_commitment: proof.encode_vec(),
-        signer: signer_address,
-    })
+        msg.proof_commitment = serde_json::to_vec(&storage_proof)?;
+        msg.proof_height = Some(target_height);
+        anyhow::Ok(())
+    }))
+    .await?;
+
+    future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let ack_path = packet.ack_commitment_path();
+        let storage_proof = get_commitment_proof(
+            eth_client,
+            ibc_contrct_address,
+            target_block_number,
+            ack_path,
+            ibc_contract_slot,
+        )
+        .await?;
+        if storage_proof.value.is_zero() {
+            anyhow::bail!("Membership value is empty")
+        }
+
+        msg.proof_acked = serde_json::to_vec(&storage_proof)?;
+        msg.proof_height = Some(target_height);
+        anyhow::Ok(())
+    }))
+    .await?;
+
+    future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
+        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let receipt_path = packet.receipt_commitment_path();
+        let storage_proof = get_commitment_proof(
+            eth_client,
+            ibc_contrct_address,
+            target_block_number,
+            receipt_path,
+            ibc_contract_slot,
+        )
+        .await?;
+        if !storage_proof.value.is_zero() {
+            anyhow::bail!("Non-Membership value is empty")
+        }
+        msg.proof_unreceived = serde_json::to_vec(&storage_proof)?;
+        msg.proof_height = Some(target_height);
+        anyhow::Ok(())
+    }))
+    .await?;
+
+    Ok(())
 }
 
-/// Converts a [`SendPacket`] event to a [`MsgTimeout`].
-/// This function doesn't check whether the packet is already received or timed out.
-/// # Errors
-/// Returns an error if proof cannot be generated, or non-membership value is not empty.
-async fn send_event_to_timout_packet(
-    se: SendPacket,
-    source_tm_client: &HttpClient,
-    revision_number: u64,
-    target_height: u32,
-    signer_address: String,
-) -> Result<MsgTimeout> {
-    let ibc_path = se.packet.receipt_commitment_path();
-    let (value, proof) = source_tm_client
-        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
+async fn get_commitment_proof<T: Transport + Clone, P: Provider<T> + Clone>(
+    eth_client: &EthApiClient<T, P>,
+    ibc_contrct_address: &str,
+    block_number: u64,
+    path: Vec<u8>,
+    slot: U256,
+) -> Result<StorageProof> {
+    let storage_key = ibc_commitment_key_v2(path, slot);
+    let storage_key_hex = format!("0x{storage_key:x}");
+    let block_hex = format!("0x{block_number:x}");
+
+    let proof = eth_client
+        .get_proof(ibc_contrct_address, vec![storage_key_hex], block_hex)
         .await?;
+    let storage_proof = proof.storage_proof.first().unwrap();
 
-    if !value.is_empty() {
-        anyhow::bail!("Non-membership value is not empty")
-    }
-    Ok(MsgTimeout {
-        packet: Some(se.packet.into()),
-        proof_height: Some(Height {
-            revision_number,
-            revision_height: target_height.into(),
-        }),
-        proof_unreceived: proof.encode_vec(),
-        signer: signer_address,
-    })
-}
-
-/// Converts a [`WriteAcknowledgement`] event to a [`MsgAcknowledgement`].
-/// This function doesn't check whether the packet is already acknowledged.
-/// # Errors
-/// Returns an error if proof cannot be generated, or membership value is empty.
-async fn write_ack_event_to_ack_packet(
-    we: WriteAcknowledgement,
-    source_tm_client: &HttpClient,
-    revision_number: u64,
-    target_height: u32,
-    signer_address: String,
-) -> Result<MsgAcknowledgement> {
-    let ibc_path = we.packet.ack_commitment_path();
-    let (value, proof) = source_tm_client
-        .prove_path(&[b"ibc".to_vec(), ibc_path], target_height)
-        .await?;
-
-    if value.is_empty() {
-        anyhow::bail!("Membership value is empty")
-    }
-    Ok(MsgAcknowledgement {
-        packet: Some(we.packet.into()),
-        acknowledgement: Some(Acknowledgement {
-            app_acknowledgements: we.acknowledgements.into_iter().map(Into::into).collect(),
-        }),
-        proof_height: Some(Height {
-            revision_number,
-            revision_height: target_height.into(),
-        }),
-        proof_acked: proof.encode_vec(),
-        signer: signer_address,
+    Ok(StorageProof {
+        key: storage_proof.key.as_b256(),
+        value: storage_proof.value,
+        proof: storage_proof.proof.clone(),
     })
 }

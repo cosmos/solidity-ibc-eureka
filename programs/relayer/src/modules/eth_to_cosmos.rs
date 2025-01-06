@@ -1,10 +1,15 @@
-//! Defines Cosmos to Cosmos relayer module.
+//! Defines Ethereum to Cosmos relayer module.
 
 use std::{net::SocketAddr, str::FromStr};
 
+use alloy::{
+    primitives::{Address, TxHash},
+    providers::{ProviderBuilder, RootProvider},
+    transports::BoxTransport,
+};
 use ibc_eureka_relayer_lib::{
-    listener::{cosmos_sdk, ChainListenerService},
-    tx_builder::{cosmos_to_cosmos, TxBuilderService},
+    listener::{cosmos_sdk, eth_eureka, ChainListenerService},
+    tx_builder::{eth_to_cosmos, TxBuilderService},
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
@@ -21,64 +26,68 @@ use crate::{
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 #[allow(clippy::module_name_repetitions)]
-pub struct CosmosToCosmosRelayerModule;
+pub struct EthToCosmosRelayerModule;
 
 /// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
-#[allow(dead_code)]
-struct CosmosToCosmosRelayerModuleServer {
-    /// The souce chain listener for Cosmos SDK.
-    pub src_listener: cosmos_sdk::ChainListener,
-    /// The target chain listener for Cosmos SDK.
-    pub target_listener: cosmos_sdk::ChainListener,
-    /// The transaction builder from Cosmos to Cosmos.
-    pub tx_builder: cosmos_to_cosmos::TxBuilder,
+struct EthToCosmosRelayerModuleServer {
+    /// The chain listener for `EthEureka`.
+    pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
+    /// The chain listener for Cosmos SDK.
+    pub tm_listener: cosmos_sdk::ChainListener,
+    /// The transaction builder for Ethereum to Cosmos.
+    pub tx_builder: eth_to_cosmos::TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
 }
 
 /// The configuration for the Cosmos to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(clippy::module_name_repetitions)]
-pub struct CosmosToCosmosConfig {
-    /// The source tendermint RPC URL.
-    pub src_rpc_url: String,
-    /// The target tendermint RPC URL.
-    pub target_rpc_url: String,
+pub struct EthToCosmosConfig {
+    /// The ICS26 address.
+    pub ics26_address: Address,
+    /// The tendermint RPC URL.
+    pub tm_rpc_url: String,
+    /// The EVM RPC URL.
+    pub eth_rpc_url: String,
+    /// The Ethereum Beacon API URL
+    pub eth_beacon_api_url: String,
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
 }
 
-impl CosmosToCosmosRelayerModuleServer {
-    #[allow(dead_code)]
-    fn new(config: CosmosToCosmosConfig) -> Self {
-        let src_client = HttpClient::new(
-            Url::from_str(&config.src_rpc_url)
-                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.src_rpc_url)),
+impl EthToCosmosRelayerModuleServer {
+    async fn new(config: EthToCosmosConfig) -> Self {
+        let provider = ProviderBuilder::new()
+            .on_builtin(&config.eth_rpc_url)
+            .await
+            .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
+        let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
+
+        let tm_client = HttpClient::new(
+            Url::from_str(&config.tm_rpc_url)
+                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
         )
         .expect("Failed to create tendermint HTTP client");
+        let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
-
-        let target_client =
-            HttpClient::new(Url::from_str(&config.target_rpc_url).unwrap_or_else(|_| {
-                panic!("invalid tendermint RPC URL: {}", config.target_rpc_url)
-            }))
-            .expect("Failed to create tendermint HTTP client");
-
-        let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
-
-        let tx_builder =
-            cosmos_to_cosmos::TxBuilder::new(src_client, target_client, config.signer_address);
+        let tx_builder = eth_to_cosmos::TxBuilder::new(
+            config.ics26_address,
+            provider,
+            config.eth_beacon_api_url,
+            tm_client,
+            config.signer_address,
+        );
 
         Self {
-            src_listener,
-            target_listener,
+            eth_listener,
+            tm_listener,
             tx_builder,
         }
     }
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToCosmosRelayerModuleServer {
+impl RelayerService for EthToCosmosRelayerModuleServer {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -88,7 +97,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
-                    .target_listener
+                    .tm_listener
                     .chain_id()
                     .await
                     .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
@@ -97,12 +106,12 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
             }),
             source_chain: Some(api::Chain {
                 chain_id: self
-                    .src_listener
+                    .eth_listener
                     .chain_id()
                     .await
                     .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
                 ibc_version: "2".to_string(),
-                ibc_contract: String::new(),
+                ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
         }))
     }
@@ -112,52 +121,50 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for cosmos to cosmos...");
+        tracing::info!("Handling relay by tx request for eth to cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let src_txs = inner_req
+        let eth_txs = inner_req
             .source_tx_ids
             .into_iter()
-            .map(Hash::try_from)
+            .map(TryInto::<[u8; 32]>::try_into)
+            .map(|tx_hash| tx_hash.map(TxHash::from))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))?;
 
-        let target_txs = inner_req
+        let cosmos_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(Hash::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
-        let src_events = self
-            .src_listener
-            .fetch_tx_events(src_txs)
+        let eth_events = self
+            .eth_listener
+            .fetch_tx_events(eth_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
-        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source cosmos events.");
-        tracing::info!(
-            "Fetched {} source eureka events from CosmosSDK.",
-            src_events.len()
-        );
+        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
+        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
-        let target_events = self
-            .target_listener
-            .fetch_tx_events(target_txs)
+        let cosmos_events = self
+            .tm_listener
+            .fetch_tx_events(cosmos_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
-        tracing::debug!(cosmos_target_events = ?target_events, "Fetched target cosmos events.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
         tracing::info!(
-            "Fetched {} target eureka events from CosmosSDK.",
-            target_events.len()
+            "Fetched {} eureka events from CosmosSDK.",
+            cosmos_events.len()
         );
 
         let tx = self
             .tx_builder
-            .relay_events(src_events, target_events, inner_req.target_channel_id)
+            .relay_events(eth_events, cosmos_events, inner_req.target_channel_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
@@ -171,9 +178,9 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl ModuleServer for CosmosToCosmosRelayerModule {
+impl ModuleServer for EthToCosmosRelayerModule {
     fn name(&self) -> &'static str {
-        "cosmos_to_cosmos"
+        "eth_to_cosmos"
     }
 
     #[tracing::instrument(skip_all)]
@@ -182,12 +189,12 @@ impl ModuleServer for CosmosToCosmosRelayerModule {
         config: serde_json::Value,
         addr: SocketAddr,
     ) -> Result<(), tonic::transport::Error> {
-        let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
+        let config = serde_json::from_value::<EthToCosmosConfig>(config)
             .unwrap_or_else(|e| panic!("failed to parse config: {e}"));
 
-        let server = CosmosToCosmosRelayerModuleServer::new(config);
+        let server = EthToCosmosRelayerModuleServer::new(config).await;
 
-        tracing::info!(%addr, "Started Cosmos to Cosmos relayer server.");
+        tracing::info!(%addr, "Started Cosmos to Ethereum relayer server.");
 
         Server::builder()
             .add_service(RelayerServiceServer::new(server))

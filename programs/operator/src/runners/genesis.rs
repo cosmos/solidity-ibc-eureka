@@ -1,7 +1,7 @@
 //! Contains the runner for the genesis command.
 
 use crate::cli::command::{genesis::Args, OutputPath};
-use alloy_sol_types::SolValue;
+use alloy::sol_types::SolValue;
 use ibc_eureka_solidity_types::sp1_ics07::IICS07TendermintMsgs::ConsensusState as SolConsensusState;
 use sp1_ics07_tendermint_prover::{
     programs::{

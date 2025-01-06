@@ -32,5 +32,4 @@ ibc-eureka-solidity-types     = { workspace = true, features = ["rpc"] }
 sp1-ics07-tendermint-utils    = { workspace = true }
 sp1-ics07-tendermint-prover   = { workspace = true }
 
-alloy-sol-types  = { workspace = true }
-alloy            = { workspace = true, features = ["full", "node-bindings"] }
+alloy = { workspace = true, features = ["full", "node-bindings"] }
