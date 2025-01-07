@@ -306,14 +306,10 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	}))
 }
 
-func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Plonk() {
+func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
+	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
-	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypePlonk, 2)
-}
-
-func (s *RelayerTestSuite) Test_5_ConcurrentRecvPacketToEth_Groth16() {
-	ctx := context.Background()
-	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 5)
+	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 2)
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
@@ -413,7 +409,9 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 
 	s.Require().True(s.Run("Wait for all requests to complete", func() {
-		// Fail if the waitgroup is taking more than 5 minutes
+		// Allow 3 minutes per request to complete
+		totalTimeout := time.Duration(numOfTransfers) * 3 * time.Minute
+
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -423,7 +421,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		select {
 		case <-done:
 			// all requests have completed
-		case <-time.After(5 * time.Minute):
+		case <-time.After(totalTimeout):
 			s.FailNow("Timeout waiting for all requests to complete")
 		}
 	}))
