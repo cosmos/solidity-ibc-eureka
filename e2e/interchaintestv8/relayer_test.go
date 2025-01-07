@@ -407,7 +407,8 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	s.Require().True(s.Run("Make concurrent requests", func() {
 		// loop over the txHashes and send them concurrently
 		for _, txHash := range txHashes {
-			time.Sleep(4 * time.Second)
+			// we send the request while the previous request is still being processed
+			time.Sleep(3 * time.Second)
 			go func() {
 				defer wg.Done() // decrement the counter when the request completes
 				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
