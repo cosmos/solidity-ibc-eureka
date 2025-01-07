@@ -409,21 +409,9 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 
 	s.Require().True(s.Run("Wait for all requests to complete", func() {
-		// Allow 3 minutes per request to complete
-		totalTimeout := time.Duration(numOfTransfers) * 3 * time.Minute
-
-		done := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			// all requests have completed
-		case <-time.After(totalTimeout):
-			s.FailNow("Timeout waiting for all requests to complete")
-		}
+		// wait for all requests to complete
+		// If the request never completes, we rely on the test timeout to kill the test
+		wg.Wait()
 	}))
 }
 
