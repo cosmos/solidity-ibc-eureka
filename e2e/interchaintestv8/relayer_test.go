@@ -330,7 +330,6 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	sendMemo := "nonnativesend"
 
 	var (
 		transferCoin sdk.Coin
@@ -346,7 +345,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				Amount:   transferCoin.Amount.BigInt(),
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
-				Memo:     sendMemo,
+				Memo:     "",
 			}
 			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
 			s.Require().NoError(err)
