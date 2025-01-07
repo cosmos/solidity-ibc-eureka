@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -302,6 +303,129 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
 		*/
+	}))
+}
+
+func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Plonk() {
+	ctx := context.Background()
+	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypePlonk, 2)
+}
+
+func (s *RelayerTestSuite) Test_5_ConcurrentRecvPacketToEth_Groth16() {
+	ctx := context.Background()
+	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 5)
+}
+
+func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+) {
+	s.Require().Greater(numOfTransfers, 0)
+
+	s.SetupSuite(ctx, proofType)
+
+	_, simd := s.EthChain, s.CosmosChains[0]
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
+	if totalTransferAmount.Int64() > testvalues.InitialBalance {
+		s.FailNow("Total transfer amount exceeds the initial balance")
+	}
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+	sendMemo := "nonnativesend"
+
+	var (
+		transferCoin sdk.Coin
+		txHashes     [][]byte
+	)
+	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   cosmosUserAddress,
+				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
+				Memo:     sendMemo,
+			}
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingABI,
+				Value:           transferBz,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			txHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+
+			txHashes = append(txHashes, txHash)
+		}
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// Check the balance of UserB
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   transferCoin.Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), resp.Balance.Amount.Int64())
+		}))
+	}))
+
+	var wg sync.WaitGroup
+	wg.Add(numOfTransfers)
+	s.Require().True(s.Run("Make concurrent requests", func() {
+		// loop over the txHashes and send them concurrently
+		for _, txHash := range txHashes {
+			time.Sleep(4 * time.Second)
+			go func() {
+				defer wg.Done() // decrement the counter when the request completes
+				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SourceTxIds:     [][]byte{txHash},
+					TargetChannelId: s.TendermintLightClientID,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Tx)
+				s.Require().Equal(resp.Address, ics26Address.String())
+			}()
+		}
+	}))
+
+	s.Require().True(s.Run("Wait for all requests to complete", func() {
+		// Fail if the waitgroup is taking more than 5 minutes
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// all requests have completed
+		case <-time.After(5 * time.Minute):
+			s.FailNow("Timeout waiting for all requests to complete")
+		}
 	}))
 }
 
