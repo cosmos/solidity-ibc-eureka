@@ -313,9 +313,9 @@ func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+	ctx context.Context, proofType operator.SupportedProofType, numConcurrentTransfers int,
 ) {
-	s.Require().Greater(numOfTransfers, 0)
+	s.Require().Greater(numConcurrentTransfers, 0)
 
 	s.SetupSuite(ctx, proofType)
 
@@ -323,7 +323,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
-	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numConcurrentTransfers))
 	if totalTransferAmount.Int64() > testvalues.InitialBalance {
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
@@ -336,7 +336,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		txHashes     [][]byte
 	)
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for i := 0; i < numConcurrentTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -403,7 +403,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 
 	var wg sync.WaitGroup
-	wg.Add(numOfTransfers)
+	wg.Add(numConcurrentTransfers)
 	s.Require().True(s.Run("Make concurrent requests", func() {
 		// loop over the txHashes and send them concurrently
 		for _, txHash := range txHashes {
