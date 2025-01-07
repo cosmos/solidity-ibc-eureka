@@ -388,6 +388,20 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		}))
 	}))
 
+	s.Require().True(s.Run("Install circuit artifacts on machine", func() {
+		// When running multiple instances of the relayer, the circuit artifacts need to be installed on the machine
+		// to avoid the overhead of installing the artifacts for each relayer instance (which also panics).
+		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
+
+		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SourceTxIds:     txHashes,
+			TargetChannelId: s.TendermintLightClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Equal(resp.Address, ics26Address.String())
+	}))
+
 	var wg sync.WaitGroup
 	wg.Add(numOfTransfers)
 	s.Require().True(s.Run("Make concurrent requests", func() {
