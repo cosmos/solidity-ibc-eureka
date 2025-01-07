@@ -20,7 +20,7 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://sp1.succinct.xyz | bash
+          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 
@@ -48,7 +48,7 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://sp1.succinct.xyz | bash
+          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: "Set up environment"
@@ -72,7 +72,7 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://sp1.succinct.xyz | bash
+          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: Build
@@ -93,7 +93,7 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://sp1.succinct.xyz | bash
+          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: Build

@@ -80,6 +80,7 @@ jobs:
           - TestWithRelayerTestSuite/Test_5_TimeoutPacketFromEth_Plonk
           - TestWithRelayerTestSuite/TestRecvPacketToCosmos
           - TestWithRelayerTestSuite/Test_10_RecvPacketToCosmos
+          - TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16
           - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
@@ -129,7 +130,7 @@ jobs:
       - name: Install SP1 toolchain
         if: (steps.cache-relayer.outputs.cache-hit != 'true')
         run: |
-          curl -L https://sp1.succinct.xyz | bash
+          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 

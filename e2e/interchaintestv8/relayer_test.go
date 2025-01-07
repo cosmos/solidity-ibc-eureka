@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -302,6 +303,129 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
 		*/
+	}))
+}
+
+func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
+	// I've noticed that the prover network drops the requests when sending too many
+	ctx := context.Background()
+	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 2)
+}
+
+func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
+	ctx context.Context, proofType operator.SupportedProofType, numConcurrentTransfers int,
+) {
+	s.Require().Greater(numConcurrentTransfers, 0)
+
+	s.SetupSuite(ctx, proofType)
+
+	_, simd := s.EthChain, s.CosmosChains[0]
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numConcurrentTransfers))
+	if totalTransferAmount.Int64() > testvalues.InitialBalance {
+		s.FailNow("Total transfer amount exceeds the initial balance")
+	}
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+
+	var (
+		transferCoin sdk.Coin
+		txHashes     [][]byte
+	)
+	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
+		for i := 0; i < numConcurrentTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.BigInt(),
+				Sender:   cosmosUserAddress,
+				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
+				Memo:     "",
+			}
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort:      transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version:         transfertypes.V1,
+				Encoding:        transfertypes.EncodingABI,
+				Value:           transferBz,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceChannel:    ibctesting.FirstChannelID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{
+					payload,
+				},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			txHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+
+			txHashes = append(txHashes, txHash)
+		}
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			// Check the balance of UserB
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   transferCoin.Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), resp.Balance.Amount.Int64())
+		}))
+	}))
+
+	s.Require().True(s.Run("Install circuit artifacts on machine", func() {
+		// When running multiple instances of the relayer, the circuit artifacts need to be installed on the machine
+		// to avoid the overhead of installing the artifacts for each relayer instance (which also panics).
+		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
+
+		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SourceTxIds:     txHashes,
+			TargetChannelId: s.TendermintLightClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Equal(resp.Address, ics26Address.String())
+	}))
+
+	var wg sync.WaitGroup
+	wg.Add(numConcurrentTransfers)
+	s.Require().True(s.Run("Make concurrent requests", func() {
+		// loop over the txHashes and send them concurrently
+		for _, txHash := range txHashes {
+			// we send the request while the previous request is still being processed
+			time.Sleep(3 * time.Second)
+			go func() {
+				defer wg.Done() // decrement the counter when the request completes
+				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SourceTxIds:     [][]byte{txHash},
+					TargetChannelId: s.TendermintLightClientID,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Tx)
+				s.Require().Equal(resp.Address, ics26Address.String())
+			}()
+		}
+	}))
+
+	s.Require().True(s.Run("Wait for all requests to complete", func() {
+		// wait for all requests to complete
+		// If the request never completes, we rely on the test timeout to kill the test
+		wg.Wait()
 	}))
 }
 
