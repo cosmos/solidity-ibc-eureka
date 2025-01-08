@@ -28,6 +28,7 @@ use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
+use crate::utils::cosmos::inject_mock_proofs;
 use crate::utils::{cosmos, wait_for_condition};
 use crate::{
     chain::{CosmosSdk, EthEureka},
@@ -256,6 +257,7 @@ where
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         let update_msgs = if self.mock {
+            inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
             vec![]
         } else {
             let ethereum_client_state = self
