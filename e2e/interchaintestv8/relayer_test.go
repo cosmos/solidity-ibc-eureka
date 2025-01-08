@@ -83,6 +83,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 			BeaconAPI:       beaconAPI,
 			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
 			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
+			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -306,6 +307,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	}))
 }
 
+// TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 2 packets from Cosmos to Ethereum
+// NOTE: This test is not included in the CI pipeline as it is flaky
 func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
 	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
@@ -454,7 +457,6 @@ func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -794,7 +796,6 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

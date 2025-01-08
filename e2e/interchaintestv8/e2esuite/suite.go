@@ -124,11 +124,3 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		s.proposalIDs[chain.Config().ChainID] = 1
 	}
 }
-
-// TODO: Remove when we have removed manual relaying and moved to
-// common relaying methods that can choose the correct methods
-func (s *TestSuite) SkipIfEthTestnetType(testnetType string) {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) == testnetType {
-		s.T().Skipf("Skipping test because Ethereum testnet type is %s", testnetType)
-	}
-}
