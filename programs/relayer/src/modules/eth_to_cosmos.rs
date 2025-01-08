@@ -53,6 +53,9 @@ pub struct EthToCosmosConfig {
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
+    /// Whether to run in mock mode.
+    #[serde(default)]
+    pub mock: bool,
 }
 
 impl EthToCosmosRelayerModuleServer {
@@ -70,13 +73,22 @@ impl EthToCosmosRelayerModuleServer {
         .expect("Failed to create tendermint HTTP client");
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let tx_builder = eth_to_cosmos::TxBuilder::new(
-            config.ics26_address,
-            provider,
-            config.eth_beacon_api_url,
-            tm_client,
-            config.signer_address,
-        );
+        let tx_builder = if config.mock {
+            eth_to_cosmos::TxBuilder::new_mock(
+                config.ics26_address,
+                provider,
+                tm_client,
+                config.signer_address,
+            )
+        } else {
+            eth_to_cosmos::TxBuilder::new(
+                config.ics26_address,
+                provider,
+                config.eth_beacon_api_url,
+                tm_client,
+                config.signer_address,
+            )
+        };
 
         Self {
             eth_listener,

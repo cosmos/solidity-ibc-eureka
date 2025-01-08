@@ -48,6 +48,7 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     pub tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
+    mock: bool,
 }
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
@@ -65,6 +66,24 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
             signer_address,
+            mock: false,
+        }
+    }
+
+    /// Create a new [`TxBuilder`] instance for testing.
+    pub fn new_mock(
+        ics26_address: Address,
+        provider: P,
+        tm_client: HttpClient,
+        signer_address: String,
+    ) -> Self {
+        Self {
+            eth_client: EthApiClient::new(provider.clone()),
+            beacon_api_client: BeaconApiClient::new(String::new()),
+            ics26_router: routerInstance::new(ics26_address, provider),
+            tm_client,
+            signer_address,
+            mock: true,
         }
     }
 
@@ -214,93 +233,95 @@ where
             .ethereum_consensus_state(channel.client_id.clone(), 0)
             .await?;
 
-        self.wait_for_light_client_readiness(
-            target_block_number,
-            &ethereum_client_state,
-            &ethereum_consensus_state,
-        )
-        .await?;
-        let light_client_updates = self
-            .get_light_client_updates(&ethereum_client_state, &ethereum_consensus_state)
-            .await?;
-        tracing::debug!("light client updates: #{}", light_client_updates.len());
-
-        let mut headers = vec![];
         let mut trusted_slot = ethereum_consensus_state.slot;
-        let mut prev_pub_agg_key = BlsPublicKey::default();
-        for update in &light_client_updates {
-            tracing::debug!(
-                "Processing light client update for slot {} with trusted slot {}",
-                update.attested_header.beacon.slot,
-                trusted_slot
-            );
-
-            let block_hex = format!("0x{:x}", update.attested_header.execution.block_number);
-            let ibc_contract_address: String =
-                ethereum_client_state.ibc_contract_address.to_string();
-
-            tracing::debug!("Getting proof for block {}", block_hex);
-            let proof = self
-                .eth_client
-                .get_proof(&ibc_contract_address, vec![], block_hex)
+        let mut headers = vec![];
+        if !self.mock {
+            self.wait_for_light_client_readiness(
+                target_block_number,
+                &ethereum_client_state,
+                &ethereum_consensus_state,
+            )
+            .await?;
+            let light_client_updates = self
+                .get_light_client_updates(&ethereum_client_state, &ethereum_consensus_state)
                 .await?;
+            tracing::debug!("light client updates: #{}", light_client_updates.len());
 
-            let account_update = AccountUpdate {
-                account_proof: AccountProof {
-                    proof: proof.account_proof,
-                    storage_root: proof.storage_hash,
-                },
-            };
+            let mut prev_pub_agg_key = BlsPublicKey::default();
+            for update in &light_client_updates {
+                tracing::debug!(
+                    "Processing light client update for slot {} with trusted slot {}",
+                    update.attested_header.beacon.slot,
+                    trusted_slot
+                );
 
-            let mut previous_period = 0;
-            let current_period = compute_sync_committee_period_at_slot(
-                ethereum_client_state.slots_per_epoch,
-                ethereum_client_state.epochs_per_sync_committee_period,
-                update.attested_header.beacon.slot,
-            );
-            if current_period > 1 {
-                previous_period = current_period - 1;
+                let block_hex = format!("0x{:x}", update.attested_header.execution.block_number);
+                let ibc_contract_address: String =
+                    ethereum_client_state.ibc_contract_address.to_string();
+
+                tracing::debug!("Getting proof for block {}", block_hex);
+                let proof = self
+                    .eth_client
+                    .get_proof(&ibc_contract_address, vec![], block_hex)
+                    .await?;
+
+                let account_update = AccountUpdate {
+                    account_proof: AccountProof {
+                        proof: proof.account_proof,
+                        storage_root: proof.storage_hash,
+                    },
+                };
+
+                let mut previous_period = 0;
+                let current_period = compute_sync_committee_period_at_slot(
+                    ethereum_client_state.slots_per_epoch,
+                    ethereum_client_state.epochs_per_sync_committee_period,
+                    update.attested_header.beacon.slot,
+                );
+                if current_period > 1 {
+                    previous_period = current_period - 1;
+                }
+
+                tracing::debug!("Getting updates for previous period: {}", previous_period);
+
+                let previous_light_client_updates = self
+                    .beacon_api_client
+                    .light_client_updates(previous_period, 1)
+                    .await?
+                    .into_iter()
+                    .map(|resp| resp.data)
+                    .collect::<Vec<_>>();
+                let previous_light_client_update = previous_light_client_updates.first().unwrap();
+                let previous_next_sync_committee = previous_light_client_update
+                    .next_sync_committee
+                    .clone()
+                    .unwrap();
+                if previous_next_sync_committee.aggregate_pubkey == prev_pub_agg_key {
+                    tracing::debug!("Skipping header with same aggregate pubkey");
+                    continue;
+                }
+
+                headers.push(Header {
+                    trusted_sync_committee: TrustedSyncCommittee {
+                        trusted_slot,
+                        sync_committee: ethereum_light_client::header::ActiveSyncCommittee::Next(
+                            previous_next_sync_committee.clone(),
+                        ),
+                    },
+                    account_update,
+                    consensus_update: update.clone(),
+                });
+
+                tracing::debug!(
+                    "Added header for slot {}",
+                    update.attested_header.beacon.slot
+                );
+                trusted_slot = update.attested_header.beacon.slot;
+                prev_pub_agg_key = previous_next_sync_committee.aggregate_pubkey;
             }
 
-            tracing::debug!("Getting updates for previous period: {}", previous_period);
-
-            let previous_light_client_updates = self
-                .beacon_api_client
-                .light_client_updates(previous_period, 1)
-                .await?
-                .into_iter()
-                .map(|resp| resp.data)
-                .collect::<Vec<_>>();
-            let previous_light_client_update = previous_light_client_updates.first().unwrap();
-            let previous_next_sync_committee = previous_light_client_update
-                .next_sync_committee
-                .clone()
-                .unwrap();
-            if previous_next_sync_committee.aggregate_pubkey == prev_pub_agg_key {
-                tracing::debug!("Skipping header with same aggregate pubkey");
-                continue;
-            }
-
-            headers.push(Header {
-                trusted_sync_committee: TrustedSyncCommittee {
-                    trusted_slot,
-                    sync_committee: ethereum_light_client::header::ActiveSyncCommittee::Next(
-                        previous_next_sync_committee.clone(),
-                    ),
-                },
-                account_update,
-                consensus_update: update.clone(),
-            });
-
-            tracing::debug!(
-                "Added header for slot {}",
-                update.attested_header.beacon.slot
-            );
-            trusted_slot = update.attested_header.beacon.slot;
-            prev_pub_agg_key = previous_next_sync_committee.aggregate_pubkey;
+            tracing::debug!("Headers assembled: #{}", headers.len());
         }
-
-        tracing::debug!("Headers assembled: #{}", headers.len());
 
         let update_msgs_iter = headers
             .iter()
@@ -343,17 +364,19 @@ where
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_ethereum_proofs(
-            &mut recv_msgs,
-            &mut ack_msgs,
-            &mut timeout_msgs,
-            &self.eth_client,
-            &ethereum_client_state.ibc_contract_address.to_string(),
-            ethereum_client_state.ibc_commitment_slot,
-            target_block_number,
-            trusted_slot,
-        )
-        .await?;
+        if !self.mock {
+            cosmos::inject_ethereum_proofs(
+                &mut recv_msgs,
+                &mut ack_msgs,
+                &mut timeout_msgs,
+                &self.eth_client,
+                &ethereum_client_state.ibc_contract_address.to_string(),
+                ethereum_client_state.ibc_commitment_slot,
+                target_block_number,
+                trusted_slot,
+            )
+            .await?;
+        }
 
         let all_msgs = update_msgs_iter
             .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
