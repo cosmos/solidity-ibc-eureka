@@ -145,7 +145,7 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
             .eth_listener
             .fetch_tx_events(eth_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| anyhow_to_status(e))?;
 
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
@@ -166,7 +166,7 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
             .tx_builder
             .relay_events(eth_events, cosmos_events, inner_req.target_channel_id)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(anyhow_to_status)?;
 
         tracing::info!("Relay by tx request completed.");
 
@@ -175,6 +175,12 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
             address: String::new(),
         }))
     }
+}
+
+fn anyhow_to_status(err: anyhow::Error) -> tonic::Status {
+    let stacktrace = err.backtrace().to_string();
+    let error = format!("{:?}, {:?}", err, stacktrace);
+    tonic::Status::from_error(error.into())
 }
 
 #[tonic::async_trait]

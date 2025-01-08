@@ -19,6 +19,7 @@ func binaryPath() string {
 // StartRelayer starts the relayer with the given config file.
 func StartRelayer(configPath string) (*os.Process, error) {
 	cmd := exec.Command(binaryPath(), "start", "--config", configPath)
+	cmd.Env = append(os.Environ(), "RUST_BACKTRACE=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
