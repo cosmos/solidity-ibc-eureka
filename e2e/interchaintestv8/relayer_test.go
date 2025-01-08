@@ -794,7 +794,6 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int) {
-	// s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
