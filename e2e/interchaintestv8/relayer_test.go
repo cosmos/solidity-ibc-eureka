@@ -307,6 +307,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	}))
 }
 
+// TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 2 packets from Cosmos to Ethereum
+// NOTE: This test is not included in the CI pipeline as it is flaky
 func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
 	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
