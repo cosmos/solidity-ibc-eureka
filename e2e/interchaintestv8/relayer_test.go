@@ -455,7 +455,6 @@ func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
