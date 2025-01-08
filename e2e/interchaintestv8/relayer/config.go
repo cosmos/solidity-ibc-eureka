@@ -23,6 +23,8 @@ type EthCosmosConfigInfo struct {
 	SP1PrivateKey string
 	// Signer address cosmos
 	SignerAddress string
+	// Whether we use the mock client in Cosmos
+	Mock bool
 }
 
 func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {

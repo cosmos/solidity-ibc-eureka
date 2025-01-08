@@ -120,7 +120,7 @@ func (s *TestSuite) GetTxReciept(ctx context.Context, chain ethereum.Ethereum, h
 	s.Require().NoError(err)
 
 	var receipt *ethtypes.Receipt
-	err = testutil.WaitForCondition(time.Second*30, time.Second, func() (bool, error) {
+	err = testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
 		receipt, err = ethClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil

@@ -8,6 +8,7 @@ use alloy::{
     transports::BoxTransport,
 };
 use ibc_eureka_relayer_lib::{
+    events::EurekaEvent,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{eth_to_cosmos, TxBuilderService},
 };
@@ -35,7 +36,12 @@ struct EthToCosmosRelayerModuleServer {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The transaction builder for Ethereum to Cosmos.
-    pub tx_builder: eth_to_cosmos::TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
+    pub tx_builder: EthToCosmosTxBuilder,
+}
+
+enum EthToCosmosTxBuilder {
+    Real(eth_to_cosmos::TxBuilder<BoxTransport, RootProvider<BoxTransport>>),
+    Mock(eth_to_cosmos::MockTxBuilder<BoxTransport, RootProvider<BoxTransport>>),
 }
 
 /// The configuration for the Cosmos to Cosmos relayer module.
@@ -53,6 +59,9 @@ pub struct EthToCosmosConfig {
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
+    /// Whether to run in mock mode.
+    #[serde(default)]
+    pub mock: bool,
 }
 
 impl EthToCosmosRelayerModuleServer {
@@ -70,13 +79,21 @@ impl EthToCosmosRelayerModuleServer {
         .expect("Failed to create tendermint HTTP client");
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let tx_builder = eth_to_cosmos::TxBuilder::new(
-            config.ics26_address,
-            provider,
-            config.eth_beacon_api_url,
-            tm_client,
-            config.signer_address,
-        );
+        let tx_builder = if config.mock {
+            EthToCosmosTxBuilder::Mock(eth_to_cosmos::MockTxBuilder::new(
+                config.ics26_address,
+                provider,
+                config.signer_address,
+            ))
+        } else {
+            EthToCosmosTxBuilder::Real(eth_to_cosmos::TxBuilder::new(
+                config.ics26_address,
+                provider,
+                config.eth_beacon_api_url,
+                tm_client,
+                config.signer_address,
+            ))
+        };
 
         Self {
             eth_listener,
@@ -111,7 +128,7 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
                     .await
                     .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
                 ibc_version: "2".to_string(),
-                ibc_contract: self.tx_builder.ics26_router.address().to_string(),
+                ibc_contract: self.tx_builder.ics26_router_address().to_string(),
             }),
         }))
     }
@@ -200,5 +217,32 @@ impl ModuleServer for EthToCosmosRelayerModule {
             .add_service(RelayerServiceServer::new(server))
             .serve(addr)
             .await
+    }
+}
+
+impl EthToCosmosTxBuilder {
+    async fn relay_events(
+        &self,
+        src_events: Vec<EurekaEvent>,
+        target_events: Vec<EurekaEvent>,
+        target_channel_id: String,
+    ) -> Result<Vec<u8>, anyhow::Error> {
+        match self {
+            Self::Real(tb) => {
+                tb.relay_events(src_events, target_events, target_channel_id)
+                    .await
+            }
+            Self::Mock(tb) => {
+                tb.relay_events(src_events, target_events, target_channel_id)
+                    .await
+            }
+        }
+    }
+
+    const fn ics26_router_address(&self) -> &Address {
+        match self {
+            Self::Real(tb) => tb.ics26_router.address(),
+            Self::Mock(tb) => tb.ics26_router.address(),
+        }
     }
 }
