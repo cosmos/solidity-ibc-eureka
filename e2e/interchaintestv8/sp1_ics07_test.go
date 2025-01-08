@@ -21,9 +21,9 @@ import (
 
 	"cosmossdk.io/math"
 
+	banktypes "cosmossdk.io/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -235,7 +235,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 		var expValue []byte
 		s.Require().True(s.Run("Get expected value for the verify membership", func() {
-			resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.RequestQuery{
+			resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.QueryRequest{
 				Path:   "store/" + string(membershipKey[0]) + "/key",
 				Data:   membershipKey[1],
 				Height: int64(trustedHeight) - 1,
@@ -356,7 +356,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 
 		var expValue []byte
 		s.Require().True(s.Run("Get expected value for the verify membership", func() {
-			resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.RequestQuery{
+			resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.QueryRequest{
 				Path:   "store/" + string(membershipKey[0]) + "/key",
 				Data:   membershipKey[1],
 				Height: latestHeight - 1,
@@ -626,7 +626,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 				acc := sdk.AccAddress(pub.Address())
 
 				// Send some funds to the address
-				msgs = append(msgs, banktypes.NewMsgSend(simdUser.Address(), acc, sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1)))))
+				msgs = append(msgs, banktypes.NewMsgSend(simdUser.FormattedAddress(), acc.String(), sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, math.NewInt(1)))))
 
 				key, err := cosmos.BankBalanceKey(simdUser.Address(), simd.Config().Denom)
 				s.Require().NoError(err)
@@ -647,7 +647,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 
 			var expValue []byte
 			s.Require().True(s.Run("Get expected value for the verify membership", func() {
-				resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.RequestQuery{
+				resp, err := e2esuite.ABCIQuery(ctx, simd, &abci.QueryRequest{
 					Path:   fmt.Sprintf("store/%s/key", membershipKeys[rndIdx][0]),
 					Data:   membershipKeys[rndIdx][1],
 					Height: int64(clientHeight.RevisionHeight) - 1,

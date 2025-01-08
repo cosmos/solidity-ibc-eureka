@@ -24,15 +24,15 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	banktypes "cosmossdk.io/x/bank/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"

@@ -29,8 +29,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	banktypes "cosmossdk.io/x/bank/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
@@ -41,7 +41,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -589,10 +589,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(s.TendermintLightClientID, returnPacket.DestinationChannel)
 		s.Require().Equal(timeout, returnPacket.TimeoutTimestamp)
 
-		transferPacketData, err := transfertypes.DecodeABIFungibleTokenPacketData(returnPacket.Payloads[0].Value)
+		transferPacketData, err := ics20lib.DecodeFungibleTokenPacketData(returnPacket.Payloads[0].Value)
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnCosmos.Path(), transferPacketData.Denom)
-		s.Require().Equal(transferAmount.String(), transferPacketData.Amount)
+		s.Require().Equal(transferAmount, transferPacketData.Amount)
 		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
 		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
 		s.Require().Equal("", transferPacketData.Memo)
@@ -793,7 +793,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(s.TendermintLightClientID, sendPacket.DestinationChannel)
 		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
 
-		transferPacketData, err := transfertypes.DecodeABIFungibleTokenPacketData(sendPacket.Payloads[0].Value)
+		transferPacketData, err := ics20lib.DecodeFungibleTokenPacketData(sendPacket.Payloads[0].Value)
 		s.Require().NoError(err)
 		s.Require().Equal(transferCoin.Denom, transferPacketData.Denom)
 		s.Require().Equal(transferAmount.String(), transferPacketData.Amount)

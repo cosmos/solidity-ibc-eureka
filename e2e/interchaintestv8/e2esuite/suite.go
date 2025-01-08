@@ -12,13 +12,11 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	sdkmath "cosmossdk.io/math"
-
-	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	icethereum "github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	icethereum "github.com/strangelove-ventures/interchaintest/v9/chain/ethereum"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -117,9 +115,9 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
 
 	// Fund user accounts
-	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chains...)
-	s.CosmosUsers = cosmosUsers
+	for _, chain := range chains {
+		s.CosmosUsers = append(s.CosmosUsers, s.CreateAndFundCosmosUser(ctx, chain.(*cosmos.CosmosChain)))
+	}
 
 	s.proposalIDs = make(map[string]uint64)
 	for _, chain := range s.CosmosChains {

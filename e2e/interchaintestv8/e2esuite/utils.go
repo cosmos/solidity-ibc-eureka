@@ -1,6 +1,7 @@
 package e2esuite
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -24,31 +25,33 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
+	govtypes "cosmossdk.io/x/gov/types"
+	govtypesv1 "cosmossdk.io/x/gov/types/v1"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/crypto/tmhash"
-	cometproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
 	comettypes "github.com/cometbft/cometbft/types"
 	comettime "github.com/cometbft/cometbft/types/time"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
@@ -57,19 +60,21 @@ import (
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the broadcast response is returned, we wait for two blocks to be created on chain.
 func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
-	sdk.GetConfig().SetBech32PrefixForAccount(chain.Config().Bech32Prefix, chain.Config().Bech32Prefix+sdk.PrefixPublic)
-	sdk.GetConfig().SetBech32PrefixForValidator(
-		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
-		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic,
-	)
-
 	broadcaster := cosmos.NewBroadcaster(s.T(), chain)
 
 	broadcaster.ConfigureClientContextOptions(func(clientContext client.Context) client.Context {
-		return clientContext.
-			WithCodec(chain.Config().EncodingConfig.Codec).
-			WithChainID(chain.Config().ChainID).
-			WithTxConfig(chain.Config().EncodingConfig.TxConfig)
+		// use a codec with all the types our tests care about registered.
+		// BroadcastTx will deserialize the response and will not be able to otherwise.
+		cdc := chainconfig.Codec()
+
+		txConfig := chainconfig.SDKEncodingConfig().TxConfig
+		return clientContext.WithCodec(cdc).
+			WithTxConfig(txConfig).
+			WithAddressCodec(txConfig.SigningContext().AddressCodec()).
+			WithValidatorAddressCodec(txConfig.SigningContext().ValidatorAddressCodec()).
+			WithAddressPrefix(chain.Config().Bech32Prefix).
+			WithAddressCodec(txConfig.SigningContext().AddressCodec()).
+			WithValidatorAddressCodec(txConfig.SigningContext().ValidatorAddressCodec())
 	})
 
 	broadcaster.ConfigureFactoryOptions(func(factory tx.Factory) tx.Factory {
@@ -94,9 +99,20 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 // CreateAndFundCosmosUser returns a new cosmos user with the given initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
 	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
+	cosmosUser := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)[0]
 
-	return cosmosUsers[0]
+	// in order to ensure that the underlying account is created, we need to perform an operation on its behalf.
+	// in this case we just send 1 token to itself so the account gets created.
+	err := chain.SendFunds(ctx, cosmosUser.KeyName(), ibc.WalletAmount{
+		Address: cosmosUser.FormattedAddress(),
+		Denom:   chain.Config().Denom,
+		Amount:  sdkmath.NewInt(1),
+	})
+
+	s.Require().NoError(err)
+	s.Require().NoError(testutil.WaitForBlocks(ctx, 2, chain))
+
+	return cosmosUser
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
@@ -211,7 +227,7 @@ func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmo
 		"",
 		fmt.Sprintf("e2e gov proposal: %d", proposalID),
 		fmt.Sprintf("executing gov proposal %d", proposalID),
-		false,
+		govtypesv1.ProposalType_PROPOSAL_TYPE_STANDARD,
 	)
 	s.Require().NoError(err)
 
@@ -342,7 +358,7 @@ func (s *TestSuite) CreateTMClientHeader(
 			pk, err := pv.GetPubKey()
 			s.Require().NoError(err)
 
-			if pk.Equals(val.PubKey) {
+			if bytes.Equal(pk.Bytes(), val.PubKey.Bytes()) {
 				signers[i] = pv
 				break
 			}
@@ -372,7 +388,7 @@ func (s *TestSuite) CreateTMClientHeader(
 
 	hhash := tmHeader.Hash()
 	blockID := ibctesting.MakeBlockID(hhash, oldHeader.Commit.BlockID.PartSetHeader.Total, tmhash.Sum([]byte("part_set")))
-	voteSet := comettypes.NewVoteSet(oldHeader.Header.ChainID, blockHeight, 1, cometproto.PrecommitType, valSet)
+	voteSet := comettypes.NewVoteSet(oldHeader.Header.ChainID, blockHeight, 1, comettypes.PrecommitType, valSet)
 
 	voteProto := &comettypes.Vote{
 		ValidatorAddress: nil,
@@ -380,7 +396,7 @@ func (s *TestSuite) CreateTMClientHeader(
 		Height:           blockHeight,
 		Round:            1,
 		Timestamp:        comettime.Now(),
-		Type:             cometproto.PrecommitType,
+		Type:             comettypes.PrecommitType,
 		BlockID:          blockID,
 	}
 
@@ -397,19 +413,19 @@ func (s *TestSuite) CreateTMClientHeader(
 		s.Require().NoError(err)
 		s.Require().True(added)
 	}
-	extCommit := voteSet.MakeExtendedCommit(comettypes.DefaultABCIParams())
+	extCommit := voteSet.MakeExtendedCommit(comettypes.DefaultFeatureParams())
 	commit := extCommit.ToCommit()
 
-	signedHeader := &cometproto.SignedHeader{
-		Header: tmHeader.ToProto(),
-		Commit: commit.ToProto(),
+	signedHeader := &comettypes.SignedHeader{
+		Header: &tmHeader,
+		Commit: commit,
 	}
 
 	valSetProto, err := valSet.ToProto()
 	s.Require().NoError(err)
 
 	return tmclient.Header{
-		SignedHeader:      signedHeader,
+		SignedHeader:      signedHeader.ToProto(),
 		ValidatorSet:      valSetProto,
 		TrustedHeight:     oldHeader.TrustedHeight,
 		TrustedValidators: oldHeader.TrustedValidators,
