@@ -83,6 +83,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 			BeaconAPI:       beaconAPI,
 			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
 			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
+			Mock:            s.IsEthPoWTestnet(),
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -794,7 +795,7 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
+	// s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

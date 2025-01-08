@@ -226,16 +226,45 @@ where
         );
         tracing::debug!("Target block number: {}", target_block_number);
 
-        let ethereum_client_state = self
-            .ethereum_client_state(channel.client_id.clone())
-            .await?;
-        let ethereum_consensus_state = self
-            .ethereum_consensus_state(channel.client_id.clone(), 0)
-            .await?;
+        let target_height = Height {
+            revision_number: 0,
+            revision_height: target_block_number,
+        };
 
-        let mut trusted_slot = ethereum_consensus_state.slot;
-        let mut headers = vec![];
-        if !self.mock {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            dest_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
+        let update_msgs = if self.mock {
+            vec![]
+        } else {
+            let ethereum_client_state = self
+                .ethereum_client_state(channel.client_id.clone())
+                .await?;
+            let ethereum_consensus_state = self
+                .ethereum_consensus_state(channel.client_id.clone(), 0)
+                .await?;
+
             self.wait_for_light_client_readiness(
                 target_block_number,
                 &ethereum_client_state,
@@ -247,6 +276,8 @@ where
                 .await?;
             tracing::debug!("light client updates: #{}", light_client_updates.len());
 
+            let mut trusted_slot = ethereum_consensus_state.slot;
+            let mut headers = vec![];
             let mut prev_pub_agg_key = BlsPublicKey::default();
             for update in &light_client_updates {
                 tracing::debug!(
@@ -321,50 +352,7 @@ where
             }
 
             tracing::debug!("Headers assembled: #{}", headers.len());
-        }
 
-        let update_msgs_iter = headers
-            .iter()
-            .map(|header| serde_json::to_vec(header).expect("Failed to serialize header"))
-            .map(|header_bz| ClientMessage { data: header_bz })
-            .map(|msg| Any::from_msg(&msg).expect("Failed to convert to Any"))
-            .map(|client_msg| MsgUpdateClient {
-                client_id: channel.client_id.clone(),
-                client_message: Some(client_msg),
-                signer: self.signer_address.clone(),
-            })
-            .map(|msg| Any::from_msg(&msg));
-
-        let target_height = Height {
-            revision_number: 0,
-            revision_height: target_block_number,
-        };
-
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-
-        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
-            dest_events,
-            &target_channel_id,
-            &target_height,
-            &self.signer_address,
-            now,
-        );
-
-        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
-            src_events,
-            &target_channel_id,
-            &target_height,
-            &self.signer_address,
-            now,
-        );
-
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
-
-        if !self.mock {
             cosmos::inject_ethereum_proofs(
                 &mut recv_msgs,
                 &mut ack_msgs,
@@ -376,9 +364,23 @@ where
                 trusted_slot,
             )
             .await?;
-        }
 
-        let all_msgs = update_msgs_iter
+            headers
+                .into_iter()
+                .map(|header| serde_json::to_vec(&header).expect("Failed to serialize header"))
+                .map(|header_bz| ClientMessage { data: header_bz })
+                .map(|msg| Any::from_msg(&msg).expect("Failed to convert to Any"))
+                .map(|client_msg| MsgUpdateClient {
+                    client_id: channel.client_id.clone(),
+                    client_message: Some(client_msg),
+                    signer: self.signer_address.clone(),
+                })
+                .collect()
+        };
+
+        let all_msgs = update_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
             .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
