@@ -83,7 +83,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 			BeaconAPI:       beaconAPI,
 			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
 			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
-			Mock:            s.IsEthPoWTestnet(),
+			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)

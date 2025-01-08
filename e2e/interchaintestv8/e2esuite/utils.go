@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -441,17 +440,4 @@ func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosC
 	}
 
 	return &headerResp.SdkBlock.Header, nil
-}
-
-// TODO: Remove when we have removed manual relaying and moved to
-// common relaying methods that can choose the correct methods
-func (s *TestSuite) SkipIfEthTestnetType(testnetType string) {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) == testnetType {
-		s.T().Skipf("Skipping test because Ethereum testnet type is %s", testnetType)
-	}
-}
-
-// IsEthPoWTestnet returns true if the Ethereum testnet type is PoW
-func (s *TestSuite) IsEthPoWTestnet() bool {
-	return os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW
 }
