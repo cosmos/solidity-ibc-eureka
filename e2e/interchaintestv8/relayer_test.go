@@ -1178,7 +1178,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	)
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
 		for i := 0; i < numOfTransfers; i++ {
-			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+			timeout := uint64(time.Now().Add(45 * time.Second).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
