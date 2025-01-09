@@ -948,7 +948,6 @@ func (s *RelayerTestSuite) Test_10_BatchedAckPacketToCosmos() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -1159,7 +1158,6 @@ func (s *RelayerTestSuite) Test_10_TimeoutPacketFromCosmos() {
 func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, proofType)
 
 	_, simd := s.EthChain, s.CosmosChains[0]
