@@ -49,7 +49,6 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
@@ -61,12 +60,8 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 	broadcaster := cosmos.NewBroadcaster(s.T(), chain)
 
 	broadcaster.ConfigureClientContextOptions(func(clientContext client.Context) client.Context {
-		// use a codec with all the types our tests care about registered.
-		// BroadcastTx will deserialize the response and will not be able to otherwise.
-		cdc := chainconfig.Codec()
-
-		txConfig := chainconfig.SDKEncodingConfig().TxConfig
-		return clientContext.WithCodec(cdc).
+		txConfig := chain.Config().EncodingConfig.TxConfig
+		return clientContext.WithCodec(chain.Config().EncodingConfig.Codec).
 			WithTxConfig(txConfig).
 			WithAddressCodec(txConfig.SigningContext().AddressCodec()).
 			WithValidatorAddressCodec(txConfig.SigningContext().ValidatorAddressCodec()).
