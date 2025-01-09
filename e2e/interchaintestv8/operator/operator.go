@@ -387,8 +387,6 @@ func marshalMisbehaviour(cdc codec.Codec, misbehaviour tmclient.Misbehaviour) ([
 		sig["validator_address"] = hex.EncodeToString(valAddressBz)
 	}
 
-	fmt.Printf("jsonIntermediary: %+v\n", jsonIntermediary)
-
 	return json.Marshal(jsonIntermediary)
 }
 
