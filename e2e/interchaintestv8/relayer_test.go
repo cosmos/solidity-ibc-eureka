@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -32,11 +31,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v9/ibc"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -45,75 +41,11 @@ import (
 // and can provide additional functionality
 type RelayerTestSuite struct {
 	IbcEurekaTestSuite
-
-	SimdSubmitter ibc.Wallet
-
-	EthToCosmosRelayerClient relayertypes.RelayerServiceClient
-	CosmosToEthRelayerClient relayertypes.RelayerServiceClient
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
 func TestWithRelayerTestSuite(t *testing.T) {
 	suite.Run(t, new(RelayerTestSuite))
-}
-
-// SetupSuite is called once, before the start of the test suite
-func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
-	s.IbcEurekaTestSuite.SetupSuite(ctx, proofType)
-
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	s.SimdSubmitter = s.CreateAndFundCosmosUser(ctx, simd)
-
-	var relayerProcess *os.Process
-	var configInfo relayer.EthCosmosConfigInfo
-	s.Require().True(s.Run("Start Relayer", func() {
-		beaconAPI := ""
-		// The BeaconAPIClient is nil when the testnet is `pow`
-		if eth.BeaconAPIClient != nil {
-			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
-		}
-
-		configInfo = relayer.EthCosmosConfigInfo{
-			EthToCosmosPort: 3000,
-			CosmosToEthPort: 3001,
-			TmRPC:           simd.GetHostRPCAddress(),
-			ICS26Address:    s.contractAddresses.Ics26Router,
-			EthRPC:          eth.RPC,
-			BeaconAPI:       beaconAPI,
-			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
-			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
-			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-		}
-
-		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
-
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		s.Require().NoError(err)
-
-		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
-		})
-	}))
-
-	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
-			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
-			}
-		}
-	})
-
-	s.Require().True(s.Run("Create Relayer Clients", func() {
-		var err error
-		s.EthToCosmosRelayerClient, err = relayer.GetGRPCClient(configInfo.EthToCosmosGRPCAddress())
-		s.Require().NoError(err)
-
-		s.CosmosToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.CosmosToEthGRPCAddress())
-		s.Require().NoError(err)
-	}))
 }
 
 // TestRelayer is a test that runs the relayer
@@ -558,7 +490,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckTest(
 
 			s.Require().NotZero(len(msgs))
 
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
+			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
 			s.Require().NoError(err)
 
 			txHash, err = hex.DecodeString(resp.TxHash)
@@ -910,7 +842,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 		s.Require().NotZero(len(msgs))
 
-		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
+		resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
 
 		ackTxHash, err = hex.DecodeString(resp.TxHash)
