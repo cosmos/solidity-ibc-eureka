@@ -23,16 +23,16 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	sdkmath "cosmossdk.io/math"
+	banktypes "cosmossdk.io/x/bank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -83,6 +83,7 @@ func (s *RelayerTestSuite) SetupSuite(ctx context.Context, proofType operator.Su
 			BeaconAPI:       beaconAPI,
 			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
 			SignerAddress:   s.SimdSubmitter.FormattedAddress(),
+			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -306,6 +307,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	}))
 }
 
+// TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 2 packets from Cosmos to Ethereum
+// NOTE: This test is not included in the CI pipeline as it is flaky
 func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
 	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
@@ -454,7 +457,6 @@ func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -794,7 +796,6 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int) {
-	s.SkipIfEthTestnetType(testvalues.EthTestnetTypePoW)
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

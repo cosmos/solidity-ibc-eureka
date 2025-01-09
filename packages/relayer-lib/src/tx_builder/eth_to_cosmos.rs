@@ -50,6 +50,17 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     pub signer_address: String,
 }
 
+/// The `MockTxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`]
+/// for testing purposes.
+pub struct MockTxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
+    /// The ETH API client.
+    pub eth_client: EthApiClient<T, P>,
+    /// The IBC Eureka router instance.
+    pub ics26_router: routerInstance<T, P>,
+    /// The signer address for the Cosmos messages.
+    pub signer_address: String,
+}
+
 impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
     /// Create a new [`TxBuilder`] instance.
     pub fn new(
@@ -207,6 +218,35 @@ where
         );
         tracing::debug!("Target block number: {}", target_block_number);
 
+        let target_height = Height {
+            revision_number: 0,
+            revision_height: target_block_number,
+        };
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
+            dest_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
+            src_events,
+            &target_channel_id,
+            &target_height,
+            &self.signer_address,
+            now,
+        );
+
+        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
+        tracing::debug!("Recv messages: #{}", recv_msgs.len());
+        tracing::debug!("Ack messages: #{}", ack_msgs.len());
+
         let ethereum_client_state = self
             .ethereum_client_state(channel.client_id.clone())
             .await?;
@@ -225,8 +265,8 @@ where
             .await?;
         tracing::debug!("light client updates: #{}", light_client_updates.len());
 
-        let mut headers = vec![];
         let mut trusted_slot = ethereum_consensus_state.slot;
+        let mut headers = vec![];
         let mut prev_pub_agg_key = BlsPublicKey::default();
         for update in &light_client_updates {
             tracing::debug!(
@@ -302,17 +342,78 @@ where
 
         tracing::debug!("Headers assembled: #{}", headers.len());
 
-        let update_msgs_iter = headers
-            .iter()
-            .map(|header| serde_json::to_vec(header).expect("Failed to serialize header"))
-            .map(|header_bz| ClientMessage { data: header_bz })
-            .map(|msg| Any::from_msg(&msg).expect("Failed to convert to Any"))
-            .map(|client_msg| MsgUpdateClient {
-                client_id: channel.client_id.clone(),
-                client_message: Some(client_msg),
-                signer: self.signer_address.clone(),
+        cosmos::inject_ethereum_proofs(
+            &mut recv_msgs,
+            &mut ack_msgs,
+            &mut timeout_msgs,
+            &self.eth_client,
+            &ethereum_client_state.ibc_contract_address.to_string(),
+            ethereum_client_state.ibc_commitment_slot,
+            target_block_number,
+            trusted_slot,
+        )
+        .await?;
+
+        let update_msgs = headers
+            .into_iter()
+            .map(|header| -> Result<MsgUpdateClient> {
+                let header_bz = serde_json::to_vec(&header)?;
+                let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
+                Ok(MsgUpdateClient {
+                    client_id: channel.client_id.clone(),
+                    client_message: Some(client_msg),
+                    signer: self.signer_address.clone(),
+                })
             })
-            .map(|msg| Any::from_msg(&msg));
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let all_msgs = update_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
+            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tx_body = TxBody {
+            messages: all_msgs,
+            ..Default::default()
+        };
+        Ok(tx_body.encode_to_vec())
+    }
+}
+
+impl<T: Transport + Clone, P: Provider<T> + Clone> MockTxBuilder<T, P> {
+    /// Create a new [`MockTxBuilder`] instance for testing.
+    pub fn new(ics26_address: Address, provider: P, signer_address: String) -> Self {
+        Self {
+            eth_client: EthApiClient::new(provider.clone()),
+            ics26_router: routerInstance::new(ics26_address, provider),
+            signer_address,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<T, P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<T, P>
+where
+    T: Transport + Clone,
+    P: Provider<T> + Clone,
+{
+    #[tracing::instrument(skip_all)]
+    async fn relay_events(
+        &self,
+        src_events: Vec<EurekaEvent>,
+        dest_events: Vec<EurekaEvent>,
+        target_channel_id: String,
+    ) -> Result<Vec<u8>> {
+        let target_block_number = self.eth_client.get_block_number().await?;
+
+        tracing::info!(
+            "Relaying events from Ethereum to Cosmos for channel {}",
+            target_channel_id
+        );
+        tracing::debug!("Target block number: {}", target_block_number);
 
         let target_height = Height {
             revision_number: 0,
@@ -343,20 +444,11 @@ where
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        cosmos::inject_ethereum_proofs(
-            &mut recv_msgs,
-            &mut ack_msgs,
-            &mut timeout_msgs,
-            &self.eth_client,
-            &ethereum_client_state.ibc_contract_address.to_string(),
-            ethereum_client_state.ibc_commitment_slot,
-            target_block_number,
-            trusted_slot,
-        )
-        .await?;
+        cosmos::inject_mock_proofs(&mut recv_msgs, &mut ack_msgs, &mut timeout_msgs);
 
-        let all_msgs = update_msgs_iter
-            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
+        let all_msgs = timeout_msgs
+            .into_iter()
+            .map(|m| Any::from_msg(&m))
             .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
             .collect::<Result<Vec<_>, _>>()?;

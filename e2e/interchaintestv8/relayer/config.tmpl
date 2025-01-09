@@ -1,6 +1,6 @@
 {
   "server": {
-    "log_level": "debug",
+    "log_level": "info",
     "address": "127.0.0.1"
   },
   "modules": [
@@ -12,7 +12,8 @@
         "ics26_address": "{{ .ICS26Address }}",
         "eth_rpc_url": "{{ .EthRPC }}",
         "eth_beacon_api_url": "{{ .BeaconAPI }}",
-        "signer_address": "{{ .SignerAddress }}"
+        "signer_address": "{{ .SignerAddress }}",
+        "mock": {{ .Mock }}
       }
     },
     {

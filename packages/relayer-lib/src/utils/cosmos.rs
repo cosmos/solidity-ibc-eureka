@@ -280,3 +280,24 @@ async fn get_commitment_proof<T: Transport + Clone, P: Provider<T> + Clone>(
         proof: storage_proof.proof.clone(),
     })
 }
+
+pub fn inject_mock_proofs(
+    recv_msgs: &mut [MsgRecvPacket],
+    ack_msgs: &mut [MsgAcknowledgement],
+    timeout_msgs: &mut [MsgTimeout],
+) {
+    for msg in recv_msgs.iter_mut() {
+        msg.proof_commitment = b"mock".to_vec();
+        msg.proof_height = Some(Height::default());
+    }
+
+    for msg in ack_msgs.iter_mut() {
+        msg.proof_acked = b"mock".to_vec();
+        msg.proof_height = Some(Height::default());
+    }
+
+    for msg in timeout_msgs.iter_mut() {
+        msg.proof_unreceived = b"mock".to_vec();
+        msg.proof_height = Some(Height::default());
+    }
+}
