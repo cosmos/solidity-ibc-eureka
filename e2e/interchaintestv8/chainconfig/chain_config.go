@@ -1,8 +1,8 @@
 package chainconfig
 
 import (
-	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 )
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{
@@ -19,7 +19,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
-					Version:    "feat-ibc-eureka",                 // FOR LOCAL IMAGE USE: Docker Image Tag
+					Version:    "gjermund-fix-wasm-dockerfile",    // FOR LOCAL IMAGE USE: Docker Image Tag
 					UidGid:     "1025:1025",
 				},
 			},
@@ -28,7 +28,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.3,
-			EncodingConfig: CosmosEncodingConfig(),
+			EncodingConfig: SDKEncodingConfig(),
 			ModifyGenesis:  defaultModifyGenesis(),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,
