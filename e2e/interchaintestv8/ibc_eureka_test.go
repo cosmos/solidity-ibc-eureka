@@ -796,7 +796,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		transferPacketData, err := ics20lib.DecodeFungibleTokenPacketData(sendPacket.Payloads[0].Value)
 		s.Require().NoError(err)
 		s.Require().Equal(transferCoin.Denom, transferPacketData.Denom)
-		s.Require().Equal(transferAmount.String(), transferPacketData.Amount)
+		s.Require().Equal(transferAmount, transferPacketData.Amount)
 		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
 		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
 		s.Require().Equal(sendMemo, transferPacketData.Memo)
