@@ -48,36 +48,6 @@ func TestWithRelayerTestSuite(t *testing.T) {
 	suite.Run(t, new(RelayerTestSuite))
 }
 
-// TestRelayer is a test that runs the relayer
-func (s *RelayerTestSuite) TestRelayerInfo() {
-	ctx := context.Background()
-	s.SetupSuite(ctx, operator.ProofTypeGroth16)
-
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	s.Run("Cosmos to Eth Relayer Info", func() {
-		info, err := s.CosmosToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
-		s.Require().NoError(err)
-		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
-		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
-		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
-	})
-
-	s.Run("Eth to Cosmos Relayer Info", func() {
-		info, err := s.EthToCosmosRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
-		s.Require().NoError(err)
-		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
-		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
-		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
-	})
-}
-
 func (s *RelayerTestSuite) TestRecvPacketToEth_Groth16() {
 	ctx := context.Background()
 	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 1)
