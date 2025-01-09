@@ -32,15 +32,12 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> EthApiClient<T, P> {
     /// Fetches proof for an account and optionally storage keys under the given account at the block.
     /// # Errors
     /// Returns an error if the input fails to serialize, the request fails or the response is not successful deserialized
-    #[tracing::instrument(skip_all)]
     pub async fn get_proof(
         &self,
         address: &str,
         storage_keys: Vec<String>,
         block_hex: String,
     ) -> Result<EIP1186AccountProofResponse, EthGetProofError> {
-        tracing::debug!("get_proof {} {:?} {}", address, storage_keys, block_hex);
-
         let address: Address = Address::from_str(address)
             .map_err(|e| EthGetProofError::ParseError(address.to_string(), e.to_string()))?;
         let storage_keys: Vec<StorageKey> = storage_keys
