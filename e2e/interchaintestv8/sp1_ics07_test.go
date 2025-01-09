@@ -20,8 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"cosmossdk.io/math"
-
 	banktypes "cosmossdk.io/x/bank/types"
+
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 

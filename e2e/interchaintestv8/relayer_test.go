@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	sdkmath "cosmossdk.io/math"
-
 	banktypes "cosmossdk.io/x/bank/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 

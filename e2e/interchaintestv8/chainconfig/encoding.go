@@ -1,14 +1,14 @@
 package chainconfig
 
 import (
-	upgradetypes "cosmossdk.io/x/upgrade/types"
-
 	"cosmossdk.io/x/authz"
 	banktypes "cosmossdk.io/x/bank/types"
 	govv1 "cosmossdk.io/x/gov/types/v1"
 	govv1beta1 "cosmossdk.io/x/gov/types/v1beta1"
 	grouptypes "cosmossdk.io/x/group"
 	proposaltypes "cosmossdk.io/x/params/types/proposal"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"

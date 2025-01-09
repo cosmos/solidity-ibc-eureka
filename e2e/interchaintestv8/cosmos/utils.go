@@ -2,8 +2,8 @@ package cosmos
 
 import (
 	"cosmossdk.io/collections"
-
 	banktypes "cosmossdk.io/x/bank/types"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

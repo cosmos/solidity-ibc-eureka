@@ -7,6 +7,7 @@ import (
 
 	govtypes "cosmossdk.io/x/gov/types"
 	govv1 "cosmossdk.io/x/gov/types/v1"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
