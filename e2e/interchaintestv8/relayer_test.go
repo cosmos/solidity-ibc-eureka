@@ -184,7 +184,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	sendMemo := "nonnativesend"
+	sendMemo := "recv packet to eth memo"
 
 	var (
 		transferCoin sdk.Coin
@@ -1275,5 +1275,4 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
 	}))
-
 }

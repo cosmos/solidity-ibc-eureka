@@ -732,7 +732,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
-	sendMemo := "nonnativesend"
+	sendMemo := "nativesend"
 
 	var sendPacket channeltypesv2.Packet
 	var transferCoin sdk.Coin

@@ -180,7 +180,7 @@ mod tests {
         .unwrap();
         let timestamp_at_height_result: TimestampAtHeightResult = from_json(&res).unwrap();
         assert_eq!(
-            consensus_state.timestamp,
+            consensus_state.timestamp * 1_000_000_000, // ibc-go expects nanoseconds
             timestamp_at_height_result.timestamp
         );
     }
