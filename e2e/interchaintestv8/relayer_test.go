@@ -961,7 +961,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	sendMemo := "nonnativesend"
+	sendMemo := "batched ack to cosmos test memo"
 
 	var (
 		transferCoin sdk.Coin
@@ -1061,31 +1061,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		ackTxHash = signedTx.Hash().Bytes()
-
-		/* Commenting out this part for now, once the test with removed event work we can update it
-		s.True(s.Run("Verify balances on Ethereum", func() {
-			ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
-			s.Require().NoError(err)
-
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-			ibcERC20, err := ibcerc20.NewContract(ethReceiveTransferEvent.Erc20Address, ethClient)
-			s.Require().NoError(err)
-
-			// User balance on Ethereum
-			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(totalTransferAmount, userBalance)
-
-			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
-			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
-		}))
-		*/
 	}))
 
-	// TODO: When we get the mock option, we can just add the code below to `RecvPacketToEthTest`
 	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
 		resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
