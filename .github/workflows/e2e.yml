@@ -80,6 +80,10 @@ jobs:
           - TestWithRelayerTestSuite/Test_5_TimeoutPacketFromEth_Plonk
           - TestWithRelayerTestSuite/TestRecvPacketToCosmos
           - TestWithRelayerTestSuite/Test_10_RecvPacketToCosmos
+          - TestWithRelayerTestSuite/TestBatchedAckPacketToCosmos
+          - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToCosmos
+          - TestWithRelayerTestSuite/TestTimeoutPacketFromCosmos
+          - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromCosmos
           - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket

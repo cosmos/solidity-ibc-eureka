@@ -38,13 +38,15 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> EthApiClient<T, P> {
         storage_keys: Vec<String>,
         block_hex: String,
     ) -> Result<EIP1186AccountProofResponse, EthGetProofError> {
-        let address: Address =
-            Address::from_str(address).map_err(|e| EthGetProofError::ParseError(e.to_string()))?;
+        let address: Address = Address::from_str(address)
+            .map_err(|e| EthGetProofError::ParseError(address.to_string(), e.to_string()))?;
         let storage_keys: Vec<StorageKey> = storage_keys
             .into_iter()
-            .map(|key| StorageKey::from_str(&key))
-            .collect::<Result<_, _>>()
-            .map_err(|e| EthGetProofError::ParseError(e.to_string()))?;
+            .map(|key| {
+                StorageKey::from_str(&key)
+                    .map_err(|e| EthGetProofError::ParseError(key, e.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
         Ok(self
             .provider
             .client()

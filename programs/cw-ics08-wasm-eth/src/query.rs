@@ -54,8 +54,10 @@ pub fn timestamp_at_height(
     let eth_consensus_state =
         get_eth_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
+    let nano_timestamp = eth_consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
+
     Ok(to_json_binary(&TimestampAtHeightResult {
-        timestamp: eth_consensus_state.timestamp,
+        timestamp: nano_timestamp,
     })?)
 }
 
@@ -176,7 +178,7 @@ mod tests {
         .unwrap();
         let timestamp_at_height_result: TimestampAtHeightResult = from_json(&res).unwrap();
         assert_eq!(
-            consensus_state.timestamp,
+            consensus_state.timestamp * 1_000_000_000, // ibc-go expects nanoseconds
             timestamp_at_height_result.timestamp
         );
     }

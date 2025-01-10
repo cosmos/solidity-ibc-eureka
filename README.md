@@ -17,7 +17,7 @@ This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is 
 
 ### Project Structure
 
-This project is structered as a [foundry](https://getfoundry.sh/) project with the following directories:
+This project is structured as a [foundry](https://getfoundry.sh/) project with the following directories:
 
 - `contracts/`: Contains the Solidity contracts.
 - `test/`: Contains the Solidity tests.
@@ -240,4 +240,4 @@ This project is licensed under MIT.
 
 ## Acknowledgements
 
-This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references. We are also grateful to [unionlabs](https://github.com/unionlabs/union/) for their `08-wasm` ethereum light client implementation for ibc-go which our own implementation is based on.
+This project was bootstrapped with this [template](https://github.com/PaulRBerg/foundry-template). Implementations of IBC specifications in [solidity](https://github.com/hyperledger-labs/yui-ibc-solidity/), [CosmWasm](https://github.com/srdtrk/cw-ibc-lite), [golang](https://github.com/cosmos/ibc-go), and [rust](https://github.com/cosmos/ibc-rs) were used as references. We are also grateful to [unionlabs](https://github.com/unionlabs/union/) for their `08-wasm` Ethereum light client implementation for ibc-go which our own implementation is based on.
