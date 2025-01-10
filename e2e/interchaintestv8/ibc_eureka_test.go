@@ -567,7 +567,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var ackMulticallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{txHash},
+				SourceTxIds:     [][]byte{ackTxHash},
 				TargetChannelId: s.TendermintLightClientID,
 			})
 			s.Require().NoError(err)
@@ -602,7 +602,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 			// Wait for the tx to be mined
 			receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
 
 			// Verify the ack packet event exists
