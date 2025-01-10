@@ -96,7 +96,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
 
         emit ICS04ChannelAdded(clientId, channel);
 
-        bytes32 role = _getLightClientRole(clientId);
+        bytes32 role = _getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
 
         return clientId;
@@ -108,7 +108,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
         string calldata substituteClientId
     )
         external
-        onlyRole(_getLightClientRole(subjectClientId))
+        onlyRole(_getLightClientMigratorRole(subjectClientId))
     {
         ICSCoreStorage storage $ = _getICSCoreStorage();
 
@@ -154,7 +154,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     /// @notice Returns the role identifier for a light client
     /// @param clientId The client identifier
     /// @return The role identifier
-    function _getLightClientRole(string memory clientId) private pure returns (bytes32) {
+    function _getLightClientMigratorRole(string memory clientId) private pure returns (bytes32) {
         return keccak256(bytes(clientId));
     }
 }
