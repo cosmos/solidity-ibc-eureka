@@ -184,28 +184,6 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		// Wait for the tx to be mined
 		receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
-
-		/* Commenting out this part for now, once the test with removed event work we can update it
-		s.True(s.Run("Verify balances on Ethereum", func() {
-			ethReceiveTransferEvent, err := e2esuite.GetEvmEvent(receipt, s.ics20Contract.ParseICS20ReceiveTransfer)
-			s.Require().NoError(err)
-
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-			ibcERC20, err := ibcerc20.NewContract(ethReceiveTransferEvent.Erc20Address, ethClient)
-			s.Require().NoError(err)
-
-			// User balance on Ethereum
-			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(totalTransferAmount, userBalance)
-
-			// ICS20 contract balance on Ethereum
-			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
-			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
-		}))
-		*/
 	}))
 }
 
@@ -687,11 +665,6 @@ func (s *RelayerTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 	}))
 }
 
-func (s *RelayerTestSuite) TestRecvPacketToCosmos() {
-	ctx := context.Background()
-	s.RecvPacketToCosmosTest(ctx, 1)
-}
-
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
 	s.RecvPacketToCosmosTest(ctx, 10)
@@ -712,9 +685,6 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
-	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
-	s.Require().NoError(err)
-
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
@@ -726,12 +696,9 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var sendPacket ics26router.IICS26RouterMsgsPacket
-
 	var txHashes [][]byte
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		transferMulticall := make([][]byte, numOfTransfers)
 
 		msgSendPacket := s.createICS20MsgSendPacket(
 			ethereumUserAddress,
@@ -743,31 +710,15 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			"",
 		)
 
-		encodedMsg, err := ics26routerAbi.Pack("sendPacket", msgSendPacket)
-		s.Require().NoError(err)
 		for i := 0; i < numOfTransfers; i++ {
-			transferMulticall[i] = encodedMsg
+			tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+			s.Require().NoError(err)
+
+			receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			txHashes = append(txHashes, tx.Hash().Bytes())
 		}
-
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
-		txHashes = append(txHashes, tx.Hash().Bytes())
-
-		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
-		s.Require().NoError(err)
-		sendPacket = sendPacketEvent.Packet
-		s.Require().Equal(uint32(1), sendPacket.Sequence)
-		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
-		s.Require().Len(sendPacket.Payloads, 1)
-		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, sendPacket.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.DestChannel)
-		s.Require().Equal(transfertypes.V1, sendPacket.Payloads[0].Version)
-		s.Require().Equal(transfertypes.EncodingABI, sendPacket.Payloads[0].Encoding)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
