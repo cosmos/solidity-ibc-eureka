@@ -13,4 +13,7 @@ interface IICS02ClientErrors {
     /// @notice Counterparty client not found
     /// @param counterpartyClientId counterparty client identifier
     error IBCCounterpartyClientNotFound(string counterpartyClientId);
+
+    /// @notice Unreachable code
+    error Unreachable();
 }

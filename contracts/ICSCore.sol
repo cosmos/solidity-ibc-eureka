@@ -97,7 +97,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
         emit ICS04ChannelAdded(clientId, channel);
 
         bytes32 role = _getLightClientRole(clientId);
-        require(_grantRole(role, _msgSender()));
+        require(_grantRole(role, _msgSender()), Unreachable());
 
         return clientId;
     }
