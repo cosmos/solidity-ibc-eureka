@@ -8,6 +8,6 @@ pub enum EthGetProofError {
     #[error("provider error: {0}")]
     ProviderError(#[from] TransportError),
 
-    #[error("parse error: {0}")]
-    ParseError(String),
+    #[error("parse error trying to parse {0}, {1}")]
+    ParseError(String, String),
 }

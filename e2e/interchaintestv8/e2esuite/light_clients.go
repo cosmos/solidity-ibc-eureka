@@ -277,7 +277,7 @@ func (s *TestSuite) createEthereumLightClient(
 		s.Require().Fail(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap slot %d", executionHeight, bootstrap.Data.Header.Beacon.Slot))
 	}
 
-	timestamp := bootstrap.Data.Header.Execution.Timestamp * 1_000_000_000
+	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
 
 	currentPeriod := executionHeight / spec.Period()
 	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
@@ -289,7 +289,7 @@ func (s *TestSuite) createEthereumLightClient(
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
-		Timestamp:            timestamp,
+		Timestamp:            unixTimestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}

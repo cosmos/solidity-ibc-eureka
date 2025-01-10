@@ -41,7 +41,7 @@
      "slot": 32,
      "state_root": "0x29853c56b1978aeb1a38f5a613c190b7f84a3fd6ab236eb077a1463fca7a10cf",
      "storage_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-     "timestamp": 1734450713000000000
+     "timestamp": 1734450713
     }
    },
    "name": "initial_state"
@@ -87,7 +87,7 @@
      "slot": 32,
      "state_root": "0x29853c56b1978aeb1a38f5a613c190b7f84a3fd6ab236eb077a1463fca7a10cf",
      "storage_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
-     "timestamp": 1734450713000000000
+     "timestamp": 1734450713
     },
     "updates": [
      {
