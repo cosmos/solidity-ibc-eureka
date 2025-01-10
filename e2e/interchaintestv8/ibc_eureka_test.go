@@ -447,8 +447,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var sendPacket ics26router.IICS26RouterMsgsPacket
-	var sendBlockNumber uint64
+	var (
+		sendPacket      ics26router.IICS26RouterMsgsPacket
+		sendBlockNumber uint64
+		txHash          []byte
+	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
@@ -474,6 +477,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
+		txHash = tx.Hash().Bytes()
 		sendBlockNumber = receipt.BlockNumber.Uint64()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
