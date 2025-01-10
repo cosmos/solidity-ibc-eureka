@@ -48,16 +48,6 @@ func TestWithRelayerTestSuite(t *testing.T) {
 	suite.Run(t, new(RelayerTestSuite))
 }
 
-func (s *RelayerTestSuite) TestRecvPacketToEth_Groth16() {
-	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 1)
-}
-
-func (s *RelayerTestSuite) TestRecvPacketToEth_Plonk() {
-	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 1)
-}
-
 func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
 	ctx := context.Background()
 	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10)
