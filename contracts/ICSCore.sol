@@ -15,7 +15,8 @@ import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 /// @notice This contract implements the ICS02 Client Router and ICS04 Channel Keeper interfaces
 /// @dev Light client migrations/upgrades are supported via `AccessControl` role-based access control
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
-/// @dev The light client role is granted to whoever called `addChannel` for the client, and can be revoked (not transferred)
+/// @dev The light client role is granted to whoever called `addChannel` for the client, and can be revoked (not
+/// transferred)
 contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializable, Ownable, AccessControl {
     /// @notice Storage of the ICSCore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
@@ -102,7 +103,13 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     }
 
     /// @inheritdoc IICS02Client
-    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyRole(_getLightClientRole(subjectClientId)) {
+    function migrateClient(
+        string calldata subjectClientId,
+        string calldata substituteClientId
+    )
+        external
+        onlyRole(_getLightClientRole(subjectClientId))
+    {
         ICSCoreStorage storage $ = _getICSCoreStorage();
 
         getClient(subjectClientId); // Ensure subject client exists
