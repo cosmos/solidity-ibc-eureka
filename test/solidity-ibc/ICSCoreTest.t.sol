@@ -69,7 +69,11 @@ contract ICSCoreTest is Test {
         emit IICS04Channel.ICS04ChannelAdded("07-tendermint-1", channel);
         string memory substituteIdentifier = icsCore.addChannel("07-tendermint", channel, address(noopLightClient));
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, bob, keccak256(bytes(clientIdentifier))));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, bob, keccak256(bytes(clientIdentifier))
+            )
+        );
         icsCore.migrateClient(clientIdentifier, substituteIdentifier);
         vm.stopPrank();
 
