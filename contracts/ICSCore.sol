@@ -9,8 +9,15 @@ import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
+import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 
-contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializable, Ownable {
+/// @title ICSCore contract
+/// @notice This contract implements the ICS02 Client Router and ICS04 Channel Keeper interfaces
+/// @dev Light client migrations/upgrades are supported via `AccessControl` role-based access control
+/// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
+/// @dev The light client role is granted to whoever called `addChannel` for the client, and can be revoked (not
+/// transferred)
+contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializable, Ownable, AccessControl {
     /// @notice Storage of the ICSCore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -38,6 +45,7 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     /// @param owner_ The owner of the contract
     function initialize(address owner_) public initializer {
         _transferOwnership(owner_);
+        _grantRole(DEFAULT_ADMIN_ROLE, owner_);
     }
 
     /// @notice Generates the next client identifier
@@ -88,11 +96,20 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
 
         emit ICS04ChannelAdded(clientId, channel);
 
+        bytes32 role = _getLightClientMigratorRole(clientId);
+        require(_grantRole(role, _msgSender()), Unreachable());
+
         return clientId;
     }
 
     /// @inheritdoc IICS02Client
-    function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external onlyOwner {
+    function migrateClient(
+        string calldata subjectClientId,
+        string calldata substituteClientId
+    )
+        external
+        onlyRole(_getLightClientMigratorRole(subjectClientId))
+    {
         ICSCoreStorage storage $ = _getICSCoreStorage();
 
         getClient(subjectClientId); // Ensure subject client exists
@@ -132,5 +149,12 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
         assembly {
             $.slot := ICSCORE_STORAGE_SLOT
         }
+    }
+
+    /// @notice Returns the role identifier for a light client
+    /// @param clientId The client identifier
+    /// @return The role identifier
+    function _getLightClientMigratorRole(string memory clientId) private pure returns (bytes32) {
+        return keccak256(bytes(clientId));
     }
 }
