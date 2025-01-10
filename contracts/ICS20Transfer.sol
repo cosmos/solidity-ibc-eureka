@@ -16,6 +16,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
+import { Bytes } from "@openzeppelin/utils/Bytes.sol";
 
 using SafeERC20 for IERC20;
 
@@ -275,8 +276,7 @@ contract ICS20Transfer is
             erc20Address = findOrCreateERC20Address(fullDenomPath, baseDenom);
         } else {
             // we are the source of this token: we remove the source prefix and expect the denom to be an erc20 address
-            string memory erc20AddressStr =
-                string(ICS20Lib.slice(denomBz, sourceDenomPrefix.length, denomBz.length - sourceDenomPrefix.length));
+            string memory erc20AddressStr = string(Bytes.slice(denomBz, sourceDenomPrefix.length));
             erc20Address = ICS20Lib.mustHexStringToAddress(erc20AddressStr);
         }
 

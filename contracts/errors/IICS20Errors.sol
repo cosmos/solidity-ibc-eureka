@@ -36,14 +36,4 @@ interface IICS20Errors {
 
     /// @notice Abi encoding/decoding failure
     error ICS20AbiEncodingFailure();
-
-    /// @notice Bytes slice overflow
-    /// @param length length of the slice
-    error ICS20BytesSliceOverflow(uint256 length);
-
-    /// @notice Bytes slice out of bounds
-    /// @param length length of the bytes
-    /// @param start start index
-    /// @param end end index
-    error ICS20BytesSliceOutOfBounds(uint256 length, uint256 start, uint256 end);
 }

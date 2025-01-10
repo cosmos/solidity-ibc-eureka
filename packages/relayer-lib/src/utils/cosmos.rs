@@ -1,6 +1,6 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
-use alloy::{primitives::U256, providers::Provider, transports::Transport};
+use alloy::{hex, primitives::U256, providers::Provider, transports::Transport};
 use anyhow::Result;
 use ethereum_apis::eth_api::client::EthApiClient;
 use ethereum_light_client::membership::ibc_commitment_key_v2;
@@ -189,6 +189,7 @@ pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone
         revision_number: 0,
         revision_height: target_slot,
     };
+    // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().try_into()?;
         let commitment_path = packet.commitment_path();
@@ -210,6 +211,7 @@ pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone
     }))
     .await?;
 
+    // ack messages
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().try_into()?;
         let ack_path = packet.ack_commitment_path();
@@ -231,6 +233,7 @@ pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone
     }))
     .await?;
 
+    // timeout messages
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().try_into()?;
         let receipt_path = packet.receipt_commitment_path();
@@ -262,7 +265,8 @@ async fn get_commitment_proof<T: Transport + Clone, P: Provider<T> + Clone>(
     slot: U256,
 ) -> Result<StorageProof> {
     let storage_key = ibc_commitment_key_v2(path, slot);
-    let storage_key_hex = format!("0x{storage_key:x}");
+    let storage_key_be_bytes = storage_key.to_be_bytes_vec();
+    let storage_key_hex = hex::encode(storage_key_be_bytes);
     let block_hex = format!("0x{block_number:x}");
 
     let proof = eth_client
