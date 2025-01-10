@@ -152,7 +152,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 
-		txOpts := s.GetTransactOpts(s.key, eth)
+		txOpts := s.GetTransactOpts(s.EthRelayerSubmitter, eth)
 		s.Require().NoError(err)
 
 		tx := ethtypes.NewTransaction(
