@@ -1,7 +1,5 @@
 //! This module contains the query message handlers
 
-use std::ops::Mul;
-
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
 
 use crate::{
@@ -56,7 +54,7 @@ pub fn timestamp_at_height(
     let eth_consensus_state =
         get_eth_consensus_state(deps.storage, timestamp_at_height_msg.height.revision_height)?;
 
-    let nano_timestamp = eth_consensus_state.timestamp.mul(1_000_000_000); // ibc-go expects nanoseconds
+    let nano_timestamp = eth_consensus_state.timestamp * 1_000_000_000; // ibc-go expects nanoseconds
 
     Ok(to_json_binary(&TimestampAtHeightResult {
         timestamp: nano_timestamp,
