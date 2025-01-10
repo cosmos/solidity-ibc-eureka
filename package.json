@@ -7,12 +7,12 @@
     "url": "https://github.com/srdtrk"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.1.0"
+    "@openzeppelin/contracts": "^5.2.0"
   },
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#275691af9bfaf67158f6df1f4c3c1646eb03eed0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "solhint": "^5.0.3",
+    "solhint": "^5.0.4",
     "@defi-wonderland/natspec-smells": "^1.1.5"
   },
   "keywords": [
