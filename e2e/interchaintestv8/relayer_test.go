@@ -1005,7 +1005,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 
 		s.Require().NotZero(len(msgs))
 
-		resp, err := s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
+		resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
 
 		ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -1140,7 +1140,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 
 		s.Require().NotZero(len(msgs))
 
-		_, err = s.BroadcastMessages(ctx, simd, s.SimdSubmitter, 2_000_000, msgs...)
+		_, err = s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
 		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
