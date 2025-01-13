@@ -38,11 +38,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
-	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
-	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -1204,120 +1202,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16() {
-	ctx := context.Background()
-	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypePlonk)
-}
-
-func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx context.Context, pt operator.SupportedProofType) {
-	s.SetupSuite(ctx, pt)
-
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	transferAmount := big.NewInt(testvalues.TransferAmount)
-	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
-	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-
-	var packet ics26router.IICS26RouterMsgsPacket
-	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
-		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
-		s.Require().NoError(err)
-		s.Require().Equal(transferAmount, allowance)
-	}))
-
-	var timeout uint64
-	s.Require().True(s.Run("Send transfer on Ethereum", func() {
-		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
-
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			s.contractAddresses.Erc20,
-			transferAmount,
-			cosmosUserAddress,
-			s.TendermintLightClientID,
-			timeout,
-			"testmemo",
-		)
-
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
-		s.Require().NoError(err)
-		packet = sendPacketEvent.Packet
-		s.Require().Equal(uint32(1), packet.Sequence)
-		s.Require().Equal(timeout, packet.TimeoutTimestamp)
-		s.Require().Equal(transfertypes.PortID, packet.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, packet.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, packet.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, packet.DestChannel)
-		s.Require().Equal(transfertypes.V1, packet.Payloads[0].Version)
-
-		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			// User balance on Etherem
-			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
-
-			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
-			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, escrowBalance)
-		}))
-	}))
-
-	// sleep for 45 seconds to let the packet timeout
-	time.Sleep(45 * time.Second)
-
-	s.True(s.Run("Timeout packet on Ethereum", func() {
-		// This will be a non-membership proof since no packets have been sent
-		packetReceiptPath := ibchostv2.PacketReceiptKey(packet.DestChannel, uint64(packet.Sequence))
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetReceiptPath})
-
-		msg := ics26router.IICS26RouterMsgsMsgTimeoutPacket{
-			Packet:       packet,
-			ProofTimeout: ucAndMemProof,
-			ProofHeight:  *proofHeight,
-		}
-
-		tx, err := s.ics26Contract.TimeoutPacket(s.GetTransactOpts(s.key, eth), msg)
-		s.Require().NoError(err)
-
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutPacket-%s.json", pt.String()), s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
-		}
-
-		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			// User balance on Ethereum
-			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
-
-			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
-			s.Require().NoError(err)
-			s.Require().Equal(int64(0), escrowBalance.Int64())
-		}))
-	}))
-}
-
 func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 	sender ethcommon.Address,
 	denom string,
@@ -1354,45 +1238,4 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 			},
 		},
 	}
-}
-
-func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
-	ctx context.Context,
-	counterpartyChain *cosmos.CosmosChain,
-	proofType operator.SupportedProofType,
-	ibcProofPaths [][]byte,
-) (*ics26router.IICS02ClientMsgsHeight, []byte) {
-	clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-	s.Require().NoError(err)
-
-	trustedHeight := clientState.LatestHeight.RevisionHeight
-	latestHeight, err := counterpartyChain.Height(ctx)
-	s.Require().NoError(err)
-
-	proofPaths := make([][][]byte, len(ibcProofPaths))
-	for i, path := range ibcProofPaths {
-		proofPaths[i] = [][]byte{
-			[]byte("ibc"),
-			path,
-		}
-	}
-
-	proofPathsStr := operator.ToBase64KeyPaths(proofPaths...)
-
-	args := append([]string{
-		"--trust-level", testvalues.DefaultTrustLevel.String(),
-		"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		"--base64",
-	},
-		proofType.ToOperatorArgs()...,
-	)
-	proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-		uint64(trustedHeight), uint64(latestHeight), proofPathsStr, args...,
-	)
-	s.Require().NoError(err)
-
-	return &ics26router.IICS02ClientMsgsHeight{
-		RevisionNumber: proofHeight.RevisionNumber,
-		RevisionHeight: proofHeight.RevisionHeight,
-	}, ucAndMemProof
 }

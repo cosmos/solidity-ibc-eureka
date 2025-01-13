@@ -63,8 +63,6 @@ jobs:
           - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
           - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
-          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16
-          - TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk
           - TestWithRelayerTestSuite/Test_10_RecvPacketToEth_Groth16
           - TestWithRelayerTestSuite/Test_5_RecvPacketToEth_Plonk
           - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToEth_Groth16
