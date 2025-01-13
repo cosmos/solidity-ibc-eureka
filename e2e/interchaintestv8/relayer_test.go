@@ -172,7 +172,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		s.Require().NoError(err)
 
 		// Wait for the tx to be mined
-		receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 	}))
 }
@@ -338,7 +339,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
@@ -369,7 +372,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
 		txHashes = append(txHashes, tx.Hash().Bytes())
@@ -479,7 +484,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.Require().NoError(err)
 
 			// Wait for the tx to be mined
-			receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
+			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 			// Verify the ack packet event exists
@@ -524,7 +530,9 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
@@ -550,7 +558,8 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
 			s.Require().NoError(err)
 
-			receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 			txHashes = append(txHashes, tx.Hash().Bytes())
@@ -742,7 +751,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		s.Require().NoError(err)
 
 		// Wait for the tx to be mined
-		receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		ackTxHash = signedTx.Hash().Bytes()
 	}))
