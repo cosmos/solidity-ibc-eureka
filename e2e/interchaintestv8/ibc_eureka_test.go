@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -36,7 +36,6 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-	channeltypesv1 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
@@ -53,7 +52,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -64,7 +62,6 @@ type IbcEurekaTestSuite struct {
 
 	// Whether to generate fixtures for tests or not
 	generateSolidityFixtures bool
-	rustFixtureGenerator     *types.RustFixtureGenerator
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -78,6 +75,7 @@ type IbcEurekaTestSuite struct {
 	ics26Contract      *ics26router.Contract
 	ics20Contract      *ics20transfer.Contract
 	erc20Contract      *erc20.Contract
+	ibcStoreContract   *ibcstore.Contract
 	escrowContractAddr ethcommon.Address
 
 	EthToCosmosRelayerClient relayertypes.RelayerServiceClient
@@ -100,7 +98,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
-	shouldGenerateRustFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -138,12 +135,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateSolidityFixtures = true
 		}
-
-		shouldGenerateRustFixtures = os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
-
-	// Needs to be added here so the cleanup is called after the test suite is done
-	s.rustFixtureGenerator = types.NewRustFixtureGenerator(&s.Suite, shouldGenerateRustFixtures)
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
 		args := append([]string{
@@ -186,6 +178,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
 		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
+		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), ethClient)
+		s.Require().NoError(err)
 	}))
 
 	s.T().Cleanup(func() {
@@ -202,7 +196,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	simdUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore, s.rustFixtureGenerator)
+		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -839,7 +833,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 	sendMemo := "nativesend"
 
 	var txHash []byte
@@ -1153,22 +1146,61 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
-		// This will be a membership proof since the acknowledgement is written
-		packetAckPath := ibchostv2.PacketAcknowledgementKey(returnPacket.DestChannel, uint64(returnPacket.Sequence))
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetAckPath})
+		var multicallTx []byte
+		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{returnAckTxHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		msg := ics26router.IICS26RouterMsgsMsgAckPacket{
-			Packet:          returnPacket,
-			Acknowledgement: cosmosReceiveAck,
-			ProofAcked:      ucAndMemProof,
-			ProofHeight:     *proofHeight,
-		}
+			multicallTx = resp.Tx
+		}))
 
-		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key, eth), msg)
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			ethClient, err := ethclient.Dial(eth.RPC)
+			s.Require().NoError(err)
 
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			txOpts := s.GetTransactOpts(s.key, eth)
+			s.Require().NoError(err)
+
+			tx := ethtypes.NewTransaction(
+				txOpts.Nonce.Uint64(),
+				ics26Address,
+				txOpts.Value,
+				5_000_000,
+				txOpts.GasPrice,
+				multicallTx,
+			)
+
+			signedTx, err := txOpts.Signer(txOpts.From, tx)
+			s.Require().NoError(err)
+
+			// Submit the relay tx to Ethereum
+			err = ethClient.SendTransaction(ctx, signedTx)
+			s.Require().NoError(err)
+
+			// Wait for the tx to be mined
+			receipt := s.GetTxReciept(ctx, eth, signedTx.Hash())
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
+
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(int64(0), userBalance.Int64())
+
+			// the whole balance should have been burned
+			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+		}))
 	}))
 }
 
@@ -1322,39 +1354,6 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 			},
 		},
 	}
-}
-
-func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte) []byte {
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	storageKey := ethereum.GetCommitmentsStorageKey(path)
-	storageKeys := []string{storageKey.Hex()}
-
-	blockNumberHex := fmt.Sprintf("0x%x", s.LastEtheruemLightClientUpdate)
-	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.IbcStore, storageKeys, blockNumberHex)
-	s.Require().NoError(err)
-	storageProof := proofResp.StorageProof[0]
-
-	if s.rustFixtureGenerator.ShouldGenerateFixture() {
-		_, ethereumClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
-		_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: s.LastEtheruemLightClientUpdate,
-		})
-
-		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &ethereumtypes.CommitmentProof{
-			Path:           fmt.Sprintf("0x%x", path),
-			StorageProof:   storageProof,
-			ProofSlot:      s.LastEtheruemLightClientUpdate,
-			ClientState:    ethereumClientState,
-			ConsensusState: ethereumConsensusState,
-		})
-	}
-
-	bz, err := json.Marshal(&storageProof)
-	s.Require().NoError(err)
-
-	return bz
 }
 
 func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
