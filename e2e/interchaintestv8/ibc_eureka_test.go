@@ -581,7 +581,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				txOpts.Nonce.Uint64(),
 				ics26Address,
 				txOpts.Value,
-				5_000_000,
+				15_000_000,
 				txOpts.GasPrice,
 				ackMulticallTx,
 			)
