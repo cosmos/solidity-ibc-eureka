@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -13,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -31,10 +32,10 @@ import (
 	banktypes "cosmossdk.io/x/bank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-	channeltypesv1 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
@@ -42,14 +43,16 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // IbcEurekaTestSuite is a suite of tests that wraps TestSuite
@@ -59,7 +62,6 @@ type IbcEurekaTestSuite struct {
 
 	// Whether to generate fixtures for tests or not
 	generateSolidityFixtures bool
-	rustFixtureGenerator     *types.RustFixtureGenerator
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -73,7 +75,14 @@ type IbcEurekaTestSuite struct {
 	ics26Contract      *ics26router.Contract
 	ics20Contract      *ics20transfer.Contract
 	erc20Contract      *erc20.Contract
+	ibcStoreContract   *ibcstore.Contract
 	escrowContractAddr ethcommon.Address
+
+	EthToCosmosRelayerClient relayertypes.RelayerServiceClient
+	CosmosToEthRelayerClient relayertypes.RelayerServiceClient
+
+	SimdRelayerSubmitter ibc.Wallet
+	EthRelayerSubmitter  *ecdsa.PrivateKey
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -89,7 +98,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
-	shouldGenerateRustFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -97,11 +105,16 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
+		s.EthRelayerSubmitter, err = eth.CreateAndFundUser()
+		s.Require().NoError(err)
+
 		operatorKey, err := eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
 		s.deployer, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
+
+		s.SimdRelayerSubmitter = s.CreateAndFundCosmosUser(ctx, simd)
 
 		prover = os.Getenv(testvalues.EnvKeySp1Prover)
 		switch prover {
@@ -122,12 +135,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateSolidityFixtures = true
 		}
-
-		shouldGenerateRustFixtures = os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
-
-	// Needs to be added here so the cleanup is called after the test suite is done
-	s.rustFixtureGenerator = types.NewRustFixtureGenerator(&s.Suite, shouldGenerateRustFixtures)
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
 		args := append([]string{
@@ -170,6 +178,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), ethClient)
 		s.Require().NoError(err)
 		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
+		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), ethClient)
+		s.Require().NoError(err)
 	}))
 
 	s.T().Cleanup(func() {
@@ -180,13 +190,14 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
 		s.Require().NoError(err)
 
-		_ = s.GetTxReciept(ctx, eth, tx.Hash()) // wait for the tx to be mined
+		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
+		s.Require().NoError(err)
 	}))
 
 	simdUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore, s.rustFixtureGenerator)
+		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -198,7 +209,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+
 		event, err := e2esuite.GetEvmEvent(receipt, s.icsCoreContract.ParseICS04ChannelAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ChannelId)
@@ -223,6 +236,56 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
+
+	var relayerProcess *os.Process
+	var configInfo relayer.EthCosmosConfigInfo
+	s.Require().True(s.Run("Start Relayer", func() {
+		beaconAPI := ""
+		// The BeaconAPIClient is nil when the testnet is `pow`
+		if eth.BeaconAPIClient != nil {
+			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
+		}
+
+		configInfo = relayer.EthCosmosConfigInfo{
+			EthToCosmosPort: 3000,
+			CosmosToEthPort: 3001,
+			TmRPC:           simd.GetHostRPCAddress(),
+			ICS26Address:    s.contractAddresses.Ics26Router,
+			EthRPC:          eth.RPC,
+			BeaconAPI:       beaconAPI,
+			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
+			SignerAddress:   s.SimdRelayerSubmitter.FormattedAddress(),
+			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+		}
+
+		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
+
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
+
+		s.T().Cleanup(func() {
+			os.Remove(testvalues.RelayerConfigFilePath)
+		})
+	}))
+
+	s.T().Cleanup(func() {
+		if relayerProcess != nil {
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
+		}
+	})
+
+	s.Require().True(s.Run("Create Relayer Clients", func() {
+		var err error
+		s.EthToCosmosRelayerClient, err = relayer.GetGRPCClient(configInfo.EthToCosmosGRPCAddress())
+		s.Require().NoError(err)
+
+		s.CosmosToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.CosmosToEthGRPCAddress())
+		s.Require().NoError(err)
+	}))
 }
 
 func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
@@ -239,7 +302,7 @@ func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
 func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	simd := s.CosmosChains[0]
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
 		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
@@ -300,6 +363,28 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
 	}))
+
+	s.Require().True(s.Run("Verify Cosmos to Eth Relayer Info", func() {
+		info, err := s.CosmosToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+
+		s.T().Logf("Relayer Info: %+v", info)
+
+		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Eth to Cosmos Relayer Info", func() {
+		info, err := s.EthToCosmosRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+
+		s.T().Logf("Relayer Info: %+v", info)
+
+		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
+		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
+	}))
 }
 
 func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
@@ -336,6 +421,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers)) // total amount transferred
@@ -345,7 +431,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 
 	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
 	s.Require().NoError(err)
@@ -353,7 +438,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
@@ -361,8 +448,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var sendPacket ics26router.IICS26RouterMsgsPacket
-	var sendBlockNumber uint64
+	var (
+		sendPacket ics26router.IICS26RouterMsgsPacket
+		txHash     []byte
+	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
@@ -385,10 +474,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
-		sendBlockNumber = receipt.BlockNumber.Uint64()
+		txHash = tx.Hash().Bytes()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -416,51 +506,32 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 	}))
 
-	var recvAck []byte
-	var denomOnCosmos transfertypes.Denom
+	var (
+		denomOnCosmos transfertypes.Denom
+		ackTxHash     []byte
+	)
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser, s.rustFixtureGenerator)
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{txHash},
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-		recvPacketMsgs := make([]sdk.Msg, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			path := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, uint64(i+1))
-			storageProofBz := s.getCommitmentProof(ctx, path)
+			txBodyBz = resp.Tx
+		}))
 
-			packet := channeltypesv2.Packet{
-				Sequence:           uint64(i + 1),
-				SourceChannel:      sendPacket.SourceChannel,
-				DestinationChannel: sendPacket.DestChannel,
-				TimeoutTimestamp:   sendPacket.TimeoutTimestamp,
-				Payloads: []channeltypesv2.Payload{
-					{
-						SourcePort:      sendPacket.Payloads[0].SourcePort,
-						DestinationPort: sendPacket.Payloads[0].DestPort,
-						Version:         sendPacket.Payloads[0].Version,
-						Encoding:        sendPacket.Payloads[0].Encoding,
-						Value:           sendPacket.Payloads[0].Value,
-					},
-				},
-			}
-			recvPacketMsgs[i] = &channeltypesv2.MsgRecvPacket{
-				Packet:          packet,
-				ProofCommitment: storageProofBz,
-				ProofHeight: clienttypes.Height{
-					RevisionNumber: 0,
-					RevisionHeight: s.LastEtheruemLightClientUpdate,
-				},
-				Signer: cosmosUserAddress,
-			}
-		}
+		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
 
-		_, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, recvPacketMsgs...)
-		s.Require().NoError(err)
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
 
-		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		// recvAck, err = ibctesting.ParseAckFromEvents(txResp.Events)
-		// s.Require().NoError(err)
-		// s.Require().NotNil(recvAck)
-		ack := channeltypesv1.NewResultAcknowledgement([]byte{byte(1)})
-		recvAck = ack.Acknowledgement()
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
 
@@ -477,41 +548,34 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
-		// This will be a membership proof since the acknowledgement is written
-		proofPaths := make([][]byte, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = ibchostv2.PacketAcknowledgementKey(sendPacket.DestChannel, uint64(i+1))
-		}
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
-
-		ackMulticall := make([][]byte, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			msg := ics26router.IICS26RouterMsgsMsgAckPacket{
-				Packet:          sendPacket,
-				Acknowledgement: recvAck,
-				ProofAcked:      []byte(""),
-				ProofHeight:     *proofHeight,
-			}
-			msg.Packet.Sequence = uint32(i + 1)
-			if i == 0 {
-				msg.ProofAcked = ucAndMemProof
-			}
-
-			ackMulticall[i], err = ics26routerAbi.Pack("ackPacket", msg)
+		var ackMulticallTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{ackTxHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
 			s.Require().NoError(err)
-		}
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), ackMulticall)
-		s.Require().NoError(err)
+			ackMulticallTx = resp.Tx
+		}))
 
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, ackMulticallTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
 
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, "multicall", ackMulticall, sendPacket,
+				s.contractAddresses.Erc20, ackMulticallTx, sendPacket,
 			))
 		}
 
@@ -528,7 +592,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 	}))
 
-	var returnPacket channeltypesv2.Packet
+	var returnSendTxHash []byte
 	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		ibcCoin := sdk.NewCoin(denomOnCosmos.Path(), sdkmath.NewIntFromBigInt(transferAmount))
@@ -562,40 +626,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			}
 		}
 
-		_, err = s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, transferMsgs...)
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, transferMsgs...)
 		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
 
-		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		sequence := uint64(1)
-		// TODO: Until we get this packet from the events, we will construct it manually
-		// The denom should be the full denom path, not just the ibc denom
-		transferPayload.Denom = denomOnCosmos.Path()
-		payload.Value, err = ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		returnSendTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
-		returnPacket = channeltypesv2.Packet{
-			Sequence:           sequence,
-			SourceChannel:      ibctesting.FirstChannelID,
-			DestinationChannel: s.TendermintLightClientID,
-			TimeoutTimestamp:   timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-		}
-
-		s.Require().Equal(uint64(1), returnPacket.Sequence)
-		s.Require().Equal(transfertypes.PortID, returnPacket.Payloads[0].SourcePort)
-		s.Require().Equal(ibctesting.FirstChannelID, returnPacket.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, returnPacket.Payloads[0].DestinationPort)
-		s.Require().Equal(s.TendermintLightClientID, returnPacket.DestinationChannel)
-		s.Require().Equal(timeout, returnPacket.TimeoutTimestamp)
-
-		transferPacketData, err := ics20lib.DecodeFungibleTokenPacketData(returnPacket.Payloads[0].Value)
-		s.Require().NoError(err)
-		s.Require().Equal(denomOnCosmos.Path(), transferPacketData.Denom)
-		s.Require().Equal(transferAmount, transferPacketData.Amount)
-		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
-		s.Require().Equal("", transferPacketData.Memo)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// User balance on Cosmos chain
@@ -610,65 +646,41 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 	}))
 
-	var recvBlockNumber uint64
-	var returnWriteAckEvent *ics26router.ContractWriteAcknowledgement
+	var returnAckTxHash []byte
 	s.Require().True(s.Run(fmt.Sprintf("Receive %d packets on Ethereum", numOfTransfers), func() {
-		proofPaths := make([][]byte, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			proofPaths[i] = ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(i+1))
-		}
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, proofType, proofPaths)
-
-		packet := ics26router.IICS26RouterMsgsPacket{
-			Sequence:         uint32(returnPacket.Sequence),
-			SourceChannel:    returnPacket.SourceChannel,
-			DestChannel:      returnPacket.DestinationChannel,
-			TimeoutTimestamp: returnPacket.TimeoutTimestamp,
-			Payloads: []ics26router.IICS26RouterMsgsPayload{
-				{
-					SourcePort: returnPacket.Payloads[0].SourcePort,
-					DestPort:   returnPacket.Payloads[0].DestinationPort,
-					Version:    returnPacket.Payloads[0].Version,
-					Encoding:   returnPacket.Payloads[0].Encoding,
-					Value:      returnPacket.Payloads[0].Value,
-				},
-			},
-		}
-		multicallRecvMsg := make([][]byte, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-				Packet:          packet,
-				ProofCommitment: []byte(""),
-				ProofHeight:     *proofHeight,
-			}
-			msg.Packet.Sequence = uint32(i + 1)
-			if i == 0 {
-				msg.ProofCommitment = ucAndMemProof
-			}
-
-			encodedMsg, err := ics26routerAbi.Pack("recvPacket", msg)
+		var recvMulticallTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{returnSendTxHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
 			s.Require().NoError(err)
-			multicallRecvMsg[i] = encodedMsg
-		}
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		tx, err := s.ics26Contract.Multicall(s.GetTransactOpts(s.key, eth), multicallRecvMsg)
-		s.Require().NoError(err)
+			recvMulticallTx = resp.Tx
+		}))
 
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		s.T().Logf("Multicall receive %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
+		var returnPacket ics26router.IICS26RouterMsgsPacket
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, recvMulticallTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.T().Logf("Multicall receive %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
 
-		recvBlockNumber = receipt.BlockNumber.Uint64()
+			returnWriteAckEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
+			s.Require().NoError(err)
+
+			returnPacket = returnWriteAckEvent.Packet
+			returnAckTxHash = receipt.TxHash.Bytes()
+		}))
 
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, "multicall", multicallRecvMsg, packet,
+				s.contractAddresses.Erc20, recvMulticallTx, returnPacket,
 			))
 		}
-
-		returnWriteAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
-		s.Require().NoError(err)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance should be back to the starting point
@@ -683,29 +695,47 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser, s.rustFixtureGenerator)
-
-		ackMsgs := make([]sdk.Msg, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
-			path := ibchostv2.PacketAcknowledgementKey(returnPacket.DestinationChannel, uint64(i+1))
-			storageProofBz := s.getCommitmentProof(ctx, path)
-
-			ackMsgs[i] = &channeltypesv2.MsgAcknowledgement{
-				Packet: returnPacket,
-				Acknowledgement: channeltypesv2.Acknowledgement{
-					AppAcknowledgements: returnWriteAckEvent.Acknowledgements,
-				},
-				ProofAcked: storageProofBz,
-				ProofHeight: clienttypes.Height{
-					RevisionNumber: 0,
-					RevisionHeight: s.LastEtheruemLightClientUpdate,
-				},
-				Signer: simdRelayerUser.FormattedAddress(),
+		s.Require().True(s.Run("Verify commitments exists", func() {
+			for i := 0; i < numOfTransfers; i++ {
+				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+					ChannelId: ibctesting.FirstChannelID,
+					Sequence:  uint64(i) + 1,
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(resp.Commitment)
 			}
-		}
-		txResp, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 20_000_000, ackMsgs...)
-		s.Require().NoError(err)
-		s.Require().Equal(uint32(0), txResp.Code)
+		}))
+
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{returnAckTxHash},
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			txBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify commitments removed", func() {
+			for i := 0; i < numOfTransfers; i++ {
+				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+					ChannelId: ibctesting.FirstChannelID,
+					Sequence:  uint64(i) + 1,
+				})
+				s.Require().ErrorContains(err, "packet commitment hash not found")
+			}
+		}))
 	}))
 }
 
@@ -726,19 +756,18 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
+	transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-	simdRelayerUser := s.CreateAndFundCosmosUser(ctx, simd)
 	sendMemo := "nativesend"
 
-	var sendPacket channeltypesv2.Packet
-	var transferCoin sdk.Coin
+	var txHash []byte
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
 			Denom:    transferCoin.Denom,
@@ -766,40 +795,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Signer: cosmosUserWallet.FormattedAddress(),
 		}
 
-		_, err = s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
 		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
 
-		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		sequence := uint64(1)
-		// TODO: Until we get this packet from the events, we will construct it manually
-		// The denom should be the full denom path, not just the ibc denom
-		transferPayload.Denom = transferCoin.Denom
-		payload.Value, err = ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		txHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
-		sendPacket = channeltypesv2.Packet{
-			Sequence:           sequence,
-			SourceChannel:      msgSendPacket.SourceChannel,
-			DestinationChannel: s.TendermintLightClientID,
-			TimeoutTimestamp:   timeout,
-			Payloads: []channeltypesv2.Payload{
-				payload,
-			},
-		}
-
-		s.Require().Equal(uint64(1), sendPacket.Sequence)
-		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
-		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestinationPort)
-		s.Require().Equal(s.TendermintLightClientID, sendPacket.DestinationChannel)
-		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
-
-		transferPacketData, err := ics20lib.DecodeFungibleTokenPacketData(sendPacket.Payloads[0].Value)
-		s.Require().NoError(err)
-		s.Require().Equal(transferCoin.Denom, transferPacketData.Denom)
-		s.Require().Equal(transferAmount, transferPacketData.Amount)
-		s.Require().Equal(cosmosUserAddress, transferPacketData.Sender)
-		s.Require().Equal(strings.ToLower(ethereumUserAddress.Hex()), transferPacketData.Receiver)
-		s.Require().Equal(sendMemo, transferPacketData.Memo)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
@@ -813,58 +814,54 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 	}))
 
-	var ethReceiveAckEvent *ics26router.ContractWriteAcknowledgement
+	var (
+		ibcERC20        *ibcerc20.Contract
+		ibcERC20Address string
 
-	var ibcERC20 *ibcerc20.Contract
-	var ibcERC20Address string
-	var recvBlockNumber uint64
+		ackTxHash []byte
+	)
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
-		packetCommitmentPath := ibchostv2.PacketCommitmentKey(sendPacket.SourceChannel, sendPacket.Sequence)
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetCommitmentPath})
-		packet := ics26router.IICS26RouterMsgsPacket{
-			Sequence:         uint32(sendPacket.Sequence),
-			SourceChannel:    sendPacket.SourceChannel,
-			DestChannel:      sendPacket.DestinationChannel,
-			TimeoutTimestamp: sendPacket.TimeoutTimestamp,
-			Payloads: []ics26router.IICS26RouterMsgsPayload{
-				{
-					SourcePort: sendPacket.Payloads[0].SourcePort,
-					DestPort:   sendPacket.Payloads[0].DestinationPort,
-					Version:    transfertypes.V1,
-					Encoding:   transfertypes.EncodingABI,
-					Value:      sendPacket.Payloads[0].Value,
-				},
-			},
-		}
-		msg := ics26router.IICS26RouterMsgsMsgRecvPacket{
-			Packet:          packet,
-			ProofCommitment: ucAndMemProof,
-			ProofHeight:     *proofHeight,
-		}
+		var multicallTx []byte
+		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{txHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		tx, err := s.ics26Contract.RecvPacket(s.GetTransactOpts(s.key, eth), msg)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		recvBlockNumber = receipt.BlockNumber.Uint64()
+			multicallTx = resp.Tx
+		}))
+
+		var packet ics26router.IICS26RouterMsgsPacket
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			ethReceiveAckEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
+			s.Require().NoError(err)
+
+			packet = ethReceiveAckEvent.Packet
+			ackTxHash = receipt.TxHash.Bytes()
+		}))
 
 		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", msg, packet))
+			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, multicallTx, packet))
 		}
-
-		ethReceiveAckEvent, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseWriteAcknowledgement)
-		s.Require().NoError(err)
 
 		ethClient, err := ethclient.Dial(eth.RPC)
 		s.Require().NoError(err)
 
 		// Recreate the full denom path
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(sendPacket.Payloads[0].DestinationPort, sendPacket.DestinationChannel))
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestChannel))
 
 		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
 		ibcERC20Address = ibcERC20Addr.Hex()
+		s.Require().NotEmpty(ibcERC20Address)
 
 		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), ethClient)
 		s.Require().NoError(err)
@@ -893,31 +890,54 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
 		}))
 	}))
+
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, recvBlockNumber, simdRelayerUser, s.rustFixtureGenerator)
+		s.Require().True(s.Run("Verify commitments exists", func() {
+			resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+				ChannelId: ibctesting.FirstChannelID,
+				Sequence:  1,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Commitment)
+		}))
 
-		path := ibchostv2.PacketAcknowledgementKey(sendPacket.DestinationChannel, sendPacket.Sequence)
-		storageProofBz := s.getCommitmentProof(ctx, path)
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
+			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{ackTxHash},
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgAcknowledgement{
-			Packet: sendPacket,
-			Acknowledgement: channeltypesv2.Acknowledgement{
-				AppAcknowledgements: [][]byte{ethReceiveAckEvent.Acknowledgements[0]},
-			},
-			ProofAcked: storageProofBz,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: 0,
-				RevisionHeight: s.LastEtheruemLightClientUpdate,
-			},
-			Signer: simdRelayerUser.FormattedAddress(),
-		})
-		s.Require().NoError(err)
+			txBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
+
+		s.Require().True(s.Run("Verify commitments removed", func() {
+			_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+				ChannelId: ibctesting.FirstChannelID,
+				Sequence:  1,
+			})
+			s.Require().ErrorContains(err, "packet commitment hash not found")
+		}))
 	}))
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := ibcERC20.Allowance(nil, ethereumUserAddress, ics20Address)
@@ -925,10 +945,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
-	var returnPacket ics26router.IICS26RouterMsgsPacket
-	returnMemo := "testreturnmemo"
-	var sendBlockNumber uint64
+	var returnSendTxHash []byte
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
+		returnMemo := "testreturnmemo"
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		msgSendPacket := s.createICS20MsgSendPacket(
 			ethereumUserAddress,
@@ -942,22 +961,23 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		sendBlockNumber = receipt.BlockNumber.Uint64()
+		returnSendTxHash = tx.Hash().Bytes()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
-		returnPacket = sendPacketEvent.Packet
-		s.Require().Equal(uint32(1), returnPacket.Sequence)
-		s.Require().Equal(timeout, returnPacket.TimeoutTimestamp)
-		s.Require().Equal(transfertypes.PortID, returnPacket.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, returnPacket.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, returnPacket.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, returnPacket.DestChannel)
-		s.Require().Equal(transfertypes.V1, returnPacket.Payloads[0].Version)
-		s.Require().Equal(transfertypes.EncodingABI, returnPacket.Payloads[0].Encoding)
+		s.Require().Equal(uint32(1), sendPacketEvent.Packet.Sequence)
+		s.Require().Equal(timeout, sendPacketEvent.Packet.TimeoutTimestamp)
+		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].SourcePort)
+		s.Require().Equal(s.TendermintLightClientID, sendPacketEvent.Packet.SourceChannel)
+		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].DestPort)
+		s.Require().Equal(ibctesting.FirstChannelID, sendPacketEvent.Packet.DestChannel)
+		s.Require().Equal(transfertypes.V1, sendPacketEvent.Packet.Payloads[0].Version)
+		s.Require().Equal(transfertypes.EncodingABI, sendPacketEvent.Packet.Payloads[0].Encoding)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
@@ -971,41 +991,29 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 	}))
 
-	var cosmosReceiveAck []byte
+	var returnAckTxHash []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
-		s.UpdateEthClient(ctx, s.contractAddresses.IbcStore, sendBlockNumber, simdRelayerUser, s.rustFixtureGenerator)
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
+			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{returnSendTxHash},
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-		path := ibchostv2.PacketCommitmentKey(returnPacket.SourceChannel, uint64(returnPacket.Sequence))
-		storageProofBz := s.getCommitmentProof(ctx, path)
+			txBodyBz = resp.Tx
+		}))
 
-		_, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &channeltypesv2.MsgRecvPacket{
-			Packet: channeltypesv2.Packet{
-				Sequence:           uint64(returnPacket.Sequence),
-				SourceChannel:      returnPacket.SourceChannel,
-				DestinationChannel: returnPacket.DestChannel,
-				TimeoutTimestamp:   returnPacket.TimeoutTimestamp,
-				Payloads: []channeltypesv2.Payload{
-					{
-						SourcePort:      returnPacket.Payloads[0].SourcePort,
-						DestinationPort: returnPacket.Payloads[0].DestPort,
-						Version:         returnPacket.Payloads[0].Version,
-						Encoding:        returnPacket.Payloads[0].Encoding,
-						Value:           returnPacket.Payloads[0].Value,
-					},
-				},
-			},
-			ProofCommitment: storageProofBz,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: 0,
-				RevisionHeight: s.LastEtheruemLightClientUpdate,
-			},
-			Signer: simdRelayerUser.FormattedAddress(),
-		})
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 
-		// TODO: Replace with a proper parse from events as soon as it is available in ibc-go
-		ack := channeltypesv1.NewResultAcknowledgement([]byte{byte(1)})
-		cosmosReceiveAck = ack.Acknowledgement()
+			var err error
+			returnAckTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			// Check the balance of UserB
@@ -1020,98 +1028,137 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
-		// This will be a membership proof since the acknowledgement is written
-		packetAckPath := ibchostv2.PacketAcknowledgementKey(returnPacket.DestChannel, uint64(returnPacket.Sequence))
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetAckPath})
+		s.Require().True(s.Run("Verify commitment exists", func() {
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			var ethPath [32]byte
+			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
-		msg := ics26router.IICS26RouterMsgsMsgAckPacket{
-			Packet:          returnPacket,
-			Acknowledgement: cosmosReceiveAck,
-			ProofAcked:      ucAndMemProof,
-			ProofHeight:     *proofHeight,
-		}
+			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
+			s.Require().NoError(err)
+			s.Require().NotZero(resp)
+		}))
 
-		tx, err := s.ics26Contract.AckPacket(s.GetTransactOpts(s.key, eth), msg)
-		s.Require().NoError(err)
+		var multicallTx []byte
+		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{returnAckTxHash},
+				TargetChannelId: s.TendermintLightClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			multicallTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			// Verify the ack packet event exists
+			_, err = e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseAckPacket)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify commitment removed", func() {
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			var ethPath [32]byte
+			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
+
+			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
+			s.Require().NoError(err)
+			s.Require().Zero(resp)
+		}))
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16() {
+func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypeGroth16)
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypeGroth16, 1)
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk() {
+func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx, operator.ProofTypePlonk)
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypePlonk, 1)
 }
 
-func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth_Groth16() {
+	ctx := context.Background()
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypeGroth16, 10)
+}
+
+func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth_Plonk() {
+	ctx := context.Background()
+	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypePlonk, 5)
+}
+
+func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
+	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int,
+) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, _ := s.EthChain, s.CosmosChains[0]
 
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers)) // total amount transferred
+	if totalTransferAmount.Int64() > testvalues.InitialBalance {
+		s.FailNow("Total transfer amount exceeds the initial balance")
+	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
-	var packet ics26router.IICS26RouterMsgsPacket
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
 		allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
 		s.Require().NoError(err)
-		s.Require().Equal(transferAmount, allowance)
+		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var timeout uint64
+	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfer on Ethereum", func() {
-		timeout = uint64(time.Now().Add(30 * time.Second).Unix())
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			s.contractAddresses.Erc20,
-			transferAmount,
-			cosmosUserAddress,
-			s.TendermintLightClientID,
-			timeout,
-			"testmemo",
-		)
+			msgSendPacket := s.createICS20MsgSendPacket(
+				ethereumUserAddress,
+				s.contractAddresses.Erc20,
+				transferAmount,
+				cosmosUserAddress,
+				s.TendermintLightClientID,
+				timeout,
+				"testmemo",
+			)
 
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
-		s.Require().NoError(err)
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+			s.Require().NoError(err)
 
-		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
-		s.Require().NoError(err)
-		packet = sendPacketEvent.Packet
-		s.Require().Equal(uint32(1), packet.Sequence)
-		s.Require().Equal(timeout, packet.TimeoutTimestamp)
-		s.Require().Equal(transfertypes.PortID, packet.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, packet.SourceChannel)
-		s.Require().Equal(transfertypes.PortID, packet.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, packet.DestChannel)
-		s.Require().Equal(transfertypes.V1, packet.Payloads[0].Version)
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			txHashes = append(txHashes, tx.Hash().Bytes())
+		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			// User balance on Etherem
+			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, userBalance.Int64())
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, escrowBalance)
+			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
 	}))
 
@@ -1119,25 +1166,24 @@ func (s *IbcEurekaTestSuite) ICS20TransferTimeoutFromEthereumToCosmosChainTest(c
 	time.Sleep(45 * time.Second)
 
 	s.True(s.Run("Timeout packet on Ethereum", func() {
-		// This will be a non-membership proof since no packets have been sent
-		packetReceiptPath := ibchostv2.PacketReceiptKey(packet.DestChannel, uint64(packet.Sequence))
-		proofHeight, ucAndMemProof := s.updateClientAndMembershipProof(ctx, simd, pt, [][]byte{packetReceiptPath})
+		var multicallTx []byte
+		s.Require().True(s.Run("Retrieve timeout tx to Ethereum", func() {
+			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				TimeoutTxIds:    txHashes,
+				TargetChannelId: s.TendermintLightClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
 
-		msg := ics26router.IICS26RouterMsgsMsgTimeoutPacket{
-			Packet:       packet,
-			ProofTimeout: ucAndMemProof,
-			ProofHeight:  *proofHeight,
-		}
+			multicallTx = resp.Tx
+		}))
 
-		tx, err := s.ics26Contract.TimeoutPacket(s.GetTransactOpts(s.key, eth), msg)
-		s.Require().NoError(err)
-
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutPacket-%s.json", pt.String()), s.contractAddresses.Erc20, "timeoutPacket", msg, packet))
-		}
+		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
@@ -1191,76 +1237,24 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 	}
 }
 
-func (s *IbcEurekaTestSuite) getCommitmentProof(ctx context.Context, path []byte) []byte {
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	storageKey := ethereum.GetCommitmentsStorageKey(path)
-	storageKeys := []string{storageKey.Hex()}
-
-	blockNumberHex := fmt.Sprintf("0x%x", s.LastEtheruemLightClientUpdate)
-	proofResp, err := eth.EthAPI.GetProof(s.contractAddresses.IbcStore, storageKeys, blockNumberHex)
+func (s *IbcEurekaTestSuite) BroadcastSdkTx(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(txBodyBz, &txBody)
 	s.Require().NoError(err)
-	storageProof := proofResp.StorageProof[0]
 
-	if s.rustFixtureGenerator.ShouldGenerateFixture() {
-		_, ethereumClientState := s.GetEthereumClientState(ctx, simd, s.EthereumLightClientID)
-		_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, s.EthereumLightClientID, clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: s.LastEtheruemLightClientUpdate,
-		})
+	var msgs []sdk.Msg
+	for _, msg := range txBody.Messages {
+		var sdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		s.Require().NoError(err)
 
-		s.rustFixtureGenerator.AddFixtureStep("commitment_proof", &ethereumtypes.CommitmentProof{
-			Path:           fmt.Sprintf("0x%x", path),
-			StorageProof:   storageProof,
-			ProofSlot:      s.LastEtheruemLightClientUpdate,
-			ClientState:    ethereumClientState,
-			ConsensusState: ethereumConsensusState,
-		})
+		msgs = append(msgs, sdkMsg)
 	}
 
-	bz, err := json.Marshal(&storageProof)
+	s.Require().NotZero(len(msgs))
+
+	resp, err := s.BroadcastMessages(ctx, chain, user, gas, msgs...)
 	s.Require().NoError(err)
 
-	return bz
-}
-
-func (s *IbcEurekaTestSuite) updateClientAndMembershipProof(
-	ctx context.Context,
-	counterpartyChain *cosmos.CosmosChain,
-	proofType operator.SupportedProofType,
-	ibcProofPaths [][]byte,
-) (*ics26router.IICS02ClientMsgsHeight, []byte) {
-	clientState, err := s.sp1Ics07Contract.GetClientState(nil)
-	s.Require().NoError(err)
-
-	trustedHeight := clientState.LatestHeight.RevisionHeight
-	latestHeight, err := counterpartyChain.Height(ctx)
-	s.Require().NoError(err)
-
-	proofPaths := make([][][]byte, len(ibcProofPaths))
-	for i, path := range ibcProofPaths {
-		proofPaths[i] = [][]byte{
-			[]byte("ibc"),
-			path,
-		}
-	}
-
-	proofPathsStr := operator.ToBase64KeyPaths(proofPaths...)
-
-	args := append([]string{
-		"--trust-level", testvalues.DefaultTrustLevel.String(),
-		"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-		"--base64",
-	},
-		proofType.ToOperatorArgs()...,
-	)
-	proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-		uint64(trustedHeight), uint64(latestHeight), proofPathsStr, args...,
-	)
-	s.Require().NoError(err)
-
-	return &ics26router.IICS02ClientMsgsHeight{
-		RevisionNumber: proofHeight.RevisionNumber,
-		RevisionHeight: proofHeight.RevisionHeight,
-	}, ucAndMemProof
+	return resp
 }

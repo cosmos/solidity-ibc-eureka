@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
@@ -264,7 +265,9 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 	}))
 
@@ -300,7 +303,9 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 	}))
 }
@@ -386,7 +391,9 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
 		clientState, err = s.contract.GetClientState(nil)
@@ -495,7 +502,9 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
 		clientState, err := s.contract.GetClientState(nil)
@@ -586,7 +595,9 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt := s.GetTxReciept(ctx, eth, tx.Hash())
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
 		clientState, err := s.contract.GetClientState(nil)
@@ -680,7 +691,9 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 			s.Require().NoError(err)
 
 			// wait until transaction is included in a block
-			_ = s.GetTxReciept(ctx, eth, tx.Hash())
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		}))
 	}))
 }

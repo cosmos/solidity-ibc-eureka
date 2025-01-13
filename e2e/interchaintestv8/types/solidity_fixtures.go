@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -29,8 +28,8 @@ type GenericSolidityFixture struct {
 }
 
 // GenerateAndSaveSolidityFixture generates a fixture and saves it to a file
-func GenerateAndSaveSolidityFixture(fileName, erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) error {
-	fixture, err := generateFixture(erc20Address, methodName, msg, packet)
+func GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) error {
+	fixture, err := generateFixture(erc20Address, msgBz, packet)
 	if err != nil {
 		return err
 	}
@@ -45,23 +44,13 @@ func GenerateAndSaveSolidityFixture(fileName, erc20Address, methodName string, m
 	return os.WriteFile(filePath, fixtureBz, 0o644)
 }
 
-func generateFixture(erc20Address, methodName string, msg any, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
+func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
 	genesisBz, err := getGenesisFixture()
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
 
-	ics26Abi, err := abi.JSON(strings.NewReader(ics26router.ContractMetaData.ABI))
-	if err != nil {
-		return GenericSolidityFixture{}, err
-	}
-
 	packetBz, err := abiEncodePacket(packet)
-	if err != nil {
-		return GenericSolidityFixture{}, err
-	}
-
-	msgBz, err := ics26Abi.Pack(methodName, msg)
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
