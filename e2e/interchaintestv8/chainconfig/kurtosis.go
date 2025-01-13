@@ -20,7 +20,32 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 )
 
-const faucetPrivateKey = "0x4b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
+const (
+	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.4.0"
+
+	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
+)
+
+var (
+	kurtosisConfig = kurtosisNetworkParams{
+		Participants: []kurtosisParticipant{
+			{
+				CLType:     "lodestar",
+				CLImage:    "chainsafe/lodestar:v1.24.0",
+				ELType:     "geth",
+				ELImage:    "ethereum/client-go:v1.14.6",
+				ELLogLevel: "info",
+			},
+		},
+		NetworkParams: kurtosisNetworkConfigParams{
+			Preset: "minimal",
+		},
+		WaitForFinalization: true,
+	}
+	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
+)
 
 type EthKurtosisChain struct {
 	RPC             string
@@ -40,6 +65,7 @@ type kurtosisNetworkParams struct {
 
 type kurtosisParticipant struct {
 	CLType     string `json:"cl_type"`
+	CLImage    string `json:"cl_image"`
 	ELType     string `json:"el_type"`
 	ELImage    string `json:"el_image"`
 	ELLogLevel string `json:"el_log_level"`
@@ -48,25 +74,6 @@ type kurtosisParticipant struct {
 type kurtosisNetworkConfigParams struct {
 	Preset string `json:"preset"`
 }
-
-var (
-	kurtosisConfig = kurtosisNetworkParams{
-		Participants: []kurtosisParticipant{
-			{
-				CLType:     "lodestar",
-				ELType:     "geth",
-				ELImage:    "ethereum/client-go:v1.14.6",
-				ELLogLevel: "info",
-			},
-		},
-		NetworkParams: kurtosisNetworkConfigParams{
-			Preset: "minimal",
-		},
-		WaitForFinalization: true,
-	}
-	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
-	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
-)
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
@@ -103,7 +110,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
-	starlarkResp, err := enclaveCtx.RunStarlarkRemotePackageBlocking(ctx, "github.com/ethpandaops/ethereum-package", &starlark_run_config.StarlarkRunConfig{
+	starlarkResp, err := enclaveCtx.RunStarlarkRemotePackageBlocking(ctx, ethereumPackageId, &starlark_run_config.StarlarkRunConfig{
 		SerializedParams: string(networkParamsJson),
 	})
 	if err != nil {
