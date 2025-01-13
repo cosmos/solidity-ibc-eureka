@@ -189,16 +189,6 @@ generate-fixtures-sp1-ics07: build-operator
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
-# Generate the fixtures for the Rust tests using the e2e tests
-generate-fixtures-rust: clean
-	@echo "Generating fixtures... This may take a while."
-	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
-	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
-	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
-
 # Generate the relayer proto files
 relayer-proto-gen:
     @echo "Generating Protobuf files for relayer"
