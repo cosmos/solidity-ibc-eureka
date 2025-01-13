@@ -60,7 +60,7 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 }
 
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
-// Once the broadcast response is returned, we wait for two blocks to be created on chain.
+// Once the transaction is mined, the receipt is returned.
 func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, gasLimit uint64, address ethcommon.Address, txBz []byte) (*ethtypes.Receipt, error) {
 	ethClient, err := ethclient.Dial(e.RPC)
 	if err != nil {

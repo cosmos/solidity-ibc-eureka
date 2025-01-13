@@ -19,7 +19,6 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	sdkmath "cosmossdk.io/math"
 	banktypes "cosmossdk.io/x/bank/types"
@@ -149,30 +148,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	}))
 
 	s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-		ethClient, err := ethclient.Dial(eth.RPC)
-		s.Require().NoError(err)
-
-		txOpts := s.GetTransactOpts(s.EthRelayerSubmitter, eth)
-		s.Require().NoError(err)
-
-		tx := ethtypes.NewTransaction(
-			txOpts.Nonce.Uint64(),
-			ics26Address,
-			txOpts.Value,
-			5_000_000,
-			txOpts.GasPrice,
-			multicallTx,
-		)
-
-		signedTx, err := txOpts.Signer(txOpts.From, tx)
-		s.Require().NoError(err)
-
-		// Submit the relay tx to Ethereum
-		err = ethClient.SendTransaction(ctx, signedTx)
-		s.Require().NoError(err)
-
-		// Wait for the tx to be mined
-		receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 	}))
@@ -461,30 +437,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.key, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				5_000_000,
-				txOpts.GasPrice,
-				multicallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -728,33 +681,11 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 
 	var ackTxHash []byte
 	s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-		ethClient, err := ethclient.Dial(eth.RPC)
-		s.Require().NoError(err)
-
-		txOpts := s.GetTransactOpts(s.key, eth)
-		s.Require().NoError(err)
-
-		tx := ethtypes.NewTransaction(
-			txOpts.Nonce.Uint64(),
-			ics26Address,
-			txOpts.Value,
-			5_000_000,
-			txOpts.GasPrice,
-			multicallTx,
-		)
-
-		signedTx, err := txOpts.Signer(txOpts.From, tx)
-		s.Require().NoError(err)
-
-		// Submit the relay tx to Ethereum
-		err = ethClient.SendTransaction(ctx, signedTx)
-		s.Require().NoError(err)
-
-		// Wait for the tx to be mined
-		receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
-		ackTxHash = signedTx.Hash().Bytes()
+
+		ackTxHash = receipt.TxHash.Bytes()
 	}))
 
 	var txBodyBz []byte

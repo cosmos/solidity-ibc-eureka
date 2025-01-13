@@ -577,30 +577,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.EthRelayerSubmitter, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				15_000_000,
-				txOpts.GasPrice,
-				ackMulticallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, ackMulticallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
@@ -701,30 +678,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 		var returnPacket ics26router.IICS26RouterMsgsPacket
 		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.EthRelayerSubmitter, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				15_000_000,
-				txOpts.GasPrice,
-				recvMulticallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, recvMulticallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.T().Logf("Multicall receive %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
@@ -733,7 +687,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 
 			returnPacket = returnWriteAckEvent.Packet
-			returnAckTxHash = signedTx.Hash().Bytes()
+			returnAckTxHash = receipt.TxHash.Bytes()
 		}))
 
 		if s.generateSolidityFixtures {
@@ -913,30 +867,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 		var packet ics26router.IICS26RouterMsgsPacket
 		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.EthRelayerSubmitter, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				5_000_000,
-				txOpts.GasPrice,
-				multicallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
@@ -944,7 +875,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NoError(err)
 
 			packet = ethReceiveAckEvent.Packet
-			ackTxHash = signedTx.Hash().Bytes()
+			ackTxHash = receipt.TxHash.Bytes()
 		}))
 
 		if s.generateSolidityFixtures {
@@ -1182,30 +1113,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.key, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				5_000_000,
-				txOpts.GasPrice,
-				multicallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -1333,30 +1241,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			ethClient, err := ethclient.Dial(eth.RPC)
-			s.Require().NoError(err)
-
-			txOpts := s.GetTransactOpts(s.key, eth)
-			s.Require().NoError(err)
-
-			tx := ethtypes.NewTransaction(
-				txOpts.Nonce.Uint64(),
-				ics26Address,
-				txOpts.Value,
-				5_000_000,
-				txOpts.GasPrice,
-				multicallTx,
-			)
-
-			signedTx, err := txOpts.Signer(txOpts.From, tx)
-			s.Require().NoError(err)
-
-			// Submit the relay tx to Ethereum
-			err = ethClient.SendTransaction(ctx, signedTx)
-			s.Require().NoError(err)
-
-			// Wait for the tx to be mined
-			receipt, err := eth.GetTxReciept(ctx, signedTx.Hash())
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		}))
