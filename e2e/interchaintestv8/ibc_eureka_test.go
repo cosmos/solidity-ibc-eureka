@@ -38,6 +38,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
+	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
@@ -1144,6 +1145,16 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
+		s.Require().True(s.Run("Verify commitment exists", func() {
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			var ethPath [32]byte
+			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
+
+			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
+			s.Require().NoError(err)
+			s.Require().NotZero(resp)
+		}))
+
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -1189,15 +1200,14 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NoError(err)
 		}))
 
-		s.True(s.Run("Verify balances on Ethereum", func() {
-			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(int64(0), userBalance.Int64())
+		s.Require().True(s.Run("Verify commitment removed", func() {
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			var ethPath [32]byte
+			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
-			// the whole balance should have been burned
-			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
+			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Zero(resp)
 		}))
 	}))
 }
