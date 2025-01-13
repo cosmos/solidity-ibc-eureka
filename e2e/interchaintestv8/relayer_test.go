@@ -302,16 +302,6 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 }
 
-func (s *RelayerTestSuite) TestBatchedAckPacketToEth_Groth16() {
-	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 1)
-}
-
-func (s *RelayerTestSuite) TestBatchedAckPacketToEth_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypePlonk, 1)
-}
-
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToEth_Groth16() {
 	ctx := context.Background()
 	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10)
@@ -774,11 +764,6 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 	}))
-}
-
-func (s *RelayerTestSuite) TestBatchedAckPacketToCosmos() {
-	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToCosmosTest(ctx, operator.ProofTypeGroth16, 1)
 }
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToCosmos() {
