@@ -42,6 +42,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -524,23 +525,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(txBodyBz, &txBody)
-			s.Require().NoError(err)
-
-			var msgs []sdk.Msg
-			for _, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-
-				msgs = append(msgs, sdkMsg)
-			}
-
-			s.Require().NotZero(len(msgs))
-
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, msgs...)
-			s.Require().NoError(err)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -735,23 +720,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(txBodyBz, &txBody)
-			s.Require().NoError(err)
-
-			var msgs []sdk.Msg
-			for _, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-
-				msgs = append(msgs, sdkMsg)
-			}
-
-			s.Require().NotZero(len(msgs))
-
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
-			s.Require().NoError(err)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -946,24 +915,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(txBodyBz, &txBody)
-			s.Require().NoError(err)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 
-			var msgs []sdk.Msg
-			for _, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-
-				msgs = append(msgs, sdkMsg)
-			}
-
-			s.Require().NotZero(len(msgs))
-
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
-			s.Require().NoError(err)
-
+			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
@@ -1053,24 +1007,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			var txBody txtypes.TxBody
-			err := proto.Unmarshal(txBodyBz, &txBody)
-			s.Require().NoError(err)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 
-			var msgs []sdk.Msg
-			for _, msg := range txBody.Messages {
-				var sdkMsg sdk.Msg
-				err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-				s.Require().NoError(err)
-
-				msgs = append(msgs, sdkMsg)
-			}
-
-			s.Require().NotZero(len(msgs))
-
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
-			s.Require().NoError(err)
-
+			var err error
 			returnAckTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
@@ -1296,4 +1235,26 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 			},
 		},
 	}
+}
+
+func (s *IbcEurekaTestSuite) BroadcastSdkTx(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(txBodyBz, &txBody)
+	s.Require().NoError(err)
+
+	var msgs []sdk.Msg
+	for _, msg := range txBody.Messages {
+		var sdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		s.Require().NoError(err)
+
+		msgs = append(msgs, sdkMsg)
+	}
+
+	s.Require().NotZero(len(msgs))
+
+	resp, err := s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+	s.Require().NoError(err)
+
+	return resp
 }
