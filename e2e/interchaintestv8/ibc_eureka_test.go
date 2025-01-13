@@ -606,7 +606,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, "multicall", ackMulticallTx, sendPacket,
+				s.contractAddresses.Erc20, ackMulticallTx, sendPacket,
 			))
 		}
 
@@ -731,7 +731,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, "multicall", recvMulticallTx, returnPacket,
+				s.contractAddresses.Erc20, recvMulticallTx, returnPacket,
 			))
 		}
 
@@ -939,7 +939,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, "recvPacket", multicallTx, packet))
+			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, multicallTx, packet))
 		}
 
 		ethClient, err := ethclient.Dial(eth.RPC)
