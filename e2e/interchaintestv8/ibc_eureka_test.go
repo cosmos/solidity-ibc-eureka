@@ -533,7 +533,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 			s.Require().NotZero(len(msgs))
 
-			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, msgs...)
+			resp, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, msgs...)
 			s.Require().NoError(err)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -704,7 +704,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				txOpts.Nonce.Uint64(),
 				ics26Address,
 				txOpts.Value,
-				5_000_000,
+				15_000_000,
 				txOpts.GasPrice,
 				recvMulticallTx,
 			)
