@@ -183,7 +183,8 @@ func (e *Ethereum) Height() (int64, error) {
 func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*ethtypes.Receipt, error) {
 	var receipt *ethtypes.Receipt
 	err := testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
-		receipt, err := e.RPCClient.TransactionReceipt(ctx, hash)
+		var err error
+		receipt, err = e.RPCClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil
 		}
