@@ -164,7 +164,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			// User balance on Ethereum
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(transferAmount, userBalance)
+			s.Require().Equal(totalTransferAmount, userBalance)
 		}))
 	}))
 }
