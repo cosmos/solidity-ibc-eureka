@@ -32,6 +32,7 @@ type Ethereum struct {
 	RPC             string
 	EthAPI          EthAPI
 	BeaconAPIClient *BeaconAPIClient
+	RPCClient       *ethclient.Client
 
 	Faucet *ecdsa.PrivateKey
 }
@@ -55,6 +56,7 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 		RPC:             rpc,
 		EthAPI:          ethAPI,
 		BeaconAPIClient: beaconAPIClient,
+		RPCClient:       ethClient,
 		Faucet:          faucet,
 	}, nil
 }
@@ -62,11 +64,6 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the transaction is mined, the receipt is returned.
 func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, gasLimit uint64, address ethcommon.Address, txBz []byte) (*ethtypes.Receipt, error) {
-	ethClient, err := ethclient.Dial(e.RPC)
-	if err != nil {
-		return nil, err
-	}
-
 	txOpts, err := e.GetTransactOpts(userKey)
 	if err != nil {
 		return nil, err
@@ -86,7 +83,7 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 		return nil, err
 	}
 
-	err = ethClient.SendTransaction(ctx, signedTx)
+	err = e.RPCClient.SendTransaction(ctx, signedTx)
 	if err != nil {
 		return nil, err
 	}
@@ -184,14 +181,9 @@ func (e *Ethereum) Height() (int64, error) {
 }
 
 func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*ethtypes.Receipt, error) {
-	ethClient, err := ethclient.Dial(e.RPC)
-	if err != nil {
-		return nil, err
-	}
-
 	var receipt *ethtypes.Receipt
-	err = testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
-		receipt, err = ethClient.TransactionReceipt(ctx, hash)
+	err := testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
+		receipt, err := e.RPCClient.TransactionReceipt(ctx, hash)
 		if err != nil {
 			return false, nil
 		}
@@ -206,18 +198,13 @@ func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*etht
 }
 
 func (e *Ethereum) GetTransactOpts(key *ecdsa.PrivateKey) (*bind.TransactOpts, error) {
-	ethClient, err := ethclient.Dial(e.RPC)
-	if err != nil {
-		return nil, err
-	}
-
 	fromAddress := crypto.PubkeyToAddress(key.PublicKey)
-	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress)
+	nonce, err := e.RPCClient.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		nonce = 0
 	}
 
-	gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+	gasPrice, err := e.RPCClient.SuggestGasPrice(context.Background())
 	if err != nil {
 		panic(err)
 	}

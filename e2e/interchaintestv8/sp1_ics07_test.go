@@ -18,7 +18,6 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	"cosmossdk.io/math"
 	banktypes "cosmossdk.io/x/bank/types"
@@ -104,10 +103,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 
 		os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
 
-		client, err := ethclient.Dial(eth.RPC)
-		s.Require().NoError(err)
-
-		s.contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(contractAddress), client)
+		s.contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(contractAddress), eth.RPCClient)
 		s.Require().NoError(err)
 	}))
 }
