@@ -720,7 +720,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
