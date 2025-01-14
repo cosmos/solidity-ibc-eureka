@@ -190,10 +190,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 	}))
 
-	simdUser := s.CreateAndFundCosmosUser(ctx, simd)
-
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simdUser, s.contractAddresses.IbcStore)
+		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.IbcStore)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -218,17 +216,14 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
 
-		_, err := s.BroadcastMessages(ctx, simd, simdUser, 200_000, &channeltypesv2.MsgCreateChannel{
+		_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
 			ClientId:         s.EthereumLightClientID,
 			MerklePathPrefix: merklePathPrefix,
-			Signer:           simdUser.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-
-		_, err = s.BroadcastMessages(ctx, simd, simdUser, 200_000, &channeltypesv2.MsgRegisterCounterparty{
+			Signer:           s.SimdRelayerSubmitter.FormattedAddress(),
+		}, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
 			CounterpartyChannelId: s.TendermintLightClientID,
-			Signer:                simdUser.FormattedAddress(),
+			Signer:                s.SimdRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
