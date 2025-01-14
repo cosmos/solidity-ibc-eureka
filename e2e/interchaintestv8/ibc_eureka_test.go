@@ -511,7 +511,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		ackTxHash     []byte
 	)
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-		var txBodyBz []byte
+		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{ethSendTxHash},
@@ -521,11 +521,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Empty(resp.Address)
 
-			txBodyBz = resp.Tx
+			relayTxBodyBz = resp.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
