@@ -449,8 +449,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	var (
-		sendPacket ics26router.IICS26RouterMsgsPacket
-		txHash     []byte
+		sendPacket    ics26router.IICS26RouterMsgsPacket
+		ethSendTxHash []byte
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -478,7 +478,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
-		txHash = tx.Hash().Bytes()
+		ethSendTxHash = tx.Hash().Bytes()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -514,7 +514,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{txHash},
+				SourceTxIds:     [][]byte{ethSendTxHash},
 				TargetChannelId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
@@ -524,7 +524,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			txBodyBz = resp.Tx
 		}))
 
-		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
+		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -548,7 +548,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
-		var ackMulticallTx []byte
+		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{ackTxHash},
@@ -558,11 +558,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Equal(resp.Address, ics26Address.String())
 
-			ackMulticallTx = resp.Tx
+			ackRelayTx = resp.Tx
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, ackMulticallTx)
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, ackRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
@@ -575,7 +575,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, ackMulticallTx, sendPacket,
+				s.contractAddresses.Erc20, ackRelayTx, sendPacket,
 			))
 		}
 
@@ -648,7 +648,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	var returnAckTxHash []byte
 	s.Require().True(s.Run(fmt.Sprintf("Receive %d packets on Ethereum", numOfTransfers), func() {
-		var recvMulticallTx []byte
+		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{returnSendTxHash},
@@ -658,12 +658,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Equal(resp.Address, ics26Address.String())
 
-			recvMulticallTx = resp.Tx
+			recvRelayTx = resp.Tx
 		}))
 
 		var returnPacket ics26router.IICS26RouterMsgsPacket
-		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, recvMulticallTx)
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, ics26Address, recvRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.T().Logf("Multicall receive %d packets gas used: %d", numOfTransfers, receipt.GasUsed)
@@ -678,7 +678,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		if s.generateSolidityFixtures {
 			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
 				fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, recvMulticallTx, returnPacket,
+				s.contractAddresses.Erc20, recvRelayTx, returnPacket,
 			))
 		}
 
@@ -706,7 +706,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			}
 		}))
 
-		var txBodyBz []byte
+		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{returnAckTxHash},
@@ -716,11 +716,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Empty(resp.Address)
 
-			txBodyBz = resp.Tx
+			ackRelayTxBodyBz = resp.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, txBodyBz)
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, ackRelayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -765,7 +765,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	sendMemo := "nativesend"
 
-	var txHash []byte
+	var cosmosSendTxHash []byte
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -799,7 +799,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
 
-		txHash, err = hex.DecodeString(resp.TxHash)
+		cosmosSendTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -821,22 +821,22 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		ackTxHash []byte
 	)
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
-		var multicallTx []byte
-		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
+		var recvRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{txHash},
+				SourceTxIds:     [][]byte{cosmosSendTxHash},
 				TargetChannelId: s.TendermintLightClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Equal(resp.Address, ics26Address.String())
 
-			multicallTx = resp.Tx
+			recvRelayTx = resp.Tx
 		}))
 
 		var packet ics26router.IICS26RouterMsgsPacket
-		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, recvRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
@@ -848,7 +848,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, multicallTx, packet))
+			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, recvRelayTx, packet))
 		}
 
 		ethClient, err := ethclient.Dial(eth.RPC)
@@ -901,8 +901,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NotNil(resp.Commitment)
 		}))
 
-		var txBodyBz []byte
-		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
+		var ackRelayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{ackTxHash},
 				TargetChannelId: ibctesting.FirstChannelID,
@@ -911,11 +911,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Empty(resp.Address)
 
-			txBodyBz = resp.Tx
+			ackRelayTxBodyBz = resp.Tx
 		}))
 
-		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, ackRelayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -945,7 +945,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
-	var returnSendTxHash []byte
+	var ethSendTxHash []byte
 	s.Require().True(s.Run("Transfer tokens back from Ethereum", func() {
 		returnMemo := "testreturnmemo"
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -966,7 +966,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-		returnSendTxHash = tx.Hash().Bytes()
+		ethSendTxHash = tx.Hash().Bytes()
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
@@ -993,21 +993,21 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var returnAckTxHash []byte
 	s.Require().True(s.Run("Receive packet on Cosmos chain", func() {
-		var txBodyBz []byte
-		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{returnSendTxHash},
+				SourceTxIds:     [][]byte{ethSendTxHash},
 				TargetChannelId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Empty(resp.Address)
 
-			txBodyBz = resp.Tx
+			relayTxBodyBz = resp.Tx
 		}))
 
-		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			returnAckTxHash, err = hex.DecodeString(resp.TxHash)
@@ -1038,8 +1038,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NotZero(resp)
 		}))
 
-		var multicallTx []byte
-		s.Require().True(s.Run("Retrieve relay tx to Ethereum", func() {
+		var ackRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{returnAckTxHash},
 				TargetChannelId: s.TendermintLightClientID,
@@ -1048,11 +1048,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Equal(resp.Address, ics26Address.String())
 
-			multicallTx = resp.Tx
+			ackRelayTx = resp.Tx
 		}))
 
-		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, ackRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -1124,7 +1124,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var txHashes [][]byte
+	var ethSendTxHashes [][]byte
 	s.Require().True(s.Run("Send transfer on Ethereum", func() {
 		for i := 0; i < numOfTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
@@ -1146,7 +1146,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-			txHashes = append(txHashes, tx.Hash().Bytes())
+			ethSendTxHashes = append(ethSendTxHashes, tx.Hash().Bytes())
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
@@ -1166,21 +1166,21 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 	time.Sleep(45 * time.Second)
 
 	s.True(s.Run("Timeout packet on Ethereum", func() {
-		var multicallTx []byte
-		s.Require().True(s.Run("Retrieve timeout tx to Ethereum", func() {
+		var timeoutRelayTx []byte
+		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				TimeoutTxIds:    txHashes,
+				TimeoutTxIds:    ethSendTxHashes,
 				TargetChannelId: s.TendermintLightClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 			s.Require().Equal(resp.Address, ics26Address.String())
 
-			multicallTx = resp.Tx
+			timeoutRelayTx = resp.Tx
 		}))
 
-		s.Require().True(s.Run("Submit relay tx to Ethereum", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, multicallTx)
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, timeoutRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		}))
