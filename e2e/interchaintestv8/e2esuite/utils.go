@@ -10,17 +10,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -124,44 +120,10 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return
 }
 
-func (s *TestSuite) GetTxReciept(ctx context.Context, chain ethereum.Ethereum, hash ethcommon.Hash) *ethtypes.Receipt {
-	ethClient, err := ethclient.Dial(chain.RPC)
-	s.Require().NoError(err)
-
-	var receipt *ethtypes.Receipt
-	err = testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
-		receipt, err = ethClient.TransactionReceipt(ctx, hash)
-		if err != nil {
-			return false, nil
-		}
-
-		return receipt != nil, nil
-	})
-	s.Require().NoError(err)
-	return receipt
-}
-
 func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethereum) *bind.TransactOpts {
-	ethClient, err := ethclient.Dial(chain.RPC)
+	opts, err := chain.GetTransactOpts(key)
 	s.Require().NoError(err)
-
-	fromAddress := crypto.PubkeyToAddress(key.PublicKey)
-	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		nonce = 0
-	}
-
-	gasPrice, err := ethClient.SuggestGasPrice(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chain.ChainID)
-	s.Require().NoError(err)
-	txOpts.Nonce = big.NewInt(int64(nonce))
-	txOpts.GasPrice = gasPrice
-
-	return txOpts
+	return opts
 }
 
 // PushNewWasmClientProposal submits a new wasm client governance proposal to the chain.
@@ -284,29 +246,6 @@ func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cos
 	s.Require().NoError(err)
 
 	return wasmClientState, ethClientState
-}
-
-func (s *TestSuite) GetEthereumConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string, height clienttypes.Height) (*ibcwasmtypes.ConsensusState, ethereumtypes.ConsensusState) {
-	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, cosmosChain, &clienttypes.QueryConsensusStateRequest{
-		ClientId:       clientID,
-		RevisionNumber: height.RevisionNumber,
-		RevisionHeight: height.RevisionHeight,
-		LatestHeight:   false,
-	})
-	s.Require().NoError(err)
-
-	var consensusState ibcexported.ConsensusState
-	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
-	s.Require().NoError(err)
-
-	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
-	s.Require().True(ok)
-
-	var ethConsensusState ethereumtypes.ConsensusState
-	err = json.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
-	s.Require().NoError(err)
-
-	return wasmConsenusState, ethConsensusState
 }
 
 func (s *TestSuite) CreateTMClientHeader(
