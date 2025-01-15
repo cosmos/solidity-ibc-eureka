@@ -57,20 +57,19 @@ where
     async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEvent>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
-                let tx_height = self
+                let block_hash = self
                     .ics26_router
                     .provider()
                     .get_transaction_by_hash(tx_id)
                     .await?
                     .ok_or_else(|| anyhow!("Transaction {} not found", tx_id))?
-                    .block_number
+                    .block_hash
                     .ok_or_else(|| anyhow!("Transaction {} has not been mined", tx_id))?;
 
                 let event_filter = Filter::new()
                     .events(EurekaEvent::evm_signatures())
                     .address(*self.ics26_router.address())
-                    .from_block(tx_height)
-                    .to_block(tx_height);
+                    .at_block_hash(block_hash);
 
                 Ok::<_, anyhow::Error>(
                     self.ics26_router
