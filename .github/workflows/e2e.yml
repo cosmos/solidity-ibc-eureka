@@ -82,6 +82,7 @@ jobs:
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20TimeoutPacket
           - TestWithMultichainTestSuite/TestDeploy_Groth16
           - TestWithMultichainTestSuite/TestTransferCosmosToEthToCosmos_Groth16
+          - TestWithMultichainTestSuite/TestTransferEthToCosmosToCosmos_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
