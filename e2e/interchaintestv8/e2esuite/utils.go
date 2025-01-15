@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/cosmos/gogoproto/proto"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
@@ -27,6 +29,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
@@ -388,4 +391,26 @@ func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosC
 	}
 
 	return &headerResp.SdkBlock.Header, nil
+}
+
+func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(txBodyBz, &txBody)
+	s.Require().NoError(err)
+
+	var msgs []sdk.Msg
+	for _, msg := range txBody.Messages {
+		var sdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		s.Require().NoError(err)
+
+		msgs = append(msgs, sdkMsg)
+	}
+
+	s.Require().NotZero(len(msgs))
+
+	resp, err := s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+	s.Require().NoError(err)
+
+	return resp
 }
