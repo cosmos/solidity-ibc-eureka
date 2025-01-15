@@ -963,7 +963,10 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-			Denom:    denomOnSimdA.IBCDenom(),
+			// Denom:    denomOnSimdA.IBCDenom(),
+			// BUG: Allowing user to choose the above is a bug in ibc-go
+			// https://github.com/cosmos/ibc-go/issues/7848
+			Denom:    denomOnSimdA.Path(),
 			Amount:   transferAmount,
 			Sender:   simdAUser.FormattedAddress(),
 			Receiver: simdBUser.FormattedAddress(),
