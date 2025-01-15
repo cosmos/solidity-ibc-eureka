@@ -1016,7 +1016,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			finalDenom := transfertypes.NewDenom(
-				simdA.Config().Denom,
+				s.contractAddresses.Erc20,
 				transfertypes.NewHop(transfertypes.PortID, ibctesting.SecondChannelID),
 				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID),
 			)
