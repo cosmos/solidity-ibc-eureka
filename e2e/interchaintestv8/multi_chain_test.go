@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
@@ -169,6 +170,10 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
+		s.T().Cleanup(func() {
+			_ = os.Remove(testvalues.Sp1GenesisFilePath)
+		})
+
 		var (
 			stdout []byte
 			err    error
@@ -195,10 +200,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 	}))
 
-	s.T().Cleanup(func() {
-		_ = os.Remove(testvalues.Sp1GenesisFilePath)
-	})
-
 	s.Require().True(s.Run("Fund address with ERC20", func() {
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
 		s.Require().NoError(err)
@@ -217,7 +218,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key, eth), ibcexported.Tendermint, channel, lightClientAddress)
+		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -240,7 +241,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(simdBSp1Ics07ContractAddress)
-		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.key, eth), ibcexported.Tendermint, channel, lightClientAddress)
+		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -384,5 +385,19 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().False(clientState.IsFrozen)
 		s.Require().Equal(uint32(2), clientState.LatestHeight.RevisionNumber)
 		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+	}))
+
+	s.Require().True(s.Run("Verify ICS02 Client", func() {
+		owner, err := s.icsCoreContract.Owner(nil)
+		s.Require().NoError(err)
+		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
+
+		clientAddress, err := s.icsCoreContract.GetClient(nil, ibctesting.FirstClientID)
+		s.Require().NoError(err)
+		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
+
+		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, ibctesting.FirstClientID)
+		s.Require().NoError(err)
+		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
 	}))
 }
