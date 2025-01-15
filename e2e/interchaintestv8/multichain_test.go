@@ -228,7 +228,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ChannelId)
 		s.Require().Equal(ibctesting.FirstChannelID, event.Channel.CounterpartyId)
-		s.TendermintLightClientID = event.ChannelId
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
@@ -251,7 +250,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.SecondClientID, event.ChannelId)
 		s.Require().Equal(ibctesting.FirstChannelID, event.Channel.CounterpartyId)
-		s.TendermintLightClientID = event.ChannelId
 	}))
 
 	s.Require().True(s.Run("Create channel and register counterparty on SimdA", func() {

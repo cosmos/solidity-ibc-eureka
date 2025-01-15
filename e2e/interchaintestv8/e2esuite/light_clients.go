@@ -105,7 +105,6 @@ func (s *TestSuite) createEthereumLightClient(
 	s.Require().NoError(err)
 	s.Require().NotEmpty(clientUpdates)
 
-	s.LastEtheruemLightClientUpdate = bootstrap.Data.Header.Beacon.Slot
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,

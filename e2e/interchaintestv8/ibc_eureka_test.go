@@ -210,7 +210,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ChannelId)
 		s.Require().Equal(ibctesting.FirstChannelID, event.Channel.CounterpartyId)
-		s.TendermintLightClientID = event.ChannelId
 	}))
 
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
@@ -222,7 +221,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			Signer:           s.SimdRelayerSubmitter.FormattedAddress(),
 		}, &channeltypesv2.MsgRegisterCounterparty{
 			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: s.TendermintLightClientID,
+			CounterpartyChannelId: ibctesting.FirstClientID,
 			Signer:                s.SimdRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
@@ -317,11 +316,11 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
 
-		clientAddress, err := s.icsCoreContract.GetClient(nil, s.TendermintLightClientID)
+		clientAddress, err := s.icsCoreContract.GetClient(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, s.TendermintLightClientID)
+		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
 	}))
@@ -452,7 +451,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.contractAddresses.Erc20,
 			transferAmount,
 			cosmosUserAddress,
-			s.TendermintLightClientID,
+			ibctesting.FirstClientID,
 			timeout,
 			"",
 		)
@@ -478,7 +477,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
 		s.Require().Len(sendPacket.Payloads, 1)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, sendPacket.SourceChannel)
+		s.Require().Equal(ibctesting.FirstClientID, sendPacket.SourceChannel)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestPort)
 		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.DestChannel)
 		s.Require().Equal(transfertypes.V1, sendPacket.Payloads[0].Version)
@@ -543,7 +542,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -643,7 +642,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{returnSendTxHash},
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -816,7 +815,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{cosmosSendTxHash},
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -942,7 +941,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ibcERC20Address,
 			transferAmount,
 			cosmosUserAddress,
-			s.TendermintLightClientID,
+			ibctesting.FirstClientID,
 			timeout,
 			returnMemo,
 		)
@@ -961,7 +960,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(uint32(1), sendPacketEvent.Packet.Sequence)
 		s.Require().Equal(timeout, sendPacketEvent.Packet.TimeoutTimestamp)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].SourcePort)
-		s.Require().Equal(s.TendermintLightClientID, sendPacketEvent.Packet.SourceChannel)
+		s.Require().Equal(ibctesting.FirstClientID, sendPacketEvent.Packet.SourceChannel)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].DestPort)
 		s.Require().Equal(ibctesting.FirstChannelID, sendPacketEvent.Packet.DestChannel)
 		s.Require().Equal(transfertypes.V1, sendPacketEvent.Packet.Payloads[0].Version)
@@ -1017,7 +1016,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
 		s.Require().True(s.Run("Verify commitment exists", func() {
-			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(ibctesting.FirstClientID, 1)
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
@@ -1030,7 +1029,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{returnAckTxHash},
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1050,7 +1049,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Verify commitment removed", func() {
-			packetCommitmentPath := ibchostv2.PacketCommitmentKey(s.TendermintLightClientID, 1)
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(ibctesting.FirstClientID, 1)
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
@@ -1122,7 +1121,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 				s.contractAddresses.Erc20,
 				transferAmount,
 				cosmosUserAddress,
-				s.TendermintLightClientID,
+				ibctesting.FirstClientID,
 				timeout,
 				"testmemo",
 			)
@@ -1158,7 +1157,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				TimeoutTxIds:    ethSendTxHashes,
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
