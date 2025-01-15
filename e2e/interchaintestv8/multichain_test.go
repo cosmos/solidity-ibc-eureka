@@ -688,7 +688,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			finalDenom := transfertypes.NewDenom(simdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID), transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
+			finalDenom := transfertypes.NewDenom(
+				simdA.Config().Denom,
+				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID),
+				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID),
+			)
 
 			// Check the balance of UserB
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simdB, &banktypes.QueryBalanceRequest{
@@ -697,7 +701,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.TransferAmount, resp.Balance.Amount.Int64())
 		}))
 	}))
 }
