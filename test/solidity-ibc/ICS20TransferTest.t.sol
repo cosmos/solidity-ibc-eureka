@@ -336,7 +336,7 @@ contract ICS20TransferTest is Test {
         // test invalid token contract
         defaultPacketData.denom = "invalid";
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, "invalid"));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -506,7 +506,7 @@ contract ICS20TransferTest is Test {
         // test invalid contract/denom
         defaultPacketData.denom = "invalid";
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, "invalid"));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceChannel: packet.sourceChannel,
@@ -606,7 +606,7 @@ contract ICS20TransferTest is Test {
         // test invalid contract
         defaultPacketData.denom = "invalid";
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, "invalid"));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
                 sourceChannel: packet.sourceChannel,
