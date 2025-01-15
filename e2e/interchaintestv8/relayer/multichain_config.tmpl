@@ -47,6 +47,24 @@
         "eth_rpc_url": "{{ .EthRPC }}",
         "sp1_private_key": "{{ .SP1PrivateKey }}"
       }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": {{ .ChainAToChainBPort }},
+      "config": {
+        "src_rpc_url": "{{ .ChainATmRPC }}",
+        "target_rpc_url": "{{ .ChainBTmRPC }}",
+        "signer_address": "{{ .ChainBSignerAddress }}"
+      }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": {{ .ChainBToChainAPort }},
+      "config": {
+        "src_rpc_url": "{{ .ChainBTmRPC }}",
+        "target_rpc_url": "{{ .ChainATmRPC }}",
+        "signer_address": "{{ .ChainASignerAddress }}"
+      }
     }
   ]
 }

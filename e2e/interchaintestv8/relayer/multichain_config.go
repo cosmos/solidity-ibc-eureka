@@ -16,6 +16,10 @@ type MultichainConfigInfo struct {
 	EthToChainBPort uint64
 	// gRPC port for the Chain B to Eth relayer module
 	ChainBToEthPort uint64
+	// gRPC port for the Chain A to Chain B relayer module
+	ChainAToChainBPort uint64
+	// gRPC port for the Chain B to Chain A relayer module
+	ChainBToChainAPort uint64
 	// Chain A tendermint RPC URL
 	ChainATmRPC string
 	// Chain B tendermint RPC URL
@@ -70,4 +74,14 @@ func (c *MultichainConfigInfo) EthToChainBGRPCAddress() string {
 // ChainAToEthGRPCAddress returns the address for the chain B to eth relayer gRPC server.
 func (c *MultichainConfigInfo) ChainBToEthGRPCAddress() string {
 	return fmt.Sprintf("127.0.0.1:%d", c.ChainBToEthPort)
+}
+
+// ChainAToChainBGRPCAddress returns the address for the chain A to chain B relayer gRPC server.
+func (c *MultichainConfigInfo) ChainAToChainBGRPCAddress() string {
+	return fmt.Sprintf("127.0.0.1:%d", c.ChainAToChainBPort)
+}
+
+// ChainBToChainAGRPCAddress returns the address for the chain B to chain A relayer gRPC server.
+func (c *MultichainConfigInfo) ChainBToChainAGRPCAddress() string {
+	return fmt.Sprintf("127.0.0.1:%d", c.ChainBToChainAPort)
 }

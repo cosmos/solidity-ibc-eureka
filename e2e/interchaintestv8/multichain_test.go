@@ -28,13 +28,16 @@ import (
 	sdkmath "cosmossdk.io/math"
 	banktypes "cosmossdk.io/x/bank/types"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
@@ -69,10 +72,12 @@ type MultichainTestSuite struct {
 	ibcStoreContract      *ibcstore.Contract
 	escrowContractAddr    ethcommon.Address
 
-	EthToChainARelayerClient relayertypes.RelayerServiceClient
-	ChainAToEthRelayerClient relayertypes.RelayerServiceClient
-	EthToChainBRelayerClient relayertypes.RelayerServiceClient
-	ChainBToEthRelayerClient relayertypes.RelayerServiceClient
+	EthToChainARelayerClient    relayertypes.RelayerServiceClient
+	ChainAToEthRelayerClient    relayertypes.RelayerServiceClient
+	EthToChainBRelayerClient    relayertypes.RelayerServiceClient
+	ChainBToEthRelayerClient    relayertypes.RelayerServiceClient
+	ChainAToChainBRelayerClient relayertypes.RelayerServiceClient
+	ChainBToChainARelayerClient relayertypes.RelayerServiceClient
 
 	SimdARelayerSubmitter ibc.Wallet
 	SimdBRelayerSubmitter ibc.Wallet
@@ -294,6 +299,105 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 	}))
 
+	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
+		simdAHeader, err := s.FetchCosmosHeader(ctx, simdA)
+		s.Require().NoError(err)
+
+		var (
+			clientStateAny    *codectypes.Any
+			consensusStateAny *codectypes.Any
+		)
+		s.Require().True(s.Run("Construct the client and consensus state", func() {
+			tmConfig := ibctesting.NewTendermintConfig()
+			revision := clienttypes.ParseChainID(simdAHeader.ChainID)
+			height := clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
+
+			clientState := ibctm.NewClientState(
+				simdAHeader.ChainID,
+				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
+				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
+			)
+			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+			s.Require().NoError(err)
+
+			consensusState := ibctm.NewConsensusState(simdAHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdAHeader.ValidatorsHash)
+			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
+			s.Require().NoError(err)
+		}))
+
+		_, err = s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:    clientStateAny,
+			ConsensusState: consensusStateAny,
+			Signer:         s.SimdBRelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
+		simdBHeader, err := s.FetchCosmosHeader(ctx, simdB)
+		s.Require().NoError(err)
+
+		var (
+			clientStateAny    *codectypes.Any
+			consensusStateAny *codectypes.Any
+		)
+		s.Require().True(s.Run("Construct the client and consensus state", func() {
+			tmConfig := ibctesting.NewTendermintConfig()
+			revision := clienttypes.ParseChainID(simdBHeader.ChainID)
+			height := clienttypes.NewHeight(revision, uint64(simdBHeader.Height))
+
+			clientState := ibctm.NewClientState(
+				simdBHeader.ChainID,
+				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
+				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
+			)
+			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+			s.Require().NoError(err)
+
+			consensusState := ibctm.NewConsensusState(simdBHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdBHeader.ValidatorsHash)
+			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
+			s.Require().NoError(err)
+		}))
+
+		_, err = s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgCreateClient{
+			ClientState:    clientStateAny,
+			ConsensusState: consensusStateAny,
+			Signer:         s.SimdARelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
+		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+
+		// We can do this because we know what the counterparty channel ID will be
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
+			ClientId:         ibctesting.FirstClientID,
+			MerklePathPrefix: merklePathPrefix,
+			Signer:           s.SimdARelayerSubmitter.FormattedAddress(),
+		}, &channeltypesv2.MsgRegisterCounterparty{
+			ChannelId:             ibctesting.SecondChannelID,
+			CounterpartyChannelId: ibctesting.SecondChannelID,
+			Signer:                s.SimdARelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
+		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
+			ClientId:         ibctesting.FirstClientID,
+			MerklePathPrefix: merklePathPrefix,
+			Signer:           s.SimdBRelayerSubmitter.FormattedAddress(),
+		}, &channeltypesv2.MsgRegisterCounterparty{
+			ChannelId:             ibctesting.SecondChannelID,
+			CounterpartyChannelId: ibctesting.SecondChannelID,
+			Signer:                s.SimdBRelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
 	var relayerProcess *os.Process
 	var configInfo relayer.MultichainConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
@@ -306,10 +410,12 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		configInfo = relayer.MultichainConfigInfo{
 			EthToChainAPort:     3000,
 			ChainAToEthPort:     3001,
-			ChainATmRPC:         simdA.GetHostRPCAddress(),
-			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
 			EthToChainBPort:     3002,
 			ChainBToEthPort:     3003,
+			ChainAToChainBPort:  3004,
+			ChainBToChainAPort:  3005,
+			ChainATmRPC:         simdA.GetHostRPCAddress(),
+			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
 			ChainBTmRPC:         simdB.GetHostRPCAddress(),
 			ChainBSignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
 			ICS26Address:        s.contractAddresses.Ics26Router,
@@ -351,6 +457,12 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 
 		s.ChainBToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToEthGRPCAddress())
+		s.Require().NoError(err)
+
+		s.ChainAToChainBRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainAToChainBGRPCAddress())
+		s.Require().NoError(err)
+
+		s.ChainBToChainARelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToChainAGRPCAddress())
 		s.Require().NoError(err)
 	}))
 }
@@ -493,6 +605,22 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().NotNil(info)
 		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
 		s.Require().Equal(simdB.Config().ChainID, info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
+		info, err := s.ChainAToChainBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(simdA.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(simdB.Config().ChainID, info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
+		info, err := s.ChainBToChainARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(simdB.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(simdA.Config().ChainID, info.TargetChain.ChainId)
 	}))
 }
 

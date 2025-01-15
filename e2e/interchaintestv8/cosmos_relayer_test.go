@@ -219,21 +219,21 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	s.Run("Chain A to B Relayer Info", func() {
+	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
 		info, err := s.AtoBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdB.Config().ChainID, info.TargetChain.ChainId)
-	})
+	}))
 
-	s.Run("Chain B to A Relayer Info", func() {
+	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
 		info, err := s.BtoARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(s.SimdB.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.TargetChain.ChainId)
-	})
+	}))
 }
 
 func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
