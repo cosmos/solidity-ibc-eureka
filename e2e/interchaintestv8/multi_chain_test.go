@@ -180,7 +180,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			// make sure that the SP1_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath)
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
 			s.Require().NoError(err)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
@@ -268,7 +268,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create channel and register counterparty on SimdA", func() {
+	s.Require().True(s.Run("Create channel and register counterparty on SimdB", func() {
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
@@ -341,5 +341,48 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		s.ChainBToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToEthGRPCAddress())
 		s.Require().NoError(err)
+	}))
+}
+
+func (s *MultichainTestSuite) TestDeploy_Groth16() {
+	ctx := context.Background()
+	proofType := operator.ProofTypeGroth16
+
+	s.SetupSuite(ctx, proofType)
+
+	_, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+
+	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
+		clientState, err := s.simdASP1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+
+		stakingParams, err := simdA.StakingQueryParams(ctx)
+		s.Require().NoError(err)
+
+		s.Require().Equal(simdA.Config().ChainID, clientState.ChainId)
+		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Numerator), clientState.TrustLevel.Numerator)
+		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Denominator), clientState.TrustLevel.Denominator)
+		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
+		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
+		s.Require().False(clientState.IsFrozen)
+		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+	}))
+
+	s.Require().True(s.Run("Verify SimdB SP1 Client", func() {
+		clientState, err := s.simdBSP1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+
+		stakingParams, err := simdB.StakingQueryParams(ctx)
+		s.Require().NoError(err)
+
+		s.Require().Equal(simdB.Config().ChainID, clientState.ChainId)
+		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Numerator), clientState.TrustLevel.Numerator)
+		s.Require().Equal(uint8(testvalues.DefaultTrustLevel.Denominator), clientState.TrustLevel.Denominator)
+		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
+		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
+		s.Require().False(clientState.IsFrozen)
+		s.Require().Equal(uint32(2), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
 	}))
 }

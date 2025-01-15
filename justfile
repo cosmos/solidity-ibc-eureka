@@ -123,6 +123,12 @@ test-e2e-sp1-ics07 testname: clean
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
+# Run any e2e test in the MultichainTestSuite using the test's name
+# For example, `just test-e2e-multichain TestDeploy_Groth16`
+test-e2e-multichain testname: clean
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultichainTestSuite/{{testname}}
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --bin operator --path programs/operator --locked
