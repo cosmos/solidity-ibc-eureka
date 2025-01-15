@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
@@ -325,7 +326,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			s.Require().NoError(err)
 		}))
 
-		_, err = s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgCreateClient{
+		_, err = s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, &clienttypes.MsgCreateClient{
 			ClientState:    clientStateAny,
 			ConsensusState: consensusStateAny,
 			Signer:         s.SimdBRelayerSubmitter.FormattedAddress(),
@@ -359,7 +360,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			s.Require().NoError(err)
 		}))
 
-		_, err = s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgCreateClient{
+		_, err = s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, &clienttypes.MsgCreateClient{
 			ClientState:    clientStateAny,
 			ConsensusState: consensusStateAny,
 			Signer:         s.SimdARelayerSubmitter.FormattedAddress(),
@@ -372,7 +373,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		// We can do this because we know what the counterparty channel ID will be
 		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.FirstClientID,
+			ClientId:         ibctesting.SecondClientID,
 			MerklePathPrefix: merklePathPrefix,
 			Signer:           s.SimdARelayerSubmitter.FormattedAddress(),
 		}, &channeltypesv2.MsgRegisterCounterparty{
@@ -387,7 +388,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.FirstClientID,
+			ClientId:         ibctesting.SecondClientID,
 			MerklePathPrefix: merklePathPrefix,
 			Signer:           s.SimdBRelayerSubmitter.FormattedAddress(),
 		}, &channeltypesv2.MsgRegisterCounterparty{
@@ -573,6 +574,32 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().NoError(err)
 		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
 		s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
+	}))
+
+	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
+		clientStateResp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdB, &clienttypes.QueryClientStateRequest{
+			ClientId: ibctesting.SecondClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotZero(clientStateResp.ClientState.Value)
+
+		var clientState ibctm.ClientState
+		err = proto.Unmarshal(clientStateResp.ClientState.Value, &clientState)
+		s.Require().NoError(err)
+		s.Require().Equal(simdA.Config().ChainID, clientState.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Light Client of Chain B on Chain A", func() {
+		clientStateResp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdA, &clienttypes.QueryClientStateRequest{
+			ClientId: ibctesting.SecondClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotZero(clientStateResp.ClientState.Value)
+
+		var clientState ibctm.ClientState
+		err = proto.Unmarshal(clientStateResp.ClientState.Value, &clientState)
+		s.Require().NoError(err)
+		s.Require().Equal(simdB.Config().ChainID, clientState.ChainId)
 	}))
 
 	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
