@@ -20,6 +20,8 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
@@ -45,7 +47,8 @@ type MultichainTestSuite struct {
 	// The private key of the faucet account of interchaintest
 	deployer *ecdsa.PrivateKey
 
-	contractAddresses ethereum.DeployedContracts
+	contractAddresses    ethereum.DeployedContracts
+	simdBSP1Ics07Address string
 
 	simdASP1Ics07Contract *sp1ics07tendermint.Contract
 	simdBSP1Ics07Contract *sp1ics07tendermint.Contract
@@ -159,7 +162,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 	}))
 
-	var simdBSp1Ics07ContractAddress string
 	s.Require().True(s.Run("Deploy SimdB light client on ethereum", func() {
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simdB.GetHostRPCAddress())
 
@@ -191,12 +193,12 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		simdBSp1Ics07ContractAddress, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
+		s.simdBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
 		s.Require().NoError(err)
-		s.Require().NotEmpty(simdBSp1Ics07ContractAddress)
-		s.Require().True(ethcommon.IsHexAddress(simdBSp1Ics07ContractAddress))
+		s.Require().NotEmpty(s.simdBSP1Ics07Address)
+		s.Require().True(ethcommon.IsHexAddress(s.simdBSP1Ics07Address))
 
-		s.simdBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(simdBSp1Ics07ContractAddress), eth.RPCClient)
+		s.simdBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.simdBSP1Ics07Address), eth.RPCClient)
 		s.Require().NoError(err)
 	}))
 
@@ -239,7 +241,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			CounterpartyId: ibctesting.FirstChannelID,
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
-		lightClientAddress := ethcommon.HexToAddress(simdBSp1Ics07ContractAddress)
+		lightClientAddress := ethcommon.HexToAddress(s.simdBSP1Ics07Address)
 		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
@@ -349,7 +351,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 	s.SetupSuite(ctx, proofType)
 
-	_, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 
 	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
 		clientState, err := s.simdASP1Ics07Contract.GetClientState(nil)
@@ -397,5 +399,89 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
+
+		clientAddress, err = s.icsCoreContract.GetClient(nil, ibctesting.SecondClientID)
+		s.Require().NoError(err)
+		s.Require().Equal(s.simdBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
+
+		counterpartyInfo, err = s.icsCoreContract.GetChannel(nil, ibctesting.SecondClientID)
+		s.Require().NoError(err)
+		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
+	}))
+
+	s.Require().True(s.Run("Verify ICS26 Router", func() {
+		owner, err := s.ics26Contract.Owner(nil)
+		s.Require().NoError(err)
+		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
+
+		transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
+		s.Require().NoError(err)
+		s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
+	}))
+
+	s.Require().True(s.Run("Verify ERC20 Genesis", func() {
+		userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
+		s.Require().NoError(err)
+		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+	}))
+
+	s.Require().True(s.Run("Verify ethereum light client for SimdA", func() {
+		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdA, &clienttypes.QueryClientStateRequest{
+			ClientId: s.EthereumLightClientID,
+		})
+		s.Require().NoError(err)
+
+		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdA, &channeltypesv2.QueryChannelRequest{
+			ChannelId: ibctesting.FirstChannelID,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
+		s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+	}))
+
+	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
+		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdB, &clienttypes.QueryClientStateRequest{
+			ClientId: s.EthereumLightClientID,
+		})
+		s.Require().NoError(err)
+
+		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdB, &channeltypesv2.QueryChannelRequest{
+			ChannelId: ibctesting.FirstChannelID,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
+		s.Require().Equal(ibctesting.SecondChannelID, channelResp.Channel.CounterpartyChannelId)
+	}))
+
+	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
+		info, err := s.ChainAToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(simdA.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Eth to SimdA Relayer Info", func() {
+		info, err := s.EthToChainARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
+		s.Require().Equal(simdA.Config().ChainID, info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify SimdB to Eth Relayer Info", func() {
+		info, err := s.ChainBToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(simdB.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Eth to SimdB Relayer Info", func() {
+		info, err := s.EthToChainBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
+		s.Require().Equal(simdB.Config().ChainID, info.TargetChain.ChainId)
 	}))
 }

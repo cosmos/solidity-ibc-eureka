@@ -341,7 +341,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
 	}))
 
-	s.Require().True(s.Run("Verify etheruem light client", func() {
+	s.Require().True(s.Run("Verify ethereum light client", func() {
 		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
 			ClientId: s.EthereumLightClientID,
 		})
@@ -352,15 +352,13 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
+		s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify Cosmos to Eth Relayer Info", func() {
 		info, err := s.CosmosToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(simd.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
 	}))
@@ -369,9 +367,6 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		info, err := s.EthToCosmosRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
 		s.Require().Equal(simd.Config().ChainID, info.TargetChain.ChainId)
 	}))

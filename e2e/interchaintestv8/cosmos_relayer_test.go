@@ -223,9 +223,6 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 		info, err := s.AtoBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(s.SimdA.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdB.Config().ChainID, info.TargetChain.ChainId)
 	})
@@ -234,9 +231,6 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 		info, err := s.BtoARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(s.SimdB.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.TargetChain.ChainId)
 	})
