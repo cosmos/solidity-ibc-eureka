@@ -137,7 +137,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     sendTxHashes,
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -153,7 +153,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, s.TendermintLightClientID))
+			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
 
 			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 			s.Require().NoError(err)
@@ -257,7 +257,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:     sendTxHashes,
-			TargetChannelId: s.TendermintLightClientID,
+			TargetChannelId: ibctesting.FirstClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -275,7 +275,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				defer wg.Done() // decrement the counter when the request completes
 				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 					SourceTxIds:     [][]byte{txHash},
-					TargetChannelId: s.TendermintLightClientID,
+					TargetChannelId: ibctesting.FirstClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -347,7 +347,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.contractAddresses.Erc20,
 			transferAmount,
 			cosmosUserAddress,
-			s.TendermintLightClientID,
+			ibctesting.FirstClientID,
 			timeout,
 			"",
 		)
@@ -396,7 +396,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -423,7 +423,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -498,7 +498,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			s.contractAddresses.Erc20,
 			transferAmount,
 			cosmosUserAddress,
-			s.TendermintLightClientID,
+			ibctesting.FirstClientID,
 			timeout,
 			"",
 		)
@@ -543,7 +543,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 		var ackTxHash []byte
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -655,7 +655,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:     sendTxHashes,
-				TargetChannelId: s.TendermintLightClientID,
+				TargetChannelId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -681,7 +681,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 					Sequence:  uint64(i) + 1,
 				})
 				s.Require().NoError(err)
-				s.Require().NotNil(resp.Commitment)
+				s.Require().NotEmpty(resp.Commitment)
 			}
 		}))
 
@@ -699,7 +699,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
@@ -816,7 +816,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			_ = s.BroadcastSdkTx(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {

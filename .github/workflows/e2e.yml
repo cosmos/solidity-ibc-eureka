@@ -80,6 +80,9 @@ jobs:
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/TestICS20TimeoutPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20TimeoutPacket
+          - TestWithMultichainTestSuite/TestDeploy_Groth16
+          - TestWithMultichainTestSuite/TestTransferCosmosToEthToCosmos_Groth16
+          - TestWithMultichainTestSuite/TestTransferEthToCosmosToCosmos_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
@@ -127,6 +130,14 @@ jobs:
           curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
+
+      # TODO: This is a workaround until build macros are re-enabled (#218)
+      - name: Install just
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        uses: extractions/setup-just@v2
+      - name: Build SP1 Programs
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        run: just build-sp1-programs
 
       - name: Install operator
         if: steps.cache-relayer.outputs.cache-hit != 'true'

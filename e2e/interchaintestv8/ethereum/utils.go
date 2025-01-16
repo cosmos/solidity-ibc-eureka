@@ -75,7 +75,7 @@ func GetOnlySp1Ics07AddressFromStdout(stdout string) (string, error) {
 		return "", fmt.Errorf("no matches found in stdout")
 	}
 	// Extract the value
-	return matches[1], nil
+	return strings.ToLower(matches[1]), nil
 }
 
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff

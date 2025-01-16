@@ -14,18 +14,19 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
+func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
-		s.createDummyLightClient(ctx, simdRelayerUser)
+		s.createDummyLightClient(ctx, cosmosChain, simdRelayerUser)
 	case testvalues.EthTestnetTypePoS:
-		s.createEthereumLightClient(ctx, simdRelayerUser, ibcContractAddress)
+		s.createEthereumLightClient(ctx, cosmosChain, simdRelayerUser, ibcContractAddress)
 	default:
 		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
@@ -33,15 +34,16 @@ func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, simdRelayerUs
 
 func (s *TestSuite) createEthereumLightClient(
 	ctx context.Context,
+	cosmosChain *cosmos.CosmosChain,
 	simdRelayerUser ibc.Wallet,
 	ibcContractAddress string,
 ) {
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth := s.EthChain
 
 	file, err := os.Open("e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz")
 	s.Require().NoError(err)
 
-	etheruemClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+	etheruemClientChecksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, file)
 	s.Require().NotEmpty(etheruemClientChecksum, "checksum was empty but should not have been")
 
 	genesis, err := eth.BeaconAPIClient.GetGenesis()
@@ -103,7 +105,6 @@ func (s *TestSuite) createEthereumLightClient(
 	s.Require().NoError(err)
 	s.Require().NotEmpty(clientUpdates)
 
-	s.LastEtheruemLightClientUpdate = bootstrap.Data.Header.Beacon.Slot
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
@@ -121,7 +122,7 @@ func (s *TestSuite) createEthereumLightClient(
 	consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
 	s.Require().NoError(err)
 
-	res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
+	res, err := s.BroadcastMessages(ctx, cosmosChain, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
 		ClientState:    clientStateAny,
 		ConsensusState: consensusStateAny,
 		Signer:         simdRelayerUser.FormattedAddress(),
@@ -133,13 +134,13 @@ func (s *TestSuite) createEthereumLightClient(
 	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
 }
 
-func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser ibc.Wallet) {
-	eth, simd := s.EthChain, s.CosmosChains[0]
+func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) {
+	eth := s.EthChain
 
 	file, err := os.Open("e2e/interchaintestv8/wasm/wasm_dummy_light_client.wasm.gz")
 	s.Require().NoError(err)
 
-	dummyClientChecksum := s.PushNewWasmClientProposal(ctx, simd, simdRelayerUser, file)
+	dummyClientChecksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, file)
 	s.Require().NotEmpty(dummyClientChecksum, "checksum was empty but should not have been")
 
 	_, ethHeight, err := eth.EthAPI.GetBlockNumber()
@@ -166,7 +167,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, simdRelayerUser 
 	consensusStateAny, err := clienttypes.PackConsensusState(&consensusState)
 	s.Require().NoError(err)
 
-	res, err := s.BroadcastMessages(ctx, simd, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
+	res, err := s.BroadcastMessages(ctx, cosmosChain, simdRelayerUser, 200_000, &clienttypes.MsgCreateClient{
 		ClientState:    clientStateAny,
 		ConsensusState: consensusStateAny,
 		Signer:         simdRelayerUser.FormattedAddress(),

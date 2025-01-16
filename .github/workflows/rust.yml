@@ -20,7 +20,7 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
+          curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 
@@ -48,13 +48,16 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
+          curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: "Set up environment"
         uses: ./.github/setup
       - name: Install just
         uses: extractions/setup-just@v2
+      # TODO: This is a workaround until build macros are re-enabled (#218)
+      - name: Build SP1 Programs
+        run: just build-sp1-programs
       - name: Run unit tests
         run: just test-cargo
         env:
@@ -72,9 +75,14 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
+          curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
+      # TODO: This is a workaround until build macros are re-enabled (#218)
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build SP1 Programs
+        run: just build-sp1-programs
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -93,9 +101,14 @@ jobs:
       - name: Install SP1 toolchain
         shell: bash
         run: |
-          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
+          curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
+      # TODO: This is a workaround until build macros are re-enabled (#218)
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Build SP1 Programs
+        run: just build-sp1-programs
       - name: Build
         uses: actions-rs/cargo@v1
         with:
