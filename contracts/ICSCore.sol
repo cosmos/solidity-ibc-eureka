@@ -23,12 +23,12 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param channels Mapping of client identifiers to channels
     /// @param clients Mapping of client identifiers to light client contracts
-    /// @param nextClientSeq Mapping of client types to the next client sequence
+    /// @param nextClientSeq The next sequence number for the next client identifier
     /// @custom:storage-location erc7201:ibc.storage.ICSCore
     struct ICSCoreStorage {
         mapping(string clientId => Channel) channels;
         mapping(string clientId => ILightClient) clients;
-        mapping(string clientType => uint32) nextClientSeq;
+        uint32 nextClientSeq;
     }
 
     /// @notice ERC-7201 slot for the ICSCore storage
@@ -56,8 +56,8 @@ contract ICSCore is IICS02Client, IICS04Channel, IICS02ClientErrors, Initializab
 
         require(IBCIdentifiers.validateClientType(clientType), IBCInvalidClientType(clientType));
 
-        uint32 seq = $.nextClientSeq[clientType];
-        $.nextClientSeq[clientType] = seq + 1;
+        uint32 seq = $.nextClientSeq;
+        $.nextClientSeq = seq + 1;
         return string.concat(clientType, "-", Strings.toString(seq));
     }
 
