@@ -67,6 +67,8 @@ jobs:
           - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Plonk
           - TestWithIbcEurekaTestSuite/Test_10_TimeoutPacketFromEth_Groth16
           - TestWithIbcEurekaTestSuite/Test_5_TimeoutPacketFromEth_Plonk
+          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Groth16
+          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Plonk
           - TestWithRelayerTestSuite/Test_10_RecvPacketToEth_Groth16
           - TestWithRelayerTestSuite/Test_5_RecvPacketToEth_Plonk
           - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToEth_Groth16
