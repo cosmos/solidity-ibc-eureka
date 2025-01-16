@@ -1054,25 +1054,25 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypeGroth16, 1)
+	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 1)
 }
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypePlonk, 1)
+	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 1)
 }
 
 func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypeGroth16, 10)
+	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 10)
 }
 
 func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromEthereumToTimeoutTest(ctx, operator.ProofTypePlonk, 5)
+	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5)
 }
 
-func (s *IbcEurekaTestSuite) ICS20TimeoutFromEthereumToTimeoutTest(
+func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int,
 ) {
 	s.SetupSuite(ctx, pt)
