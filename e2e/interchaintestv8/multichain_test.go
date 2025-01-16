@@ -61,17 +61,17 @@ type MultichainTestSuite struct {
 	// The private key of the faucet account of interchaintest
 	deployer *ecdsa.PrivateKey
 
-	contractAddresses    ethereum.DeployedContracts
-	simdBSP1Ics07Address string
+	contractAddresses     ethereum.DeployedContracts
+	chainBSP1Ics07Address string
 
-	simdASP1Ics07Contract *sp1ics07tendermint.Contract
-	simdBSP1Ics07Contract *sp1ics07tendermint.Contract
-	icsCoreContract       *icscore.Contract
-	ics26Contract         *ics26router.Contract
-	ics20Contract         *ics20transfer.Contract
-	erc20Contract         *erc20.Contract
-	ibcStoreContract      *ibcstore.Contract
-	escrowContractAddr    ethcommon.Address
+	chainASP1Ics07Contract *sp1ics07tendermint.Contract
+	chainBSP1Ics07Contract *sp1ics07tendermint.Contract
+	icsCoreContract        *icscore.Contract
+	ics26Contract          *ics26router.Contract
+	ics20Contract          *ics20transfer.Contract
+	erc20Contract          *erc20.Contract
+	ibcStoreContract       *ibcstore.Contract
+	escrowContractAddr     ethcommon.Address
 
 	EthToChainARelayerClient    relayertypes.RelayerServiceClient
 	ChainAToEthRelayerClient    relayertypes.RelayerServiceClient
@@ -163,7 +163,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
-		s.simdASP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
+		s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
 		s.Require().NoError(err)
 		s.icsCoreContract, err = icscore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IcsCore), eth.RPCClient)
 		s.Require().NoError(err)
@@ -209,12 +209,12 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		s.simdBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
+		s.chainBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
 		s.Require().NoError(err)
-		s.Require().NotEmpty(s.simdBSP1Ics07Address)
-		s.Require().True(ethcommon.IsHexAddress(s.simdBSP1Ics07Address))
+		s.Require().NotEmpty(s.chainBSP1Ics07Address)
+		s.Require().True(ethcommon.IsHexAddress(s.chainBSP1Ics07Address))
 
-		s.simdBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.simdBSP1Ics07Address), eth.RPCClient)
+		s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.chainBSP1Ics07Address), eth.RPCClient)
 		s.Require().NoError(err)
 	}))
 
@@ -257,7 +257,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			CounterpartyId: ibctesting.FirstChannelID,
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
-		lightClientAddress := ethcommon.HexToAddress(s.simdBSP1Ics07Address)
+		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
 		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, channel, lightClientAddress)
 		s.Require().NoError(err)
 
@@ -477,7 +477,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 
 	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
-		clientState, err := s.simdASP1Ics07Contract.GetClientState(nil)
+		clientState, err := s.chainASP1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simdA.StakingQueryParams(ctx)
@@ -494,7 +494,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify SimdB SP1 Client", func() {
-		clientState, err := s.simdBSP1Ics07Contract.GetClientState(nil)
+		clientState, err := s.chainBSP1Ics07Contract.GetClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simdB.StakingQueryParams(ctx)
@@ -525,7 +525,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		clientAddress, err = s.icsCoreContract.GetClient(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.simdBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
 
 		counterpartyInfo, err = s.icsCoreContract.GetChannel(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
@@ -751,10 +751,10 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestChannel))
 
-		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
-		ibcERC20Address = ibcERC20Addr.Hex()
+		ibcERC20Address = ibcERC20EthAddress.Hex()
 		s.Require().NotEmpty(ibcERC20Address)
 
 		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Address), eth.RPCClient)
