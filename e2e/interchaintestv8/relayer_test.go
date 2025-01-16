@@ -681,7 +681,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 					Sequence:  uint64(i) + 1,
 				})
 				s.Require().NoError(err)
-				s.Require().NotNil(resp.Commitment)
+				s.Require().NotEmpty(resp.Commitment)
 			}
 		}))
 

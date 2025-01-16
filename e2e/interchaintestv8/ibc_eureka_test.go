@@ -684,7 +684,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 					Sequence:  uint64(i) + 1,
 				})
 				s.Require().NoError(err)
-				s.Require().NotNil(resp.Commitment)
+				s.Require().NotEmpty(resp.Commitment)
 			}
 		}))
 
@@ -877,7 +877,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 				Sequence:  1,
 			})
 			s.Require().NoError(err)
-			s.Require().NotNil(resp.Commitment)
+			s.Require().NotEmpty(resp.Commitment)
 		}))
 
 		var ackRelayTxBodyBz []byte
