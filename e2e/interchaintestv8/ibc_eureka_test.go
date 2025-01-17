@@ -1173,7 +1173,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Zero(escrowBalance)
+			s.Require().Zero(escrowBalance.Int64())
 		}))
 	}))
 }
@@ -1319,7 +1319,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 				// ICS20 contract balance on Ethereum
 				escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 				s.Require().NoError(err)
-				s.Require().Zero(escrowBalance)
+				s.Require().Zero(escrowBalance.Int64())
 			}))
 		}))
 	}))
