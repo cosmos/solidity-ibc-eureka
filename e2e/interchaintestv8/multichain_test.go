@@ -545,7 +545,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	s.Require().True(s.Run("Verify ERC20 Genesis", func() {
 		userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
 		s.Require().NoError(err)
-		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+		s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdA", func() {
