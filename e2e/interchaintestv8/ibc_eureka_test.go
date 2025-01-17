@@ -676,7 +676,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ZeroBalance, escrowBalance)
+			s.Require().Zero(escrowBalance)
 		}))
 	}))
 
@@ -869,7 +869,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ZeroBalance, ics20TransferBalance)
+			s.Require().Zero(ics20TransferBalance)
 		}))
 	}))
 
@@ -964,12 +964,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ZeroBalance, userBalance)
+			s.Require().Zero(userBalance)
 
 			// the whole balance should have been burned
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ZeroBalance, ics20TransferBalance)
+			s.Require().Zero(ics20TransferBalance)
 		}))
 	}))
 
@@ -1173,7 +1173,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.ZeroBalance, escrowBalance)
+			s.Require().Zero(escrowBalance)
 		}))
 	}))
 }
@@ -1319,7 +1319,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 				// ICS20 contract balance on Ethereum
 				escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 				s.Require().NoError(err)
-				s.Require().Equal(testvalues.ZeroBalance, escrowBalance)
+				s.Require().Zero(escrowBalance)
 			}))
 		}))
 	}))
