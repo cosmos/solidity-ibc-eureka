@@ -1,7 +1,10 @@
 package testvalues
 
 import (
+	"math/big"
 	"time"
+
+	"github.com/holiman/uint256"
 
 	"cosmossdk.io/math"
 
@@ -95,4 +98,10 @@ var (
 
 	// DefaultTrustPeriod is the trust period used by the SP1ICS07Tendermint contract.
 	DefaultTrustPeriod = 1209669
+
+	// MaxUint256 is the maximum value for a uint256.
+	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+
+	// StartingERC20Balance is the starting balance for the ERC20 contract.
+	StartingERC20Balance = new(big.Int).Div(MaxUint256.ToBig(), big.NewInt(2))
 )
