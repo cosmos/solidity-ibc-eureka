@@ -219,7 +219,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
 		s.Require().NoError(err)
 
 		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
@@ -545,7 +545,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	s.Require().True(s.Run("Verify ERC20 Genesis", func() {
 		userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
 		s.Require().NoError(err)
-		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+		s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdA", func() {
@@ -773,7 +773,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Zero(ics20TransferBalance.Int64())
 		}))
 	}))
 
@@ -815,12 +815,12 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), userBalance.Int64())
+			s.Require().Zero(userBalance.Int64())
 
 			// the whole balance should have been burned
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Zero(ics20TransferBalance.Int64())
 		}))
 	}))
 
@@ -914,7 +914,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-transferAmount.Int64(), userBalance.Int64())
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, transferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
@@ -952,7 +952,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(transferAmount.Uint64(), resp.Balance.Amount.Uint64())
+			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnSimdA.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
@@ -1031,7 +1031,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.TransferAmount, resp.Balance.Amount.Int64())
+			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(finalDenom.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))

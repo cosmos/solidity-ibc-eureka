@@ -9,15 +9,9 @@ require (
 	cosmossdk.io/math v1.4.0
 	cosmossdk.io/x/authz v0.0.0-20241108061010-a0458127fccf
 	cosmossdk.io/x/bank v0.0.0-20241218110910-47409028a73d
-	cosmossdk.io/x/consensus v0.0.0-20241108061010-a0458127fccf
-	cosmossdk.io/x/distribution v0.0.0-20241108061010-a0458127fccf
 	cosmossdk.io/x/gov v0.0.0-20241108061010-a0458127fccf
 	cosmossdk.io/x/group v0.0.0-00010101000000-000000000000
-	cosmossdk.io/x/mint v0.0.0-20241108061010-a0458127fccf
 	cosmossdk.io/x/params v0.0.0-20241108061010-a0458127fccf
-	cosmossdk.io/x/slashing v0.0.0-20241108061010-a0458127fccf
-	cosmossdk.io/x/staking v0.0.0-20241218110910-47409028a73d
-	cosmossdk.io/x/tx v1.0.0-alpha.3
 	cosmossdk.io/x/upgrade v0.1.4
 	github.com/attestantio/go-eth2-client v0.21.11
 	github.com/cometbft/cometbft v1.0.0
@@ -28,6 +22,7 @@ require (
 	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.14.12
+	github.com/holiman/uint256 v1.3.1
 	github.com/kurtosis-tech/kurtosis/api/golang v1.4.3
 	github.com/rs/zerolog v1.33.0
 	github.com/strangelove-ventures/interchaintest/v9 v9.0.0
@@ -57,11 +52,17 @@ require (
 	cosmossdk.io/x/accounts/defaults/base v0.2.0-rc.1 // indirect
 	cosmossdk.io/x/accounts/defaults/lockup v0.0.0-00010101000000-000000000000 // indirect
 	cosmossdk.io/x/accounts/defaults/multisig v0.0.0-00010101000000-000000000000 // indirect
+	cosmossdk.io/x/consensus v0.0.0-20241108061010-a0458127fccf // indirect
+	cosmossdk.io/x/distribution v0.0.0-20241108061010-a0458127fccf // indirect
 	cosmossdk.io/x/epochs v0.0.0-20240522060652-a1ae4c3e0337 // indirect
 	cosmossdk.io/x/evidence v0.1.1 // indirect
 	cosmossdk.io/x/feegrant v0.1.1 // indirect
+	cosmossdk.io/x/mint v0.0.0-20241108061010-a0458127fccf // indirect
 	cosmossdk.io/x/nft v0.0.0-00010101000000-000000000000 // indirect
 	cosmossdk.io/x/protocolpool v0.0.0-20230925135524-a1bc045b3190 // indirect
+	cosmossdk.io/x/slashing v0.0.0-20241108061010-a0458127fccf // indirect
+	cosmossdk.io/x/staking v0.0.0-20241218110910-47409028a73d // indirect
+	cosmossdk.io/x/tx v1.0.0-alpha.3 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
@@ -174,7 +175,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
-	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/huandu/go-clone v1.6.0 // indirect
 	github.com/huandu/skiplist v1.2.1 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect

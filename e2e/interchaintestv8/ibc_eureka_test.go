@@ -180,7 +180,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), big.NewInt(testvalues.InitialBalance))
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
 		s.Require().NoError(err)
 
 		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
@@ -335,7 +335,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	s.Require().True(s.Run("Verify ERC20 Genesis", func() {
 		userBalance, err := s.erc20Contract.BalanceOf(nil, crypto.PubkeyToAddress(s.key.PublicKey))
 		s.Require().NoError(err)
-		s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+		s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client", func() {
@@ -371,33 +371,39 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 
 func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 1)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 1, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 25)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 25, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 50)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 50, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 50)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 50, big.NewInt(testvalues.TransferAmount))
+}
+
+func (s *IbcEurekaTestSuite) TestICS20TransferUint256TokenfromEthereumToCosmosAndBack_Groth16() {
+	ctx := context.Background()
+	transferAmount := new(big.Int).Div(testvalues.StartingERC20Balance, big.NewInt(2))
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, transferAmount)
 }
 
 // ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality by transferring
 // ERC20 tokens with n packets from Ethereum to Cosmos chain and then back from Cosmos chain to Ethereum
 func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
 ) {
 	s.SetupSuite(ctx, proofType)
 
@@ -405,11 +411,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-	transferAmount := big.NewInt(testvalues.TransferAmount)
-	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers)) // total amount transferred
-	if totalTransferAmount.Int64() > testvalues.InitialBalance {
-		s.FailNow("Total transfer amount exceeds the initial balance")
-	}
+
+	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
@@ -479,7 +482,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), userBalance.Int64())
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
@@ -524,7 +527,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(totalTransferAmount.Uint64(), resp.Balance.Amount.Uint64())
+			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
@@ -565,12 +568,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), userBalance.Int64())
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(totalTransferAmount.Int64(), escrowBalance.Int64())
+			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
 	}))
 
@@ -668,11 +671,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			// User balance should be back to the starting point
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), escrowBalance.Int64())
+			s.Require().Zero(escrowBalance.Int64())
 		}))
 	}))
 
@@ -723,24 +726,23 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypeGroth16)
+	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypeGroth16, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk() {
 	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypePlonk)
+	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypePlonk, big.NewInt(testvalues.TransferAmount))
 }
 
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
-func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType, transferAmount *big.Int) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-	transferAmount := big.NewInt(testvalues.TransferAmount)
 	transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
@@ -866,7 +868,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			// ICS20 contract balance on Ethereum
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Zero(ics20TransferBalance.Int64())
 		}))
 	}))
 
@@ -961,12 +963,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), userBalance.Int64())
+			s.Require().Zero(userBalance.Int64())
 
 			// the whole balance should have been burned
 			ics20TransferBalance, err := ibcERC20.BalanceOf(nil, ics20Address)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), ics20TransferBalance.Int64())
+			s.Require().Zero(ics20TransferBalance.Int64())
 		}))
 	}))
 
@@ -1081,10 +1083,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
-	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers)) // total amount transferred
-	if totalTransferAmount.Int64() > testvalues.InitialBalance {
-		s.FailNow("Total transfer amount exceeds the initial balance")
-	}
+	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
@@ -1132,7 +1131,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64(), userBalance.Int64())
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
@@ -1168,12 +1167,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 			s.Require().NoError(err)
-			s.Require().Equal(int64(0), escrowBalance.Int64())
+			s.Require().Zero(escrowBalance.Int64())
 		}))
 	}))
 }
@@ -1241,7 +1240,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.InitialBalance-transferAmount.Int64(), userBalance.Int64())
+			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, transferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
@@ -1278,7 +1277,6 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			s.Require().True(s.Run("Verify no balance on Cosmos chain", func() {
 				denomOnCosmos = transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
 
-				// User balance on Cosmos chain
 				_, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
 					Address: ibctesting.InvalidID,
 					Denom:   denomOnCosmos.IBCDenom(),
@@ -1315,12 +1313,12 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 				// User balance on Ethereum
 				userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 				s.Require().NoError(err)
-				s.Require().Equal(testvalues.InitialBalance, userBalance.Int64())
+				s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 				// ICS20 contract balance on Ethereum
 				escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
 				s.Require().NoError(err)
-				s.Require().Equal(int64(0), escrowBalance.Int64())
+				s.Require().Zero(escrowBalance.Int64())
 			}))
 		}))
 	}))
