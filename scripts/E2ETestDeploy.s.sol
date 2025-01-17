@@ -34,8 +34,6 @@ contract E2ETestDeploy is Script {
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
-    uint256 internal constant MAX_INT = 2**256 - 1;
-
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
@@ -101,7 +99,7 @@ contract E2ETestDeploy is Script {
         (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
         require(ok, "failed to parse faucet address");
 
-        erc20.mint(addr, MAX_INT);
+        erc20.mint(addr, type(uint256).max);
 
         vm.stopBroadcast();
 

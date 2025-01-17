@@ -403,7 +403,6 @@ func (s *IbcEurekaTestSuite) TestICS20TransferUint256TokenfromEthereumToCosmosAn
 // ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality by transferring
 // ERC20 tokens with n packets from Ethereum to Cosmos chain and then back from Cosmos chain to Ethereum
 func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(
-	// amount is a string representation of uint256 amount to transfer, uses testvalues.TransferAmount if empty
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
 ) {
 	s.SetupSuite(ctx, proofType)
