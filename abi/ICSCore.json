@@ -19,7 +19,7 @@
   },
   {
     "type": "function",
-    "name": "addChannel",
+    "name": "addClient",
     "inputs": [
       {
         "name": "clientType",
@@ -27,12 +27,12 @@
         "internalType": "string"
       },
       {
-        "name": "channel",
+        "name": "counterpartyInfo",
         "type": "tuple",
-        "internalType": "struct IICS04ChannelMsgs.Channel",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
         "components": [
           {
-            "name": "counterpartyId",
+            "name": "clientId",
             "type": "string",
             "internalType": "string"
           },
@@ -60,37 +60,6 @@
   },
   {
     "type": "function",
-    "name": "getChannel",
-    "inputs": [
-      {
-        "name": "channelId",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct IICS04ChannelMsgs.Channel",
-        "components": [
-          {
-            "name": "counterpartyId",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "merklePrefix",
-            "type": "bytes[]",
-            "internalType": "bytes[]"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getClient",
     "inputs": [
       {
@@ -104,6 +73,37 @@
         "name": "",
         "type": "address",
         "internalType": "contract ILightClient"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCounterparty",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -350,22 +350,22 @@
   },
   {
     "type": "event",
-    "name": "ICS04ChannelAdded",
+    "name": "ICS02ClientAdded",
     "inputs": [
       {
-        "name": "channelId",
+        "name": "clientId",
         "type": "string",
         "indexed": false,
         "internalType": "string"
       },
       {
-        "name": "channel",
+        "name": "counterpartyInfo",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct IICS04ChannelMsgs.Channel",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
         "components": [
           {
-            "name": "counterpartyId",
+            "name": "clientId",
             "type": "string",
             "internalType": "string"
           },
