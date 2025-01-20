@@ -192,21 +192,21 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
-		channel := icscore.IICS02ClientMsgsChannel{
-			CounterpartyId: ibctesting.FirstChannelID,
-			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+		counterpartyInfo := icscore.IICS02ClientMsgsCounterpartyInfo{
+			ClientId:     ibctesting.FirstChannelID,
+			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.icsCoreContract.AddChannel(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, channel, lightClientAddress)
+		tx, err := s.icsCoreContract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 
-		event, err := e2esuite.GetEvmEvent(receipt, s.icsCoreContract.ParseICS04ChannelAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.icsCoreContract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstClientID, event.ChannelId)
-		s.Require().Equal(ibctesting.FirstChannelID, event.Channel.CounterpartyId)
+		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
+		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
@@ -317,9 +317,9 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.icsCoreContract.GetChannel(nil, ibctesting.FirstClientID)
+		counterpartyInfo, err := s.icsCoreContract.GetCounterparty(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.CounterpartyId)
+		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
