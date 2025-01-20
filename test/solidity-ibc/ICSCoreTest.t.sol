@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
-import { IICS02ClientMsgs} from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -35,7 +35,8 @@ contract ICSCoreTest is Test {
 
         vm.startPrank(clientOwner);
         string memory counterpartyId = "42-dummy-01";
-        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo = IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix);
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix);
         vm.expectEmit();
         emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
         clientIdentifier = icsCore.addClient("07-tendermint", counterpartyInfo, address(lightClient));
@@ -64,10 +65,12 @@ contract ICSCoreTest is Test {
         vm.startPrank(bob);
         string memory counterpartyId = "42-dummy-01";
         DummyLightClient noopLightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.NoOp, 0, false);
-        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo = IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
         vm.expectEmit();
         emit IICS02Client.ICS02ClientAdded("07-tendermint-1", counterpartyInfo);
-        string memory substituteIdentifier = icsCore.addClient("07-tendermint", counterpartyInfo, address(noopLightClient));
+        string memory substituteIdentifier =
+            icsCore.addClient("07-tendermint", counterpartyInfo, address(noopLightClient));
 
         vm.expectRevert(
             abi.encodeWithSelector(
