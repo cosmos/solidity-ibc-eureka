@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
@@ -62,8 +62,8 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyID, merklePrefix), address(lightClient)
+        string memory clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
         );
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();

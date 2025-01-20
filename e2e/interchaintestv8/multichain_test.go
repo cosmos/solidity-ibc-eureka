@@ -231,7 +231,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
-		channel := icscore.IICS04ChannelMsgsChannel{
+		channel := icscore.IICS02ClientMsgsChannel{
 			CounterpartyId: ibctesting.FirstChannelID,
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
@@ -253,7 +253,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
-		channel := icscore.IICS04ChannelMsgsChannel{
+		channel := icscore.IICS02ClientMsgsChannel{
 			CounterpartyId: ibctesting.FirstChannelID,
 			MerklePrefix:   [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}

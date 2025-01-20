@@ -5,7 +5,6 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
@@ -76,8 +75,8 @@ contract IntegrationTest is Test {
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
-        clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(lightClient)
+        clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 

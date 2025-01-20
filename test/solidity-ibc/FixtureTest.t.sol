@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
-import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICSCore } from "../../contracts/ICSCore.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
@@ -90,8 +90,8 @@ abstract contract FixtureTest is Test {
             trustedConsensusHash
         );
 
-        ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(ics07Tendermint)
+        ics26Router.ICS02_CLIENT().addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 

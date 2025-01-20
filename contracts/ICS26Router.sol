@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
-import { IICS04Channel } from "./interfaces/IICS04Channel.sol";
+import { IICS02ClientMsgs} from "./msgs/IICS02ClientMsgs.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -15,7 +15,6 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
-import { IICS04ChannelMsgs } from "./msgs/IICS04ChannelMsgs.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
@@ -40,7 +39,7 @@ contract ICS26Router is
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
         IIBCStore ibcStore;
-        address icsCore;
+        IICS02Client icsCore;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -57,7 +56,7 @@ contract ICS26Router is
     /// @dev Meant to be called only once from the proxy
     /// @param owner_ The owner of the contract
     /// @param icsCore The address of the ICSCore contract
-    function initialize(address owner_, address icsCore) public initializer {
+    function initialize(address owner_, IICS02Client icsCore) public initializer {
         _transferOwnership(owner_);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
@@ -68,12 +67,7 @@ contract ICS26Router is
 
     /// @inheritdoc IICS26Router
     function ICS02_CLIENT() public view returns (IICS02Client) {
-        return IICS02Client(_getICS26RouterStorage().icsCore);
-    }
-
-    /// @inheritdoc IICS26Router
-    function ICS04_CHANNEL() public view returns (IICS04Channel) {
-        return IICS04Channel(_getICS26RouterStorage().icsCore);
+        return _getICS26RouterStorage().icsCore;
     }
 
     /// @inheritdoc IICS26Router
@@ -122,7 +116,7 @@ contract ICS26Router is
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
-        string memory counterpartyId = ICS04_CHANNEL().getChannel(msg_.sourceChannel).counterpartyId;
+        string memory counterpartyId = ICS02_CLIENT().getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
         require(
@@ -163,10 +157,10 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.destChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.destChannel);
         require(
-            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.sourceChannel)),
-            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.sourceChannel)
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel)
         );
 
         require(
@@ -181,7 +175,7 @@ contract ICS26Router is
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofCommitment,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
@@ -219,10 +213,10 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.sourceChannel);
         require(
-            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
-            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
         );
 
         bytes memory commitmentPath =
@@ -235,7 +229,7 @@ contract ICS26Router is
         ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofAcked,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(channel.merklePrefix, commitmentPath),
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
 
@@ -273,10 +267,10 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS04ChannelMsgs.Channel memory channel = ICS04_CHANNEL().getChannel(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.sourceChannel);
         require(
-            keccak256(bytes(channel.counterpartyId)) == keccak256(bytes(msg_.packet.destChannel)),
-            IBCInvalidCounterparty(channel.counterpartyId, msg_.packet.destChannel)
+            keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
+            IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
         );
 
         bytes memory receiptPath =
@@ -284,7 +278,7 @@ contract ICS26Router is
         ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(channel.merklePrefix, receiptPath),
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
             value: bytes("")
         });
 
