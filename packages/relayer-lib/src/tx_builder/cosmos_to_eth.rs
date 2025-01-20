@@ -18,7 +18,10 @@ use ibc_eureka_solidity_types::{
 pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
 
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use sp1_sdk::{Prover, ProverClient};
 use tendermint_rpc::HttpClient;
+
+use sp1_prover::components::CpuProverComponents;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
@@ -82,6 +85,22 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
                 ._0,
         )
     }
+
+    /// Get the prover to use for generating SP1 proofs.
+    // TODO: Support other prover types
+    #[allow(clippy::option_if_let_else)]
+    pub fn sp1_prover(&self) -> Box<dyn Prover<CpuProverComponents>> {
+        if let Some(sp1_private_key) = &self.sp1_private_key {
+            Box::new(
+                ProverClient::builder()
+                    .network()
+                    .private_key(sp1_private_key)
+                    .build(),
+            )
+        } else {
+            Box::new(ProverClient::builder().cpu().build())
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -137,6 +156,7 @@ where
         let client_state = self.client_state(target_channel_id).await?;
 
         inject_sp1_proof(
+            self.sp1_prover(),
             &mut all_msgs,
             &self.tm_client,
             latest_light_block,

@@ -13,7 +13,7 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
 use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{utils::setup_logger, HashableKey};
+use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
 use tendermint_rpc::HttpClient;
 
 /// Runs the update client program in a loop.
@@ -38,8 +38,10 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let contract = sp1_ics07_tendermint::new(contract_address.parse()?, provider);
     let contract_client_state = contract.getClientState().call().await?._0;
     let tendermint_rpc_client = HttpClient::from_env();
-    let prover = SP1ICS07TendermintProver::<UpdateClientProgram>::new(
+    let sp1_prover = ProverClient::from_env();
+    let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
         SupportedProofType::try_from(contract_client_state.zkAlgorithm).map_err(|e| anyhow!(e))?,
+        &sp1_prover,
     );
 
     loop {

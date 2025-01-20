@@ -99,6 +99,7 @@ alloy-transport        = { version = "0.9", default-features = false }
 alloy-rpc-types-eth    = { version = "0.9", default-features = false }
 
 sp1-sdk    = { version = "4.0", default-features = false }
+sp1-prover = { version = "4.0", default-features = false }
 sp1-zkvm   = { version = "4.0", default-features = false }
 sp1-helper = { version = "4.0", default-features = false }
 

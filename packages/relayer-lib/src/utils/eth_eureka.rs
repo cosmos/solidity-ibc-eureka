@@ -19,7 +19,8 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::HashableKey;
+use sp1_prover::components::CpuProverComponents;
+use sp1_sdk::{HashableKey, Prover};
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
 
@@ -104,6 +105,7 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// # Errors
 /// Returns an error if the sp1 proof cannot be generated.
 pub async fn inject_sp1_proof(
+    sp1_prover: Box<dyn Prover<CpuProverComponents>>,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
     target_light_block: LightBlock,
@@ -136,11 +138,12 @@ pub async fn inject_sp1_proof(
     // Get the proposed header from the target light block.
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-    let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(
+    let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
         client_state
             .zkAlgorithm
             .try_into()
             .map_err(|e: String| anyhow::anyhow!(e))?,
+        sp1_prover.as_ref(),
     );
 
     let uc_and_mem_proof = uc_and_mem_prover.generate_proof(

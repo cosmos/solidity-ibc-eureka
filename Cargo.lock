@@ -3502,6 +3502,7 @@ dependencies = [
  "serde_json",
  "sp1-ics07-tendermint-prover",
  "sp1-ics07-tendermint-utils",
+ "sp1-prover",
  "sp1-sdk",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -6446,6 +6447,7 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_cbor",
  "sp1-helper",
+ "sp1-prover",
  "sp1-sdk",
  "tracing",
 ]

@@ -19,7 +19,7 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::HashableKey;
+use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -32,8 +32,11 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let uc_mem_prover =
-        SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram>::new(args.proof_type);
+    let sp1_prover = ProverClient::from_env();
+    let uc_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
+        args.proof_type,
+        &sp1_prover,
+    );
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
