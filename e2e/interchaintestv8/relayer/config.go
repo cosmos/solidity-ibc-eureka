@@ -6,6 +6,7 @@ import (
 	"text/template"
 )
 
+// EthCosmosConfigInfo is a struct that holds the configuration information for the Eth to Cosmos config template
 type EthCosmosConfigInfo struct {
 	// gRPC port for the Eth to Cosmos relayer module
 	EthToCosmosPort uint64
@@ -27,6 +28,7 @@ type EthCosmosConfigInfo struct {
 	Mock bool
 }
 
+// GenerateEthCosmosConfigFile generates an eth to cosmos config file from the template.
 func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
 	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/config.tmpl")
 	if err != nil {
@@ -47,7 +49,7 @@ func (c *EthCosmosConfigInfo) EthToCosmosGRPCAddress() string {
 	return fmt.Sprintf("127.0.0.1:%d", c.EthToCosmosPort)
 }
 
-// CosmosToEthGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
+// CosmosToEthGRPCAddress returns the address for the cosmos to eth relayer gRPC server.
 func (c *EthCosmosConfigInfo) CosmosToEthGRPCAddress() string {
 	return fmt.Sprintf("127.0.0.1:%d", c.CosmosToEthPort)
 }
@@ -64,6 +66,7 @@ type CosmosToCosmosConfigInfo struct {
 	ChainBUser string
 }
 
+// GenerateCosmosToCosmosConfigFile generates a cosmos to cosmos config file from the template.
 func (c *CosmosToCosmosConfigInfo) GenerateCosmosToCosmosConfigFile(path string) error {
 	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/cosmos_to_cosmos_config.tmpl")
 	if err != nil {

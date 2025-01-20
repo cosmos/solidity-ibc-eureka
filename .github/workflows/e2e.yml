@@ -61,12 +61,15 @@ jobs:
           - TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
           - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
           - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
+          - TestWithIbcEurekaTestSuite/TestICS20TransferUint256TokenfromEthereumToCosmosAndBack_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
           - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
           - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16
           - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Plonk
           - TestWithIbcEurekaTestSuite/Test_10_TimeoutPacketFromEth_Groth16
           - TestWithIbcEurekaTestSuite/Test_5_TimeoutPacketFromEth_Plonk
+          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Groth16
+          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Plonk
           - TestWithRelayerTestSuite/Test_10_RecvPacketToEth_Groth16
           - TestWithRelayerTestSuite/Test_5_RecvPacketToEth_Plonk
           - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToEth_Groth16
@@ -80,6 +83,9 @@ jobs:
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/TestICS20TimeoutPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20TimeoutPacket
+          - TestWithMultichainTestSuite/TestDeploy_Groth16
+          - TestWithMultichainTestSuite/TestTransferCosmosToEthToCosmos_Groth16
+          - TestWithMultichainTestSuite/TestTransferEthToCosmosToCosmos_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
           - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
           - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
@@ -124,9 +130,17 @@ jobs:
       - name: Install SP1 toolchain
         if: (steps.cache-relayer.outputs.cache-hit != 'true')
         run: |
-          curl -L https://raw.githubusercontent.com/succinctlabs/sp1/v3.4.0/sp1up/install | bash
+          curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
+
+      # TODO: This is a workaround until build macros are re-enabled (#218)
+      - name: Install just
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        uses: extractions/setup-just@v2
+      - name: Build SP1 Programs
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        run: just build-sp1-programs
 
       - name: Install operator
         if: steps.cache-relayer.outputs.cache-hit != 'true'

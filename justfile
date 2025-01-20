@@ -14,13 +14,13 @@ build-operator:
 
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 build-sp1-programs:
-  ~/.sp1/bin/cargo-prove prove build --elf-name update-client-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-update-client
+  ~/.sp1/bin/cargo-prove prove build --elf-name update-client-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-update-client --output-directory elf --locked
   @echo "ELF created at 'elf/update-client-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-membership
+  ~/.sp1/bin/cargo-prove prove build --elf-name membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-membership --output-directory elf --locked
   @echo "ELF created at 'elf/membership-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name uc-and-membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-uc-and-membership
+  ~/.sp1/bin/cargo-prove prove build --elf-name uc-and-membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-uc-and-membership --output-directory elf --locked
   @echo "ELF created at 'elf/uc-and-membership-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-misbehaviour
+  ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-misbehaviour --output-directory elf --locked
   @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
@@ -122,6 +122,12 @@ test-e2e-cosmos-relayer testname: clean
 test-e2e-sp1-ics07 testname: clean
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
+
+# Run any e2e test in the MultichainTestSuite using the test's name
+# For example, `just test-e2e-multichain TestDeploy_Groth16`
+test-e2e-multichain testname: clean
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:

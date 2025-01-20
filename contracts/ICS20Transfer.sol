@@ -233,14 +233,18 @@ contract ICS20Transfer is
 
         address erc20Address;
         if (originatorChainIsSource) {
-            // we are the source of this token, so the denom should be the contract address
-            erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);
+            bool isERC20Address;
+            (erc20Address, isERC20Address) = ICS20Lib.hexStringToAddress(packetData.denom);
+            if (!isERC20Address) {
+                string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
+                erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);
+            }
         } else {
             // receiving chain is source of the token, so we've received and mapped this token before
             string memory ibcDenom = ICS20Lib.toIBCDenom(packetData.denom);
             erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);
-            require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
         }
+        require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
         return (erc20Address, originatorChainIsSource);
     }
 

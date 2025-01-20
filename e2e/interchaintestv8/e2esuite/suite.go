@@ -37,9 +37,7 @@ type TestSuite struct {
 	network        string
 	logger         *zap.Logger
 
-	EthereumLightClientID         string
-	TendermintLightClientID       string
-	LastEtheruemLightClientUpdate uint64
+	EthereumLightClientID string
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64

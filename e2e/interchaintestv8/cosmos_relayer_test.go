@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/stretchr/testify/suite"
 
@@ -17,7 +16,6 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
@@ -219,27 +217,21 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	s.Run("Chain A to B Relayer Info", func() {
+	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
 		info, err := s.AtoBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(s.SimdA.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdB.Config().ChainID, info.TargetChain.ChainId)
-	})
+	}))
 
-	s.Run("Chain B to A Relayer Info", func() {
+	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
 		info, err := s.BtoARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
-
-		s.T().Logf("Relayer Info: %+v", info)
-
 		s.Require().Equal(s.SimdB.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.TargetChain.ChainId)
-	})
+	}))
 }
 
 func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
@@ -304,7 +296,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			txHashes = append(txHashes, txHash)
 		}
 
-		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+		s.Require().True(s.Run("Verify balances on Chain A", func() {
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
 				Denom:   s.SimdA.Config().Denom,
@@ -315,84 +307,72 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		}))
 	}))
 
-	var txBodyBz []byte
-	s.Require().True(s.Run("Retrieve relay tx to Chain B", func() {
-		resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SourceTxIds:     txHashes,
-			TargetChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-		s.Require().Empty(resp.Address)
-
-		txBodyBz = resp.Tx
-	}))
-
 	var ackTxHash []byte
-	s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
-		var txBody txtypes.TxBody
-		err := proto.Unmarshal(txBodyBz, &txBody)
-		s.Require().NoError(err)
-
-		var msgs []sdk.Msg
-		for _, msg := range txBody.Messages {
-			var sdkMsg sdk.Msg
-			err = s.SimdB.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
-			s.Require().NoError(err)
-
-			msgs = append(msgs, sdkMsg)
-		}
-
-		resp, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, msgs...)
-		s.Require().NoError(err)
-
-		ackTxHash, err = hex.DecodeString(resp.TxHash)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(ackTxHash)
-
-		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID)).IBCDenom()
-			// User balance on Cosmos chain
-			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
-				Address: simdBUser.FormattedAddress(),
-				Denom:   ibcDenom,
+	s.Require().True(s.Run("Receive packets on Chain B", func() {
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     txHashes,
+				TargetChannelId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
-			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.Int64())
-			s.Require().Equal(ibcDenom, resp.Balance.Denom)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			txBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(ackTxHash)
+
+			s.Require().True(s.Run("Verify balances on Chain B", func() {
+				ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID)).IBCDenom()
+				// User balance on Cosmos chain
+				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+					Address: simdBUser.FormattedAddress(),
+					Denom:   ibcDenom,
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(resp.Balance)
+				s.Require().Equal(totalTransferAmount, resp.Balance.Amount.Int64())
+				s.Require().Equal(ibcDenom, resp.Balance.Denom)
+			}))
 		}))
 	}))
 
-	var ackTxBodyBz []byte
-	s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
-		resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SourceTxIds:     [][]byte{ackTxHash},
-			TargetChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-		s.Require().Empty(resp.Address)
+	s.Require().True(s.Run("Acknowledge packets on Chain A", func() {
+		s.Require().True(s.Run("Verify commitments exists", func() {
+			for i := 0; i < numOfTransfers; i++ {
+				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
+					ChannelId: ibctesting.FirstChannelID,
+					Sequence:  uint64(i) + 1,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Commitment)
+			}
+		}))
 
-		ackTxBodyBz = resp.Tx
-	}))
-
-	s.Require().True(s.Run("Broadcast ack tx on Chain A", func() {
-		var txBody txtypes.TxBody
-		err := proto.Unmarshal(ackTxBodyBz, &txBody)
-		s.Require().NoError(err)
-
-		var msgs []sdk.Msg
-		for _, msg := range txBody.Messages {
-			var sdkMsg sdk.Msg
-			err = s.SimdA.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		var ackTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
+			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SourceTxIds:     [][]byte{ackTxHash},
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-			msgs = append(msgs, sdkMsg)
-		}
+			ackTxBodyBz = resp.Tx
+		}))
 
-		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, msgs...)
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast ack tx on Chain A", func() {
+			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
+		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for i := 0; i < numOfTransfers; i++ {
@@ -468,7 +448,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			txHashes = append(txHashes, txHash)
 		}
 
-		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+		s.Require().True(s.Run("Verify balances on Chain A", func() {
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
 				Denom:   s.SimdA.Config().Denom,
@@ -482,37 +462,25 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 	// Wait until timeout
 	time.Sleep(30 * time.Second)
 
-	var timeoutTxBodyBz []byte
-	s.Require().True(s.Run("Retrieve timeout tx to Chain A", func() {
-		resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			TimeoutTxIds:    txHashes,
-			TargetChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-		s.Require().Empty(resp.Address)
-
-		timeoutTxBodyBz = resp.Tx
-	}))
-
-	s.Require().True(s.Run("Broadcast timeout tx on Chain A", func() {
-		var txBody txtypes.TxBody
-		err := proto.Unmarshal(timeoutTxBodyBz, &txBody)
-		s.Require().NoError(err)
-
-		var msgs []sdk.Msg
-		for _, msg := range txBody.Messages {
-			var sdkMsg sdk.Msg
-			err = s.SimdA.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+	s.Require().True(s.Run("Timeout packet on Chain A", func() {
+		var timeoutTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve timeout tx", func() {
+			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				TimeoutTxIds:    txHashes,
+				TargetChannelId: ibctesting.FirstChannelID,
+			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-			msgs = append(msgs, sdkMsg)
-		}
+			timeoutTxBodyBz = resp.Tx
+		}))
 
-		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, msgs...)
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast timeout tx", func() {
+			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
+		}))
 
-		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+		s.Require().True(s.Run("Verify balances on Chain A", func() {
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
 				Denom:   s.SimdA.Config().Denom,

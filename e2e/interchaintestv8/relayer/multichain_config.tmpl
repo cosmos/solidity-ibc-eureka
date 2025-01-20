@@ -1,0 +1,70 @@
+{
+  "server": {
+    "log_level": "info",
+    "address": "127.0.0.1"
+  },
+  "modules": [
+    {
+      "name": "eth_to_cosmos",
+      "port": {{ .EthToChainAPort }},
+      "config": {
+        "tm_rpc_url": "{{ .ChainATmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "eth_beacon_api_url": "{{ .BeaconAPI }}",
+        "signer_address": "{{ .ChainASignerAddress }}",
+        "mock": {{ .Mock }}
+      }
+    },
+    {
+      "name": "cosmos_to_eth",
+      "port": {{ .ChainAToEthPort }},
+      "config": {
+        "tm_rpc_url": "{{ .ChainATmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "sp1_private_key": "{{ .SP1PrivateKey }}"
+      }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "port": {{ .EthToChainBPort }},
+      "config": {
+        "tm_rpc_url": "{{ .ChainBTmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "eth_beacon_api_url": "{{ .BeaconAPI }}",
+        "signer_address": "{{ .ChainBSignerAddress }}",
+        "mock": {{ .Mock }}
+      }
+    },
+    {
+      "name": "cosmos_to_eth",
+      "port": {{ .ChainBToEthPort }},
+      "config": {
+        "tm_rpc_url": "{{ .ChainBTmRPC }}",
+        "ics26_address": "{{ .ICS26Address }}",
+        "eth_rpc_url": "{{ .EthRPC }}",
+        "sp1_private_key": "{{ .SP1PrivateKey }}"
+      }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": {{ .ChainAToChainBPort }},
+      "config": {
+        "src_rpc_url": "{{ .ChainATmRPC }}",
+        "target_rpc_url": "{{ .ChainBTmRPC }}",
+        "signer_address": "{{ .ChainBSignerAddress }}"
+      }
+    },
+    {
+      "name": "cosmos_to_cosmos",
+      "port": {{ .ChainBToChainAPort }},
+      "config": {
+        "src_rpc_url": "{{ .ChainBTmRPC }}",
+        "target_rpc_url": "{{ .ChainATmRPC }}",
+        "signer_address": "{{ .ChainASignerAddress }}"
+      }
+    }
+  ]
+}
