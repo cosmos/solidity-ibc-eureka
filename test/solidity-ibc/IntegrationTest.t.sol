@@ -207,7 +207,7 @@ contract IntegrationTest is Test {
             })
         );
 
-        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutDuration.selector, 2 days, 1 days));
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutDuration.selector, 1 days, 2 days));
         ics26Router.sendPacket(msgSendPacket);
     }
 

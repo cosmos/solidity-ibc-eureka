@@ -131,7 +131,7 @@ contract ICS26Router is
         );
         require(
             msg_.timeoutTimestamp - block.timestamp <= MAX_TIMEOUT_DURATION,
-            IBCInvalidTimeoutDuration(msg_.timeoutTimestamp - block.timestamp, MAX_TIMEOUT_DURATION)
+            IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
 
         uint32 sequence = $.ibcStore.nextSequenceSend(msg_.sourceChannel);
