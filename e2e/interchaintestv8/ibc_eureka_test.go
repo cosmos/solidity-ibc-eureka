@@ -1102,7 +1102,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var ethSendTxHashes [][]byte
+	var (
+		ethSendTxHashes [][]byte
+		sendPacket      ics26router.IICS26RouterMsgsPacket
+	)
 	s.Require().True(s.Run("Send packets on Ethereum", func() {
 		for i := 0; i < numOfTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
@@ -1123,6 +1126,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			if i == 0 {
+				sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
+				s.Require().NoError(err)
+				sendPacket = sendPacketEvent.Packet
+			}
 
 			ethSendTxHashes = append(ethSendTxHashes, tx.Hash().Bytes())
 		}
@@ -1162,6 +1171,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		}))
+
+		if s.generateSolidityFixtures {
+			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutPacket-%s.json", pt.String()), s.contractAddresses.Erc20, timeoutRelayTx, sendPacket))
+		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
