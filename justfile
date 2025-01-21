@@ -174,7 +174,7 @@ generate-fixtures-solidity: clean install-operator install-relayer
 # Generate the fixture files for the Celestia Mocha testnet using the prover parameter.
 # The prover parameter should be one of: ["mock", "network", "local"]
 # This generates the fixtures for all programs in parallel using GNU parallel.
-# If prover is set to network, this command requires the `SP1_PRIVATE_KEY` environment variable to be set.
+# If prover is set to network, this command requires the `NETWORK_PRIVATE_KEY` environment variable to be set.
 generate-fixtures-sp1-ics07: install-operator
   @echo "Generating fixtures... This may take a while (up to 20 minutes)"
   TENDERMINT_RPC_URL="${TENDERMINT_RPC_URL%/}" && \

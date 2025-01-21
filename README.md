@@ -188,7 +188,7 @@ Note: These gas benchmarks are with Groth16.
     cp .env.example .env
     ```
 
-    You need to fill in the `PRIVATE_KEY`, `SP1_PROVER`, `TENDERMINT_RPC_URL`, and `RPC_URL`. You also need the `SP1_PRIVATE_KEY` field if you are using the SP1 prover network.
+    You need to fill in the `PRIVATE_KEY`, `SP1_PROVER`, `TENDERMINT_RPC_URL`, and `RPC_URL`. You also need the `NETWORK_PRIVATE_KEY` field if you are using the SP1 prover network.
 
 2. Deploy the `SP1ICS07Tendermint` contract:
 
@@ -218,7 +218,7 @@ Note: These gas benchmarks are with Groth16.
 4. Run the Tendermint operator.
 
     To run the operator, you need to select the prover type for SP1. This is set in the `.env` file with the `SP1_PROVER` value (`network|local|mock`).
-    If you run the operator with the `network` prover, you need to provide your SP1 network private key with `SP1_PRIVATE_KEY=0xyourprivatekey` in `.env`.
+    If you run the operator with the `network` prover, you need to provide your SP1 network private key with `NETWORK_PRIVATE_KEY=0xyourprivatekey` in `.env`.
 
     ```sh
     RUST_LOG=info cargo run --bin operator --release -- start

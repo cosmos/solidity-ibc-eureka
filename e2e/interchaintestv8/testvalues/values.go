@@ -28,8 +28,8 @@ const (
 	EnvKeyOperatorPrivateKey = "PRIVATE_KEY"
 	// EnvKeySp1Prover The prover type (local|network|mock).
 	EnvKeySp1Prover = "SP1_PROVER"
-	// EnvKeySp1PrivateKey Private key for the prover network.
-	EnvKeySp1PrivateKey = "SP1_PRIVATE_KEY"
+	// EnvKeyNetworkPrivateKey Private key for the sp1 prover network.
+	EnvKeyNetworkPrivateKey = "NETWORK_PRIVATE_KEY"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.

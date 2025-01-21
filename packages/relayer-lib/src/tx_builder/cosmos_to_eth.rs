@@ -1,7 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Ethereum chain from events received from the Cosmos SDK chain.
 
-use std::{env, str::FromStr};
+use std::str::FromStr;
 
 use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transports::Transport};
 use anyhow::Result;
@@ -45,19 +45,12 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
     /// Create a new [`TxBuilder`] instance.
-    pub fn new(
+    pub const fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
         sp1_private_key: Option<String>,
     ) -> Self {
-        if let Some(sp1_private_key) = &sp1_private_key {
-            env::set_var("SP1_PROVER", "network");
-            env::set_var("SP1_PRIVATE_KEY", sp1_private_key);
-        } else {
-            env::set_var("SP1_PROVER", "local");
-        }
-
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,

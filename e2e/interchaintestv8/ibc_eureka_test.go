@@ -149,7 +149,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		case testvalues.EnvValueSp1Prover_Mock:
 			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the SP1_PRIVATE_KEY is set.
+			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
 
 			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
