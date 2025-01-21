@@ -39,7 +39,7 @@ contract ICS26Router is
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
         IIBCStore ibcStore;
-        IICS02Client icsCore;
+        IICS02Client ics02Client;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -61,13 +61,13 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        $.icsCore = IICS02Client(icsCore); // using the same owner
+        $.ics02Client = IICS02Client(icsCore); // using the same owner
         $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
     }
 
     /// @inheritdoc IICS26Router
     function ICS02_CLIENT() external view returns (IICS02Client) {
-        return _getICS26RouterStorage().icsCore;
+        return _getICS26RouterStorage().ics02Client;
     }
 
     /// @inheritdoc IICS26Router
@@ -120,7 +120,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        string memory counterpartyId = $.icsCore.getCounterparty(msg_.sourceChannel).clientId;
+        string memory counterpartyId = $.ics02Client.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
         require(
@@ -163,7 +163,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.destChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.destChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel)
@@ -185,7 +185,7 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        $.icsCore.getClient(msg_.packet.destChannel).membership(membershipMsg);
+        $.ics02Client.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
@@ -221,7 +221,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
@@ -241,7 +241,7 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        $.icsCore.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        $.ics02Client.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
         try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
@@ -277,7 +277,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.sourceChannel);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
@@ -292,7 +292,7 @@ contract ICS26Router is
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = $.icsCore.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = $.ics02Client.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
