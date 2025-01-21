@@ -17,7 +17,7 @@ use sp1_ics07_tendermint_prover::{
     programs::MisbehaviourProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::HashableKey;
+use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -44,6 +44,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let raw_misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
 
     let tm_rpc_client = HttpClient::from_env();
+    let sp1_prover = ProverClient::from_env();
 
     // get light block for trusted height of header 1
     #[allow(clippy::cast_possible_truncation)]
@@ -99,7 +100,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state, false)?;
 
     let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::<MisbehaviourProgram>::new(args.proof_type);
+        SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.proof_type, &sp1_prover);
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?

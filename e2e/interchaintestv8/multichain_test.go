@@ -13,13 +13,6 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -42,6 +35,14 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -152,8 +153,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		case testvalues.EnvValueSp1Prover_Mock:
 			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the SP1_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 
 			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
@@ -200,8 +201,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		case testvalues.EnvValueSp1Prover_Mock:
 			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the SP1_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 
 			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
 			s.Require().NoError(err)
@@ -422,7 +423,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			ICS26Address:        s.contractAddresses.Ics26Router,
 			EthRPC:              eth.RPC,
 			BeaconAPI:           beaconAPI,
-			SP1PrivateKey:       os.Getenv(testvalues.EnvKeySp1PrivateKey),
+			SP1PrivateKey:       os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			Mock:                os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
 

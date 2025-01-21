@@ -69,6 +69,7 @@ linters-settings:
       - prefix(github.com/cosmos/ibc-go)
       - prefix(github.com/CosmWasm/wasmd)
       - prefix(github.com/strangelove-ventures/interchaintest)
+      - prefix(github.com/cosmos/solidity-ibc-eureka/abigen)
       - prefix(github.com/srdtrk/solidity-ibc-eureka/e2e/v8)
 
     custom-order: true

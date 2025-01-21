@@ -150,7 +150,7 @@ deploy-sp1-ics07: genesis-sp1-ics07
   forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 
 # Generate the fixtures for the Solidity tests using the e2e tests
-generate-fixtures-solidity: clean build-operator build-relayer
+generate-fixtures-solidity: clean install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
@@ -167,15 +167,15 @@ generate-fixtures-solidity: clean build-operator build-relayer
 	@echo "Generating native SdkCoin recvPacket plonk fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk$' -timeout 40m
 	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 40m
 	@echo "Generating timeoutPacket plonk fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferTimeoutFromEthereumToCosmosChain_Plonk$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Plonk$' -timeout 40m
 
 # Generate the fixture files for the Celestia Mocha testnet using the prover parameter.
 # The prover parameter should be one of: ["mock", "network", "local"]
 # This generates the fixtures for all programs in parallel using GNU parallel.
-# If prover is set to network, this command requires the `SP1_PRIVATE_KEY` environment variable to be set.
-generate-fixtures-sp1-ics07: build-operator
+# If prover is set to network, this command requires the `NETWORK_PRIVATE_KEY` environment variable to be set.
+generate-fixtures-sp1-ics07: install-operator
   @echo "Generating fixtures... This may take a while (up to 20 minutes)"
   TENDERMINT_RPC_URL="${TENDERMINT_RPC_URL%/}" && \
   CURRENT_HEIGHT=$(curl "$TENDERMINT_RPC_URL"/block | jq -r ".result.block.header.height") && \

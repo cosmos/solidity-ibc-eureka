@@ -1,7 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Ethereum chain from events received from the Cosmos SDK chain.
 
-use std::{env, str::FromStr};
+use std::str::FromStr;
 
 use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transports::Transport};
 use anyhow::Result;
@@ -18,7 +18,10 @@ use ibc_eureka_solidity_types::{
 pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
 
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use sp1_sdk::{Prover, ProverClient};
 use tendermint_rpc::HttpClient;
+
+use sp1_prover::components::CpuProverComponents;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
@@ -42,19 +45,12 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
     /// Create a new [`TxBuilder`] instance.
-    pub fn new(
+    pub const fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
         sp1_private_key: Option<String>,
     ) -> Self {
-        if let Some(sp1_private_key) = &sp1_private_key {
-            env::set_var("SP1_PROVER", "network");
-            env::set_var("SP1_PRIVATE_KEY", sp1_private_key);
-        } else {
-            env::set_var("SP1_PROVER", "local");
-        }
-
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
@@ -81,6 +77,22 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
                 .await?
                 ._0,
         )
+    }
+
+    /// Get the prover to use for generating SP1 proofs.
+    // TODO: Support other prover types
+    #[allow(clippy::option_if_let_else)]
+    pub fn sp1_prover(&self) -> Box<dyn Prover<CpuProverComponents>> {
+        if let Some(sp1_private_key) = &self.sp1_private_key {
+            Box::new(
+                ProverClient::builder()
+                    .network()
+                    .private_key(sp1_private_key)
+                    .build(),
+            )
+        } else {
+            Box::new(ProverClient::builder().cpu().build())
+        }
     }
 }
 
@@ -137,6 +149,7 @@ where
         let client_state = self.client_state(target_channel_id).await?;
 
         inject_sp1_proof(
+            self.sp1_prover(),
             &mut all_msgs,
             &self.tm_client,
             latest_light_block,

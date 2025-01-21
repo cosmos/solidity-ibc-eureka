@@ -11,13 +11,20 @@ use ibc_eureka_solidity_types::sp1_ics07::{
     ISP1Msgs::SupportedZkAlgorithm,
 };
 use ibc_proto::Protobuf;
-use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
+use sp1_prover::components::SP1ProverComponents;
+use sp1_sdk::{
+    Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+};
 
 /// A prover for for [`SP1Program`] programs.
 #[allow(clippy::module_name_repetitions)]
-pub struct SP1ICS07TendermintProver<T: SP1Program> {
+pub struct SP1ICS07TendermintProver<'a, T, C>
+where
+    T: SP1Program,
+    C: SP1ProverComponents,
+{
     /// [`sp1_sdk::ProverClient`] for generating proofs.
-    pub prover_client: ProverClient,
+    pub prover_client: &'a dyn Prover<C>,
     /// The proving key.
     pub pkey: SP1ProvingKey,
     /// The verifying key.
@@ -25,6 +32,7 @@ pub struct SP1ICS07TendermintProver<T: SP1Program> {
     /// The proof type.
     pub proof_type: SupportedProofType,
     _phantom: std::marker::PhantomData<T>,
+    _phantom2: std::marker::PhantomData<C>,
 }
 
 /// The supported proof types.
@@ -36,13 +44,16 @@ pub enum SupportedProofType {
     Plonk,
 }
 
-impl<T: SP1Program> SP1ICS07TendermintProver<T> {
+impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
+where
+    T: SP1Program,
+    C: SP1ProverComponents,
+{
     /// Create a new prover.
     #[must_use]
     #[tracing::instrument(skip_all)]
-    pub fn new(proof_type: SupportedProofType) -> Self {
+    pub fn new(proof_type: SupportedProofType, prover_client: &'a dyn Prover<C>) -> Self {
         tracing::info!("Initializing SP1 ProverClient...");
-        let prover_client = ProverClient::new();
         let (pkey, vkey) = prover_client.setup(T::ELF);
         tracing::info!("SP1 ProverClient initialized");
         Self {
@@ -51,6 +62,7 @@ impl<T: SP1Program> SP1ICS07TendermintProver<T> {
             vkey,
             proof_type,
             _phantom: std::marker::PhantomData,
+            _phantom2: std::marker::PhantomData,
         }
     }
 
@@ -58,23 +70,13 @@ impl<T: SP1Program> SP1ICS07TendermintProver<T> {
     /// # Panics
     /// If the proof cannot be generated or validated.
     #[must_use]
-    pub fn prove(&self, stdin: SP1Stdin) -> SP1ProofWithPublicValues {
+    pub fn prove(&self, stdin: &SP1Stdin) -> SP1ProofWithPublicValues {
         // Generate the proof. Depending on SP1_PROVER env variable, this may be a mock, local or
         // network proof.
-        let proof = match self.proof_type {
-            SupportedProofType::Plonk => self
-                .prover_client
-                .prove(&self.pkey, stdin)
-                .plonk()
-                .run()
-                .expect("proving failed"),
-            SupportedProofType::Groth16 => self
-                .prover_client
-                .prove(&self.pkey, stdin)
-                .groth16()
-                .run()
-                .expect("proving failed"),
-        };
+        let proof = self
+            .prover_client
+            .prove(&self.pkey, stdin, self.proof_type.to_proof_mode())
+            .expect("proving failed");
 
         self.prover_client
             .verify(&proof, &self.vkey)
@@ -84,7 +86,10 @@ impl<T: SP1Program> SP1ICS07TendermintProver<T> {
     }
 }
 
-impl SP1ICS07TendermintProver<UpdateClientProgram> {
+impl<C> SP1ICS07TendermintProver<'_, UpdateClientProgram, C>
+where
+    C: SP1ProverComponents,
+{
     /// Generate a proof of an update from `trusted_consensus_state` to a proposed header.
     ///
     /// # Panics
@@ -112,11 +117,14 @@ impl SP1ICS07TendermintProver<UpdateClientProgram> {
         stdin.write_vec(encoded_3);
         stdin.write_vec(encoded_4);
 
-        self.prove(stdin)
+        self.prove(&stdin)
     }
 }
 
-impl SP1ICS07TendermintProver<MembershipProgram> {
+impl<C> SP1ICS07TendermintProver<'_, MembershipProgram, C>
+where
+    C: SP1ProverComponents,
+{
     /// Generate a proof of verify (non)membership for multiple key-value pairs.
     ///
     /// # Panics
@@ -139,11 +147,14 @@ impl SP1ICS07TendermintProver<MembershipProgram> {
             stdin.write_vec(proof.encode_vec());
         }
 
-        self.prove(stdin)
+        self.prove(&stdin)
     }
 }
 
-impl SP1ICS07TendermintProver<UpdateClientAndMembershipProgram> {
+impl<C> SP1ICS07TendermintProver<'_, UpdateClientAndMembershipProgram, C>
+where
+    C: SP1ProverComponents,
+{
     /// Generate a proof of an update from `trusted_consensus_state` to a proposed header and
     /// verify (non)membership for multiple key-value pairs on the commitment root of
     /// `proposed_header`.
@@ -183,11 +194,14 @@ impl SP1ICS07TendermintProver<UpdateClientAndMembershipProgram> {
             stdin.write_vec(proof.encode_vec());
         }
 
-        self.prove(stdin)
+        self.prove(&stdin)
     }
 }
 
-impl SP1ICS07TendermintProver<MisbehaviourProgram> {
+impl<C> SP1ICS07TendermintProver<'_, MisbehaviourProgram, C>
+where
+    C: SP1ProverComponents,
+{
     /// Generate a proof of a misbehaviour.
     ///
     /// # Panics
@@ -214,7 +228,7 @@ impl SP1ICS07TendermintProver<MisbehaviourProgram> {
         stdin.write_vec(encoded_4);
         stdin.write_vec(encoded_5);
 
-        self.prove(stdin)
+        self.prove(&stdin)
     }
 }
 
@@ -235,6 +249,17 @@ impl TryFrom<u8> for SupportedProofType {
             0 => Ok(Self::Groth16),
             1 => Ok(Self::Plonk),
             n => Err(format!("Unsupported proof type: {n}")),
+        }
+    }
+}
+
+impl SupportedProofType {
+    /// Convert the proof type to a [`SP1ProofMode`].
+    #[must_use]
+    pub const fn to_proof_mode(&self) -> SP1ProofMode {
+        match self {
+            Self::Groth16 => SP1ProofMode::Groth16,
+            Self::Plonk => SP1ProofMode::Plonk,
         }
     }
 }

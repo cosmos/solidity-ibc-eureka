@@ -19,7 +19,7 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::HashableKey;
+use sp1_sdk::{EnvProver, HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -45,6 +45,7 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
     assert!(!args.membership.key_paths.is_empty());
 
     let tm_rpc_client = HttpClient::from_env();
+    let sp1_prover = ProverClient::from_env();
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
@@ -64,6 +65,7 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
 
     let membership_proof = run_sp1_membership(
         &tm_rpc_client,
+        &sp1_prover,
         args.membership.base64,
         args.membership.key_paths,
         args.membership.trusted_block,
@@ -99,13 +101,15 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
 )]
 pub async fn run_sp1_membership(
     tm_rpc_client: &HttpClient,
+    sp1_prover: &EnvProver,
     is_base64: bool,
     key_paths: Vec<String>,
     trusted_block: u32,
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedProofType,
 ) -> anyhow::Result<MembershipProof> {
-    let verify_mem_prover = SP1ICS07TendermintProver::<MembershipProgram>::new(proof_type);
+    let verify_mem_prover =
+        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, sp1_prover);
     let commitment_root_bytes = ConsensusState::from(trusted_consensus_state.clone())
         .root
         .as_bytes()

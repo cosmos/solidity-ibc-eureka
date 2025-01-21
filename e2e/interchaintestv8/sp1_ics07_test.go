@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -33,6 +32,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -76,8 +77,8 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(s.key)))
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
 
-		// make sure that the SP1_PRIVATE_KEY is set.
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+		// make sure that the NETWORK_PRIVATE_KEY is set.
+		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 	}))
 
 	s.Require().True(s.Run("Deploy contracts", func() {

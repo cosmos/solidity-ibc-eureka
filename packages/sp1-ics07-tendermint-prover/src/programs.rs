@@ -1,6 +1,6 @@
 //! Programs for `sp1-ics07-tendermint`.
 
-use sp1_sdk::{MockProver, Prover, SP1VerifyingKey};
+use sp1_sdk::{Prover, ProverClient, SP1VerifyingKey};
 
 /// Trait for SP1 ICS07 Tendermint programs.
 pub trait SP1Program {
@@ -10,7 +10,7 @@ pub trait SP1Program {
     /// Get the verifying key for the program using [`MockProver`].
     #[must_use]
     fn get_vkey() -> SP1VerifyingKey {
-        let mock_prover = MockProver::new();
+        let mock_prover = ProverClient::builder().mock().build();
         let (_, vkey) = mock_prover.setup(Self::ELF);
         vkey
     }
