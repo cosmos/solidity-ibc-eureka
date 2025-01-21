@@ -32,7 +32,8 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
 
     /// @notice ERC-7201 slot for the ICS02Client storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS02Client")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICS02CLIENT_STORAGE_SLOT = 0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
+    bytes32 private constant ICS02CLIENT_STORAGE_SLOT =
+        0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
