@@ -141,10 +141,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
-		s.T().Cleanup(func() {
-			_ = os.Remove(testvalues.Sp1GenesisFilePath)
-		})
-
 		var (
 			stdout []byte
 			err    error
@@ -178,6 +174,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), eth.RPCClient)
 		s.Require().NoError(err)
 	}))
+
+	s.T().Cleanup(func() {
+		_ = os.Remove(testvalues.Sp1GenesisFilePath)
+	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
