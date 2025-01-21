@@ -56,12 +56,12 @@ contract ICS26Router is
     /// @dev Meant to be called only once from the proxy
     /// @param owner_ The owner of the contract
     /// @param icsCore The address of the ICSCore contract
-    function initialize(address owner_, IICS02Client icsCore) public initializer {
+    function initialize(address owner_, address icsCore) public initializer {
         _transferOwnership(owner_);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        $.icsCore = icsCore; // using the same owner
+        $.icsCore = IICS02Client(icsCore); // using the same owner
         $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
     }
 
