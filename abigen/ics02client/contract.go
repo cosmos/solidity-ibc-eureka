@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package icscore
+package ics02client
 
 import (
 	"errors"
@@ -29,15 +29,15 @@ var (
 	_ = abi.ConvertType
 )
 
-// IICS04ChannelMsgsChannel is an auto generated low-level Go binding around an user-defined struct.
-type IICS04ChannelMsgsChannel struct {
-	CounterpartyId string
-	MerklePrefix   [][]byte
+// IICS02ClientMsgsCounterpartyInfo is an auto generated low-level Go binding around an user-defined struct.
+type IICS02ClientMsgsCounterpartyInfo struct {
+	ClientId     string
+	MerklePrefix [][]byte
 }
 
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addChannel\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channel\",\"type\":\"tuple\",\"internalType\":\"structIICS04ChannelMsgs.Channel\",\"components\":[{\"name\":\"counterpartyId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]},{\"name\":\"client\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getChannel\",\"inputs\":[{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS04ChannelMsgs.Channel\",\"components\":[{\"name\":\"counterpartyId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractILightClient\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"migrateClient\",\"inputs\":[{\"name\":\"subjectClientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"substituteClientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"submitMisbehaviour\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"misbehaviourMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"updateMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumILightClientMsgs.UpdateResult\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"upgradeMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ICS04ChannelAdded\",\"inputs\":[{\"name\":\"channelId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"channel\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS04ChannelMsgs.Channel\",\"components\":[{\"name\":\"counterpartyId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"IBCClientNotFound\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCCounterpartyClientNotFound\",\"inputs\":[{\"name\":\"counterpartyClientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidClientType\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"Unreachable\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addClient\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]},{\"name\":\"client\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractILightClient\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCounterparty\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"migrateClient\",\"inputs\":[{\"name\":\"subjectClientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"substituteClientId\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"submitMisbehaviour\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"misbehaviourMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"updateMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumILightClientMsgs.UpdateResult\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeClient\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"upgradeMsg\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ICS02ClientAdded\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"counterpartyInfo\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIICS02ClientMsgs.CounterpartyInfo\",\"components\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"merklePrefix\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"IBCClientNotFound\",\"inputs\":[{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCCounterpartyClientNotFound\",\"inputs\":[{\"name\":\"counterpartyClientId\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"IBCInvalidClientType\",\"inputs\":[{\"name\":\"clientType\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"Unreachable\",\"inputs\":[]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -217,37 +217,6 @@ func (_Contract *ContractCallerSession) DEFAULTADMINROLE() ([32]byte, error) {
 	return _Contract.Contract.DEFAULTADMINROLE(&_Contract.CallOpts)
 }
 
-// GetChannel is a free data retrieval call binding the contract method 0x7cd7ee3d.
-//
-// Solidity: function getChannel(string channelId) view returns((string,bytes[]))
-func (_Contract *ContractCaller) GetChannel(opts *bind.CallOpts, channelId string) (IICS04ChannelMsgsChannel, error) {
-	var out []interface{}
-	err := _Contract.contract.Call(opts, &out, "getChannel", channelId)
-
-	if err != nil {
-		return *new(IICS04ChannelMsgsChannel), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(IICS04ChannelMsgsChannel)).(*IICS04ChannelMsgsChannel)
-
-	return out0, err
-
-}
-
-// GetChannel is a free data retrieval call binding the contract method 0x7cd7ee3d.
-//
-// Solidity: function getChannel(string channelId) view returns((string,bytes[]))
-func (_Contract *ContractSession) GetChannel(channelId string) (IICS04ChannelMsgsChannel, error) {
-	return _Contract.Contract.GetChannel(&_Contract.CallOpts, channelId)
-}
-
-// GetChannel is a free data retrieval call binding the contract method 0x7cd7ee3d.
-//
-// Solidity: function getChannel(string channelId) view returns((string,bytes[]))
-func (_Contract *ContractCallerSession) GetChannel(channelId string) (IICS04ChannelMsgsChannel, error) {
-	return _Contract.Contract.GetChannel(&_Contract.CallOpts, channelId)
-}
-
 // GetClient is a free data retrieval call binding the contract method 0x7eb78932.
 //
 // Solidity: function getClient(string clientId) view returns(address)
@@ -277,6 +246,37 @@ func (_Contract *ContractSession) GetClient(clientId string) (common.Address, er
 // Solidity: function getClient(string clientId) view returns(address)
 func (_Contract *ContractCallerSession) GetClient(clientId string) (common.Address, error) {
 	return _Contract.Contract.GetClient(&_Contract.CallOpts, clientId)
+}
+
+// GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
+//
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
+func (_Contract *ContractCaller) GetCounterparty(opts *bind.CallOpts, clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
+	var out []interface{}
+	err := _Contract.contract.Call(opts, &out, "getCounterparty", clientId)
+
+	if err != nil {
+		return *new(IICS02ClientMsgsCounterpartyInfo), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(IICS02ClientMsgsCounterpartyInfo)).(*IICS02ClientMsgsCounterpartyInfo)
+
+	return out0, err
+
+}
+
+// GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
+//
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
+func (_Contract *ContractSession) GetCounterparty(clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
+	return _Contract.Contract.GetCounterparty(&_Contract.CallOpts, clientId)
+}
+
+// GetCounterparty is a free data retrieval call binding the contract method 0xb0777bfa.
+//
+// Solidity: function getCounterparty(string clientId) view returns((string,bytes[]))
+func (_Contract *ContractCallerSession) GetCounterparty(clientId string) (IICS02ClientMsgsCounterpartyInfo, error) {
+	return _Contract.Contract.GetCounterparty(&_Contract.CallOpts, clientId)
 }
 
 // GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
@@ -403,25 +403,25 @@ func (_Contract *ContractCallerSession) SupportsInterface(interfaceId [4]byte) (
 	return _Contract.Contract.SupportsInterface(&_Contract.CallOpts, interfaceId)
 }
 
-// AddChannel is a paid mutator transaction binding the contract method 0x2503463b.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addChannel(string clientType, (string,bytes[]) channel, address client) returns(string)
-func (_Contract *ContractTransactor) AddChannel(opts *bind.TransactOpts, clientType string, channel IICS04ChannelMsgsChannel, client common.Address) (*types.Transaction, error) {
-	return _Contract.contract.Transact(opts, "addChannel", clientType, channel, client)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
+func (_Contract *ContractTransactor) AddClient(opts *bind.TransactOpts, clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
+	return _Contract.contract.Transact(opts, "addClient", clientType, counterpartyInfo, client)
 }
 
-// AddChannel is a paid mutator transaction binding the contract method 0x2503463b.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addChannel(string clientType, (string,bytes[]) channel, address client) returns(string)
-func (_Contract *ContractSession) AddChannel(clientType string, channel IICS04ChannelMsgsChannel, client common.Address) (*types.Transaction, error) {
-	return _Contract.Contract.AddChannel(&_Contract.TransactOpts, clientType, channel, client)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
+func (_Contract *ContractSession) AddClient(clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
+	return _Contract.Contract.AddClient(&_Contract.TransactOpts, clientType, counterpartyInfo, client)
 }
 
-// AddChannel is a paid mutator transaction binding the contract method 0x2503463b.
+// AddClient is a paid mutator transaction binding the contract method 0x1ec43e23.
 //
-// Solidity: function addChannel(string clientType, (string,bytes[]) channel, address client) returns(string)
-func (_Contract *ContractTransactorSession) AddChannel(clientType string, channel IICS04ChannelMsgsChannel, client common.Address) (*types.Transaction, error) {
-	return _Contract.Contract.AddChannel(&_Contract.TransactOpts, clientType, channel, client)
+// Solidity: function addClient(string clientType, (string,bytes[]) counterpartyInfo, address client) returns(string)
+func (_Contract *ContractTransactorSession) AddClient(clientType string, counterpartyInfo IICS02ClientMsgsCounterpartyInfo, client common.Address) (*types.Transaction, error) {
+	return _Contract.Contract.AddClient(&_Contract.TransactOpts, clientType, counterpartyInfo, client)
 }
 
 // GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
@@ -634,9 +634,9 @@ func (_Contract *ContractTransactorSession) UpgradeClient(clientId string, upgra
 	return _Contract.Contract.UpgradeClient(&_Contract.TransactOpts, clientId, upgradeMsg)
 }
 
-// ContractICS04ChannelAddedIterator is returned from FilterICS04ChannelAdded and is used to iterate over the raw logs and unpacked data for ICS04ChannelAdded events raised by the Contract contract.
-type ContractICS04ChannelAddedIterator struct {
-	Event *ContractICS04ChannelAdded // Event containing the contract specifics and raw log
+// ContractICS02ClientAddedIterator is returned from FilterICS02ClientAdded and is used to iterate over the raw logs and unpacked data for ICS02ClientAdded events raised by the Contract contract.
+type ContractICS02ClientAddedIterator struct {
+	Event *ContractICS02ClientAdded // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -650,7 +650,7 @@ type ContractICS04ChannelAddedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ContractICS04ChannelAddedIterator) Next() bool {
+func (it *ContractICS02ClientAddedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -659,7 +659,7 @@ func (it *ContractICS04ChannelAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ContractICS04ChannelAdded)
+			it.Event = new(ContractICS02ClientAdded)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -674,7 +674,7 @@ func (it *ContractICS04ChannelAddedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ContractICS04ChannelAdded)
+		it.Event = new(ContractICS02ClientAdded)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -690,42 +690,42 @@ func (it *ContractICS04ChannelAddedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ContractICS04ChannelAddedIterator) Error() error {
+func (it *ContractICS02ClientAddedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ContractICS04ChannelAddedIterator) Close() error {
+func (it *ContractICS02ClientAddedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ContractICS04ChannelAdded represents a ICS04ChannelAdded event raised by the Contract contract.
-type ContractICS04ChannelAdded struct {
-	ChannelId string
-	Channel   IICS04ChannelMsgsChannel
-	Raw       types.Log // Blockchain specific contextual infos
+// ContractICS02ClientAdded represents a ICS02ClientAdded event raised by the Contract contract.
+type ContractICS02ClientAdded struct {
+	ClientId         string
+	CounterpartyInfo IICS02ClientMsgsCounterpartyInfo
+	Raw              types.Log // Blockchain specific contextual infos
 }
 
-// FilterICS04ChannelAdded is a free log retrieval operation binding the contract event 0x0b55245122ff7a76c184677c6a85ac2c5b4aaed2643cee04c22b28aa0411679a.
+// FilterICS02ClientAdded is a free log retrieval operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS04ChannelAdded(string channelId, (string,bytes[]) channel)
-func (_Contract *ContractFilterer) FilterICS04ChannelAdded(opts *bind.FilterOpts) (*ContractICS04ChannelAddedIterator, error) {
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
+func (_Contract *ContractFilterer) FilterICS02ClientAdded(opts *bind.FilterOpts) (*ContractICS02ClientAddedIterator, error) {
 
-	logs, sub, err := _Contract.contract.FilterLogs(opts, "ICS04ChannelAdded")
+	logs, sub, err := _Contract.contract.FilterLogs(opts, "ICS02ClientAdded")
 	if err != nil {
 		return nil, err
 	}
-	return &ContractICS04ChannelAddedIterator{contract: _Contract.contract, event: "ICS04ChannelAdded", logs: logs, sub: sub}, nil
+	return &ContractICS02ClientAddedIterator{contract: _Contract.contract, event: "ICS02ClientAdded", logs: logs, sub: sub}, nil
 }
 
-// WatchICS04ChannelAdded is a free log subscription operation binding the contract event 0x0b55245122ff7a76c184677c6a85ac2c5b4aaed2643cee04c22b28aa0411679a.
+// WatchICS02ClientAdded is a free log subscription operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS04ChannelAdded(string channelId, (string,bytes[]) channel)
-func (_Contract *ContractFilterer) WatchICS04ChannelAdded(opts *bind.WatchOpts, sink chan<- *ContractICS04ChannelAdded) (event.Subscription, error) {
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
+func (_Contract *ContractFilterer) WatchICS02ClientAdded(opts *bind.WatchOpts, sink chan<- *ContractICS02ClientAdded) (event.Subscription, error) {
 
-	logs, sub, err := _Contract.contract.WatchLogs(opts, "ICS04ChannelAdded")
+	logs, sub, err := _Contract.contract.WatchLogs(opts, "ICS02ClientAdded")
 	if err != nil {
 		return nil, err
 	}
@@ -735,8 +735,8 @@ func (_Contract *ContractFilterer) WatchICS04ChannelAdded(opts *bind.WatchOpts, 
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ContractICS04ChannelAdded)
-				if err := _Contract.contract.UnpackLog(event, "ICS04ChannelAdded", log); err != nil {
+				event := new(ContractICS02ClientAdded)
+				if err := _Contract.contract.UnpackLog(event, "ICS02ClientAdded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -757,12 +757,12 @@ func (_Contract *ContractFilterer) WatchICS04ChannelAdded(opts *bind.WatchOpts, 
 	}), nil
 }
 
-// ParseICS04ChannelAdded is a log parse operation binding the contract event 0x0b55245122ff7a76c184677c6a85ac2c5b4aaed2643cee04c22b28aa0411679a.
+// ParseICS02ClientAdded is a log parse operation binding the contract event 0xd2c92219dbd5bb64d875319b9c59caba8dbbe581c6e3c8d3c72b4dbfe5bcb064.
 //
-// Solidity: event ICS04ChannelAdded(string channelId, (string,bytes[]) channel)
-func (_Contract *ContractFilterer) ParseICS04ChannelAdded(log types.Log) (*ContractICS04ChannelAdded, error) {
-	event := new(ContractICS04ChannelAdded)
-	if err := _Contract.contract.UnpackLog(event, "ICS04ChannelAdded", log); err != nil {
+// Solidity: event ICS02ClientAdded(string clientId, (string,bytes[]) counterpartyInfo)
+func (_Contract *ContractFilterer) ParseICS02ClientAdded(log types.Log) (*ContractICS02ClientAdded, error) {
+	event := new(ContractICS02ClientAdded)
+	if err := _Contract.contract.UnpackLog(event, "ICS02ClientAdded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
