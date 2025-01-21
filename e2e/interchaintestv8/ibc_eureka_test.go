@@ -150,7 +150,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the NETWORK_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 
 			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
@@ -240,7 +240,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			ICS26Address:    s.contractAddresses.Ics26Router,
 			EthRPC:          eth.RPC,
 			BeaconAPI:       beaconAPI,
-			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
+			SP1PrivateKey:   os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			SignerAddress:   s.SimdRelayerSubmitter.FormattedAddress(),
 			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
