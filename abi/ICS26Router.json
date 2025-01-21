@@ -958,6 +958,22 @@
   },
   {
     "type": "error",
+    "name": "IBCInvalidTimeoutDuration",
+    "inputs": [
+      {
+        "name": "maxTimeoutDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actualTimeoutDuration",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCInvalidTimeoutTimestamp",
     "inputs": [
       {
