@@ -54,7 +54,9 @@ abstract contract FixtureTest is Test {
 
         // ============== Step 2: Deploy Transparent Proxies ==============
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
+            address(ics02ClientLogic),
+            address(this),
+            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
 
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(

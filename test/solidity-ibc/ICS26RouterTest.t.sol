@@ -27,7 +27,9 @@ contract ICS26RouterTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
+            address(ics02ClientLogic),
+            address(this),
+            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),

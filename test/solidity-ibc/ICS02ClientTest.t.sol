@@ -29,7 +29,9 @@ contract ICS02ClientTest is Test {
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
+            address(ics02ClientLogic),
+            address(this),
+            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
         ics02Client = ICS02Client(address(coreProxy));
 
