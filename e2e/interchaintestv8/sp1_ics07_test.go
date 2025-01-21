@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -33,6 +32,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"

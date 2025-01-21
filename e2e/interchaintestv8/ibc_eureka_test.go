@@ -12,13 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -40,6 +33,14 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"

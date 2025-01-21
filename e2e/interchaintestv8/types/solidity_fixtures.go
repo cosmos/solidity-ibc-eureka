@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
