@@ -60,7 +60,7 @@ contract E2ETestDeploy is Script {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
+        TransparentUpgradeableProxy clientProxy = new TransparentUpgradeableProxy(
             address(ics02ClientLogic),
             address(this),
             abi.encodeWithSelector(
@@ -75,7 +75,7 @@ contract E2ETestDeploy is Script {
             abi.encodeWithSelector(
                 ICS26Router.initialize.selector,
                 msg.sender,
-                address(coreProxy)
+                address(clientProxy)
             )
         );
 

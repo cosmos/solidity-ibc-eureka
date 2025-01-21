@@ -17,22 +17,22 @@ import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
 contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable, AccessControl {
-    /// @notice Storage of the ICSCore contract
+    /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param clients Mapping of client identifiers to light client contracts
     /// @param counterpartyInfos Mapping of client identifiers to counterparty info
     /// @param nextClientSeq The next sequence number for the next client identifier
-    /// @custom:storage-location erc7201:ibc.storage.ICSCore
-    struct ICSCoreStorage {
+    /// @custom:storage-location erc7201:ibc.storage.ICS02Client
+    struct ICS02ClientStorage {
         mapping(string clientId => ILightClient) clients;
         mapping(string clientId => CounterpartyInfo info) counterpartyInfos;
         uint32 nextClientSeq;
     }
 
-    /// @notice ERC-7201 slot for the ICSCore storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICSCore")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICSCORE_STORAGE_SLOT = 0x96c0fa34415d0022ef5b75a694f23f508dd3f8a3506b45247b4c4b205af19a00;
+    /// @notice ERC-7201 slot for the ICS02Client storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS02Client")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant ICS02CLIENT_STORAGE_SLOT = 0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
@@ -51,7 +51,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
     /// @param clientType The client type
     /// @return The next client identifier
     function getNextClientId(string calldata clientType) private returns (string memory) {
-        ICSCoreStorage storage $ = _getICSCoreStorage();
+        ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
         require(IBCIdentifiers.validateClientType(clientType), IBCInvalidClientType(clientType));
 
@@ -62,7 +62,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
 
     /// @inheritdoc IICS02Client
     function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
-        CounterpartyInfo memory counterpartyInfo = _getICSCoreStorage().counterpartyInfos[clientId];
+        CounterpartyInfo memory counterpartyInfo = _getICS02ClientStorage().counterpartyInfos[clientId];
         require(bytes(counterpartyInfo.clientId).length != 0, IBCCounterpartyClientNotFound(clientId));
 
         return counterpartyInfo;
@@ -70,7 +70,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
 
     /// @inheritdoc IICS02Client
     function getClient(string calldata clientId) public view returns (ILightClient) {
-        ILightClient client = _getICSCoreStorage().clients[clientId];
+        ILightClient client = _getICS02ClientStorage().clients[clientId];
         require(address(client) != address(0), IBCClientNotFound(clientId));
 
         return client;
@@ -85,7 +85,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
         external
         returns (string memory)
     {
-        ICSCoreStorage storage $ = _getICSCoreStorage();
+        ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
         string memory clientId = getNextClientId(clientType);
         $.clients[clientId] = ILightClient(client);
@@ -107,7 +107,7 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
         external
         onlyRole(_getLightClientMigratorRole(subjectClientId))
     {
-        ICSCoreStorage storage $ = _getICSCoreStorage();
+        ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
         getClient(subjectClientId); // Ensure subject client exists
         ILightClient substituteClient = getClient(substituteClientId);
@@ -140,11 +140,11 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
         getClient(clientId).upgradeClient(upgradeMsg);
     }
 
-    /// @notice Returns the storage of the ICSCore contract
-    function _getICSCoreStorage() private pure returns (ICSCoreStorage storage $) {
+    /// @notice Returns the storage of the ICS02Client contract
+    function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := ICSCORE_STORAGE_SLOT
+            $.slot := ICS02CLIENT_STORAGE_SLOT
         }
     }
 
