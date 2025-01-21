@@ -10,9 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -28,6 +25,10 @@ import (
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"

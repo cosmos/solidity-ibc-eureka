@@ -15,8 +15,8 @@ import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v3.0.0/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v3.0.0/SP1VerifierGroth16.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { TransientSlot } from "@openzeppelin/utils/TransientSlot.sol";

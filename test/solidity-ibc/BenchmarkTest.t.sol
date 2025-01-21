@@ -104,11 +104,11 @@ contract BenchmarkTest is FixtureTest {
     }
 
     function test_ICS20TimeoutWithSP1Fixtures_Plonk() public {
-        ICS20TimeoutWithSP1FixtureTest("timeoutPacket-plonk.json");
+        ICS20TimeoutWithSP1FixtureTest("timeoutMultiPacket_1-plonk.json");
     }
 
     function test_ICS20TimeoutWithSP1Fixtures_Groth16() public {
-        ICS20TimeoutWithSP1FixtureTest("timeoutPacket-groth16.json");
+        ICS20TimeoutWithSP1FixtureTest("timeoutMultiPacket_1-groth16.json");
     }
 
     function ICS20TimeoutWithSP1FixtureTest(string memory timeoutFix) public {

@@ -10,9 +10,9 @@
     "@openzeppelin/contracts": "^5.2.0"
   },
   "devDependencies": {
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#275691af9bfaf67158f6df1f4c3c1646eb03eed0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "solhint": "^5.0.4",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#987ecfdd329b9170f5f0bfe5210d3e032e0a4308",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.5",
+    "solhint": "^5.0.5",
     "@defi-wonderland/natspec-smells": "^1.1.5"
   },
   "keywords": [

@@ -134,14 +134,6 @@ jobs:
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
 
-      # TODO: This is a workaround until build macros are re-enabled (#218)
-      - name: Install just
-        if: steps.cache-relayer.outputs.cache-hit != 'true'
-        uses: extractions/setup-just@v2
-      - name: Build SP1 Programs
-        if: steps.cache-relayer.outputs.cache-hit != 'true'
-        run: just build-sp1-programs
-
       - name: Install operator
         if: steps.cache-relayer.outputs.cache-hit != 'true'
         uses: actions-rs/cargo@v1
@@ -169,7 +161,7 @@ jobs:
 
       - name: Run Tests
         env:
-          SP1_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+          NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 40m

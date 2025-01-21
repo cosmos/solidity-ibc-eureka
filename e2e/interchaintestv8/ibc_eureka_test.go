@@ -12,13 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -40,6 +33,14 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -141,10 +142,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
-		s.T().Cleanup(func() {
-			_ = os.Remove(testvalues.Sp1GenesisFilePath)
-		})
-
 		var (
 			stdout []byte
 			err    error
@@ -153,8 +150,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		case testvalues.EnvValueSp1Prover_Mock:
 			s.FailNow("Mock prover not supported")
 		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the SP1_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeySp1PrivateKey))
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 
 			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
@@ -178,6 +175,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), eth.RPCClient)
 		s.Require().NoError(err)
 	}))
+
+	s.T().Cleanup(func() {
+		_ = os.Remove(testvalues.Sp1GenesisFilePath)
+	})
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
@@ -240,7 +241,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			ICS26Address:    s.contractAddresses.Ics26Router,
 			EthRPC:          eth.RPC,
 			BeaconAPI:       beaconAPI,
-			SP1PrivateKey:   os.Getenv(testvalues.EnvKeySp1PrivateKey),
+			SP1PrivateKey:   os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			SignerAddress:   s.SimdRelayerSubmitter.FormattedAddress(),
 			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
 		}
@@ -1102,7 +1103,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var ethSendTxHashes [][]byte
+	var (
+		ethSendTxHashes [][]byte
+		sendPacket      ics26router.IICS26RouterMsgsPacket
+	)
 	s.Require().True(s.Run("Send packets on Ethereum", func() {
 		for i := 0; i < numOfTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
@@ -1123,6 +1127,13 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			// We use the first packet in fixture generation
+			if i == 0 && s.generateSolidityFixtures {
+				sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
+				s.Require().NoError(err)
+				sendPacket = sendPacketEvent.Packet
+			}
 
 			ethSendTxHashes = append(ethSendTxHashes, tx.Hash().Bytes())
 		}
@@ -1162,6 +1173,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		}))
+
+		if s.generateSolidityFixtures {
+			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutMultiPacket_%d-%s.json", numOfTransfers, pt.String()), s.contractAddresses.Erc20, timeoutRelayTx, sendPacket))
+		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
