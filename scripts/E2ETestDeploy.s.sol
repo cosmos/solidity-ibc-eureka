@@ -12,7 +12,7 @@ import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
-import { ICSCore } from "../contracts/ICSCore.sol";
+import { ICS02Client } from "../contracts/ICS02Client.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
@@ -56,15 +56,15 @@ contract E2ETestDeploy is Script {
         );
 
         // Deploy IBC Eureka with proxy
-        ICSCore icsCoreLogic = new ICSCore();
+        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic),
+        TransparentUpgradeableProxy clientProxy = new TransparentUpgradeableProxy(
+            address(ics02ClientLogic),
             address(this),
             abi.encodeWithSelector(
-                ICSCore.initialize.selector,
+                ICS02Client.initialize.selector,
                 msg.sender
             )
         );
@@ -75,7 +75,7 @@ contract E2ETestDeploy is Script {
             abi.encodeWithSelector(
                 ICS26Router.initialize.selector,
                 msg.sender,
-                address(coreProxy)
+                address(clientProxy)
             )
         );
 
@@ -105,7 +105,7 @@ contract E2ETestDeploy is Script {
 
         string memory json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
-        json.serialize("icsCore", Strings.toHexString(address(ics26Router.ICS02_CLIENT())));
+        json.serialize("ics02Client", Strings.toHexString(address(ics26Router.ICS02_CLIENT())));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));

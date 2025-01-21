@@ -5,9 +5,9 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
-import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { ICSCore } from "../../contracts/ICSCore.sol";
+import { ICS02Client } from "../../contracts/ICS02Client.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -48,13 +48,15 @@ abstract contract FixtureTest is Test {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
-        ICSCore icsCoreLogic = new ICSCore();
+        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy Transparent Proxies ==============
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
+            address(ics02ClientLogic),
+            address(this),
+            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
 
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
@@ -90,8 +92,8 @@ abstract contract FixtureTest is Test {
             trustedConsensusHash
         );
 
-        ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyId, merklePrefix), address(ics07Tendermint)
+        ics26Router.ICS02_CLIENT().addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 

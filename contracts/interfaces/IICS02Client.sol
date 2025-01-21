@@ -7,10 +7,33 @@ import { ILightClient } from "./ILightClient.sol";
 /// @title ICS02 Light Client Router Interface
 /// @notice IICS02Client is an interface for the IBC Eureka client router
 interface IICS02Client is IICS02ClientMsgs {
+    /// @notice Emitted when a new client is added to the client router.
+    /// @param clientId The newly created client identifier
+    /// @param counterpartyInfo The counterparty client information, if provided
+    event ICS02ClientAdded(string clientId, CounterpartyInfo counterpartyInfo);
+
+    /// @notice Returns the counterparty client information given the client identifier.
+    /// @param clientId The client identifier
+    /// @return The counterparty client information
+    function getCounterparty(string calldata clientId) external view returns (CounterpartyInfo memory);
+
     /// @notice Returns the address of the client contract given the client identifier.
     /// @param clientId The client identifier
     /// @return The address of the client contract
     function getClient(string calldata clientId) external view returns (ILightClient);
+
+    /// @notice Adds a client to the client router.
+    /// @param clientType The client type, e.g., "07-tendermint".
+    /// @param counterpartyInfo The counterparty client information
+    /// @param client The address of the client contract
+    /// @return The client identifier
+    function addClient(
+        string calldata clientType,
+        CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        returns (string memory);
 
     /// @notice Migrate the underlying client of the subject client to the substitute client.
     /// @dev This is a privilaged operation, only the owner of ICS02Client can call this function.

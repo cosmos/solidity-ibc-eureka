@@ -32,19 +32,6 @@
   },
   {
     "type": "function",
-    "name": "ICS04_CHANNEL",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IICS04Channel"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "ackPacket",
     "inputs": [
       {
@@ -191,7 +178,7 @@
         "internalType": "address"
       },
       {
-        "name": "icsCore",
+        "name": "ics02Client",
         "type": "address",
         "internalType": "address"
       }

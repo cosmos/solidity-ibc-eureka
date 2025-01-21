@@ -5,9 +5,9 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IICS04ChannelMsgs } from "../../contracts/msgs/IICS04ChannelMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { ICSCore } from "../../contracts/ICSCore.sol";
+import { ICS02Client } from "../../contracts/ICS02Client.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -23,11 +23,13 @@ contract ICS26RouterTest is Test {
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ICSCore icsCoreLogic = new ICSCore();
+        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
+            address(ics02ClientLogic),
+            address(this),
+            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
@@ -62,8 +64,8 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.ICS04_CHANNEL().addChannel(
-            "07-tendermint", IICS04ChannelMsgs.Channel(counterpartyID, merklePrefix), address(lightClient)
+        string memory clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
         );
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
