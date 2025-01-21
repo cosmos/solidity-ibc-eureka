@@ -10,13 +10,13 @@ import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
 import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 
-/// @title ICSCore contract
-/// @notice This contract implements the ICS02 Client Router and ICS04 Channel Keeper interfaces
+/// @title ICS02 Client contract
+/// @notice This contract implements the ICS02 Client Router interface
 /// @dev Light client migrations/upgrades are supported via `AccessControl` role-based access control
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
-/// @dev The light client role is granted to whoever called `addChannel` for the client, and can be revoked (not
+/// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-contract ICSCore is IICS02Client, IICS02ClientErrors, Initializable, Ownable, AccessControl {
+contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable, AccessControl {
     /// @notice Storage of the ICSCore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.

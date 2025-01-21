@@ -34,7 +34,7 @@ contract ICS26Router is
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param apps The mapping of port identifiers to IBC application contracts
     /// @param ibcStore The IBC store contract
-    /// @param icsCore The ICSCore contract
+    /// @param ics02Client The ICS02Client contract
     /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
@@ -55,13 +55,13 @@ contract ICS26Router is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param owner_ The owner of the contract
-    /// @param icsCore The address of the ICSCore contract
-    function initialize(address owner_, address icsCore) public initializer {
+    /// @param ics02Client The address of the ICS02Client contract
+    function initialize(address owner_, address ics02Client) public initializer {
         _transferOwnership(owner_);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        $.ics02Client = IICS02Client(icsCore); // using the same owner
+        $.ics02Client = IICS02Client(ics02Client); // using the same owner
         $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
     }
 

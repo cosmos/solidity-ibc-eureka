@@ -13,7 +13,7 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIBCStore } from "../../contracts/interfaces/IIBCStore.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { ICSCore } from "../../contracts/ICSCore.sol";
+import { ICS02Client } from "../../contracts/ICS02Client.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
@@ -48,13 +48,13 @@ contract IntegrationTest is Test {
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        ICSCore icsCoreLogic = new ICSCore();
+        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy Transparent Proxies ==============
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICSCore.initialize.selector, address(this))
+            address(ics02ClientLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
 
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
