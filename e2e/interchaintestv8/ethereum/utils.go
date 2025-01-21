@@ -24,7 +24,7 @@ type ForgeDeployOutput struct {
 
 type DeployedContracts struct {
 	Ics07Tendermint string `json:"ics07Tendermint"`
-	IcsCore         string `json:"icsCore"`
+	Ics02Client     string `json:"ics02Client"`
 	Ics26Router     string `json:"ics26Router"`
 	Ics20Transfer   string `json:"ics20Transfer"`
 	Erc20           string `json:"erc20"`
@@ -52,7 +52,7 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	}
 
 	if embeddedContracts.Erc20 == "" ||
-		embeddedContracts.IcsCore == "" ||
+		embeddedContracts.Ics02Client == "" ||
 		embeddedContracts.Ics07Tendermint == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
 		embeddedContracts.Ics26Router == "" ||

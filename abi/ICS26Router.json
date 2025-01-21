@@ -178,9 +178,9 @@
         "internalType": "address"
       },
       {
-        "name": "icsCore",
+        "name": "ics02Client",
         "type": "address",
-        "internalType": "contract IICS02Client"
+        "internalType": "address"
       }
     ],
     "outputs": [],

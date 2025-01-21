@@ -14,10 +14,10 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/icscore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 	"github.com/stretchr/testify/suite"
 
@@ -67,7 +67,7 @@ type IbcEurekaTestSuite struct {
 	contractAddresses ethereum.DeployedContracts
 
 	sp1Ics07Contract   *sp1ics07tendermint.Contract
-	icsCoreContract    *icscore.Contract
+	ics02Contract      *ics02client.Contract
 	ics26Contract      *ics26router.Contract
 	ics20Contract      *ics20transfer.Contract
 	erc20Contract      *erc20.Contract
@@ -166,7 +166,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
 		s.Require().NoError(err)
-		s.icsCoreContract, err = icscore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IcsCore), eth.RPCClient)
+		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), eth.RPCClient)
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
 		s.Require().NoError(err)
@@ -192,18 +192,18 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
-		counterpartyInfo := icscore.IICS02ClientMsgsCounterpartyInfo{
+		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     ibctesting.FirstChannelID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.icsCoreContract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 
-		event, err := e2esuite.GetEvmEvent(receipt, s.icsCoreContract.ParseICS02ClientAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
 		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
@@ -309,15 +309,15 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		owner, err := s.icsCoreContract.Owner(nil)
+		owner, err := s.ics02Contract.Owner(nil)
 		s.Require().NoError(err)
 		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
 
-		clientAddress, err := s.icsCoreContract.GetClient(nil, ibctesting.FirstClientID)
+		clientAddress, err := s.ics02Contract.GetClient(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.icsCoreContract.GetCounterparty(nil, ibctesting.FirstClientID)
+		counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
 	}))
