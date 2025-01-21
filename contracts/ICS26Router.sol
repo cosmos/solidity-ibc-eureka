@@ -47,6 +47,9 @@ contract ICS26Router is
     bytes32 private constant ICS26ROUTER_STORAGE_SLOT =
         0xc5779f3c2c21083eefa6d04f6a698bc0d8c10db124ad5e0df6ef394b6d7bf600;
 
+    /// @dev The maximum timeout duration for a packet
+    uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() Ownable(address(0xdead)) {
         _disableInitializers();
@@ -125,6 +128,10 @@ contract ICS26Router is
         // TODO: validate all identifiers
         require(
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
+        );
+        require(
+            msg_.timeoutTimestamp - block.timestamp <= MAX_TIMEOUT_DURATION,
+            IBCInvalidTimeoutDuration(msg_.timeoutTimestamp - block.timestamp, MAX_TIMEOUT_DURATION)
         );
 
         uint32 sequence = $.ibcStore.nextSequenceSend(msg_.sourceChannel);

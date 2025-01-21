@@ -15,6 +15,11 @@ interface IICS26RouterErrors {
     /// @param comparedTimestamp compared timestamp in seconds
     error IBCInvalidTimeoutTimestamp(uint256 timeoutTimestamp, uint256 comparedTimestamp);
 
+    /// @notice IBC timeout period too long
+    /// @param maxTimeoutDuration maximum timeout period in seconds
+    /// @param actualTimeoutDuration actual timeout period in seconds
+    error IBCInvalidTimeoutDuration(uint256 maxTimeoutDuration, uint256 actualTimeoutDuration);
+
     /// @notice IBC unexpected counterparty identifier
     /// @param expected expected counterparty identifier
     /// @param actual actual counterparty identifier
