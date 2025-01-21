@@ -54,9 +54,9 @@ contract SP1ICS07Tendermint is
     /// @notice The mapping from height to consensus state keccak256 hashes.
     mapping(uint32 height => bytes32 hash) private consensusStateHashes;
 
-    /// @notice Allowed clock drift in seconds.
+    /// @notice Allowed clock drift.
     /// @inheritdoc ISP1ICS07Tendermint
-    uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 3000; // 3000 seconds
+    uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 50 minutes;
 
     /// @notice The constructor sets the program verification key and the initial client and consensus states.
     /// @param updateClientProgramVkey The verification key for the update client program.
