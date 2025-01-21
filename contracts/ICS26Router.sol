@@ -66,12 +66,12 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function ICS02_CLIENT() public view returns (IICS02Client) {
+    function ICS02_CLIENT() external view returns (IICS02Client) {
         return _getICS26RouterStorage().icsCore;
     }
 
     /// @inheritdoc IICS26Router
-    function IBC_STORE() public view returns (IIBCStore) {
+    function IBC_STORE() external view returns (IIBCStore) {
         return _getICS26RouterStorage().ibcStore;
     }
 
@@ -99,10 +99,12 @@ contract ICS26Router is
             newPortId = Strings.toHexString(app);
         }
 
-        require(address(_getICS26RouterStorage().apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        require(address($.apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
         require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
 
-        _getICS26RouterStorage().apps[newPortId] = IIBCApp(app);
+        $.apps[newPortId] = IIBCApp(app);
 
         emit IBCAppAdded(newPortId, app);
     }
@@ -116,14 +118,16 @@ contract ICS26Router is
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
-        string memory counterpartyId = ICS02_CLIENT().getCounterparty(msg_.sourceChannel).clientId;
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        string memory counterpartyId = $.icsCore.getCounterparty(msg_.sourceChannel).clientId;
 
         // TODO: validate all identifiers
         require(
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
         );
 
-        uint32 sequence = IBC_STORE().nextSequenceSend(msg_.sourceChannel);
+        uint32 sequence = $.ibcStore.nextSequenceSend(msg_.sourceChannel);
 
         Packet memory packet = Packet({
             sequence: sequence,
@@ -143,7 +147,7 @@ contract ICS26Router is
             })
         );
 
-        IBC_STORE().commitPacket(packet);
+        $.ibcStore.commitPacket(packet);
 
         emit SendPacket(packet);
         return sequence;
@@ -157,7 +161,9 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.destChannel);
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.destChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceChannel)
@@ -179,11 +185,11 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT().getClient(msg_.packet.destChannel).membership(membershipMsg);
+        $.icsCore.getClient(msg_.packet.destChannel).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
-        try IBC_STORE().setPacketReceipt(msg_.packet) { }
+        try $.ibcStore.setPacketReceipt(msg_.packet) { }
         catch (bytes memory reason) {
             return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector);
         }
@@ -213,7 +219,9 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.sourceChannel);
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
@@ -233,10 +241,10 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(membershipMsg);
+        $.icsCore.getClient(msg_.packet.sourceChannel).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
-        try IBC_STORE().deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+        try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             require(
                 storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
@@ -267,7 +275,9 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = ICS02_CLIENT().getCounterparty(msg_.packet.sourceChannel);
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.icsCore.getCounterparty(msg_.packet.sourceChannel);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destChannel)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destChannel)
@@ -282,14 +292,14 @@ contract ICS26Router is
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = ICS02_CLIENT().getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = $.icsCore.getClient(msg_.packet.sourceChannel).membership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
         );
 
         // timeoutPacket will no-op if the packet commitment does not exist
-        try IBC_STORE().deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
+        try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
             require(
                 storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
                 IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
@@ -315,7 +325,7 @@ contract ICS26Router is
     /// @param packet The packet to acknowledge
     /// @param acks The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
-        IBC_STORE().commitPacketAcknowledgement(packet, acks);
+        _getICS26RouterStorage().ibcStore.commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
     }
 
