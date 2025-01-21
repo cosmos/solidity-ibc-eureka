@@ -23,11 +23,11 @@ contract ICS26RouterTest is Test {
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ICS02Client icsCoreLogic = new ICS02Client();
+        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
 
         TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(icsCoreLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
+            address(ics02ClientLogic), address(this), abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
         );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
