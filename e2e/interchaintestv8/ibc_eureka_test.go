@@ -1128,7 +1128,8 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
-			if i == 0 {
+			// We use the first packet in fixture generation
+			if i == 0 && s.generateSolidityFixtures {
 				sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 				s.Require().NoError(err)
 				sendPacket = sendPacketEvent.Packet
