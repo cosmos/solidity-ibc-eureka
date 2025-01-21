@@ -192,6 +192,25 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceAfter, transferAmount);
     }
 
+    function test_failure_sendPacketWithLargeTimeoutDuration() public {
+        uint64 timeoutTimestamp = uint64(block.timestamp + 2 days);
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ICS20Lib.newMsgSendPacketV1(
+            sender,
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: erc20AddressStr,
+                amount: transferAmount,
+                receiver: receiverStr,
+                sourceChannel: clientIdentifier,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: timeoutTimestamp,
+                memo: "memo"
+            })
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutDuration.selector, 1 days, 2 days));
+        ics26Router.sendPacket(msgSendPacket);
+    }
+
     function test_success_failedCounterpartyAckForICS20Packet() public {
         IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket();
 
