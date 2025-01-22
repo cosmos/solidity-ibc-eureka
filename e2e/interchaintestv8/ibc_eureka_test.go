@@ -293,7 +293,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simd.StakingQueryParams(ctx)

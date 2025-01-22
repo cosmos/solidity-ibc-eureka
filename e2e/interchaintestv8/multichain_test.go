@@ -478,7 +478,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 
 	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
-		clientState, err := s.chainASP1Ics07Contract.GetClientState(nil)
+		clientState, err := s.chainASP1Ics07Contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simdA.StakingQueryParams(ctx)
@@ -495,7 +495,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify SimdB SP1 Client", func() {
-		clientState, err := s.chainBSP1Ics07Contract.GetClientState(nil)
+		clientState, err := s.chainBSP1Ics07Contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simdB.StakingQueryParams(ctx)
