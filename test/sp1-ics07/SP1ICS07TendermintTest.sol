@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-custom-errors
+
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 import { Test, stdStorage, StdStorage } from "forge-std/Test.sol";

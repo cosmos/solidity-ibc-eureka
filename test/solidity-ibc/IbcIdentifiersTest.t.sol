@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable max-line-length
+// solhint-disable max-line-length,gas-custom-errors
 
 import { Test } from "forge-std/Test.sol";
 import { IBCIdentifiers } from "../../contracts/utils/IBCIdentifiers.sol";

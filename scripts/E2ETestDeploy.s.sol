@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
     This script is used for end-to-end testing with SP1_PROVER=network.
 */
 
-// solhint-disable custom-errors
+// solhint-disable custom-errors,gas-custom-errors
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
