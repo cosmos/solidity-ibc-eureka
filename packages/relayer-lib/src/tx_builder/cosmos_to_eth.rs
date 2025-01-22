@@ -41,6 +41,8 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     /// The SP1 private key for the prover network
     /// Uses the local prover if not set
     pub sp1_private_key: Option<String>,
+    /// Whether the builder is in mock mode.
+    mock: bool,
 }
 
 impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
@@ -55,6 +57,17 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
             sp1_private_key,
+            mock: false,
+        }
+    }
+
+    /// Create a new mock [`TxBuilder`] instance.
+    pub const fn new_mock(ics26_address: Address, provider: P, tm_client: HttpClient) -> Self {
+        Self {
+            ics26_router: routerInstance::new(ics26_address, provider),
+            tm_client,
+            sp1_private_key: None,
+            mock: true,
         }
     }
 
@@ -80,9 +93,13 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
     }
 
     /// Get the prover to use for generating SP1 proofs.
-    // TODO: Support other prover types
+    // TODO: Support other prover types (#233)
     #[allow(clippy::option_if_let_else)]
     pub fn sp1_prover(&self) -> Box<dyn Prover<CpuProverComponents>> {
+        if self.mock {
+            return Box::new(ProverClient::builder().mock().build());
+        }
+
         if let Some(sp1_private_key) = &self.sp1_private_key {
             Box::new(
                 ProverClient::builder()
