@@ -18,6 +18,10 @@ import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
+import { Strings } from "@openzeppelin/utils/Strings.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -29,21 +33,43 @@ struct SP1ICS07TendermintGenesisJson {
 }
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
+    address public verifier;
+
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         SP1ICS07TendermintGenesisJson memory genesis = loadGenesis("genesis.json");
-        IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
-            abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+        ConsensusState memory trustedConsensusState =
+            abi.decode(genesis.trustedConsensusState, (ConsensusState));
+        ClientState memory trustedClientState = abi.decode(genesis.trustedClientState, (ClientState));
 
         string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
 
+        // The verifier address can be set in the environment variables.
+        // If not set, then the verifier is set based on the zkAlgorithm.
+        // If set to "mock", then the verifier is set to a mock verifier.
+        string memory verifierEnv = vm.envString("VERIFIER");
+
         // ============ Step 2: Deploy the contracts ==============
         vm.startBroadcast();
+
+        if (keccak256(bytes(verifierEnv)) == keccak256(bytes("mock"))) {
+            verifier = address(new SP1MockVerifier());
+        } else if (bytes(verifierEnv).length > 0) {
+            (bool success, address verifierAddr) = Strings.tryParseAddress(verifierEnv);
+            require(success, string.concat("Invalid verifier address: ", verifierEnv));
+            verifier = verifierAddr;
+        } else if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Plonk) {
+            verifier = address(new SP1VerifierPlonk());
+        } else if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Groth16) {
+            verifier = address(new SP1VerifierGroth16());
+        } else {
+            revert("Unsupported zk algorithm");
+        }
 
         // Deploy the SP1 ICS07 Tendermint light client
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
@@ -51,6 +77,7 @@ contract E2ETestDeploy is Script {
             genesis.membershipVkey,
             genesis.ucAndMembershipVkey,
             genesis.misbehaviourVkey,
+            verifier,
             genesis.trustedClientState,
             keccak256(abi.encode(trustedConsensusState))
         );
@@ -96,8 +123,8 @@ contract E2ETestDeploy is Script {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         // Mint some tokens
-        (address addr, bool ok) = ICS20Lib.hexStringToAddress(e2eFaucet);
-        require(ok, "failed to parse faucet address");
+        (bool ok, address addr) = Strings.tryParseAddress(e2eFaucet);
+        require(ok, string.concat("Invalid faucet address: ", e2eFaucet));
 
         erc20.mint(addr, type(uint256).max);
 

@@ -10,11 +10,13 @@ import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateCli
 import { IMembershipMsgs } from "../../contracts/light-clients/msgs/IMembershipMsgs.sol";
 import { IUpdateClientAndMembershipMsgs } from "../../contracts/light-clients/msgs/IUcAndMembershipMsgs.sol";
 import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
+import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ISP1ICS07TendermintErrors } from "../../contracts/light-clients/errors/ISP1ICS07TendermintErrors.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 
 struct SP1ICS07GenesisFixtureJson {
     bytes trustedClientState;
@@ -51,12 +53,23 @@ abstract contract SP1ICS07TendermintTest is
         ConsensusState memory trustedConsensusState = abi.decode(genesisFixture.trustedConsensusState, (ConsensusState));
 
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
+        ClientState memory trustedClientState = abi.decode(genesisFixture.trustedClientState, (ClientState));
+
+        address verifier;
+        if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Plonk) {
+            verifier = address(new SP1VerifierPlonk());
+        } else if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Groth16) {
+            verifier = address(new SP1VerifierGroth16());
+        } else {
+            revert("Unsupported zk algorithm");
+        }
 
         ics07Tendermint = new SP1ICS07Tendermint(
             genesisFixture.updateClientVkey,
             genesisFixture.membershipVkey,
             genesisFixture.ucAndMembershipVkey,
             genesisFixture.misbehaviourVkey,
+            verifier,
             genesisFixture.trustedClientState,
             trustedConsensusHash
         );
@@ -66,17 +79,12 @@ abstract contract SP1ICS07TendermintTest is
             genesisFixture.membershipVkey,
             genesisFixture.ucAndMembershipVkey,
             genesisFixture.misbehaviourVkey,
+            address(new SP1MockVerifier()),
             genesisFixture.trustedClientState,
             trustedConsensusHash
         );
-        SP1MockVerifier mockVerifier = new SP1MockVerifier();
-        vm.mockFunction(
-            address(mockIcs07Tendermint.VERIFIER()),
-            address(mockVerifier),
-            abi.encodeWithSelector(ISP1Verifier.verifyProof.selector)
-        );
 
-        ClientState memory clientState = mockIcs07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));
         assert(keccak256(abi.encode(clientState)) == keccak256(genesisFixture.trustedClientState));
 
         bytes32 consensusHash = mockIcs07Tendermint.getConsensusStateHash(clientState.latestHeight.revisionHeight);

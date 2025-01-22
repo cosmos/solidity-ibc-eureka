@@ -32,10 +32,6 @@ interface ISP1ICS07Tendermint is ILightClient {
     /// @return The allowed clock drift in seconds.
     function ALLOWED_SP1_CLOCK_DRIFT() external view returns (uint16);
 
-    /// @notice Returns the client state.
-    /// @return The client state.
-    function getClientState() external view returns (IICS07TendermintMsgs.ClientState memory);
-
     /// @notice Returns the consensus state keccak256 hash at the given revision height.
     /// @param revisionHeight The revision height.
     /// @return The consensus state at the given revision height.
