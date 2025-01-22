@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { ILightClient } from "../interfaces/ILightClient.sol";
-import { IICS07TendermintMsgs } from "./msgs/IICS07TendermintMsgs.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
 /// @title ISP1ICS07Tendermint

@@ -13,7 +13,6 @@ import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehavi
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ISP1ICS07TendermintErrors } from "../../contracts/light-clients/errors/ISP1ICS07TendermintErrors.sol";
-import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
