@@ -115,11 +115,21 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 		prover = os.Getenv(testvalues.EnvKeySp1Prover)
 		switch prover {
-		case "":
-			prover = testvalues.EnvValueSp1Prover_Network
-		case testvalues.EnvValueSp1Prover_Mock:
+		case "", testvalues.EnvValueSp1Prover_Mock:
 			s.T().Logf("Using mock prover")
+			prover = testvalues.EnvValueSp1Prover_Mock
+			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
+			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
+
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures),
+				"Fixtures are not supported for mock prover",
+			)
 		case testvalues.EnvValueSp1Prover_Network:
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyVerifier),
+				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
+			)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
@@ -148,7 +158,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			s.FailNow("Mock prover not supported")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
+			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
@@ -243,7 +254,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			BeaconAPI:       beaconAPI,
 			SP1PrivateKey:   os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			SignerAddress:   s.SimdRelayerSubmitter.FormattedAddress(),
-			Mock:            os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockWasmClient:  os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockSP1Client:   prover == testvalues.EnvValueSp1Prover_Mock,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -293,7 +305,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
-		clientState, err := s.sp1Ics07Contract.GetClientState(nil)
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simd.StakingQueryParams(ctx)

@@ -52,7 +52,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         console.log("Misbehaviour gas used: ", vm.lastCallGas().gasTotalUsed);
 
         // verify that the client is frozen
-        ClientState memory clientState = ics07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
         assertTrue(clientState.isFrozen);
     }
 
@@ -67,7 +67,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         console.log("Misbehaviour gas used: ", vm.lastCallGas().gasTotalUsed);
 
         // verify that the client is frozen
-        ClientState memory clientState = ics07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
         assertTrue(clientState.isFrozen);
     }
 
@@ -79,7 +79,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // verify that the client is frozen
-        ClientState memory clientState = ics07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
         assertTrue(clientState.isFrozen);
 
         // try to submit a updateClient msg

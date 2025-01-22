@@ -18,7 +18,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
 
-        ClientState memory clientState = mockIcs07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));
         assert(clientState.latestHeight.revisionHeight < output.updateClientOutput.newHeight.revisionHeight);
     }
 
@@ -55,7 +55,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
                 "UpdateClientAndVerifyMembership-", testCases[i].name, "gas used: ", vm.lastCallGas().gasTotalUsed
             );
 
-            ClientState memory clientState = ics07Tendermint.getClientState();
+            ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
             assert(clientState.latestHeight.revisionHeight == output.updateClientOutput.newHeight.revisionHeight);
             assert(clientState.isFrozen == false);
 
@@ -90,7 +90,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
                 "UpdateClientAndVerifyNonMembership-", testCases[i].name, "gas used: ", vm.lastCallGas().gasTotalUsed
             );
 
-            ClientState memory clientState = ics07Tendermint.getClientState();
+            ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
             assert(clientState.latestHeight.revisionHeight == output.updateClientOutput.newHeight.revisionHeight);
             assert(clientState.isFrozen == false);
 
@@ -119,7 +119,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         // run verify
         ics07Tendermint.membership(membershipMsg);
 
-        ClientState memory clientState = ics07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
         assert(clientState.latestHeight.revisionHeight == output.updateClientOutput.newHeight.revisionHeight);
         assert(clientState.isFrozen == false);
 

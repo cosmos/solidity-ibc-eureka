@@ -27,7 +27,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         MsgUpdateClient memory updateMsg = abi.decode(fixture.updateMsg, (MsgUpdateClient));
         output = abi.decode(updateMsg.sp1Proof.publicValues, (UpdateClientOutput));
 
-        ClientState memory clientState = mockIcs07Tendermint.getClientState();
+        ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));
         assert(clientState.latestHeight.revisionHeight < output.newHeight.revisionHeight);
 
         vm.expectRevert();
@@ -59,7 +59,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
             console.log("UpdateClient-", testCases[i].name, "gas used: ", vm.lastCallGas().gasTotalUsed);
             assert(res == UpdateResult.Update);
 
-            ClientState memory clientState = ics07Tendermint.getClientState();
+            ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
             assert(keccak256(bytes(clientState.chainId)) == keccak256(bytes("mocha-4")));
             assert(clientState.latestHeight.revisionHeight == output.newHeight.revisionHeight);
             assert(clientState.isFrozen == false);
@@ -117,7 +117,9 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         // run verify again
         res = mockIcs07Tendermint.updateClient(abi.encode(updateMsg));
         assert(res == UpdateResult.Misbehaviour);
-        assert(mockIcs07Tendermint.getClientState().isFrozen == true);
+
+        ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));
+        assert(clientState.isFrozen == true);
     }
 
     function test_MockUpgradeClient() public {

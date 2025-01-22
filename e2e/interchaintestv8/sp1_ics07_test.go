@@ -70,15 +70,33 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
+		switch os.Getenv(testvalues.EnvKeySp1Prover) {
+		case "", testvalues.EnvValueSp1Prover_Mock:
+			s.T().Logf("Using mock prover")
+			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
+			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
+
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures),
+				"Fixtures are not supported for mock prover",
+			)
+		case testvalues.EnvValueSp1Prover_Network:
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyVerifier),
+				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
+			)
+
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
+		default:
+			s.Require().Fail("invalid prover type: %s", os.Getenv(testvalues.EnvKeySp1Prover))
+		}
+
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
-		os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Network)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(s.key)))
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
-
-		// make sure that the NETWORK_PRIVATE_KEY is set.
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 	}))
 
 	s.Require().True(s.Run("Deploy contracts", func() {
@@ -131,7 +149,7 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 	_, simd := s.EthChain, s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify deployment", func() {
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simd.StakingQueryParams(ctx)
@@ -169,14 +187,14 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 	}
 
 	s.Require().True(s.Run("Update client", func() {
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		initialHeight := clientState.LatestHeight.RevisionHeight
 
 		s.Require().NoError(operator.StartOperator("--only-once")) // This should detect the proof type
 
-		clientState, err = s.contract.GetClientState(nil)
+		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		stakingParams, err := simd.StakingQueryParams(ctx)
@@ -226,7 +244,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 			membershipKey = [][]byte{[]byte(banktypes.StoreKey), key}
 		}))
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		trustedHeight := clientState.LatestHeight.RevisionHeight
@@ -277,7 +295,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 			nonMembershipKey = [][]byte{[]byte(ibcexported.StoreKey), packetReceiptPath}
 		}))
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		trustedHeight := clientState.LatestHeight.RevisionHeight
@@ -346,7 +364,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 			nonMembershipKey = [][]byte{[]byte(ibcexported.StoreKey), packetReceiptPath}
 		}))
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		trustedHeight := clientState.LatestHeight.RevisionHeight
@@ -393,7 +411,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
-		clientState, err = s.contract.GetClientState(nil)
+		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
 		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
@@ -433,7 +451,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
 
@@ -504,7 +522,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 		s.Require().True(clientState.IsFrozen)
 	}))
@@ -539,7 +557,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
 
@@ -597,7 +615,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
 
-		clientState, err := s.contract.GetClientState(nil)
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
 		s.Require().True(clientState.IsFrozen)
 	}))
@@ -701,7 +719,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clientty
 	s.Require().True(s.Run("Update client", func() {
 		s.Require().NoError(operator.StartOperator("--only-once"))
 		var err error
-		updatedClientState, err = s.contract.GetClientState(nil)
+		updatedClientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
 	}))
 

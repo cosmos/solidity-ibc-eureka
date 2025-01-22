@@ -13,7 +13,7 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
 use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
+use sp1_sdk::{utils::setup_logger, CpuProver, HashableKey, Prover, ProverClient};
 use tendermint_rpc::HttpClient;
 
 /// Runs the update client program in a loop.
@@ -36,16 +36,23 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         .on_http(rpc_url.parse()?);
 
     let contract = sp1_ics07_tendermint::new(contract_address.parse()?, provider);
-    let contract_client_state = contract.getClientState().call().await?._0;
+    let contract_client_state = contract.clientState().call().await?;
     let tendermint_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+
+    // TODO: Just use ProverClient::from_env() here once
+    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
+    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
+        Box::new(CpuProver::mock())
+    } else {
+        Box::new(ProverClient::from_env())
+    };
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
         SupportedProofType::try_from(contract_client_state.zkAlgorithm).map_err(|e| anyhow!(e))?,
-        &sp1_prover,
+        sp1_prover.as_ref(),
     );
 
     loop {
-        let contract_client_state = contract.getClientState().call().await?._0;
+        let contract_client_state = contract.clientState().call().await?;
 
         // Read the existing trusted header hash from the contract.
         let trusted_block_height = contract_client_state.latestHeight.revisionHeight;
@@ -73,7 +80,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 
         // Generate a proof of the transition from the trusted block to the target block.
         let proof_data = prover.generate_proof(
-            &contract_client_state,
+            &contract_client_state.into(),
             &trusted_consensus_state,
             &proposed_header,
             now,

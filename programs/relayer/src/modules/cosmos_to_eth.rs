@@ -49,7 +49,11 @@ pub struct CosmosToEthConfig {
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
     /// The SP1 prover network private key.
-    pub sp1_private_key: String,
+    #[serde(default)]
+    pub sp1_private_key: Option<String>,
+    /// Whether to run in mock mode.
+    #[serde(default)]
+    pub mock: bool,
 }
 
 impl CosmosToEthRelayerModuleServer {
@@ -68,12 +72,16 @@ impl CosmosToEthRelayerModuleServer {
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
-        let submitter = TxBuilder::new(
-            config.ics26_address,
-            provider,
-            tm_client,
-            Some(config.sp1_private_key),
-        );
+        let submitter = if config.mock {
+            TxBuilder::new_mock(config.ics26_address, provider, tm_client)
+        } else {
+            TxBuilder::new(
+                config.ics26_address,
+                provider,
+                tm_client,
+                config.sp1_private_key,
+            )
+        };
 
         Self {
             tm_listener,

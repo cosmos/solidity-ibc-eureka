@@ -13,7 +13,7 @@
         "eth_rpc_url": "{{ .EthRPC }}",
         "eth_beacon_api_url": "{{ .BeaconAPI }}",
         "signer_address": "{{ .SignerAddress }}",
-        "mock": {{ .Mock }}
+        "mock": {{ .MockWasmClient }}
       }
     },
     {
@@ -23,7 +23,8 @@
         "tm_rpc_url": "{{ .TmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",
         "eth_rpc_url": "{{ .EthRPC }}",
-        "sp1_private_key": "{{ .SP1PrivateKey }}"
+        "sp1_private_key": "{{ .SP1PrivateKey }}",
+        "mock": {{ .MockSP1Client }}
       }
     }
   ]
