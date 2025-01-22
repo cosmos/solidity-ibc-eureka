@@ -40,7 +40,7 @@ contract SP1TendermintScript is Script, IICS07TendermintMsgs {
         // The verifier address can be set in the environment variables.
         // If not set, then the verifier is set based on the zkAlgorithm.
         // If set to "mock", then the verifier is set to a mock verifier.
-        string memory verifierEnv = vm.envString("VERIFIER");
+        string memory verifierEnv = vm.envOr("VERIFIER", string(""));
 
         vm.startBroadcast();
 

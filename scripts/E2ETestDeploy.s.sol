@@ -47,12 +47,12 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
             abi.decode(genesis.trustedConsensusState, (ConsensusState));
         ClientState memory trustedClientState = abi.decode(genesis.trustedClientState, (ClientState));
 
-        string memory e2eFaucet = vm.envString("E2E_FAUCET_ADDRESS");
+        address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
         // The verifier address can be set in the environment variables.
         // If not set, then the verifier is set based on the zkAlgorithm.
         // If set to "mock", then the verifier is set to a mock verifier.
-        string memory verifierEnv = vm.envString("VERIFIER");
+        string memory verifierEnv = vm.envOr("VERIFIER", string(""));
 
         // ============ Step 2: Deploy the contracts ==============
         vm.startBroadcast();
@@ -123,10 +123,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         // Mint some tokens
-        (bool ok, address addr) = Strings.tryParseAddress(e2eFaucet);
-        require(ok, string.concat("Invalid faucet address: ", e2eFaucet));
-
-        erc20.mint(addr, type(uint256).max);
+        erc20.mint(e2eFaucet, type(uint256).max);
 
         vm.stopBroadcast();
 
