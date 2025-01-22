@@ -37,7 +37,9 @@ type MultichainConfigInfo struct {
 	// SP1 private key
 	SP1PrivateKey string
 	// Whether we use the mock client in the cosmos chains
-	Mock bool
+	MockWasmClient bool
+	// Whether we use the mock SP1 client
+	MockSP1Client bool
 }
 
 // GenerateMultichainConfigFile generates a multichain config file from the template.

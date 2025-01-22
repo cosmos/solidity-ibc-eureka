@@ -13,7 +13,7 @@
         "eth_rpc_url": "{{ .EthRPC }}",
         "eth_beacon_api_url": "{{ .BeaconAPI }}",
         "signer_address": "{{ .ChainASignerAddress }}",
-        "mock": {{ .Mock }}
+        "mock": {{ .MockWasmClient }}
       }
     },
     {
@@ -23,7 +23,8 @@
         "tm_rpc_url": "{{ .ChainATmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",
         "eth_rpc_url": "{{ .EthRPC }}",
-        "sp1_private_key": "{{ .SP1PrivateKey }}"
+        "sp1_private_key": "{{ .SP1PrivateKey }}",
+        "mock": {{ .MockSP1Client }}
       }
     },
     {
@@ -35,7 +36,7 @@
         "eth_rpc_url": "{{ .EthRPC }}",
         "eth_beacon_api_url": "{{ .BeaconAPI }}",
         "signer_address": "{{ .ChainBSignerAddress }}",
-        "mock": {{ .Mock }}
+        "mock": {{ .MockWasmClient }}
       }
     },
     {
@@ -45,7 +46,8 @@
         "tm_rpc_url": "{{ .ChainBTmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",
         "eth_rpc_url": "{{ .EthRPC }}",
-        "sp1_private_key": "{{ .SP1PrivateKey }}"
+        "sp1_private_key": "{{ .SP1PrivateKey }}",
+        "mock": {{ .MockSP1Client }}
       }
     },
     {

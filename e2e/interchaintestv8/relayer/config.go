@@ -25,7 +25,9 @@ type EthCosmosConfigInfo struct {
 	// Signer address cosmos
 	SignerAddress string
 	// Whether we use the mock client in Cosmos
-	Mock bool
+	MockWasmClient bool
+	// Whether we use the mock SP1 client
+	MockSP1Client bool
 }
 
 // GenerateEthCosmosConfigFile generates an eth to cosmos config file from the template.

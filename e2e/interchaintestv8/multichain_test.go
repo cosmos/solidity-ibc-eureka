@@ -437,7 +437,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			EthRPC:              eth.RPC,
 			BeaconAPI:           beaconAPI,
 			SP1PrivateKey:       os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
-			Mock:                os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockWasmClient:      os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockSP1Client:       prover == testvalues.EnvValueSp1Prover_Mock,
 		}
 
 		err := configInfo.GenerateMultichainConfigFile(testvalues.RelayerConfigFilePath)
