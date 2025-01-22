@@ -71,11 +71,9 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		s.Require().NoError(err)
 
 		switch os.Getenv(testvalues.EnvKeySp1Prover) {
-		case "":
-			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
-			fallthrough
-		case testvalues.EnvValueSp1Prover_Mock:
+		case "", testvalues.EnvValueSp1Prover_Mock:
 			s.T().Logf("Using mock prover")
+			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
 			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
 
 			s.Require().Empty(

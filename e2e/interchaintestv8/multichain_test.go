@@ -120,12 +120,10 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		prover = os.Getenv(testvalues.EnvKeySp1Prover)
 		switch prover {
-		case "":
+		case "", testvalues.EnvValueSp1Prover_Mock:
+			s.T().Logf("Using mock prover")
 			prover = testvalues.EnvValueSp1Prover_Mock
 			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
-			fallthrough
-		case testvalues.EnvValueSp1Prover_Mock:
-			s.T().Logf("Using mock prover")
 			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
 
 			s.Require().Empty(
