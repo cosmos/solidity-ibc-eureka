@@ -116,10 +116,22 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		prover = os.Getenv(testvalues.EnvKeySp1Prover)
 		switch prover {
 		case "":
-			prover = testvalues.EnvValueSp1Prover_Network
+			prover = testvalues.EnvValueSp1Prover_Mock
+			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
+			fallthrough
 		case testvalues.EnvValueSp1Prover_Mock:
 			s.T().Logf("Using mock prover")
+			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
+
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures),
+				"Fixtures are not supported for mock prover",
+			)
 		case testvalues.EnvValueSp1Prover_Network:
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyVerifier),
+				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
+			)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
@@ -148,7 +160,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			s.FailNow("Mock prover not supported")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
+			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))

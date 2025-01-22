@@ -70,15 +70,35 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
+		switch os.Getenv(testvalues.EnvKeySp1Prover) {
+		case "":
+			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
+			fallthrough
+		case testvalues.EnvValueSp1Prover_Mock:
+			s.T().Logf("Using mock prover")
+			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
+
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures),
+				"Fixtures are not supported for mock prover",
+			)
+		case testvalues.EnvValueSp1Prover_Network:
+			s.Require().Empty(
+				os.Getenv(testvalues.EnvKeyVerifier),
+				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
+			)
+
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
+		default:
+			s.Require().Fail("invalid prover type: %s", os.Getenv(testvalues.EnvKeySp1Prover))
+		}
+
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
-		os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Network)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(s.key)))
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
-
-		// make sure that the NETWORK_PRIVATE_KEY is set.
-		s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 	}))
 
 	s.Require().True(s.Run("Deploy contracts", func() {
