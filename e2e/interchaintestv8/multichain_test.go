@@ -212,7 +212,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			s.FailNow("Mock prover not supported")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
+			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
