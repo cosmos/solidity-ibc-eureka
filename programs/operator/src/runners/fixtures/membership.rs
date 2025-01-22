@@ -19,8 +19,8 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, SupportedProofType},
 };
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::{EnvProver, HashableKey, ProverClient};
-use std::path::PathBuf;
+use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
+use std::{env, path::PathBuf};
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`MembershipProgram`] tests.
@@ -45,7 +45,6 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
     assert!(!args.membership.key_paths.is_empty());
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
@@ -65,7 +64,6 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
 
     let membership_proof = run_sp1_membership(
         &tm_rpc_client,
-        &sp1_prover,
         args.membership.base64,
         args.membership.key_paths,
         args.membership.trusted_block,
@@ -101,15 +99,22 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
 )]
 pub async fn run_sp1_membership(
     tm_rpc_client: &HttpClient,
-    sp1_prover: &EnvProver,
     is_base64: bool,
     key_paths: Vec<String>,
     trusted_block: u32,
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedProofType,
 ) -> anyhow::Result<MembershipProof> {
+    // TODO: Just use ProverClient::from_env() here once
+    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
+    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
+        Box::new(CpuProver::mock())
+    } else {
+        Box::new(ProverClient::from_env())
+    };
     let verify_mem_prover =
-        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, sp1_prover);
+        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, sp1_prover.as_ref());
+
     let commitment_root_bytes = ConsensusState::from(trusted_consensus_state.clone())
         .root
         .as_bytes()
