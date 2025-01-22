@@ -36,7 +36,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         .on_http(rpc_url.parse()?);
 
     let contract = sp1_ics07_tendermint::new(contract_address.parse()?, provider);
-    let contract_client_state = contract.getClientState().call().await?._0;
+    let contract_client_state = contract.clientState().call().await?;
     let tendermint_rpc_client = HttpClient::from_env();
     let sp1_prover = ProverClient::from_env();
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
@@ -45,7 +45,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     );
 
     loop {
-        let contract_client_state = contract.getClientState().call().await?._0;
+        let contract_client_state = contract.clientState().call().await?;
 
         // Read the existing trusted header hash from the contract.
         let trusted_block_height = contract_client_state.latestHeight.revisionHeight;
@@ -73,7 +73,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 
         // Generate a proof of the transition from the trusted block to the target block.
         let proof_data = prover.generate_proof(
-            &contract_client_state,
+            &contract_client_state.into(),
             &trusted_consensus_state,
             &proposed_header,
             now,

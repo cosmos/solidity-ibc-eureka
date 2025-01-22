@@ -1,6 +1,7 @@
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
+use sp1_ics07_tendermint::clientStateReturn;
 use tendermint::{hash::Algorithm, Time};
 use tendermint_light_client_verifier::types::{Hash, TrustThreshold as TendermintTrustThreshold};
 use time::OffsetDateTime;
@@ -134,5 +135,20 @@ impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
             revisionNumber: height.revision_number().try_into()?,
             revisionHeight: height.revision_height().try_into()?,
         })
+    }
+}
+
+#[cfg(feature = "rpc")]
+impl From<clientStateReturn> for IICS07TendermintMsgs::ClientState {
+    fn from(client_state: clientStateReturn) -> Self {
+        Self {
+            chainId: client_state.chainId,
+            trustLevel: client_state.trustLevel,
+            trustingPeriod: client_state.trustingPeriod,
+            unbondingPeriod: client_state.unbondingPeriod,
+            latestHeight: client_state.latestHeight,
+            isFrozen: client_state.isFrozen,
+            zkAlgorithm: client_state.zkAlgorithm,
+        }
     }
 }

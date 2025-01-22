@@ -72,10 +72,10 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
 
         Ok(
             sp1_ics07_tendermint::new(ics07_address, self.ics26_router.provider().clone())
-                .getClientState()
+                .clientState()
                 .call()
                 .await?
-                ._0,
+                .into(),
         )
     }
 
