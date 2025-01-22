@@ -104,6 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ETH_TESTNET_TYPE: ${{ github.event.inputs.ethTestnetType || (github.event_name == 'schedule' && 'pos') || 'pow' }}
+      SP1_PROVER: ${{ env.ETH_TESTNET_TYPE == 'pos' && 'network' || 'mock' }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
