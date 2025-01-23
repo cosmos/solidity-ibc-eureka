@@ -9,15 +9,15 @@ import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
-import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
-import { Multicall } from "@openzeppelin/utils/Multicall.sol";
-import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
-import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
+import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
+import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol

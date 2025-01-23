@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
-import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
+import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 

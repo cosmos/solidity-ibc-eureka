@@ -10,7 +10,7 @@ import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07Tend
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;

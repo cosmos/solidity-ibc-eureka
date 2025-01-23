@@ -17,9 +17,9 @@ import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitial
 import {
     TransparentUpgradeableProxy,
     ITransparentUpgradeableProxy
-} from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { ProxyAdmin } from "@openzeppelin/proxy/transparent/ProxyAdmin.sol";
-import { IERC1967 } from "@openzeppelin/interfaces/IERC1967.sol";
+} from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ProxyAdmin } from "@openzeppelin-contracts/proxy/transparent/ProxyAdmin.sol";
+import { IERC1967 } from "@openzeppelin-contracts/interfaces/IERC1967.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
 contract MigrationTest is Test {

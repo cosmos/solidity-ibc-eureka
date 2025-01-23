@@ -12,10 +12,10 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;

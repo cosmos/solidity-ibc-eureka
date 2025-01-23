@@ -10,8 +10,8 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { IAccessControl } from "@openzeppelin/access/IAccessControl.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.sol";
 
 contract ICS02ClientTest is Test {
     ICS02Client public ics02Client;

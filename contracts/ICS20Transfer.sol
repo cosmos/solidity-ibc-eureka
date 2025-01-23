@@ -5,17 +5,17 @@ import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
-import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
-import { Multicall } from "@openzeppelin/utils/Multicall.sol";
-import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
+import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
+import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
-import { Bytes } from "@openzeppelin/utils/Bytes.sol";
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 
 using SafeERC20 for IERC20;
 

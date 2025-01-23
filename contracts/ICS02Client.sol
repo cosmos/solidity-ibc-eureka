@@ -2,13 +2,13 @@
 pragma solidity ^0.8.28;
 
 import { IICS02Client } from "./interfaces/IICS02Client.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
-import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
-import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
+import { Ownable } from "@openzeppelin-contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 /// @title ICS02 Client contract
 /// @notice This contract implements the ICS02 Client Router interface
