@@ -7,8 +7,7 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ILightClient } from "./interfaces/ILightClient.sol";
 import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
 import { Ownable } from "@openzeppelin-contracts/access/Ownable.sol";
-import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
-import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
+import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title ICS02 Client contract
 /// @notice This contract implements the ICS02 Client Router interface
@@ -16,7 +15,7 @@ import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol"
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, AccessControl {
+contract ICS02Client is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
     /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -44,6 +43,8 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, AccessC
     /// @dev Meant to be called only once from the proxy
     /// @param admin_ The address of the admin, who can grant or revoke roles
     function initialize(address admin_) public initializer {
+        __AccessControl_init();
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 

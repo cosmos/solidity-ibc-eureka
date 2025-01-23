@@ -14,20 +14,18 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
-import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
-import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
-import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
-import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
+import { ReentrancyGuardTransientUpgradeable } from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
     IICS26Router,
     IICS26RouterErrors,
-    Initializable,
-    AccessControl,
-    ReentrancyGuardTransient,
-    Multicall
+    AccessControlUpgradeable,
+    ReentrancyGuardTransientUpgradeable,
+    MulticallUpgradeable
 {
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
@@ -64,6 +62,10 @@ contract ICS26Router is
     /// @param admin_ The admin of the contract, has port identifier role
     /// @param ics02Client The address of the ICS02Client contract
     function initialize(address admin_, address ics02Client) public initializer {
+        __AccessControl_init();
+        __ReentrancyGuardTransient_init();
+        __Multicall_init();
+
         _grantRole(PORT_IDENTIFIER_ROLE, admin_);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();

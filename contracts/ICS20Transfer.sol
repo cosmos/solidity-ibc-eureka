@@ -7,9 +7,8 @@ import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
-import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
-import { Initializable } from "@openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { ReentrancyGuardTransientUpgradeable } from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
@@ -28,9 +27,8 @@ contract ICS20Transfer is
     IIBCApp,
     IICS20Transfer,
     IICS20Errors,
-    Initializable,
-    ReentrancyGuardTransient,
-    Multicall
+    ReentrancyGuardTransientUpgradeable,
+    MulticallUpgradeable
 {
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
@@ -59,6 +57,9 @@ contract ICS20Transfer is
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
     function initialize(address ics26Router) public initializer {
+        __ReentrancyGuardTransient_init();
+        __Multicall_init();
+
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.escrow = new Escrow(address(this));
