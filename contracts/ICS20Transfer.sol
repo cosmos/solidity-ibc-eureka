@@ -36,12 +36,12 @@ contract ICS20Transfer is
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param escrow The escrow contract
     /// @param ibcDenomContracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @param router The ICS26Router contract
+    /// @param ics26Router The ICS26Router contract
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(string => IBCERC20) ibcDenomContracts;
-        IICS26Router router;
+        IICS26Router ics26Router;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
@@ -64,7 +64,7 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.escrow = new Escrow(address(this));
-        $.router = IICS26Router(ics26Router);
+        $.ics26Router = IICS26Router(ics26Router);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -94,7 +94,7 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        return _getRouter().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
+        return _getICS26Router().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
     /// @inheritdoc IIBCApp
@@ -325,12 +325,12 @@ contract ICS20Transfer is
         return _getICS20TransferStorage().escrow;
     }
 
-    function _getRouter() private view returns (IICS26Router) {
-        return _getICS20TransferStorage().router;
+    function _getICS26Router() private view returns (IICS26Router) {
+        return _getICS20TransferStorage().ics26Router;
     }
 
     modifier onlyRouter() {
-        require(_msgSender() == address(_getRouter()), ICS20Unauthorized(_msgSender()));
+        require(_msgSender() == address(_getICS26Router()), ICS20Unauthorized(_msgSender()));
         _;
     }
 }
