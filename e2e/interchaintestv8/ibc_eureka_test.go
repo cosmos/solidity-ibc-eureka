@@ -336,10 +336,10 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
-		var portIdentifierRole [32]byte
-		copy(portIdentifierRole[:], crypto.Keccak256([]byte("PORT_IDENTIFIER_ROLE")))
+		var portCustomizerRole [32]byte
+		copy(portCustomizerRole[:], crypto.Keccak256([]byte("PORT_CUSTOMIZER_ROLE")))
 
-		hasRole, err := s.ics26Contract.HasRole(nil, portIdentifierRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
+		hasRole, err := s.ics26Contract.HasRole(nil, portCustomizerRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
 		s.Require().NoError(err)
 		s.Require().True(hasRole)
 

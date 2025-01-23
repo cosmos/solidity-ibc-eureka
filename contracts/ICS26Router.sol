@@ -49,9 +49,9 @@ contract ICS26Router is
     /// @dev The maximum timeout duration for a packet
     uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
 
-    /// @dev The role identifier for the port identifier role
+    /// @dev The role identifier for the port customizer role
     /// @dev The port identifier role is used to add IBC applications with custom port identifiers
-    bytes32 private constant PORT_IDENTIFIER_ROLE = keccak256("PORT_IDENTIFIER_ROLE");
+    bytes32 private constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
@@ -60,14 +60,14 @@ contract ICS26Router is
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param admin_ The admin of the contract, has port identifier role
+    /// @param portCustomizer The address of the port customizer
     /// @param ics02Client The address of the ICS02Client contract
-    function initialize(address admin_, address ics02Client) public initializer {
+    function initialize(address portCustomizer, address ics02Client) public initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
 
-        _grantRole(PORT_IDENTIFIER_ROLE, admin_);
+        _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
@@ -103,7 +103,7 @@ contract ICS26Router is
     function addIBCApp(string calldata portId, address app) external {
         string memory newPortId;
         if (bytes(portId).length != 0) {
-            _checkRole(PORT_IDENTIFIER_ROLE);
+            _checkRole(PORT_CUSTOMIZER_ROLE);
             newPortId = portId;
         } else {
             newPortId = Strings.toHexString(app);
