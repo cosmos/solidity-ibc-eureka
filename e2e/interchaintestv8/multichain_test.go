@@ -525,9 +525,9 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		owner, err := s.ics02Contract.Owner(nil)
+		isAdmin, err := s.ics02Contract.HasRole(nil, testvalues.DefaultAdminRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
 		s.Require().NoError(err)
-		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
+		s.Require().True(isAdmin)
 
 		clientAddress, err := s.ics02Contract.GetClient(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
@@ -547,9 +547,12 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
-		owner, err := s.ics26Contract.Owner(nil)
+		var portIdentifierRole [32]byte
+		copy(portIdentifierRole[:], crypto.Keccak256([]byte("PORT_IDENTIFIER_ROLE")))
+
+		hasRole, err := s.ics26Contract.HasRole(nil, portIdentifierRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
 		s.Require().NoError(err)
-		s.Require().Equal(strings.ToLower(crypto.PubkeyToAddress(s.deployer.PublicKey).Hex()), strings.ToLower(owner.Hex()))
+		s.Require().True(hasRole)
 
 		transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
 		s.Require().NoError(err)

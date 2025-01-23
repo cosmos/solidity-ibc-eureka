@@ -110,4 +110,7 @@ var (
 
 	// StartingERC20Balance is the starting balance for the ERC20 contract.
 	StartingERC20Balance = new(big.Int).Div(MaxUint256.ToBig(), big.NewInt(2))
+
+	// DefaultAdminRole is the default admin role for AccessControl contract.
+	DefaultAdminRole = [32]byte{0x00}
 )
