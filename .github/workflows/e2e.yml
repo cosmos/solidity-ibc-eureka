@@ -25,6 +25,12 @@ on:
       - '**.sol'
       - '.github/workflows/e2e.yml'
       - 'bun.lockb'
+
+# Cancel the workflow if a new commit is pushed to the branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   FOUNDRY_PROFILE: ci
 permissions:
