@@ -9,7 +9,6 @@ import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
@@ -18,6 +17,7 @@ import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
+import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
@@ -25,7 +25,7 @@ contract ICS26Router is
     IICS26Router,
     IICS26RouterErrors,
     Initializable,
-    Ownable,
+    AccessControl,
     ReentrancyGuardTransient,
     Multicall
 {
@@ -50,17 +50,21 @@ contract ICS26Router is
     /// @dev The maximum timeout duration for a packet
     uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
 
+    /// @dev The role identifier for the port identifier role
+    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
+    bytes32 private constant PORT_IDENTIFIER_ROLE = keccak256("PORT_IDENTIFIER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
-    constructor() Ownable(address(0xdead)) {
+    constructor() {
         _disableInitializers();
     }
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param owner_ The owner of the contract
+    /// @param admin_ The admin of the contract, has port identifier role
     /// @param ics02Client The address of the ICS02Client contract
-    function initialize(address owner_, address ics02Client) public initializer {
-        _transferOwnership(owner_);
+    function initialize(address admin_, address ics02Client) public initializer {
+        _grantRole(PORT_IDENTIFIER_ROLE, admin_);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
@@ -96,7 +100,7 @@ contract ICS26Router is
     function addIBCApp(string calldata portId, address app) external {
         string memory newPortId;
         if (bytes(portId).length != 0) {
-            Ownable._checkOwner();
+            _checkRole(PORT_IDENTIFIER_ROLE);
             newPortId = portId;
         } else {
             newPortId = Strings.toHexString(app);

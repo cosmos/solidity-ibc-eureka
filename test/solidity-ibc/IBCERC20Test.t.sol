@@ -6,7 +6,6 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
@@ -21,7 +20,8 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     function test_ERC20Metadata() public view {
-        assertEq(ibcERC20.owner(), address(this));
+        assertEq(ibcERC20.ICS20(), address(this));
+        assertEq(ibcERC20.ESCROW(), address(_escrow));
         assertEq(ibcERC20.name(), "ibc/test");
         assertEq(ibcERC20.symbol(), "test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
@@ -43,7 +43,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function testFuzz_unauthorized_Mint(uint256 amount) public {
         address notICS20Transfer = makeAddr("notICS20Transfer");
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notICS20Transfer));
+        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
         ibcERC20.mint(amount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
@@ -74,7 +74,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
 
         address notICS20Transfer = makeAddr("notICS20Transfer");
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notICS20Transfer));
+        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
         ibcERC20.burn(burnAmount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);

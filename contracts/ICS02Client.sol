@@ -16,7 +16,7 @@ import { AccessControl } from "@openzeppelin/access/AccessControl.sol";
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable, AccessControl {
+contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, AccessControl {
     /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -36,16 +36,15 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, Initializable, Ownable
         0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
-    constructor() Ownable(address(0xdead)) {
+    constructor() {
         _disableInitializers();
     }
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param owner_ The owner of the contract
-    function initialize(address owner_) public initializer {
-        _transferOwnership(owner_);
-        _grantRole(DEFAULT_ADMIN_ROLE, owner_);
+    /// @param admin_ The address of the admin, who can grant or revoke roles
+    function initialize(address admin_) public initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
     /// @notice Generates the next client identifier

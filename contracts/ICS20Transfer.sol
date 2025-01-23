@@ -7,7 +7,6 @@ import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
 import { ReentrancyGuardTransient } from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import { Multicall } from "@openzeppelin/utils/Multicall.sol";
 import { Initializable } from "@openzeppelin/proxy/utils/Initializable.sol";
@@ -30,7 +29,6 @@ contract ICS20Transfer is
     IICS20Transfer,
     IICS20Errors,
     Initializable,
-    Ownable,
     ReentrancyGuardTransient,
     Multicall
 {
@@ -39,10 +37,12 @@ contract ICS20Transfer is
     /// @dev risk of storage collisions when using with upgradeable contracts.
     /// @param escrow The escrow contract
     /// @param ibcDenomContracts Mapping of non-native denoms to their respective IBCERC20 contracts
+    /// @param router The ICS26Router contract
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(string => IBCERC20) ibcDenomContracts;
+        IICS26Router router;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
@@ -51,7 +51,7 @@ contract ICS20Transfer is
         0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
-    constructor() Ownable(address(0xdead)) {
+    constructor() {
         _disableInitializers();
     }
 
@@ -59,8 +59,10 @@ contract ICS20Transfer is
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
     function initialize(address ics26Router) public initializer {
-        _getICS20TransferStorage().escrow = new Escrow(address(this));
-        _transferOwnership(ics26Router);
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+
+        $.escrow = new Escrow(address(this));
+        $.router = IICS26Router(ics26Router);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -90,11 +92,11 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
-        return IICS26Router(owner()).sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
+        return _getRouter().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
     /// @inheritdoc IIBCApp
-    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyRouter nonReentrant {
         require(
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
@@ -126,10 +128,11 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyOwner nonReentrant returns (bytes memory) {
+    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyRouter nonReentrant returns (bytes memory) {
+        // TODO: Figure out if should actually error out, or if just error acking is enough (#112)
+
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
         if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
-            // TODO: Figure out if should actually error out, or if just error acking is enough
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
@@ -161,7 +164,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
@@ -173,7 +176,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyOwner nonReentrant {
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
@@ -300,7 +303,7 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcDenomContracts[ibcDenom]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(this, _getEscrow(), ibcDenom, base, fullDenomPath);
+            IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, ibcDenom, base, fullDenomPath);
             $.ibcDenomContracts[ibcDenom] = ibcERC20;
             erc20Contract = address(ibcERC20);
         }
@@ -318,5 +321,14 @@ contract ICS20Transfer is
 
     function _getEscrow() private view returns (IEscrow) {
         return _getICS20TransferStorage().escrow;
+    }
+
+    function _getRouter() private view returns (IICS26Router) {
+        return _getICS20TransferStorage().router;
+    }
+
+    modifier onlyRouter() {
+        require(_msgSender() == address(_getRouter()), ICS20Unauthorized(_msgSender()));
+        _;
     }
 }
