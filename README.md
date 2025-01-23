@@ -32,8 +32,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
 
-TEST COMMIT
-
 ### Contracts
 
 | **Contracts** | **Description** | **Status** |
