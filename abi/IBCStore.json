@@ -25,12 +25,12 @@
             "internalType": "uint32"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destChannel",
+            "name": "destClient",
             "type": "string",
             "internalType": "string"
           },
@@ -92,12 +92,12 @@
             "internalType": "uint32"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destChannel",
+            "name": "destClient",
             "type": "string",
             "internalType": "string"
           },
@@ -164,12 +164,12 @@
             "internalType": "uint32"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destChannel",
+            "name": "destClient",
             "type": "string",
             "internalType": "string"
           },
@@ -246,7 +246,7 @@
     "name": "nextSequenceSend",
     "inputs": [
       {
-        "name": "channelId",
+        "name": "clientId",
         "type": "string",
         "internalType": "string"
       }
@@ -295,12 +295,12 @@
             "internalType": "uint32"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destChannel",
+            "name": "destClient",
             "type": "string",
             "internalType": "string"
           },
