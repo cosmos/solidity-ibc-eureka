@@ -2,6 +2,10 @@
 pragma solidity ^0.8.28;
 
 interface IICS20Errors {
+    // @notice Unauthorized function call
+    // @param caller The caller of the function
+    error ICS20Unauthorized(address caller);
+
     /// @notice Unauthorized packet sender
     /// @param packetSender Address of the message sender
     error ICS20UnauthorizedPacketSender(address packetSender);

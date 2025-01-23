@@ -16,8 +16,8 @@ import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
-import { Multicall } from "@openzeppelin/utils/Multicall.sol";
-import { TransientSlot } from "@openzeppelin/utils/TransientSlot.sol";
+import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
+import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
 
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk

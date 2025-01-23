@@ -49,10 +49,10 @@ impl TryFrom<routerEvents> for EurekaEvent {
             }
             routerEvents::Noop(_) => Err(anyhow::anyhow!("Noop event")),
             routerEvents::IBCAppAdded(_) => Err(anyhow::anyhow!("IBCAppAdded event")),
-            routerEvents::OwnershipTransferred(_) => {
-                Err(anyhow::anyhow!("OwnershipTransferred event"))
-            }
             routerEvents::Initialized(_) => Err(anyhow::anyhow!("Initialized event")),
+            routerEvents::RoleGranted(_)
+            | routerEvents::RoleRevoked(_)
+            | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),
         }
     }
 }

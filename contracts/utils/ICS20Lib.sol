@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 // solhint-disable no-inline-assembly
 
-import { Strings } from "@openzeppelin/utils/Strings.sol";
-import { Bytes } from "@openzeppelin/utils/Bytes.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
