@@ -102,7 +102,7 @@ library ICS20Lib {
             value: packetData
         });
         return IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: msg_.sourceChannel,
+            sourceClient: msg_.sourceClient,
             timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
@@ -154,10 +154,10 @@ library ICS20Lib {
 
     /// @notice getDenomPrefix returns an ibc path prefix
     /// @param port Port
-    /// @param channel Channel
+    /// @param client client
     /// @return Denom prefix
-    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
-        return abi.encodePacked(port, "/", channel, "/");
+    function getDenomPrefix(string calldata port, string calldata client) internal pure returns (bytes memory) {
+        return abi.encodePacked(port, "/", client, "/");
     }
 
     /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
