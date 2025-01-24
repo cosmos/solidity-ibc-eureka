@@ -204,7 +204,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     ibctesting.FirstClientID,
+			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
