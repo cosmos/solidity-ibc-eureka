@@ -25,7 +25,6 @@ broadcast/*/31337/
 
 # Rust
 target
-elf
 artifacts
 bacon.toml
 .bacon-locations

@@ -30,20 +30,20 @@ pub struct MisbehaviourProgram;
 
 impl SP1Program for UpdateClientProgram {
     const ELF: &'static [u8] =
-        include_bytes!("../../../elf/update-client-riscv32im-succinct-zkvm-elf");
+        include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client");
 }
 
 impl SP1Program for MembershipProgram {
     const ELF: &'static [u8] =
-        include_bytes!("../../../elf/membership-riscv32im-succinct-zkvm-elf");
+        include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership");
 }
 
 impl SP1Program for UpdateClientAndMembershipProgram {
     const ELF: &'static [u8] =
-        include_bytes!("../../../elf/uc-and-membership-riscv32im-succinct-zkvm-elf");
+        include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership");
 }
 
 impl SP1Program for MisbehaviourProgram {
     const ELF: &'static [u8] =
-        include_bytes!("../../../elf/misbehaviour-riscv32im-succinct-zkvm-elf");
+        include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour");
 }
