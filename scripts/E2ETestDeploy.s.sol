@@ -15,13 +15,13 @@ import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS02Client } from "../contracts/ICS02Client.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;

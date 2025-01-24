@@ -7,7 +7,8 @@
     "url": "https://github.com/srdtrk"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.2.0"
+    "@openzeppelin/contracts": "^5.2.0",
+    "@openzeppelin/contracts-upgradeable": "^5.2.0"
   },
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#987ecfdd329b9170f5f0bfe5210d3e032e0a4308",

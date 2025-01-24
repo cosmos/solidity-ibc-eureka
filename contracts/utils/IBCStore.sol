@@ -5,7 +5,7 @@ import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { ICS24Host } from "./ICS24Host.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { Ownable } from "@openzeppelin-contracts/access/Ownable.sol";
 
 contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @notice all IBC commitments
