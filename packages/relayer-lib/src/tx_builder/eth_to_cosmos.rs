@@ -407,7 +407,7 @@ where
         let target_block_number = self.eth_client.get_block_number().await?;
 
         tracing::info!(
-            "Relaying events from Ethereum to Cosmos for channel {}",
+            "Relaying events from Ethereum to Cosmos for client {}",
             target_client_id
         );
         tracing::debug!("Target block number: {}", target_block_number);
