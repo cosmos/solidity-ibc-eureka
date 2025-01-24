@@ -16,9 +16,6 @@ use ibc_core_client_types::proto::v1::{
     QueryConsensusStateResponse,
 };
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_proto_eureka::ibc::core::channel::v2::{
-    Channel, QueryChannelRequest, QueryChannelResponse,
-};
 use tendermint::{block::signed_header::SignedHeader, validator::Set};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
@@ -52,8 +49,6 @@ pub trait TendermintRpcExt {
     /// Proves a path in the chain's Merkle tree and returns the value at the path and the proof.
     /// If the value is empty, then this is a non-inclusion proof.
     async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)>;
-    /// Fetches the eureka channel state from the target chain.
-    async fn channel(&self, channel_id: String) -> Result<Channel>;
 }
 
 #[async_trait::async_trait]
@@ -186,21 +181,6 @@ impl TendermintRpcExt for HttpClient {
         }
 
         anyhow::Ok((res.value, vm_proof))
-    }
-
-    async fn channel(&self, channel_id: String) -> Result<Channel> {
-        let abci_resp = self
-            .abci_query(
-                Some("/ibc.core.channel.v2.Query/Channel".to_string()),
-                QueryChannelRequest { channel_id }.encode_to_vec(),
-                None,
-                false,
-            )
-            .await?;
-
-        QueryChannelResponse::decode(abci_resp.value.as_slice())?
-            .channel
-            .ok_or_else(|| anyhow::anyhow!("No channel state found"))
     }
 }
 

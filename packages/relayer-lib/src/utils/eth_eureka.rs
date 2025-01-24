@@ -30,7 +30,7 @@ use crate::events::EurekaEvent;
 /// proofs.
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEvent>,
-    target_channel_id: &str,
+    target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
@@ -38,8 +38,7 @@ pub fn target_events_to_timeout_msgs(
         .into_iter()
         .filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceChannel == target_channel_id
-                {
+                if now >= se.packet.timeoutTimestamp && se.packet.sourceClient == target_client_id {
                     Some(routerCalls::timeoutPacket(
                         ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
                             msg_: MsgTimeoutPacket {
@@ -62,7 +61,7 @@ pub fn target_events_to_timeout_msgs(
 /// [`routerCalls::ackPacket`]s with empty proofs.
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEvent>,
-    target_channel_id: &str,
+    target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
@@ -70,7 +69,7 @@ pub fn src_events_to_recv_and_ack_msgs(
         .into_iter()
         .filter_map(|e| match e {
             EurekaEvent::SendPacket(se) => {
-                if se.packet.timeoutTimestamp > now && se.packet.destChannel == target_channel_id {
+                if se.packet.timeoutTimestamp > now && se.packet.destClient == target_client_id {
                     Some(routerCalls::recvPacket(recvPacketCall {
                         msg_: MsgRecvPacket {
                             packet: se.packet,
@@ -83,11 +82,11 @@ pub fn src_events_to_recv_and_ack_msgs(
                 }
             }
             EurekaEvent::WriteAcknowledgement(we) => {
-                if we.packet.sourceChannel == target_channel_id {
+                if we.packet.sourceClient == target_client_id {
                     Some(routerCalls::ackPacket(ackPacketCall {
                         msg_: MsgAckPacket {
                             packet: we.packet,
-                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks
+                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks (#93)
                             proofHeight: target_height.clone(),
                             proofAcked: Bytes::default(),
                         },

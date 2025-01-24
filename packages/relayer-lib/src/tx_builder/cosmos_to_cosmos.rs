@@ -56,15 +56,11 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         &self,
         src_events: Vec<EurekaEvent>,
         target_events: Vec<EurekaEvent>,
-        target_channel_id: String,
+        target_client_id: String,
     ) -> Result<Vec<u8>> {
-        let channel = self
-            .target_tm_client
-            .channel(target_channel_id.clone())
-            .await?;
         let client_state = ClientState::decode(
             self.target_tm_client
-                .client_state(channel.client_id.clone())
+                .client_state(target_client_id.clone())
                 .await?
                 .value
                 .as_slice(),
@@ -88,7 +84,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             target_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
@@ -96,7 +92,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
@@ -123,7 +119,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .await?;
         let proposed_header = target_light_block.into_header(&trusted_light_block);
         let update_msg = MsgUpdateClient {
-            client_id: channel.client_id,
+            client_id: target_client_id,
             client_message: Some(proposed_header.into()),
             signer: self.signer_address.clone(),
         };

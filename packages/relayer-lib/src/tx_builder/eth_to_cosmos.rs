@@ -207,14 +207,13 @@ where
         &self,
         src_events: Vec<EurekaEvent>,
         dest_events: Vec<EurekaEvent>,
-        target_channel_id: String,
+        target_client_id: String,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
-        let channel = self.tm_client.channel(target_channel_id.clone()).await?;
 
         tracing::info!(
-            "Relaying events from Ethereum to Cosmos for channel {}",
-            target_channel_id
+            "Relaying events from Ethereum to Cosmos for client {}",
+            target_client_id
         );
         tracing::debug!("Target block number: {}", target_block_number);
 
@@ -229,7 +228,7 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
@@ -237,7 +236,7 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
@@ -247,11 +246,9 @@ where
         tracing::debug!("Recv messages: #{}", recv_msgs.len());
         tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-        let ethereum_client_state = self
-            .ethereum_client_state(channel.client_id.clone())
-            .await?;
+        let ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
         let ethereum_consensus_state = self
-            .ethereum_consensus_state(channel.client_id.clone(), 0)
+            .ethereum_consensus_state(target_client_id.clone(), 0)
             .await?;
 
         self.wait_for_light_client_readiness(
@@ -360,7 +357,7 @@ where
                 let header_bz = serde_json::to_vec(&header)?;
                 let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
                 Ok(MsgUpdateClient {
-                    client_id: channel.client_id.clone(),
+                    client_id: target_client_id.clone(),
                     client_message: Some(client_msg),
                     signer: self.signer_address.clone(),
                 })
@@ -405,13 +402,13 @@ where
         &self,
         src_events: Vec<EurekaEvent>,
         dest_events: Vec<EurekaEvent>,
-        target_channel_id: String,
+        target_client_id: String,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for channel {}",
-            target_channel_id
+            target_client_id
         );
         tracing::debug!("Target block number: {}", target_block_number);
 
@@ -426,7 +423,7 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
@@ -434,7 +431,7 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_channel_id,
+            &target_client_id,
             &target_height,
             &self.signer_address,
             now,
