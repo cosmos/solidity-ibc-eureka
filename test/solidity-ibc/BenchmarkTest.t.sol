@@ -57,8 +57,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack should be deleted
-        bytes32 path =
-            ICS24Host.packetCommitmentKeyCalldata(ackFixture.packet.sourceClient, ackFixture.packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(ackFixture.packet.sourceClient, ackFixture.packet.sequence);
         bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
         assertEq(storedCommitment, 0);
 
