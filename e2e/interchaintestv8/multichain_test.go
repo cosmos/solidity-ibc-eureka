@@ -740,8 +740,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.ChainAToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{simdASendTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{simdASendTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -766,7 +766,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 		// Recreate the full denom path
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestChannel))
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
 		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
@@ -845,8 +845,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -944,8 +944,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToChainARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1019,8 +1019,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
 			resp, err := s.ChainAToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{simdASendTxHash},
-				TargetChannelId: ibctesting.SecondChannelID,
+				SourceTxIds:    [][]byte{simdASendTxHash},
+				TargetClientId: ibctesting.SecondChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1067,7 +1067,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 		Denom:            denom,
 		Amount:           amount,
 		Receiver:         receiver,
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceChannel,
 		DestPort:         transfertypes.PortID,
 		TimeoutTimestamp: timeoutTimestamp,
 		Memo:             memo,
@@ -1078,7 +1078,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
 	// So we just move the values over here:
 	return ics26router.IICS26RouterMsgsMsgSendPacket{
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceChannel,
 		TimeoutTimestamp: timeoutTimestamp,
 		Payloads: []ics26router.IICS26RouterMsgsPayload{
 			{

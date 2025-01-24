@@ -137,8 +137,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     sendTxHashes,
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    sendTxHashes,
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -257,8 +257,8 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
 
 		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SourceTxIds:     sendTxHashes,
-			TargetChannelId: ibctesting.FirstClientID,
+			SourceTxIds:    sendTxHashes,
+			TargetClientId: ibctesting.FirstClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -275,8 +275,8 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			go func() {
 				defer wg.Done() // decrement the counter when the request completes
 				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SourceTxIds:     [][]byte{txHash},
-					TargetChannelId: ibctesting.FirstClientID,
+					SourceTxIds:    [][]byte{txHash},
+					TargetClientId: ibctesting.FirstClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -382,8 +382,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     sendTxHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    sendTxHashes,
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -419,8 +419,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -524,8 +524,8 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     sendTxHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    sendTxHashes,
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -647,8 +647,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     sendTxHashes,
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    sendTxHashes,
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -681,8 +681,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -798,8 +798,8 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				TimeoutTxIds:    sendTxHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				TimeoutTxIds:   sendTxHashes,
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)

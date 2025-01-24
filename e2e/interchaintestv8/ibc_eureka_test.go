@@ -488,9 +488,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
 		s.Require().Len(sendPacket.Payloads, 1)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
-		s.Require().Equal(ibctesting.FirstClientID, sendPacket.SourceChannel)
+		s.Require().Equal(ibctesting.FirstClientID, sendPacket.SourceClient)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.DestChannel)
+		s.Require().Equal(ibctesting.FirstChannelID, sendPacket.DestClient)
 		s.Require().Equal(transfertypes.V1, sendPacket.Payloads[0].Version)
 		s.Require().Equal(transfertypes.EncodingABI, sendPacket.Payloads[0].Encoding)
 
@@ -515,8 +515,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -552,8 +552,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -652,8 +652,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{returnSendTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{returnSendTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -710,8 +710,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{returnAckTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{returnAckTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -824,8 +824,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{cosmosSendTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{cosmosSendTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -852,7 +852,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}
 
 		// Recreate the full denom path
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestChannel))
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
 		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
@@ -901,8 +901,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -970,9 +970,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(uint32(1), sendPacketEvent.Packet.Sequence)
 		s.Require().Equal(timeout, sendPacketEvent.Packet.TimeoutTimestamp)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].SourcePort)
-		s.Require().Equal(ibctesting.FirstClientID, sendPacketEvent.Packet.SourceChannel)
+		s.Require().Equal(ibctesting.FirstClientID, sendPacketEvent.Packet.SourceClient)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].DestPort)
-		s.Require().Equal(ibctesting.FirstChannelID, sendPacketEvent.Packet.DestChannel)
+		s.Require().Equal(ibctesting.FirstChannelID, sendPacketEvent.Packet.DestClient)
 		s.Require().Equal(transfertypes.V1, sendPacketEvent.Packet.Payloads[0].Version)
 		s.Require().Equal(transfertypes.EncodingABI, sendPacketEvent.Packet.Payloads[0].Encoding)
 
@@ -993,8 +993,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1038,8 +1038,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{returnAckTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{returnAckTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1173,8 +1173,8 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		var timeoutRelayTx []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				TimeoutTxIds:    ethSendTxHashes,
-				TargetChannelId: ibctesting.FirstClientID,
+				TimeoutTxIds:   ethSendTxHashes,
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1286,8 +1286,8 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			var relayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SourceTxIds:     [][]byte{ethSendTxHash},
-					TargetChannelId: ibctesting.FirstChannelID,
+					SourceTxIds:    [][]byte{ethSendTxHash},
+					TargetClientId: ibctesting.FirstChannelID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -1319,8 +1319,8 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			var ackRelayTx []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SourceTxIds:     [][]byte{ackTxHash},
-					TargetChannelId: ibctesting.FirstClientID,
+					SourceTxIds:    [][]byte{ackTxHash},
+					TargetClientId: ibctesting.FirstClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -1367,7 +1367,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 		Denom:            denom,
 		Amount:           amount,
 		Receiver:         receiver,
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceChannel,
 		DestPort:         transfertypes.PortID,
 		TimeoutTimestamp: timeoutTimestamp,
 		Memo:             memo,
@@ -1378,7 +1378,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
 	// So we just move the values over here:
 	return ics26router.IICS26RouterMsgsMsgSendPacket{
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceChannel,
 		TimeoutTimestamp: timeoutTimestamp,
 		Payloads: []ics26router.IICS26RouterMsgsPayload{
 			{

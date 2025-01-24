@@ -313,8 +313,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     txHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    txHashes,
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -361,8 +361,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
 			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -467,8 +467,8 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				TimeoutTxIds:    txHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				TimeoutTxIds:   txHashes,
+				TargetClientId: ibctesting.FirstChannelID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
