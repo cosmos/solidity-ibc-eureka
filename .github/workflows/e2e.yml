@@ -1,7 +1,7 @@
 name: e2e
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 */3 * *"
   workflow_dispatch:
     inputs:
       ethTestnetType:

@@ -14,14 +14,11 @@ build-operator:
 
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 build-sp1-programs:
-  ~/.sp1/bin/cargo-prove prove build --elf-name update-client-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-update-client --output-directory elf --locked
-  @echo "ELF created at 'elf/update-client-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-membership --output-directory elf --locked
-  @echo "ELF created at 'elf/membership-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name uc-and-membership-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-uc-and-membership --output-directory elf --locked
-  @echo "ELF created at 'elf/uc-and-membership-riscv32im-succinct-zkvm-elf'"
-  ~/.sp1/bin/cargo-prove prove build --elf-name misbehaviour-riscv32im-succinct-zkvm-elf -p sp1-ics07-tendermint-misbehaviour --output-directory elf --locked
-  @echo "ELF created at 'elf/misbehaviour-riscv32im-succinct-zkvm-elf'"
+  @echo "Building SP1 programs in 'target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
+  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
+  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
+  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
+  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 build-cw-ics08-wasm-eth:
