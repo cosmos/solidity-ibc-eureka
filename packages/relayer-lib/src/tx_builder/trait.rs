@@ -15,6 +15,6 @@ pub trait TxBuilderService<A: Chain, B: Chain> {
         &self,
         src_events: Vec<A::Event>,
         target_events: Vec<B::Event>,
-        target_channel_id: String,
+        target_client_id: String,
     ) -> Result<Vec<u8>>;
 }
