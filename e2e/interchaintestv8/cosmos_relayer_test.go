@@ -180,10 +180,10 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
+	s.Require().True(s.Run("Register counterparty on Chain A", func() {
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		// We can do this because we know what the counterparty channel ID will be
+		// We can do this because we know what the counterparty client ID will be
 		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
 			ClientId:                 ibctesting.FirstClientID,
 			CounterpartyClientId:     ibctesting.FirstClientID,
@@ -193,7 +193,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
+	s.Require().True(s.Run("Register counterparty on Chain B", func() {
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
 		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
