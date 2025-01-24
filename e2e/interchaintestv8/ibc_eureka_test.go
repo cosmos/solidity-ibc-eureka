@@ -27,7 +27,6 @@ import (
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
-	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
@@ -222,16 +221,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Create channel and register counterparty on Cosmos chain", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
+		merklePathPrefix := [][]byte{[]byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         s.EthereumLightClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdRelayerSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstClientID,
-			Signer:                s.SimdRelayerSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 s.EthereumLightClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			CounterpartyClientId:     ibctesting.FirstClientID,
+			Signer:                   s.SimdRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
@@ -360,12 +356,13 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 
-		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simd, &channeltypesv2.QueryChannelRequest{
-			ChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
-		s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+		// TODO: https://github.com/cosmos/ibc-go/issues/7875
+		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simd, &channeltypesv2.QueryChannelRequest{
+		// 	ChannelId: ibctesting.FirstChannelID,
+		// })
+		// s.Require().NoError(err)
+		// s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
+		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify Cosmos to Eth Relayer Info", func() {
@@ -618,7 +615,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		transferMsgs := make([]sdk.Msg, numOfTransfers)
 		for i := 0; i < numOfTransfers; i++ {
 			transferMsgs[i] = &channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstChannelID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -699,8 +696,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().True(s.Run("Verify commitments exists", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstChannelID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Commitment)
@@ -731,8 +728,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstChannelID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().ErrorContains(err, "packet commitment hash not found")
 			}
@@ -787,7 +784,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Value:           transferBz,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.FirstChannelID,
+			SourceClient:     ibctesting.FirstChannelID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{
 				payload,
@@ -891,8 +888,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Acknowledge packet on Cosmos chain", func() {
 		s.Require().True(s.Run("Verify commitments exists", func() {
 			resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-				ChannelId: ibctesting.FirstChannelID,
-				Sequence:  1,
+				ClientId: ibctesting.FirstChannelID,
+				Sequence: 1,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Commitment)
@@ -922,8 +919,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-				ChannelId: ibctesting.FirstChannelID,
-				Sequence:  1,
+				ClientId: ibctesting.FirstChannelID,
+				Sequence: 1,
 			})
 			s.Require().ErrorContains(err, "packet commitment hash not found")
 		}))

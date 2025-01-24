@@ -103,7 +103,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstChannelID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -221,7 +221,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstChannelID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -612,7 +612,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstChannelID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -670,8 +670,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		s.Require().True(s.Run("Verify commitments exists", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstChannelID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Commitment)
@@ -698,8 +698,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstChannelID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().ErrorContains(err, "packet commitment hash not found")
 			}
@@ -761,7 +761,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstChannelID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
