@@ -129,9 +129,9 @@ func (s *TestSuite) createEthereumLightClient(
 	})
 	s.Require().NoError(err)
 
-	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
+	ethereumLightClientID, err := ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
-	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
+	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) {
@@ -174,7 +174,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cos
 	})
 	s.Require().NoError(err)
 
-	s.EthereumLightClientID, err = ibctesting.ParseClientIDFromEvents(res.Events)
+	ethereumLightClientID, err := ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
-	s.Require().Equal("08-wasm-0", s.EthereumLightClientID)
+	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
 }
