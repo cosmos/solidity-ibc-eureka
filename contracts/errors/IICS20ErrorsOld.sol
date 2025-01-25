@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import { ICS20Lib } from "../utils/ICS20Lib.sol";
-
-interface IICS20Errors {
+interface IICS20ErrorsOld {
     /// @notice Unauthorized packet sender
     /// @param packetSender Address of the message sender
     error ICS20UnauthorizedPacketSender(address packetSender);
@@ -28,7 +26,7 @@ interface IICS20Errors {
 
     /// @notice this error happens when the denom has no foreign ibcERC20 contract (i.e. we don't know this denom)
     /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
-    error ICS20DenomNotFound(ICS20Lib.Denom denom);
+    error ICS20DenomNotFound(string denom);
 
     /// @notice Unsupported feature
     /// @param feature Unsupported feature

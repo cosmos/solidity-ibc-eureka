@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { ICS20Lib } from "../utils/ICS20Lib.sol";
 
 interface IIBCERC20 is IERC20 {
     /// @notice Mint new tokens to the Escrow contract
@@ -14,5 +15,5 @@ interface IIBCERC20 is IERC20 {
 
     /// @notice Get the full denom path of the token
     /// @return the full path of the token's denom
-    function fullDenomPath() external view returns (string memory);
+    function fullDenom() external view returns (ICS20Lib.Denom memory);
 }

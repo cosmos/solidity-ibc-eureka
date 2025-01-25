@@ -7,67 +7,30 @@ import { Strings } from "@openzeppelin/utils/Strings.sol";
 import { Bytes } from "@openzeppelin/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
-import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
-import { IBCERC20 } from "./IBCERC20.sol";
+import { IICS20TransferMsgsOld } from "../msgs/IICS20TransferMsgsOld.sol";
+import { IBCERC20Old } from "./IBCERC20Old.sol";
 
 // This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
-// It has since been modified heavily (e.g. ICS20-2, replacing JSON with ABI encoding, adding new functions, etc.)
-library ICS20Lib {
-    using Strings for string;
-
+// It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
+library ICS20LibOld {
     /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
-    /// @dev See FungibleTokenPacketDataV2 spec:
-    /// https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures
-    /// @param tokens The tokens to be transferred
+    /// @dev PacketData is defined in
+    /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
+    /// @param denom The denomination of the token
     /// @param sender The sender of the token
     /// @param receiver The receiver of the token
+    /// @param amount The amount of tokens
     /// @param memo Optional memo
-    /// @param forwarding Optional forwarding information
     struct FungibleTokenPacketData {
-        Token[] tokens;
+        string denom;
         string sender;
         string receiver;
-        string memo;
-        ForwardingPacketData forwarding;
-    }
-
-    /// @notice ForwardingPacketData defines a list of port ID, channel ID pairs determining the path
-    /// through which a packet must be forwarded, and the destination memo string to be used in the
-    /// final destination of the tokens.
-    /// @param destination_memo Optional memo consumed by final destination chain
-    /// @param hops Optional intermediate path through which packet will be forwarded.
-    struct ForwardingPacketData {
-        string destination_memo;
-        Hop[] hops;
-    }
-
-    /// @notice Token holds the denomination and amount of a token to be transferred.
-    /// @param denom The token denomination
-    /// @param amount The token amount
-    struct Token {
-        Denom denom;
         uint256 amount;
-    }
-
-    /// @notice Denom holds the base denom of a Token and a trace of the chains it was sent through.
-    /// @param base The base token denomination
-    /// @param trace The trace of the token
-    struct Denom {
-        string base;
-        Hop[] trace;
-    }    
-
-    /// @notice Hop defines a port ID, channel ID pair specifying where tokens must be forwarded
-    /// next in a multihop transfer, or the trace of an existing token.
-    /// @param portId The port ID
-    /// @param channelId The channel ID
-    struct Hop {
-        string portId;
-        string channelId;
+        string memo;
     }
 
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
-    string public constant ICS20_VERSION = "ics20-2";
+    string public constant ICS20_VERSION = "ics20-1";
 
     /// @notice ICS20_ENCODING is the encoding string for ICS20 packet data.
     string public constant ICS20_ENCODING = "application/x-solidity-abi";
@@ -100,67 +63,46 @@ library ICS20Lib {
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
-    function newMsgSendPacketV2(
+    function newMsgSendPacketV1(
         address sender,
-        IICS20TransferMsgs.SendTransferMsg memory msg_
+        IICS20TransferMsgsOld.SendTransferMsg memory msg_
     )
         external
         view
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
-        Token[] memory tokens = new Token[](msg_.tokens.length);
-        for (uint256 i = 0; i < msg_.tokens.length; i++) {
-            require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
-
-            string memory fullDenomPath;
-            // TODO: This is probably wrong, it should not have fullDenomPath, but a Denom with trace and whatnot
-            bytes32 denomID = getDenomIdentifier(msg_.tokens[i].denom);
-            try IBCERC20(mustHexStringToAddress(msg_.tokens[i].denom.base)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
-                // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
-                fullDenomPath = ibcERC20FullDenomPath;
-            } catch {
-                // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenomPath = msg_.tokens[i].denom.base;
-            }
-
-            tokens[i] = Token({
-                denom: Denom({
-                    base: fullDenomPath,
-                    trace: msg_.tokens[i].denom.trace
-                }),
-                amount: msg_.tokens[i].amount
-            });
+        string memory fullDenomPath;
+        try IBCERC20Old(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+            // if the address is one of our IBCERC20Old contracts, we get the correct denom for the packet there
+            fullDenomPath = ibcERC20FullDenomPath;
+        } catch {
+            // otherwise this is just an ERC20 address, so we use it as the denom
+            fullDenomPath = msg_.denom;
         }
-
-        ForwardingPacketData memory forwarding = ForwardingPacketData({
-            destination_memo: msg_.memo,
-            hops: msg_.forwarding.hops
-        });
-        
 
         // We are encoding the payload in ABI format
         bytes memory packetData = abi.encode(
-            ICS20Lib.FungibleTokenPacketData({
-                tokens: msg_.tokens,
+            ICS20LibOld.FungibleTokenPacketData({
+                denom: fullDenomPath,
                 sender: Strings.toHexString(sender),
                 receiver: msg_.receiver,
-                memo: msg_.memo,
-                forwarding: forwarding
+                amount: msg_.amount,
+                memo: msg_.memo
             })
         );
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            sourcePort: ICS20LibOld.DEFAULT_PORT_ID,
             destPort: msg_.destPort,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
+            version: ICS20LibOld.ICS20_VERSION,
+            encoding: ICS20LibOld.ICS20_ENCODING,
             value: packetData
         });
         return IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: msg_.sourceClient,
+            sourceChannel: msg_.sourceChannel,
             timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
@@ -192,6 +134,17 @@ library ICS20Lib {
         return keccak256(a) == keccak256(b);
     }
 
+    /// @notice hasPrefix checks a denom for a prefix
+    /// @param denomBz the denom to check
+    /// @param prefix the prefix to check with
+    /// @return true if `denomBz` has the prefix `prefix`
+    function hasPrefix(bytes memory denomBz, bytes memory prefix) internal pure returns (bool) {
+        if (denomBz.length < prefix.length) {
+            return false;
+        }
+        return equal(Bytes.slice(denomBz, 0, prefix.length), prefix);
+    }
+
     /// @notice errorAck returns an error acknowledgement.
     /// @param reason Error reason
     /// @return Error acknowledgement
@@ -199,26 +152,12 @@ library ICS20Lib {
         return abi.encodePacked("{\"error\":\"", reason, "\"}");
     }
 
-    /// @notice hasPrefix checks if the denom is prefixed by the provided port and channel
-    /// @param denom Denom to check for prefix
-    /// @param port Port ID for the prefix
-    /// @param channel Channel ID for the prefix
-    function hasPrefix(Denom memory denom, string calldata port, string calldata channel) internal pure returns (bool) {
-        // if the denom is native, then it is not prefixed by any port/channel pair
-       if (denom.trace.length == 0) {
-           return false;
-       }
-
-       return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(channel);
-    }
-
-    function getDenomIdentifier(Denom memory denom) internal pure returns (bytes32) {
-        bytes memory traceBytes = "";
-        for (uint256 i = 0; i < denom.trace.length; i++) {
-            traceBytes = abi.encodePacked(traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].channelId)));
-        }
-
-        return keccak256(abi.encodePacked(denom.base, traceBytes));
+    /// @notice getDenomPrefix returns an ibc path prefix
+    /// @param port Port
+    /// @param channel Channel
+    /// @return Denom prefix
+    function getDenomPrefix(string calldata port, string calldata channel) internal pure returns (bytes memory) {
+        return abi.encodePacked(port, "/", channel, "/");
     }
 
     /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom

@@ -28,3 +28,7 @@ hex = { workspace = true }
 
 # Only used for test-utils feature
 milagro_bls = { workspace = true, optional = true }
+
+[dev-dependencies]
+milagro_bls = { workspace = true }
+
