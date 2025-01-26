@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 // solhint-disable no-inline-assembly
 
-import { Strings } from "@openzeppelin/utils/Strings.sol";
-import { Bytes } from "@openzeppelin/utils/Bytes.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
@@ -114,22 +114,18 @@ library ICS20Lib {
         for (uint256 i = 0; i < msg_.tokens.length; i++) {
             require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
 
-            string memory fullDenomPath;
-            // TODO: This is probably wrong, it should not have fullDenomPath, but a Denom with trace and whatnot
-            bytes32 denomID = getDenomIdentifier(msg_.tokens[i].denom);
-            try IBCERC20(mustHexStringToAddress(msg_.tokens[i].denom.base)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+            Denom memory fullDenom;
+            // TODO: Is this correct?
+            try IBCERC20(mustHexStringToAddress(msg_.tokens[i].denom.base)).fullDenom() returns (Denom memory fullDenomFromContract) {
                 // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
-                fullDenomPath = ibcERC20FullDenomPath;
+                fullDenom = fullDenomFromContract;
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenomPath = msg_.tokens[i].denom.base;
+                fullDenom = msg_.tokens[i].denom;
             }
 
             tokens[i] = Token({
-                denom: Denom({
-                    base: fullDenomPath,
-                    trace: msg_.tokens[i].denom.trace
-                }),
+                denom: fullDenom,
                 amount: msg_.tokens[i].amount
             });
         }

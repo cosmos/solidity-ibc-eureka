@@ -23,6 +23,11 @@
         "internalType": "bytes32"
       },
       {
+        "name": "sp1Verifier",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_clientState",
         "type": "bytes",
         "internalType": "bytes"
@@ -643,74 +648,80 @@
   },
   {
     "type": "function",
+    "name": "clientState",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "chainId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "trustLevel",
+        "type": "tuple",
+        "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
+        "components": [
+          {
+            "name": "numerator",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "denominator",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "latestHeight",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.Height",
+        "components": [
+          {
+            "name": "revisionNumber",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "revisionHeight",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "trustingPeriod",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "unbondingPeriod",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "isFrozen",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "zkAlgorithm",
+        "type": "uint8",
+        "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getClientState",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "tuple",
-        "internalType": "struct IICS07TendermintMsgs.ClientState",
-        "components": [
-          {
-            "name": "chainId",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "trustLevel",
-            "type": "tuple",
-            "internalType": "struct IICS07TendermintMsgs.TrustThreshold",
-            "components": [
-              {
-                "name": "numerator",
-                "type": "uint8",
-                "internalType": "uint8"
-              },
-              {
-                "name": "denominator",
-                "type": "uint8",
-                "internalType": "uint8"
-              }
-            ]
-          },
-          {
-            "name": "latestHeight",
-            "type": "tuple",
-            "internalType": "struct IICS02ClientMsgs.Height",
-            "components": [
-              {
-                "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
-              },
-              {
-                "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
-              }
-            ]
-          },
-          {
-            "name": "trustingPeriod",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "unbondingPeriod",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "isFrozen",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "zkAlgorithm",
-            "type": "uint8",
-            "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
-          }
-        ]
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "stateMutability": "view"

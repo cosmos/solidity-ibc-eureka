@@ -20,8 +20,8 @@ import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract IntegrationTest is Test {
     ICS26Router public ics26Router;

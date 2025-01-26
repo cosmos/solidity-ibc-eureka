@@ -1,7 +1,7 @@
 name: e2e
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 */3 * *"
   workflow_dispatch:
     inputs:
       ethTestnetType:
@@ -25,6 +25,12 @@ on:
       - '**.sol'
       - '.github/workflows/e2e.yml'
       - 'bun.lockb'
+
+# Cancel the workflow if a new commit is pushed to the branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   FOUNDRY_PROFILE: ci
 permissions:
@@ -104,6 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ETH_TESTNET_TYPE: ${{ github.event.inputs.ethTestnetType || (github.event_name == 'schedule' && 'pos') || 'pow' }}
+      SP1_PROVER: ${{ (github.event.inputs.ethTestnetType == 'pos' && 'network') || (github.event_name == 'schedule' && 'network') || 'mock' }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

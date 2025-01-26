@@ -11,12 +11,11 @@ import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol"
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
-import { IERC20Errors } from "@openzeppelin/interfaces/draft-IERC6093.sol";
+import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
-import { Strings } from "@openzeppelin/utils/Strings.sol";
-import { Ownable } from "@openzeppelin/access/Ownable.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -307,7 +306,7 @@ contract ICS20TransferTest is Test {
         );
 
         // test msg sender is sender, i.e. not owner (ics26Router)
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, sender));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, sender));
         vm.prank(sender);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
@@ -321,7 +320,7 @@ contract ICS20TransferTest is Test {
 
         // test msg sender is someone else entierly, i.e. owner (ics26Router)
         address someoneElse = makeAddr("someoneElse");
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, someoneElse));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, someoneElse));
         vm.prank(someoneElse);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({

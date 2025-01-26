@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length
+// solhint-disable custom-errors,max-line-length,gas-custom-errors
 
 import { Test } from "forge-std/Test.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
@@ -14,9 +14,11 @@ import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 
-abstract contract FixtureTest is Test {
+abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
@@ -79,15 +81,26 @@ abstract contract FixtureTest is Test {
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
         Fixture memory fixture = loadFixture(fixtureFileName);
 
-        IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
-            abi.decode(fixture.genesisFixture.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+        ConsensusState memory trustedConsensusState =
+            abi.decode(fixture.genesisFixture.trustedConsensusState, (ConsensusState));
         bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
+        ClientState memory trustedClientState = abi.decode(fixture.genesisFixture.trustedClientState, (ClientState));
+
+        address verifier;
+        if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Plonk) {
+            verifier = address(new SP1VerifierPlonk());
+        } else if (trustedClientState.zkAlgorithm == SupportedZkAlgorithm.Groth16) {
+            verifier = address(new SP1VerifierGroth16());
+        } else {
+            revert("Unsupported zk algorithm");
+        }
 
         SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
             fixture.genesisFixture.updateClientVkey,
             fixture.genesisFixture.membershipVkey,
             fixture.genesisFixture.ucAndMembershipVkey,
             fixture.genesisFixture.misbehaviourVkey,
+            verifier,
             fixture.genesisFixture.trustedClientState,
             trustedConsensusHash
         );

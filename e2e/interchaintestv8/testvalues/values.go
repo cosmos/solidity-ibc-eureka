@@ -26,6 +26,10 @@ const (
 	EnvKeyEthRPC = "RPC_URL"
 	// EnvKeyOperatorPrivateKey Private key used to submit transactions by the operator.
 	EnvKeyOperatorPrivateKey = "PRIVATE_KEY"
+	// Optional address of the sp1 verifier contract to use
+	// if not set, the contract will be deployed
+	// Can be set to "mock" to use the mock verifier
+	EnvKeyVerifier = "VERIFIER"
 	// EnvKeySp1Prover The prover type (local|network|mock).
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeyNetworkPrivateKey Private key for the sp1 prover network.
@@ -45,6 +49,8 @@ const (
 	EnvValueSp1Prover_Network = "network"
 	// EnvValueSp1Prover_Mock is the prover type for the mock prover.
 	EnvValueSp1Prover_Mock = "mock"
+	// EnvValueVerifier_Mock is the verifier type for the mock verifier.
+	EnvValueVerifier_Mock = "mock"
 	// EnvValueGenerateFixtures_True is the value to set to generate fixtures for the solidity tests.
 	EnvValueGenerateFixtures_True = "true"
 
@@ -104,4 +110,7 @@ var (
 
 	// StartingERC20Balance is the starting balance for the ERC20 contract.
 	StartingERC20Balance = new(big.Int).Div(MaxUint256.ToBig(), big.NewInt(2))
+
+	// DefaultAdminRole is the default admin role for AccessControl contract.
+	DefaultAdminRole = [32]byte{0x00}
 )

@@ -15,11 +15,9 @@ import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 
-import { Multicall } from "@openzeppelin/utils/Multicall.sol";
-import { TransientSlot } from "@openzeppelin/utils/TransientSlot.sol";
+import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
+import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
 
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
@@ -50,19 +48,20 @@ contract SP1ICS07Tendermint is
     ISP1Verifier public immutable VERIFIER;
 
     /// @notice The ICS07Tendermint client state
-    ClientState private clientState;
+    ClientState public clientState;
     /// @notice The mapping from height to consensus state keccak256 hashes.
     mapping(uint32 height => bytes32 hash) private consensusStateHashes;
 
     /// @notice Allowed clock drift.
     /// @inheritdoc ISP1ICS07Tendermint
-    uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 50 minutes;
+    uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 30 minutes;
 
     /// @notice The constructor sets the program verification key and the initial client and consensus states.
     /// @param updateClientProgramVkey The verification key for the update client program.
     /// @param membershipProgramVkey The verification key for the verify (non)membership program.
     /// @param updateClientAndMembershipProgramVkey The verification key for the update client and membership program.
     /// @param misbehaviourProgramVkey The verification key for the misbehaviour program.
+    /// @param sp1Verifier The address of the SP1 verifier contract.
     /// @param _clientState The encoded initial client state.
     /// @param _consensusState The encoded initial consensus state.
     constructor(
@@ -70,6 +69,7 @@ contract SP1ICS07Tendermint is
         bytes32 membershipProgramVkey,
         bytes32 updateClientAndMembershipProgramVkey,
         bytes32 misbehaviourProgramVkey,
+        address sp1Verifier,
         bytes memory _clientState,
         bytes32 _consensusState
     ) {
@@ -81,13 +81,7 @@ contract SP1ICS07Tendermint is
         clientState = abi.decode(_clientState, (ClientState));
         consensusStateHashes[clientState.latestHeight.revisionHeight] = _consensusState;
 
-        if (clientState.zkAlgorithm == SupportedZkAlgorithm.Groth16) {
-            VERIFIER = new SP1VerifierGroth16();
-        } else if (clientState.zkAlgorithm == SupportedZkAlgorithm.Plonk) {
-            VERIFIER = new SP1VerifierPlonk();
-        } else {
-            revert UnknownZkAlgorithm(uint8(clientState.zkAlgorithm));
-        }
+        VERIFIER = ISP1Verifier(sp1Verifier);
 
         require(
             clientState.trustingPeriod <= clientState.unbondingPeriod,
@@ -95,9 +89,9 @@ contract SP1ICS07Tendermint is
         );
     }
 
-    /// @inheritdoc ISP1ICS07Tendermint
-    function getClientState() public view returns (ClientState memory) {
-        return clientState;
+    /// @inheritdoc ILightClient
+    function getClientState() external view returns (bytes memory) {
+        return abi.encode(clientState);
     }
 
     /// @inheritdoc ISP1ICS07Tendermint

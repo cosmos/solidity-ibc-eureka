@@ -44,4 +44,8 @@ contract DummyLightClient is ILightClient {
         membershipResult = membershipResult_;
         membershipShouldFail = shouldFail;
     }
+
+    function getClientState() external pure returns (bytes memory) {
+        return bytes("");
+    }
 }

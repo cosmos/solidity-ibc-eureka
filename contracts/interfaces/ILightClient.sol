@@ -24,4 +24,8 @@ interface ILightClient is ILightClientMsgs {
     /// @notice Upgrading the client
     /// @param upgradeMsg The upgrade message
     function upgradeClient(bytes calldata upgradeMsg) external;
+
+    /// @notice Returns the client state.
+    /// @return The client state.
+    function getClientState() external view returns (bytes memory);
 }

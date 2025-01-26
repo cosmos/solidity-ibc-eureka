@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 interface IIBCERC20 is IERC20 {
     /// @notice Mint new tokens to the Escrow contract

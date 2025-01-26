@@ -136,3 +136,18 @@ impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
         })
     }
 }
+
+#[cfg(feature = "rpc")]
+impl From<sp1_ics07_tendermint::clientStateReturn> for IICS07TendermintMsgs::ClientState {
+    fn from(client_state: sp1_ics07_tendermint::clientStateReturn) -> Self {
+        Self {
+            chainId: client_state.chainId,
+            trustLevel: client_state.trustLevel,
+            trustingPeriod: client_state.trustingPeriod,
+            unbondingPeriod: client_state.unbondingPeriod,
+            latestHeight: client_state.latestHeight,
+            isFrozen: client_state.isFrozen,
+            zkAlgorithm: client_state.zkAlgorithm,
+        }
+    }
+}

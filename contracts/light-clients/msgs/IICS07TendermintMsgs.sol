@@ -24,7 +24,7 @@ interface IICS07TendermintMsgs is IICS02ClientMsgs, ISP1Msgs {
     /// submitted headers are valid for upgrade in seconds.
     /// @param unbondingPeriod duration of the staking unbonding period in seconds
     /// @param isFrozen whether or not client is frozen (due to misbehavior)
-    /// @param zkAlgorithm The zk algorithm supported by this contract.
+    /// @param zkAlgorithm The zk algorithm supported by this contract (for the relayers).
     struct ClientState {
         string chainId;
         TrustThreshold trustLevel;

@@ -4,6 +4,10 @@ pragma solidity ^0.8.28;
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
 
 interface IICS20Errors {
+    // @notice Unauthorized function call
+    // @param caller The caller of the function
+    error ICS20Unauthorized(address caller);
+
     /// @notice Unauthorized packet sender
     /// @param packetSender Address of the message sender
     error ICS20UnauthorizedPacketSender(address packetSender);
