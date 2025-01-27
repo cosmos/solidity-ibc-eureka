@@ -45,12 +45,23 @@ contract ICS24HostTest is Test {
 
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
+        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
+        tokens[0] = ICS20Lib.Token({
+            denom: ICS20Lib.Denom({
+                base: "uatom",
+                trace: new ICS20Lib.Hop[](0)
+            }),
+            amount: 1_000_000
+        });
         ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
-            denom: "uatom",
-            amount: 1_000_000,
+            tokens: tokens,
             sender: "sender",
             receiver: "receiver",
-            memo: "memo"
+            memo: "memo",
+            forwarding: ICS20Lib.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new ICS20Lib.Hop[](0)
+            })
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -64,8 +75,8 @@ contract ICS24HostTest is Test {
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: "channel-0",
-            destChannel: "channel-1",
+            sourceChannel: "07-tendermint-0",
+            destChannel: "07-tendermint-1",
             timeoutTimestamp: 100,
             payloads: payloads
         });
