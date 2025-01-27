@@ -12,13 +12,18 @@ interface IICS20TransferMsgs {
     /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
     /// @param memo Optional memo
     struct SendTransferMsg {
-        ICS20Lib.Token[] tokens;
+        Token[] tokens;
         string receiver;
         string sourceClient;
         string destPort;
         uint64 timeoutTimestamp;
         string memo;
         Forwarding forwarding;
+    }
+
+    struct Token {
+        address contractAddress;
+        uint256 amount;
     }
 
     /// @notice Forwarding defines a list of port ID, channel ID pairs determining the path

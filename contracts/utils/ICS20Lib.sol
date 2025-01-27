@@ -63,6 +63,7 @@ library ICS20Lib {
     /// @param channelId The channel ID
     struct Hop {
         string portId;
+        // TODO: RENAME TO CLIENT ID???
         string channelId;
     }
 
@@ -108,20 +109,21 @@ library ICS20Lib {
         view
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
-        
-
         Token[] memory tokens = new Token[](msg_.tokens.length);
         for (uint256 i = 0; i < msg_.tokens.length; i++) {
             require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
 
             Denom memory fullDenom;
             // TODO: Is this correct?
-            try IBCERC20(mustHexStringToAddress(msg_.tokens[i].denom.base)).fullDenom() returns (Denom memory fullDenomFromContract) {
+            try IBCERC20(msg_.tokens[i].contractAddress).fullDenom() returns (Denom memory fullDenomFromContract) {
                 // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
                 fullDenom = fullDenomFromContract;
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenom = msg_.tokens[i].denom;
+                fullDenom = ICS20Lib.Denom({
+                    base: Strings.toHexString(msg_.tokens[i].contractAddress),
+                    trace: new Hop[](0)
+                });
             }
 
             tokens[i] = Token({
@@ -144,7 +146,7 @@ library ICS20Lib {
         // We are encoding the payload in ABI format
         bytes memory packetData = abi.encode(
             ICS20Lib.FungibleTokenPacketData({
-                tokens: msg_.tokens,
+                tokens: tokens,
                 sender: Strings.toHexString(sender),
                 receiver: msg_.receiver,
                 memo: memo,

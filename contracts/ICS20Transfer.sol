@@ -191,13 +191,13 @@ contract ICS20Transfer is
                     base: token.denom.base,
                     trace: new ICS20Lib.Hop[](token.denom.trace.length + 1)
                 });
-                for (uint256 j = 0; j < token.denom.trace.length; j++) {
-                    newDenom.trace[j] = token.denom.trace[j];
-                }
-                newDenom.trace[token.denom.trace.length] = ICS20Lib.Hop({
+                newDenom.trace[0] = ICS20Lib.Hop({
                     portId: msg_.payload.destPort,
                     channelId: msg_.destinationChannel
                 });
+                for (uint256 j = 0; j < token.denom.trace.length; j++) {
+                    newDenom.trace[j+1] = token.denom.trace[j];
+                }
 
                 erc20Address = findOrCreateERC20Address(newDenom);
                 IBCERC20(erc20Address).mint(token.amount);
