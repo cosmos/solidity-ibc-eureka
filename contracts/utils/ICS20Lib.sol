@@ -130,11 +130,16 @@ library ICS20Lib {
             });
         }
 
+        // TODO: Make sure to have a test that covers this properly
+        string memory memo = msg_.memo;
         ForwardingPacketData memory forwarding = ForwardingPacketData({
-            destinationMemo: msg_.memo,
+            destinationMemo: "",
             hops: msg_.forwarding.hops
         });
-        
+        if (msg_.forwarding.hops.length > 0) {
+            memo = "";
+            forwarding.destinationMemo = msg_.memo;
+        }
 
         // We are encoding the payload in ABI format
         bytes memory packetData = abi.encode(
@@ -142,7 +147,7 @@ library ICS20Lib {
                 tokens: msg_.tokens,
                 sender: Strings.toHexString(sender),
                 receiver: msg_.receiver,
-                memo: msg_.memo,
+                memo: memo,
                 forwarding: forwarding
             })
         );
