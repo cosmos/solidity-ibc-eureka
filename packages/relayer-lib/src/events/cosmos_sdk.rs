@@ -14,16 +14,10 @@ pub const EVENT_TYPE_ACKNOWLEDGE_PACKET: &str = "acknowledge_packet";
 /// The event type for a write acknowledgement event.
 pub const EVENT_TYPE_WRITE_ACK: &str = "write_acknowledgement";
 
-/// The attribute key for the channel ID.
-pub const ATTRIBUTE_KEY_CHANNEL_ID: &str = "channel_id";
-/// The attribute key for the client ID.
-pub const ATTRIBUTE_KEY_CLIENT_ID: &str = "client_id";
-/// The attribute key for the counterparty channel ID.
-pub const ATTRIBUTE_KEY_COUNTERPARTY_CHANNEL_ID: &str = "counterparty_channel_id";
-/// The attribute key for the source channel.
-pub const ATTRIBUTE_KEY_SRC_CHANNEL: &str = "packet_source_channel";
-/// The attribute key for the destination channel.
-pub const ATTRIBUTE_KEY_DST_CHANNEL: &str = "packet_dest_channel";
+/// The attribute key for the source client.
+pub const ATTRIBUTE_KEY_SRC_CLIENT: &str = "packet_source_client";
+/// The attribute key for the destination client.
+pub const ATTRIBUTE_KEY_DST_CLIENT: &str = "packet_dest_client";
 /// The attribute key for the sequence.
 pub const ATTRIBUTE_KEY_SEQUENCE: &str = "packet_sequence";
 /// The attribute key for the timeout timestamp.

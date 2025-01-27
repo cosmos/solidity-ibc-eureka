@@ -86,6 +86,9 @@ const (
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = "0x1"
+
+	// FirstWasmClientID is the first wasm client ID. Used for testing.
+	FirstWasmClientID = "08-wasm-0"
 )
 
 var (

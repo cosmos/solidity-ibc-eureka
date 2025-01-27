@@ -12,9 +12,9 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     /// @dev keccak256(IBC-compatible-store-path) => sha256(IBC-compatible-commitment)
     mapping(bytes32 hashedPath => bytes32 commitment) internal commitments;
 
-    /// @notice Previous sequence send for a given port and channel pair
-    /// @dev (portId, channelId) => prevSeqSend
-    mapping(string channelId => uint32 prevSeqSend) private prevSequenceSends;
+    /// @notice Previous sequence send for a given port and client pair
+    /// @dev (portId, clientId) => prevSeqSend
+    mapping(string clientId => uint32 prevSeqSend) private prevSequenceSends;
 
     /// @param owner_ The owner of the contract
     /// @dev Owner is to be the ICS26Router contract
@@ -26,19 +26,19 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     }
 
     /// @inheritdoc IIBCStore
-    function nextSequenceSend(string calldata channelId) public onlyOwner returns (uint32) {
-        uint32 seq = prevSequenceSends[channelId] + 1;
-        prevSequenceSends[channelId] = seq;
+    function nextSequenceSend(string calldata clientId) public onlyOwner returns (uint32) {
+        uint32 seq = prevSequenceSends[clientId] + 1;
+        prevSequenceSends[clientId] = seq;
         return seq;
     }
 
     /// @inheritdoc IIBCStore
     function commitPacket(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
         require(
             commitments[path] == 0,
             IBCPacketCommitmentAlreadyExists(
-                ICS24Host.packetCommitmentPathCalldata(packet.sourceChannel, packet.sequence)
+                ICS24Host.packetCommitmentPathCalldata(packet.sourceClient, packet.sequence)
             )
         );
 
@@ -48,11 +48,11 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) public onlyOwner returns (bytes32) {
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
         bytes32 commitment = commitments[path];
         require(
             commitment != 0,
-            IBCPacketCommitmentNotFound(ICS24Host.packetCommitmentPathCalldata(packet.sourceChannel, packet.sequence))
+            IBCPacketCommitmentNotFound(ICS24Host.packetCommitmentPathCalldata(packet.sourceClient, packet.sequence))
         );
 
         delete commitments[path];
@@ -61,11 +61,11 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
-        bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destClient, packet.sequence);
         require(
             commitments[path] == 0,
             IBCPacketReceiptAlreadyExists(
-                ICS24Host.packetReceiptCommitmentPathCalldata(packet.destChannel, packet.sequence)
+                ICS24Host.packetReceiptCommitmentPathCalldata(packet.destClient, packet.sequence)
             )
         );
 
@@ -74,11 +74,11 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
 
     /// @inheritdoc IIBCStore
     function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) public onlyOwner {
-        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destChannel, packet.sequence);
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destClient, packet.sequence);
         require(
             commitments[path] == 0,
             IBCPacketAcknowledgementAlreadyExists(
-                ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destChannel, packet.sequence)
+                ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destClient, packet.sequence)
             )
         );
 

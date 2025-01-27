@@ -6,14 +6,14 @@ import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 interface IICS26RouterMsgs {
     /// @notice Packet struct
     /// @param sequence The sequence number of the packet
-    /// @param sourceChannel The source channel identifier (client id)
-    /// @param destChannel The destination channel identifier
+    /// @param sourceClient The source client identifier (client id)
+    /// @param destClient The destination client identifier
     /// @param timeoutTimestamp The timeout timestamp in the counterparty chain, in unix seconds
     /// @param payloads The packet payloads
     struct Packet {
         uint32 sequence;
-        string sourceChannel;
-        string destChannel;
+        string sourceClient;
+        string destClient;
         uint64 timeoutTimestamp;
         Payload[] payloads;
     }
@@ -35,11 +35,11 @@ interface IICS26RouterMsgs {
 
     /// @notice Message for sending packets
     /// @dev Submitted by the user or the IBC application
-    /// @param sourceChannel The source channel identifier (client id)
+    /// @param sourceClient The source client identifier (client id)
     /// @param timeoutTimestamp The timeout timestamp in unix seconds
     /// @param payloads The packet payloads
     struct MsgSendPacket {
-        string sourceChannel;
+        string sourceClient;
         uint64 timeoutTimestamp;
         Payload[] payloads;
     }

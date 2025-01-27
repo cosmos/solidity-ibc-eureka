@@ -118,7 +118,7 @@ contract ICS20Transfer is
 
             address erc20Address;
 
-            bool returningToSource = ICS20Lib.hasPrefix(token.denom, msg_.payload.sourcePort, msg_.sourceChannel);
+            bool returningToSource = ICS20Lib.hasPrefix(token.denom, msg_.payload.sourcePort, msg_.sourceClient);
 
             // if the denom is prefixed by the port and channel on which we are sending
             // the token, then we must be returning the token back to the chain they originated from
@@ -178,7 +178,7 @@ contract ICS20Transfer is
             // NOTE: We use SourcePort and SourceChannel here, because the counterparty
             // chain would have prefixed with DestPort and DestChannel when originally
             // receiving this token.
-            bool returningToOrigin = ICS20Lib.hasPrefix(token.denom, msg_.payload.sourcePort, msg_.sourceChannel);
+            bool returningToOrigin = ICS20Lib.hasPrefix(token.denom, msg_.payload.sourcePort, msg_.sourceClient);
 
             address erc20Address;
             if (returningToOrigin) {
@@ -193,7 +193,7 @@ contract ICS20Transfer is
                 });
                 newDenom.trace[0] = ICS20Lib.Hop({
                     portId: msg_.payload.destPort,
-                    channelId: msg_.destinationChannel
+                    channelId: msg_.destinationClient
                 });
                 for (uint256 j = 0; j < token.denom.trace.length; j++) {
                     newDenom.trace[j+1] = token.denom.trace[j];
@@ -216,7 +216,7 @@ contract ICS20Transfer is
             ICS20Lib.FungibleTokenPacketData memory packetData =
                 abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
-            _refundTokens(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+            _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
         }
     }
 
@@ -224,17 +224,16 @@ contract ICS20Transfer is
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
-
-        _refundTokens(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+        _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
     }
 
     /// @notice Refund the tokens to the sender
     /// @param sourcePort The source port of the packet
-    /// @param sourceChannel The source channel of the packet
+    /// @param sourceClient The source client of the packet
     /// @param packetData The packet data
     function _refundTokens(
         string calldata sourcePort,
-        string calldata sourceChannel,
+        string calldata sourceClient,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
         private 
@@ -246,7 +245,7 @@ contract ICS20Transfer is
             ICS20Lib.Token memory token = packetData.tokens[i];
 
             address erc20Address;
-            if (ICS20Lib.hasPrefix(token.denom, sourcePort, sourceChannel)) {
+            if (ICS20Lib.hasPrefix(token.denom, sourcePort, sourceClient)) {
                 // if the token we must refund is prefixed by the source port and channel
                 // then the tokens were burnt when the packet was sent and we must mint new tokens
                 bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);

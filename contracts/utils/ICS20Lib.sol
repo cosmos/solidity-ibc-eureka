@@ -163,7 +163,7 @@ library ICS20Lib {
             value: packetData
         });
         return IICS26RouterMsgs.MsgSendPacket({
-            sourceChannel: msg_.sourceClient,
+            sourceClient: msg_.sourceClient,
             timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
@@ -206,14 +206,14 @@ library ICS20Lib {
     /// @notice hasPrefix checks if the denom is prefixed by the provided port and channel
     /// @param denom Denom to check for prefix
     /// @param port Port ID for the prefix
-    /// @param channel Channel ID for the prefix
-    function hasPrefix(Denom memory denom, string calldata port, string calldata channel) internal pure returns (bool) {
+    /// @param client Client ID for the prefix
+    function hasPrefix(Denom memory denom, string calldata port, string calldata client) internal pure returns (bool) {
         // if the denom is native, then it is not prefixed by any port/channel pair
        if (denom.trace.length == 0) {
            return false;
        }
 
-       return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(channel);
+       return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(client);
     }
 
     function getDenomIdentifier(Denom memory denom) internal pure returns (bytes32) {

@@ -124,7 +124,7 @@ where
         &self,
         src_events: Vec<EurekaEvent>,
         dest_events: Vec<EurekaEvent>,
-        target_channel_id: String,
+        target_client_id: String,
     ) -> Result<Vec<u8>> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -141,14 +141,14 @@ where
 
         let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             dest_events,
-            &target_channel_id,
+            &target_client_id,
             &latest_height,
             now,
         );
 
         let recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_channel_id,
+            &target_client_id,
             &latest_height,
             now,
         );
@@ -163,7 +163,7 @@ where
 
         tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
 
-        let client_state = self.client_state(target_channel_id).await?;
+        let client_state = self.client_state(target_client_id).await?;
 
         inject_sp1_proof(
             self.sp1_prover(),

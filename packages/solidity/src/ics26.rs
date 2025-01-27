@@ -25,7 +25,7 @@ impl IICS26RouterMsgs::Packet {
     #[must_use]
     pub fn commitment_path(&self) -> Vec<u8> {
         let mut path = Vec::new();
-        path.extend_from_slice(self.sourceChannel.as_bytes());
+        path.extend_from_slice(self.sourceClient.as_bytes());
         path.push(1_u8);
         path.extend_from_slice(&u64::from(self.sequence).to_be_bytes());
         path
@@ -35,7 +35,7 @@ impl IICS26RouterMsgs::Packet {
     #[must_use]
     pub fn receipt_commitment_path(&self) -> Vec<u8> {
         let mut path = Vec::new();
-        path.extend_from_slice(self.destChannel.as_bytes());
+        path.extend_from_slice(self.destClient.as_bytes());
         path.push(2_u8);
         path.extend_from_slice(&u64::from(self.sequence).to_be_bytes());
         path
@@ -45,7 +45,7 @@ impl IICS26RouterMsgs::Packet {
     #[must_use]
     pub fn ack_commitment_path(&self) -> Vec<u8> {
         let mut path = Vec::new();
-        path.extend_from_slice(self.destChannel.as_bytes());
+        path.extend_from_slice(self.destClient.as_bytes());
         path.push(3_u8);
         path.extend_from_slice(&u64::from(self.sequence).to_be_bytes());
         path
@@ -58,8 +58,8 @@ impl TryFrom<Packet> for IICS26RouterMsgs::Packet {
     fn try_from(packet: Packet) -> Result<Self, Self::Error> {
         Ok(Self {
             sequence: packet.sequence.try_into()?,
-            sourceChannel: packet.source_channel,
-            destChannel: packet.destination_channel,
+            sourceClient: packet.source_client,
+            destClient: packet.destination_client,
             timeoutTimestamp: packet.timeout_timestamp,
             payloads: packet.payloads.into_iter().map(Into::into).collect(),
         })
@@ -70,8 +70,8 @@ impl From<IICS26RouterMsgs::Packet> for Packet {
     fn from(packet: IICS26RouterMsgs::Packet) -> Self {
         Self {
             sequence: packet.sequence.into(),
-            source_channel: packet.sourceChannel,
-            destination_channel: packet.destChannel,
+            source_client: packet.sourceClient,
+            destination_client: packet.destClient,
             timeout_timestamp: packet.timeoutTimestamp,
             payloads: packet.payloads.into_iter().map(Into::into).collect(),
         }

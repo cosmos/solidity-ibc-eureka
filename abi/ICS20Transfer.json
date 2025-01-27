@@ -109,36 +109,12 @@
           {
             "name": "tokens",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Token[]",
+            "internalType": "struct IICS20TransferMsgs.Token[]",
             "components": [
               {
-                "name": "denom",
-                "type": "tuple",
-                "internalType": "struct ICS20Lib.Denom",
-                "components": [
-                  {
-                    "name": "base",
-                    "type": "string",
-                    "internalType": "string"
-                  },
-                  {
-                    "name": "trace",
-                    "type": "tuple[]",
-                    "internalType": "struct ICS20Lib.Hop[]",
-                    "components": [
-                      {
-                        "name": "portId",
-                        "type": "string",
-                        "internalType": "string"
-                      },
-                      {
-                        "name": "channelId",
-                        "type": "string",
-                        "internalType": "string"
-                      }
-                    ]
-                  }
-                ]
+                "name": "contractAddress",
+                "type": "address",
+                "internalType": "address"
               },
               {
                 "name": "amount",
@@ -206,7 +182,7 @@
         "internalType": "struct IICS26RouterMsgs.MsgSendPacket",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -262,12 +238,12 @@
         "internalType": "struct IIBCAppCallbacks.OnAcknowledgementPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -334,12 +310,12 @@
         "internalType": "struct IIBCAppCallbacks.OnRecvPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -407,12 +383,12 @@
         "internalType": "struct IIBCAppCallbacks.OnSendPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -474,12 +450,12 @@
         "internalType": "struct IIBCAppCallbacks.OnTimeoutPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -543,36 +519,12 @@
           {
             "name": "tokens",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Token[]",
+            "internalType": "struct IICS20TransferMsgs.Token[]",
             "components": [
               {
-                "name": "denom",
-                "type": "tuple",
-                "internalType": "struct ICS20Lib.Denom",
-                "components": [
-                  {
-                    "name": "base",
-                    "type": "string",
-                    "internalType": "string"
-                  },
-                  {
-                    "name": "trace",
-                    "type": "tuple[]",
-                    "internalType": "struct ICS20Lib.Hop[]",
-                    "components": [
-                      {
-                        "name": "portId",
-                        "type": "string",
-                        "internalType": "string"
-                      },
-                      {
-                        "name": "channelId",
-                        "type": "string",
-                        "internalType": "string"
-                      }
-                    ]
-                  }
-                ]
+                "name": "contractAddress",
+                "type": "address",
+                "internalType": "address"
               },
               {
                 "name": "amount",

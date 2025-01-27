@@ -87,7 +87,7 @@ contract ICS20TransferTest is Test {
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: defaultSendTransferMsgTokens,
             receiver: receiverStr,
-            sourceClient: packet.sourceChannel,
+            sourceClient: packet.sourceClient,
             destPort: packet.payloads[0].sourcePort,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "memo",
@@ -113,7 +113,7 @@ contract ICS20TransferTest is Test {
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: defaultSendTransferMsgTokens,
             receiver: receiverStr,
-            sourceClient: packet.sourceChannel,
+            sourceClient: packet.sourceClient,
             destPort: packet.payloads[0].sourcePort,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             memo: "memo",
@@ -148,8 +148,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -176,8 +176,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -211,8 +211,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -236,8 +236,8 @@ contract ICS20TransferTest is Test {
         );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -252,8 +252,8 @@ contract ICS20TransferTest is Test {
         );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -266,8 +266,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -282,8 +282,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(); // Given the data is invalid, we expect the abi.decodePayload to fail with a generic revert
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -298,8 +298,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -314,8 +314,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, notSender));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: notSender // not the same as the payload sender
@@ -327,8 +327,8 @@ contract ICS20TransferTest is Test {
         vm.prank(sender);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -341,8 +341,8 @@ contract ICS20TransferTest is Test {
         vm.prank(someoneElse);
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -355,8 +355,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -374,8 +374,8 @@ contract ICS20TransferTest is Test {
         );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: sender
@@ -397,8 +397,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -423,8 +423,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -438,8 +438,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
@@ -468,8 +468,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -483,8 +483,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
@@ -508,8 +508,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(bytes(""));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
@@ -525,8 +525,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
@@ -543,8 +543,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
@@ -570,8 +570,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -585,8 +585,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -609,8 +609,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(bytes(""));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -625,8 +625,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -642,8 +642,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -668,8 +668,8 @@ contract ICS20TransferTest is Test {
 
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 sender: address(ics20Transfer)
@@ -683,14 +683,14 @@ contract ICS20TransferTest is Test {
 
         // Send back (onRecv)
         string memory newSourcePort = packet.payloads[0].destPort;
-        string memory newSourceChannel = packet.destChannel;
+        string memory newSourceClient = packet.destClient;
         ICS20Lib.Denom memory receivedDenom = ICS20Lib.Denom({
             base: erc20AddressStr,
             trace: new ICS20Lib.Hop[](1)
         });
         receivedDenom.trace[0] = ICS20Lib.Hop({
             portId: newSourcePort,
-            channelId: newSourceChannel
+            channelId: newSourceClient
         });
 
         {
@@ -716,14 +716,14 @@ contract ICS20TransferTest is Test {
 
         packet.payloads[0].value = abi.encode(backPacketData);
         packet.payloads[0].destPort = packet.payloads[0].sourcePort;
-        packet.destChannel = packet.sourceChannel;
+        packet.destClient = packet.sourceClient;
         packet.payloads[0].sourcePort = newSourcePort;
-        packet.sourceChannel = newSourceChannel;
+        packet.sourceClient = newSourceClient;
 
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -766,14 +766,14 @@ contract ICS20TransferTest is Test {
         });
         packet.payloads[0].value = abi.encode(receivePayload);
         packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
-        packet.destChannel = "dest-channel";
+        packet.destClient = "dest-client";
         packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
-        packet.sourceChannel = "source-channel";
+        packet.sourceClient = "source-client";
 
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -787,7 +787,7 @@ contract ICS20TransferTest is Test {
         });
         expectedDenom.trace[0] = ICS20Lib.Hop({
             portId: packet.payloads[0].destPort,
-            channelId: packet.destChannel
+            channelId: packet.destClient
         });
 
         IBCERC20 ibcERC20 = IBCERC20(ics20Transfer.ibcERC20Contract(expectedDenom));
@@ -806,6 +806,7 @@ contract ICS20TransferTest is Test {
     function test_success_onRecvPacketWithForeignIBCDenom() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
+        // TODO: FIX THIS WITH A PROPER DENOM
         string memory foreignDenom = "transfer/channel-42/uatom";
 
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
@@ -833,14 +834,14 @@ contract ICS20TransferTest is Test {
         });
         packet.payloads[0].value = abi.encode(receivePayload);
         packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
-        packet.destChannel = "dest-channel";
+        packet.destClient = "dest-client";
         packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
-        packet.sourceChannel = "source-channel";
+        packet.sourceClient = "source-client";
 
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -854,7 +855,7 @@ contract ICS20TransferTest is Test {
         });
         expectedDenom.trace[0] = ICS20Lib.Hop({
             portId: packet.payloads[0].destPort,
-            channelId: packet.destChannel
+            channelId: packet.destClient
         });
 
         IBCERC20 ibcERC20 = IBCERC20(ics20Transfer.ibcERC20Contract(expectedDenom));
@@ -880,7 +881,7 @@ contract ICS20TransferTest is Test {
         });
         denom.trace[0] = ICS20Lib.Hop({
             portId: packet.payloads[0].sourcePort,
-            channelId: packet.sourceChannel
+            channelId: packet.sourceClient
         });
         defaultPacketData.tokens[0].denom = denom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
@@ -889,8 +890,8 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].version = "invalid";
         bytes memory ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -907,8 +908,8 @@ contract ICS20TransferTest is Test {
         vm.expectRevert(); // here we expect a generic revert caused by the abi.decodePayload function
         ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -922,8 +923,8 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
         ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -941,15 +942,15 @@ contract ICS20TransferTest is Test {
         });
         invalidErc20Denom.trace[0] = ICS20Lib.Hop({
             portId: packet.payloads[0].sourcePort,
-            channelId: packet.sourceChannel
+            channelId: packet.sourceClient
         });
         defaultPacketData.tokens[0].denom = invalidErc20Denom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
         ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -964,8 +965,8 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
         ack = ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
-                sourceChannel: packet.sourceChannel,
-                destinationChannel: packet.destChannel,
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
                 relayer: makeAddr("relayer")
@@ -988,8 +989,8 @@ contract ICS20TransferTest is Test {
         });
         return IICS26RouterMsgs.Packet({
             sequence: 0,
-            sourceChannel: "sourceChannel",
-            destChannel: "destinationChannel",
+            sourceClient: "sourceClient",
+            destClient: "destinationClient",
             timeoutTimestamp: 0,
             payloads: payloads
         });
