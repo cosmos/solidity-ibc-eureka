@@ -31,6 +31,7 @@ contract ICS20TransferTest is Test {
     uint256 public defaultAmount = 1_000_000_100_000_000_001;
 
     ICS20Lib.FungibleTokenPacketData public defaultPacketData;
+    IICS20TransferMsgs.Token[] public defaultSendTransferMsgTokens;
     bytes public data;
 
     function setUp() public {
@@ -61,7 +62,6 @@ contract ICS20TransferTest is Test {
             }),
             amount: defaultAmount
         });
-
         defaultPacketData = ICS20Lib.FungibleTokenPacketData({
             tokens: tokens,
             sender: senderStr,
@@ -72,15 +72,20 @@ contract ICS20TransferTest is Test {
                 hops: new ICS20Lib.Hop[](0)
             })
         });
-
         data = abi.encode(defaultPacketData);
+
+        defaultSendTransferMsgTokens = new IICS20TransferMsgs.Token[](1);
+        defaultSendTransferMsgTokens[0] = IICS20TransferMsgs.Token({
+            contractAddress: address(erc20),
+            amount: defaultAmount
+        });
     }
 
     function test_success_sendTransfer() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            tokens: defaultPacketData.tokens,
+            tokens: defaultSendTransferMsgTokens,
             receiver: receiverStr,
             sourceClient: packet.sourceChannel,
             destPort: packet.payloads[0].sourcePort,
@@ -106,7 +111,7 @@ contract ICS20TransferTest is Test {
         vm.startPrank(sender);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            tokens: defaultPacketData.tokens,
+            tokens: defaultSendTransferMsgTokens,
             receiver: receiverStr,
             sourceClient: packet.sourceChannel,
             destPort: packet.payloads[0].sourcePort,
@@ -127,13 +132,6 @@ contract ICS20TransferTest is Test {
         ics20Transfer.sendTransfer(msgSendTransfer);
         // reset amount
         msgSendTransfer.tokens[0].amount = defaultAmount;
-
-        // denom is not an address
-        msgSendTransfer.tokens[0].denom.base = "notanaddress";
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "notanaddress"));
-        ics20Transfer.sendTransfer(msgSendTransfer);
-        // reset denom
-        msgSendTransfer.tokens[0].denom.base = erc20AddressStr;
     }
 
     function test_success_onSendPacket_from_sender() public {
