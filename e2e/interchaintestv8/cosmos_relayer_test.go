@@ -20,7 +20,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
-	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
@@ -181,33 +180,27 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+	s.Require().True(s.Run("Register counterparty on Chain A", func() {
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		// We can do this because we know what the counterparty channel ID will be
-		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.FirstClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdASubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstChannelID,
-			Signer:                s.SimdASubmitter.FormattedAddress(),
+		// We can do this because we know what the counterparty client ID will be
+		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.FirstClientID,
+			CounterpartyClientId:     ibctesting.FirstClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdASubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+	s.Require().True(s.Run("Register counterparty on Chain B", func() {
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.FirstClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdBSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstChannelID,
-			Signer:                s.SimdBSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.FirstClientID,
+			CounterpartyClientId:     ibctesting.FirstClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdBSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
@@ -278,7 +271,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstClientID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -313,8 +306,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     txHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    txHashes,
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -332,7 +325,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			s.Require().NotEmpty(ackTxHash)
 
 			s.Require().True(s.Run("Verify balances on Chain B", func() {
-				ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID)).IBCDenom()
+				ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID)).IBCDenom()
 				// User balance on Cosmos chain
 				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
 					Address: simdBUser.FormattedAddress(),
@@ -350,8 +343,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		s.Require().True(s.Run("Verify commitments exists", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstClientID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Commitment)
@@ -361,8 +354,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
 			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ackTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ackTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -378,8 +371,8 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for i := 0; i < numOfTransfers; i++ {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
-					ChannelId: ibctesting.FirstChannelID,
-					Sequence:  uint64(i) + 1,
+					ClientId: ibctesting.FirstClientID,
+					Sequence: uint64(i) + 1,
 				})
 				s.Require().ErrorContains(err, "packet commitment hash not found")
 			}
@@ -430,7 +423,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 				Value:           transferBz,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
-				SourceChannel:    ibctesting.FirstChannelID,
+				SourceClient:     ibctesting.FirstClientID,
 				TimeoutTimestamp: timeout,
 				Payloads: []channeltypesv2.Payload{
 					payload,
@@ -467,8 +460,8 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				TimeoutTxIds:    txHashes,
-				TargetChannelId: ibctesting.FirstChannelID,
+				TimeoutTxIds:   txHashes,
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)

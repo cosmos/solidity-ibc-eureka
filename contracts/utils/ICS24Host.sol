@@ -21,93 +21,93 @@ library ICS24Host {
         keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
     /// @notice Generator for the path of a packet commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet commitment
     function packetCommitmentPathCalldata(
-        string memory channelId,
+        string memory clientId,
         uint64 sequence
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(channelId, uint8(1), uint64ToBigEndian(sequence));
+        return abi.encodePacked(clientId, uint8(1), uint64ToBigEndian(sequence));
     }
 
     /// @notice Generator for the path of a packet acknowledgement commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet acknowledgement commitment
     function packetAcknowledgementCommitmentPathCalldata(
-        string memory channelId,
+        string memory clientId,
         uint64 sequence
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(channelId, uint8(3), uint64ToBigEndian(sequence));
+        return abi.encodePacked(clientId, uint8(3), uint64ToBigEndian(sequence));
     }
 
     /// @notice Generator for the path of a packet receipt commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The full path of the packet receipt commitment
     function packetReceiptCommitmentPathCalldata(
-        string memory channelId,
+        string memory clientId,
         uint64 sequence
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(channelId, uint8(2), uint64ToBigEndian(sequence));
+        return abi.encodePacked(clientId, uint8(2), uint64ToBigEndian(sequence));
     }
 
     // Key generators for Commitment mapping
 
     /// @notice Generator for the key of a packet commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet commitment path
-    function packetCommitmentKeyCalldata(string memory channelId, uint64 sequence) internal pure returns (bytes32) {
-        return keccak256(packetCommitmentPathCalldata(channelId, sequence));
+    function packetCommitmentKeyCalldata(string memory clientId, uint64 sequence) internal pure returns (bytes32) {
+        return keccak256(packetCommitmentPathCalldata(clientId, sequence));
     }
 
     /// @notice Generator for the key of a packet acknowledgement commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet acknowledgement commitment path
     function packetAcknowledgementCommitmentKeyCalldata(
-        string memory channelId,
+        string memory clientId,
         uint64 sequence
     )
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(packetAcknowledgementCommitmentPathCalldata(channelId, sequence));
+        return keccak256(packetAcknowledgementCommitmentPathCalldata(clientId, sequence));
     }
 
     /// @notice Generator for the key of a packet receipt commitment
-    /// @param channelId The channel identifier
+    /// @param clientId The client identifier
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet receipt commitment path
     function packetReceiptCommitmentKeyCalldata(
-        string memory channelId,
+        string memory clientId,
         uint64 sequence
     )
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(packetReceiptCommitmentPathCalldata(channelId, sequence));
+        return keccak256(packetReceiptCommitmentPathCalldata(clientId, sequence));
     }
 
     /// @notice Get the packet commitment bytes.
     /// @dev CommitPacket returns the V2 packet commitment bytes. The commitment consists of:
-    /// @dev sha256_hash(0x02 + sha256_hash(destinationChannel) + sha256_hash(timeout) + sha256_hash(payload)) for a
+    /// @dev sha256_hash(0x02 + sha256_hash(destinationClient) + sha256_hash(timeout) + sha256_hash(payload)) for a
     /// @dev given packet.
     /// @dev This results in a fixed length preimage.
     /// @dev A fixed length preimage is ESSENTIAL to prevent relayers from being able
@@ -123,7 +123,7 @@ library ICS24Host {
         return sha256(
             abi.encodePacked(
                 uint8(2),
-                sha256(bytes(packet.destChannel)),
+                sha256(bytes(packet.destClient)),
                 sha256(abi.encodePacked(packet.timeoutTimestamp)),
                 sha256(appBytes)
             )

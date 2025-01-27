@@ -87,8 +87,8 @@ contract ICS26RouterTest is Test {
         });
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: counterpartyID,
-            destChannel: clientIdentifier,
+            sourceClient: counterpartyID,
+            destClient: clientIdentifier,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
         });

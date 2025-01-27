@@ -157,7 +157,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
 
         let tx = self
             .tx_builder
-            .relay_events(src_events, target_events, inner_req.target_channel_id)
+            .relay_events(src_events, target_events, inner_req.target_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 

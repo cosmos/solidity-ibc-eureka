@@ -64,8 +64,8 @@ contract ICS24HostTest is Test {
 
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
-            sourceChannel: "channel-0",
-            destChannel: "channel-1",
+            sourceClient: "channel-0",
+            destClient: "channel-1",
             timeoutTimestamp: 100,
             payloads: payloads
         });

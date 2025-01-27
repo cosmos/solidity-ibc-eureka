@@ -117,7 +117,7 @@ contract ICS20Transfer is
         require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
 
         (address erc20Address, bool originatorChainIsSource) =
-            getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+            getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(sender, escrow(), erc20Address, packetData.amount);
@@ -141,7 +141,7 @@ contract ICS20Transfer is
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
-            msg_.payload.sourcePort, msg_.sourceChannel, msg_.payload.destPort, msg_.destinationChannel, packetData
+            msg_.payload.sourcePort, msg_.sourceClient, msg_.payload.destPort, msg_.destinationClient, packetData
         );
 
         if (packetData.amount == 0) {
@@ -172,7 +172,7 @@ contract ICS20Transfer is
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
             (address erc20Address,) =
-                getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+                getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
             _refundTokens(packetData, erc20Address);
         }
     }
@@ -181,7 +181,7 @@ contract ICS20Transfer is
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
-        (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceChannel, packetData);
+        (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
         _refundTokens(packetData, erc20Address);
     }
 
@@ -219,13 +219,13 @@ contract ICS20Transfer is
 
     /// @notice For a send packet, get the ERC20 address for the token and whether the originator chain is the source
     /// @param sourcePort The source port of the packet
-    /// @param sourceChannel The source channel of the packet
+    /// @param sourceClient The source client identifier of the packet
     /// @param packetData The unmarshalled packet data
     /// @return The ERC20 address for the token in the packetData
     /// @return Whether the originator (i.e. us) chain of the packet is the source of the token
     function getSendERC20AddressAndSource(
         string calldata sourcePort,
-        string calldata sourceChannel,
+        string calldata sourceClient,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
         private
@@ -233,7 +233,7 @@ contract ICS20Transfer is
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);
-        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceChannel);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceClient);
         bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
         address erc20Address;
@@ -255,31 +255,31 @@ contract ICS20Transfer is
 
     /// @notice For a receive packet, get the ERC20 address for the token and whether the originator chain is the source
     /// @param sourcePort The source port of the packet
-    /// @param sourceChannel The source channel of the packet
+    /// @param sourceClient The source client of the packet
     /// @param destPort The destination port of the packet
-    /// @param destChannel The destination channel of the packet
+    /// @param destClient The destination channel of the packet
     /// @param packetData The unmarshalled packet data
     /// @return The ERC20 address for the token in the packetData
     /// @return Whether the originator (i.e. the counterparty) chain of the packet is the source of the token
     function getReceiveERC20AddressAndSource(
         string calldata sourcePort,
-        string calldata sourceChannel,
+        string calldata sourceClient,
         string calldata destPort,
-        string calldata destChannel,
+        string calldata destClient,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
         private
         returns (address, bool)
     {
         bytes memory denomBz = bytes(packetData.denom);
-        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceChannel);
+        bytes memory sourceDenomPrefix = ICS20Lib.getDenomPrefix(sourcePort, sourceClient);
         bool originatorChainIsSource = !ICS20Lib.hasPrefix(denomBz, sourceDenomPrefix);
 
         address erc20Address;
         if (originatorChainIsSource) {
             // we are not the source of this token: we add a denom trace and find or create a new token contract
             string memory baseDenom = packetData.denom;
-            bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(destPort, destChannel);
+            bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(destPort, destClient);
             string memory fullDenomPath = string(abi.encodePacked(newDenomPrefix, baseDenom));
 
             erc20Address = findOrCreateERC20Address(fullDenomPath, baseDenom);

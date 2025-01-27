@@ -147,7 +147,7 @@
             "internalType": "string"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -176,7 +176,7 @@
         "internalType": "struct IICS26RouterMsgs.MsgSendPacket",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },

@@ -29,7 +29,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
-	commitmenttypesv2 "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types/v2"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
@@ -245,7 +244,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     ibctesting.FirstChannelID,
+			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
@@ -258,7 +257,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
-		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
@@ -267,7 +266,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
 		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     ibctesting.FirstChannelID,
+			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
@@ -280,35 +279,29 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.SecondClientID, event.ClientId)
-		s.Require().Equal(ibctesting.FirstChannelID, event.CounterpartyInfo.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
-	s.Require().True(s.Run("Create channel and register counterparty on SimdA", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
+	s.Require().True(s.Run("Register counterparty on SimdA", func() {
+		merklePathPrefix := [][]byte{[]byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         s.EthereumLightClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdARelayerSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.FirstClientID,
-			Signer:                s.SimdARelayerSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 testvalues.FirstWasmClientID,
+			CounterpartyClientId:     ibctesting.FirstClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Create channel and register counterparty on SimdB", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(""))
+	s.Require().True(s.Run("Register counterparty on SimdB", func() {
+		merklePathPrefix := [][]byte{[]byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         s.EthereumLightClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdBRelayerSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.FirstChannelID,
-			CounterpartyChannelId: ibctesting.SecondClientID,
-			Signer:                s.SimdBRelayerSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 testvalues.FirstWasmClientID,
+			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
@@ -382,32 +375,26 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
 		// We can do this because we know what the counterparty channel ID will be
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.SecondClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdARelayerSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.SecondChannelID,
-			CounterpartyChannelId: ibctesting.SecondChannelID,
-			Signer:                s.SimdARelayerSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.SecondClientID,
+			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
-		merklePathPrefix := commitmenttypesv2.NewMerklePath([]byte(ibcexported.StoreKey), []byte(""))
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &channeltypesv2.MsgCreateChannel{
-			ClientId:         ibctesting.SecondClientID,
-			MerklePathPrefix: merklePathPrefix,
-			Signer:           s.SimdBRelayerSubmitter.FormattedAddress(),
-		}, &channeltypesv2.MsgRegisterCounterparty{
-			ChannelId:             ibctesting.SecondChannelID,
-			CounterpartyChannelId: ibctesting.SecondChannelID,
-			Signer:                s.SimdBRelayerSubmitter.FormattedAddress(),
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.SecondClientID,
+			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 	}))
@@ -535,7 +522,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 
 		clientAddress, err = s.ics02Contract.GetClient(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
@@ -543,7 +530,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		counterpartyInfo, err = s.ics02Contract.GetCounterparty(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstChannelID, counterpartyInfo.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
@@ -567,30 +554,32 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdA", func() {
 		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdA, &clienttypes.QueryClientStateRequest{
-			ClientId: s.EthereumLightClientID,
+			ClientId: testvalues.FirstWasmClientID,
 		})
 		s.Require().NoError(err)
 
-		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdA, &channeltypesv2.QueryChannelRequest{
-			ChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
-		s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+		// TODO: https://github.com/cosmos/ibc-go/issues/7875
+		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdA, &channeltypesv2.QueryChannelRequest{
+		// 	ChannelId: ibctesting.FirstChannelID,
+		// })
+		// s.Require().NoError(err)
+		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
+		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
 		_, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdB, &clienttypes.QueryClientStateRequest{
-			ClientId: s.EthereumLightClientID,
+			ClientId: testvalues.FirstWasmClientID,
 		})
 		s.Require().NoError(err)
 
-		channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdB, &channeltypesv2.QueryChannelRequest{
-			ChannelId: ibctesting.FirstChannelID,
-		})
-		s.Require().NoError(err)
-		s.Require().Equal(s.EthereumLightClientID, channelResp.Channel.ClientId)
-		s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
+		// TODO: https://github.com/cosmos/ibc-go/issues/7875
+		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdB, &channeltypesv2.QueryChannelRequest{
+		// 	ChannelId: ibctesting.FirstChannelID,
+		// })
+		// s.Require().NoError(err)
+		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
+		// s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
@@ -705,7 +694,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Value:           transferBz,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.FirstChannelID,
+			SourceClient:     testvalues.FirstWasmClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{
 				payload,
@@ -740,8 +729,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.ChainAToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{simdASendTxHash},
-				TargetChannelId: ibctesting.FirstClientID,
+				SourceTxIds:    [][]byte{simdASendTxHash},
+				TargetClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -766,7 +755,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 		// Recreate the full denom path
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestChannel))
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
 		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
@@ -845,8 +834,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -862,7 +851,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			finalDenom := transfertypes.NewDenom(
 				simdA.Config().Denom,
-				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID),
+				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID),
 				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID),
 			)
 
@@ -944,8 +933,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.EthToChainARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{ethSendTxHash},
-				TargetChannelId: ibctesting.FirstChannelID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
+				TargetClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -960,7 +949,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
+			denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 
 			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simdA, &banktypes.QueryBalanceRequest{
@@ -976,7 +965,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 
 	var simdASendTxHash []byte
 	s.Require().True(s.Run("Send from SimdA to SimdB", func() {
-		denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID))
+		denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
@@ -1001,7 +990,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		}
 
 		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
-			SourceChannel:    ibctesting.SecondChannelID,
+			SourceClient:     ibctesting.SecondClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{
 				payload,
@@ -1019,8 +1008,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
 			resp, err := s.ChainAToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SourceTxIds:     [][]byte{simdASendTxHash},
-				TargetChannelId: ibctesting.SecondChannelID,
+				SourceTxIds:    [][]byte{simdASendTxHash},
+				TargetClientId: ibctesting.SecondClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1037,8 +1026,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			finalDenom := transfertypes.NewDenom(
 				s.contractAddresses.Erc20,
-				transfertypes.NewHop(transfertypes.PortID, ibctesting.SecondChannelID),
-				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstChannelID),
+				transfertypes.NewHop(transfertypes.PortID, ibctesting.SecondClientID),
+				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID),
 			)
 
 			// User balance on Cosmos chain
@@ -1059,7 +1048,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	denom string,
 	amount *big.Int,
 	receiver string,
-	sourceChannel string,
+	sourceClient string,
 	timeoutTimestamp uint64,
 	memo string,
 ) ics26router.IICS26RouterMsgsMsgSendPacket {
@@ -1067,7 +1056,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 		Denom:            denom,
 		Amount:           amount,
 		Receiver:         receiver,
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceClient,
 		DestPort:         transfertypes.PortID,
 		TimeoutTimestamp: timeoutTimestamp,
 		Memo:             memo,
@@ -1078,7 +1067,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
 	// So we just move the values over here:
 	return ics26router.IICS26RouterMsgsMsgSendPacket{
-		SourceChannel:    sourceChannel,
+		SourceClient:     sourceClient,
 		TimeoutTimestamp: timeoutTimestamp,
 		Payloads: []ics26router.IICS26RouterMsgsPayload{
 			{

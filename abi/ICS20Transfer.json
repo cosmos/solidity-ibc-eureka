@@ -98,7 +98,7 @@
             "internalType": "string"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -127,7 +127,7 @@
         "internalType": "struct IICS26RouterMsgs.MsgSendPacket",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -183,12 +183,12 @@
         "internalType": "struct IIBCAppCallbacks.OnAcknowledgementPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -255,12 +255,12 @@
         "internalType": "struct IIBCAppCallbacks.OnRecvPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -328,12 +328,12 @@
         "internalType": "struct IIBCAppCallbacks.OnSendPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -395,12 +395,12 @@
         "internalType": "struct IIBCAppCallbacks.OnTimeoutPacketCallback",
         "components": [
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
           {
-            "name": "destinationChannel",
+            "name": "destinationClient",
             "type": "string",
             "internalType": "string"
           },
@@ -477,7 +477,7 @@
             "internalType": "string"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
