@@ -6,6 +6,7 @@ import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20 {
     /// @notice The full IBC denom path for this token
@@ -25,8 +26,7 @@ contract IBCERC20 is IIBCERC20, ERC20 {
         bytes32 denomID_,
         ICS20Lib.Denom memory denom_
     )
-        // TODO: Was there something I was supposed to be using instead of encodePacked?
-        ERC20(string(abi.encodePacked(denomID_)), denom_.base)
+        ERC20(denom_.base, Strings.toHexString(uint256(denomID_)))
     {
         _denom = denom_;
         ESCROW = address(escrow_);

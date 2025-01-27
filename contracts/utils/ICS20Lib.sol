@@ -162,6 +162,7 @@ library ICS20Lib {
         });
     }
 
+    // TODO: FIX THESE TO AVOID THE SWAPPED ORDER OF ARGUMENTS (AND REMOVE ONE OF THESE PROBABLY)
     /// @notice hexStringToAddress converts a hex string to an address.
     /// @param addrHexString hex address string
     /// @return address value
@@ -217,16 +218,17 @@ library ICS20Lib {
         return keccak256(abi.encodePacked(denom.base, traceBytes));
     }
 
-    /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
-    /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
-    /// @notice that the denom passed in is a full denom path with trace and base denom
-    /// @param fullDenomPath full denom path with trace and base denom
-    /// @return IBC denom in the format ibc/hash(trace+base_denom)
-    function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
-        string memory hash = toHexHash(fullDenomPath);
-        return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
-    }
+    // /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
+    // /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
+    // /// @notice that the denom passed in is a full denom path with trace and base denom
+    // /// @param fullDenomPath full denom path with trace and base denom
+    // /// @return IBC denom in the format ibc/hash(trace+base_denom)
+    // function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
+    //     string memory hash = toHexHash(fullDenomPath);
+    //     return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
+    // }
 
+    // TODO: IS THIS USED ANYWHERE?
     /// @notice toHexHash converts a string to an all uppercase hex hash (without the 0x prefix)
     /// @param str string to convert
     /// @return uppercase hex hash without 0x prefix

@@ -9,22 +9,37 @@ import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
+    ICS20Lib.Denom public denom;
 
     function setUp() public {
         _escrow = new Escrow(address(this));
-        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, "ibc/test", "test", "full/denom/path/test");
+        ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
+        hops[0] = ICS20Lib.Hop({
+            portId: "testport",
+            channelId: "channel-42"
+        });
+        denom = ICS20Lib.Denom({
+            base: "test",
+            trace: hops
+        });
+        bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
+        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, denomID, denom);
     }
 
     function test_ERC20Metadata() public view {
         assertEq(ibcERC20.ICS20(), address(this));
         assertEq(ibcERC20.ESCROW(), address(_escrow));
-        assertEq(ibcERC20.name(), "ibc/test");
-        assertEq(ibcERC20.symbol(), "test");
-        assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
+        assertEq(ibcERC20.name(), denom.base);
+
+        bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
+        assertEq(ibcERC20.symbol(), Strings.toHexString(uint256(denomID)));
+        // assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
         assertEq(0, ibcERC20.totalSupply());
     }
 
@@ -120,12 +135,13 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(string calldata) external pure override returns (address) {
-        return address(0);
+    function ibcERC20Contract(ICS20Lib.Denom calldata denom) external view override returns (address) {
+        return address(this);
     }
+ 
 
     // Dummy implementation of IICS20Transfer
-    function newMsgSendPacketV1(
+    function newMsgSendPacketV2(
         address,
         SendTransferMsg calldata
     )

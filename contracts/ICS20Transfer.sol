@@ -15,7 +15,6 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
-import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 
 using SafeERC20 for IERC20;
 
@@ -200,7 +199,7 @@ contract ICS20Transfer is
                     channelId: msg_.destinationChannel
                 });
 
-                erc20Address = findOrCreateERC20Address(token.denom);
+                erc20Address = findOrCreateERC20Address(newDenom);
                 IBCERC20(erc20Address).mint(token.amount);
             }
 
@@ -240,6 +239,7 @@ contract ICS20Transfer is
     )
         private 
     {
+        // TODO: How similar is this to the logic in onSendPacket?
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         
         for (uint256 i = 0; i < packetData.tokens.length; i++) {
@@ -263,6 +263,8 @@ contract ICS20Transfer is
                     erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);
                 }
             }
+
+            require(erc20Address != address(0), ICS20DenomNotFound(token.denom));
 
             _getEscrow().send(IERC20(erc20Address), refundee, token.amount);
         }
