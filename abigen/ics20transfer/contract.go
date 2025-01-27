@@ -29,6 +29,24 @@ var (
 	_ = abi.ConvertType
 )
 
+// ICS20LibDenom is an auto generated low-level Go binding around an user-defined struct.
+type ICS20LibDenom struct {
+	Base  string
+	Trace []ICS20LibHop
+}
+
+// ICS20LibHop is an auto generated low-level Go binding around an user-defined struct.
+type ICS20LibHop struct {
+	PortId    string
+	ChannelId string
+}
+
+// ICS20LibToken is an auto generated low-level Go binding around an user-defined struct.
+type ICS20LibToken struct {
+	Denom  ICS20LibDenom
+	Amount *big.Int
+}
+
 // IIBCAppCallbacksOnAcknowledgementPacketCallback is an auto generated low-level Go binding around an user-defined struct.
 type IIBCAppCallbacksOnAcknowledgementPacketCallback struct {
 	SourceChannel      string
@@ -66,15 +84,20 @@ type IIBCAppCallbacksOnTimeoutPacketCallback struct {
 	Relayer            common.Address
 }
 
+// IICS20TransferMsgsForwarding is an auto generated low-level Go binding around an user-defined struct.
+type IICS20TransferMsgsForwarding struct {
+	Hops []ICS20LibHop
+}
+
 // IICS20TransferMsgsSendTransferMsg is an auto generated low-level Go binding around an user-defined struct.
 type IICS20TransferMsgsSendTransferMsg struct {
-	Denom            string
-	Amount           *big.Int
+	Tokens           []ICS20LibToken
 	Receiver         string
-	SourceChannel    string
+	SourceClient     string
 	DestPort         string
 	TimeoutTimestamp uint64
 	Memo             string
+	Forwarding       IICS20TransferMsgsForwarding
 }
 
 // IICS26RouterMsgsMsgSendPacket is an auto generated low-level Go binding around an user-defined struct.
@@ -95,7 +118,7 @@ type IICS26RouterMsgsPayload struct {
 
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"escrow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ibcERC20Contract\",\"inputs\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics26Router\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"multicall\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[{\"name\":\"results\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"newMsgSendPacketV1\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"onAcknowledgementPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnAcknowledgementPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onRecvPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnRecvPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onSendPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnSendPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onTimeoutPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnTimeoutPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendTransfer\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS20AbiEncodingFailure\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS20DenomNotFound\",\"inputs\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20InvalidAddress\",\"inputs\":[{\"name\":\"addr\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ICS20Unauthorized\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS20UnauthorizedPacketSender\",\"inputs\":[{\"name\":\"packetSender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS20UnexpectedERC20Balance\",\"inputs\":[{\"name\":\"expected\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actual\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ICS20UnexpectedVersion\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20UnsupportedFeature\",\"inputs\":[{\"name\":\"feature\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"escrow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ibcERC20Contract\",\"inputs\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics26Router\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"multicall\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[{\"name\":\"results\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"newMsgSendPacketV2\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Token[]\",\"components\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Forwarding\",\"components\":[{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"onAcknowledgementPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnAcknowledgementPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"acknowledgement\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onRecvPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnRecvPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onSendPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnSendPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"onTimeoutPacket\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIIBCAppCallbacks.OnTimeoutPacketCallback\",\"components\":[{\"name\":\"sourceChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destinationChannel\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sequence\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payload\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.Payload\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendTransfer\",\"inputs\":[{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Token[]\",\"components\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Forwarding\",\"components\":[{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS20AbiEncodingFailure\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS20DenomNotFound\",\"inputs\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"channelId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]},{\"type\":\"error\",\"name\":\"ICS20InvalidAddress\",\"inputs\":[{\"name\":\"addr\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ICS20Unauthorized\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS20UnauthorizedPacketSender\",\"inputs\":[{\"name\":\"packetSender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS20UnexpectedERC20Balance\",\"inputs\":[{\"name\":\"expected\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actual\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ICS20UnexpectedVersion\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20UnsupportedFeature\",\"inputs\":[{\"name\":\"feature\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -275,10 +298,10 @@ func (_Contract *ContractCallerSession) Escrow() (common.Address, error) {
 	return _Contract.Contract.Escrow(&_Contract.CallOpts)
 }
 
-// IbcERC20Contract is a free data retrieval call binding the contract method 0xa50ee2b4.
+// IbcERC20Contract is a free data retrieval call binding the contract method 0xf74da15a.
 //
-// Solidity: function ibcERC20Contract(string denom) view returns(address)
-func (_Contract *ContractCaller) IbcERC20Contract(opts *bind.CallOpts, denom string) (common.Address, error) {
+// Solidity: function ibcERC20Contract((string,(string,string)[]) denom) view returns(address)
+func (_Contract *ContractCaller) IbcERC20Contract(opts *bind.CallOpts, denom ICS20LibDenom) (common.Address, error) {
 	var out []interface{}
 	err := _Contract.contract.Call(opts, &out, "ibcERC20Contract", denom)
 
@@ -292,26 +315,26 @@ func (_Contract *ContractCaller) IbcERC20Contract(opts *bind.CallOpts, denom str
 
 }
 
-// IbcERC20Contract is a free data retrieval call binding the contract method 0xa50ee2b4.
+// IbcERC20Contract is a free data retrieval call binding the contract method 0xf74da15a.
 //
-// Solidity: function ibcERC20Contract(string denom) view returns(address)
-func (_Contract *ContractSession) IbcERC20Contract(denom string) (common.Address, error) {
+// Solidity: function ibcERC20Contract((string,(string,string)[]) denom) view returns(address)
+func (_Contract *ContractSession) IbcERC20Contract(denom ICS20LibDenom) (common.Address, error) {
 	return _Contract.Contract.IbcERC20Contract(&_Contract.CallOpts, denom)
 }
 
-// IbcERC20Contract is a free data retrieval call binding the contract method 0xa50ee2b4.
+// IbcERC20Contract is a free data retrieval call binding the contract method 0xf74da15a.
 //
-// Solidity: function ibcERC20Contract(string denom) view returns(address)
-func (_Contract *ContractCallerSession) IbcERC20Contract(denom string) (common.Address, error) {
+// Solidity: function ibcERC20Contract((string,(string,string)[]) denom) view returns(address)
+func (_Contract *ContractCallerSession) IbcERC20Contract(denom ICS20LibDenom) (common.Address, error) {
 	return _Contract.Contract.IbcERC20Contract(&_Contract.CallOpts, denom)
 }
 
-// NewMsgSendPacketV1 is a free data retrieval call binding the contract method 0xab257155.
+// NewMsgSendPacketV2 is a free data retrieval call binding the contract method 0x5d3bcd90.
 //
-// Solidity: function newMsgSendPacketV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
-func (_Contract *ContractCaller) NewMsgSendPacketV1(opts *bind.CallOpts, sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
+// Solidity: function newMsgSendPacketV2(address sender, (((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
+func (_Contract *ContractCaller) NewMsgSendPacketV2(opts *bind.CallOpts, sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
 	var out []interface{}
-	err := _Contract.contract.Call(opts, &out, "newMsgSendPacketV1", sender, msg_)
+	err := _Contract.contract.Call(opts, &out, "newMsgSendPacketV2", sender, msg_)
 
 	if err != nil {
 		return *new(IICS26RouterMsgsMsgSendPacket), err
@@ -323,18 +346,18 @@ func (_Contract *ContractCaller) NewMsgSendPacketV1(opts *bind.CallOpts, sender 
 
 }
 
-// NewMsgSendPacketV1 is a free data retrieval call binding the contract method 0xab257155.
+// NewMsgSendPacketV2 is a free data retrieval call binding the contract method 0x5d3bcd90.
 //
-// Solidity: function newMsgSendPacketV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
-func (_Contract *ContractSession) NewMsgSendPacketV1(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
-	return _Contract.Contract.NewMsgSendPacketV1(&_Contract.CallOpts, sender, msg_)
+// Solidity: function newMsgSendPacketV2(address sender, (((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
+func (_Contract *ContractSession) NewMsgSendPacketV2(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
+	return _Contract.Contract.NewMsgSendPacketV2(&_Contract.CallOpts, sender, msg_)
 }
 
-// NewMsgSendPacketV1 is a free data retrieval call binding the contract method 0xab257155.
+// NewMsgSendPacketV2 is a free data retrieval call binding the contract method 0x5d3bcd90.
 //
-// Solidity: function newMsgSendPacketV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
-func (_Contract *ContractCallerSession) NewMsgSendPacketV1(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
-	return _Contract.Contract.NewMsgSendPacketV1(&_Contract.CallOpts, sender, msg_)
+// Solidity: function newMsgSendPacketV2(address sender, (((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) view returns((string,uint64,(string,string,string,string,bytes)[]))
+func (_Contract *ContractCallerSession) NewMsgSendPacketV2(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS26RouterMsgsMsgSendPacket, error) {
+	return _Contract.Contract.NewMsgSendPacketV2(&_Contract.CallOpts, sender, msg_)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.
@@ -463,23 +486,23 @@ func (_Contract *ContractTransactorSession) OnTimeoutPacket(msg_ IIBCAppCallback
 	return _Contract.Contract.OnTimeoutPacket(&_Contract.TransactOpts, msg_)
 }
 
-// SendTransfer is a paid mutator transaction binding the contract method 0xc4c97fae.
+// SendTransfer is a paid mutator transaction binding the contract method 0x96ce4a3c.
 //
-// Solidity: function sendTransfer((string,uint256,string,string,string,uint64,string) msg_) returns(uint32)
+// Solidity: function sendTransfer((((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) returns(uint32)
 func (_Contract *ContractTransactor) SendTransfer(opts *bind.TransactOpts, msg_ IICS20TransferMsgsSendTransferMsg) (*types.Transaction, error) {
 	return _Contract.contract.Transact(opts, "sendTransfer", msg_)
 }
 
-// SendTransfer is a paid mutator transaction binding the contract method 0xc4c97fae.
+// SendTransfer is a paid mutator transaction binding the contract method 0x96ce4a3c.
 //
-// Solidity: function sendTransfer((string,uint256,string,string,string,uint64,string) msg_) returns(uint32)
+// Solidity: function sendTransfer((((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) returns(uint32)
 func (_Contract *ContractSession) SendTransfer(msg_ IICS20TransferMsgsSendTransferMsg) (*types.Transaction, error) {
 	return _Contract.Contract.SendTransfer(&_Contract.TransactOpts, msg_)
 }
 
-// SendTransfer is a paid mutator transaction binding the contract method 0xc4c97fae.
+// SendTransfer is a paid mutator transaction binding the contract method 0x96ce4a3c.
 //
-// Solidity: function sendTransfer((string,uint256,string,string,string,uint64,string) msg_) returns(uint32)
+// Solidity: function sendTransfer((((string,(string,string)[]),uint256)[],string,string,string,uint64,string,((string,string)[])) msg_) returns(uint32)
 func (_Contract *ContractTransactorSession) SendTransfer(msg_ IICS20TransferMsgsSendTransferMsg) (*types.Transaction, error) {
 	return _Contract.Contract.SendTransfer(&_Contract.TransactOpts, msg_)
 }

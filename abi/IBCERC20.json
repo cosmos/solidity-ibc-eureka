@@ -13,19 +13,38 @@
         "internalType": "contract IEscrow"
       },
       {
-        "name": "ibcDenom_",
-        "type": "string",
-        "internalType": "string"
+        "name": "denomID_",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        "name": "baseDenom_",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "fullDenomPath_",
-        "type": "string",
-        "internalType": "string"
+        "name": "denom_",
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "channelId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
       }
     ],
     "stateMutability": "nonpayable"
@@ -151,13 +170,37 @@
   },
   {
     "type": "function",
-    "name": "fullDenomPath",
+    "name": "fullDenom",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "string",
-        "internalType": "string"
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "channelId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -411,6 +454,22 @@
         "name": "caller",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StringsInsufficientHexLength",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   }

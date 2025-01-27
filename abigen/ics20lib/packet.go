@@ -33,18 +33,63 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 
 	// We have to do this because Unpack returns a slice of interfaces where the concrete type is an anonymous struct
 	decodedAnon := unpacked[0].(struct {
-		Denom    string   `json:"denom"`
-		Sender   string   `json:"sender"`
-		Receiver string   `json:"receiver"`
-		Amount   *big.Int `json:"amount"`
-		Memo     string   `json:"memo"`
+		Tokens []struct {
+			Denom struct {
+				Base  string `json:"base"`
+				Trace []struct {
+					PortId    string `json:"portId"`
+					ChannelId string `json:"channelId"`
+				} `json:"trace"`
+			} `json:"denom"`
+			Amount *big.Int `json:"amount"`
+		} `json:"tokens"`
+		Sender     string `json:"sender"`
+		Receiver   string `json:"receiver"`
+		Memo       string `json:"memo"`
+		Forwarding struct {
+			DestinationMemo string `json:"destinationMemo"`
+			Hops            []struct {
+				PortId    string `json:"portId"`
+				ChannelId string `json:"channelId"`
+			} `json:"hops"`
+		} `json:"forwarding"`
 	})
+
+	tokens := make([]ICS20LibToken, len(decodedAnon.Tokens))
+	for i, token := range decodedAnon.Tokens {
+		trace := make([]ICS20LibHop, len(token.Denom.Trace))
+		for j, hop := range token.Denom.Trace {
+			trace[j] = ICS20LibHop{
+				PortId:    hop.PortId,
+				ChannelId: hop.ChannelId,
+			}
+		}
+
+		tokens[i] = ICS20LibToken{
+			Denom: ICS20LibDenom{
+				Base:  token.Denom.Base,
+				Trace: trace,
+			},
+			Amount: token.Amount,
+		}
+	}
+
+	forwarding := ICS20LibForwardingPacketData{
+		DestinationMemo: decodedAnon.Forwarding.DestinationMemo,
+		Hops:            make([]ICS20LibHop, len(decodedAnon.Forwarding.Hops)),
+	}
+	for i, hop := range decodedAnon.Forwarding.Hops {
+		forwarding.Hops[i] = ICS20LibHop{
+			PortId:    hop.PortId,
+			ChannelId: hop.ChannelId,
+		}
+	}
 	decoded := ICS20LibFungibleTokenPacketData{
-		Denom:    decodedAnon.Denom,
-		Amount:   decodedAnon.Amount,
-		Sender:   decodedAnon.Sender,
-		Receiver: decodedAnon.Receiver,
-		Memo:     decodedAnon.Memo,
+		Tokens:     tokens,
+		Sender:     decodedAnon.Sender,
+		Receiver:   decodedAnon.Receiver,
+		Memo:       decodedAnon.Memo,
+		Forwarding: forwarding,
 	}
 
 	return decoded, nil

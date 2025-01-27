@@ -37,7 +37,7 @@ library ICS20Lib {
     /// @param destination_memo Optional memo consumed by final destination chain
     /// @param hops Optional intermediate path through which packet will be forwarded.
     struct ForwardingPacketData {
-        string destination_memo;
+        string destinationMemo;
         Hop[] hops;
     }
 
@@ -131,7 +131,7 @@ library ICS20Lib {
         }
 
         ForwardingPacketData memory forwarding = ForwardingPacketData({
-            destination_memo: msg_.memo,
+            destinationMemo: msg_.memo,
             hops: msg_.forwarding.hops
         });
         

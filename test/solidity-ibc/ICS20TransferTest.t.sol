@@ -68,7 +68,7 @@ contract ICS20TransferTest is Test {
             receiver: receiverStr,
             memo: "memo",
             forwarding: ICS20Lib.ForwardingPacketData({
-                destination_memo: "",
+                destinationMemo: "",
                 hops: new ICS20Lib.Hop[](0)
             })
         });
@@ -707,7 +707,7 @@ contract ICS20TransferTest is Test {
             receiver: receiverStr,
             memo: "memo",
             forwarding: ICS20Lib.ForwardingPacketData({
-                destination_memo: "",
+                destinationMemo: "",
                 hops: new ICS20Lib.Hop[](0)
             })
         });
@@ -762,7 +762,7 @@ contract ICS20TransferTest is Test {
             receiver: receiverStr,
             memo: "memo",
             forwarding: ICS20Lib.ForwardingPacketData({
-                destination_memo: "",
+                destinationMemo: "",
                 hops: new ICS20Lib.Hop[](0)
             })
         });
@@ -829,7 +829,7 @@ contract ICS20TransferTest is Test {
             receiver: receiverStr,
             memo: "memo",
             forwarding: ICS20Lib.ForwardingPacketData({
-                destination_memo: "",
+                destinationMemo: "",
                 hops: new ICS20Lib.Hop[](0)
             })
         });

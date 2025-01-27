@@ -23,8 +23,32 @@
     "inputs": [
       {
         "name": "denom",
-        "type": "string",
-        "internalType": "string"
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "channelId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
       }
     ],
     "outputs": [
@@ -70,7 +94,7 @@
   },
   {
     "type": "function",
-    "name": "newMsgSendPacketV1",
+    "name": "newMsgSendPacketV2",
     "inputs": [
       {
         "name": "sender",
@@ -83,14 +107,45 @@
         "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
         "components": [
           {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "tokens",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Token[]",
+            "components": [
+              {
+                "name": "denom",
+                "type": "tuple",
+                "internalType": "struct ICS20Lib.Denom",
+                "components": [
+                  {
+                    "name": "base",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "trace",
+                    "type": "tuple[]",
+                    "internalType": "struct ICS20Lib.Hop[]",
+                    "components": [
+                      {
+                        "name": "portId",
+                        "type": "string",
+                        "internalType": "string"
+                      },
+                      {
+                        "name": "channelId",
+                        "type": "string",
+                        "internalType": "string"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
           },
           {
             "name": "receiver",
@@ -98,7 +153,7 @@
             "internalType": "string"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -116,6 +171,30 @@
             "name": "memo",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "forwarding",
+            "type": "tuple",
+            "internalType": "struct IICS20TransferMsgs.Forwarding",
+            "components": [
+              {
+                "name": "hops",
+                "type": "tuple[]",
+                "internalType": "struct ICS20Lib.Hop[]",
+                "components": [
+                  {
+                    "name": "portId",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "channelId",
+                    "type": "string",
+                    "internalType": "string"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -462,14 +541,45 @@
         "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
         "components": [
           {
-            "name": "denom",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "tokens",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Token[]",
+            "components": [
+              {
+                "name": "denom",
+                "type": "tuple",
+                "internalType": "struct ICS20Lib.Denom",
+                "components": [
+                  {
+                    "name": "base",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "trace",
+                    "type": "tuple[]",
+                    "internalType": "struct ICS20Lib.Hop[]",
+                    "components": [
+                      {
+                        "name": "portId",
+                        "type": "string",
+                        "internalType": "string"
+                      },
+                      {
+                        "name": "channelId",
+                        "type": "string",
+                        "internalType": "string"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
           },
           {
             "name": "receiver",
@@ -477,7 +587,7 @@
             "internalType": "string"
           },
           {
-            "name": "sourceChannel",
+            "name": "sourceClient",
             "type": "string",
             "internalType": "string"
           },
@@ -495,6 +605,30 @@
             "name": "memo",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "forwarding",
+            "type": "tuple",
+            "internalType": "struct IICS20TransferMsgs.Forwarding",
+            "components": [
+              {
+                "name": "hops",
+                "type": "tuple[]",
+                "internalType": "struct ICS20Lib.Hop[]",
+                "components": [
+                  {
+                    "name": "portId",
+                    "type": "string",
+                    "internalType": "string"
+                  },
+                  {
+                    "name": "channelId",
+                    "type": "string",
+                    "internalType": "string"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -548,8 +682,32 @@
     "inputs": [
       {
         "name": "denom",
-        "type": "string",
-        "internalType": "string"
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "channelId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
       }
     ]
   },
