@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { IICS02Client } from "../interfaces/IICS02Client.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
-import { ILightClient } from "./interfaces/ILightClient.sol";
-import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
+import { ILightClient } from "../interfaces/ILightClient.sol";
+import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title ICS02 Client contract

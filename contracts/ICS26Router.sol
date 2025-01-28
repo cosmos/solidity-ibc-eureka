@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { ICS02ClientUpgradeable } from "./ICS02Client.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -12,6 +11,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
+import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
