@@ -43,50 +43,60 @@ contract ICS24HostTest is Test {
         }
     }
 
-    // TODO: Re-enable this once tested in ibc-go
-    // function test_packetCommitment() public pure {
-    //     // Test against the ibc-go implementations output
-    //     ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-    //     tokens[0] = ICS20Lib.Token({
-    //         denom: ICS20Lib.Denom({
-    //             base: "uatom",
-    //             trace: new ICS20Lib.Hop[](0)
-    //         }),
-    //         amount: 1_000_000
-    //     });
-    //     ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
-    //         tokens: tokens,
-    //         sender: "sender",
-    //         receiver: "receiver",
-    //         memo: "memo",
-    //         forwarding: ICS20Lib.ForwardingPacketData({
-    //             destinationMemo: "",
-    //             hops: new ICS20Lib.Hop[](0)
-    //         })
-    //     });
-    //
-    //     IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-    //     payloads[0] = IICS26RouterMsgs.Payload({
-    //         sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-    //         destPort: ICS20Lib.DEFAULT_PORT_ID,
-    //         version: ICS20Lib.ICS20_VERSION,
-    //         encoding: ICS20Lib.ICS20_ENCODING,
-    //         value: abi.encode(packetData)
-    //     });
-    //
-    //     IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
-    //         sequence: 1,
-    //         sourceClient: "07-tendermint-0",
-    //         destClient: "07-tendermint-1",
-    //         timeoutTimestamp: 100,
-    //         payloads: payloads
-    //     });
-    //
-    //     bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);
-    //     string memory actual = Strings.toHexString(uint256(commitmentBytes));
-    //     string memory expected = "0xb691a1950f6fb0bbbcf4bdb16fe2c4d0aa7ef783eb7803073f475cb8164d9b7a";
-    //     assertEq(actual, expected);
-    // }
+    function test_packetCommitment() public pure {
+        // Test against the ibc-go implementations output
+        ICS20Lib.Hop[] memory trace = new ICS20Lib.Hop[](1);
+        trace[0] = ICS20Lib.Hop({
+            portId: "traceport",
+            channelId: "channel-0"
+        });
+        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
+        tokens[0] = ICS20Lib.Token({
+            denom: ICS20Lib.Denom({
+                base: "uatom",
+                trace: trace
+            }),
+            amount: 1_000_000
+        });
+
+        ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
+        hops[0] = ICS20Lib.Hop({
+            portId: "hopport",
+            channelId: "channel-1"
+        });
+        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+            tokens: tokens,
+            sender: "sender",
+            receiver: "receiver",
+            memo: "memo",
+            forwarding: ICS20Lib.ForwardingPacketData({
+                destinationMemo: "destination-memo",
+                hops: hops
+            })
+        });
+
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: abi.encode(packetData)
+        });
+
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            sourceClient: "07-tendermint-0",
+            destClient: "07-tendermint-1",
+            timeoutTimestamp: 100,
+            payloads: payloads
+        });
+
+        bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);
+        string memory actual = Strings.toHexString(uint256(commitmentBytes));
+        string memory expected = "0xdaec01c9dbadbb3bbbd84fa210c17f7c15aab5bac6239c7963393cece8f552df";
+        assertEq(actual, expected);
+    }
 
     function test_packetAcknowledgementCommitment() public pure {
         // Test against the ibc-go implementations output

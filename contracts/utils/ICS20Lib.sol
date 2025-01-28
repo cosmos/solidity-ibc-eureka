@@ -15,6 +15,7 @@ import { IBCERC20 } from "./IBCERC20.sol";
 library ICS20Lib {
     using Strings for string;
 
+    // TODO: Rename to V2
     /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
     /// @dev See FungibleTokenPacketDataV2 spec:
     /// https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures
