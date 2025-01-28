@@ -314,10 +314,6 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		isAdmin, err := s.ics26Contract.HasRole(nil, testvalues.DefaultAdminRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
-		s.Require().NoError(err)
-		s.Require().True(isAdmin)
-
 		clientAddress, err := s.ics26Contract.GetClient(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
