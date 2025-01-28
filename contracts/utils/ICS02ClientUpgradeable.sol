@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IICS02Client } from "./interfaces/IICS02Client.sol";
+import { IICS02Client } from "../interfaces/IICS02Client.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
-import { ILightClient } from "./interfaces/ILightClient.sol";
-import { IICS02ClientErrors } from "./errors/IICS02ClientErrors.sol";
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
+import { ILightClient } from "../interfaces/ILightClient.sol";
+import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title ICS02 Client contract
@@ -14,7 +14,7 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-contract ICS02Client is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
+abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
     /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -33,19 +33,13 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, AccessControlUpgradeab
     bytes32 private constant ICS02CLIENT_STORAGE_SLOT =
         0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
-    /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
-    constructor() {
-        _disableInitializers();
-    }
+    /// @notice Prefix for the light client migrator roles
+    /// @dev The role identifier is driven in _getLightClientMigratorRole
+    string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
-    /// @notice Initializes the contract instead of a constructor
-    /// @dev Meant to be called only once from the proxy
-    /// @param admin_ The address of the admin, who can grant or revoke roles
-    function initialize(address admin_) public initializer {
-        __AccessControl_init();
-
-        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
-    }
+    // no need to run any initialization logic
+    // solhint-disable-next-line no-empty-blocks
+    function __ICS02Client_init() internal onlyInitializing { }
 
     /// @notice Generates the next client identifier
     /// @param clientType The client type
@@ -152,6 +146,6 @@ contract ICS02Client is IICS02Client, IICS02ClientErrors, AccessControlUpgradeab
     /// @param clientId The client identifier
     /// @return The role identifier
     function _getLightClientMigratorRole(string memory clientId) private pure returns (bytes32) {
-        return keccak256(bytes(clientId));
+        return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
     }
 }

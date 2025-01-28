@@ -7,7 +7,6 @@ import { Test } from "forge-std/Test.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { ICS02Client } from "../../contracts/ICS02Client.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -23,18 +22,12 @@ contract ICS26RouterTest is Test {
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
-        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
 
-        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic),
-            address(this),
-            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
-        );
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this))
         );
 
         ics26Router = ICS26Router(address(routerProxy));
@@ -64,7 +57,7 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
+        string memory clientIdentifier = ics26Router.addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
         );
 

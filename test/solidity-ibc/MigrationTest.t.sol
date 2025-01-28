@@ -8,7 +8,6 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
-import { ICS02Client } from "../../contracts/ICS02Client.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
@@ -36,23 +35,16 @@ contract MigrationTest is Test {
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy Transparent Proxies ==============
         vm.recordLogs();
 
-        TransparentUpgradeableProxy coreProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic),
-            address(this),
-            abi.encodeWithSelector(ICS02Client.initialize.selector, address(this))
-        );
-
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(coreProxy))
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this))
         );
 
         TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
@@ -68,7 +60,7 @@ contract MigrationTest is Test {
         ics20Transfer = ICS20Transfer(address(transferProxy));
         erc20 = new TestERC20();
 
-        clientIdentifier = ics26Router.ICS02_CLIENT().addClient(
+        clientIdentifier = ics26Router.addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
 

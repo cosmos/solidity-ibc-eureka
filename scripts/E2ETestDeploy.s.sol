@@ -12,7 +12,6 @@ import { Script } from "forge-std/Script.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
-import { ICS02Client } from "../contracts/ICS02Client.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -83,26 +82,15 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         );
 
         // Deploy IBC Eureka with proxy
-        ICS02Client ics02ClientLogic = new ICS02Client();
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-
-        TransparentUpgradeableProxy clientProxy = new TransparentUpgradeableProxy(
-            address(ics02ClientLogic),
-            address(this),
-            abi.encodeWithSelector(
-                ICS02Client.initialize.selector,
-                msg.sender
-            )
-        );
 
         TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
             address(ics26RouterLogic),
             address(this),
             abi.encodeWithSelector(
                 ICS26Router.initialize.selector,
-                msg.sender,
-                address(clientProxy)
+                msg.sender
             )
         );
 
@@ -129,7 +117,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
 
         string memory json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
-        json.serialize("ics02Client", Strings.toHexString(address(ics26Router.ICS02_CLIENT())));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));

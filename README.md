@@ -36,8 +36,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 
 | **Contracts** | **Description** | **Status** |
 |:---:|:---:|:---:|
-| `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to `ICS02Client.sol` for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
-| `ICS02Client.sol` | IBC Eureka light client router resolves `clientId` for proof verification. It also stores the counterparty information for each client. | ✅ |
+| `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
 | `ICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from another Eureka transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
 | `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
@@ -162,11 +161,11 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~187,000 | ~187,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~542,560 | ~626,421 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,393,000 | ~1,476,573 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~419,337 | ~503,099 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~476,844 | ~560,549 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~174,000 | ~174,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~528,043 | ~611,904 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,378,483 | ~1,462,056 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~404,755 | ~488,517 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~462,234 | ~545,938 |
 
 ### Aggregated Packet Benchmarks
 
@@ -175,8 +174,8 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
 |:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~199,377 | ~192,802 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~105,472 | ~99,503 |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~193,438 | ~187,042 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~99,469 | ~93,679 |
 
 Note: These gas benchmarks are with Groth16.
 
