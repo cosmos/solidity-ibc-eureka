@@ -3,8 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { IICS02Client } from "./interfaces/IICS02Client.sol";
-import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -13,18 +11,18 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
+import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
     IICS26Router,
     IICS26RouterErrors,
-    AccessControlUpgradeable,
+    ICS02ClientUpgradeable,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable
 {
@@ -38,7 +36,6 @@ contract ICS26Router is
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
         IIBCStore ibcStore;
-        IICS02Client ics02Client;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -61,23 +58,17 @@ contract ICS26Router is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param portCustomizer The address of the port customizer
-    /// @param ics02Client The address of the ICS02Client contract
-    function initialize(address portCustomizer, address ics02Client) public initializer {
+    function initialize(address portCustomizer) public initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
+        __ICS02Client_init();
 
         _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        $.ics02Client = IICS02Client(ics02Client); // using the same owner
         $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
-    }
-
-    /// @inheritdoc IICS26Router
-    function ICS02_CLIENT() external view returns (IICS02Client) {
-        return _getICS26RouterStorage().ics02Client;
     }
 
     /// @inheritdoc IICS26Router
@@ -130,7 +121,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        string memory counterpartyId = $.ics02Client.getCounterparty(msg_.sourceClient).clientId;
+        string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
         // TODO: validate all identifiers
         require(
@@ -177,7 +168,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.destClient);
+        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.destClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceClient)
@@ -199,7 +190,7 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        $.ics02Client.getClient(msg_.packet.destClient).membership(membershipMsg);
+        getClient(msg_.packet.destClient).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
@@ -235,7 +226,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.sourceClient);
+        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destClient)
@@ -255,7 +246,7 @@ contract ICS26Router is
             value: abi.encodePacked(commitmentBz)
         });
 
-        $.ics02Client.getClient(msg_.packet.sourceClient).membership(membershipMsg);
+        getClient(msg_.packet.sourceClient).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
         try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
@@ -291,7 +282,7 @@ contract ICS26Router is
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        IICS02ClientMsgs.CounterpartyInfo memory cInfo = $.ics02Client.getCounterparty(msg_.packet.sourceClient);
+        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destClient)
@@ -306,7 +297,7 @@ contract ICS26Router is
             value: bytes("")
         });
 
-        uint256 counterpartyTimestamp = $.ics02Client.getClient(msg_.packet.sourceClient).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = getClient(msg_.packet.sourceClient).membership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)

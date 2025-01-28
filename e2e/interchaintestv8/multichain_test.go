@@ -37,7 +37,6 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics02client"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -66,7 +65,6 @@ type MultichainTestSuite struct {
 
 	chainASP1Ics07Contract *sp1ics07tendermint.Contract
 	chainBSP1Ics07Contract *sp1ics07tendermint.Contract
-	ics02Contract          *ics02client.Contract
 	ics26Contract          *ics26router.Contract
 	ics20Contract          *ics20transfer.Contract
 	erc20Contract          *erc20.Contract
@@ -176,8 +174,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 		s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
 		s.Require().NoError(err)
-		s.ics02Contract, err = ics02client.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics02Client), eth.RPCClient)
-		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
 		s.Require().NoError(err)
 		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), eth.RPCClient)
@@ -243,18 +239,18 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
-		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
+		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
@@ -265,18 +261,18 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
-		counterpartyInfo := ics02client.IICS02ClientMsgsCounterpartyInfo{
+		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
 			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
-		tx, err := s.ics02Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics02Contract.ParseICS02ClientAdded)
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
 		s.Require().Equal(ibctesting.SecondClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
@@ -512,32 +508,25 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		isAdmin, err := s.ics02Contract.HasRole(nil, testvalues.DefaultAdminRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
-		s.Require().NoError(err)
-		s.Require().True(isAdmin)
-
-		clientAddress, err := s.ics02Contract.GetClient(nil, ibctesting.FirstClientID)
+		clientAddress, err := s.ics26Contract.GetClient(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.ics02Contract.GetCounterparty(nil, ibctesting.FirstClientID)
+		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, ibctesting.FirstClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 
-		clientAddress, err = s.ics02Contract.GetClient(nil, ibctesting.SecondClientID)
+		clientAddress, err = s.ics26Contract.GetClient(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err = s.ics02Contract.GetCounterparty(nil, ibctesting.SecondClientID)
+		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, ibctesting.SecondClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
-		var portCustomizerRole [32]byte
-		copy(portCustomizerRole[:], crypto.Keccak256([]byte("PORT_CUSTOMIZER_ROLE")))
-
-		hasRole, err := s.ics26Contract.HasRole(nil, portCustomizerRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
+		hasRole, err := s.ics26Contract.HasRole(nil, testvalues.PortCustomizerRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
 		s.Require().NoError(err)
 		s.Require().True(hasRole)
 

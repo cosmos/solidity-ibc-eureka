@@ -7,7 +7,6 @@ use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transp
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
-    ics02::client::clientInstance,
     ics26::{
         router::{multicallCall, routerCalls, routerInstance},
         IICS02ClientMsgs::Height,
@@ -75,14 +74,7 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
     /// # Errors
     /// Returns an error if the client state cannot be retrieved.
     pub async fn client_state(&self, client_id: String) -> Result<ClientState> {
-        let ics02_address = self.ics26_router.ICS02_CLIENT().call().await?._0;
-        let ics07_address =
-            clientInstance::new(ics02_address, self.ics26_router.provider().clone())
-                .getClient(client_id)
-                .call()
-                .await?
-                ._0;
-
+        let ics07_address = self.ics26_router.getClient(client_id).call().await?._0;
         Ok(
             sp1_ics07_tendermint::new(ics07_address, self.ics26_router.provider().clone())
                 .clientState()

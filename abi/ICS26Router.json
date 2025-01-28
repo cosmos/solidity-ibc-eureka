@@ -32,19 +32,6 @@
   },
   {
     "type": "function",
-    "name": "ICS02_CLIENT",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IICS02Client"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "ackPacket",
     "inputs": [
       {
@@ -146,6 +133,47 @@
   },
   {
     "type": "function",
+    "name": "addClient",
+    "inputs": [
+      {
+        "name": "clientType",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "addIBCApp",
     "inputs": [
       {
@@ -161,6 +189,56 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ILightClient"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCounterparty",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -250,11 +328,24 @@
         "name": "portCustomizer",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "migrateClient",
+    "inputs": [
+      {
+        "name": "subjectClientId",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        "name": "ics02Client",
-        "type": "address",
-        "internalType": "address"
+        "name": "substituteClientId",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [],
@@ -476,6 +567,24 @@
   },
   {
     "type": "function",
+    "name": "submitMisbehaviour",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "misbehaviourMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -590,6 +699,48 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "updateClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "updateMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "upgradeMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "AckPacket",
     "inputs": [
@@ -677,6 +828,37 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02ClientAdded",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
       }
     ],
     "anonymous": false
@@ -1104,6 +1286,39 @@
   },
   {
     "type": "error",
+    "name": "IBCClientNotFound",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCCounterpartyClientNotFound",
+    "inputs": [
+      {
+        "name": "counterpartyClientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCInvalidClientType",
+    "inputs": [
+      {
+        "name": "clientType",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCInvalidCounterparty",
     "inputs": [
       {
@@ -1234,5 +1449,10 @@
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "Unreachable",
+    "inputs": []
   }
 ]
