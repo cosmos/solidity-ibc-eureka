@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { ICS02Client } from "./ICS02Client.sol";
+import { ICS02ClientUpgradeable } from "./ICS02Client.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
 import { IBCStore } from "./utils/IBCStore.sol";
@@ -22,7 +22,7 @@ import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallU
 contract ICS26Router is
     IICS26Router,
     IICS26RouterErrors,
-    ICS02Client,
+    ICS02ClientUpgradeable,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable
 {

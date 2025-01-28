@@ -14,7 +14,7 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-abstract contract ICS02Client is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
+abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
     /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
