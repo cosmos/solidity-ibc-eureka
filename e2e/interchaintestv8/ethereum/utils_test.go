@@ -129,7 +129,6 @@ Sensitive values saved to: /Users/gg/Code/solidity-ibc-eureka/cache/E2ETestDeplo
 	require.NoError(t, err)
 
 	require.Equal(t, "0x65ce09e5864dd1f45f4ae50396a307291aad6631", deployedContracts.Ics07Tendermint)
-	require.Equal(t, "0xebc7c68e032d765e392cff5b2a11e76c2c43bbbf", deployedContracts.Ics02Client)
 	require.Equal(t, "0xfcf4c2fac206cfabe9c2b68aefe5d0a9fa038501", deployedContracts.Ics26Router)
 	require.Equal(t, "0xd6d4c57d09ba13c9535ee2d6bdb100231d793a22", deployedContracts.Ics20Transfer)
 	require.Equal(t, "0x022b667cc0d57836ccb12669ce93ae1e15d4f8bc", deployedContracts.Erc20)

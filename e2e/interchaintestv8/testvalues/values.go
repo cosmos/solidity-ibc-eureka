@@ -6,6 +6,8 @@ import (
 
 	"github.com/holiman/uint256"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"cosmossdk.io/math"
 
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
@@ -116,4 +118,10 @@ var (
 
 	// DefaultAdminRole is the default admin role for AccessControl contract.
 	DefaultAdminRole = [32]byte{0x00}
+
+	// PortCustomizerRole is the role required to customize the port.
+	PortCustomizerRole = func() (role [32]byte) {
+		copy(role[:], crypto.Keccak256([]byte("PORT_CUSTOMIZER_ROLE")))
+		return role
+	}()
 )
