@@ -13,10 +13,6 @@ interface IICS26Router is IICS26RouterMsgs {
     /// @return The address of the IBC stotage contract
     function IBC_STORE() external view returns (IIBCStore);
 
-    /// @notice Returns the ICS02 client contract
-    /// @return The address of the ICS02 client contract
-    function ICS02_CLIENT() external view returns (IICS02Client);
-
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
