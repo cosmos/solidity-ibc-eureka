@@ -28,6 +28,7 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -86,8 +87,14 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
@@ -98,7 +105,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}
@@ -154,9 +161,18 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
+			// denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
+			denomOnEthereum := ics20transfer.ICS20LibDenom{
+				Base: transferCoin.Denom,
+				Trace: []ics20transfer.ICS20LibHop{
+					{
+						PortId:    transfertypes.PortID,
+						ChannelId: ibctesting.FirstClientID,
+					},
+				},
+			}
 
-			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
 			s.Require().NoError(err)
 
 			ibcERC20, err := ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), s.EthChain.RPCClient)
@@ -204,8 +220,14 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
@@ -216,7 +238,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}
@@ -341,7 +363,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 		msgSendPacket := s.createICS20MsgSendPacket(
 			ethereumUserAddress,
-			s.contractAddresses.Erc20,
+			ethcommon.HexToAddress(s.contractAddresses.Erc20),
 			transferAmount,
 			cosmosUserAddress,
 			ibctesting.FirstClientID,
@@ -488,7 +510,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 		msgSendPacket := s.createICS20MsgSendPacket(
 			ethereumUserAddress,
-			s.contractAddresses.Erc20,
+			ethcommon.HexToAddress(s.contractAddresses.Erc20),
 			transferAmount,
 			cosmosUserAddress,
 			ibctesting.FirstClientID,
@@ -595,8 +617,14 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
@@ -607,7 +635,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}
@@ -744,8 +772,14 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
@@ -756,7 +790,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}

@@ -254,8 +254,14 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   simdAUser.FormattedAddress(),
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
@@ -266,7 +272,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}
@@ -406,8 +412,14 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Tokens: []ics20lib.ICS20LibToken{
+					{
+						Denom: ics20lib.ICS20LibDenom{
+							Base: transferCoin.Denom,
+						},
+						Amount: transferCoin.Amount.BigInt(),
+					},
+				},
 				Sender:   simdAUser.FormattedAddress(),
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
@@ -418,7 +430,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
-				Version:         transfertypes.V1,
+				Version:         transfertypes.V2,
 				Encoding:        transfertypes.EncodingABI,
 				Value:           transferBz,
 			}

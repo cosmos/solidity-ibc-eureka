@@ -677,8 +677,14 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
 		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
-			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.BigInt(),
+			Tokens: []ics20lib.ICS20LibToken{
+				{
+					Denom: ics20lib.ICS20LibDenom{
+						Base: transferCoin.Denom,
+					},
+					Amount: transferCoin.Amount.BigInt(),
+				},
+			},
 			Sender:   simdAUser.FormattedAddress(),
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     "",
@@ -689,7 +695,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
-			Version:         transfertypes.V1,
+			Version:         transfertypes.V2,
 			Encoding:        transfertypes.EncodingABI,
 			Value:           transferBz,
 		}
@@ -723,7 +729,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 	var (
 		ibcERC20        *ibcerc20.Contract
-		ibcERC20Address string
+		ibcERC20Address ethcommon.Address
 	)
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		var recvRelayTx []byte
@@ -755,20 +761,25 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 		// Recreate the full denom path
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
+		denomOnEthereum := ics20transfer.ICS20LibDenom{
+			Base: transferCoin.Denom,
+			Trace: []ics20transfer.ICS20LibHop{
+				{
+					PortId:    packet.Payloads[0].DestPort,
+					ChannelId: packet.DestClient,
+				},
+			},
+		}
 
-		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		ibcERC20Address, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
 		s.Require().NoError(err)
 
-		ibcERC20Address = ibcERC20EthAddress.Hex()
-		s.Require().NotEmpty(ibcERC20Address)
-
-		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Address), eth.RPCClient)
+		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)
 		s.Require().NoError(err)
 
-		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
+		actualFullDenom, err := ibcERC20.FullDenom(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(denomOnEthereum.Path(), actualFullDenom)
+		s.Require().Equal(denomOnEthereum, actualFullDenom)
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
@@ -900,7 +911,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 
 		msgSendPacket := s.createICS20MsgSendPacket(
 			ethereumUserAddress,
-			s.contractAddresses.Erc20,
+			ethcommon.HexToAddress(s.contractAddresses.Erc20),
 			transferAmount,
 			simdAUser.FormattedAddress(),
 			ibctesting.FirstClientID,
@@ -972,8 +983,20 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			// Denom:    denomOnSimdA.IBCDenom(),
 			// BUG: Allowing user to choose the above is a bug in ibc-go
 			// https://github.com/cosmos/ibc-go/issues/7848
-			Denom:    denomOnSimdA.Path(),
-			Amount:   transferAmount,
+			Tokens: []ics20lib.ICS20LibToken{
+				{
+					Denom: ics20lib.ICS20LibDenom{
+						Base: denomOnSimdA.Base,
+						Trace: []ics20lib.ICS20LibHop{
+							{
+								PortId:    denomOnSimdA.Trace[0].PortId,
+								ChannelId: denomOnSimdA.Trace[0].ChannelId,
+							},
+						},
+					},
+					Amount: transferAmount,
+				},
+			},
 			Sender:   simdAUser.FormattedAddress(),
 			Receiver: simdBUser.FormattedAddress(),
 			Memo:     "",
@@ -984,7 +1007,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
-			Version:         transfertypes.V1,
+			Version:         transfertypes.V2,
 			Encoding:        transfertypes.EncodingABI,
 			Value:           transferBz,
 		}
@@ -1045,7 +1068,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 
 func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	sender ethcommon.Address,
-	denom string,
+	ics20ContractAddress ethcommon.Address,
 	amount *big.Int,
 	receiver string,
 	sourceClient string,
@@ -1053,15 +1076,19 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	memo string,
 ) ics26router.IICS26RouterMsgsMsgSendPacket {
 	msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-		Denom:            denom,
-		Amount:           amount,
+		Tokens: []ics20transfer.IICS20TransferMsgsToken{
+			{
+				ContractAddress: ics20ContractAddress,
+				Amount:          amount,
+			},
+		},
 		Receiver:         receiver,
 		SourceClient:     sourceClient,
 		DestPort:         transfertypes.PortID,
 		TimeoutTimestamp: timeoutTimestamp,
 		Memo:             memo,
 	}
-	msgSendPacket, err := s.ics20Contract.ContractCaller.NewMsgSendPacketV1(nil, sender, msgSendTransfer)
+	msgSendPacket, err := s.ics20Contract.ContractCaller.NewMsgSendPacketV2(nil, sender, msgSendTransfer)
 	s.Require().NoError(err)
 
 	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
