@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IIBCApp } from "./IIBCApp.sol";
 import { IIBCStore } from "./IIBCStore.sol";
-import { IICS02Client } from "./IICS02Client.sol";
 
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router

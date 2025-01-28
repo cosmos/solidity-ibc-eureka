@@ -37,8 +37,12 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev The role identifier is driven in _getLightClientMigratorRole
     string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
+    // no need to run any initialization logic
+    // solhint-disable-next-line no-empty-blocks
     function __ICS02Client_init() internal onlyInitializing { }
 
+    // no need to run any initialization logic
+    // solhint-disable-next-line no-empty-blocks
     function __ICS02Client_init_unchained() internal onlyInitializing { }
 
     /// @notice Generates the next client identifier
