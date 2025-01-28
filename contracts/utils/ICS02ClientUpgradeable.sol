@@ -41,10 +41,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     // solhint-disable-next-line no-empty-blocks
     function __ICS02Client_init() internal onlyInitializing { }
 
-    // no need to run any initialization logic
-    // solhint-disable-next-line no-empty-blocks
-    function __ICS02Client_init_unchained() internal onlyInitializing { }
-
     /// @notice Generates the next client identifier
     /// @param clientType The client type
     /// @return The next client identifier
