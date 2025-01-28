@@ -33,6 +33,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     bytes32 private constant ICS02CLIENT_STORAGE_SLOT =
         0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
+    /// @notice Prefix for the light client migrator roles
+    /// @dev The role identifier is driven in _getLightClientMigratorRole
+    string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
+
     function __ICS02Client_init() internal onlyInitializing {
     }
 
@@ -144,6 +148,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @param clientId The client identifier
     /// @return The role identifier
     function _getLightClientMigratorRole(string memory clientId) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientId));
+        return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
     }
 }
