@@ -51,7 +51,9 @@ contract ICS02ClientTest is Test {
         IICS02Client.CounterpartyInfo memory fetchedCounterparty = ics02Client.getCounterparty(clientIdentifier);
         assertEq(fetchedCounterparty.clientId, counterpartyId, "counterparty not set correctly");
 
-        bool hasRole = ics02Client.hasRole(keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier)), clientOwner);
+        bool hasRole = ics02Client.hasRole(
+            keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier)), clientOwner
+        );
         assertTrue(hasRole, "client owner not set correctly");
     }
 
@@ -77,7 +79,9 @@ contract ICS02ClientTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, bob, keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier))
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                bob,
+                keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier))
             )
         );
         ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
