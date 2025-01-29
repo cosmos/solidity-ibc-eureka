@@ -20,10 +20,6 @@ alloy_sol_types::sol!(
     "../../abi/ICS26Router.json"
 );
 
-/// ERC-7201 storage slot for the IBC store.
-pub const IBCSTORE_STORAGE_SLOT: &str =
-    "0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600";
-
 impl IICS26RouterMsgs::Packet {
     /// Returns the commitment path for the packet.
     #[must_use]

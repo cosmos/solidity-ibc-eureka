@@ -13,6 +13,8 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 
 	"github.com/strangelove-ventures/interchaintest/v9/chain/ethereum"
+
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 )
 
 const (
@@ -87,7 +89,7 @@ const (
 	DefaultGovV1ProposalTokenAmount = 500_000_000
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
-	IbcCommitmentSlotHex = "0x1"
+	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
 
 	// FirstWasmClientID is the first wasm client ID. Used for testing.
 	FirstWasmClientID = "08-wasm-0"
