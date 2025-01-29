@@ -8,12 +8,17 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @title IBC UUPSUpgradeable contract
 /// @notice This contract is an abstract contract for managing upgradeable IBC contracts
 /// @dev This contract is meant to be used with OpenZeppelin's UUPS upgradeable proxy
-/// @dev It manages two roles: the multisig admin, and the governance admin. The multisig admin represents a timelocked security council, and the governance admin represents an interchain account from the governance of a counterparty chain
-/// @dev We highly recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
-/// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the multisig admin
+/// @dev It manages two roles: the multisig admin, and the governance admin. The multisig admin represents a timelocked
+/// security council, and the governance admin represents an interchain account from the governance of a counterparty
+/// chain
+/// @dev We highly recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig
+/// admin
+/// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the
+/// multisig admin
 abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeable, ContextUpgradeable {
     /// @notice Storage of the IBCUpgradeable contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param multisigAdmin The multisig admin address, assumed to be timelocked
     /// @param govAdmin The governance admin address
     struct IBCUpgradeableStorage {
@@ -26,7 +31,8 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
     bytes32 private constant IBCUPGRADEABLE_STORAGE_SLOT =
         0xab89ef7f2323cbaa22f95c7c6ce118ac63015d8e94de63ba0e72d0e5d61d5800;
 
-    /// @dev This contract is meant to be initialized with only the multisigAdmin, and the govAdmin should be set by the multisigAdmin later
+    /// @dev This contract is meant to be initialized with only the multisigAdmin, and the govAdmin should be set by the
+    /// multisigAdmin later
     /// @dev It makes sense to have the multisigAdmin not be timelocked until the govAdmin is set
     function __IBCUpgradeable_init(address multisigAdmin) internal onlyInitializing {
         _getIBCUpgradeableStorage().multisigAdmin = multisigAdmin;
@@ -48,7 +54,7 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal virtual view override onlyAdmin {}
+    function _authorizeUpgrade(address) internal view virtual override onlyAdmin { }
 
     /// @notice Returns the storage of the IBCUpgradeable contract
     function _getIBCUpgradeableStorage() internal pure returns (IBCUpgradeableStorage storage $) {
