@@ -17,6 +17,7 @@ use ethereum_types::{
     execution::account_proof::AccountProof,
 };
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
+use ibc_eureka_solidity_types::ics26::IBCSTORE_STORAGE_SLOT;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
 use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
@@ -279,7 +280,11 @@ where
             tracing::debug!("Getting proof for block {}", block_hex);
             let proof = self
                 .eth_client
-                .get_proof(&ibc_contract_address, vec![], block_hex)
+                .get_proof(
+                    &ibc_contract_address,
+                    vec![IBCSTORE_STORAGE_SLOT.to_string()],
+                    block_hex,
+                )
                 .await?;
 
             let account_update = AccountUpdate {
