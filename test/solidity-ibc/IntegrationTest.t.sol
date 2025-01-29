@@ -10,13 +10,10 @@ import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol"
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
-import { IIBCStore } from "../../contracts/interfaces/IIBCStore.sol";
-import { IBCStoreUpgradeable } from "../../contracts/utils/IBCStoreUpgradeable.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { ErroneousIBCStore } from "./mocks/ErroneousIBCStore.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";

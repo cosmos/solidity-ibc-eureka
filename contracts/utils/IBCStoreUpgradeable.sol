@@ -24,7 +24,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     bytes32 private constant IBCSTORE_STORAGE_SLOT = 0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
 
     // no need to run any initialization logic
-    // solhint-disable-previous-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
     function __IBCStoreUpgradeable_init() internal onlyInitializing { }
 
     /// @inheritdoc IIBCStore
