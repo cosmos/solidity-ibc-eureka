@@ -22,7 +22,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
 
-    string public counterpartyId = "channel-0";
+    string public counterpartyId = "08-wasm-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
