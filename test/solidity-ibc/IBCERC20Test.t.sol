@@ -135,8 +135,8 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(ICS20Lib.Denom calldata denom) external view override returns (address) {
-        return address(this);
+    function ibcERC20Contract(ICS20Lib.Denom calldata) external pure override returns (address) {
+        return address(0);
     }
  
 
