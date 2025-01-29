@@ -120,7 +120,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("escrow", Strings.toHexString(ics20Transfer.escrow()));
-        json.serialize("ibcstore", Strings.toHexString(address(ics26Router.IBC_STORE())));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

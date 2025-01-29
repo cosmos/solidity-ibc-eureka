@@ -34,7 +34,6 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -69,7 +68,6 @@ type IbcEurekaTestSuite struct {
 	ics26Contract      *ics26router.Contract
 	ics20Contract      *ics20transfer.Contract
 	erc20Contract      *erc20.Contract
-	ibcStoreContract   *ibcstore.Contract
 	escrowContractAddr ethcommon.Address
 
 	EthToCosmosRelayerClient relayertypes.RelayerServiceClient
@@ -178,8 +176,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
 		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
-		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), eth.RPCClient)
-		s.Require().NoError(err)
 	}))
 
 	s.T().Cleanup(func() {
@@ -195,7 +191,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.IbcStore)
+		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -1016,7 +1012,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
-			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
+			resp, err := s.ics26Contract.GetCommitment(nil, ethPath)
 			s.Require().NoError(err)
 			s.Require().NotZero(resp)
 		}))
@@ -1049,7 +1045,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
-			resp, err := s.ibcStoreContract.GetCommitment(nil, ethPath)
+			resp, err := s.ics26Contract.GetCommitment(nil, ethPath)
 			s.Require().NoError(err)
 			s.Require().Zero(resp)
 		}))
