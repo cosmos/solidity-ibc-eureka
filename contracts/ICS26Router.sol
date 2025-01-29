@@ -27,8 +27,7 @@ contract ICS26Router is
     MulticallUpgradeable
 {
     /// @notice Storage of the ICS26Router contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
-    /// @dev risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param apps The mapping of port identifiers to IBC application contracts
     /// @param ibcStore The IBC store contract
     /// @param ics02Client The ICS02Client contract
