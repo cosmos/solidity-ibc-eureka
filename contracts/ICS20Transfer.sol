@@ -187,16 +187,11 @@ contract ICS20Transfer is
                 erc20Address = ICS20Lib.mustHexStringToAddress(token.denom.base);
             } else {
                 // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
-                ICS20Lib.Denom memory newDenom = ICS20Lib.Denom({
-                    base: token.denom.base,
-                    trace: new ICS20Lib.Hop[](token.denom.trace.length + 1)
-                });
-                newDenom.trace[0] = ICS20Lib.Hop({
-                    portId: msg_.payload.destPort,
-                    channelId: msg_.destinationClient
-                });
+                ICS20Lib.Denom memory newDenom =
+                    ICS20Lib.Denom({ base: token.denom.base, trace: new ICS20Lib.Hop[](token.denom.trace.length + 1) });
+                newDenom.trace[0] = ICS20Lib.Hop({ portId: msg_.payload.destPort, channelId: msg_.destinationClient });
                 for (uint256 j = 0; j < token.denom.trace.length; j++) {
-                    newDenom.trace[j+1] = token.denom.trace[j];
+                    newDenom.trace[j + 1] = token.denom.trace[j];
                 }
 
                 erc20Address = findOrCreateERC20Address(newDenom);
@@ -204,6 +199,7 @@ contract ICS20Transfer is
             }
 
             // transfer the tokens to the receiver
+            // solhint-disable-next-line multiple-sends
             _getEscrow().send(IERC20(erc20Address), receiver, token.amount);
         }
 
@@ -236,11 +232,11 @@ contract ICS20Transfer is
         string calldata sourceClient,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )
-        private 
+        private
     {
         // TODO: How similar is this to the logic in onSendPacket?
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
-        
+
         for (uint256 i = 0; i < packetData.tokens.length; i++) {
             ICS20Lib.Token memory token = packetData.tokens[i];
 
@@ -253,7 +249,7 @@ contract ICS20Transfer is
 
                 IBCERC20(erc20Address).mint(token.amount);
             } else {
-                // the token is either a native token (in which case the base denom is an address), 
+                // the token is either a native token (in which case the base denom is an address),
                 // or we are a middle chain and the token was minted (and mapped) here
                 bool isERC20Address;
                 (erc20Address, isERC20Address) = ICS20Lib.hexStringToAddress(token.denom.base);
@@ -265,6 +261,7 @@ contract ICS20Transfer is
 
             require(erc20Address != address(0), ICS20DenomNotFound(token.denom));
 
+            // solhint-disable-next-line multiple-sends
             _getEscrow().send(IERC20(erc20Address), refundee, token.amount);
         }
     }

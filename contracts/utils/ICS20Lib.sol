@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 // solhint-disable no-inline-assembly
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
@@ -56,7 +55,7 @@ library ICS20Lib {
     struct Denom {
         string base;
         Hop[] trace;
-    }    
+    }
 
     /// @notice Hop defines a port ID, channel ID pair specifying where tokens must be forwarded
     /// next in a multihop transfer, or the trace of an existing token.
@@ -121,24 +120,17 @@ library ICS20Lib {
                 fullDenom = fullDenomFromContract;
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenom = ICS20Lib.Denom({
-                    base: Strings.toHexString(msg_.tokens[i].contractAddress),
-                    trace: new Hop[](0)
-                });
+                fullDenom =
+                    ICS20Lib.Denom({ base: Strings.toHexString(msg_.tokens[i].contractAddress), trace: new Hop[](0) });
             }
 
-            tokens[i] = Token({
-                denom: fullDenom,
-                amount: msg_.tokens[i].amount
-            });
+            tokens[i] = Token({ denom: fullDenom, amount: msg_.tokens[i].amount });
         }
 
         // TODO: Make sure to have a test that covers this properly
         string memory memo = msg_.memo;
-        ForwardingPacketData memory forwarding = ForwardingPacketData({
-            destinationMemo: "",
-            hops: msg_.forwarding.hops
-        });
+        ForwardingPacketData memory forwarding =
+            ForwardingPacketData({ destinationMemo: "", hops: msg_.forwarding.hops });
         if (msg_.forwarding.hops.length > 0) {
             memo = "";
             forwarding.destinationMemo = msg_.memo;
@@ -210,17 +202,19 @@ library ICS20Lib {
     /// @param client Client ID for the prefix
     function hasPrefix(Denom memory denom, string calldata port, string calldata client) internal pure returns (bool) {
         // if the denom is native, then it is not prefixed by any port/channel pair
-       if (denom.trace.length == 0) {
-           return false;
-       }
+        if (denom.trace.length == 0) {
+            return false;
+        }
 
-       return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(client);
+        return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(client);
     }
 
     function getDenomIdentifier(Denom memory denom) internal pure returns (bytes32) {
         bytes memory traceBytes = "";
         for (uint256 i = 0; i < denom.trace.length; i++) {
-            traceBytes = abi.encodePacked(traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].channelId)));
+            traceBytes = abi.encodePacked(
+                traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].channelId))
+            );
         }
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));

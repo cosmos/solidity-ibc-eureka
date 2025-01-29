@@ -20,14 +20,8 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function setUp() public {
         _escrow = new Escrow(address(this));
         ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
-        hops[0] = ICS20Lib.Hop({
-            portId: "testport",
-            channelId: "channel-42"
-        });
-        denom = ICS20Lib.Denom({
-            base: "test",
-            trace: hops
-        });
+        hops[0] = ICS20Lib.Hop({ portId: "testport", channelId: "channel-42" });
+        denom = ICS20Lib.Denom({ base: "test", trace: hops });
         bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
         ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, denomID, denom);
     }
@@ -138,7 +132,6 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function ibcERC20Contract(ICS20Lib.Denom calldata) external pure override returns (address) {
         return address(0);
     }
- 
 
     // Dummy implementation of IICS20Transfer
     function newMsgSendPacketV2(
