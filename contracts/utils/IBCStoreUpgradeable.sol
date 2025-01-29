@@ -9,7 +9,8 @@ import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializab
 
 abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializable {
     /// @notice Storage of the IBCStore contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param commitments Mapping of all IBC commitments
     /// @param prevSequenceSends Mapping of previous sequence sends for each client
     struct IBCStoreStorage {
@@ -20,8 +21,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
 
     /// @notice ERC-7201 slot for the IBCStore storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCStore")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant IBCSTORE_STORAGE_SLOT =
-        0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
+    bytes32 private constant IBCSTORE_STORAGE_SLOT = 0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
 
     // no need to run any initialization logic
     // solhint-disable-previous-line no-empty-blocks
