@@ -28,7 +28,11 @@ contract IBCERC20 is IIBCERC20, ERC20 {
     )
         ERC20(denom_.base, Strings.toHexString(uint256(denomID_)))
     {
-        _denom = denom_;
+        // copying into storage to avoid "Copying of type struct ... to storage not yet supported"
+        _denom.base = denom_.base;
+        for (uint256 i = 0; i < denom_.trace.length; i++) {
+            _denom.trace.push(denom_.trace[i]);
+        }
         ESCROW = address(escrow_);
         ICS20 = address(ics20_);
     }

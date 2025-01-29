@@ -15,6 +15,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 using SafeERC20 for IERC20;
 
@@ -104,8 +105,8 @@ contract ICS20Transfer is
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
 
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+        ICS20Lib.FungibleTokenPacketDataV2 memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketDataV2));
 
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
@@ -124,13 +125,11 @@ contract ICS20Transfer is
             // the token, then we must be returning the token back to the chain they originated from
             if (returningToSource) {
                 // receiving chain is source of the token, so we've received and mapped this token before
-
-                // TODO: figure out if we need IBCDenom
                 bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);
                 erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
             } else {
                 bool isERC20Address;
-                (erc20Address, isERC20Address) = ICS20Lib.hexStringToAddress(token.denom.base);
+                (isERC20Address, erc20Address) = Strings.tryParseAddress(token.denom.base);
                 if (!isERC20Address) {
                     bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);
                     erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
@@ -158,9 +157,9 @@ contract ICS20Transfer is
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
-        (address receiver, bool receiverConvertSuccess) = ICS20Lib.hexStringToAddress(packetData.receiver);
+        ICS20Lib.FungibleTokenPacketDataV2 memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketDataV2));
+        (bool receiverConvertSuccess, address receiver) = Strings.tryParseAddress(packetData.receiver);
         if (!receiverConvertSuccess) {
             return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
         }
@@ -189,7 +188,7 @@ contract ICS20Transfer is
                 // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
                 ICS20Lib.Denom memory newDenom =
                     ICS20Lib.Denom({ base: token.denom.base, trace: new ICS20Lib.Hop[](token.denom.trace.length + 1) });
-                newDenom.trace[0] = ICS20Lib.Hop({ portId: msg_.payload.destPort, channelId: msg_.destinationClient });
+                newDenom.trace[0] = ICS20Lib.Hop({ portId: msg_.payload.destPort, clientId: msg_.destinationClient });
                 for (uint256 j = 0; j < token.denom.trace.length; j++) {
                     newDenom.trace[j + 1] = token.denom.trace[j];
                 }
@@ -209,8 +208,8 @@ contract ICS20Transfer is
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant {
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
-            ICS20Lib.FungibleTokenPacketData memory packetData =
-                abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+            ICS20Lib.FungibleTokenPacketDataV2 memory packetData =
+                abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketDataV2));
 
             _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
         }
@@ -218,8 +217,8 @@ contract ICS20Transfer is
 
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+        ICS20Lib.FungibleTokenPacketDataV2 memory packetData =
+            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketDataV2));
         _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
     }
 
@@ -230,7 +229,7 @@ contract ICS20Transfer is
     function _refundTokens(
         string calldata sourcePort,
         string calldata sourceClient,
-        ICS20Lib.FungibleTokenPacketData memory packetData
+        ICS20Lib.FungibleTokenPacketDataV2 memory packetData
     )
         private
     {
@@ -252,7 +251,7 @@ contract ICS20Transfer is
                 // the token is either a native token (in which case the base denom is an address),
                 // or we are a middle chain and the token was minted (and mapped) here
                 bool isERC20Address;
-                (erc20Address, isERC20Address) = ICS20Lib.hexStringToAddress(token.denom.base);
+                (isERC20Address, erc20Address) = Strings.tryParseAddress(token.denom.base);
                 if (!isERC20Address) {
                     bytes32 ibcDenom = ICS20Lib.getDenomIdentifier(token.denom);
                     erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);

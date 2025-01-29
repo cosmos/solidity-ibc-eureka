@@ -46,13 +46,13 @@ contract ICS24HostTest is Test {
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
         ICS20Lib.Hop[] memory trace = new ICS20Lib.Hop[](1);
-        trace[0] = ICS20Lib.Hop({ portId: "traceport", channelId: "channel-0" });
+        trace[0] = ICS20Lib.Hop({ portId: "traceport", clientId: "channel-0" });
         ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
         tokens[0] = ICS20Lib.Token({ denom: ICS20Lib.Denom({ base: "uatom", trace: trace }), amount: 1_000_000 });
 
         ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
-        hops[0] = ICS20Lib.Hop({ portId: "hopport", channelId: "channel-1" });
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+        hops[0] = ICS20Lib.Hop({ portId: "hopport", clientId: "channel-1" });
+        ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: "sender",
             receiver: "receiver",

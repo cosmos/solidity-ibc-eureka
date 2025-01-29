@@ -14,16 +14,15 @@ import { IBCERC20 } from "./IBCERC20.sol";
 library ICS20Lib {
     using Strings for string;
 
-    // TODO: Rename to V2
-    /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
-    /// @dev See FungibleTokenPacketDataV2 spec:
+    /// @notice FungibleTokenPacketDataV2 is the payload for a fungible token transfer packet.
+    /// @dev See FungibleTokenPacketDataV2V2 spec:
     /// https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures
     /// @param tokens The tokens to be transferred
     /// @param sender The sender of the token
     /// @param receiver The receiver of the token
     /// @param memo Optional memo
     /// @param forwarding Optional forwarding information
-    struct FungibleTokenPacketData {
+    struct FungibleTokenPacketDataV2 {
         Token[] tokens;
         string sender;
         string receiver;
@@ -63,8 +62,7 @@ library ICS20Lib {
     /// @param channelId The channel ID
     struct Hop {
         string portId;
-        // TODO: RENAME TO CLIENT ID???
-        string channelId;
+        string clientId;
     }
 
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
@@ -87,8 +85,8 @@ library ICS20Lib {
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
     /// @notice A dummy function to generate the ABI for the parameters.
-    /// @param o1 The FungibleTokenPacketData.
-    function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
+    /// @param o1 The FungibleTokenPacketDataV2.
+    function abiPublicTypes(FungibleTokenPacketDataV2 memory o1) public pure 
     // solhint-disable-next-line no-empty-blocks
     {
         // This is a dummy function to generate the ABI for outputs
@@ -114,7 +112,6 @@ library ICS20Lib {
             require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
 
             Denom memory fullDenom;
-            // TODO: Is this correct?
             try IBCERC20(msg_.tokens[i].contractAddress).fullDenom() returns (Denom memory fullDenomFromContract) {
                 // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
                 fullDenom = fullDenomFromContract;
@@ -138,7 +135,7 @@ library ICS20Lib {
 
         // We are encoding the payload in ABI format
         bytes memory packetData = abi.encode(
-            ICS20Lib.FungibleTokenPacketData({
+            ICS20Lib.FungibleTokenPacketDataV2({
                 tokens: tokens,
                 sender: Strings.toHexString(sender),
                 receiver: msg_.receiver,
@@ -160,16 +157,6 @@ library ICS20Lib {
             timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
-    }
-
-    // TODO: FIX THESE TO AVOID THE SWAPPED ORDER OF ARGUMENTS (AND REMOVE ONE OF THESE PROBABLY)
-    /// @notice hexStringToAddress converts a hex string to an address.
-    /// @param addrHexString hex address string
-    /// @return address value
-    /// @return true if the conversion was successful
-    function hexStringToAddress(string memory addrHexString) internal pure returns (address, bool) {
-        (bool success, address addr) = Strings.tryParseAddress(addrHexString);
-        return (addr, success);
     }
 
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
@@ -206,50 +193,18 @@ library ICS20Lib {
             return false;
         }
 
-        return denom.trace[0].portId.equal(port) && denom.trace[0].channelId.equal(client);
+        return denom.trace[0].portId.equal(port) && denom.trace[0].clientId.equal(client);
     }
 
+    // TODO: Document
     function getDenomIdentifier(Denom memory denom) internal pure returns (bytes32) {
         bytes memory traceBytes = "";
         for (uint256 i = 0; i < denom.trace.length; i++) {
             traceBytes = abi.encodePacked(
-                traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].channelId))
+                traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].clientId))
             );
         }
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));
-    }
-
-    // /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
-    // /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
-    // /// @notice that the denom passed in is a full denom path with trace and base denom
-    // /// @param fullDenomPath full denom path with trace and base denom
-    // /// @return IBC denom in the format ibc/hash(trace+base_denom)
-    // function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
-    //     string memory hash = toHexHash(fullDenomPath);
-    //     return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
-    // }
-
-    // TODO: IS THIS USED ANYWHERE?
-    /// @notice toHexHash converts a string to an all uppercase hex hash (without the 0x prefix)
-    /// @param str string to convert
-    /// @return uppercase hex hash without 0x prefix
-    function toHexHash(string memory str) public pure returns (string memory) {
-        bytes32 hash = sha256(bytes(str));
-        bytes memory hexBz = bytes(Strings.toHexString(uint256(hash)));
-
-        // next we remove the `0x` prefix and uppercase the hash string
-        bytes memory finalHex = new bytes(hexBz.length - 2); // we skip the 0x prefix
-
-        for (uint256 i = 2; i < hexBz.length; i++) {
-            // if lowercase a-z, convert to uppercase
-            if (hexBz[i] >= 0x61 && hexBz[i] <= 0x7A) {
-                finalHex[i - 2] = bytes1(uint8(hexBz[i]) - 32);
-            } else {
-                finalHex[i - 2] = hexBz[i];
-            }
-        }
-
-        return string(finalHex);
     }
 }
