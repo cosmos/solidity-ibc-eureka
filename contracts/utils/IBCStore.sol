@@ -5,9 +5,8 @@ import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { ICS24Host } from "./ICS24Host.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
-import { Ownable } from "@openzeppelin-contracts/access/Ownable.sol";
 
-contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
+abstract contract IBCStore is IIBCStore, IICS24HostErrors {
     /// @notice Storage of the IBCStore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param commitments Mapping of all IBC commitments
@@ -23,17 +22,12 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
     bytes32 private constant IBCSTORE_STORAGE_SLOT =
         0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
 
-    /// @param owner_ The owner of the contract
-    /// @dev Owner is to be the ICS26Router contract
-    constructor(address owner_) Ownable(owner_) { }
-
     /// @inheritdoc IIBCStore
     function getCommitment(bytes32 hashedPath) public view returns (bytes32) {
         return _getIBCStoreStorage().commitments[hashedPath];
     }
 
-    /// @inheritdoc IIBCStore
-    function nextSequenceSend(string calldata clientId) public onlyOwner returns (uint32) {
+    function nextSequenceSend(string calldata clientId) internal returns (uint32) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         uint32 seq = $.prevSequenceSends[clientId] + 1;
@@ -41,8 +35,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         return seq;
     }
 
-    /// @inheritdoc IIBCStore
-    function commitPacket(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
+    function commitPacket(IICS26RouterMsgs.Packet memory packet) internal {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
@@ -57,8 +50,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         $.commitments[path] = commitment;
     }
 
-    /// @inheritdoc IIBCStore
-    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) public onlyOwner returns (bytes32) {
+    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal returns (bytes32) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
@@ -72,8 +64,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         return commitment;
     }
 
-    /// @inheritdoc IIBCStore
-    function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) public onlyOwner {
+    function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) internal {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destClient, packet.sequence);
@@ -87,8 +78,7 @@ contract IBCStore is IIBCStore, IICS24HostErrors, Ownable {
         $.commitments[path] = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
     }
 
-    /// @inheritdoc IIBCStore
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) public onlyOwner {
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) internal {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destClient, packet.sequence);
