@@ -64,8 +64,6 @@ contract ICS26Router is
         __IBCStoreUpgradeable_init();
 
         _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
-
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -111,8 +109,6 @@ contract ICS26Router is
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.payloads[0];
 
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
-
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
         // TODO: validate all identifiers
@@ -157,8 +153,6 @@ contract ICS26Router is
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
-
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
         CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.destClient);
         require(
@@ -217,8 +211,6 @@ contract ICS26Router is
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
 
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
-
         CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destClient)),
@@ -273,8 +265,6 @@ contract ICS26Router is
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         Payload calldata payload = msg_.packet.payloads[0];
-
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
         CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
