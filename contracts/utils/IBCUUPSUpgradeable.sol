@@ -38,6 +38,18 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
         _getIBCUUPSUpgradeableStorage().multisigAdmin = multisigAdmin;
     }
 
+    /// @notice Returns the multisig admin address
+    /// @return The multisig admin address
+    function getMultisigAdmin() external view returns (address) {
+        return _getIBCUUPSUpgradeableStorage().multisigAdmin;
+    }
+    
+    /// @notice Returns the governance admin address
+    /// @return The governance admin address
+    function getGovAdmin() external view returns (address) {
+        return _getIBCUUPSUpgradeableStorage().govAdmin;
+    }
+
     /// @notice Adds a governance admin address
     /// @dev The multisigAdmin should be timelocked after setting the govAdmin
     function addGovAdmin(address govAdmin) external onlyMultisigAdmin {
