@@ -58,7 +58,7 @@ contract BenchmarkTest is FixtureTest {
 
         // ack should be deleted
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(ackFixture.packet.sourceClient, ackFixture.packet.sequence);
-        bytes32 storedCommitment = ics26Router.IBC_STORE().getCommitment(path);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // Step 3: Cosmos has sent the tokens back and commited a packet, which we will now prove and receive
@@ -71,7 +71,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack is written
-        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
+        bytes32 storedAck = ics26Router.getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 recvFixture.packet.destClient, recvFixture.packet.sequence
             )
@@ -94,7 +94,7 @@ contract BenchmarkTest is FixtureTest {
         console.log("Multicall native recv gas used: ", vm.lastCallGas().gasTotalUsed);
         assertTrue(success);
 
-        bytes32 storedAck = ics26Router.IBC_STORE().getCommitment(
+        bytes32 storedAck = ics26Router.getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(
                 recvNativeFixture.packet.destClient, recvNativeFixture.packet.sequence
             )
@@ -127,7 +127,7 @@ contract BenchmarkTest is FixtureTest {
         // ack should be deleted
         bytes32 path =
             ICS24Host.packetCommitmentKeyCalldata(timeoutFixture.packet.sourceClient, timeoutFixture.packet.sequence);
-        assertEq(ics26Router.IBC_STORE().getCommitment(path), 0);
+        assertEq(ics26Router.getCommitment(path), 0);
     }
 
     function sendTransfer(Fixture memory fixture) internal returns (uint64) {
@@ -162,7 +162,7 @@ contract BenchmarkTest is FixtureTest {
         uint64 gasUsed = vm.lastCallGas().gasTotalUsed;
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(fixture.packet.sourceClient, fixture.packet.sequence);
-        assertEq(ics26Router.IBC_STORE().getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
+        assertEq(ics26Router.getCommitment(path), ICS24Host.packetCommitmentBytes32(fixture.packet));
 
         return gasUsed;
     }

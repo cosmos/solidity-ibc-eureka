@@ -32,8 +32,8 @@ contract ICS20Transfer is
     MulticallUpgradeable
 {
     /// @notice Storage of the ICS20Transfer contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
-    /// @dev risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param escrow The escrow contract
     /// @param ibcDenomContracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract

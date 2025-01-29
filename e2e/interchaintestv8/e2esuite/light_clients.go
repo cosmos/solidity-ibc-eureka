@@ -17,6 +17,8 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
@@ -86,7 +88,7 @@ func (s *TestSuite) createEthereumLightClient(
 	clientStateAny, err := clienttypes.PackClientState(&clientState)
 	s.Require().NoError(err)
 
-	proofOfIBCContract, err := eth.EthAPI.GetProof(ibcContractAddress, []string{}, executionNumberHex)
+	proofOfIBCContract, err := eth.EthAPI.GetProof(ibcContractAddress, []string{ics26router.IbcStoreStorageSlot}, executionNumberHex)
 	s.Require().NoError(err)
 
 	header, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
