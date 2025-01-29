@@ -84,7 +84,7 @@
       {
         "name": "o1",
         "type": "tuple",
-        "internalType": "struct ICS20Lib.FungibleTokenPacketData",
+        "internalType": "struct ICS20Lib.FungibleTokenPacketDataV2",
         "components": [
           {
             "name": "tokens",
@@ -112,7 +112,7 @@
                         "internalType": "string"
                       },
                       {
-                        "name": "channelId",
+                        "name": "clientId",
                         "type": "string",
                         "internalType": "string"
                       }
@@ -163,7 +163,7 @@
                     "internalType": "string"
                   },
                   {
-                    "name": "channelId",
+                    "name": "clientId",
                     "type": "string",
                     "internalType": "string"
                   }
@@ -249,7 +249,7 @@
                     "internalType": "string"
                   },
                   {
-                    "name": "channelId",
+                    "name": "clientId",
                     "type": "string",
                     "internalType": "string"
                   }
@@ -312,25 +312,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "toHexHash",
-    "inputs": [
-      {
-        "name": "str",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "pure"
   },
   {
     "type": "error",

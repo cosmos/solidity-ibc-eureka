@@ -42,7 +42,7 @@
                 "internalType": "string"
               },
               {
-                "name": "channelId",
+                "name": "clientId",
                 "type": "string",
                 "internalType": "string"
               }
@@ -164,7 +164,7 @@
                     "internalType": "string"
                   },
                   {
-                    "name": "channelId",
+                    "name": "clientId",
                     "type": "string",
                     "internalType": "string"
                   }
@@ -574,7 +574,7 @@
                     "internalType": "string"
                   },
                   {
-                    "name": "channelId",
+                    "name": "clientId",
                     "type": "string",
                     "internalType": "string"
                   }
@@ -653,7 +653,7 @@
                 "internalType": "string"
               },
               {
-                "name": "channelId",
+                "name": "clientId",
                 "type": "string",
                 "internalType": "string"
               }
