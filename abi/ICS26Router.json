@@ -19,19 +19,6 @@
   },
   {
     "type": "function",
-    "name": "IBC_STORE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IIBCStore"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "ackPacket",
     "inputs": [
       {
@@ -205,6 +192,25 @@
         "name": "",
         "type": "address",
         "internalType": "contract ILightClient"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCommitment",
+    "inputs": [
+      {
+        "name": "hashedPath",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -1380,6 +1386,28 @@
     "type": "error",
     "name": "IBCMultiPayloadPacketNotSupported",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IBCPacketAcknowledgementAlreadyExists",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCPacketCommitmentAlreadyExists",
+    "inputs": [
+      {
+        "name": "path",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",

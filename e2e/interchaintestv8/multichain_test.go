@@ -36,7 +36,6 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcstore"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
@@ -68,7 +67,6 @@ type MultichainTestSuite struct {
 	ics26Contract          *ics26router.Contract
 	ics20Contract          *ics20transfer.Contract
 	erc20Contract          *erc20.Contract
-	ibcStoreContract       *ibcstore.Contract
 	escrowContractAddr     ethcommon.Address
 
 	EthToChainARelayerClient    relayertypes.RelayerServiceClient
@@ -181,8 +179,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
 		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
-		s.ibcStoreContract, err = ibcstore.NewContract(ethcommon.HexToAddress(s.contractAddresses.IbcStore), eth.RPCClient)
-		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Deploy SimdB light client on ethereum", func() {
@@ -235,7 +231,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.IbcStore)
+		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.Ics26Router)
 	}))
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
@@ -257,7 +253,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.IbcStore)
+		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.Ics26Router)
 	}))
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
