@@ -161,7 +161,6 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			// denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
 			denomOnEthereum := ics20transfer.ICS20LibDenom{
 				Base: transferCoin.Denom,
 				Trace: []ics20transfer.ICS20LibHop{

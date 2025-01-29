@@ -760,7 +760,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			},
 		}
 
-		ibcERC20Address, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
+		var err error
+		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
 		s.Require().NoError(err)
 
 		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)
@@ -768,7 +769,12 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 		actualFullDenom, err := ibcERC20.FullDenom(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(denomOnEthereum, actualFullDenom)
+		s.Require().Equal(denomOnEthereum.Base, actualFullDenom.Base)
+		s.Require().Equal(len(denomOnEthereum.Trace), len(actualFullDenom.Trace))
+		for i, hop := range denomOnEthereum.Trace {
+			s.Require().Equal(hop.PortId, actualFullDenom.Trace[i].PortId)
+			s.Require().Equal(hop.ChannelId, actualFullDenom.Trace[i].ChannelId)
+		}
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum

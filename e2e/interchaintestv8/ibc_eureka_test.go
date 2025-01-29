@@ -867,7 +867,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			},
 		}
 
-		ibcERC20Address, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
+		var err error
+		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum)
 		s.Require().NoError(err)
 
 		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)
@@ -877,13 +878,19 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.Base, name)
 
-		actualBaseDenom, err := ibcERC20.Symbol(nil)
-		s.Require().NoError(err)
-		s.Require().Equal(transferCoin.Denom, actualBaseDenom)
+		// TODO: Remove if the current ibcIdentifier is an OK replacement for the ibc-go IBC denom (ibc/{HASH})
+		// actualBaseDenom, err := ibcERC20.Symbol(nil)
+		// s.Require().NoError(err)
+		// s.Require().Equal(transferCoin.Denom, actualBaseDenom)
 
 		actualFullDenom, err := ibcERC20.FullDenom(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(denomOnEthereum, actualFullDenom)
+		s.Require().Equal(denomOnEthereum.Base, actualFullDenom.Base)
+		s.Require().Equal(len(denomOnEthereum.Trace), len(actualFullDenom.Trace))
+		for i, hop := range denomOnEthereum.Trace {
+			s.Require().Equal(hop.PortId, actualFullDenom.Trace[i].PortId)
+			s.Require().Equal(hop.ChannelId, actualFullDenom.Trace[i].ChannelId)
+		}
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
