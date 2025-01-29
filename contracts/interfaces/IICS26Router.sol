@@ -8,10 +8,6 @@ import { IIBCStore } from "./IIBCStore.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router is IICS26RouterMsgs {
-    /// @notice Returns the IBC storage contract
-    /// @return The address of the IBC stotage contract
-    function IBC_STORE() external view returns (IIBCStore);
-
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract

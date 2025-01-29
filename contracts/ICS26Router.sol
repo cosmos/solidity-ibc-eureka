@@ -5,7 +5,7 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCStore } from "./interfaces/IIBCStore.sol";
 import { IICS24HostErrors } from "./errors/IICS24HostErrors.sol";
-import { IBCStore } from "./utils/IBCStore.sol";
+import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
@@ -23,18 +23,17 @@ contract ICS26Router is
     IICS26Router,
     IICS26RouterErrors,
     ICS02ClientUpgradeable,
+    IBCStoreUpgradeable,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable
 {
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param apps The mapping of port identifiers to IBC application contracts
-    /// @param ibcStore The IBC store contract
     /// @param ics02Client The ICS02Client contract
     /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) apps;
-        IIBCStore ibcStore;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -62,17 +61,11 @@ contract ICS26Router is
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __ICS02Client_init();
+        __IBCStoreUpgradeable_init();
 
         _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
 
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
-
-        $.ibcStore = new IBCStore(address(this)); // using this contract as the owner
-    }
-
-    /// @inheritdoc IICS26Router
-    function IBC_STORE() external view returns (IIBCStore) {
-        return _getICS26RouterStorage().ibcStore;
     }
 
     /// @notice Returns the address of the IBC application given the port identifier
@@ -131,7 +124,7 @@ contract ICS26Router is
             IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
 
-        uint32 sequence = $.ibcStore.nextSequenceSend(msg_.sourceClient);
+        uint32 sequence = nextSequenceSend(msg_.sourceClient);
 
         Packet memory packet = Packet({
             sequence: sequence,
@@ -151,7 +144,7 @@ contract ICS26Router is
             })
         );
 
-        $.ibcStore.commitPacket(packet);
+        commitPacket(packet);
 
         emit SendPacket(packet);
         return sequence;
@@ -193,9 +186,10 @@ contract ICS26Router is
 
         // recvPacket will no-op if the packet receipt already exists
         // solhint-disable-next-line no-empty-blocks
-        try $.ibcStore.setPacketReceipt(msg_.packet) { }
-        catch (bytes memory reason) {
-            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketReceiptAlreadyExists.selector);
+        bool isReceiptSet = setPacketReceipt(msg_.packet);
+        if (!isReceiptSet) {
+            emit Noop();
+            return;
         }
 
         bytes[] memory acks = new bytes[](1);
@@ -248,14 +242,15 @@ contract ICS26Router is
         getClient(msg_.packet.sourceClient).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
-        try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
-            require(
-                storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-                IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-            );
-        } catch (bytes memory reason) {
-            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
+        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
+        if (!isDeleted) {
+            emit Noop();
+            return;
         }
+        require(
+            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+        );
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -303,14 +298,15 @@ contract ICS26Router is
         );
 
         // timeoutPacket will no-op if the packet commitment does not exist
-        try $.ibcStore.deletePacketCommitment(msg_.packet) returns (bytes32 storedCommitment) {
-            require(
-                storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-                IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-            );
-        } catch (bytes memory reason) {
-            return noopOnCorrectReason(reason, IICS24HostErrors.IBCPacketCommitmentNotFound.selector);
+        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
+        if (!isDeleted) {
+            emit Noop();
+            return;
         }
+        require(
+            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
+            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
+        );
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
@@ -329,24 +325,8 @@ contract ICS26Router is
     /// @param packet The packet to acknowledge
     /// @param acks The acknowledgement
     function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
-        _getICS26RouterStorage().ibcStore.commitPacketAcknowledgement(packet, acks);
+        commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
-    }
-
-    /// @notice No-op if the reason is correct, otherwise reverts with the same reason
-    /// @dev Only to be used in catch blocks
-    /// @param reason The reason to check
-    /// @param correctReason The correct reason
-    function noopOnCorrectReason(bytes memory reason, bytes4 correctReason) private {
-        if (bytes4(reason) == correctReason) {
-            emit Noop();
-        } else {
-            // reverts with the same reason
-            // solhint-disable-next-line no-inline-assembly
-            assembly ("memory-safe") {
-                revert(add(reason, 32), mload(reason))
-            }
-        }
     }
 
     /// @notice Returns the storage of the ICS26Router contract
