@@ -1282,7 +1282,8 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
-			ackTxHash, err := hex.DecodeString(resp.TxHash)
+			var err error
+			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
 		}))
