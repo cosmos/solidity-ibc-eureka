@@ -16,8 +16,7 @@ use ethereum_types::{
     consensus::sync_committee::compute_sync_committee_period_at_slot,
     execution::account_proof::AccountProof,
 };
-use ibc_eureka_solidity_types::ics26::router::routerInstance;
-use ibc_eureka_solidity_types::ics26::IBCSTORE_STORAGE_SLOT;
+use ibc_eureka_solidity_types::ics26::{router::routerInstance, IBCSTORE_STORAGE_SLOT};
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
 use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
