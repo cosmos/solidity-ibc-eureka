@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 // solhint-disable gas-custom-errors
 
-import { console2 } from "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
@@ -81,9 +80,6 @@ contract MigrationTest is Test {
             address(newLogic),
             abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
-
-        bytes32 lol = keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCStore")) - 1)) & ~bytes32(uint256(0xff));
-        console2.logBytes32(lol);
     }
 
     function test_failure_upgrade() public {
