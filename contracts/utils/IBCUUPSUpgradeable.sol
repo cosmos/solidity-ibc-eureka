@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IIBCUpgradeableErrors } from "../errors/IIBCUpgradeableErrors.sol";
+import { IIBCUUPSUpgradeableErrors } from "../errors/IIBCUUPSUpgradeableErrors.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
-/// @title IBC Upgradeable contract
+/// @title IBC UUPSUpgradeable contract
 /// @notice This contract is an abstract contract for managing upgradeable IBC contracts
 /// @dev This contract is meant to be used with OpenZeppelin's UUPS upgradeable proxy
 /// @dev It manages two roles: the multisig admin, and the governance admin. The multisig admin represents a timelocked security council, and the governance admin represents an interchain account from the governance of a counterparty chain
 /// @dev We highly recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
 /// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the multisig admin
-abstract contract IBCUpgradeable is IIBCUpgradeableErrors, UUPSUpgradeable, ContextUpgradeable {
+abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeable, ContextUpgradeable {
     /// @notice Storage of the IBCUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param multisigAdmin The multisig admin address, assumed to be timelocked
