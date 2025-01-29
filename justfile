@@ -192,6 +192,3 @@ generate-fixtures-sp1-ics07: install-operator
 relayer-proto-gen:
     @echo "Generating Protobuf files for relayer"
     buf generate --template buf.gen.yaml
-
-solc args:
-  solc --remappings=$(cat remappings.txt)
