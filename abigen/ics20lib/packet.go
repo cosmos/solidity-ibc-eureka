@@ -7,9 +7,9 @@ import (
 )
 
 // EncodeFungibleTokenPacketData abi encodes the ICS20Transfer payload data.
-// This works the same way as abi.encode(ICS20LibFungibleTokenPacketData) in Solidity.
+// This works the same way as abi.encode(ICS20LibFungibleTokenPacketDataV2) in Solidity.
 // The encoded bytes are used as the payload in the Packet data.
-func EncodeFungibleTokenPacketData(ftpd ICS20LibFungibleTokenPacketData) ([]byte, error) {
+func EncodeFungibleTokenPacketData(ftpd ICS20LibFungibleTokenPacketDataV2) ([]byte, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
 		return nil, err
@@ -20,15 +20,15 @@ func EncodeFungibleTokenPacketData(ftpd ICS20LibFungibleTokenPacketData) ([]byte
 
 // DecodeFungibleTokenPacketData decodes an abi encoded ICS20Transfer payload data.
 // This works the same way as abi.decode(payload) in Solidity.
-func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleTokenPacketData, error) {
+func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleTokenPacketDataV2, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
-		return ICS20LibFungibleTokenPacketData{}, err
+		return ICS20LibFungibleTokenPacketDataV2{}, err
 	}
 
 	unpacked, err := parsedABI.Unpack(abiEncodedFtpd)
 	if err != nil {
-		return ICS20LibFungibleTokenPacketData{}, err
+		return ICS20LibFungibleTokenPacketDataV2{}, err
 	}
 
 	// We have to do this because Unpack returns a slice of interfaces where the concrete type is an anonymous struct
@@ -37,8 +37,8 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 			Denom struct {
 				Base  string `json:"base"`
 				Trace []struct {
-					PortId    string `json:"portId"`
-					ChannelId string `json:"channelId"`
+					PortId   string `json:"portId"`
+					ClientId string `json:"clientId"`
 				} `json:"trace"`
 			} `json:"denom"`
 			Amount *big.Int `json:"amount"`
@@ -49,8 +49,8 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 		Forwarding struct {
 			DestinationMemo string `json:"destinationMemo"`
 			Hops            []struct {
-				PortId    string `json:"portId"`
-				ChannelId string `json:"channelId"`
+				PortId   string `json:"portId"`
+				ClientId string `json:"clientId"`
 			} `json:"hops"`
 		} `json:"forwarding"`
 	})
@@ -60,8 +60,8 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 		trace := make([]ICS20LibHop, len(token.Denom.Trace))
 		for j, hop := range token.Denom.Trace {
 			trace[j] = ICS20LibHop{
-				PortId:    hop.PortId,
-				ChannelId: hop.ChannelId,
+				PortId:   hop.PortId,
+				ClientId: hop.ClientId,
 			}
 		}
 
@@ -80,11 +80,11 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 	}
 	for i, hop := range decodedAnon.Forwarding.Hops {
 		forwarding.Hops[i] = ICS20LibHop{
-			PortId:    hop.PortId,
-			ChannelId: hop.ChannelId,
+			PortId:   hop.PortId,
+			ClientId: hop.ClientId,
 		}
 	}
-	decoded := ICS20LibFungibleTokenPacketData{
+	decoded := ICS20LibFungibleTokenPacketDataV2{
 		Tokens:     tokens,
 		Sender:     decodedAnon.Sender,
 		Receiver:   decodedAnon.Receiver,
