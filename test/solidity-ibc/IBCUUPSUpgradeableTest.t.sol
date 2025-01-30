@@ -20,7 +20,7 @@ import { ProxyAdmin } from "@openzeppelin-contracts/proxy/transparent/ProxyAdmin
 import { IERC1967 } from "@openzeppelin-contracts/interfaces/IERC1967.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
-contract MigrationTest is Test {
+contract IBCUUPSUpgradeableTest is Test {
     DummyLightClient public lightClient;
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
