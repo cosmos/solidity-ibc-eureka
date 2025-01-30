@@ -15,7 +15,12 @@ import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 /// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
 /// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the
 /// multisig admin
-abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, IIBCUUPSUpgradeable, UUPSUpgradeable, ContextUpgradeable {
+abstract contract IBCUUPSUpgradeable is
+    IIBCUUPSUpgradeableErrors,
+    IIBCUUPSUpgradeable,
+    UUPSUpgradeable,
+    ContextUpgradeable
+{
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -42,7 +47,7 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, IIBCUUPSUpgra
     function getMultisigAdmin() external view returns (address) {
         return _getIBCUUPSUpgradeableStorage().multisigAdmin;
     }
-    
+
     /// @inheritdoc IIBCUUPSUpgradeable
     function getGovAdmin() external view returns (address) {
         return _getIBCUUPSUpgradeableStorage().govAdmin;

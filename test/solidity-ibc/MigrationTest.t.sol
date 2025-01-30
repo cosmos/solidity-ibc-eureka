@@ -44,8 +44,7 @@ contract MigrationTest is Test {
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
-            address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
+            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
         );
 
         // ============== Step 3: Wire up the contracts ==============
@@ -69,8 +68,7 @@ contract MigrationTest is Test {
         DummyInitializable newLogic = new DummyInitializable();
 
         UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
-            address(newLogic),
-            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
 
@@ -80,8 +78,7 @@ contract MigrationTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
         UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
-            address(newLogic),
-            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
 
@@ -90,8 +87,7 @@ contract MigrationTest is Test {
         DummyInitializable newLogic = new DummyInitializable();
 
         UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
-            address(newLogic),
-            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
 
@@ -101,8 +97,7 @@ contract MigrationTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
         UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
-            address(newLogic),
-            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
 }

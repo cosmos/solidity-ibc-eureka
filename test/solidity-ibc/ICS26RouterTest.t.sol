@@ -62,8 +62,7 @@ contract ICS26RouterTest is Test {
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
         ERC1967Proxy transferProxy = new ERC1967Proxy(
-            address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
+            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
