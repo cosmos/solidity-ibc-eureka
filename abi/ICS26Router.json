@@ -293,19 +293,6 @@
   },
   {
     "type": "function",
-    "name": "getMultisigAdmin",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getRoleAdmin",
     "inputs": [
       {
@@ -319,6 +306,19 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTimelockedAdmin",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -370,7 +370,7 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "multisigAdmin",
+        "name": "timelockedAdmin",
         "type": "address",
         "internalType": "address"
       },
@@ -382,6 +382,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isAdmin",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -643,10 +662,10 @@
   },
   {
     "type": "function",
-    "name": "setMultisigAdmin",
+    "name": "setTimelockedAdmin",
     "inputs": [
       {
-        "name": "newMultisigAdmin",
+        "name": "newTimelockedAdmin",
         "type": "address",
         "internalType": "address"
       }
@@ -1385,16 +1404,6 @@
   },
   {
     "type": "error",
-    "name": "CallerNotGovernanceAdmin",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CallerNotMultisigAdmin",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1412,11 +1421,6 @@
   {
     "type": "error",
     "name": "FailedCall",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "GovernanceAdminAlreadySet",
     "inputs": []
   },
   {
