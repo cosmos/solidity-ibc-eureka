@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "./msgs/IICS20TransferMsgs.sol";
+
+import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
-import { IICS20Errors } from "./errors/IICS20Errors.sol";
-import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuardTransientUpgradeable } from
-    "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
-import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
+
+import { ReentrancyGuardTransientUpgradeable } from
+    "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
+import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
@@ -28,6 +31,7 @@ contract ICS20Transfer is
     IIBCApp,
     IICS20Transfer,
     IICS20Errors,
+    IICS20TransferMsgs,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable
 {

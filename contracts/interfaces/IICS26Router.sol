@@ -6,7 +6,7 @@ import { IIBCApp } from "./IIBCApp.sol";
 
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
-interface IICS26Router is IICS26RouterMsgs {
+interface IICS26Router {
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
@@ -22,19 +22,19 @@ interface IICS26Router is IICS26RouterMsgs {
     /// @notice Sends a packet
     /// @param msg The message for sending packets
     /// @return The sequence number of the packet
-    function sendPacket(MsgSendPacket calldata msg) external returns (uint32);
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg) external returns (uint32);
 
     /// @notice Receives a packet
     /// @param msg The message for receiving packets
-    function recvPacket(MsgRecvPacket calldata msg) external;
+    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg) external;
 
     /// @notice Acknowledges a packet
     /// @param msg The message for acknowledging packets
-    function ackPacket(MsgAckPacket calldata msg) external;
+    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg) external;
 
     /// @notice Timeouts a packet
     /// @param msg The message for timing out packets
-    function timeoutPacket(MsgTimeoutPacket calldata msg) external;
+    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
 
     // --------------------- Events --------------------- //
 
@@ -44,21 +44,21 @@ interface IICS26Router is IICS26RouterMsgs {
     event IBCAppAdded(string portId, address app);
     /// @notice Emitted when a packet is sent
     /// @param packet The sent packet
-    event SendPacket(Packet packet);
+    event SendPacket(IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet is received
     /// @param packet The received packet
-    event RecvPacket(Packet packet);
+    event RecvPacket(IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet acknowledgement is written
     /// @param packet The packet that was acknowledged
     /// @param acknowledgements The list of acknowledgements data
-    event WriteAcknowledgement(Packet packet, bytes[] acknowledgements);
+    event WriteAcknowledgement(IICS26RouterMsgs.Packet packet, bytes[] acknowledgements);
     /// @notice Emitted when a packet is timed out
     /// @param packet The packet that was timed out
-    event TimeoutPacket(Packet packet);
+    event TimeoutPacket(IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet is acknowledged
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
-    event AckPacket(Packet packet, bytes acknowledgement);
+    event AckPacket(IICS26RouterMsgs.Packet packet, bytes acknowledgement);
     /// @notice Emitted when a redundant relay occurs
     event Noop();
 }

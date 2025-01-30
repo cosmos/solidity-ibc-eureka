@@ -1,24 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
+import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
+import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
+import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
+
+import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
-import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
-import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
-import { ICS24Host } from "./utils/ICS24Host.sol";
-import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
-import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
+
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
+import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
     IICS26Router,
+    IICS26RouterMsgs,
+    IICS02ClientMsgs,
     IICS26RouterErrors,
     ICS02ClientUpgradeable,
     IBCStoreUpgradeable,
