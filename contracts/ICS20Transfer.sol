@@ -16,6 +16,8 @@ import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
@@ -29,7 +31,8 @@ contract ICS20Transfer is
     IICS20Transfer,
     IICS20Errors,
     ReentrancyGuardTransientUpgradeable,
-    MulticallUpgradeable
+    MulticallUpgradeable,
+    UUPSUpgradeable
 {
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -319,6 +322,14 @@ contract ICS20Transfer is
         assembly {
             $.slot := ICS20TRANSFER_STORAGE_SLOT
         }
+    }
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal virtual override {
+        address ics26Router = address(_getICS20TransferStorage().ics26Router);
+        address multisigAdmin = IIBCUUPSUpgradeable(ics26Router).getMultisigAdmin();
+        address govAdmin = IIBCUUPSUpgradeable(ics26Router).getGovAdmin();
+        require(_msgSender() == multisigAdmin || _msgSender() == govAdmin, ICS20Unauthorized(_msgSender()));
     }
 
     function _getEscrow() private view returns (IEscrow) {
