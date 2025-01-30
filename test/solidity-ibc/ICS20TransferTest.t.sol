@@ -660,7 +660,8 @@ contract ICS20TransferTest is Test {
         // Send back (onRecv)
         string memory newSourcePort = packet.payloads[0].destPort;
         string memory newSourceClient = packet.destClient;
-        ICS20Lib.Denom memory receivedDenom = ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory receivedDenom =
+            ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         receivedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: newSourcePort, clientId: newSourceClient });
 
         {
@@ -740,7 +741,10 @@ contract ICS20TransferTest is Test {
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
         ICS20Lib.Denom memory expectedDenom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
-        expectedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+
+        expectedDenom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+
         string memory expectedPath = ICS20Lib.getPath(expectedDenom);
         assertEq(expectedPath, "transfer/dest-client/uatom");
 
@@ -794,8 +798,12 @@ contract ICS20TransferTest is Test {
         );
         assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-        ICS20Lib.Denom memory expectedDenom = ICS20Lib.Denom({ base: foreignDenom.base, trace: new IICS20TransferMsgs.Hop[](2) });
-        expectedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+        ICS20Lib.Denom memory expectedDenom =
+            ICS20Lib.Denom({ base: foreignDenom.base, trace: new IICS20TransferMsgs.Hop[](2) });
+
+        expectedDenom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+
         expectedDenom.trace[1] =
             IICS20TransferMsgs.Hop({ portId: foreignDenom.trace[0].portId, clientId: foreignDenom.trace[0].clientId });
         string memory expectedPath = ICS20Lib.getPath(expectedDenom);
@@ -821,7 +829,10 @@ contract ICS20TransferTest is Test {
             _getDefaultPacket();
 
         ICS20Lib.Denom memory denom = ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
-        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
+
+        denom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
+
         defaultPacketData.tokens[0].denom = denom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
@@ -874,7 +885,8 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test receiver chain is source, but denom is not erc20 address
-        ICS20Lib.Denom memory invalidErc20Denom = ICS20Lib.Denom({ base: "invalid", trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory invalidErc20Denom =
+            ICS20Lib.Denom({ base: "invalid", trace: new IICS20TransferMsgs.Hop[](1) });
         invalidErc20Denom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
         defaultPacketData.tokens[0].denom = invalidErc20Denom;

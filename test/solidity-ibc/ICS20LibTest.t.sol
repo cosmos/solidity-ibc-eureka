@@ -130,8 +130,10 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
     // Primarely here to make sure the identifier doesn't change - that would be bad...
     function test_getDenomIdentifier() public pure {
         // Contract address as base with no trace
-        ICS20Lib.Denom memory denom =
-            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new IICS20TransferMsgs.Hop[](0) });
+        ICS20Lib.Denom memory denom = ICS20Lib.Denom({
+            base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+            trace: new IICS20TransferMsgs.Hop[](0)
+        });
 
         bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
@@ -139,7 +141,10 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         );
 
         // Different contract address as base with no trace
-        denom = ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1497", trace: new IICS20TransferMsgs.Hop[](0) });
+        denom = ICS20Lib.Denom({
+            base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1497",
+            trace: new IICS20TransferMsgs.Hop[](0)
+        });
         denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
             Strings.toHexString(uint256(denomID)), "0xad394a13b52467c62521d0adbe8c823fae32ce6b3b8ed0469bf26b21a6cc6404"
@@ -181,8 +186,10 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
     }
 
     function test_getPath() public pure {
-        ICS20Lib.Denom memory denom =
-            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new IICS20TransferMsgs.Hop[](0) });
+        ICS20Lib.Denom memory denom = ICS20Lib.Denom({
+            base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+            trace: new IICS20TransferMsgs.Hop[](0)
+        });
         string memory path = ICS20Lib.getPath(denom);
         assertEq(path, "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496");
 

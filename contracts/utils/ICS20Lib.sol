@@ -107,8 +107,10 @@ library ICS20Lib {
                 fullDenom = fullDenomFromContract;
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenom =
-                    ICS20Lib.Denom({ base: Strings.toHexString(msg_.tokens[i].contractAddress), trace: new IICS20TransferMsgs.Hop[](0) });
+                fullDenom = ICS20Lib.Denom({
+                    base: Strings.toHexString(msg_.tokens[i].contractAddress),
+                    trace: new IICS20TransferMsgs.Hop[](0)
+                });
             }
 
             tokens[i] = Token({ denom: fullDenom, amount: msg_.tokens[i].amount });

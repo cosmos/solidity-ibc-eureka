@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ICS20Lib } from "../utils/ICS20Lib.sol";
-
 interface IICS20TransferMsgs {
     /// @notice Message for sending a transfer
     /// @param tokens The tokens to transfer

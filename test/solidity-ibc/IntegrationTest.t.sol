@@ -302,7 +302,8 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        ICS20Lib.Denom memory receivedDenom = ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory receivedDenom =
+            ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         receivedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: ICS20Lib.DEFAULT_PORT_ID, clientId: counterpartyId });
         ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
         tokens[0] = ICS20Lib.Token({ denom: receivedDenom, amount: transferAmount });
@@ -379,7 +380,8 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        ICS20Lib.Denom memory receivedDenom = ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory receivedDenom =
+            ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         receivedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: ICS20Lib.DEFAULT_PORT_ID, clientId: counterpartyId });
         ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
         tokens[0] = ICS20Lib.Token({ denom: receivedDenom, amount: transferAmount });
@@ -463,7 +465,8 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        ICS20Lib.Denom memory expectedDenom = ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory expectedDenom =
+            ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
 
@@ -760,8 +763,10 @@ contract IntegrationTest is Test {
             ICS20Lib.Denom({ base: tokens[0].denom.base, trace: new IICS20TransferMsgs.Hop[](2) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
-        expectedDenom.trace[1] =
-            IICS20TransferMsgs.Hop({ portId: tokens[0].denom.trace[0].portId, clientId: tokens[0].denom.trace[0].clientId });
+        expectedDenom.trace[1] = IICS20TransferMsgs.Hop({
+            portId: tokens[0].denom.trace[0].portId,
+            clientId: tokens[0].denom.trace[0].clientId
+        });
         string memory expectedPath = ICS20Lib.getPath(expectedDenom);
         assertEq(expectedPath, "transfer/07-tendermint-0/transfer/channel-42/uatom");
 
@@ -901,7 +906,8 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        ICS20Lib.Denom memory expectedDenom = ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
+        ICS20Lib.Denom memory expectedDenom =
+            ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
 
