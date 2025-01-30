@@ -64,7 +64,7 @@ contract MigrationTest is Test {
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
     }
 
-    function test_success_upgrade() public {
+    function test_success_ics20_upgrade() public {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
@@ -74,7 +74,28 @@ contract MigrationTest is Test {
         );
     }
 
-    function test_failure_upgrade() public {
+    function test_failure_ics20_upgrade() public {
+        // ============== Step 4: Migrate the contracts ==============
+        ErroneousInitializable newLogic = new ErroneousInitializable();
+
+        vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
+        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+            address(newLogic),
+            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
+
+    function test_success_ics26_upgrade() public {
+        // ============== Step 4: Migrate the contracts ==============
+        DummyInitializable newLogic = new DummyInitializable();
+
+        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
+            address(newLogic),
+            abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
+
+    function test_failure_ics26_upgrade() public {
         // ============== Step 4: Migrate the contracts ==============
         ErroneousInitializable newLogic = new ErroneousInitializable();
 
