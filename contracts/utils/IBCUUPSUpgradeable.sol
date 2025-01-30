@@ -8,15 +8,16 @@ import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 
 /// @title IBC UUPSUpgradeable contract
 /// @notice This contract is an abstract contract for managing upgradability of IBC contracts.
-/// @dev This contract is meant to be used with OpenZeppelin's UUPS upgradeable proxy pattern.
+/// @dev This contract is developed with OpenZeppelin's UUPS upgradeable proxy pattern.
 /// @dev This contract is meant to be inherited by ICS26Router implementation, and it manages its own upgradability.
-/// @dev Other IBC contracts can directly query ICS26Router for admin addresses to authorize UUPS upgrades (see ICS20Transfer).
-/// @dev It manages two roles: the multisig admin, and the governance admin. The multisig admin represents a timelocked
+/// @dev Other IBC contracts can directly query ICS26Router for the admin addresses to authorize UUPS upgrades (see
+/// ICS20Transfer).
+/// @dev This contract manages two roles: the multisig admin, and the governance admin. The multisig admin represents a
+/// timelocked
 /// security council, and the governance admin represents an interchain account from the governance of a counterparty
-/// chain
+/// chain. The multisig admin must be set during initialization, and the governance admin should be set later by the
+/// multisig admin.
 /// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
-/// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the
-/// multisig admin
 abstract contract IBCUUPSUpgradeable is
     IIBCUUPSUpgradeableErrors,
     IIBCUUPSUpgradeable,
