@@ -9,6 +9,8 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -73,10 +75,20 @@ contract MigrationTest is Test {
     }
 
     function test_failure_ics20_upgrade() public {
-        // ============== Step 4: Migrate the contracts ==============
-        ErroneousInitializable newLogic = new ErroneousInitializable();
+        // Case 1: Revert on failed initialization
+        ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
+        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+
+        // Case 2: Revert on unauthorized upgrade
+        DummyInitializable newLogic = new DummyInitializable();
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
@@ -92,11 +104,21 @@ contract MigrationTest is Test {
     }
 
     function test_failure_ics26_upgrade() public {
-        // ============== Step 4: Migrate the contracts ==============
-        ErroneousInitializable newLogic = new ErroneousInitializable();
+        // Case 1: Revert on failed initialization
+        ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
+            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+
+        // Case 2: Revert on unauthorized upgrade
+        DummyInitializable newLogic = new DummyInitializable();
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
