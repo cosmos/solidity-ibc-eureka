@@ -14,7 +14,7 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
@@ -24,10 +24,9 @@ contract ICS26RouterTest is Test {
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
-        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            address(this),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this))
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
         );
 
         ics26Router = ICS26Router(address(routerProxy));
@@ -62,10 +61,8 @@ contract ICS26RouterTest is Test {
         );
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
-            address(ics20TransferLogic),
-            address(this),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
+            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router))
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));

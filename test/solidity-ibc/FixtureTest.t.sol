@@ -13,7 +13,7 @@ import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 
@@ -52,17 +52,14 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        // ============== Step 2: Deploy Transparent Proxies ==============
-        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+        // ============== Step 2: Deploy ERC1967 Proxies ==============
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            address(this),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this))
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
         );
 
-        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
-            address(ics20TransferLogic),
-            address(this),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
+            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
         );
 
         // ============== Step 3: Wire up the contracts ==============

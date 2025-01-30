@@ -14,6 +14,7 @@ import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
+import { IBCUUPSUpgradeable } from "./utils/IBCUUPSUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
@@ -23,7 +24,8 @@ contract ICS26Router is
     ICS02ClientUpgradeable,
     IBCStoreUpgradeable,
     ReentrancyGuardTransientUpgradeable,
-    MulticallUpgradeable
+    MulticallUpgradeable,
+    IBCUUPSUpgradeable
 {
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -54,13 +56,15 @@ contract ICS26Router is
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
+    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
     /// @param portCustomizer The address of the port customizer
-    function initialize(address portCustomizer) public initializer {
+    function initialize(address timelockedAdmin, address portCustomizer) public initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __ICS02Client_init();
         __IBCStoreUpgradeable_init();
+        __IBCUUPSUpgradeable_init(timelockedAdmin);
 
         _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
     }
