@@ -14,7 +14,7 @@ import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.so
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 
 contract ICS02ClientTest is Test {
@@ -32,10 +32,9 @@ contract ICS02ClientTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
-        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            address(this),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this))
+            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
         );
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
 
