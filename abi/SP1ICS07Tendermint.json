@@ -180,7 +180,7 @@
       {
         "name": "zkAlgorithm",
         "type": "uint8",
-        "internalType": "enum ISP1Msgs.SupportedZkAlgorithm"
+        "internalType": "enum IICS07TendermintMsgs.SupportedZkAlgorithm"
       }
     ],
     "stateMutability": "view"
