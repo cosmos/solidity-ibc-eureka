@@ -12,18 +12,12 @@ use tendermint_light_client_verifier::types::TrustThreshold as TendermintTrustTh
 use time::OffsetDateTime;
 
 alloy_sol_types::sol!("../../contracts/msgs/IICS26RouterMsgs.sol");
-alloy_sol_types::sol!(
-#![sol(all_derives)]
-"../../contracts/msgs/IICS02ClientMsgs.sol"
-);
+alloy_sol_types::sol!("../../contracts/msgs/IICS02ClientMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/ILightClientMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IICS20TransferMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IIBCAppCallbacks.sol");
 
-alloy_sol_types::sol!(
-#![sol(all_derives)]
-"../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol"
-);
+alloy_sol_types::sol!("../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/ISP1Msgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMembershipMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol");
