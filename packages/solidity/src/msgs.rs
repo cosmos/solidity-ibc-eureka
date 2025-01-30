@@ -8,15 +8,22 @@ use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use tendermint::{hash::Algorithm, Time};
 use tendermint_light_client_verifier::types::Hash;
+use tendermint_light_client_verifier::types::TrustThreshold as TendermintTrustThreshold;
 use time::OffsetDateTime;
 
 alloy_sol_types::sol!("../../contracts/msgs/IICS26RouterMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/IICS02ClientMsgs.sol");
+alloy_sol_types::sol!(
+#![sol(all_derives)]
+"../../contracts/msgs/IICS02ClientMsgs.sol"
+);
 alloy_sol_types::sol!("../../contracts/msgs/ILightClientMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IICS20TransferMsgs.sol");
 alloy_sol_types::sol!("../../contracts/msgs/IIBCAppCallbacks.sol");
 
-alloy_sol_types::sol!("../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol");
+alloy_sol_types::sol!(
+#![sol(all_derives)]
+"../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol"
+);
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/ISP1Msgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMembershipMsgs.sol");
 alloy_sol_types::sol!("../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol");
@@ -44,27 +51,25 @@ impl ISP1Msgs::SP1Proof {
     }
 }
 
-impl TryFrom<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusState {
-    type Error = <Vec<u8> as TryInto<[u8; 32]>>::Error;
-
-    fn try_from(
-        ics07_tendermint_consensus_state: ICS07TendermintConsensusState,
-    ) -> Result<Self, Self::Error> {
+#[allow(clippy::fallible_impl_from)]
+impl From<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusState {
+    fn from(ics07_tendermint_consensus_state: ICS07TendermintConsensusState) -> Self {
         let root: [u8; 32] = ics07_tendermint_consensus_state
             .root
             .into_vec()
-            .try_into()?;
+            .try_into()
+            .unwrap();
         let next_validators_hash: [u8; 32] = ics07_tendermint_consensus_state
             .next_validators_hash
             .as_bytes()
-            .to_vec()
-            .try_into()?;
-        Ok(Self {
+            .try_into()
+            .unwrap();
+        Self {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             timestamp: ics07_tendermint_consensus_state.timestamp.unix_timestamp() as u64,
             root: root.into(),
             nextValidatorsHash: next_validators_hash.into(),
-        })
+        }
     }
 }
 
@@ -123,6 +128,39 @@ impl From<sp1_ics07::IICS02ClientMsgs::Height> for IICS02ClientMsgs::Height {
             revisionNumber: height.revisionNumber,
             revisionHeight: height.revisionHeight,
         }
+    }
+}
+
+#[allow(clippy::fallible_impl_from)]
+impl From<IICS07TendermintMsgs::TrustThreshold> for TendermintTrustThreshold {
+    fn from(trust_threshold: IICS07TendermintMsgs::TrustThreshold) -> Self {
+        Self::new(
+            trust_threshold.numerator.into(),
+            trust_threshold.denominator.into(),
+        )
+        .unwrap()
+    }
+}
+
+impl TryFrom<TendermintTrustThreshold> for IICS07TendermintMsgs::TrustThreshold {
+    type Error = <u64 as TryInto<u32>>::Error;
+
+    fn try_from(trust_threshold: TendermintTrustThreshold) -> Result<Self, Self::Error> {
+        Ok(Self {
+            numerator: trust_threshold.numerator().try_into()?,
+            denominator: trust_threshold.denominator().try_into()?,
+        })
+    }
+}
+
+impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
+    type Error = <u64 as TryInto<u32>>::Error;
+
+    fn try_from(height: ibc_core_client_types::Height) -> Result<Self, Self::Error> {
+        Ok(Self {
+            revisionNumber: height.revision_number().try_into()?,
+            revisionHeight: height.revision_height().try_into()?,
+        })
     }
 }
 

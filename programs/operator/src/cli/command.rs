@@ -3,7 +3,7 @@
 use std::convert::Infallible;
 
 use clap::{command, Parser};
-use sp1_ics07_tendermint_prover::prover::SupportedProofType;
+use sp1_ics07_tendermint_prover::prover::SupportedZkAlgorithm;
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 /// The command line interface for the operator.
@@ -74,7 +74,7 @@ pub mod genesis {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 }
 
@@ -140,7 +140,7 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for the `Membership` fixture executable.
@@ -154,7 +154,7 @@ pub mod fixtures {
         /// The proof type.
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for generic membership proof generation.
@@ -197,7 +197,7 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for the `Misbehaviour` fixture executable.
@@ -219,7 +219,7 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 }
 
@@ -248,10 +248,10 @@ fn parse_trust_threshold(input: &str) -> anyhow::Result<TrustThreshold> {
         .map_err(|e| anyhow::anyhow!("invalid trust threshold: {}", e))
 }
 
-fn parse_proof_type(input: &str) -> anyhow::Result<SupportedProofType> {
+fn parse_proof_type(input: &str) -> anyhow::Result<SupportedZkAlgorithm> {
     match input {
-        "groth16" => Ok(SupportedProofType::Groth16),
-        "plonk" => Ok(SupportedProofType::Plonk),
+        "groth16" => Ok(SupportedZkAlgorithm::Groth16),
+        "plonk" => Ok(SupportedZkAlgorithm::Plonk),
         _ => Err(anyhow::anyhow!("invalid proof type")),
     }
 }
