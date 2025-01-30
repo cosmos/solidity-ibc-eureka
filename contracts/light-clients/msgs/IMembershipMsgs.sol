@@ -7,7 +7,7 @@ import { IICS07TendermintMsgs } from "./IICS07TendermintMsgs.sol";
 /// @title Membership Program Messages
 /// @author srdtrk
 /// @notice Defines shared types for the verify (non)membership program.
-interface IMembershipMsgs is ISP1Msgs {
+interface IMembershipMsgs {
     /// @notice The key-value pair used in the verify (non)membership program.
     /// @param path The path of the value in the key-value store.
     /// @param value The value of the key-value pair.
@@ -36,14 +36,14 @@ interface IMembershipMsgs is ISP1Msgs {
     /// @param sp1Proof The sp1 proof for the membership program.
     /// @param trustedConsensusState The trusted consensus state that the proof is based on.
     struct SP1MembershipProof {
-        SP1Proof sp1Proof;
+        ISP1Msgs.SP1Proof sp1Proof;
         IICS07TendermintMsgs.ConsensusState trustedConsensusState;
     }
 
     /// @notice The membership proof for the sp1 verify (non)membership and update client program.
     /// @param sp1Proof The sp1 proof for the membership and update client program.
     struct SP1MembershipAndUpdateClientProof {
-        SP1Proof sp1Proof;
+        ISP1Msgs.SP1Proof sp1Proof;
     }
 
     /// @notice The type of the membership proof.

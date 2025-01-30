@@ -2,12 +2,11 @@
 pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
-import { ISP1Msgs } from "./ISP1Msgs.sol";
 
 /// @title ICS07 Tendermint Messages
 /// @author srdtrk
 /// @notice Defines shared types for ICS07Tendermint implementations.
-interface IICS07TendermintMsgs is IICS02ClientMsgs, ISP1Msgs {
+interface IICS07TendermintMsgs {
     /// @notice Fraction of validator overlap needed to update header
     /// @param numerator Numerator of the fraction
     /// @param denominator Denominator of the fraction
@@ -28,7 +27,7 @@ interface IICS07TendermintMsgs is IICS02ClientMsgs, ISP1Msgs {
     struct ClientState {
         string chainId;
         TrustThreshold trustLevel;
-        Height latestHeight;
+        IICS02ClientMsgs.Height latestHeight;
         uint32 trustingPeriod;
         uint32 unbondingPeriod;
         bool isFrozen;
