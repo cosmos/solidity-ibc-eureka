@@ -765,6 +765,8 @@ contract IntegrationTest is Test {
             ICS20Lib.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
         expectedDenom.trace[1] =
             ICS20Lib.Hop({ portId: tokens[0].denom.trace[0].portId, clientId: tokens[0].denom.trace[0].clientId });
+        string memory expectedPath = ICS20Lib.getPath(expectedDenom);
+        assertEq(expectedPath, "transfer/07-tendermint-0/transfer/channel-42/uatom");
 
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
@@ -788,12 +790,12 @@ contract IntegrationTest is Test {
         IBCERC20 ibcERC20 = IBCERC20(erc20Address);
         assertEq(ibcERC20.fullDenom().base, expectedDenom.base);
         assertEq(ibcERC20.fullDenom().trace.length, 2);
-        assertEq(ibcERC20.fullDenom().trace[0].portId, receivePacket.payloads[0].destPort);
-        assertEq(ibcERC20.fullDenom().trace[0].clientId, receivePacket.destClient);
-        assertEq(ibcERC20.fullDenom().trace[1].portId, tokens[0].denom.trace[0].portId);
-        assertEq(ibcERC20.fullDenom().trace[1].clientId, tokens[0].denom.trace[0].clientId);
-        assertEq(ibcERC20.name(), expectedDenom.base);
-        assertEq(ibcERC20.symbol(), Strings.toHexString(uint256(ICS20Lib.getDenomIdentifier(expectedDenom))));
+        assertEq(ibcERC20.fullDenom().trace[0].portId, expectedDenom.trace[0].portId);
+        assertEq(ibcERC20.fullDenom().trace[0].clientId, expectedDenom.trace[0].clientId);
+        assertEq(ibcERC20.fullDenom().trace[1].portId, expectedDenom.trace[1].portId);
+        assertEq(ibcERC20.fullDenom().trace[1].clientId, expectedDenom.trace[1].clientId);
+        assertEq(ibcERC20.name(), expectedPath);
+        assertEq(ibcERC20.symbol(), expectedDenom.base);
         assertEq(ibcERC20.totalSupply(), transferAmount);
         assertEq(ibcERC20.balanceOf(receiver), transferAmount);
 

@@ -301,7 +301,7 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcDenomContracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, denomID, denom);
+            IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, denom);
 
             $.ibcDenomContracts[denomID] = ibcERC20;
             erc20Contract = address(ibcERC20);

@@ -741,6 +741,8 @@ contract ICS20TransferTest is Test {
 
         ICS20Lib.Denom memory expectedDenom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
         expectedDenom.trace[0] = ICS20Lib.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+        string memory expectedPath = ICS20Lib.getPath(expectedDenom);
+        assertEq(expectedPath, "transfer/dest-client/uatom");
 
         IBCERC20 ibcERC20 = IBCERC20(ics20Transfer.ibcERC20Contract(expectedDenom));
 
@@ -749,8 +751,8 @@ contract ICS20TransferTest is Test {
         assertEq(ibcERC20.fullDenom().trace.length, 1);
         assertEq(ibcERC20.fullDenom().trace[0].portId, expectedDenom.trace[0].portId);
         assertEq(ibcERC20.fullDenom().trace[0].clientId, expectedDenom.trace[0].clientId);
-        assertEq(ibcERC20.name(), expectedDenom.base);
-        assertEq(ibcERC20.symbol(), Strings.toHexString(uint256(ICS20Lib.getDenomIdentifier(expectedDenom))));
+        assertEq(ibcERC20.name(), expectedPath);
+        assertEq(ibcERC20.symbol(), expectedDenom.base);
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
     }
@@ -796,6 +798,8 @@ contract ICS20TransferTest is Test {
         expectedDenom.trace[0] = ICS20Lib.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
         expectedDenom.trace[1] =
             ICS20Lib.Hop({ portId: foreignDenom.trace[0].portId, clientId: foreignDenom.trace[0].clientId });
+        string memory expectedPath = ICS20Lib.getPath(expectedDenom);
+        assertEq(expectedPath, "transfer/dest-client/transfer/channel-42/uatom");
 
         IBCERC20 ibcERC20 = IBCERC20(ics20Transfer.ibcERC20Contract(expectedDenom));
 
@@ -806,8 +810,8 @@ contract ICS20TransferTest is Test {
         assertEq(ibcERC20.fullDenom().trace[0].clientId, expectedDenom.trace[0].clientId);
         assertEq(ibcERC20.fullDenom().trace[1].portId, expectedDenom.trace[1].portId);
         assertEq(ibcERC20.fullDenom().trace[1].clientId, expectedDenom.trace[1].clientId);
-        assertEq(ibcERC20.name(), expectedDenom.base);
-        assertEq(ibcERC20.symbol(), Strings.toHexString(uint256(ICS20Lib.getDenomIdentifier(expectedDenom))));
+        assertEq(ibcERC20.name(), expectedPath);
+        assertEq(ibcERC20.symbol(), expectedDenom.base);
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
     }

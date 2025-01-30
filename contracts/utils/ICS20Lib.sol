@@ -104,6 +104,8 @@ library ICS20Lib {
         view
         returns (IICS26RouterMsgs.MsgSendPacket memory)
     {
+        require(msg_.tokens.length > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens.length));
+
         Token[] memory tokens = new Token[](msg_.tokens.length);
         for (uint256 i = 0; i < msg_.tokens.length; i++) {
             require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
@@ -121,7 +123,6 @@ library ICS20Lib {
             tokens[i] = Token({ denom: fullDenom, amount: msg_.tokens[i].amount });
         }
 
-        // TODO: Make sure to have a test that covers this properly
         string memory memo = msg_.memo;
         ForwardingPacketData memory forwarding =
             ForwardingPacketData({ destinationMemo: "", hops: msg_.forwarding.hops });
@@ -203,5 +204,21 @@ library ICS20Lib {
         }
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));
+    }
+
+    function getPath(Denom memory denom) external pure returns (string memory) {
+        if (denom.trace.length == 0) {
+            return denom.base;
+        }
+
+        string memory trace = "";
+        for (uint256 i = 0; i < denom.trace.length; i++) {
+            if (i > 0) {
+                trace = string(abi.encodePacked(trace, "/"));
+            }
+            trace = string(abi.encodePacked(trace, denom.trace[i].portId, "/", denom.trace[i].clientId));
+        }
+
+        return string(abi.encodePacked(trace, "/", denom.base));
     }
 }

@@ -8,11 +8,10 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { DummyICS20Transfer } from "./mocks/DummyICS20Transfer.sol";
 
-contract IBCERC20Test is Test, IICS20Transfer {
+contract IBCERC20Test is Test, DummyICS20Transfer {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
     ICS20Lib.Denom public denom;
@@ -21,18 +20,23 @@ contract IBCERC20Test is Test, IICS20Transfer {
         _escrow = new Escrow(address(this));
         denom.base = "test";
         denom.trace.push(ICS20Lib.Hop({ portId: "testport", clientId: "channel-42" }));
-        bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
-        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, denomID, denom);
+        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, denom);
     }
 
+    // TODO: Add some constructor tests for empty hops and shit, empty denom this sort of stuff
+    // function test_Construction() public {
+    //
+    // }
+
     function test_ERC20Metadata() public view {
+        ICS20Lib.Denom memory fullDenom = ibcERC20.fullDenom();
+        string memory path = ICS20Lib.getPath(fullDenom);
+        assertEq(path, "testport/channel-42/test");
+
         assertEq(ibcERC20.ICS20(), address(this));
         assertEq(ibcERC20.ESCROW(), address(_escrow));
-        assertEq(ibcERC20.name(), denom.base);
-
-        bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
-        assertEq(ibcERC20.symbol(), Strings.toHexString(uint256(denomID)));
-        // assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
+        assertEq(ibcERC20.name(), path);
+        assertEq(ibcERC20.symbol(), denom.base);
         assertEq(0, ibcERC20.totalSupply());
     }
 
@@ -115,33 +119,5 @@ contract IBCERC20Test is Test, IICS20Transfer {
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(_escrow), 1000, 1001)
         );
         ibcERC20.burn(1001);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function sendTransfer(SendTransferMsg calldata) external pure returns (uint32 sequence) {
-        return 0;
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function escrow() external view override returns (address) {
-        return address(_escrow);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(ICS20Lib.Denom calldata) external pure override returns (address) {
-        return address(0);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function newMsgSendPacketV2(
-        address,
-        SendTransferMsg calldata
-    )
-        external
-        pure
-        override
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
-    {
-        return IICS26RouterMsgs.MsgSendPacket("", 0, new IICS26RouterMsgs.Payload[](0));
     }
 }
