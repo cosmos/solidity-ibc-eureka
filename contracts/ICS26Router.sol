@@ -56,15 +56,15 @@ contract ICS26Router is
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param multisigAdmin The address of the multisig admin for IBCUUPSUpgradeable
+    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
     /// @param portCustomizer The address of the port customizer
-    function initialize(address multisigAdmin, address portCustomizer) public initializer {
+    function initialize(address timelockedAdmin, address portCustomizer) public initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __ICS02Client_init();
         __IBCStoreUpgradeable_init();
-        __IBCUUPSUpgradeable_init(multisigAdmin);
+        __IBCUUPSUpgradeable_init(timelockedAdmin);
 
         _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
     }

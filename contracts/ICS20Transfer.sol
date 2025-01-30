@@ -326,10 +326,8 @@ contract ICS20Transfer is
 
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal virtual override {
-        address ics26Router = address(_getICS20TransferStorage().ics26Router);
-        address multisigAdmin = IIBCUUPSUpgradeable(ics26Router).getMultisigAdmin();
-        address govAdmin = IIBCUUPSUpgradeable(ics26Router).getGovAdmin();
-        require(_msgSender() == multisigAdmin || _msgSender() == govAdmin, ICS20Unauthorized(_msgSender()));
+        address ics26Router = address(_getICS26Router());
+        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
     }
 
     function _getEscrow() private view returns (IEscrow) {

@@ -12,12 +12,12 @@ import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 /// @dev This contract is meant to be inherited by ICS26Router implementation, and it manages its own upgradability.
 /// @dev Other IBC contracts can directly query ICS26Router for the admin addresses to authorize UUPS upgrades (see
 /// ICS20Transfer).
-/// @dev This contract manages two roles: the multisig admin, and the governance admin. The multisig admin represents a
-/// timelocked
-/// security council, and the governance admin represents an interchain account from the governance of a counterparty
-/// chain. The multisig admin must be set during initialization, and the governance admin should be set later by the
-/// multisig admin.
-/// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
+/// @dev This contract manages two roles: the timelocked admin, and the governance admin. The timelocked admin
+/// represents a timelocked security council, and the governance admin represents an interchain account from the
+/// governance of a counterparty chain. The timelocked admin must be set during initialization, and the governance admin
+/// should be set later by the timelocked admin.
+/// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the timelocked
+/// admin
 abstract contract IBCUUPSUpgradeable is
     IIBCUUPSUpgradeableErrors,
     IIBCUUPSUpgradeable,
@@ -27,10 +27,10 @@ abstract contract IBCUUPSUpgradeable is
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param multisigAdmin The multisig admin address, assumed to be timelocked
+    /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     /// @param govAdmin The governance admin address
     struct IBCUUPSUpgradeableStorage {
-        address multisigAdmin;
+        address timelockedAdmin;
         address govAdmin;
     }
 
@@ -39,16 +39,16 @@ abstract contract IBCUUPSUpgradeable is
     bytes32 private constant IBCUUPSUPGRADEABLE_STORAGE_SLOT =
         0xba83ed17c16070da0debaa680185af188d82c999a75962a12a40699ca48a2b00;
 
-    /// @dev This contract is meant to be initialized with only the multisigAdmin, and the govAdmin should be set by the
-    /// multisigAdmin later
-    /// @dev It makes sense to have the multisigAdmin not be timelocked until the govAdmin is set
-    function __IBCUUPSUpgradeable_init(address multisigAdmin) internal onlyInitializing {
-        _getIBCUUPSUpgradeableStorage().multisigAdmin = multisigAdmin;
+    /// @dev This contract is meant to be initialized with only the timelockedAdmin, and the govAdmin should be set by
+    /// the timelockedAdmin later
+    /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
+    function __IBCUUPSUpgradeable_init(address timelockedAdmin) internal onlyInitializing {
+        _getIBCUUPSUpgradeableStorage().timelockedAdmin = timelockedAdmin;
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
-    function getMultisigAdmin() external view returns (address) {
-        return _getIBCUUPSUpgradeableStorage().multisigAdmin;
+    function getTimelockedAdmin() external view returns (address) {
+        return _getIBCUUPSUpgradeableStorage().timelockedAdmin;
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
@@ -57,13 +57,19 @@ abstract contract IBCUUPSUpgradeable is
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
-    function setMultisigAdmin(address newMultisigAdmin) external onlyAdmin {
-        _getIBCUUPSUpgradeableStorage().multisigAdmin = newMultisigAdmin;
+    function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
+        _getIBCUUPSUpgradeableStorage().timelockedAdmin = newTimelockedAdmin;
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
         _getIBCUUPSUpgradeableStorage().govAdmin = newGovAdmin;
+    }
+
+    /// @inheritdoc IIBCUUPSUpgradeable
+    function isAdmin(address account) external view override returns (bool) {
+        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
+        return account == $.timelockedAdmin || account == $.govAdmin;
     }
 
     /// @inheritdoc UUPSUpgradeable
@@ -80,7 +86,7 @@ abstract contract IBCUUPSUpgradeable is
 
     modifier onlyAdmin() {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        require(_msgSender() == $.multisigAdmin || _msgSender() == $.govAdmin, Unauthorized());
+        require(_msgSender() == $.timelockedAdmin || _msgSender() == $.govAdmin, Unauthorized());
         _;
     }
 }

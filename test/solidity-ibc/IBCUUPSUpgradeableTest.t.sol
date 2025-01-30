@@ -110,12 +110,12 @@ contract IBCUUPSUpgradeableTest is Test {
         address govAdmin = makeAddr("govAdmin");
 
         ics26Router.setGovAdmin(govAdmin);
-        assertEq(ics26Router.getGovAdmin(), address(govAdmin));
+        assertEq(ics26Router.getGovAdmin(), govAdmin);
 
         // Have the govAdmin change the govAdmin
         address newGovAdmin = makeAddr("newGovAdmin");
         ics26Router.setGovAdmin(newGovAdmin);
-        assertEq(ics26Router.getGovAdmin(), address(newGovAdmin));
+        assertEq(ics26Router.getGovAdmin(), newGovAdmin);
     }
 
     function test_failure_setGovAdmin() public {
@@ -127,19 +127,19 @@ contract IBCUUPSUpgradeableTest is Test {
         ics26Router.setGovAdmin(govAdmin);
     }
 
-    function test_success_setMultisigAdmin() public {
-        address newMultisigAdmin = makeAddr("multisigAdmin");
+    function test_success_setTimelockedAdmin() public {
+        address newTimelockedAdmin = makeAddr("timelockedAdmin");
 
-        ics26Router.setMultisigAdmin(newMultisigAdmin);
-        assertEq(ics26Router.getMultisigAdmin(), address(newMultisigAdmin));
+        ics26Router.setTimelockedAdmin(newTimelockedAdmin);
+        assertEq(ics26Router.getTimelockedAdmin(), newTimelockedAdmin);
     }
 
-    function test_failure_setMultisigAdmin() public {
+    function test_failure_setTimelockedAdmin() public {
         address unauthorized = makeAddr("unauthorized");
-        address newMultisigAdmin = makeAddr("multisigAdmin");
+        address newTimelockedAdmin = makeAddr("timelockedAdmin");
 
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.setMultisigAdmin(newMultisigAdmin);
+        ics26Router.setTimelockedAdmin(newTimelockedAdmin);
     }
 }
