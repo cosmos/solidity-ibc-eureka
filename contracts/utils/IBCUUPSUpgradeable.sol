@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { IIBCUUPSUpgradeableErrors } from "../errors/IIBCUUPSUpgradeableErrors.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 
 /// @title IBC UUPSUpgradeable contract
 /// @notice This contract is an abstract contract for managing upgradeable IBC contracts
@@ -11,11 +12,10 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @dev It manages two roles: the multisig admin, and the governance admin. The multisig admin represents a timelocked
 /// security council, and the governance admin represents an interchain account from the governance of a counterparty
 /// chain
-/// @dev We highly recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig
-/// admin
+/// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the multisig admin
 /// @dev The multisig admin should be set during initialization, and the governance admin should be set later by the
 /// multisig admin
-abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeable, ContextUpgradeable {
+abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, IIBCUUPSUpgradeable, UUPSUpgradeable, ContextUpgradeable {
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -28,7 +28,7 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
 
     /// @notice ERC-7201 slot for the IBCUUPSUpgradeable storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCUUPSUpgradeable")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant IBCUPGRADEABLE_STORAGE_SLOT =
+    bytes32 private constant IBCUUPSUPGRADEABLE_STORAGE_SLOT =
         0xba83ed17c16070da0debaa680185af188d82c999a75962a12a40699ca48a2b00;
 
     /// @dev This contract is meant to be initialized with only the multisigAdmin, and the govAdmin should be set by the
@@ -38,29 +38,24 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
         _getIBCUUPSUpgradeableStorage().multisigAdmin = multisigAdmin;
     }
 
-    /// @notice Returns the multisig admin address
-    /// @return The multisig admin address
+    /// @inheritdoc IIBCUUPSUpgradeable
     function getMultisigAdmin() external view returns (address) {
         return _getIBCUUPSUpgradeableStorage().multisigAdmin;
     }
     
-    /// @notice Returns the governance admin address
-    /// @return The governance admin address
+    /// @inheritdoc IIBCUUPSUpgradeable
     function getGovAdmin() external view returns (address) {
         return _getIBCUUPSUpgradeableStorage().govAdmin;
     }
 
-    /// @notice Adds a governance admin address
-    /// @dev The multisigAdmin should be timelocked after setting the govAdmin
+    /// @inheritdoc IIBCUUPSUpgradeable
     function addGovAdmin(address govAdmin) external onlyMultisigAdmin {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
         require($.govAdmin == address(0), GovernanceAdminAlreadySet());
         $.govAdmin = govAdmin;
     }
 
-    /// @notice Changes the multisig admin address
-    /// @dev Governance admin can change the multisig admin address in case multisig admin is compromised
-    /// @param newMultisigAdmin The new multisig admin address
+    /// @inheritdoc IIBCUUPSUpgradeable
     function changeMultisigAdmin(address newMultisigAdmin) external onlyAdmin {
         _getIBCUUPSUpgradeableStorage().multisigAdmin = newMultisigAdmin;
     }
@@ -72,7 +67,7 @@ abstract contract IBCUUPSUpgradeable is IIBCUUPSUpgradeableErrors, UUPSUpgradeab
     function _getIBCUUPSUpgradeableStorage() internal pure returns (IBCUUPSUpgradeableStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := IBCUPGRADEABLE_STORAGE_SLOT
+            $.slot := IBCUUPSUPGRADEABLE_STORAGE_SLOT
         }
     }
 
