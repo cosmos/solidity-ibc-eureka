@@ -6,7 +6,7 @@ use crate::{
 };
 use alloy::sol_types::SolValue;
 use ibc_client_tendermint_types::Misbehaviour;
-use ibc_eureka_solidity_types::sp1_ics07::{
+use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::{ClientState, ConsensusState},
     IMisbehaviourMsgs::MsgSubmitMisbehaviour,
     ISP1Msgs::SP1Proof,

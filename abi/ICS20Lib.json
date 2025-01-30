@@ -27,19 +27,6 @@
   },
   {
     "type": "function",
-    "name": "IBC_DENOM_PREFIX",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "ICS20_ENCODING",
     "inputs": [],
     "outputs": [
@@ -175,6 +162,49 @@
       }
     ],
     "outputs": [],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getPath",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct ICS20Lib.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "clientId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
     "stateMutability": "pure"
   },
   {

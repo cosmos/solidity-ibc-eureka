@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IICS02Client } from "../interfaces/IICS02Client.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
-import { ILightClient } from "../interfaces/ILightClient.sol";
+import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
+import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
+import { IICS02Client } from "../interfaces/IICS02Client.sol";
+import { ILightClient } from "../interfaces/ILightClient.sol";
+
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title ICS02 Client contract
@@ -24,7 +28,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @custom:storage-location erc7201:ibc.storage.ICS02Client
     struct ICS02ClientStorage {
         mapping(string clientId => ILightClient) clients;
-        mapping(string clientId => CounterpartyInfo info) counterpartyInfos;
+        mapping(string clientId => IICS02ClientMsgs.CounterpartyInfo info) counterpartyInfos;
         uint32 nextClientSeq;
     }
 
@@ -55,8 +59,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02Client
-    function getCounterparty(string calldata clientId) public view returns (CounterpartyInfo memory) {
-        CounterpartyInfo memory counterpartyInfo = _getICS02ClientStorage().counterpartyInfos[clientId];
+    function getCounterparty(string calldata clientId) public view returns (IICS02ClientMsgs.CounterpartyInfo memory) {
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo = _getICS02ClientStorage().counterpartyInfos[clientId];
         require(bytes(counterpartyInfo.clientId).length != 0, IBCCounterpartyClientNotFound(clientId));
 
         return counterpartyInfo;
@@ -73,7 +77,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function addClient(
         string calldata clientType,
-        CounterpartyInfo calldata counterpartyInfo,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
         external
@@ -107,7 +111,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         ILightClient substituteClient = getClient(substituteClientId);
 
         getCounterparty(subjectClientId); // Ensure subject client's counterparty exists
-        CounterpartyInfo memory substituteCounterpartyInfo = getCounterparty(substituteClientId);
+        IICS02ClientMsgs.CounterpartyInfo memory substituteCounterpartyInfo = getCounterparty(substituteClientId);
 
         $.counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
         $.clients[subjectClientId] = substituteClient;
@@ -119,7 +123,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         bytes calldata updateMsg
     )
         external
-        returns (ILightClient.UpdateResult)
+        returns (ILightClientMsgs.UpdateResult)
     {
         return getClient(clientId).updateClient(updateMsg);
     }

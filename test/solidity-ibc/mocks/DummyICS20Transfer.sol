@@ -2,12 +2,13 @@
 pragma solidity ^0.8.28;
 
 import { IICS20Transfer } from "../../../contracts/interfaces/IICS20Transfer.sol";
-import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
+import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 
 contract DummyICS20Transfer is IICS20Transfer {
     // Dummy implementation of IICS20Transfer
-    function sendTransfer(SendTransferMsg calldata) external pure returns (uint32 sequence) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata) external pure returns (uint32 sequence) {
         return 0;
     }
 
@@ -24,7 +25,7 @@ contract DummyICS20Transfer is IICS20Transfer {
     // Dummy implementation of IICS20Transfer
     function newMsgSendPacketV2(
         address,
-        SendTransferMsg calldata
+        IICS20TransferMsgs.SendTransferMsg calldata
     )
         external
         pure

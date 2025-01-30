@@ -715,16 +715,17 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 
 // UpdateClient updates the SP1ICS07Tendermint client and returns the new height
 func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clienttypes.Height {
-	var updatedClientState sp1ics07tendermint.IICS07TendermintMsgsClientState
+	var latestHeight sp1ics07tendermint.IICS02ClientMsgsHeight
 	s.Require().True(s.Run("Update client", func() {
 		s.Require().NoError(operator.StartOperator("--only-once"))
 		var err error
-		updatedClientState, err = s.contract.ClientState(nil)
+		updatedClientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
+		latestHeight = updatedClientState.LatestHeight
 	}))
 
 	return clienttypes.Height{
-		RevisionNumber: uint64(updatedClientState.LatestHeight.RevisionNumber),
-		RevisionHeight: uint64(updatedClientState.LatestHeight.RevisionHeight),
+		RevisionNumber: uint64(latestHeight.RevisionNumber),
+		RevisionHeight: uint64(latestHeight.RevisionHeight),
 	}
 }

@@ -10,7 +10,7 @@ use crate::events::EurekaEvent;
 pub trait Chain {
     /// The event type that the listener will return.
     /// These should be the events that the relayer is interested in.
-    type Event: Clone + Serialize + DeserializeOwned + Debug;
+    type Event: Clone + Debug;
     /// The transaction identifier type that the listener will ask for.
     /// This is often a hash of the transaction.
     type TxId: Clone + Serialize + DeserializeOwned + Debug;

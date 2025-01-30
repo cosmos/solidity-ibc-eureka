@@ -4,10 +4,9 @@ use ibc_client_tendermint_types::{ConsensusState, Header};
 use ibc_core_client_types::Height as IbcHeight;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use ibc_core_host_types::{error::IdentifierError, identifiers::ChainId};
-use ibc_eureka_solidity_types::sp1_ics07::{
+use ibc_eureka_solidity_types::msgs::{
     IICS02ClientMsgs::Height,
-    IICS07TendermintMsgs::{ClientState, TrustThreshold},
-    ISP1Msgs::SupportedZkAlgorithm,
+    IICS07TendermintMsgs::{ClientState, SupportedZkAlgorithm, TrustThreshold},
 };
 use std::str::FromStr;
 use tendermint_light_client_verifier::types::LightBlock;
@@ -60,7 +59,7 @@ impl LightBlockExt for LightBlock {
                 revisionHeight: self.height().value().try_into()?,
             },
             isFrozen: false,
-            zkAlgorithm: zk_algorithm.into(),
+            zkAlgorithm: zk_algorithm,
             unbondingPeriod: unbonding_period,
             trustingPeriod: trusting_period,
         })

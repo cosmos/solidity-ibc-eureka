@@ -11,7 +11,7 @@ use tendermint::abci::Event as TmEvent;
 use super::cosmos_sdk;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
 pub enum EurekaEvent {
     /// A packet was sent.
@@ -51,6 +51,7 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::IBCAppAdded(_) => Err(anyhow::anyhow!("IBCAppAdded event")),
             routerEvents::ICS02ClientAdded(_) => Err(anyhow::anyhow!("ICS02ClientAdded event")),
             routerEvents::Initialized(_) => Err(anyhow::anyhow!("Initialized event")),
+            routerEvents::Upgraded(_) => Err(anyhow::anyhow!("Upgraded event")),
             routerEvents::RoleGranted(_)
             | routerEvents::RoleRevoked(_)
             | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),

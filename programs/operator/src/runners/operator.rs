@@ -4,13 +4,12 @@ use std::env;
 
 use crate::cli::command::operator::Args;
 use alloy::{providers::ProviderBuilder, sol_types::SolValue};
-use anyhow::anyhow;
-use ibc_eureka_solidity_types::sp1_ics07::{
-    sp1_ics07_tendermint, ISP1Msgs::SP1Proof, IUpdateClientMsgs::MsgUpdateClient,
+use ibc_eureka_solidity_types::{
+    msgs::{ISP1Msgs::SP1Proof, IUpdateClientMsgs::MsgUpdateClient},
+    sp1_ics07::sp1_ics07_tendermint,
 };
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientProgram,
-    prover::{SP1ICS07TendermintProver, SupportedProofType},
+    programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{utils::setup_logger, CpuProver, HashableKey, Prover, ProverClient};
@@ -47,7 +46,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         Box::new(ProverClient::from_env())
     };
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
-        SupportedProofType::try_from(contract_client_state.zkAlgorithm).map_err(|e| anyhow!(e))?,
+        contract_client_state.zkAlgorithm.try_into()?,
         sp1_prover.as_ref(),
     );
 

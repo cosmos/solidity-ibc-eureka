@@ -13,11 +13,6 @@
         "internalType": "contract IEscrow"
       },
       {
-        "name": "denomID_",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
         "name": "denom_",
         "type": "tuple",
         "internalType": "struct ICS20Lib.Denom",
@@ -454,22 +449,6 @@
         "name": "caller",
         "type": "address",
         "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "StringsInsufficientHexLength",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ]
   }

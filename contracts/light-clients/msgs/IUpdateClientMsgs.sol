@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { ISP1Msgs } from "./ISP1Msgs.sol";
 import { IICS07TendermintMsgs } from "./IICS07TendermintMsgs.sol";
+import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 
 /// @title Update Client Program Messages
 /// @author srdtrk
 /// @notice Defines shared types for the update client program.
-interface IUpdateClientMsgs is IICS07TendermintMsgs {
+interface IUpdateClientMsgs {
     /// @notice The message that is submitted to the updateClient function.
     /// @param sp1Proof The SP1 proof for updating the client.
     struct MsgUpdateClient {
-        SP1Proof sp1Proof;
+        ISP1Msgs.SP1Proof sp1Proof;
     }
 
     /// @notice The public value output for the sp1 update client program.
@@ -21,11 +23,11 @@ interface IUpdateClientMsgs is IICS07TendermintMsgs {
     /// @param trustedHeight The trusted height.
     /// @param newHeight The new height.
     struct UpdateClientOutput {
-        ClientState clientState;
-        ConsensusState trustedConsensusState;
-        ConsensusState newConsensusState;
+        IICS07TendermintMsgs.ClientState clientState;
+        IICS07TendermintMsgs.ConsensusState trustedConsensusState;
+        IICS07TendermintMsgs.ConsensusState newConsensusState;
         uint64 time;
-        Height trustedHeight;
-        Height newHeight;
+        IICS02ClientMsgs.Height trustedHeight;
+        IICS02ClientMsgs.Height newHeight;
     }
 }

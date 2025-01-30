@@ -4,11 +4,12 @@ use crate::programs::{
     MembershipProgram, MisbehaviourProgram, SP1Program, UpdateClientAndMembershipProgram,
     UpdateClientProgram,
 };
+use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_eureka_solidity_types::sp1_ics07::{
-    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
-    ISP1Msgs::SupportedZkAlgorithm,
+pub use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::SupportedZkAlgorithm;
+use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
+    ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use ibc_proto::Protobuf;
 use sp1_prover::components::SP1ProverComponents;
@@ -30,18 +31,9 @@ where
     /// The verifying key.
     pub vkey: SP1VerifyingKey,
     /// The proof type.
-    pub proof_type: SupportedProofType,
+    pub proof_type: SupportedZkAlgorithm,
     _phantom: std::marker::PhantomData<T>,
     _phantom2: std::marker::PhantomData<C>,
-}
-
-/// The supported proof types.
-#[derive(Clone, Debug, Copy)]
-pub enum SupportedProofType {
-    /// Groth16 proof.
-    Groth16,
-    /// Plonk proof.
-    Plonk,
 }
 
 impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
@@ -52,7 +44,7 @@ where
     /// Create a new prover.
     #[must_use]
     #[tracing::instrument(skip_all)]
-    pub fn new(proof_type: SupportedProofType, prover_client: &'a dyn Prover<C>) -> Self {
+    pub fn new(proof_type: SupportedZkAlgorithm, prover_client: &'a dyn Prover<C>) -> Self {
         tracing::info!("Initializing SP1 ProverClient...");
         let (pkey, vkey) = prover_client.setup(T::ELF);
         tracing::info!("SP1 ProverClient initialized");
@@ -75,7 +67,15 @@ where
         // network proof.
         let proof = self
             .prover_client
-            .prove(&self.pkey, stdin, self.proof_type.to_proof_mode())
+            .prove(
+                &self.pkey,
+                stdin,
+                match self.proof_type {
+                    SupportedZkAlgorithm::Groth16 => SP1ProofMode::Groth16,
+                    SupportedZkAlgorithm::Plonk => SP1ProofMode::Plonk,
+                    SupportedZkAlgorithm::__Invalid => panic!("unsupported zk algorithm"),
+                },
+            )
             .expect("proving failed");
 
         self.prover_client
@@ -104,8 +104,8 @@ where
         time: u64,
     ) -> SP1ProofWithPublicValues {
         // Encode the inputs into our program.
-        let encoded_1 = bincode::serialize(client_state).unwrap();
-        let encoded_2 = bincode::serialize(&trusted_consensus_state).unwrap();
+        let encoded_1 = client_state.abi_encode();
+        let encoded_2 = trusted_consensus_state.abi_encode();
         let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
         let encoded_4 = time.to_le_bytes().into();
         // TODO: find an encoding that works for all the structs above.
@@ -174,8 +174,8 @@ where
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
         let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
         // Encode the inputs into our program.
-        let encoded_1 = bincode::serialize(client_state).unwrap();
-        let encoded_2 = bincode::serialize(&trusted_consensus_state).unwrap();
+        let encoded_1 = client_state.abi_encode();
+        let encoded_2 = trusted_consensus_state.abi_encode();
         // NOTE: The Header struct is not deserializable by bincode, so we use CBOR instead.
         let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
         let encoded_4 = time.to_le_bytes().into();
@@ -215,10 +215,10 @@ where
         trusted_consensus_state_2: &SolConsensusState,
         time: u64,
     ) -> SP1ProofWithPublicValues {
-        let encoded_1 = bincode::serialize(client_state).unwrap();
+        let encoded_1 = client_state.abi_encode();
         let encoded_2 = serde_cbor::to_vec(misbehaviour).unwrap();
-        let encoded_3 = bincode::serialize(trusted_consensus_state_1).unwrap();
-        let encoded_4 = bincode::serialize(trusted_consensus_state_2).unwrap();
+        let encoded_3 = trusted_consensus_state_1.abi_encode();
+        let encoded_4 = trusted_consensus_state_2.abi_encode();
         let encoded_5 = time.to_le_bytes().into();
 
         let mut stdin = SP1Stdin::new();
@@ -229,37 +229,5 @@ where
         stdin.write_vec(encoded_5);
 
         self.prove(&stdin)
-    }
-}
-
-impl From<SupportedProofType> for SupportedZkAlgorithm {
-    fn from(proof_type: SupportedProofType) -> Self {
-        match proof_type {
-            SupportedProofType::Groth16 => Self::from(0),
-            SupportedProofType::Plonk => Self::from(1),
-        }
-    }
-}
-
-impl TryFrom<u8> for SupportedProofType {
-    type Error = String;
-
-    fn try_from(n: u8) -> Result<Self, Self::Error> {
-        match n {
-            0 => Ok(Self::Groth16),
-            1 => Ok(Self::Plonk),
-            n => Err(format!("Unsupported proof type: {n}")),
-        }
-    }
-}
-
-impl SupportedProofType {
-    /// Convert the proof type to a [`SP1ProofMode`].
-    #[must_use]
-    pub const fn to_proof_mode(&self) -> SP1ProofMode {
-        match self {
-            Self::Groth16 => SP1ProofMode::Groth16,
-            Self::Plonk => SP1ProofMode::Plonk,
-        }
     }
 }

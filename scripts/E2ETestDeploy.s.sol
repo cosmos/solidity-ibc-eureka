@@ -16,7 +16,7 @@ import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -85,18 +85,17 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        TransparentUpgradeableProxy routerProxy = new TransparentUpgradeableProxy(
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            address(this),
             abi.encodeWithSelector(
                 ICS26Router.initialize.selector,
+                msg.sender,
                 msg.sender
             )
         );
 
-        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            address(this),
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
                 address(routerProxy)

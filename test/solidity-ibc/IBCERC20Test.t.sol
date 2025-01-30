@@ -4,9 +4,10 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { DummyICS20Transfer } from "./mocks/DummyICS20Transfer.sol";
