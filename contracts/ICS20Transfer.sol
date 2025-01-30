@@ -30,10 +30,9 @@ using SafeERC20 for IERC20;
  * - Related to escrow ^: invariant checking (where to implement that?)
  */
 contract ICS20Transfer is
-    IIBCApp,
-    IICS20Transfer,
     IICS20Errors,
-    IICS20TransferMsgs,
+    IICS20Transfer,
+    IIBCApp,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable,
     UUPSUpgradeable
@@ -89,7 +88,7 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function newMsgSendPacketV1(
         address sender,
-        SendTransferMsg calldata msg_
+        IICS20TransferMsgs.SendTransferMsg calldata msg_
     )
         external
         view
@@ -100,7 +99,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(SendTransferMsg calldata msg_) external override returns (uint32) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override returns (uint32) {
         return _getICS26Router().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
