@@ -16,7 +16,6 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ProxyAdmin } from "@openzeppelin-contracts/proxy/transparent/ProxyAdmin.sol";
 import { IERC1967 } from "@openzeppelin-contracts/interfaces/IERC1967.sol";
 import { VmSafe } from "forge-std/Vm.sol";
@@ -69,7 +68,7 @@ contract MigrationTest is Test {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+        ics20Transfer.upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
@@ -79,7 +78,7 @@ contract MigrationTest is Test {
         ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+        ics20Transfer.upgradeToAndCall(
             address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
 
@@ -89,7 +88,7 @@ contract MigrationTest is Test {
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
-        UUPSUpgradeable(address(ics20Transfer)).upgradeToAndCall(
+        ics20Transfer.upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
@@ -98,7 +97,7 @@ contract MigrationTest is Test {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
+        ics26Router.upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
@@ -108,7 +107,7 @@ contract MigrationTest is Test {
         ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
+        ics26Router.upgradeToAndCall(
             address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
 
@@ -118,8 +117,45 @@ contract MigrationTest is Test {
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        UUPSUpgradeable(address(ics26Router)).upgradeToAndCall(
+        ics26Router.upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
+    }
+
+    function test_success_setGovAdmin() public {
+        address govAdmin = makeAddr("govAdmin");
+
+        ics26Router.setGovAdmin(govAdmin);
+        assertEq(ics26Router.getGovAdmin(), address(govAdmin));
+
+        // Have the govAdmin change the govAdmin
+        address newGovAdmin = makeAddr("newGovAdmin");
+        ics26Router.setGovAdmin(newGovAdmin);
+        assertEq(ics26Router.getGovAdmin(), address(newGovAdmin));
+    }
+
+    function test_failure_setGovAdmin() public {
+        address unauthorized = makeAddr("unauthorized");
+        address govAdmin = makeAddr("govAdmin");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.setGovAdmin(govAdmin);
+    }
+
+    function test_success_setMultisigAdmin() public {
+        address newMultisigAdmin = makeAddr("multisigAdmin");
+
+        ics26Router.setMultisigAdmin(newMultisigAdmin);
+        assertEq(ics26Router.getMultisigAdmin(), address(newMultisigAdmin));
+    }
+
+    function test_failure_setMultisigAdmin() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newMultisigAdmin = makeAddr("multisigAdmin");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.setMultisigAdmin(newMultisigAdmin);
     }
 }

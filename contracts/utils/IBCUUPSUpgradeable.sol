@@ -56,19 +56,12 @@ abstract contract IBCUUPSUpgradeable is
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
-    function addGovAdmin(address govAdmin) external onlyMultisigAdmin {
-        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        require($.govAdmin == address(0), GovernanceAdminAlreadySet());
-        $.govAdmin = govAdmin;
-    }
-
-    /// @inheritdoc IIBCUUPSUpgradeable
-    function changeMultisigAdmin(address newMultisigAdmin) external onlyAdmin {
+    function setMultisigAdmin(address newMultisigAdmin) external onlyAdmin {
         _getIBCUUPSUpgradeableStorage().multisigAdmin = newMultisigAdmin;
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
-    function changeGovAdmin(address newGovAdmin) external onlyAdmin {
+    function setGovAdmin(address newGovAdmin) external onlyAdmin {
         _getIBCUUPSUpgradeableStorage().govAdmin = newGovAdmin;
     }
 

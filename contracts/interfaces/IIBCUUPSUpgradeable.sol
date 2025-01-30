@@ -8,18 +8,13 @@ interface IIBCUUPSUpgradeable {
     /// @notice Returns the governance admin address
     /// @return The governance admin address, 0 if not set
     function getGovAdmin() external view returns (address);
-    /// @notice Adds a governance admin address
-    /// @dev Can only be called by the multisig admin once.
-    /// @dev The multisigAdmin should be timelocked after setting the govAdmin.
-    /// @param govAdmin The address of the governance admin
-    function addGovAdmin(address govAdmin) external;
-    /// @notice Changes the multisig admin address
-    /// @dev Either admin can change the multisig admin address.
+    /// @notice Sets the multisig admin address
+    /// @dev Either admin can set the multisig admin address.
     /// @param newMultisigAdmin The new multisig admin address
-    function changeMultisigAdmin(address newMultisigAdmin) external;
-    /// @notice Changes the governance admin address
-    /// @dev Either admin can change the governance admin address.
+    function setMultisigAdmin(address newMultisigAdmin) external;
+    /// @notice Sets the governance admin address
+    /// @dev Either admin can set the governance admin address.
     /// @dev Since multisig admin is timelocked, this operation can be stopped by the govAdmin.
     /// @param newGovAdmin The new governance admin address
-    function changeGovAdmin(address newGovAdmin) external;
+    function setGovAdmin(address newGovAdmin) external;
 }
