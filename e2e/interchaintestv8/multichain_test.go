@@ -545,11 +545,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		// TODO: https://github.com/cosmos/ibc-go/issues/7875
 		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdA, &channeltypesv2.QueryChannelRequest{
-		// 	ChannelId: ibctesting.FirstChannelID,
+		// 	ClientId: ibctesting.FirstChannelID,
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
@@ -560,11 +560,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		// TODO: https://github.com/cosmos/ibc-go/issues/7875
 		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdB, &channeltypesv2.QueryChannelRequest{
-		// 	ChannelId: ibctesting.FirstChannelID,
+		// 	ClientId: ibctesting.FirstChannelID,
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyClientId)
 	}))
 
 	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
@@ -661,7 +661,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 			Tokens: []ics20lib.ICS20LibToken{
 				{
 					Denom: ics20lib.ICS20LibDenom{
@@ -750,8 +750,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Base: transferCoin.Denom,
 			Trace: []ics20transfer.ICS20LibHop{
 				{
-					PortId:    packet.Payloads[0].DestPort,
-					ChannelId: packet.DestClient,
+					PortId:   packet.Payloads[0].DestPort,
+					ClientId: packet.DestClient,
 				},
 			},
 		}
@@ -769,7 +769,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		s.Require().Equal(len(denomOnEthereum.Trace), len(actualFullDenom.Trace))
 		for i, hop := range denomOnEthereum.Trace {
 			s.Require().Equal(hop.PortId, actualFullDenom.Trace[i].PortId)
-			s.Require().Equal(hop.ChannelId, actualFullDenom.Trace[i].ChannelId)
+			s.Require().Equal(hop.ClientId, actualFullDenom.Trace[i].ClientId)
 		}
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
@@ -970,7 +970,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 			// Denom:    denomOnSimdA.IBCDenom(),
 			// BUG: Allowing user to choose the above is a bug in ibc-go
 			// https://github.com/cosmos/ibc-go/issues/7848
@@ -980,8 +980,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 						Base: denomOnSimdA.Base,
 						Trace: []ics20lib.ICS20LibHop{
 							{
-								PortId:    denomOnSimdA.Trace[0].PortId,
-								ChannelId: denomOnSimdA.Trace[0].ChannelId,
+								PortId:   denomOnSimdA.Trace[0].PortId,
+								ClientId: denomOnSimdA.Trace[0].ChannelId,
 							},
 						},
 					},
@@ -1067,7 +1067,7 @@ func (s *MultichainTestSuite) createICS20MsgSendPacket(
 	memo string,
 ) ics26router.IICS26RouterMsgsMsgSendPacket {
 	msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-		Tokens: []ics20transfer.IICS20TransferMsgsToken{
+		Tokens: []ics20transfer.IICS20TransferMsgsERC20Token{
 			{
 				ContractAddress: ics20ContractAddress,
 				Amount:          amount,

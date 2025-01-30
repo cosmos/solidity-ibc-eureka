@@ -46,12 +46,12 @@ contract ICS24HostTest is Test {
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
         ICS20Lib.Hop[] memory trace = new ICS20Lib.Hop[](1);
-        trace[0] = ICS20Lib.Hop({ portId: "traceport", clientId: "channel-0" });
+        trace[0] = ICS20Lib.Hop({ portId: "traceport", clientId: "client-0" });
         ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
         tokens[0] = ICS20Lib.Token({ denom: ICS20Lib.Denom({ base: "uatom", trace: trace }), amount: 1_000_000 });
 
         ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
-        hops[0] = ICS20Lib.Hop({ portId: "hopport", clientId: "channel-1" });
+        hops[0] = ICS20Lib.Hop({ portId: "hopport", clientId: "client-1" });
         ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: "sender",
@@ -79,7 +79,7 @@ contract ICS24HostTest is Test {
 
         bytes32 commitmentBytes = ICS24Host.packetCommitmentBytes32(packet);
         string memory actual = Strings.toHexString(uint256(commitmentBytes));
-        string memory expected = "0xdaec01c9dbadbb3bbbd84fa210c17f7c15aab5bac6239c7963393cece8f552df";
+        string memory expected = "0x634d50b132aadb0395ceb840bb613191326b5fc47248fd50e9e5c622ca11b59f";
         assertEq(actual, expected);
     }
 

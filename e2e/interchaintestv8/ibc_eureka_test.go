@@ -343,11 +343,11 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 
 		// TODO: https://github.com/cosmos/ibc-go/issues/7875
 		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simd, &channeltypesv2.QueryChannelRequest{
-		// 	ChannelId: ibctesting.FirstChannelID,
+		// 	ClientId: ibctesting.FirstChannelID,
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyClientId)
 	}))
 
 	s.Require().True(s.Run("Verify Cosmos to Eth Relayer Info", func() {
@@ -582,11 +582,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var trace []ics20lib.ICS20LibHop
 		for _, hop := range denomOnCosmos.Trace {
 			trace = append(trace, ics20lib.ICS20LibHop{
-				PortId:    hop.PortId,
-				ChannelId: hop.ChannelId,
+				PortId:   hop.PortId,
+				ClientId: hop.ChannelId,
 			})
 		}
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 			Tokens: []ics20lib.ICS20LibToken{
 				{
 					Denom: ics20lib.ICS20LibDenom{
@@ -764,7 +764,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 			Tokens: []ics20lib.ICS20LibToken{
 				{
 					Denom: ics20lib.ICS20LibDenom{
@@ -857,8 +857,8 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Base: transferCoin.Denom,
 			Trace: []ics20transfer.ICS20LibHop{
 				{
-					PortId:    packet.Payloads[0].DestPort,
-					ChannelId: packet.DestClient,
+					PortId:   packet.Payloads[0].DestPort,
+					ClientId: packet.DestClient,
 				},
 			},
 		}
@@ -885,7 +885,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(len(denomOnEthereum.Trace), len(actualFullDenom.Trace))
 		for i, hop := range denomOnEthereum.Trace {
 			s.Require().Equal(hop.PortId, actualFullDenom.Trace[i].PortId)
-			s.Require().Equal(hop.ChannelId, actualFullDenom.Trace[i].ChannelId)
+			s.Require().Equal(hop.ClientId, actualFullDenom.Trace[i].ClientId)
 		}
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
@@ -1378,7 +1378,7 @@ func (s *IbcEurekaTestSuite) createICS20MsgSendPacket(
 	memo string,
 ) ics26router.IICS26RouterMsgsMsgSendPacket {
 	msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-		Tokens: []ics20transfer.IICS20TransferMsgsToken{
+		Tokens: []ics20transfer.IICS20TransferMsgsERC20Token{
 			{
 				ContractAddress: ics20ContractAddress,
 				Amount:          amount,

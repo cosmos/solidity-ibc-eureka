@@ -109,7 +109,7 @@
           {
             "name": "tokens",
             "type": "tuple[]",
-            "internalType": "struct IICS20TransferMsgs.Token[]",
+            "internalType": "struct IICS20TransferMsgs.ERC20Token[]",
             "components": [
               {
                 "name": "contractAddress",
@@ -519,7 +519,7 @@
           {
             "name": "tokens",
             "type": "tuple[]",
-            "internalType": "struct IICS20TransferMsgs.Token[]",
+            "internalType": "struct IICS20TransferMsgs.ERC20Token[]",
             "components": [
               {
                 "name": "contractAddress",

@@ -86,7 +86,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 				Tokens: []ics20lib.ICS20LibToken{
 					{
 						Denom: ics20lib.ICS20LibDenom{
@@ -165,8 +165,8 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				Base: transferCoin.Denom,
 				Trace: []ics20transfer.ICS20LibHop{
 					{
-						PortId:    transfertypes.PortID,
-						ChannelId: ibctesting.FirstClientID,
+						PortId:   transfertypes.PortID,
+						ClientId: ibctesting.FirstClientID,
 					},
 				},
 			}
@@ -218,7 +218,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		for i := 0; i < numConcurrentTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 				Tokens: []ics20lib.ICS20LibToken{
 					{
 						Denom: ics20lib.ICS20LibDenom{
@@ -615,7 +615,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 				Tokens: []ics20lib.ICS20LibToken{
 					{
 						Denom: ics20lib.ICS20LibDenom{
@@ -770,7 +770,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			timeout := uint64(time.Now().Add(45 * time.Second).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
 				Tokens: []ics20lib.ICS20LibToken{
 					{
 						Denom: ics20lib.ICS20LibDenom{

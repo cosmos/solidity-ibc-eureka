@@ -54,8 +54,8 @@ contract ICS20TransferTest is Test {
     function test_success_sendTransfer() public {
         (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
 
-        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
-        tokens[0] = IICS20TransferMsgs.Token({ contractAddress: address(erc20), amount: defaultAmount });
+        IICS20TransferMsgs.ERC20Token[] memory tokens = new IICS20TransferMsgs.ERC20Token[](1);
+        tokens[0] = IICS20TransferMsgs.ERC20Token({ contractAddress: address(erc20), amount: defaultAmount });
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: tokens,
             receiver: receiverStr,
@@ -80,8 +80,8 @@ contract ICS20TransferTest is Test {
 
         vm.startPrank(sender);
 
-        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
-        tokens[0] = IICS20TransferMsgs.Token({ contractAddress: address(erc20), amount: defaultAmount });
+        IICS20TransferMsgs.ERC20Token[] memory tokens = new IICS20TransferMsgs.ERC20Token[](1);
+        tokens[0] = IICS20TransferMsgs.ERC20Token({ contractAddress: address(erc20), amount: defaultAmount });
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: tokens,
             receiver: receiverStr,

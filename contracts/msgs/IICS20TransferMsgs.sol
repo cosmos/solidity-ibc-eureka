@@ -12,7 +12,7 @@ interface IICS20TransferMsgs {
     /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
     /// @param memo Optional memo
     struct SendTransferMsg {
-        Token[] tokens;
+        ERC20Token[] tokens;
         string receiver;
         string sourceClient;
         string destPort;
@@ -21,18 +21,15 @@ interface IICS20TransferMsgs {
         Forwarding forwarding;
     }
 
-    struct Token {
+    struct ERC20Token {
         address contractAddress;
         uint256 amount;
     }
 
     /// @notice Forwarding defines a list of port ID, channel ID pairs determining the path
-    /// through which a packet must be forwarded, and an unwind boolean indicating if
-    /// the coin should be unwinded to its native chain before forwarding.
+    /// through which a packet must be forwarded
     /// @param hops Optional intermediate path through which packet will be forwarded
     struct Forwarding {
-        // TODO: Do we want unwinding in the solidity implementation?
-        // bool unwind;
         ICS20Lib.Hop[] hops;
     }
 }

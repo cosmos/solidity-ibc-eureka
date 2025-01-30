@@ -418,10 +418,10 @@ github.com/cosmos/gogoproto v1.7.0 h1:79USr0oyXAbxg3rspGh/m4SWNyoz/GLaAh0QlCe2fr
 github.com/cosmos/gogoproto v1.7.0/go.mod h1:yWChEv5IUEYURQasfyBW5ffkMHR/90hiHgbNgrtp4j0=
 github.com/cosmos/iavl v1.3.5 h1:wTDFbaa/L0FVUrwTlzMnjN3fphtKgWxgcZmTc45MZuA=
 github.com/cosmos/iavl v1.3.5/go.mod h1:T6SfBcyhulVIY2G/ZtAtQm/QiJvsuhIos52V4dWYk88=
-github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250127153654-4ff42e4d4a3c h1:Iy9jKxiFW6o3SfpcekvixFrO8pmRLHGh2XfxVjo7Sx8=
-github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250127153654-4ff42e4d4a3c/go.mod h1:CiyF34ppvQMD7eWO0aDtJrzuBYsmfk178VT9qR3Aak8=
-github.com/cosmos/ibc-go/v9 v9.0.0-20250128120213-98b806610a63 h1:0ASySD3F94g0w4DRlOVLaWt/OY7dPzS2BiHttUQdUaM=
-github.com/cosmos/ibc-go/v9 v9.0.0-20250128120213-98b806610a63/go.mod h1:7INEYX4/hYWNUe+FOTpgFiWZX57CI920j4iS7ahgpnw=
+github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250130064521-f82f40a0f7f8 h1:ICeLjLtEUuw/dc5yJFe4+lOYeiU0yMAIqobbh7efRV4=
+github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250130064521-f82f40a0f7f8/go.mod h1:/IVDmQkvSoT+OTFw6hVxde4HWVoPkbglHbvtFBMVZc4=
+github.com/cosmos/ibc-go/v9 v9.0.0-20250130064521-f82f40a0f7f8 h1:ghHNFk7QmTA6W8aapKoBaRPXk9cOikVQJplOxIHTBzs=
+github.com/cosmos/ibc-go/v9 v9.0.0-20250130064521-f82f40a0f7f8/go.mod h1:qY5jpZPLuNiBovlsfxZQFHDvEvQpd7ZQ8yLlTg7E7D4=
 github.com/cosmos/ics23/go v0.11.0 h1:jk5skjT0TqX5e5QJbEnwXIS2yI2vnmLOgpQPeM5RtnU=
 github.com/cosmos/ics23/go v0.11.0/go.mod h1:A8OjxPE67hHST4Icw94hOxxFEJMBG031xIGF/JHNIY0=
 github.com/cosmos/ledger-cosmos-go v0.14.0 h1:WfCHricT3rPbkPSVKRH+L4fQGKYHuGOK9Edpel8TYpE=

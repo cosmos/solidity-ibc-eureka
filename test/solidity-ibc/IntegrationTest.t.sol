@@ -111,7 +111,7 @@ contract IntegrationTest is Test {
         assertEq(senderBalanceBefore, transferAmount);
         assertEq(contractBalanceBefore, 0);
 
-        IICS20TransferMsgs.Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
+        IICS20TransferMsgs.ERC20Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
         IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
             tokens: defaultSendTransferMsgTokens,
             receiver: receiverStr,
@@ -169,7 +169,7 @@ contract IntegrationTest is Test {
 
     function test_failure_sendPacketWithLargeTimeoutDuration() public {
         uint64 timeoutTimestamp = uint64(block.timestamp + 2 days);
-        IICS20TransferMsgs.Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
+        IICS20TransferMsgs.ERC20Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ICS20Lib.newMsgSendPacketV2(
             sender,
             IICS20TransferMsgs.SendTransferMsg({
@@ -509,9 +509,9 @@ contract IntegrationTest is Test {
 
         ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
         outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: transferAmount });
-        IICS20TransferMsgs.Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.Token[](1);
+        IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
-            IICS20TransferMsgs.Token({ contractAddress: address(ibcERC20), amount: transferAmount });
+            IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: transferAmount });
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: outboundSendTransferMsgTokens,
@@ -810,9 +810,9 @@ contract IntegrationTest is Test {
 
         ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
         outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: transferAmount });
-        IICS20TransferMsgs.Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.Token[](1);
+        IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
-            IICS20TransferMsgs.Token({ contractAddress: address(ibcERC20), amount: transferAmount });
+            IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: transferAmount });
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: outboundSendTransferMsgTokens,
@@ -940,9 +940,9 @@ contract IntegrationTest is Test {
 
         ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
         outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: largeAmount });
-        IICS20TransferMsgs.Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.Token[](1);
+        IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
-            IICS20TransferMsgs.Token({ contractAddress: address(ibcERC20), amount: largeAmount });
+            IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: largeAmount });
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
             tokens: outboundSendTransferMsgTokens,
@@ -1069,7 +1069,7 @@ contract IntegrationTest is Test {
         erc20.approve(address(ics20Transfer), transferAmount);
 
         ICS20Lib.FungibleTokenPacketDataV2 memory defaultPacketData = _getDefaultPacketData();
-        IICS20TransferMsgs.Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
+        IICS20TransferMsgs.ERC20Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
         uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
@@ -1131,9 +1131,9 @@ contract IntegrationTest is Test {
         });
     }
 
-    function _getDefaultSendTransferMsgTokens() internal view returns (IICS20TransferMsgs.Token[] memory) {
-        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
-        tokens[0] = IICS20TransferMsgs.Token({ contractAddress: address(erc20), amount: transferAmount });
+    function _getDefaultSendTransferMsgTokens() internal view returns (IICS20TransferMsgs.ERC20Token[] memory) {
+        IICS20TransferMsgs.ERC20Token[] memory tokens = new IICS20TransferMsgs.ERC20Token[](1);
+        tokens[0] = IICS20TransferMsgs.ERC20Token({ contractAddress: address(erc20), amount: transferAmount });
         return tokens;
     }
 }
