@@ -71,9 +71,6 @@ library ICS20Lib {
     /// @notice ICS20_ENCODING is the encoding string for ICS20 packet data.
     string public constant ICS20_ENCODING = "application/x-solidity-abi";
 
-    /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
-    string public constant IBC_DENOM_PREFIX = "ibc/";
-
     /// @notice DEFAULT_PORT_ID is the default port id for ICS20.
     string public constant DEFAULT_PORT_ID = "transfer";
 
@@ -201,7 +198,7 @@ library ICS20Lib {
         bytes memory traceBytes = "";
         for (uint256 i = 0; i < denom.trace.length; i++) {
             traceBytes = abi.encodePacked(
-                traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, denom.trace[i].clientId))
+                traceBytes, keccak256(abi.encodePacked(denom.trace[i].portId, "/", denom.trace[i].clientId))
             );
         }
 
