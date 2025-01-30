@@ -78,16 +78,6 @@ abstract contract IBCUUPSUpgradeable is
         }
     }
 
-    modifier onlyMultisigAdmin() {
-        require(_msgSender() == _getIBCUUPSUpgradeableStorage().multisigAdmin, CallerNotMultisigAdmin());
-        _;
-    }
-
-    modifier onlyGovAdmin() {
-        require(_msgSender() == _getIBCUUPSUpgradeableStorage().govAdmin, CallerNotGovernanceAdmin());
-        _;
-    }
-
     modifier onlyAdmin() {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
         require(_msgSender() == $.multisigAdmin || _msgSender() == $.govAdmin, Unauthorized());
