@@ -12,12 +12,4 @@ interface ISP1Msgs {
         bytes publicValues;
         bytes proof;
     }
-
-    /// @notice Defines the supported zk algorithms
-    /// @param Groth16 Groth16 zk algorithm
-    /// @param Plonk Plonk zk algorithm
-    enum SupportedZkAlgorithm {
-        Groth16,
-        Plonk
-    }
 }

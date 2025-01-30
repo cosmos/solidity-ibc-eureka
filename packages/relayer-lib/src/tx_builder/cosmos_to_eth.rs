@@ -11,10 +11,9 @@ use ibc_eureka_solidity_types::{
         router::{multicallCall, routerCalls, routerInstance},
         IICS02ClientMsgs::Height,
     },
-    sp1_ics07::{sp1_ics07_tendermint, IICS07TendermintMsgs::ClientState},
+    msgs::IICS07TendermintMsgs::ClientState,
+    sp1_ics07::sp1_ics07_tendermint,
 };
-// Re-export the `SupportedProofType` enum.
-pub use sp1_ics07_tendermint_prover::prover::SupportedProofType;
 
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{Prover, ProverClient};

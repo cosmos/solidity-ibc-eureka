@@ -1,26 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
+import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
+import { IICS02ClientMsgs } from "./msgs/IICS02ClientMsgs.sol";
+import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
+
+import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
-import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
-import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
-import { ICS24Host } from "./utils/ICS24Host.sol";
-import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
-import { ILightClientMsgs } from "./msgs/ILightClientMsgs.sol";
+
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
+import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { IBCUUPSUpgradeable } from "./utils/IBCUUPSUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
-    IICS26Router,
     IICS26RouterErrors,
+    IICS26Router,
     ICS02ClientUpgradeable,
     IBCStoreUpgradeable,
     ReentrancyGuardTransientUpgradeable,
@@ -107,10 +111,10 @@ contract ICS26Router is
     /// @param msg_ The message for sending packets
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
-    function sendPacket(MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
         // TODO: Support multi-payload packets #93
         require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
-        Payload calldata payload = msg_.payloads[0];
+        IICS26RouterMsgs.Payload calldata payload = msg_.payloads[0];
 
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
@@ -125,7 +129,7 @@ contract ICS26Router is
 
         uint32 sequence = nextSequenceSend(msg_.sourceClient);
 
-        Packet memory packet = Packet({
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
             sourceClient: msg_.sourceClient,
             destClient: counterpartyId,
@@ -152,12 +156,12 @@ contract ICS26Router is
     /// @notice Receives a packet
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
-    function recvPacket(MsgRecvPacket calldata msg_) external nonReentrant {
+    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
-        Payload calldata payload = msg_.packet.payloads[0];
+        IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
 
-        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.destClient);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.destClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.sourceClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.sourceClient)
@@ -209,12 +213,12 @@ contract ICS26Router is
     /// @notice Acknowledges a packet
     /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
-    function ackPacket(MsgAckPacket calldata msg_) external nonReentrant {
+    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
-        Payload calldata payload = msg_.packet.payloads[0];
+        IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
 
-        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destClient)
@@ -264,12 +268,12 @@ contract ICS26Router is
     /// @notice Timeouts a packet
     /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
-    function timeoutPacket(MsgTimeoutPacket calldata msg_) external nonReentrant {
+    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
-        Payload calldata payload = msg_.packet.payloads[0];
+        IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
 
-        CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
+        IICS02ClientMsgs.CounterpartyInfo memory cInfo = getCounterparty(msg_.packet.sourceClient);
         require(
             keccak256(bytes(cInfo.clientId)) == keccak256(bytes(msg_.packet.destClient)),
             IBCInvalidCounterparty(cInfo.clientId, msg_.packet.destClient)
@@ -317,7 +321,7 @@ contract ICS26Router is
     /// @notice Writes a packet acknowledgement and emits an event
     /// @param packet The packet to acknowledge
     /// @param acks The acknowledgement
-    function writeAcknowledgement(Packet calldata packet, bytes[] memory acks) private {
+    function writeAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) private {
         commitPacketAcknowledgement(packet, acks);
         emit WriteAcknowledgement(packet, acks);
     }

@@ -9,7 +9,7 @@ use ibc_eureka_solidity_types::{
         IICS02ClientMsgs::Height,
         IICS26RouterMsgs::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket},
     },
-    sp1_ics07::{
+    msgs::{
         IICS07TendermintMsgs::ClientState,
         IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
         ISP1Msgs::SP1Proof,
@@ -138,10 +138,7 @@ pub async fn inject_sp1_proof(
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
     let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        client_state
-            .zkAlgorithm
-            .try_into()
-            .map_err(|e: String| anyhow::anyhow!(e))?,
+        client_state.zkAlgorithm,
         sp1_prover.as_ref(),
     );
 

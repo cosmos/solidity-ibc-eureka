@@ -2,13 +2,12 @@
 
 use crate::cli::command::{genesis::Args, OutputPath};
 use alloy::sol_types::SolValue;
-use ibc_eureka_solidity_types::sp1_ics07::IICS07TendermintMsgs::ConsensusState as SolConsensusState;
-use sp1_ics07_tendermint_prover::{
-    programs::{
-        MembershipProgram, MisbehaviourProgram, SP1Program, UpdateClientAndMembershipProgram,
-        UpdateClientProgram,
-    },
-    prover::SupportedProofType,
+use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
+    ConsensusState as SolConsensusState, SupportedZkAlgorithm,
+};
+use sp1_ics07_tendermint_prover::programs::{
+    MembershipProgram, MisbehaviourProgram, SP1Program, UpdateClientAndMembershipProgram,
+    UpdateClientProgram,
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{utils::setup_logger, HashableKey};
@@ -46,7 +45,7 @@ impl SP1ICS07TendermintGenesis {
         trusted_light_block: &LightBlock,
         trusting_period: Option<u32>,
         trust_level: TrustThreshold,
-        proof_type: SupportedProofType,
+        proof_type: SupportedZkAlgorithm,
     ) -> anyhow::Result<Self> {
         setup_logger();
         if dotenv::dotenv().is_err() {
@@ -75,7 +74,7 @@ impl SP1ICS07TendermintGenesis {
             trust_level.try_into()?,
             unbonding_period,
             trusting_period,
-            proof_type.into(),
+            proof_type,
         )?;
         let trusted_consensus_state = trusted_light_block.to_consensus_state();
 

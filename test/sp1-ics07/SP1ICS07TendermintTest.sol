@@ -13,6 +13,8 @@ import { IMembershipMsgs } from "../../contracts/light-clients/msgs/IMembershipM
 import { IUpdateClientAndMembershipMsgs } from "../../contracts/light-clients/msgs/IUcAndMembershipMsgs.sol";
 import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { ISP1Msgs } from "../../contracts/light-clients/msgs/ISP1Msgs.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { ISP1ICS07TendermintErrors } from "../../contracts/light-clients/errors/ISP1ICS07TendermintErrors.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -30,6 +32,8 @@ struct SP1ICS07GenesisFixtureJson {
 
 abstract contract SP1ICS07TendermintTest is
     Test,
+    IICS02ClientMsgs,
+    ISP1Msgs,
     IICS07TendermintMsgs,
     IUpdateClientMsgs,
     IMembershipMsgs,

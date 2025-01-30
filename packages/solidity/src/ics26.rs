@@ -5,8 +5,7 @@ use ibc_proto_eureka::ibc::core::channel::v2::{Packet, Payload};
 #[cfg(feature = "rpc")]
 alloy_sol_types::sol!(
     #[sol(rpc)]
-    #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-    #[allow(missing_docs, clippy::pedantic, warnings)]
+    #[derive(Debug, PartialEq, Eq)]
     router,
     "../../abi/ICS26Router.json"
 );
@@ -14,8 +13,7 @@ alloy_sol_types::sol!(
 // NOTE: Some environments won't compile with the `rpc` features.
 #[cfg(not(feature = "rpc"))]
 alloy_sol_types::sol!(
-    #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-    #[allow(missing_docs, clippy::pedantic)]
+    #[derive(Debug, PartialEq, Eq)]
     router,
     "../../abi/ICS26Router.json"
 );

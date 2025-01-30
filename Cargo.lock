@@ -6440,6 +6440,7 @@ dependencies = [
 name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types",
  "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",

@@ -11,7 +11,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint::types::Misbehaviour;
-use ibc_eureka_solidity_types::sp1_ics07::IICS07TendermintMsgs::{
+use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use sp1_ics07_tendermint_misbehaviour::check_for_misbehaviour;
@@ -28,15 +28,15 @@ pub fn main() {
     let encoded_5 = sp1_zkvm::io::read_vec();
 
     // input 1: client state
-    let client_state = bincode::deserialize::<SolClientState>(&encoded_1).unwrap();
+    let client_state = SolClientState::abi_decode(&encoded_1, true).unwrap();
     // input 2: the misbehaviour evidence
     let misbehaviour = serde_cbor::from_slice::<Misbehaviour>(&encoded_2).unwrap();
     // input 3: header 1 trusted consensus state
-    let trusted_consensus_state_1 = bincode::deserialize::<SolConsensusState>(&encoded_3)
+    let trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3, true)
         .unwrap()
         .into();
     // input 4: header 2 trusted consensus state
-    let trusted_consensus_state_2 = bincode::deserialize::<SolConsensusState>(&encoded_4)
+    let trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4, true)
         .unwrap()
         .into();
     // input 5: time

@@ -3,11 +3,11 @@
 use std::convert::Infallible;
 
 use clap::{command, Parser};
-use sp1_ics07_tendermint_prover::prover::SupportedProofType;
+use sp1_ics07_tendermint_prover::prover::SupportedZkAlgorithm;
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 /// The command line interface for the operator.
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct OperatorCli {
     /// The subcommand to run.
@@ -16,7 +16,7 @@ pub struct OperatorCli {
 }
 
 /// The subcommands for the operator.
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Parser)]
 pub enum Commands {
     /// The subcommand to run the operator.
     Start(operator::Args),
@@ -27,7 +27,7 @@ pub enum Commands {
 }
 
 /// The trust options for client operations.
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Parser)]
 pub struct TrustOptions {
     /// Trust level.
     #[clap(
@@ -44,7 +44,7 @@ pub struct TrustOptions {
 }
 
 /// The output path for files.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum OutputPath {
     /// Write the output to stdout.
     Stdout,
@@ -57,7 +57,7 @@ pub mod genesis {
     use super::Parser;
 
     /// The arguments for the `genesis` executable.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     pub struct Args {
         /// Trusted block height. [default: latest]
         #[clap(long)]
@@ -74,7 +74,7 @@ pub mod genesis {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 }
 
@@ -83,7 +83,7 @@ pub mod operator {
     use super::Parser;
 
     /// Command line arguments for the operator.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     pub struct Args {
         /// Run update-client only once and then exit.
         #[clap(long)]
@@ -96,7 +96,7 @@ pub mod fixtures {
     use super::{command, Parser};
 
     /// The cli interface for the fixtures.
-    #[derive(Clone, Debug, Parser)]
+    #[derive(Clone, Parser)]
     #[command(about = "Generate fixtures for SP1ICS07Tendermint contract")]
     pub struct Cmd {
         /// The subcommand to run.
@@ -105,7 +105,7 @@ pub mod fixtures {
     }
 
     /// The subcommands for the fixtures.
-    #[derive(Clone, Debug, Parser)]
+    #[derive(Clone, Parser)]
     pub enum Cmds {
         /// The subcommand to generate the update client fixtures.
         UpdateClient(UpdateClientCmd),
@@ -118,7 +118,7 @@ pub mod fixtures {
     }
 
     /// The arguments for the `UpdateClient` fixture executable.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     #[command(about = "Generate the update client fixture")]
     pub struct UpdateClientCmd {
         /// Trusted block.
@@ -140,11 +140,11 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for the `Membership` fixture executable.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     #[command(about = "Generate the verify (non)membership fixture")]
     pub struct MembershipCmd {
         /// Generic membership arguments.
@@ -154,11 +154,11 @@ pub mod fixtures {
         /// The proof type.
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for generic membership proof generation.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     pub struct MembershipArgs {
         /// Trusted block.
         #[clap(long)]
@@ -183,7 +183,7 @@ pub mod fixtures {
     }
 
     /// The arguments for the `UpdateClientAndMembership` fixture executable.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     #[command(about = "Generate the update client and membership fixture")]
     pub struct UpdateClientAndMembershipCmd {
         /// Target block.
@@ -197,11 +197,11 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 
     /// The arguments for the `Misbehaviour` fixture executable.
-    #[derive(Parser, Debug, Clone)]
+    #[derive(Parser, Clone)]
     #[command(about = "Generate the misbehaviour fixture")]
     pub struct MisbehaviourCmd {
         /// Path to the misbehaviour json file.
@@ -219,7 +219,7 @@ pub mod fixtures {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedProofType,
+        pub proof_type: super::SupportedZkAlgorithm,
     }
 }
 
@@ -248,10 +248,10 @@ fn parse_trust_threshold(input: &str) -> anyhow::Result<TrustThreshold> {
         .map_err(|e| anyhow::anyhow!("invalid trust threshold: {}", e))
 }
 
-fn parse_proof_type(input: &str) -> anyhow::Result<SupportedProofType> {
+fn parse_proof_type(input: &str) -> anyhow::Result<SupportedZkAlgorithm> {
     match input {
-        "groth16" => Ok(SupportedProofType::Groth16),
-        "plonk" => Ok(SupportedProofType::Plonk),
+        "groth16" => Ok(SupportedZkAlgorithm::Groth16),
+        "plonk" => Ok(SupportedZkAlgorithm::Plonk),
         _ => Err(anyhow::anyhow!("invalid proof type")),
     }
 }

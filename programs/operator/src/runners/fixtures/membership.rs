@@ -8,16 +8,15 @@ use alloy::sol_types::SolValue;
 use core::str;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_eureka_solidity_types::sp1_ics07::{
-    IICS07TendermintMsgs::{ClientState, ConsensusState as SolConsensusState},
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{
+        ClientState, ConsensusState as SolConsensusState, SupportedZkAlgorithm,
+    },
     IMembershipMsgs::{MembershipOutput, MembershipProof, SP1MembershipProof},
     ISP1Msgs::SP1Proof,
 };
 use serde::{Deserialize, Serialize};
-use sp1_ics07_tendermint_prover::{
-    programs::MembershipProgram,
-    prover::{SP1ICS07TendermintProver, SupportedProofType},
-};
+use sp1_ics07_tendermint_prover::{programs::MembershipProgram, prover::SP1ICS07TendermintProver};
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
 use std::{env, path::PathBuf};
@@ -103,7 +102,7 @@ pub async fn run_sp1_membership(
     key_paths: Vec<String>,
     trusted_block: u32,
     trusted_consensus_state: SolConsensusState,
-    proof_type: SupportedProofType,
+    proof_type: SupportedZkAlgorithm,
 ) -> anyhow::Result<MembershipProof> {
     // TODO: Just use ProverClient::from_env() here once
     // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)

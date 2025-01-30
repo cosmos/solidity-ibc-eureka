@@ -3,9 +3,10 @@ pragma solidity ^0.8.28;
 
 // solhint-disable no-empty-blocks
 
+import { ILightClientMsgs } from "../../../contracts/msgs/ILightClientMsgs.sol";
 import { ILightClient } from "../../../contracts/interfaces/ILightClient.sol";
 
-contract DummyLightClient is ILightClient {
+contract DummyLightClient is ILightClient, ILightClientMsgs {
     UpdateResult public updateResult;
     uint64 public membershipResult;
     bool public membershipShouldFail;
