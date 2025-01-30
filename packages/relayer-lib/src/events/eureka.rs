@@ -11,7 +11,7 @@ use tendermint::abci::Event as TmEvent;
 use super::cosmos_sdk;
 
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
 pub enum EurekaEvent {
     /// A packet was sent.
