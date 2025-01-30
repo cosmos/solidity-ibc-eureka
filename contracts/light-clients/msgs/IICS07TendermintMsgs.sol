@@ -45,4 +45,12 @@ interface IICS07TendermintMsgs is IICS02ClientMsgs, ISP1Msgs {
         bytes32 root;
         bytes32 nextValidatorsHash;
     }
+
+    /// @notice Defines the supported zk algorithms
+    /// @param Groth16 Groth16 zk algorithm
+    /// @param Plonk Plonk zk algorithm
+    enum SupportedZkAlgorithm {
+        Groth16,
+        Plonk
+    }
 }
