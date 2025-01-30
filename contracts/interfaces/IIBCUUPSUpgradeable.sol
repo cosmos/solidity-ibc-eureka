@@ -17,4 +17,9 @@ interface IIBCUUPSUpgradeable {
     /// @dev Either admin can change the multisig admin address.
     /// @param newMultisigAdmin The new multisig admin address
     function changeMultisigAdmin(address newMultisigAdmin) external;
+    /// @notice Changes the governance admin address
+    /// @dev Either admin can change the governance admin address.
+    /// @dev Since multisig admin is timelocked, this operation can be stopped by the govAdmin.
+    /// @param newGovAdmin The new governance admin address
+    function changeGovAdmin(address newGovAdmin) external;
 }

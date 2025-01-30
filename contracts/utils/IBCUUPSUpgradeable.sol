@@ -67,6 +67,11 @@ abstract contract IBCUUPSUpgradeable is
         _getIBCUUPSUpgradeableStorage().multisigAdmin = newMultisigAdmin;
     }
 
+    /// @inheritdoc IIBCUUPSUpgradeable
+    function changeGovAdmin(address newGovAdmin) external onlyAdmin {
+        _getIBCUUPSUpgradeableStorage().govAdmin = newGovAdmin;
+    }
+
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal view virtual override onlyAdmin { }
 
