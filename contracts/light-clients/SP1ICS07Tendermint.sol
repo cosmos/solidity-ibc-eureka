@@ -499,32 +499,4 @@ contract SP1ICS07Tendermint is
         require(!clientState.isFrozen, FrozenClientState());
         _;
     }
-
-    /// @notice A dummy function to generate the ABI for the parameters.
-    /// @param o1 The MembershipOutput.
-    /// @param o2 The UcAndMembershipOutput.
-    /// @param o3 The MsgUpdateClient.
-    /// @param o4 The MembershipProof.
-    /// @param o5 The SP1MembershipProof.
-    /// @param o6 The SP1MembershipAndUpdateClientProof.
-    /// @param o7 The MisbehaviourOutput.
-    /// @param o8 The MsgSubmitMisbehaviour.
-    function abiPublicTypes(
-        MembershipOutput memory o1,
-        UcAndMembershipOutput memory o2,
-        MsgUpdateClient memory o3,
-        MembershipProof memory o4,
-        SP1MembershipProof memory o5,
-        SP1MembershipAndUpdateClientProof memory o6,
-        MisbehaviourOutput memory o7,
-        MsgSubmitMisbehaviour memory o8
-    )
-        public
-        pure
-    // solhint-disable-next-line no-empty-blocks
-    {
-        // This is a dummy function to generate the ABI for outputs
-        // so that it can be used in the SP1 verifier contract.
-        // The function is not used in the contract.
-    }
 }
