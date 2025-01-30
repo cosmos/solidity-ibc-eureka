@@ -17,7 +17,7 @@ func TestEncodeFungibleTokenPacketData(t *testing.T) {
 			{
 				Denom: ics20lib.ICS20LibDenom{
 					Base: "uatom",
-					Trace: []ics20lib.ICS20LibHop{
+					Trace: []ics20lib.IICS20TransferMsgsHop{
 						{
 							PortId:   "portid",
 							ClientId: "channelid",
@@ -32,7 +32,7 @@ func TestEncodeFungibleTokenPacketData(t *testing.T) {
 		Memo:     "somememo",
 		Forwarding: ics20lib.ICS20LibForwardingPacketData{
 			DestinationMemo: "destinationmemo",
-			Hops: []ics20lib.ICS20LibHop{
+			Hops: []ics20lib.IICS20TransferMsgsHop{
 				{
 					PortId:   "portid",
 					ClientId: "channelid",
@@ -62,7 +62,7 @@ func TestDecodeFungibleTokenPacketData(t *testing.T) {
 			{
 				Denom: ics20lib.ICS20LibDenom{
 					Base:  "0xa4ad4f68d0b91cfd19687c881e50f3a00242828c",
-					Trace: []ics20lib.ICS20LibHop{},
+					Trace: []ics20lib.IICS20TransferMsgsHop{},
 				},
 				Amount: big.NewInt(1000000000000000000),
 			},
@@ -72,7 +72,7 @@ func TestDecodeFungibleTokenPacketData(t *testing.T) {
 		Memo:     "memo",
 		Forwarding: ics20lib.ICS20LibForwardingPacketData{
 			DestinationMemo: "",
-			Hops:            []ics20lib.ICS20LibHop{},
+			Hops:            []ics20lib.IICS20TransferMsgsHop{},
 		},
 	}
 	require.Equal(t, expectedData, decoded)

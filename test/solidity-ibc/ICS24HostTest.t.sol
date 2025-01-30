@@ -5,6 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -45,13 +46,13 @@ contract ICS24HostTest is Test {
 
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
-        ICS20Lib.Hop[] memory trace = new ICS20Lib.Hop[](1);
-        trace[0] = ICS20Lib.Hop({ portId: "traceport", clientId: "client-0" });
+        IICS20TransferMsgs.Hop[] memory trace = new IICS20TransferMsgs.Hop[](1);
+        trace[0] = IICS20TransferMsgs.Hop({ portId: "traceport", clientId: "client-0" });
         ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
         tokens[0] = ICS20Lib.Token({ denom: ICS20Lib.Denom({ base: "uatom", trace: trace }), amount: 1_000_000 });
 
-        ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
-        hops[0] = ICS20Lib.Hop({ portId: "hopport", clientId: "client-1" });
+        IICS20TransferMsgs.Hop[] memory hops = new IICS20TransferMsgs.Hop[](1);
+        hops[0] = IICS20TransferMsgs.Hop({ portId: "hopport", clientId: "client-1" });
         ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: "sender",

@@ -37,7 +37,7 @@ library ICS20Lib {
     /// @param hops Optional intermediate path through which packet will be forwarded.
     struct ForwardingPacketData {
         string destinationMemo;
-        Hop[] hops;
+        IICS20TransferMsgs.Hop[] hops;
     }
 
     /// @notice Token holds the denomination and amount of a token to be transferred.
@@ -53,16 +53,7 @@ library ICS20Lib {
     /// @param trace The trace of the token
     struct Denom {
         string base;
-        Hop[] trace;
-    }
-
-    /// @notice Hop defines a port ID, channel ID pair specifying where tokens must be forwarded
-    /// next in a multihop transfer, or the trace of an existing token.
-    /// @param portId The port ID
-    /// @param channelId The channel ID
-    struct Hop {
-        string portId;
-        string clientId;
+        IICS20TransferMsgs.Hop[] trace;
     }
 
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
@@ -117,7 +108,7 @@ library ICS20Lib {
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
                 fullDenom =
-                    ICS20Lib.Denom({ base: Strings.toHexString(msg_.tokens[i].contractAddress), trace: new Hop[](0) });
+                    ICS20Lib.Denom({ base: Strings.toHexString(msg_.tokens[i].contractAddress), trace: new IICS20TransferMsgs.Hop[](0) });
             }
 
             tokens[i] = Token({ denom: fullDenom, amount: msg_.tokens[i].amount });
@@ -155,6 +146,23 @@ library ICS20Lib {
             timeoutTimestamp: msg_.timeoutTimestamp,
             payloads: payloads
         });
+    }
+
+    // TODO: Document
+    function getPath(Denom memory denom) external pure returns (string memory) {
+        if (denom.trace.length == 0) {
+            return denom.base;
+        }
+
+        string memory trace = "";
+        for (uint256 i = 0; i < denom.trace.length; i++) {
+            if (i > 0) {
+                trace = string(abi.encodePacked(trace, "/"));
+            }
+            trace = string(abi.encodePacked(trace, denom.trace[i].portId, "/", denom.trace[i].clientId));
+        }
+
+        return string(abi.encodePacked(trace, "/", denom.base));
     }
 
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
@@ -204,21 +212,5 @@ library ICS20Lib {
         }
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));
-    }
-
-    function getPath(Denom memory denom) external pure returns (string memory) {
-        if (denom.trace.length == 0) {
-            return denom.base;
-        }
-
-        string memory trace = "";
-        for (uint256 i = 0; i < denom.trace.length; i++) {
-            if (i > 0) {
-                trace = string(abi.encodePacked(trace, "/"));
-            }
-            trace = string(abi.encodePacked(trace, denom.trace[i].portId, "/", denom.trace[i].clientId));
-        }
-
-        return string(abi.encodePacked(trace, "/", denom.base));
     }
 }

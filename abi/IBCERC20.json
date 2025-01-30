@@ -25,7 +25,7 @@
           {
             "name": "trace",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Hop[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
             "components": [
               {
                 "name": "portId",
@@ -181,7 +181,7 @@
           {
             "name": "trace",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Hop[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
             "components": [
               {
                 "name": "portId",
@@ -438,6 +438,41 @@
         "name": "spender",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCERC20InvalidDenom",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "tuple",
+        "internalType": "struct ICS20Lib.Denom",
+        "components": [
+          {
+            "name": "base",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "trace",
+            "type": "tuple[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
+            "components": [
+              {
+                "name": "portId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "clientId",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          }
+        ]
       }
     ]
   },

@@ -6,6 +6,7 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
@@ -20,14 +21,30 @@ contract IBCERC20Test is Test, DummyICS20Transfer {
     function setUp() public {
         _escrow = new Escrow(address(this));
         denom.base = "test";
-        denom.trace.push(ICS20Lib.Hop({ portId: "testport", clientId: "channel-42" }));
+        denom.trace.push(IICS20TransferMsgs.Hop({ portId: "testport", clientId: "channel-42" }));
         ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, denom);
     }
 
-    // TODO: Add some constructor tests for empty hops and shit, empty denom this sort of stuff
-    // function test_Construction() public {
-    //
-    // }
+    function test_IBCERC20Validation() public {
+        IICS20TransferMsgs.Hop[] memory trace = new IICS20TransferMsgs.Hop[](1);
+        trace[0] = IICS20TransferMsgs.Hop({ portId: "testport", clientId: "client-42" });
+        ICS20Lib.Denom memory testDenom = ICS20Lib.Denom("test", trace);
+
+        // success: valid denom
+        new IBCERC20(IICS20Transfer(this), _escrow, testDenom);
+
+        // failure: empty base denom
+        testDenom.base = "";
+        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20InvalidDenom.selector, testDenom));
+        new IBCERC20(IICS20Transfer(this), _escrow, testDenom);
+        // reset
+        testDenom.base = "test";
+
+        // failure: empty trace
+        testDenom.trace = new IICS20TransferMsgs.Hop[](0);
+        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20InvalidDenom.selector, testDenom));
+        new IBCERC20(IICS20Transfer(this), _escrow, testDenom);
+    }
 
     function test_ERC20Metadata() public view {
         ICS20Lib.Denom memory fullDenom = ibcERC20.fullDenom();

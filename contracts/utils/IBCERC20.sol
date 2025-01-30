@@ -19,6 +19,10 @@ contract IBCERC20 is IIBCERC20, ERC20 {
     /// @param caller The caller of the function
     error IBCERC20Unauthorized(address caller);
 
+    /// @notice Invalid denom
+    /// @param denom The invalid denom
+    error IBCERC20InvalidDenom(ICS20Lib.Denom denom);
+
     constructor(
         IICS20Transfer ics20_,
         IEscrow escrow_,
@@ -26,6 +30,9 @@ contract IBCERC20 is IIBCERC20, ERC20 {
     )
         ERC20(ICS20Lib.getPath(denom_), denom_.base)
     {
+        require(bytes(denom_.base).length > 0, IBCERC20InvalidDenom(denom_));
+        require(denom_.trace.length > 0, IBCERC20InvalidDenom(denom_));
+
         // copying into storage to avoid "Copying of type struct ... to storage not yet supported"
         _denom.base = denom_.base;
         for (uint256 i = 0; i < denom_.trace.length; i++) {

@@ -57,9 +57,9 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 
 	tokens := make([]ICS20LibToken, len(decodedAnon.Tokens))
 	for i, token := range decodedAnon.Tokens {
-		trace := make([]ICS20LibHop, len(token.Denom.Trace))
+		trace := make([]IICS20TransferMsgsHop, len(token.Denom.Trace))
 		for j, hop := range token.Denom.Trace {
-			trace[j] = ICS20LibHop{
+			trace[j] = IICS20TransferMsgsHop{
 				PortId:   hop.PortId,
 				ClientId: hop.ClientId,
 			}
@@ -76,10 +76,10 @@ func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (ICS20LibFungibleToken
 
 	forwarding := ICS20LibForwardingPacketData{
 		DestinationMemo: decodedAnon.Forwarding.DestinationMemo,
-		Hops:            make([]ICS20LibHop, len(decodedAnon.Forwarding.Hops)),
+		Hops:            make([]IICS20TransferMsgsHop, len(decodedAnon.Forwarding.Hops)),
 	}
 	for i, hop := range decodedAnon.Forwarding.Hops {
-		forwarding.Hops[i] = ICS20LibHop{
+		forwarding.Hops[i] = IICS20TransferMsgsHop{
 			PortId:   hop.PortId,
 			ClientId: hop.ClientId,
 		}

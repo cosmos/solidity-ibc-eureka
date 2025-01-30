@@ -91,7 +91,7 @@
                   {
                     "name": "trace",
                     "type": "tuple[]",
-                    "internalType": "struct ICS20Lib.Hop[]",
+                    "internalType": "struct IICS20TransferMsgs.Hop[]",
                     "components": [
                       {
                         "name": "portId",
@@ -142,7 +142,7 @@
               {
                 "name": "hops",
                 "type": "tuple[]",
-                "internalType": "struct ICS20Lib.Hop[]",
+                "internalType": "struct IICS20TransferMsgs.Hop[]",
                 "components": [
                   {
                     "name": "portId",
@@ -181,7 +181,7 @@
           {
             "name": "trace",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Hop[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
             "components": [
               {
                 "name": "portId",
@@ -271,7 +271,7 @@
               {
                 "name": "hops",
                 "type": "tuple[]",
-                "internalType": "struct ICS20Lib.Hop[]",
+                "internalType": "struct IICS20TransferMsgs.Hop[]",
                 "components": [
                   {
                     "name": "portId",

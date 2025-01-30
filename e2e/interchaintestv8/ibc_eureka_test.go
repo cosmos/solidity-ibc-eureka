@@ -579,9 +579,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		var trace []ics20lib.ICS20LibHop
+		var trace []ics20lib.IICS20TransferMsgsHop
 		for _, hop := range denomOnCosmos.Trace {
-			trace = append(trace, ics20lib.ICS20LibHop{
+			trace = append(trace, ics20lib.IICS20TransferMsgsHop{
 				PortId:   hop.PortId,
 				ClientId: hop.ChannelId,
 			})
@@ -855,7 +855,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		// Recreate the full denom path
 		denomOnEthereum := ics20transfer.ICS20LibDenom{
 			Base: transferCoin.Denom,
-			Trace: []ics20transfer.ICS20LibHop{
+			Trace: []ics20transfer.IICS20TransferMsgsHop{
 				{
 					PortId:   packet.Payloads[0].DestPort,
 					ClientId: packet.DestClient,

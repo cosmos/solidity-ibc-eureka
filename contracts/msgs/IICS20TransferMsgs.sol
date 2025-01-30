@@ -21,6 +21,7 @@ interface IICS20TransferMsgs {
         Forwarding forwarding;
     }
 
+    // TODO: Document
     struct ERC20Token {
         address contractAddress;
         uint256 amount;
@@ -30,6 +31,15 @@ interface IICS20TransferMsgs {
     /// through which a packet must be forwarded
     /// @param hops Optional intermediate path through which packet will be forwarded
     struct Forwarding {
-        ICS20Lib.Hop[] hops;
+        Hop[] hops;
+    }
+
+    /// @notice Hop defines a port ID, channel ID pair specifying where tokens must be forwarded
+    /// next in a multihop transfer, or the trace of an existing token.
+    /// @param portId The port ID
+    /// @param channelId The channel ID
+    struct Hop {
+        string portId;
+        string clientId;
     }
 }

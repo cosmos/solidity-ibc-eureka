@@ -748,7 +748,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 		denomOnEthereum := ics20transfer.ICS20LibDenom{
 			Base: transferCoin.Denom,
-			Trace: []ics20transfer.ICS20LibHop{
+			Trace: []ics20transfer.IICS20TransferMsgsHop{
 				{
 					PortId:   packet.Payloads[0].DestPort,
 					ClientId: packet.DestClient,
@@ -978,7 +978,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 				{
 					Denom: ics20lib.ICS20LibDenom{
 						Base: denomOnSimdA.Base,
-						Trace: []ics20lib.ICS20LibHop{
+						Trace: []ics20lib.IICS20TransferMsgsHop{
 							{
 								PortId:   denomOnSimdA.Trace[0].PortId,
 								ClientId: denomOnSimdA.Trace[0].ChannelId,

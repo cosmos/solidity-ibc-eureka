@@ -42,4 +42,7 @@ interface IICS20Errors {
 
     /// @notice Abi encoding/decoding failure
     error ICS20AbiEncodingFailure();
+
+    /// @notice Invalid denom base
+    error ICS20InvalidDenomBase(string base);
 }

@@ -47,7 +47,7 @@
           {
             "name": "trace",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Hop[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
             "components": [
               {
                 "name": "portId",
@@ -169,7 +169,7 @@
               {
                 "name": "hops",
                 "type": "tuple[]",
-                "internalType": "struct ICS20Lib.Hop[]",
+                "internalType": "struct IICS20TransferMsgs.Hop[]",
                 "components": [
                   {
                     "name": "portId",
@@ -592,7 +592,7 @@
               {
                 "name": "hops",
                 "type": "tuple[]",
-                "internalType": "struct ICS20Lib.Hop[]",
+                "internalType": "struct IICS20TransferMsgs.Hop[]",
                 "components": [
                   {
                     "name": "portId",
@@ -718,7 +718,7 @@
           {
             "name": "trace",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Hop[]",
+            "internalType": "struct IICS20TransferMsgs.Hop[]",
             "components": [
               {
                 "name": "portId",
@@ -755,6 +755,17 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20InvalidDenomBase",
+    "inputs": [
+      {
+        "name": "base",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },

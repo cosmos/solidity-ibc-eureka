@@ -15,14 +15,15 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 
 contract ICS20LibTest is Test, DummyICS20Transfer {
     function test_newMsgSendPacketV2() public {
         address sender = makeAddr("sender");
 
         TestERC20 erc20 = new TestERC20();
-        ICS20Lib.Denom memory foreignDenom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
-        foreignDenom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "client-0" });
+        ICS20Lib.Denom memory foreignDenom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+        foreignDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "client-0" });
         IBCERC20 ibcERC20 = new IBCERC20(IICS20Transfer(address(this)), new Escrow(address(this)), foreignDenom);
         IICS20TransferMsgs.ERC20Token memory ibcERC20Token =
             IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: 42_000 });
@@ -39,7 +40,7 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
             destPort: "transfer",
             timeoutTimestamp: 1337,
             memo: "memo",
-            forwarding: IICS20TransferMsgs.Forwarding({ hops: new ICS20Lib.Hop[](0) })
+            forwarding: IICS20TransferMsgs.Forwarding({ hops: new IICS20TransferMsgs.Hop[](0) })
         });
 
         // Test with normal ERC20 token
@@ -83,8 +84,8 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         sendTransferMsg.tokens = tokens;
 
         // Test with forwarding hops and memo
-        ICS20Lib.Hop[] memory hops = new ICS20Lib.Hop[](1);
-        hops[0] = ICS20Lib.Hop({ portId: "hopport", clientId: "client-1" });
+        IICS20TransferMsgs.Hop[] memory hops = new IICS20TransferMsgs.Hop[](1);
+        hops[0] = IICS20TransferMsgs.Hop({ portId: "hopport", clientId: "client-1" });
         sendTransferMsg.forwarding = IICS20TransferMsgs.Forwarding({ hops: hops });
         sendTransferMsg.memo = "forwardingMemo";
         packet = ICS20Lib.newMsgSendPacketV2(sender, sendTransferMsg);
@@ -104,7 +105,7 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         assertEq(packetData.tokens[0].denom.base, Strings.toHexString(address(erc20)));
         assertEq(packetData.tokens[0].denom.trace.length, 0);
         // Reset forwarding and memo
-        sendTransferMsg.forwarding = IICS20TransferMsgs.Forwarding({ hops: new ICS20Lib.Hop[](0) });
+        sendTransferMsg.forwarding = IICS20TransferMsgs.Forwarding({ hops: new IICS20TransferMsgs.Hop[](0) });
         sendTransferMsg.memo = "memo";
 
         // TODO: Test with multiple denoms #249
@@ -130,7 +131,7 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
     function test_getDenomIdentifier() public pure {
         // Contract address as base with no trace
         ICS20Lib.Denom memory denom =
-            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new ICS20Lib.Hop[](0) });
+            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new IICS20TransferMsgs.Hop[](0) });
 
         bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
@@ -138,41 +139,41 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         );
 
         // Different contract address as base with no trace
-        denom = ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1497", trace: new ICS20Lib.Hop[](0) });
+        denom = ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1497", trace: new IICS20TransferMsgs.Hop[](0) });
         denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
             Strings.toHexString(uint256(denomID)), "0xad394a13b52467c62521d0adbe8c823fae32ce6b3b8ed0469bf26b21a6cc6404"
         );
 
         // uatom as base with single hop trace
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
         denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
             Strings.toHexString(uint256(denomID)), "0x6b338325afbf52780db7a94eaa404da03f88bce4fd888c27ce316a5328204941"
         );
 
         // different base with single hop trace
-        denom = ICS20Lib.Denom({ base: "differentbase", trace: new ICS20Lib.Hop[](1) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
+        denom = ICS20Lib.Denom({ base: "differentbase", trace: new IICS20TransferMsgs.Hop[](1) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
         denomID = ICS20Lib.getDenomIdentifier(denom);
 
         // Different portId with single hop trace
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "differentport", clientId: "07-tendermint-0" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "differentport", clientId: "07-tendermint-0" });
         denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
             Strings.toHexString(uint256(denomID)), "0xfce2cfb2362eec048e19c366e0729727e11775dd5a98e3fa895682ffd35a2c0c"
         );
 
         // Different clientId with single hop trace
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
 
         // Multiple hops
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](2) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
-        denom.trace[1] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](2) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
+        denom.trace[1] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
         denomID = ICS20Lib.getDenomIdentifier(denom);
         assertEq(
             Strings.toHexString(uint256(denomID)), "0x1be8df7e437e6d6b10ba1e2441b52fcb535784b2d2eb146f97884dd35c1b67fa"
@@ -181,22 +182,22 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
 
     function test_getPath() public pure {
         ICS20Lib.Denom memory denom =
-            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new ICS20Lib.Hop[](0) });
+            ICS20Lib.Denom({ base: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496", trace: new IICS20TransferMsgs.Hop[](0) });
         string memory path = ICS20Lib.getPath(denom);
         assertEq(path, "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496");
 
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](1) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
         path = ICS20Lib.getPath(denom);
         assertEq(path, "transfer/07-tendermint-0/uatom");
 
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](2) });
-        denom.trace[0] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
-        denom.trace[1] = ICS20Lib.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](2) });
+        denom.trace[0] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-0" });
+        denom.trace[1] = IICS20TransferMsgs.Hop({ portId: "transfer", clientId: "07-tendermint-1" });
         path = ICS20Lib.getPath(denom);
         assertEq(path, "transfer/07-tendermint-0/transfer/07-tendermint-1/uatom");
 
-        denom = ICS20Lib.Denom({ base: "uatom", trace: new ICS20Lib.Hop[](0) });
+        denom = ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](0) });
         path = ICS20Lib.getPath(denom);
         assertEq(path, "uatom");
     }

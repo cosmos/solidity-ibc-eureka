@@ -193,8 +193,8 @@ contract ICS20Transfer is
             } else {
                 // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
                 ICS20Lib.Denom memory newDenom =
-                    ICS20Lib.Denom({ base: token.denom.base, trace: new ICS20Lib.Hop[](token.denom.trace.length + 1) });
-                newDenom.trace[0] = ICS20Lib.Hop({ portId: msg_.payload.destPort, clientId: msg_.destinationClient });
+                    ICS20Lib.Denom({ base: token.denom.base, trace: new IICS20TransferMsgs.Hop[](token.denom.trace.length + 1) });
+                newDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: msg_.payload.destPort, clientId: msg_.destinationClient });
                 for (uint256 j = 0; j < token.denom.trace.length; j++) {
                     newDenom.trace[j + 1] = token.denom.trace[j];
                 }
