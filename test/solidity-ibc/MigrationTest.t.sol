@@ -35,7 +35,7 @@ contract MigrationTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        // ============== Step 2: Deploy Transparent Proxies ==============
+        // ============== Step 2: Deploy ERC1967 Proxies ==============
         vm.recordLogs();
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
