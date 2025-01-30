@@ -872,7 +872,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 		name, err := ibcERC20.Name(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(denomOnEthereum.Base, name)
+		s.Require().Equal(fmt.Sprintf("%s/%s/%s", packet.Payloads[0].DestPort, packet.DestClient, transferCoin.Denom), name)
 
 		// TODO: Remove if the current ibcIdentifier is an OK replacement for the ibc-go IBC denom (ibc/{HASH})
 		// actualBaseDenom, err := ibcERC20.Symbol(nil)
