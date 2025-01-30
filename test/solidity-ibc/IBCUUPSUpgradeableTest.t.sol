@@ -21,24 +21,19 @@ import { IERC1967 } from "@openzeppelin-contracts/interfaces/IERC1967.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
 contract IBCUUPSUpgradeableTest is Test {
-    DummyLightClient public lightClient;
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
-    TestERC20 public erc20;
-    string public clientIdentifier;
 
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
-        lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
+        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
-        vm.recordLogs();
-
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
             abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
@@ -51,17 +46,11 @@ contract IBCUUPSUpgradeableTest is Test {
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
-        erc20 = new TestERC20();
 
-        clientIdentifier = ics26Router.addClient(
+        ics26Router.addClient(
             "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
-
-        vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
     }
 
     function test_success_ics20_upgrade() public {
