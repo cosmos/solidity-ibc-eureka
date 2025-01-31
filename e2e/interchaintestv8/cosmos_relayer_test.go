@@ -253,10 +253,10 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
-				Tokens: []ics20lib.ICS20LibToken{
+			transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
+				Tokens: []ics20lib.IICS20TransferMsgsToken{
 					{
-						Denom: ics20lib.ICS20LibDenom{
+						Denom: ics20lib.IICS20TransferMsgsDenom{
 							Base: transferCoin.Denom,
 						},
 						Amount: transferCoin.Amount.BigInt(),
@@ -411,10 +411,10 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
-				Tokens: []ics20lib.ICS20LibToken{
+			transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
+				Tokens: []ics20lib.IICS20TransferMsgsToken{
 					{
-						Denom: ics20lib.ICS20LibDenom{
+						Denom: ics20lib.IICS20TransferMsgsDenom{
 							Base: transferCoin.Denom,
 						},
 						Amount: transferCoin.Amount.BigInt(),

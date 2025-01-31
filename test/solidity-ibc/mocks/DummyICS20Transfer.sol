@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { IICS20Transfer } from "../../../contracts/interfaces/IICS20Transfer.sol";
 import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
-import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 
 contract DummyICS20Transfer is IICS20Transfer {
     // Dummy implementation of IICS20Transfer
@@ -18,7 +17,7 @@ contract DummyICS20Transfer is IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(ICS20Lib.Denom calldata) external pure override returns (address) {
+    function ibcERC20Contract(IICS20TransferMsgs.Denom calldata) external pure override returns (address) {
         return address(0);
     }
 

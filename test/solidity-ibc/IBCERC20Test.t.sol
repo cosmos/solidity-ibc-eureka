@@ -16,7 +16,7 @@ import { DummyICS20Transfer } from "./mocks/DummyICS20Transfer.sol";
 contract IBCERC20Test is Test, DummyICS20Transfer {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
-    ICS20Lib.Denom public denom;
+    IICS20TransferMsgs.Denom public denom;
 
     function setUp() public {
         _escrow = new Escrow(address(this));
@@ -28,7 +28,7 @@ contract IBCERC20Test is Test, DummyICS20Transfer {
     function test_IBCERC20Validation() public {
         IICS20TransferMsgs.Hop[] memory trace = new IICS20TransferMsgs.Hop[](1);
         trace[0] = IICS20TransferMsgs.Hop({ portId: "testport", clientId: "client-42" });
-        ICS20Lib.Denom memory testDenom = ICS20Lib.Denom("test", trace);
+        IICS20TransferMsgs.Denom memory testDenom = IICS20TransferMsgs.Denom("test", trace);
 
         // success: valid denom
         new IBCERC20(IICS20Transfer(this), _escrow, testDenom);
@@ -47,7 +47,7 @@ contract IBCERC20Test is Test, DummyICS20Transfer {
     }
 
     function test_ERC20Metadata() public view {
-        ICS20Lib.Denom memory fullDenom = ibcERC20.fullDenom();
+        IICS20TransferMsgs.Denom memory fullDenom = ibcERC20.fullDenom();
         string memory path = ICS20Lib.getPath(fullDenom);
         assertEq(path, "testport/channel-42/test");
 

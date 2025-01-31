@@ -123,7 +123,7 @@ contract IntegrationTest is Test {
         uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
         assertEq(sequence, 1);
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory packetData = _getDefaultPacketData();
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData = _getDefaultPacketData();
 
         IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
         packetPayloads[0] = IICS26RouterMsgs.Payload({
@@ -302,18 +302,22 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        ICS20Lib.Denom memory receivedDenom =
-            ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        IICS20TransferMsgs.Denom memory receivedDenom =
+            IICS20TransferMsgs.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         receivedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: ICS20Lib.DEFAULT_PORT_ID, clientId: counterpartyId });
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({ denom: receivedDenom, amount: transferAmount });
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({ denom: receivedDenom, amount: transferAmount });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "backmemo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -380,18 +384,22 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         receiver = sender;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
-        ICS20Lib.Denom memory receivedDenom =
-            ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        IICS20TransferMsgs.Denom memory receivedDenom =
+            IICS20TransferMsgs.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         receivedDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: ICS20Lib.DEFAULT_PORT_ID, clientId: counterpartyId });
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({ denom: receivedDenom, amount: transferAmount });
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({ denom: receivedDenom, amount: transferAmount });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "backmemo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -435,18 +443,22 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
             amount: transferAmount
         });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -465,8 +477,8 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        ICS20Lib.Denom memory expectedDenom =
-            ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
+        IICS20TransferMsgs.Denom memory expectedDenom =
+            IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
 
@@ -507,8 +519,8 @@ contract IntegrationTest is Test {
         vm.prank(sender);
         ibcERC20.approve(address(ics20Transfer), transferAmount);
 
-        ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
-        outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: transferAmount });
+        IICS20TransferMsgs.Token[] memory outboundTokens = new IICS20TransferMsgs.Token[](1);
+        outboundTokens[0] = IICS20TransferMsgs.Token({ denom: expectedDenom, amount: transferAmount });
         IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
             IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: transferAmount });
@@ -523,12 +535,16 @@ contract IntegrationTest is Test {
             forwarding: IICS20TransferMsgs.Forwarding({ hops: new IICS20TransferMsgs.Hop[](0) })
         });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory sendPacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory sendPacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: outboundTokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "backmemo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
@@ -567,19 +583,22 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
             amount: transferAmount
         });
 
         // First packet
-        ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData = IICS20TransferMsgs.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
         payloads1[0] = IICS26RouterMsgs.Payload({
@@ -652,19 +671,22 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
             amount: transferAmount
         });
 
         // First packet
-        ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData = IICS20TransferMsgs.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
 
         IICS26RouterMsgs.Payload[] memory payloads1 = new IICS26RouterMsgs.Payload[](1);
@@ -729,19 +751,23 @@ contract IntegrationTest is Test {
         receiver = makeAddr("receiver_of_foreign_denom");
         receiverStr = Strings.toHexString(receiver);
 
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) }),
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) }),
             amount: transferAmount
         });
         tokens[0].denom.trace[0] = IICS20TransferMsgs.Hop({ portId: ICS20Lib.DEFAULT_PORT_ID, clientId: "channel-42" });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory receievePayloads = new IICS26RouterMsgs.Payload[](1);
         receievePayloads[0] = IICS26RouterMsgs.Payload({
@@ -759,8 +785,8 @@ contract IntegrationTest is Test {
             payloads: receievePayloads
         });
 
-        ICS20Lib.Denom memory expectedDenom =
-            ICS20Lib.Denom({ base: tokens[0].denom.base, trace: new IICS20TransferMsgs.Hop[](2) });
+        IICS20TransferMsgs.Denom memory expectedDenom =
+            IICS20TransferMsgs.Denom({ base: tokens[0].denom.base, trace: new IICS20TransferMsgs.Hop[](2) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
         expectedDenom.trace[1] = IICS20TransferMsgs.Hop({
@@ -812,8 +838,8 @@ contract IntegrationTest is Test {
         vm.prank(sender);
         ibcERC20.approve(address(ics20Transfer), transferAmount);
 
-        ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
-        outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: transferAmount });
+        IICS20TransferMsgs.Token[] memory outboundTokens = new IICS20TransferMsgs.Token[](1);
+        outboundTokens[0] = IICS20TransferMsgs.Token({ denom: expectedDenom, amount: transferAmount });
         IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
             IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: transferAmount });
@@ -830,12 +856,16 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory sendPacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory sendPacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: outboundTokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "backmemo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
@@ -877,18 +907,22 @@ contract IntegrationTest is Test {
 
         uint256 largeAmount = 1_000_000_000_000_000_001;
 
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](0) }),
             amount: largeAmount
         });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -906,8 +940,8 @@ contract IntegrationTest is Test {
             payloads: payloads
         });
 
-        ICS20Lib.Denom memory expectedDenom =
-            ICS20Lib.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
+        IICS20TransferMsgs.Denom memory expectedDenom =
+            IICS20TransferMsgs.Denom({ base: foreignDenom, trace: new IICS20TransferMsgs.Hop[](1) });
         expectedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
 
@@ -943,8 +977,8 @@ contract IntegrationTest is Test {
         vm.prank(sender);
         ibcERC20.approve(address(ics20Transfer), largeAmount);
 
-        ICS20Lib.Token[] memory outboundTokens = new ICS20Lib.Token[](1);
-        outboundTokens[0] = ICS20Lib.Token({ denom: expectedDenom, amount: largeAmount });
+        IICS20TransferMsgs.Token[] memory outboundTokens = new IICS20TransferMsgs.Token[](1);
+        outboundTokens[0] = IICS20TransferMsgs.Token({ denom: expectedDenom, amount: largeAmount });
         IICS20TransferMsgs.ERC20Token[] memory outboundSendTransferMsgTokens = new IICS20TransferMsgs.ERC20Token[](1);
         outboundSendTransferMsgTokens[0] =
             IICS20TransferMsgs.ERC20Token({ contractAddress: address(ibcERC20), amount: largeAmount });
@@ -961,12 +995,16 @@ contract IntegrationTest is Test {
 
         vm.expectEmit();
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory sendPacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory sendPacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: outboundTokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         IICS26RouterMsgs.Payload[] memory expectedPayloads = new IICS26RouterMsgs.Payload[](1);
         expectedPayloads[0] = IICS26RouterMsgs.Payload({
@@ -1025,17 +1063,22 @@ contract IntegrationTest is Test {
         receiverStr = senderStr;
         senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
 
-        ICS20Lib.Denom memory denom = ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
+        IICS20TransferMsgs.Denom memory denom =
+            IICS20TransferMsgs.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](1) });
         denom.trace[0] = IICS20TransferMsgs.Hop({ portId: counterpartyId, clientId: clientIdentifier });
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({ denom: denom, amount: transferAmount });
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({ denom: denom, amount: transferAmount });
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory receivePacketData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePacketData = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "backmemo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
         uint64 timeoutTimestamp = uint64(block.timestamp - 1);
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -1073,7 +1116,7 @@ contract IntegrationTest is Test {
         vm.startPrank(sender);
         erc20.approve(address(ics20Transfer), transferAmount);
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory defaultPacketData = _getDefaultPacketData();
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory defaultPacketData = _getDefaultPacketData();
         IICS20TransferMsgs.ERC20Token[] memory defaultSendTransferMsgTokens = _getDefaultSendTransferMsgTokens();
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
@@ -1121,18 +1164,21 @@ contract IntegrationTest is Test {
         return packet;
     }
 
-    function _getDefaultPacketData() internal view returns (ICS20Lib.FungibleTokenPacketDataV2 memory) {
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({
-            denom: ICS20Lib.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](0) }),
+    function _getDefaultPacketData() internal view returns (IICS20TransferMsgs.FungibleTokenPacketDataV2 memory) {
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: erc20AddressStr, trace: new IICS20TransferMsgs.Hop[](0) }),
             amount: transferAmount
         });
-        return ICS20Lib.FungibleTokenPacketDataV2({
+        return IICS20TransferMsgs.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: senderStr,
             receiver: receiverStr,
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "", hops: new IICS20TransferMsgs.Hop[](0) })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
         });
     }
 

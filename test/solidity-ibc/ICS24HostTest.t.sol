@@ -48,17 +48,20 @@ contract ICS24HostTest is Test {
         // Test against the ibc-go implementations output
         IICS20TransferMsgs.Hop[] memory trace = new IICS20TransferMsgs.Hop[](1);
         trace[0] = IICS20TransferMsgs.Hop({ portId: "traceport", clientId: "client-0" });
-        ICS20Lib.Token[] memory tokens = new ICS20Lib.Token[](1);
-        tokens[0] = ICS20Lib.Token({ denom: ICS20Lib.Denom({ base: "uatom", trace: trace }), amount: 1_000_000 });
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: "uatom", trace: trace }),
+            amount: 1_000_000
+        });
 
         IICS20TransferMsgs.Hop[] memory hops = new IICS20TransferMsgs.Hop[](1);
         hops[0] = IICS20TransferMsgs.Hop({ portId: "hopport", clientId: "client-1" });
-        ICS20Lib.FungibleTokenPacketDataV2 memory packetData = ICS20Lib.FungibleTokenPacketDataV2({
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData = IICS20TransferMsgs.FungibleTokenPacketDataV2({
             tokens: tokens,
             sender: "sender",
             receiver: "receiver",
             memo: "memo",
-            forwarding: ICS20Lib.ForwardingPacketData({ destinationMemo: "destination-memo", hops: hops })
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({ destinationMemo: "destination-memo", hops: hops })
         });
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);

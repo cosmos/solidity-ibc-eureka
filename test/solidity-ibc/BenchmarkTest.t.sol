@@ -7,6 +7,7 @@ pragma solidity ^0.8.28;
 import "forge-std/console.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { FixtureTest } from "./FixtureTest.t.sol";
@@ -132,8 +133,8 @@ contract BenchmarkTest is FixtureTest {
     function sendTransfer(Fixture memory fixture) internal returns (uint64) {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
-        ICS20Lib.FungibleTokenPacketDataV2 memory packetData =
-            abi.decode(fixture.packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketDataV2));
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData =
+            abi.decode(fixture.packet.payloads[0].value, (IICS20TransferMsgs.FungibleTokenPacketDataV2));
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 

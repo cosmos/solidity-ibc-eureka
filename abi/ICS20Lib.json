@@ -71,17 +71,17 @@
       {
         "name": "o1",
         "type": "tuple",
-        "internalType": "struct ICS20Lib.FungibleTokenPacketDataV2",
+        "internalType": "struct IICS20TransferMsgs.FungibleTokenPacketDataV2",
         "components": [
           {
             "name": "tokens",
             "type": "tuple[]",
-            "internalType": "struct ICS20Lib.Token[]",
+            "internalType": "struct IICS20TransferMsgs.Token[]",
             "components": [
               {
                 "name": "denom",
                 "type": "tuple",
-                "internalType": "struct ICS20Lib.Denom",
+                "internalType": "struct IICS20TransferMsgs.Denom",
                 "components": [
                   {
                     "name": "base",
@@ -132,7 +132,7 @@
           {
             "name": "forwarding",
             "type": "tuple",
-            "internalType": "struct ICS20Lib.ForwardingPacketData",
+            "internalType": "struct IICS20TransferMsgs.ForwardingPacketData",
             "components": [
               {
                 "name": "destinationMemo",
@@ -171,7 +171,7 @@
       {
         "name": "denom",
         "type": "tuple",
-        "internalType": "struct ICS20Lib.Denom",
+        "internalType": "struct IICS20TransferMsgs.Denom",
         "components": [
           {
             "name": "base",

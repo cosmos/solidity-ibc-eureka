@@ -3,13 +3,14 @@ pragma solidity ^0.8.28;
 
 import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { ICS20Lib } from "../utils/ICS20Lib.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20 {
     /// @notice The full IBC denom path for this token
-    ICS20Lib.Denom private _denom;
+    IICS20TransferMsgs.Denom private _denom;
     /// @notice The escrow contract address
     address public immutable ESCROW;
     /// @notice The ICS20 contract address
@@ -21,12 +22,12 @@ contract IBCERC20 is IIBCERC20, ERC20 {
 
     /// @notice Invalid denom
     /// @param denom The invalid denom
-    error IBCERC20InvalidDenom(ICS20Lib.Denom denom);
+    error IBCERC20InvalidDenom(IICS20TransferMsgs.Denom denom);
 
     constructor(
         IICS20Transfer ics20_,
         IEscrow escrow_,
-        ICS20Lib.Denom memory denom_
+        IICS20TransferMsgs.Denom memory denom_
     )
         ERC20(ICS20Lib.getPath(denom_), denom_.base)
     {
@@ -43,7 +44,7 @@ contract IBCERC20 is IIBCERC20, ERC20 {
     }
 
     /// @inheritdoc IIBCERC20
-    function fullDenom() public view returns (ICS20Lib.Denom memory) {
+    function fullDenom() public view returns (IICS20TransferMsgs.Denom memory) {
         return _denom;
     }
 

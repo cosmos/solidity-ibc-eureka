@@ -661,10 +661,10 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
-			Tokens: []ics20lib.ICS20LibToken{
+		transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
+			Tokens: []ics20lib.IICS20TransferMsgsToken{
 				{
-					Denom: ics20lib.ICS20LibDenom{
+					Denom: ics20lib.IICS20TransferMsgsDenom{
 						Base: transferCoin.Denom,
 					},
 					Amount: transferCoin.Amount.BigInt(),
@@ -746,7 +746,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 		// Recreate the full denom path
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
-		denomOnEthereum := ics20transfer.ICS20LibDenom{
+		denomOnEthereum := ics20transfer.IICS20TransferMsgsDenom{
 			Base: transferCoin.Denom,
 			Trace: []ics20transfer.IICS20TransferMsgsHop{
 				{
@@ -970,13 +970,13 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
+		transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
 			// Denom:    denomOnSimdA.IBCDenom(),
 			// BUG: Allowing user to choose the above is a bug in ibc-go
 			// https://github.com/cosmos/ibc-go/issues/7848
-			Tokens: []ics20lib.ICS20LibToken{
+			Tokens: []ics20lib.IICS20TransferMsgsToken{
 				{
-					Denom: ics20lib.ICS20LibDenom{
+					Denom: ics20lib.IICS20TransferMsgsDenom{
 						Base: denomOnSimdA.Base,
 						Trace: []ics20lib.IICS20TransferMsgsHop{
 							{

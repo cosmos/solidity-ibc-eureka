@@ -29,31 +29,10 @@ var (
 	_ = abi.ConvertType
 )
 
-// ICS20LibDenom is an auto generated low-level Go binding around an user-defined struct.
-type ICS20LibDenom struct {
+// IICS20TransferMsgsDenom is an auto generated low-level Go binding around an user-defined struct.
+type IICS20TransferMsgsDenom struct {
 	Base  string
 	Trace []IICS20TransferMsgsHop
-}
-
-// ICS20LibForwardingPacketData is an auto generated low-level Go binding around an user-defined struct.
-type ICS20LibForwardingPacketData struct {
-	DestinationMemo string
-	Hops            []IICS20TransferMsgsHop
-}
-
-// ICS20LibFungibleTokenPacketDataV2 is an auto generated low-level Go binding around an user-defined struct.
-type ICS20LibFungibleTokenPacketDataV2 struct {
-	Tokens     []ICS20LibToken
-	Sender     string
-	Receiver   string
-	Memo       string
-	Forwarding ICS20LibForwardingPacketData
-}
-
-// ICS20LibToken is an auto generated low-level Go binding around an user-defined struct.
-type ICS20LibToken struct {
-	Denom  ICS20LibDenom
-	Amount *big.Int
 }
 
 // IICS20TransferMsgsERC20Token is an auto generated low-level Go binding around an user-defined struct.
@@ -65,6 +44,21 @@ type IICS20TransferMsgsERC20Token struct {
 // IICS20TransferMsgsForwarding is an auto generated low-level Go binding around an user-defined struct.
 type IICS20TransferMsgsForwarding struct {
 	Hops []IICS20TransferMsgsHop
+}
+
+// IICS20TransferMsgsForwardingPacketData is an auto generated low-level Go binding around an user-defined struct.
+type IICS20TransferMsgsForwardingPacketData struct {
+	DestinationMemo string
+	Hops            []IICS20TransferMsgsHop
+}
+
+// IICS20TransferMsgsFungibleTokenPacketDataV2 is an auto generated low-level Go binding around an user-defined struct.
+type IICS20TransferMsgsFungibleTokenPacketDataV2 struct {
+	Tokens     []IICS20TransferMsgsToken
+	Sender     string
+	Receiver   string
+	Memo       string
+	Forwarding IICS20TransferMsgsForwardingPacketData
 }
 
 // IICS20TransferMsgsHop is an auto generated low-level Go binding around an user-defined struct.
@@ -82,6 +76,12 @@ type IICS20TransferMsgsSendTransferMsg struct {
 	TimeoutTimestamp uint64
 	Memo             string
 	Forwarding       IICS20TransferMsgsForwarding
+}
+
+// IICS20TransferMsgsToken is an auto generated low-level Go binding around an user-defined struct.
+type IICS20TransferMsgsToken struct {
+	Denom  IICS20TransferMsgsDenom
+	Amount *big.Int
 }
 
 // IICS26RouterMsgsMsgSendPacket is an auto generated low-level Go binding around an user-defined struct.
@@ -102,7 +102,7 @@ type IICS26RouterMsgsPayload struct {
 
 // LibMetaData contains all meta data concerning the Lib contract.
 var LibMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"abiPublicTypes\",\"inputs\":[{\"name\":\"o1\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.FungibleTokenPacketDataV2\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structICS20Lib.Token[]\",\"components\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.ForwardingPacketData\",\"components\":[{\"name\":\"destinationMemo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getPath\",\"inputs\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structICS20Lib.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"newMsgSendPacketV2\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.ERC20Token[]\",\"components\":[{\"name\":\"contractAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Forwarding\",\"components\":[{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"abiPublicTypes\",\"inputs\":[{\"name\":\"o1\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.FungibleTokenPacketDataV2\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Token[]\",\"components\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.ForwardingPacketData\",\"components\":[{\"name\":\"destinationMemo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getPath\",\"inputs\":[{\"name\":\"denom\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Denom\",\"components\":[{\"name\":\"base\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"trace\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"newMsgSendPacketV2\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"tokens\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.ERC20Token[]\",\"components\":[{\"name\":\"contractAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"forwarding\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.Forwarding\",\"components\":[{\"name\":\"hops\",\"type\":\"tuple[]\",\"internalType\":\"structIICS20TransferMsgs.Hop[]\",\"components\":[{\"name\":\"portId\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"clientId\",\"type\":\"string\",\"internalType\":\"string\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS26RouterMsgs.MsgSendPacket\",\"components\":[{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"payloads\",\"type\":\"tuple[]\",\"internalType\":\"structIICS26RouterMsgs.Payload[]\",\"components\":[{\"name\":\"sourcePort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encoding\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"value\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
 }
 
 // LibABI is the input ABI used to generate the binding from.
@@ -409,7 +409,7 @@ func (_Lib *LibCallerSession) SUCCESSFULACKNOWLEDGEMENTJSON() ([]byte, error) {
 // AbiPublicTypes is a free data retrieval call binding the contract method 0xf5bfab69.
 //
 // Solidity: function abiPublicTypes((((string,(string,string)[]),uint256)[],string,string,string,(string,(string,string)[])) o1) pure returns()
-func (_Lib *LibCaller) AbiPublicTypes(opts *bind.CallOpts, o1 ICS20LibFungibleTokenPacketDataV2) error {
+func (_Lib *LibCaller) AbiPublicTypes(opts *bind.CallOpts, o1 IICS20TransferMsgsFungibleTokenPacketDataV2) error {
 	var out []interface{}
 	err := _Lib.contract.Call(opts, &out, "abiPublicTypes", o1)
 
@@ -424,21 +424,21 @@ func (_Lib *LibCaller) AbiPublicTypes(opts *bind.CallOpts, o1 ICS20LibFungibleTo
 // AbiPublicTypes is a free data retrieval call binding the contract method 0xf5bfab69.
 //
 // Solidity: function abiPublicTypes((((string,(string,string)[]),uint256)[],string,string,string,(string,(string,string)[])) o1) pure returns()
-func (_Lib *LibSession) AbiPublicTypes(o1 ICS20LibFungibleTokenPacketDataV2) error {
+func (_Lib *LibSession) AbiPublicTypes(o1 IICS20TransferMsgsFungibleTokenPacketDataV2) error {
 	return _Lib.Contract.AbiPublicTypes(&_Lib.CallOpts, o1)
 }
 
 // AbiPublicTypes is a free data retrieval call binding the contract method 0xf5bfab69.
 //
 // Solidity: function abiPublicTypes((((string,(string,string)[]),uint256)[],string,string,string,(string,(string,string)[])) o1) pure returns()
-func (_Lib *LibCallerSession) AbiPublicTypes(o1 ICS20LibFungibleTokenPacketDataV2) error {
+func (_Lib *LibCallerSession) AbiPublicTypes(o1 IICS20TransferMsgsFungibleTokenPacketDataV2) error {
 	return _Lib.Contract.AbiPublicTypes(&_Lib.CallOpts, o1)
 }
 
 // GetPath is a free data retrieval call binding the contract method 0xa472ba28.
 //
 // Solidity: function getPath((string,(string,string)[]) denom) pure returns(string)
-func (_Lib *LibCaller) GetPath(opts *bind.CallOpts, denom ICS20LibDenom) (string, error) {
+func (_Lib *LibCaller) GetPath(opts *bind.CallOpts, denom IICS20TransferMsgsDenom) (string, error) {
 	var out []interface{}
 	err := _Lib.contract.Call(opts, &out, "getPath", denom)
 
@@ -455,14 +455,14 @@ func (_Lib *LibCaller) GetPath(opts *bind.CallOpts, denom ICS20LibDenom) (string
 // GetPath is a free data retrieval call binding the contract method 0xa472ba28.
 //
 // Solidity: function getPath((string,(string,string)[]) denom) pure returns(string)
-func (_Lib *LibSession) GetPath(denom ICS20LibDenom) (string, error) {
+func (_Lib *LibSession) GetPath(denom IICS20TransferMsgsDenom) (string, error) {
 	return _Lib.Contract.GetPath(&_Lib.CallOpts, denom)
 }
 
 // GetPath is a free data retrieval call binding the contract method 0xa472ba28.
 //
 // Solidity: function getPath((string,(string,string)[]) denom) pure returns(string)
-func (_Lib *LibCallerSession) GetPath(denom ICS20LibDenom) (string, error) {
+func (_Lib *LibCallerSession) GetPath(denom IICS20TransferMsgsDenom) (string, error) {
 	return _Lib.Contract.GetPath(&_Lib.CallOpts, denom)
 }
 

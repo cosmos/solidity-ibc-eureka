@@ -14,48 +14,6 @@ import { IBCERC20 } from "./IBCERC20.sol";
 library ICS20Lib {
     using Strings for string;
 
-    /// @notice FungibleTokenPacketDataV2 is the payload for a fungible token transfer packet.
-    /// @dev See FungibleTokenPacketDataV2V2 spec:
-    /// https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures
-    /// @param tokens The tokens to be transferred
-    /// @param sender The sender of the token
-    /// @param receiver The receiver of the token
-    /// @param memo Optional memo
-    /// @param forwarding Optional forwarding information
-    struct FungibleTokenPacketDataV2 {
-        Token[] tokens;
-        string sender;
-        string receiver;
-        string memo;
-        ForwardingPacketData forwarding;
-    }
-
-    /// @notice ForwardingPacketData defines a list of port ID, channel ID pairs determining the path
-    /// through which a packet must be forwarded, and the destination memo string to be used in the
-    /// final destination of the tokens.
-    /// @param destination_memo Optional memo consumed by final destination chain
-    /// @param hops Optional intermediate path through which packet will be forwarded.
-    struct ForwardingPacketData {
-        string destinationMemo;
-        IICS20TransferMsgs.Hop[] hops;
-    }
-
-    /// @notice Token holds the denomination and amount of a token to be transferred.
-    /// @param denom The token denomination
-    /// @param amount The token amount
-    struct Token {
-        Denom denom;
-        uint256 amount;
-    }
-
-    /// @notice Denom holds the base denom of a Token and a trace of the chains it was sent through.
-    /// @param base The base token denomination
-    /// @param trace The trace of the token
-    struct Denom {
-        string base;
-        IICS20TransferMsgs.Hop[] trace;
-    }
-
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-2";
 
@@ -73,8 +31,8 @@ library ICS20Lib {
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
     /// @notice A dummy function to generate the ABI for the parameters.
-    /// @param o1 The FungibleTokenPacketDataV2.
-    function abiPublicTypes(FungibleTokenPacketDataV2 memory o1) public pure 
+    /// @param o1 The IICS20TransferMsgs.FungibleTokenPacketDataV2.
+    function abiPublicTypes(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory o1) public pure 
     // solhint-disable-next-line no-empty-blocks
     {
         // This is a dummy function to generate the ABI for outputs
@@ -97,28 +55,30 @@ library ICS20Lib {
     {
         require(msg_.tokens.length > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens.length));
 
-        Token[] memory tokens = new Token[](msg_.tokens.length);
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](msg_.tokens.length);
         for (uint256 i = 0; i < msg_.tokens.length; i++) {
             require(msg_.tokens[i].amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.tokens[i].amount));
 
-            Denom memory fullDenom;
-            try IBCERC20(msg_.tokens[i].contractAddress).fullDenom() returns (Denom memory fullDenomFromContract) {
+            IICS20TransferMsgs.Denom memory fullDenom;
+            try IBCERC20(msg_.tokens[i].contractAddress).fullDenom() returns (
+                IICS20TransferMsgs.Denom memory fullDenomFromContract
+            ) {
                 // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
                 fullDenom = fullDenomFromContract;
             } catch {
                 // otherwise this is just an ERC20 address, so we use it as the denom
-                fullDenom = ICS20Lib.Denom({
+                fullDenom = IICS20TransferMsgs.Denom({
                     base: Strings.toHexString(msg_.tokens[i].contractAddress),
                     trace: new IICS20TransferMsgs.Hop[](0)
                 });
             }
 
-            tokens[i] = Token({ denom: fullDenom, amount: msg_.tokens[i].amount });
+            tokens[i] = IICS20TransferMsgs.Token({ denom: fullDenom, amount: msg_.tokens[i].amount });
         }
 
         string memory memo = msg_.memo;
-        ForwardingPacketData memory forwarding =
-            ForwardingPacketData({ destinationMemo: "", hops: msg_.forwarding.hops });
+        IICS20TransferMsgs.ForwardingPacketData memory forwarding =
+            IICS20TransferMsgs.ForwardingPacketData({ destinationMemo: "", hops: msg_.forwarding.hops });
         if (msg_.forwarding.hops.length > 0) {
             memo = "";
             forwarding.destinationMemo = msg_.memo;
@@ -126,7 +86,7 @@ library ICS20Lib {
 
         // We are encoding the payload in ABI format
         bytes memory packetData = abi.encode(
-            ICS20Lib.FungibleTokenPacketDataV2({
+            IICS20TransferMsgs.FungibleTokenPacketDataV2({
                 tokens: tokens,
                 sender: Strings.toHexString(sender),
                 receiver: msg_.receiver,
@@ -151,7 +111,7 @@ library ICS20Lib {
     }
 
     // TODO: Document
-    function getPath(Denom memory denom) external pure returns (string memory) {
+    function getPath(IICS20TransferMsgs.Denom memory denom) external pure returns (string memory) {
         if (denom.trace.length == 0) {
             return denom.base;
         }
@@ -192,10 +152,18 @@ library ICS20Lib {
     }
 
     /// @notice hasPrefix checks if the denom is prefixed by the provided port and channel
-    /// @param denom Denom to check for prefix
+    /// @param denom IICS20TransferMsgs.Denom to check for prefix
     /// @param port Port ID for the prefix
     /// @param client Client ID for the prefix
-    function hasPrefix(Denom memory denom, string calldata port, string calldata client) internal pure returns (bool) {
+    function hasPrefix(
+        IICS20TransferMsgs.Denom memory denom,
+        string calldata port,
+        string calldata client
+    )
+        internal
+        pure
+        returns (bool)
+    {
         // if the denom is native, then it is not prefixed by any port/channel pair
         if (denom.trace.length == 0) {
             return false;
@@ -205,7 +173,7 @@ library ICS20Lib {
     }
 
     // TODO: Document
-    function getDenomIdentifier(Denom memory denom) internal pure returns (bytes32) {
+    function getDenomIdentifier(IICS20TransferMsgs.Denom memory denom) internal pure returns (bytes32) {
         bytes memory traceBytes = "";
         for (uint256 i = 0; i < denom.trace.length; i++) {
             traceBytes = abi.encodePacked(

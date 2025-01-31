@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ICS20Lib } from "../utils/ICS20Lib.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 
 interface IIBCERC20 is IERC20 {
     /// @notice Mint new tokens to the Escrow contract
@@ -15,5 +15,5 @@ interface IIBCERC20 is IERC20 {
 
     /// @notice Get the full denom path of the token
     /// @return the full path of the token's denom
-    function fullDenom() external view returns (ICS20Lib.Denom memory);
+    function fullDenom() external view returns (IICS20TransferMsgs.Denom memory);
 }

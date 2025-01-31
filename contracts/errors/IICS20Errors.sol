@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import { ICS20Lib } from "../utils/ICS20Lib.sol";
+import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 
 interface IICS20Errors {
     // @notice Unauthorized function call
@@ -32,7 +32,7 @@ interface IICS20Errors {
 
     /// @notice this error happens when the denom has no foreign ibcERC20 contract (i.e. we don't know this denom)
     /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
-    error ICS20DenomNotFound(ICS20Lib.Denom denom);
+    error ICS20DenomNotFound(IICS20TransferMsgs.Denom denom);
 
     /// @notice Unsupported feature
     /// @param feature Unsupported feature
@@ -42,7 +42,4 @@ interface IICS20Errors {
 
     /// @notice Abi encoding/decoding failure
     error ICS20AbiEncodingFailure();
-
-    /// @notice Invalid denom base
-    error ICS20InvalidDenomBase(string base);
 }

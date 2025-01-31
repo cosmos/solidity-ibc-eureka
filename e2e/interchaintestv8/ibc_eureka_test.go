@@ -586,10 +586,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				ClientId: hop.ChannelId,
 			})
 		}
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
-			Tokens: []ics20lib.ICS20LibToken{
+		transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
+			Tokens: []ics20lib.IICS20TransferMsgsToken{
 				{
-					Denom: ics20lib.ICS20LibDenom{
+					Denom: ics20lib.IICS20TransferMsgsDenom{
 						Base:  denomOnCosmos.Base,
 						Trace: trace,
 					},
@@ -764,10 +764,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketDataV2{
-			Tokens: []ics20lib.ICS20LibToken{
+		transferPayload := ics20lib.IICS20TransferMsgsFungibleTokenPacketDataV2{
+			Tokens: []ics20lib.IICS20TransferMsgsToken{
 				{
-					Denom: ics20lib.ICS20LibDenom{
+					Denom: ics20lib.IICS20TransferMsgsDenom{
 						Base: transferCoin.Denom,
 					},
 					Amount: transferCoin.Amount.BigInt(),
@@ -853,7 +853,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}
 
 		// Recreate the full denom path
-		denomOnEthereum := ics20transfer.ICS20LibDenom{
+		denomOnEthereum := ics20transfer.IICS20TransferMsgsDenom{
 			Base: transferCoin.Denom,
 			Trace: []ics20transfer.IICS20TransferMsgsHop{
 				{
@@ -873,11 +873,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		name, err := ibcERC20.Name(nil)
 		s.Require().NoError(err)
 		s.Require().Equal(fmt.Sprintf("%s/%s/%s", packet.Payloads[0].DestPort, packet.DestClient, transferCoin.Denom), name)
-
-		// TODO: Remove if the current ibcIdentifier is an OK replacement for the ibc-go IBC denom (ibc/{HASH})
-		// actualBaseDenom, err := ibcERC20.Symbol(nil)
-		// s.Require().NoError(err)
-		// s.Require().Equal(transferCoin.Denom, actualBaseDenom)
 
 		actualFullDenom, err := ibcERC20.FullDenom(nil)
 		s.Require().NoError(err)

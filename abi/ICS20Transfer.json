@@ -37,7 +37,7 @@
       {
         "name": "denom",
         "type": "tuple",
-        "internalType": "struct ICS20Lib.Denom",
+        "internalType": "struct IICS20TransferMsgs.Denom",
         "components": [
           {
             "name": "base",
@@ -708,7 +708,7 @@
       {
         "name": "denom",
         "type": "tuple",
-        "internalType": "struct ICS20Lib.Denom",
+        "internalType": "struct IICS20TransferMsgs.Denom",
         "components": [
           {
             "name": "base",
@@ -755,17 +755,6 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20InvalidDenomBase",
-    "inputs": [
-      {
-        "name": "base",
-        "type": "string",
-        "internalType": "string"
       }
     ]
   },
