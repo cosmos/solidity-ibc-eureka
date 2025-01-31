@@ -28,7 +28,7 @@ interface IICS20TransferMsgs {
         uint256 amount;
     }
 
-    /// @notice Hop defines a port ID, client ID pair specifying either 
+    /// @notice Hop defines a port ID, client ID pair specifying either
     /// where tokens must be forwarded next in a multihop transfer,
     /// or the trace of an existing token.
     /// @param portId The port ID

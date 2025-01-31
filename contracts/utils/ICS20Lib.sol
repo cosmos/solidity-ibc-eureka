@@ -31,7 +31,7 @@ library ICS20Lib {
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
     /// @notice MAX_MEMO_LENGTH is the maximum length of a memo.
-    uint16 internal constant MAX_MEMO_LENGTH = 32769;
+    uint16 internal constant MAX_MEMO_LENGTH = 32_769;
 
     /// @notice MAX_RECEIVER_LENGTH is the maximum length of a receiver or sender.
     uint16 internal constant MAX_SENDER_RECEIVER_LENGTH = 2048;
@@ -192,9 +192,14 @@ library ICS20Lib {
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));
     }
-    
+
     // TODO: Document
-    function validatePacketData(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData) internal pure returns (bool, string memory) {
+    // solhint-disable-next-line code-complexity
+    function validatePacketData(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData)
+        internal
+        pure
+        returns (bool, string memory)
+    {
         if (packetData.forwarding.hops.length > 0) {
             if (packetData.forwarding.hops.length > MAX_HOPS) {
                 return (false, "too many hops");

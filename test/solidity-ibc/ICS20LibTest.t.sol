@@ -210,7 +210,7 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         assertEq(path, "uatom");
     }
 
-    mapping(bytes32 => bool) public denomIDs;
+    mapping(bytes32 denomID => bool seen) public denomIDs;
 
     function test_uniqueDenomIDs() public {
         for (uint256 i = 0; i < 2000; i++) {
@@ -218,10 +218,8 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
             string memory base = randomString(vm.randomUint(16, 32));
             string memory portID = randomString(vm.randomUint(16, 32));
             string memory clientName = randomString(vm.randomUint(16, 32));
-            IICS20TransferMsgs.Denom memory denom = IICS20TransferMsgs.Denom({
-                base: base,
-                trace: new IICS20TransferMsgs.Hop[](hops)
-            });
+            IICS20TransferMsgs.Denom memory denom =
+                IICS20TransferMsgs.Denom({ base: base, trace: new IICS20TransferMsgs.Hop[](hops) });
             for (uint256 j = 0; j < hops; j++) {
                 string memory clientID = string(abi.encodePacked(clientName, "-", Strings.toString(j)));
                 denom.trace[j] = IICS20TransferMsgs.Hop({ portId: portID, clientId: clientID });

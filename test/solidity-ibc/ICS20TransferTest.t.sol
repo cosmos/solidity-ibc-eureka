@@ -233,7 +233,9 @@ contract ICS20TransferTest is Test {
         // test invalid amount
         defaultPacketData.tokens[0].amount = 0;
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "amount must be greater than 0"));
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "amount must be greater than 0")
+        );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -362,7 +364,9 @@ contract ICS20TransferTest is Test {
         defaultPacketData.memo = "memo";
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo must be empty if forwarding is set")
+            abi.encodeWithSelector(
+                IICS20Errors.ICS20InvalidPacketData.selector, "memo must be empty if forwarding is set"
+            )
         );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
@@ -381,7 +385,9 @@ contract ICS20TransferTest is Test {
         defaultPacketData.forwarding.destinationMemo = "destination-memo";
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "destinationMemo must be empty if forwarding is not set")
+            abi.encodeWithSelector(
+                IICS20Errors.ICS20InvalidPacketData.selector, "destinationMemo must be empty if forwarding is not set"
+            )
         );
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
@@ -398,9 +404,7 @@ contract ICS20TransferTest is Test {
         // test memo too long
         defaultPacketData.memo = generateLongString(ICS20Lib.MAX_MEMO_LENGTH + 1);
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo too long")
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo too long"));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -479,9 +483,7 @@ contract ICS20TransferTest is Test {
             defaultPacketData.forwarding.hops[i] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
         }
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "too many hops")
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "too many hops"));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -1144,9 +1146,9 @@ contract ICS20TransferTest is Test {
         return defaultPacketData;
     }
 
-    function generateLongString(uint length) internal pure returns (string memory) {
+    function generateLongString(uint256 length) internal pure returns (string memory) {
         bytes memory bytesArray = new bytes(length);
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             bytesArray[i] = bytes1(uint8(97)); // ASCII 'a'
         }
         return string(bytesArray);
