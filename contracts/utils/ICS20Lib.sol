@@ -36,6 +36,9 @@ library ICS20Lib {
     /// @notice MAX_RECEIVER_LENGTH is the maximum length of a receiver or sender.
     uint16 internal constant MAX_SENDER_RECEIVER_LENGTH = 2048;
 
+    /// @notice MAX_HOPS is the maximum number of hops in a forwarding packet.
+    uint8 internal constant MAX_HOPS = 8;
+
     /// @notice A dummy function to generate the ABI for the parameters.
     /// @param o1 The IICS20TransferMsgs.FungibleTokenPacketDataV2.
     function abiPublicTypes(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory o1) public pure 
@@ -193,11 +196,24 @@ library ICS20Lib {
     // TODO: Document
     function validatePacketData(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData) internal pure returns (bool, string memory) {
         if (packetData.forwarding.hops.length > 0) {
+            if (packetData.forwarding.hops.length > MAX_HOPS) {
+                return (false, "too many hops");
+            }
+
             if (bytes(packetData.memo).length > 0) {
                 return (false, "memo must be empty if forwarding is set");
             }
             if (bytes(packetData.forwarding.destinationMemo).length > MAX_MEMO_LENGTH) {
                 return (false, "destinationMemo too long");
+            }
+
+            for (uint256 i = 0; i < packetData.forwarding.hops.length; i++) {
+                if (bytes(packetData.forwarding.hops[i].portId).length == 0) {
+                    return (false, "portId must be set for each hop");
+                }
+                if (bytes(packetData.forwarding.hops[i].clientId).length == 0) {
+                    return (false, "clientId must be set for each hop");
+                }
             }
         } else {
             if (bytes(packetData.memo).length > MAX_MEMO_LENGTH) {

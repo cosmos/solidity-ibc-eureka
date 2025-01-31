@@ -435,6 +435,65 @@ contract ICS20TransferTest is Test {
         defaultPacketData.forwarding.destinationMemo = "";
         defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
 
+        // test empty port ID in forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "", clientId: "client" });
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "portId must be set for each hop")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
+
+        // test empty client ID in forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "" });
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "clientId must be set for each hop")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
+
+        // test too many hops in forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](ICS20Lib.MAX_HOPS + 1);
+        for (uint256 i = 0; i < ICS20Lib.MAX_HOPS + 1; i++) {
+            defaultPacketData.forwarding.hops[i] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
+        }
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "too many hops")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset forwarding
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
+
         // test malfunctioning transfer
         MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
         malfunctioningERC20.mint(sender, defaultAmount);
