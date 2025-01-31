@@ -17,9 +17,9 @@ interface IICS20Transfer {
     /// @return The escrow contract address
     function escrow() external view returns (address);
 
-    /// @notice Retrieve the ERC20 contract address for the given IBC denom
+    /// @notice Retrieve the IBCERC20 contract address for the given IBC denom
     /// @param denom The IBC denom
-    /// @return The ERC20 contract address
+    /// @return The IBCERC20 contract address
     function ibcERC20Contract(IICS20TransferMsgs.Denom calldata denom) external view returns (address);
 
     /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-2.

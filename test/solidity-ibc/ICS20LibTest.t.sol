@@ -209,4 +209,34 @@ contract ICS20LibTest is Test, DummyICS20Transfer {
         path = ICS20Lib.getPath(denom);
         assertEq(path, "uatom");
     }
+
+    mapping(bytes32 => bool) public denomIDs;
+
+    function test_uniqueDenomIDs() public {
+        for (uint256 i = 0; i < 2000; i++) {
+            uint256 hops = vm.randomUint(0, 10);
+            string memory base = randomString(vm.randomUint(16, 32));
+            string memory portID = randomString(vm.randomUint(16, 32));
+            string memory clientName = randomString(vm.randomUint(16, 32));
+            IICS20TransferMsgs.Denom memory denom = IICS20TransferMsgs.Denom({
+                base: base,
+                trace: new IICS20TransferMsgs.Hop[](hops)
+            });
+            for (uint256 j = 0; j < hops; j++) {
+                string memory clientID = string(abi.encodePacked(clientName, "-", Strings.toString(j)));
+                denom.trace[j] = IICS20TransferMsgs.Hop({ portId: portID, clientId: clientID });
+            }
+            bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
+            assertFalse(denomIDs[denomID], "DenomID already exists");
+            denomIDs[denomID] = true;
+        }
+    }
+
+    function randomString(uint256 length) internal returns (string memory) {
+        bytes memory str = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            str[i] = bytes1(uint8(vm.randomUint(97, 122)));
+        }
+        return string(str);
+    }
 }

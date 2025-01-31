@@ -114,6 +114,9 @@ contract ICS20Transfer is
         IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketDataV2));
 
+        (bool valid, string memory error) = ICS20Lib.validatePacketData(packetData);
+        require(valid, ICS20InvalidPacketData(error));
+
         address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
         // only the sender in the payload or this contract (sendTransfer) can send the packet
@@ -165,6 +168,16 @@ contract ICS20Transfer is
 
         IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketDataV2));
+
+        if (packetData.forwarding.hops.length > 0) {
+            return ICS20Lib.errorAck("unsupported feature: forwarding on receive");
+        }
+
+        (bool valid, string memory error) = ICS20Lib.validatePacketData(packetData);
+        if (!valid) {
+            return ICS20Lib.errorAck(abi.encodePacked("invalid packet data: ", bytes(error)));
+        }
+
         (bool receiverConvertSuccess, address receiver) = Strings.tryParseAddress(packetData.receiver);
         if (!receiverConvertSuccess) {
             return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
@@ -172,9 +185,6 @@ contract ICS20Transfer is
 
         for (uint256 i = 0; i < packetData.tokens.length; i++) {
             IICS20TransferMsgs.Token memory token = packetData.tokens[i];
-            if (token.amount == 0) {
-                return ICS20Lib.errorAck("invalid amount: 0");
-            }
 
             // This is the prefix that would have been prefixed to the denomination
             // on sender chain IF and only if the token originally came from the

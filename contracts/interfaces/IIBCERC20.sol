@@ -13,7 +13,7 @@ interface IIBCERC20 is IERC20 {
     /// @param amount Amount of tokens to burn
     function burn(uint256 amount) external;
 
-    /// @notice Get the full denom path of the token
-    /// @return the full path of the token's denom
+    /// @notice Get the full denom of the token
+    /// @return the full token denom
     function fullDenom() external view returns (IICS20TransferMsgs.Denom memory);
 }

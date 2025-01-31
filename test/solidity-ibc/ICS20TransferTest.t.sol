@@ -233,7 +233,7 @@ contract ICS20TransferTest is Test {
         // test invalid amount
         defaultPacketData.tokens[0].amount = 0;
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "amount must be greater than 0"));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -355,6 +355,85 @@ contract ICS20TransferTest is Test {
         );
         // reset version
         packet.payloads[0].version = ICS20Lib.ICS20_VERSION;
+
+        // test memo set in packet data with forwarding also set
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
+        defaultPacketData.memo = "memo";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo must be empty if forwarding is set")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset memo and forwarding
+        defaultPacketData.memo = "";
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
+
+        // test forwarding memo set with no hops
+        defaultPacketData.forwarding.destinationMemo = "destination-memo";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "destinationMemo must be empty if forwarding is not set")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset forwarding memo
+        defaultPacketData.forwarding.destinationMemo = "";
+
+        // test memo too long
+        defaultPacketData.memo = generateLongString(ICS20Lib.MAX_MEMO_LENGTH + 1);
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo too long")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset memo
+        defaultPacketData.memo = "";
+
+        // test forwarding memo too long
+        defaultPacketData.forwarding.destinationMemo = generateLongString(ICS20Lib.MAX_MEMO_LENGTH + 1);
+        // Need to set hops, otherwise we would hit the destination memo must be empty if forwarding is not set error
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "destinationMemo too long")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset forwarding memo and hops
+        defaultPacketData.forwarding.destinationMemo = "";
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
 
         // test malfunctioning transfer
         MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
@@ -894,7 +973,7 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"invalid amount: 0\"}");
+        assertEq(string(ack), "{\"error\":\"invalid packet data: amount must be greater than 0\"}");
         // reset amount
         defaultPacketData.tokens[0].amount = defaultAmount;
         packet.payloads[0].value = abi.encode(defaultPacketData);
@@ -919,6 +998,26 @@ contract ICS20TransferTest is Test {
         // reset denom
         defaultPacketData.tokens[0].denom = denom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
+
+        // test with forwarding set
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
+        // just to make sure we don't get a memo error
+        defaultPacketData.memo = "";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        assertEq(string(ack), "{\"error\":\"unsupported feature: forwarding on receive\"}");
+        // reset forwarding and memo
+        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
+        defaultPacketData.memo = "memo";
 
         // test invalid receiver
         defaultPacketData.receiver = "invalid";
@@ -984,5 +1083,13 @@ contract ICS20TransferTest is Test {
         });
 
         return defaultPacketData;
+    }
+
+    function generateLongString(uint length) internal pure returns (string memory) {
+        bytes memory bytesArray = new bytes(length);
+        for (uint i = 0; i < length; i++) {
+            bytesArray[i] = bytes1(uint8(97)); // ASCII 'a'
+        }
+        return string(bytesArray);
     }
 }

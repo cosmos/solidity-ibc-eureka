@@ -34,12 +34,9 @@ interface IICS20Errors {
     /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
     error ICS20DenomNotFound(IICS20TransferMsgs.Denom denom);
 
-    /// @notice Unsupported feature
-    /// @param feature Unsupported feature
-    error ICS20UnsupportedFeature(string feature);
-
     // ICS20Lib Errors:
 
-    /// @notice Abi encoding/decoding failure
-    error ICS20AbiEncodingFailure();
+    /// @notice Invalid packet data
+    /// @param reason The reason for the invalid packet data
+    error ICS20InvalidPacketData(string reason);
 }

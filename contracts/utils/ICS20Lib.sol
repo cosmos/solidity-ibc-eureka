@@ -30,6 +30,12 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
+    /// @notice MAX_MEMO_LENGTH is the maximum length of a memo.
+    uint16 internal constant MAX_MEMO_LENGTH = 32769;
+
+    /// @notice MAX_RECEIVER_LENGTH is the maximum length of a receiver or sender.
+    uint16 internal constant MAX_SENDER_RECEIVER_LENGTH = 2048;
+
     /// @notice A dummy function to generate the ABI for the parameters.
     /// @param o1 The IICS20TransferMsgs.FungibleTokenPacketDataV2.
     function abiPublicTypes(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory o1) public pure 
@@ -182,5 +188,40 @@ library ICS20Lib {
         }
 
         return keccak256(abi.encodePacked(denom.base, traceBytes));
+    }
+    
+    // TODO: Document
+    function validatePacketData(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData) internal pure returns (bool, string memory) {
+        if (packetData.forwarding.hops.length > 0) {
+            if (bytes(packetData.memo).length > 0) {
+                return (false, "memo must be empty if forwarding is set");
+            }
+            if (bytes(packetData.forwarding.destinationMemo).length > MAX_MEMO_LENGTH) {
+                return (false, "destinationMemo too long");
+            }
+        } else {
+            if (bytes(packetData.memo).length > MAX_MEMO_LENGTH) {
+                return (false, "memo too long");
+            }
+            if (bytes(packetData.forwarding.destinationMemo).length > 0) {
+                return (false, "destinationMemo must be empty if forwarding is not set");
+            }
+        }
+
+        if (bytes(packetData.receiver).length > MAX_SENDER_RECEIVER_LENGTH) {
+            return (false, "receiver too long");
+        }
+
+        if (bytes(packetData.sender).length > MAX_SENDER_RECEIVER_LENGTH) {
+            return (false, "sender too long");
+        }
+
+        for (uint256 i = 0; i < packetData.tokens.length; i++) {
+            if (packetData.tokens[i].amount == 0) {
+                return (false, "amount must be greater than 0");
+            }
+        }
+
+        return (true, "");
     }
 }
