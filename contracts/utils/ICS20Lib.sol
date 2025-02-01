@@ -89,6 +89,7 @@ library ICS20Lib {
         IICS20TransferMsgs.ForwardingPacketData memory forwarding =
             IICS20TransferMsgs.ForwardingPacketData({ destinationMemo: "", hops: msg_.forwarding.hops });
         if (msg_.forwarding.hops.length > 0) {
+            // if we have forwarding hops, the memo should be empty and the destination memo should be set
             memo = "";
             forwarding.destinationMemo = msg_.memo;
         }
@@ -248,7 +249,7 @@ library ICS20Lib {
         return (true, "");
     }
 
-    /// @notice removeFirstHop removes the first hop from the denom trace.
+    /// @notice removeHop removes the first hop from the denom trace.
     /// It expects the caller to know that the trace is not empty.
     /// @param denom Denom to remove the hop from
     /// @return The new denom with the first hop removed
@@ -262,6 +263,10 @@ library ICS20Lib {
         return newDenom;
     }
 
+    /// @notice addHop adds a hop to the denom trace as the first hop.
+    /// @param denom Denom to add the hop to
+    /// @param hop Hop to add
+    /// @return The new denom with the hop added
     function addHop(
         IICS20TransferMsgs.Denom memory denom,
         IICS20TransferMsgs.Hop memory hop

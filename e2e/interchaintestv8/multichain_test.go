@@ -674,7 +674,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     "",
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{
@@ -992,7 +992,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			Receiver: simdBUser.FormattedAddress(),
 			Memo:     "",
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{

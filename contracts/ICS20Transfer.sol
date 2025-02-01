@@ -133,8 +133,7 @@ contract ICS20Transfer is
             _transferFrom(sender, escrow(), erc20Address, token.amount);
 
             if (returningToSource) {
-                // if the token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in
-                // escrow it)
+                // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
                 IBCERC20(erc20Address).burn(token.amount);
             }
         }
@@ -279,7 +278,7 @@ contract ICS20Transfer is
             // or we are a middle chain and the token was minted (and mapped) here.
             // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
             // that is an address on their chain, and we would parse it as an address and fail to find the
-            // mapped contract.
+            // mapped contract (or worse, find a contract that is not the correct one).
             address ibcDenomContract = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
             if (ibcDenomContract != address(0)) {
                 erc20Address = ibcDenomContract;

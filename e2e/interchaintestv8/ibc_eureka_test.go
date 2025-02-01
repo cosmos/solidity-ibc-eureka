@@ -600,7 +600,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     "",
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 		s.Require().NoError(err)
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
@@ -777,7 +777,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     sendMemo,
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+		transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{

@@ -99,7 +99,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
@@ -231,7 +231,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
@@ -628,7 +628,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
@@ -783,7 +783,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{

@@ -6,10 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-// EncodeFungibleTokenPacketData abi encodes the ICS20Transfer payload data.
+// EncodeFungibleTokenPacketDataV2 abi encodes the ICS20Transfer payload data.
 // This works the same way as abi.encode(IICS20TransferMsgsFungibleTokenPacketDataV2) in Solidity.
 // The encoded bytes are used as the payload in the Packet data.
-func EncodeFungibleTokenPacketData(ftpd IICS20TransferMsgsFungibleTokenPacketDataV2) ([]byte, error) {
+func EncodeFungibleTokenPacketDataV2(ftpd IICS20TransferMsgsFungibleTokenPacketDataV2) ([]byte, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
 		return nil, err
@@ -18,9 +18,9 @@ func EncodeFungibleTokenPacketData(ftpd IICS20TransferMsgsFungibleTokenPacketDat
 	return parsedABI.Pack(ftpd)
 }
 
-// DecodeFungibleTokenPacketData decodes an abi encoded ICS20Transfer payload data.
+// DecodeFungibleTokenPacketDataV2 decodes an abi encoded ICS20Transfer payload data.
 // This works the same way as abi.decode(payload) in Solidity.
-func DecodeFungibleTokenPacketData(abiEncodedFtpd []byte) (IICS20TransferMsgsFungibleTokenPacketDataV2, error) {
+func DecodeFungibleTokenPacketDataV2(abiEncodedFtpd []byte) (IICS20TransferMsgsFungibleTokenPacketDataV2, error) {
 	parsedABI, err := getFungibleTokenPacketDataABI()
 	if err != nil {
 		return IICS20TransferMsgsFungibleTokenPacketDataV2{}, err

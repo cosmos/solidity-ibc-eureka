@@ -266,7 +266,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
@@ -424,7 +424,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
+			transferBz, err := ics20lib.EncodeFungibleTokenPacketDataV2(transferPayload)
 			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
