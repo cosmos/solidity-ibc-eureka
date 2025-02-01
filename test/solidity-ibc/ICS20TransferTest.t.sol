@@ -171,8 +171,8 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), largeAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(sender);
-        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, largeAmount);
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(contractBalanceBefore, 0);
 
         defaultPacketData.tokens[0].amount = largeAmount;
@@ -845,6 +845,70 @@ contract ICS20TransferTest is Test {
         uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceAfterReceive, defaultAmount);
         assertEq(contractBalanceAfterReceive, 0);
+    }
+
+    function test_success_onRecvWithLargeAmount() public {
+        uint256 largeAmount = 1_000_000_000_000_000_001_000_000_000_000;
+        (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
+
+        senderStr = "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh";
+        receiver = makeAddr("receiver_of_foreign_denom");
+        receiverStr = Strings.toHexString(receiver);
+
+        IICS20TransferMsgs.Token[] memory tokens = new IICS20TransferMsgs.Token[](1);
+        tokens[0] = IICS20TransferMsgs.Token({
+            denom: IICS20TransferMsgs.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](0) }),
+            amount: largeAmount
+        });
+
+        IICS20TransferMsgs.FungibleTokenPacketDataV2 memory receivePayload = IICS20TransferMsgs
+            .FungibleTokenPacketDataV2({
+            tokens: tokens,
+            sender: senderStr,
+            receiver: receiverStr,
+            memo: "memo",
+            forwarding: IICS20TransferMsgs.ForwardingPacketData({
+                destinationMemo: "",
+                hops: new IICS20TransferMsgs.Hop[](0)
+            })
+        });
+        packet.payloads[0].value = abi.encode(receivePayload);
+        packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
+        packet.destClient = "dest-client";
+        packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
+        packet.sourceClient = "source-client";
+
+        bytes memory ack = ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        assertEq(ack, ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
+
+        IICS20TransferMsgs.Denom memory expectedDenom =
+            IICS20TransferMsgs.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](1) });
+
+        expectedDenom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
+
+        string memory expectedPath = ICS20Lib.getPath(expectedDenom);
+        assertEq(expectedPath, "transfer/dest-client/uatom");
+
+        IBCERC20 ibcERC20 = IBCERC20(ics20Transfer.ibcERC20Contract(expectedDenom));
+
+        // finally, verify the created contract and balances have been updated as expected
+        assertEq(ibcERC20.fullDenom().base, expectedDenom.base);
+        assertEq(ibcERC20.fullDenom().trace.length, 1);
+        assertEq(ibcERC20.fullDenom().trace[0].portId, expectedDenom.trace[0].portId);
+        assertEq(ibcERC20.fullDenom().trace[0].clientId, expectedDenom.trace[0].clientId);
+        assertEq(ibcERC20.name(), expectedPath);
+        assertEq(ibcERC20.symbol(), expectedDenom.base);
+        assertEq(ibcERC20.totalSupply(), largeAmount);
+        assertEq(ibcERC20.balanceOf(receiver), largeAmount);
     }
 
     function test_success_onRecvPacketWithForeignBaseDenom() public {

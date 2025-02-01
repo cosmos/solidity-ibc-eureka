@@ -698,11 +698,6 @@
   },
   {
     "type": "error",
-    "name": "ICS20AbiEncodingFailure",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "ICS20DenomNotFound",
     "inputs": [
       {
@@ -760,6 +755,17 @@
   },
   {
     "type": "error",
+    "name": "ICS20InvalidPacketData",
+    "inputs": [
+      {
+        "name": "reason",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS20Unauthorized",
     "inputs": [
       {
@@ -807,17 +813,6 @@
       },
       {
         "name": "version",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20UnsupportedFeature",
-    "inputs": [
-      {
-        "name": "feature",
         "type": "string",
         "internalType": "string"
       }
