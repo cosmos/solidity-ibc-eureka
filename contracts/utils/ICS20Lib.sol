@@ -253,10 +253,8 @@ library ICS20Lib {
     /// @param denom Denom to remove the hop from
     /// @return The new denom with the first hop removed
     function removeHop(IICS20TransferMsgs.Denom memory denom) internal pure returns (IICS20TransferMsgs.Denom memory) {
-        IICS20TransferMsgs.Denom memory newDenom = IICS20TransferMsgs.Denom({
-            base: denom.base,
-            trace: new IICS20TransferMsgs.Hop[](denom.trace.length - 1)
-        });
+        IICS20TransferMsgs.Denom memory newDenom =
+            IICS20TransferMsgs.Denom({ base: denom.base, trace: new IICS20TransferMsgs.Hop[](denom.trace.length - 1) });
         for (uint256 i = 0; i < newDenom.trace.length; i++) {
             newDenom.trace[i] = denom.trace[i + 1];
         }
@@ -264,11 +262,16 @@ library ICS20Lib {
         return newDenom;
     }
 
-    function addHop(IICS20TransferMsgs.Denom memory denom, IICS20TransferMsgs.Hop memory hop) internal pure returns (IICS20TransferMsgs.Denom memory) {
-        IICS20TransferMsgs.Denom memory newDenom = IICS20TransferMsgs.Denom({
-            base: denom.base,
-            trace: new IICS20TransferMsgs.Hop[](denom.trace.length + 1)
-        });
+    function addHop(
+        IICS20TransferMsgs.Denom memory denom,
+        IICS20TransferMsgs.Hop memory hop
+    )
+        internal
+        pure
+        returns (IICS20TransferMsgs.Denom memory)
+    {
+        IICS20TransferMsgs.Denom memory newDenom =
+            IICS20TransferMsgs.Denom({ base: denom.base, trace: new IICS20TransferMsgs.Hop[](denom.trace.length + 1) });
         newDenom.trace[0] = hop;
         for (uint256 i = 0; i < denom.trace.length; i++) {
             newDenom.trace[i + 1] = denom.trace[i];
