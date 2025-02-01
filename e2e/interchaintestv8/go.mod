@@ -310,8 +310,8 @@ require (
 replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
 
 replace (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250130064521-f82f40a0f7f8
-	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20250130064521-f82f40a0f7f8
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250201163103-f9816cb0445f
+	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20250201163103-f9816cb0445f
 )
 
 //TODO: remove everything below after tags are created
