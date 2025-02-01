@@ -22,6 +22,8 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IntegrationTest is Test {
+    using Strings for string;
+
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
@@ -189,7 +191,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceBefore, 0);
 
         IICS26RouterMsgs.Packet memory packet =
-            _sendICS20TransferPacket(defaultSenderStr, defaultReceiverStr, defaultNativeDenom, largeAmount);
+            _sendICS20TransferPacket(defaultSenderStr, defaultReceiverStr, defaultNativeDenom, largeAmount, clientIdentifier);
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -517,7 +519,7 @@ contract IntegrationTest is Test {
         address receiver = makeAddr("receiver_of_foreign_denom");
 
         (IERC20 receivedERC20, IICS20TransferMsgs.Denom memory receivedDenom,) = _receiveICS20Transfer(
-            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, largeAmount
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, largeAmount, clientIdentifier
         );
 
         // check balances after receiving
@@ -535,7 +537,7 @@ contract IntegrationTest is Test {
         vm.prank(receiver);
         ibcERC20.approve(address(ics20Transfer), largeAmount);
 
-        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", receivedDenom, largeAmount);
+        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", receivedDenom, largeAmount, clientIdentifier);
 
         // check balances after sending out
         uint256 senderBalanceAfterSend = ibcERC20.balanceOf(sender);
@@ -707,6 +709,97 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.balanceOf(sender), 0);
     }
 
+    function test_success_receiveICS20PacketAsAMiddleChain() public {
+        // Receive a foreign denom, send out, receive back
+        // There are three chains in this scenario: A -> B -> C with B being us
+
+        // Create a secondary client to send out to a different chain
+        string memory chainCClientID = ics26Router.addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+        );
+
+        IICS20TransferMsgs.Denom memory foreignDenom =
+            IICS20TransferMsgs.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](0) });
+
+        address middleReceiver = makeAddr("middle_receiver");
+        string memory middleReceiverStr = Strings.toHexString(middleReceiver);
+
+        // Receive
+        (IERC20 receivedERC20, IICS20TransferMsgs.Denom memory receivedDenom,) =
+            _receiveICS20Transfer("chain_a_sender", middleReceiverStr, foreignDenom);
+
+        // Send out
+        vm.prank(middleReceiver);
+        receivedERC20.approve(address(ics20Transfer), defaultAmount);
+
+        IICS26RouterMsgs.Packet memory outboundPacket = _sendICS20TransferPacket(middleReceiverStr, "whatever", receivedDenom, defaultAmount, chainCClientID);
+        assertEq(outboundPacket.sourceClient, chainCClientID);
+        assertEq(receivedERC20.balanceOf(middleReceiver), 0);
+        assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
+
+        // Receive back
+        IICS20TransferMsgs.Denom memory returningDenom =
+            IICS20TransferMsgs.Denom({ base: "uatom", trace: new IICS20TransferMsgs.Hop[](2) });
+        returningDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: outboundPacket.payloads[0].destPort, clientId: outboundPacket.destClient });
+        returningDenom.trace[1] = IICS20TransferMsgs.Hop({ portId: receivedDenom.trace[0].portId, clientId: receivedDenom.trace[0].clientId });
+
+        (IERC20 returnedERC20, IICS20TransferMsgs.Denom memory returnedDenom,) =
+            _receiveICS20Transfer("chain_c_sender", middleReceiverStr, returningDenom, defaultAmount, chainCClientID);
+        assertEq(returnedDenom.base, receivedDenom.base);
+        assertEq(returnedDenom.trace.length, 1);
+        assertEq(returnedDenom.trace[0].portId, receivedDenom.trace[0].portId);
+        assertEq(returnedDenom.trace[0].clientId, receivedDenom.trace[0].clientId);
+        assertEq(address(returnedERC20), address(receivedERC20));
+        assertEq(returnedERC20.totalSupply(), defaultAmount);
+        assertEq(returnedERC20.balanceOf(middleReceiver), defaultAmount);
+    }
+
+    function test_success_receiveICS20PacketAsMiddleChainWithAnAddressAsBaseDenom() public {
+        // The scenario we are testing is where another chain sends us a token with an address as the base denom
+        // We want to make sure we create a new IBCERC20 token, and when sending out, we pick the correct contract address
+        string memory someRandomERC20Str = Strings.toHexString(address(new TestERC20()));
+
+        // Create a secondary client to send out to a different chain
+        string memory chainCClientID = ics26Router.addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+        );
+
+        IICS20TransferMsgs.Denom memory foreignDenom =
+            IICS20TransferMsgs.Denom({ base: someRandomERC20Str, trace: new IICS20TransferMsgs.Hop[](0) });
+
+        address middleReceiver = makeAddr("middle_receiver");
+        string memory middleReceiverStr = Strings.toHexString(middleReceiver);
+
+        // Receive
+        (IERC20 receivedERC20, IICS20TransferMsgs.Denom memory receivedDenom,) =
+            _receiveICS20Transfer("chain_a_sender", middleReceiverStr, foreignDenom);
+
+        // Send out
+        vm.prank(middleReceiver);
+        receivedERC20.approve(address(ics20Transfer), defaultAmount);
+
+        IICS26RouterMsgs.Packet memory outboundPacket = _sendICS20TransferPacket(middleReceiverStr, "chain_c_receiver", receivedDenom, defaultAmount, chainCClientID);
+        assertEq(outboundPacket.sourceClient, chainCClientID);
+        assertEq(receivedERC20.balanceOf(middleReceiver), 0);
+        assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
+
+        // Receive back
+        IICS20TransferMsgs.Denom memory returningDenom =
+            IICS20TransferMsgs.Denom({ base: someRandomERC20Str, trace: new IICS20TransferMsgs.Hop[](2) });
+        returningDenom.trace[0] = IICS20TransferMsgs.Hop({ portId: outboundPacket.payloads[0].destPort, clientId: outboundPacket.destClient });
+        returningDenom.trace[1] = IICS20TransferMsgs.Hop({ portId: receivedDenom.trace[0].portId, clientId: receivedDenom.trace[0].clientId });
+
+        (IERC20 returnedERC20, IICS20TransferMsgs.Denom memory returnedDenom,) =
+            _receiveICS20Transfer("chain_c_sender", middleReceiverStr, returningDenom, defaultAmount, chainCClientID);
+        assertEq(returnedDenom.base, receivedDenom.base);
+        assertEq(returnedDenom.trace.length, 1);
+        assertEq(returnedDenom.trace[0].portId, receivedDenom.trace[0].portId);
+        assertEq(returnedDenom.trace[0].clientId, receivedDenom.trace[0].clientId);
+        assertEq(address(returnedERC20), address(receivedERC20));
+        assertEq(returnedERC20.totalSupply(), defaultAmount);
+        assertEq(returnedERC20.balanceOf(middleReceiver), defaultAmount);
+    }
+
     function test_failure_receiveICS20PacketHasTimedOut() public {
         erc20.mint(defaultSender, defaultAmount);
         vm.prank(defaultSender);
@@ -777,14 +870,15 @@ contract IntegrationTest is Test {
         internal
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return _sendICS20TransferPacket(sender, receiver, denom, defaultAmount);
+        return _sendICS20TransferPacket(sender, receiver, denom, defaultAmount, clientIdentifier);
     }
 
     function _sendICS20TransferPacket(
         string memory sender,
         string memory receiver,
         IICS20TransferMsgs.Denom memory denom,
-        uint256 amount
+        uint256 amount,
+        string memory sourceClient
     )
         internal
         returns (IICS26RouterMsgs.Packet memory)
@@ -793,7 +887,7 @@ contract IntegrationTest is Test {
 
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = IICS26RouterMsgs.MsgSendPacket({
-            sourceClient: clientIdentifier,
+            sourceClient: sourceClient,
             timeoutTimestamp: timeoutTimestamp,
             payloads: _getPayloads(abi.encode(packetData))
         });
@@ -873,14 +967,15 @@ contract IntegrationTest is Test {
             IICS26RouterMsgs.Packet memory receivePacket
         )
     {
-        return _receiveICS20Transfer(sender, receiver, denom, defaultAmount);
+        return _receiveICS20Transfer(sender, receiver, denom, defaultAmount, clientIdentifier);
     }
 
     function _receiveICS20Transfer(
         string memory sender,
         string memory receiver,
         IICS20TransferMsgs.Denom memory denom,
-        uint256 amount
+        uint256 amount,
+        string memory destClient
     )
         internal
         returns (
@@ -908,17 +1003,16 @@ contract IntegrationTest is Test {
         receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceClient: counterpartyId,
-            destClient: clientIdentifier,
+            destClient: destClient,
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
         });
 
-        IICS20TransferMsgs.Denom memory expectedDenom =
-            IICS20TransferMsgs.Denom({ base: denom.base, trace: new IICS20TransferMsgs.Hop[](denom.trace.length + 1) });
-        expectedDenom.trace[0] =
-            IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient });
-        for (uint256 i = 0; i < denom.trace.length; i++) {
-            expectedDenom.trace[i + 1] = denom.trace[i];
+        IICS20TransferMsgs.Denom memory expectedDenom;
+        if (denom.trace.length > 0 && denom.trace[0].portId.equal(payloads[0].sourcePort) && denom.trace[0].clientId.equal(receivePacket.sourceClient)) {
+            expectedDenom = ICS20Lib.removeHop(denom);
+        } else {
+            expectedDenom = ICS20Lib.addHop(denom, IICS20TransferMsgs.Hop({ portId: receivePacket.payloads[0].destPort, clientId: receivePacket.destClient }));
         }
 
         vm.expectEmit();

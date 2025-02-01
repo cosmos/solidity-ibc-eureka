@@ -126,33 +126,14 @@ contract ICS20Transfer is
             IICS20TransferMsgs.Token memory token = packetData.tokens[i];
             require(token.amount > 0, ICS20InvalidAmount(token.amount));
 
-            address erc20Address;
-
-            bool returningToSource = ICS20Lib.hasPrefix(token.denom, msg_.payload.sourcePort, msg_.sourceClient);
-
-            // if the denom is prefixed by the port and channel on which we are sending
-            // the token, then we must be returning the token back to the chain they originated from
-            if (returningToSource) {
-                // receiving chain is source of the token, so we've received and mapped this token before
-                bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);
-                erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
-            } else {
-                bool isERC20Address;
-                (isERC20Address, erc20Address) = Strings.tryParseAddress(token.denom.base);
-                if (!isERC20Address) {
-                    bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);
-                    erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
-                }
-            }
-            require(erc20Address != address(0), ICS20DenomNotFound(token.denom));
+            (bool returningToSource, address erc20Address) = _getSendingERC20Address(msg_.payload.sourcePort, msg_.sourceClient, token.denom);
 
             // transfer the tokens to us (requires the allowance to be set)
             _transferFrom(sender, escrow(), erc20Address, token.amount);
 
             if (returningToSource) {
-                // receiver chain is source: burn the vouchers
-                IBCERC20 ibcERC20 = IBCERC20(erc20Address);
-                ibcERC20.burn(token.amount);
+                // if the token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow it)
+                IBCERC20(erc20Address).burn(token.amount);
             }
         }
     }
@@ -197,22 +178,23 @@ contract ICS20Transfer is
 
             address erc20Address;
             if (returningToOrigin) {
-                // we are the origin source of this token: expect the base denom to be an erc20 address
-                // TODO: Consider if there are any cases with multi-hop that can cause security issues here
-                erc20Address = ICS20Lib.mustHexStringToAddress(token.denom.base);
+                // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
+                // remove the first hop to unwind the trace
+                 IICS20TransferMsgs.Denom memory newDenom = ICS20Lib.removeHop(token.denom);
+
+                if (newDenom.trace.length == 0) {
+                    // we are the origin source and the token is a native token
+                    erc20Address = ICS20Lib.mustHexStringToAddress(newDenom.base);
+                } else {
+                    // we are the origin source and the token must be an IBCERC20 (since it has a trace left):
+                    bytes32 denomID = ICS20Lib.getDenomIdentifier(newDenom);
+                    erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+                }
             } else {
                 // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
-                IICS20TransferMsgs.Denom memory newDenom = IICS20TransferMsgs.Denom({
-                    base: token.denom.base,
-                    trace: new IICS20TransferMsgs.Hop[](token.denom.trace.length + 1)
-                });
-                newDenom.trace[0] =
-                    IICS20TransferMsgs.Hop({ portId: msg_.payload.destPort, clientId: msg_.destinationClient });
-                for (uint256 j = 0; j < token.denom.trace.length; j++) {
-                    newDenom.trace[j + 1] = token.denom.trace[j];
-                }
+                IICS20TransferMsgs.Denom memory newDenom = ICS20Lib.addHop(token.denom, IICS20TransferMsgs.Hop({ portId: msg_.payload.destPort, clientId: msg_.destinationClient }));
 
-                erc20Address = findOrCreateERC20Address(newDenom);
+                erc20Address = _findOrCreateERC20Address(newDenom);
                 IBCERC20(erc20Address).mint(token.amount);
             }
 
@@ -252,36 +234,49 @@ contract ICS20Transfer is
     )
         private
     {
-        // TODO: How similar is this to the logic in onSendPacket?
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
         for (uint256 i = 0; i < packetData.tokens.length; i++) {
             IICS20TransferMsgs.Token memory token = packetData.tokens[i];
 
-            address erc20Address;
-            if (ICS20Lib.hasPrefix(token.denom, sourcePort, sourceClient)) {
-                // if the token we must refund is prefixed by the source port and channel
-                // then the tokens were burnt when the packet was sent and we must mint new tokens
-                bytes32 denomID = ICS20Lib.getDenomIdentifier(token.denom);
-                erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+            (bool returningToSource, address erc20Address) = _getSendingERC20Address(sourcePort, sourceClient, token.denom);
 
+            if (returningToSource) {
+                // if the token was returning to source, it was burned on send, so we mint it back now
                 IBCERC20(erc20Address).mint(token.amount);
-            } else {
-                // the token is either a native token (in which case the base denom is an address),
-                // or we are a middle chain and the token was minted (and mapped) here
-                bool isERC20Address;
-                (isERC20Address, erc20Address) = Strings.tryParseAddress(token.denom.base);
-                if (!isERC20Address) {
-                    bytes32 ibcDenom = ICS20Lib.getDenomIdentifier(token.denom);
-                    erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[ibcDenom]);
-                }
-            }
-
-            require(erc20Address != address(0), ICS20DenomNotFound(token.denom));
+            } 
 
             // solhint-disable-next-line multiple-sends
             _getEscrow().send(IERC20(erc20Address), refundee, token.amount);
         }
+    }
+
+    function _getSendingERC20Address(string calldata sourcePort, string calldata sourceClient, IICS20TransferMsgs.Denom memory denom) private view returns (bool returningToSource, address erc20Address) {
+        bytes32 denomID = ICS20Lib.getDenomIdentifier(denom);
+
+        // if the denom is prefixed by the port and channel on which we are sending
+        // the token, then we must be returning the token back to the chain they originated from
+        returningToSource = ICS20Lib.hasPrefix(denom, sourcePort, sourceClient);
+        if (returningToSource) {
+            // receiving chain is source of the token, so we've received and mapped this token before
+            erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+        } else {
+            // the receiving chain is not the source of the token, so the token is either a native token
+            // or we are a middle chain and the token was minted (and mapped) here.
+            // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
+            // that is an address on their chain, and we would parse it as an address and fail to find the
+            // mapped contract.
+            address ibcDenomContract = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+            if (ibcDenomContract != address(0)) {
+                erc20Address = ibcDenomContract;
+            } else {
+                // the token is not mapped, so the token must be native
+                erc20Address = ICS20Lib.mustHexStringToAddress(denom.base);
+            }
+        }
+        require(erc20Address != address(0), ICS20DenomNotFound(denom));
+
+        return (returningToSource, erc20Address);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -312,7 +307,7 @@ contract ICS20Transfer is
     /// @notice This function will never return address(0)
     /// @param denom The denom to find or create the contract for
     /// @return The address of the erc20 contract
-    function findOrCreateERC20Address(IICS20TransferMsgs.Denom memory denom) internal returns (address) {
+    function _findOrCreateERC20Address(IICS20TransferMsgs.Denom memory denom) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract

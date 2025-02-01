@@ -279,8 +279,30 @@ contract ICS20TransferTest is Test {
             })
         );
 
-        // test invalid token contract
+        // test invalid token contract when sending a native token (no source trace)
         defaultPacketData.tokens[0].denom.base = "invalid";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid")
+        );
+        ics20Transfer.onSendPacket(
+            IIBCAppCallbacks.OnSendPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                sender: sender
+            })
+        );
+        // reset denom
+        defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+
+        // test denom not found when sending a non-native token (source trace)
+        defaultPacketData.tokens[0].denom.base = "notfound";
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.tokens[0].denom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(
             abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom)
@@ -296,6 +318,7 @@ contract ICS20TransferTest is Test {
         );
         // reset denom
         defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](0);
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test invalid version
@@ -499,8 +522,31 @@ contract ICS20TransferTest is Test {
         // reset data
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
-        // test invalid contract/denom
+        // test invalid contract/denom when sending a native token (no source trace)
         defaultPacketData.tokens[0].denom.base = "invalid";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid")
+        );
+        ics20Transfer.onAcknowledgementPacket(
+            IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset denom
+        defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+
+        // test denom not found when sending a non-native token (source trace)
+        defaultPacketData.tokens[0].denom.base = "notfound";
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.tokens[0].denom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(
             abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom)
@@ -517,6 +563,7 @@ contract ICS20TransferTest is Test {
         );
         // reset denom
         defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](0);
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test invalid sender
@@ -557,8 +604,30 @@ contract ICS20TransferTest is Test {
         // reset data
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
-        // test invalid contract
+        // test invalid contract when sending a native token (no source trace)
         defaultPacketData.tokens[0].denom.base = "invalid";
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid")
+        );
+        ics20Transfer.onTimeoutPacket(
+            IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset denom
+        defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        packet.payloads[0].value = abi.encode(defaultPacketData);
+
+        // test denom not found when sending a non-native token (source trace)
+        defaultPacketData.tokens[0].denom.base = "notfound";
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](1);
+        defaultPacketData.tokens[0].denom.trace[0] =
+            IICS20TransferMsgs.Hop({ portId: packet.payloads[0].sourcePort, clientId: packet.sourceClient });
         packet.payloads[0].value = abi.encode(defaultPacketData);
         vm.expectRevert(
             abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.tokens[0].denom)
@@ -574,6 +643,7 @@ contract ICS20TransferTest is Test {
         );
         // reset denom
         defaultPacketData.tokens[0].denom.base = erc20AddressStr;
+        defaultPacketData.tokens[0].denom.trace = new IICS20TransferMsgs.Hop[](0);
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test invalid sender

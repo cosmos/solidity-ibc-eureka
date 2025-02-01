@@ -119,7 +119,11 @@ library ICS20Lib {
         });
     }
 
-    // TODO: Document
+    /// @notice creates the full denomination path according to the ICS20 specification:
+    /// trace + "/" + baseDenom
+    /// If there exists no trace then the base denomination is returned.
+    /// @param denom The denomination to get the path for
+    /// @return The full path of the denomination
     function getPath(IICS20TransferMsgs.Denom memory denom) external pure returns (string memory) {
         if (denom.trace.length == 0) {
             return denom.base;
@@ -153,7 +157,7 @@ library ICS20Lib {
     }
 
     /// @notice hasPrefix checks if the denom is prefixed by the provided port and channel
-    /// @param denom IICS20TransferMsgs.Denom to check for prefix
+    /// @param denom Denom to check for prefix
     /// @param port Port ID for the prefix
     /// @param client Client ID for the prefix
     function hasPrefix(
@@ -173,7 +177,10 @@ library ICS20Lib {
         return denom.trace[0].portId.equal(port) && denom.trace[0].clientId.equal(client);
     }
 
-    // TODO: Document
+    /// @notice getDenomIdentifier returns a unique identifier for a given denom.
+    /// @dev The identifier is used to map denoms to IBCERC20 contracts.
+    /// @param denom Denom to get the identifier for
+    /// @return Identifier for the denom
     function getDenomIdentifier(IICS20TransferMsgs.Denom memory denom) internal pure returns (bytes32) {
         bytes memory traceBytes = "";
         for (uint256 i = 0; i < denom.trace.length; i++) {
@@ -185,12 +192,15 @@ library ICS20Lib {
         return keccak256(abi.encodePacked(denom.base, traceBytes));
     }
 
-    // TODO: Document
+    /// @notice validatePacketData performs basic validation on the packet data.
+    /// @param packetData The packet data to validate
+    /// @return isValid Whether the packet data is valid
+    /// @return reason The reason for invalidity, empty if valid
     // solhint-disable-next-line code-complexity
     function validatePacketData(IICS20TransferMsgs.FungibleTokenPacketDataV2 memory packetData)
         internal
         pure
-        returns (bool, string memory)
+        returns (bool isValid, string memory reason)
     {
         if (packetData.forwarding.hops.length > 0) {
             if (packetData.forwarding.hops.length > MAX_HOPS) {
@@ -236,5 +246,34 @@ library ICS20Lib {
         }
 
         return (true, "");
+    }
+
+    /// @notice removeFirstHop removes the first hop from the denom trace.
+    /// It expects the caller to know that the trace is not empty.
+    /// @param denom Denom to remove the hop from
+    /// @return The new denom with the first hop removed
+    function removeHop(IICS20TransferMsgs.Denom memory denom) internal pure returns (IICS20TransferMsgs.Denom memory) {
+        IICS20TransferMsgs.Denom memory newDenom = IICS20TransferMsgs.Denom({
+            base: denom.base,
+            trace: new IICS20TransferMsgs.Hop[](denom.trace.length - 1)
+        });
+        for (uint256 i = 0; i < newDenom.trace.length; i++) {
+            newDenom.trace[i] = denom.trace[i + 1];
+        }
+
+        return newDenom;
+    }
+
+    function addHop(IICS20TransferMsgs.Denom memory denom, IICS20TransferMsgs.Hop memory hop) internal pure returns (IICS20TransferMsgs.Denom memory) {
+        IICS20TransferMsgs.Denom memory newDenom = IICS20TransferMsgs.Denom({
+            base: denom.base,
+            trace: new IICS20TransferMsgs.Hop[](denom.trace.length + 1)
+        });
+        newDenom.trace[0] = hop;
+        for (uint256 i = 0; i < denom.trace.length; i++) {
+            newDenom.trace[i + 1] = denom.trace[i];
+        }
+
+        return newDenom;
     }
 }
