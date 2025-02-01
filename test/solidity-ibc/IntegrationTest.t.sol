@@ -329,7 +329,6 @@ contract IntegrationTest is Test {
         uint256 contractBalanceBeforeTimeout = receivedERC20.balanceOf(ics20Transfer.escrow());
         assertEq(contractBalanceBeforeTimeout, 0); // Burned
 
-
         // make light client return timestamp that is after our timeout
         lightClient.setMembershipResult(packet.timeoutTimestamp + 1, false);
 
@@ -458,16 +457,20 @@ contract IntegrationTest is Test {
         receivedDenom.trace[0] =
             IICS20TransferMsgs.Hop({ portId: packet.payloads[0].destPort, clientId: packet.destClient });
 
-        (,,IICS26RouterMsgs.Packet memory receivePacket) = _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
+        (,, IICS26RouterMsgs.Packet memory receivePacket) =
+            _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
 
         // call recvPacket again, should be noop
         vm.expectEmit();
         emit IICS26Router.Noop();
-        ics26Router.recvPacket(IICS26RouterMsgs.MsgRecvPacket({
-            packet: receivePacket,
-            proofCommitment: bytes("doesntmatter"), // dummy client will accept
-            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-        }));
+        ics26Router.recvPacket(
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will
+                    // accept
+             })
+        );
     }
 
     function test_success_receiveICS20PacketWithForeignBaseDenom() public {
@@ -765,6 +768,7 @@ contract IntegrationTest is Test {
              })
         );
     }
+
     function _sendICS20TransferPacket(
         string memory sender,
         string memory receiver,
