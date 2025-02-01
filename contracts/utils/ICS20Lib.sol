@@ -145,14 +145,6 @@ library ICS20Lib {
         return addr;
     }
 
-    /// @notice equal returns true if two byte arrays are equal.
-    /// @param a bytes
-    /// @param b bytes
-    /// @return true if the byte arrays are equal
-    function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
-        return keccak256(a) == keccak256(b);
-    }
-
     /// @notice errorAck returns an error acknowledgement.
     /// @param reason Error reason
     /// @return Error acknowledgement
