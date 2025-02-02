@@ -18,7 +18,6 @@ ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }
 ibc-core-client                  = { workspace = true }
 ibc-primitives                   = { workspace = true }
+ibc-proto                        = { workspace = true }
 sha2                             = { workspace = true }
 alloy-sol-types                  = { workspace = true }
-serde_cbor                       = { workspace = true, features = ["std"] }
-bincode                          = { workspace = true }

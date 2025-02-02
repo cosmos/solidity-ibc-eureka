@@ -13,8 +13,8 @@ ibc-eureka-solidity-types = { workspace = true }
 
 alloy-sol-types = { workspace = true }
 
+prost      = { workspace = true }
 bincode    = { workspace = true }
-serde_cbor = { workspace = true, features = ["std"] }
 
 tracing = { workspace = true }
 

@@ -1,13 +1,13 @@
 //! Provides helpers for deriving other types from `LightBlock`.
 
-use ibc_client_tendermint_types::{ConsensusState, Header};
-use ibc_core_client_types::Height as IbcHeight;
+use ibc_client_tendermint_types::ConsensusState;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use ibc_core_host_types::{error::IdentifierError, identifiers::ChainId};
 use ibc_eureka_solidity_types::msgs::{
-    IICS02ClientMsgs::Height,
+    IICS02ClientMsgs::Height as SolHeight,
     IICS07TendermintMsgs::{ClientState, SupportedZkAlgorithm, TrustThreshold},
 };
+use ibc_proto::ibc::{core::client::v1::Height, lightclients::tendermint::v1::Header};
 use std::str::FromStr;
 use tendermint_light_client_verifier::types::LightBlock;
 
@@ -54,7 +54,7 @@ impl LightBlockExt for LightBlock {
         Ok(ClientState {
             chainId: chain_id.to_string(),
             trustLevel: trust_level,
-            latestHeight: Height {
+            latestHeight: SolHeight {
                 revisionNumber: chain_id.revision_number().try_into()?,
                 revisionHeight: self.height().value().try_into()?,
             },
@@ -80,10 +80,13 @@ impl LightBlockExt for LightBlock {
                 .revision_number();
         let trusted_block_height = trusted_light_block.height().value();
         Header {
-            signed_header: self.signed_header,
-            validator_set: self.validators,
-            trusted_height: IbcHeight::new(trusted_revision_number, trusted_block_height).unwrap(),
-            trusted_next_validator_set: trusted_light_block.next_validators.clone(),
+            signed_header: Some(self.signed_header.into()),
+            validator_set: Some(self.validators.into()),
+            trusted_height: Some(Height {
+                revision_number: trusted_revision_number,
+                revision_height: trusted_block_height,
+            }),
+            trusted_validators: Some(trusted_light_block.next_validators.clone().into()),
         }
     }
 

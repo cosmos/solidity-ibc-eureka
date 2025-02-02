@@ -5,17 +5,20 @@ use crate::programs::{
     UpdateClientProgram,
 };
 use alloy_sol_types::SolValue;
-use ibc_client_tendermint_types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
-pub use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::SupportedZkAlgorithm;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
+use ibc_proto::ibc::lightclients::tendermint::v1::{Header, Misbehaviour};
 use ibc_proto::Protobuf;
+use prost::Message;
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::{
     Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
+
+// Re-export the supported zk algorithms.
+pub use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::SupportedZkAlgorithm;
 
 /// A prover for for [`SP1Program`] programs.
 #[allow(clippy::module_name_repetitions)]
@@ -106,7 +109,7 @@ where
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = trusted_consensus_state.abi_encode();
-        let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
+        let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
         // TODO: find an encoding that works for all the structs above.
 
@@ -176,8 +179,7 @@ where
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = trusted_consensus_state.abi_encode();
-        // NOTE: The Header struct is not deserializable by bincode, so we use CBOR instead.
-        let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
+        let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
         // TODO: find an encoding that works for all the structs above.
 
@@ -216,7 +218,7 @@ where
         time: u64,
     ) -> SP1ProofWithPublicValues {
         let encoded_1 = client_state.abi_encode();
-        let encoded_2 = serde_cbor::to_vec(misbehaviour).unwrap();
+        let encoded_2 = misbehaviour.encode_to_vec();
         let encoded_3 = trusted_consensus_state_1.abi_encode();
         let encoded_4 = trusted_consensus_state_2.abi_encode();
         let encoded_5 = time.to_le_bytes().into();

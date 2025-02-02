@@ -11,7 +11,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 
-use ibc_proto::Protobuf;
+use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use sp1_ics07_tendermint_uc_and_membership::update_client_and_membership;
 
 use ibc_core_commitment_types::merkle::MerkleProof;
@@ -41,7 +41,7 @@ pub fn main() {
         .unwrap()
         .into();
     // input 3: the proposed header
-    let proposed_header = serde_cbor::from_slice::<Header>(&encoded_3).unwrap();
+    let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time
     let time = u64::from_le_bytes(encoded_4.try_into().unwrap());
     // TODO: find an encoding that works for all the structs above. (#132)

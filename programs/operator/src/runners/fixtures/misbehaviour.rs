@@ -5,7 +5,6 @@ use crate::{
     runners::genesis::SP1ICS07TendermintGenesis,
 };
 use alloy::sol_types::SolValue;
-use ibc_client_tendermint_types::Misbehaviour;
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::{ClientState, ConsensusState},
     IMisbehaviourMsgs::MsgSubmitMisbehaviour,
@@ -41,7 +40,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let path = args.misbehaviour_path;
     let misbehaviour_bz = std::fs::read(path)?;
     // deserialize from json
-    let raw_misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
+    let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
 
     let tm_rpc_client = HttpClient::from_env();
     // TODO: Just use ProverClient::from_env() here once
@@ -56,7 +55,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     #[allow(clippy::cast_possible_truncation)]
     let trusted_light_block_1 = tm_rpc_client
         .get_light_block(Some(
-            raw_misbehaviour
+            misbehaviour
                 .header_1
                 .as_ref()
                 .unwrap()
@@ -69,7 +68,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     // get light block for trusted height of header 2
     let trusted_light_block_2 = tm_rpc_client
         .get_light_block(Some(
-            raw_misbehaviour
+            misbehaviour
                 .header_2
                 .as_ref()
                 .unwrap()
@@ -114,7 +113,6 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs();
 
-    let misbehaviour: Misbehaviour = Misbehaviour::try_from(raw_misbehaviour).unwrap();
     let proof_data = verify_misbehaviour_prover.generate_proof(
         &trusted_client_state_2,
         &misbehaviour,
