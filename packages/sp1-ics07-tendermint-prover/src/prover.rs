@@ -140,7 +140,7 @@ where
 
         let mut stdin = SP1Stdin::new();
         stdin.write_slice(commitment_root);
-        stdin.write_vec(len.to_le_bytes().to_vec()); 
+        stdin.write_slice(&len.to_le_bytes());
         for (path, value, proof) in kv_proofs {
             stdin.write_vec(bincode::serialize(&path).unwrap());
             stdin.write_vec(value);
@@ -187,7 +187,7 @@ where
         stdin.write_vec(encoded_2);
         stdin.write_vec(encoded_3);
         stdin.write_vec(encoded_4);
-        stdin.write_vec(len.to_le_bytes().to_vec()); 
+        stdin.write_slice(&len.to_le_bytes());
         for (path, value, proof) in kv_proofs {
             stdin.write_vec(bincode::serialize(&path).unwrap());
             stdin.write_vec(value);
