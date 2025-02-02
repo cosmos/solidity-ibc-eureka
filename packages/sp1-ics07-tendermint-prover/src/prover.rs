@@ -136,7 +136,7 @@ where
     pub fn generate_proof(
         &self,
         commitment_root: &[u8],
-        kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, MerkleProof)>,
+        kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
         let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
@@ -144,11 +144,7 @@ where
         let mut stdin = SP1Stdin::new();
         stdin.write_slice(commitment_root);
         stdin.write_vec(vec![len]);
-        for (path, value, proof) in kv_proofs {
-            let kv_pair = KVPair {
-                path: path.into_iter().map(Into::into).collect(),
-                value: value.into(),
-            };
+        for (kv_pair, proof) in kv_proofs {
             stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }
@@ -175,7 +171,7 @@ where
         trusted_consensus_state: &SolConsensusState,
         proposed_header: &Header,
         time: u64,
-        kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, MerkleProof)>,
+        kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
         let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
@@ -192,11 +188,7 @@ where
         stdin.write_vec(encoded_3);
         stdin.write_vec(encoded_4);
         stdin.write_vec(vec![len]);
-        for (path, value, proof) in kv_proofs {
-            let kv_pair = KVPair {
-                path: path.into_iter().map(Into::into).collect(),
-                value: value.into(),
-            };
+        for (kv_pair, proof) in kv_proofs {
             stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }

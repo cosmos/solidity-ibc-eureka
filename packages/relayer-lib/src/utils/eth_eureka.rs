@@ -11,7 +11,7 @@ use ibc_eureka_solidity_types::{
     },
     msgs::{
         IICS07TendermintMsgs::ClientState,
-        IMembershipMsgs::{MembershipProof, SP1MembershipAndUpdateClientProof},
+        IMembershipMsgs::{KVPair, MembershipProof, SP1MembershipAndUpdateClientProof},
         ISP1Msgs::SP1Proof,
     },
 };
@@ -123,12 +123,15 @@ pub async fn inject_sp1_proof(
         })
         .map(|path| vec![b"ibc".into(), path]);
 
-    let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, _)> =
-        future::try_join_all(ibc_paths.into_iter().map(|path| async {
-            let (value, proof) = tm_client.prove_path(&path, target_height).await?;
-            anyhow::Ok((path, value, proof))
-        }))
-        .await?;
+    let kv_proofs: Vec<(_, _)> = future::try_join_all(ibc_paths.into_iter().map(|path| async {
+        let (value, proof) = tm_client.prove_path(&path, target_height).await?;
+        let kv_pair = KVPair {
+            path: path.into_iter().map(Into::into).collect(),
+            value: value.into(),
+        };
+        anyhow::Ok((kv_pair, proof))
+    }))
+    .await?;
 
     let trusted_light_block = tm_client
         .get_light_block(Some(client_state.latestHeight.revisionHeight))
