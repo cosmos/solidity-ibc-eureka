@@ -6370,7 +6370,6 @@ name = "sp1-ics07-tendermint-membership"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6424,7 +6423,6 @@ name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
@@ -6441,7 +6439,6 @@ name = "sp1-ics07-tendermint-uc-and-membership"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",

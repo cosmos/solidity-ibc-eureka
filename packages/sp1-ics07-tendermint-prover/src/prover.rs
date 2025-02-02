@@ -6,11 +6,14 @@ use crate::programs::{
 };
 use alloy_sol_types::SolValue;
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, ConsensusState as SolConsensusState,
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
+    IMembershipMsgs::KVPair,
 };
-use ibc_proto::ibc::lightclients::tendermint::v1::{Header, Misbehaviour};
-use ibc_proto::Protobuf;
+use ibc_proto::{
+    ibc::lightclients::tendermint::v1::{Header, Misbehaviour},
+    Protobuf,
+};
 use prost::Message;
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::{
@@ -111,7 +114,6 @@ where
         let encoded_2 = trusted_consensus_state.abi_encode();
         let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
-        // TODO: find an encoding that works for all the structs above.
 
         // Write the encoded light blocks to stdin.
         let mut stdin = SP1Stdin::new();
@@ -145,8 +147,11 @@ where
         stdin.write_slice(commitment_root);
         stdin.write_vec(vec![len]);
         for (path, value, proof) in kv_proofs {
-            stdin.write_vec(bincode::serialize(&path).unwrap());
-            stdin.write_vec(value);
+            let kv_pair = KVPair {
+                path: path.into_iter().map(Into::into).collect(),
+                value: value.into(),
+            };
+            stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }
 
@@ -181,7 +186,6 @@ where
         let encoded_2 = trusted_consensus_state.abi_encode();
         let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
-        // TODO: find an encoding that works for all the structs above.
 
         // Write the encoded light blocks to stdin.
         let mut stdin = SP1Stdin::new();
@@ -191,8 +195,11 @@ where
         stdin.write_vec(encoded_4);
         stdin.write_vec(vec![len]);
         for (path, value, proof) in kv_proofs {
-            stdin.write_vec(bincode::serialize(&path).unwrap());
-            stdin.write_vec(value);
+            let kv_pair = KVPair {
+                path: path.into_iter().map(Into::into).collect(),
+                value: value.into(),
+            };
+            stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }
 

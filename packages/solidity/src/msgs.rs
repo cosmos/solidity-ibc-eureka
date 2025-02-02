@@ -5,10 +5,9 @@
 use super::sp1_ics07;
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState;
-use ibc_core_commitment_types::commitment::CommitmentRoot;
+use ibc_core_commitment_types::{commitment::CommitmentRoot, merkle::MerklePath};
 use tendermint::{hash::Algorithm, Time};
-use tendermint_light_client_verifier::types::Hash;
-use tendermint_light_client_verifier::types::TrustThreshold as TendermintTrustThreshold;
+use tendermint_light_client_verifier::types::{Hash, TrustThreshold as TendermintTrustThreshold};
 use time::OffsetDateTime;
 
 alloy_sol_types::sol!("../../contracts/msgs/IICS26RouterMsgs.sol");
@@ -84,6 +83,22 @@ impl From<IICS07TendermintMsgs::ConsensusState> for ICS07TendermintConsensusStat
             )
             .unwrap(),
         }
+    }
+}
+
+impl From<IMembershipMsgs::KVPair> for (MerklePath, Vec<u8>) {
+    fn from(kv_pair: IMembershipMsgs::KVPair) -> Self {
+        (
+            MerklePath {
+                key_path: kv_pair
+                    .path
+                    .into_iter()
+                    .map(Vec::from)
+                    .map(Into::into)
+                    .collect(),
+            },
+            kv_pair.value.into(),
+        )
     }
 }
 

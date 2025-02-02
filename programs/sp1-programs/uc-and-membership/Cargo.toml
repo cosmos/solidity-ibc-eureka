@@ -19,4 +19,3 @@ ibc-eureka-solidity-types          = { workspace = true }
 sp1-ics07-tendermint-update-client = { workspace = true }
 sp1-ics07-tendermint-membership    = { workspace = true }
 ibc-proto                          = { workspace = true }
-bincode                            = { workspace = true }
