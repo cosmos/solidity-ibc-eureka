@@ -39,7 +39,6 @@ where
     /// The proof type.
     pub proof_type: SupportedZkAlgorithm,
     _phantom: std::marker::PhantomData<T>,
-    _phantom2: std::marker::PhantomData<C>,
 }
 
 impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
@@ -60,7 +59,6 @@ where
             vkey,
             proof_type,
             _phantom: std::marker::PhantomData,
-            _phantom2: std::marker::PhantomData,
         }
     }
 
