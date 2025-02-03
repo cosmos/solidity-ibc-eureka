@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
-import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
 interface IICS20Transfer {
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
