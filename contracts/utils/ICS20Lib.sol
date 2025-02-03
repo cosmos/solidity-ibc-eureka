@@ -58,18 +58,17 @@ library ICS20Lib {
         // The function is not used in the contract.
     }
 
-    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
-    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
+    /// @notice Create an ICS20Lib.FungibleTokenPacketData message for ics20-1.
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
-    function newMsgSendPacketV1(
+    function newFungibleTokenPacketDataV1(
         address sender,
         IICS20TransferMsgs.SendTransferMsg memory msg_
     )
         external
         view
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
+        returns (ICS20Lib.FungibleTokenPacketData memory)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
@@ -83,28 +82,12 @@ library ICS20Lib {
         }
 
         // We are encoding the payload in ABI format
-        bytes memory packetData = abi.encode(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: fullDenomPath,
-                sender: Strings.toHexString(sender),
-                receiver: msg_.receiver,
-                amount: msg_.amount,
-                memo: msg_.memo
-            })
-        );
-
-        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: msg_.destPort,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: packetData
-        });
-        return IICS26RouterMsgs.MsgSendPacket({
-            sourceClient: msg_.sourceClient,
-            timeoutTimestamp: msg_.timeoutTimestamp,
-            payloads: payloads
+        return ICS20Lib.FungibleTokenPacketData({
+            denom: fullDenomPath,
+            sender: Strings.toHexString(sender),
+            receiver: msg_.receiver,
+            amount: msg_.amount,
+            memo: msg_.memo
         });
     }
 
@@ -156,7 +139,7 @@ library ICS20Lib {
     /// @param port Port
     /// @param client client
     /// @return Denom prefix
-    function getDenomPrefix(string calldata port, string calldata client) internal pure returns (bytes memory) {
+    function getDenomPrefix(string memory port, string calldata client) internal pure returns (bytes memory) {
         return abi.encodePacked(port, "/", client, "/");
     }
 

@@ -86,53 +86,35 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function newMsgSendPacketV1(
-        address sender,
-        IICS20TransferMsgs.SendTransferMsg calldata msg_
-    )
-        external
-        view
-        override
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
-    {
-        return ICS20Lib.newMsgSendPacketV1(sender, msg_);
-    }
-
-    /// @inheritdoc IICS20Transfer
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override returns (uint32) {
-        return _getICS26Router().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
-    }
-
-    /// @inheritdoc IIBCApp
-    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyRouter nonReentrant {
-        require(
-            keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
-            ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
-        );
-
         ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
-
-        require(packetData.amount > 0, ICS20InvalidAmount(packetData.amount));
-
-        // Note that if we use address instead of strings in the packetDataJson field definition
-        //we can avoid the next line operation and save extra gas
-        address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
-
-        // only the sender in the payload or this contract (sendTransfer) can send the packet
-        require(msg_.sender == sender || msg_.sender == address(this), ICS20UnauthorizedPacketSender(msg_.sender));
+            ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
         (address erc20Address, bool originatorChainIsSource) =
-            getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+            getSendERC20AddressAndSource(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData);
 
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(sender, escrow(), erc20Address, packetData.amount);
+        _transferFrom(_msgSender(), escrow(), erc20Address, packetData.amount);
 
         if (!originatorChainIsSource) {
             // receiver chain is source: burn the vouchers
             IBCERC20 ibcERC20 = IBCERC20(erc20Address);
             ibcERC20.burn(packetData.amount);
         }
+
+        return _getICS26Router().sendPacket(
+            IICS26RouterMsgs.MsgSendPacket({
+                sourceClient: msg_.sourceClient,
+                timeoutTimestamp: msg_.timeoutTimestamp,
+                payload: IICS26RouterMsgs.Payload({
+                    sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                    destPort: ICS20Lib.DEFAULT_PORT_ID,
+                    version: ICS20Lib.ICS20_VERSION,
+                    encoding: ICS20Lib.ICS20_ENCODING,
+                    value: abi.encode(packetData)
+                })
+            })
+        );
     }
 
     /// @inheritdoc IIBCApp
@@ -230,7 +212,7 @@ contract ICS20Transfer is
     /// @return The ERC20 address for the token in the packetData
     /// @return Whether the originator (i.e. us) chain of the packet is the source of the token
     function getSendERC20AddressAndSource(
-        string calldata sourcePort,
+        string memory sourcePort,
         string calldata sourceClient,
         ICS20Lib.FungibleTokenPacketData memory packetData
     )

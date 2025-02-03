@@ -33,15 +33,15 @@ interface IICS26RouterMsgs {
         bytes value;
     }
 
-    /// @notice Message for sending packets
-    /// @dev Submitted by the user or the IBC application
+    /// @notice Message for sending a packet
+    /// @dev Submitted by the IBC application
     /// @param sourceClient The source client identifier (client id)
     /// @param timeoutTimestamp The timeout timestamp in unix seconds
-    /// @param payloads The packet payloads
+    /// @param payload The packet payload
     struct MsgSendPacket {
         string sourceClient;
         uint64 timeoutTimestamp;
-        Payload[] payloads;
+        Payload payload;
     }
 
     /// @notice Message for receiving packets, submitted by relayer
