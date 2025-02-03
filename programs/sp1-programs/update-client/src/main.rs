@@ -16,6 +16,7 @@ use ibc_client_tendermint::types::Header;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
+use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use sp1_ics07_tendermint_update_client::update_client;
 
 /// The main function of the program.
@@ -35,7 +36,7 @@ pub fn main() {
         .unwrap()
         .into();
     // input 3: the proposed header
-    let proposed_header = serde_cbor::from_slice::<Header>(&encoded_3).unwrap();
+    let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time
     let time = u64::from_le_bytes(encoded_4.try_into().unwrap());
     // TODO: find an encoding that works for all the structs above. (#132)
