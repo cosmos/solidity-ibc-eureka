@@ -30,12 +30,6 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice MAX_MEMO_LENGTH is the maximum length of a memo.
-    uint16 internal constant MAX_MEMO_LENGTH = 32_769;
-
-    /// @notice MAX_RECEIVER_LENGTH is the maximum length of a receiver or sender.
-    uint16 internal constant MAX_SENDER_RECEIVER_LENGTH = 2048;
-
     /// @notice MAX_HOPS is the maximum number of hops in a forwarding packet.
     uint8 internal constant MAX_HOPS = 8;
 
@@ -211,9 +205,6 @@ library ICS20Lib {
             if (bytes(packetData.memo).length > 0) {
                 return (false, "memo must be empty if forwarding is set");
             }
-            if (bytes(packetData.forwarding.destinationMemo).length > MAX_MEMO_LENGTH) {
-                return (false, "destinationMemo too long");
-            }
 
             for (uint256 i = 0; i < packetData.forwarding.hops.length; i++) {
                 if (bytes(packetData.forwarding.hops[i].portId).length == 0) {
@@ -224,20 +215,9 @@ library ICS20Lib {
                 }
             }
         } else {
-            if (bytes(packetData.memo).length > MAX_MEMO_LENGTH) {
-                return (false, "memo too long");
-            }
             if (bytes(packetData.forwarding.destinationMemo).length > 0) {
                 return (false, "destinationMemo must be empty if forwarding is not set");
             }
-        }
-
-        if (bytes(packetData.receiver).length > MAX_SENDER_RECEIVER_LENGTH) {
-            return (false, "receiver too long");
-        }
-
-        if (bytes(packetData.sender).length > MAX_SENDER_RECEIVER_LENGTH) {
-            return (false, "sender too long");
         }
 
         for (uint256 i = 0; i < packetData.tokens.length; i++) {

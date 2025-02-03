@@ -205,40 +205,6 @@ contract ICS20TransferTest is Test {
         defaultPacketData.sender = senderStr;
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
-        // test sender length is too long
-        defaultPacketData.sender = generateLongString(ICS20Lib.MAX_SENDER_RECEIVER_LENGTH + 1);
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "sender too long"));
-        ics20Transfer.onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({
-                sourceClient: packet.sourceClient,
-                destinationClient: packet.destClient,
-                sequence: packet.sequence,
-                payload: packet.payloads[0],
-                sender: sender
-            })
-        );
-        // reset sender
-        defaultPacketData.sender = senderStr;
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-
-        // test receiver length is too long
-        defaultPacketData.receiver = generateLongString(ICS20Lib.MAX_SENDER_RECEIVER_LENGTH + 1);
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "receiver too long"));
-        ics20Transfer.onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({
-                sourceClient: packet.sourceClient,
-                destinationClient: packet.destClient,
-                sequence: packet.sequence,
-                payload: packet.payloads[0],
-                sender: sender
-            })
-        );
-        // reset receiver
-        defaultPacketData.receiver = receiverStr;
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-
         // test packet sender is not the same as the payload sender
         address notSender = makeAddr("notSender");
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnauthorizedPacketSender.selector, notSender));
@@ -379,44 +345,6 @@ contract ICS20TransferTest is Test {
         );
         // reset forwarding memo
         defaultPacketData.forwarding.destinationMemo = "";
-
-        // test memo too long
-        defaultPacketData.memo = generateLongString(ICS20Lib.MAX_MEMO_LENGTH + 1);
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "memo too long"));
-        ics20Transfer.onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({
-                sourceClient: packet.sourceClient,
-                destinationClient: packet.destClient,
-                sequence: packet.sequence,
-                payload: packet.payloads[0],
-                sender: sender
-            })
-        );
-        // reset memo
-        defaultPacketData.memo = "";
-
-        // test forwarding memo too long
-        defaultPacketData.forwarding.destinationMemo = generateLongString(ICS20Lib.MAX_MEMO_LENGTH + 1);
-        // Need to set hops, otherwise we would hit the destination memo must be empty if forwarding is not set error
-        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
-        defaultPacketData.forwarding.hops[0] = IICS20TransferMsgs.Hop({ portId: "port", clientId: "client" });
-        packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPacketData.selector, "destinationMemo too long")
-        );
-        ics20Transfer.onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({
-                sourceClient: packet.sourceClient,
-                destinationClient: packet.destClient,
-                sequence: packet.sequence,
-                payload: packet.payloads[0],
-                sender: sender
-            })
-        );
-        // reset forwarding memo and hops
-        defaultPacketData.forwarding.destinationMemo = "";
-        defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](0);
 
         // test empty port ID in forwarding
         defaultPacketData.forwarding.hops = new IICS20TransferMsgs.Hop[](1);
