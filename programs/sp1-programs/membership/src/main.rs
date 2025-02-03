@@ -25,7 +25,8 @@ pub fn main() {
     let app_hash: [u8; 32] = encoded_1.try_into().unwrap();
 
     // encoded_2 is the number of key-value pairs we want to verify
-    let request_len = sp1_zkvm::io::read_vec()[0];
+    let encoded_2 = sp1_zkvm::io::read_vec();
+    let request_len = u16::from_le_bytes(encoded_2.try_into().unwrap());
     assert!(request_len != 0);
 
     let request_iter = (0..request_len).map(|_| {

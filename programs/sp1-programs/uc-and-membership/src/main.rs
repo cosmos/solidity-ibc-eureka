@@ -31,7 +31,8 @@ pub fn main() {
     let encoded_3 = sp1_zkvm::io::read_vec();
     let encoded_4 = sp1_zkvm::io::read_vec();
     // encoded_5 is the number of key-value pairs we want to verify
-    let request_len = sp1_zkvm::io::read_vec()[0];
+    let encoded_5 = sp1_zkvm::io::read_vec();
+    let request_len = u16::from_le_bytes(encoded_5.try_into().unwrap());
     assert!(request_len != 0);
 
     // input 1: the client state
