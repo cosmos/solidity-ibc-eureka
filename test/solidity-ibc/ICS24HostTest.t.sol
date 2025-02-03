@@ -4,8 +4,11 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
-import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
+
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
@@ -45,7 +48,7 @@ contract ICS24HostTest is Test {
 
     function test_packetCommitment() public pure {
         // Test against the ibc-go implementations output
-        ICS20Lib.FungibleTokenPacketData memory packetData = ICS20Lib.FungibleTokenPacketData({
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
             denom: "uatom",
             amount: 1_000_000,
             sender: "sender",

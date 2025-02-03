@@ -112,6 +112,9 @@ contract ICS26Router is
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+        address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
+        require(ibcApp == _msgSender(), IBCUnauthorizedSender(_msgSender()));
+
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
         // TODO: validate all identifiers

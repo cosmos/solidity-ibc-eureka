@@ -36,4 +36,8 @@ interface IICS26RouterErrors {
     /// @notice IBC app for port not found
     /// @param portId port identifier
     error IBCAppNotFound(string portId);
+
+    /// @notice IBC unauthorized packet sender
+    /// @param caller unauthorized sender address
+    error IBCUnauthorizedSender(address caller);
 }
