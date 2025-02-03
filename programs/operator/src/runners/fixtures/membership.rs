@@ -7,12 +7,11 @@ use crate::{
 use alloy::sol_types::SolValue;
 use core::str;
 use ibc_client_tendermint_types::ConsensusState;
-use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::{
         ClientState, ConsensusState as SolConsensusState, SupportedZkAlgorithm,
     },
-    IMembershipMsgs::{MembershipOutput, MembershipProof, SP1MembershipProof},
+    IMembershipMsgs::{KVPair, MembershipOutput, MembershipProof, SP1MembershipProof},
     ISP1Msgs::SP1Proof,
 };
 use serde::{Deserialize, Serialize};
@@ -119,7 +118,7 @@ pub async fn run_sp1_membership(
         .as_bytes()
         .to_vec();
 
-    let kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, MerkleProof)> =
+    let kv_proofs: Vec<(_, _)> =
         futures::future::try_join_all(key_paths.into_iter().map(|path| async {
             let path: Vec<Vec<u8>> = if is_base64 {
                 path.split('\\')
@@ -131,8 +130,12 @@ pub async fn run_sp1_membership(
             assert_eq!(path.len(), 2);
 
             let (value, proof) = tm_rpc_client.prove_path(&path, trusted_block).await?;
+            let kv_pair = KVPair {
+                path: path.into_iter().map(Into::into).collect(),
+                value: value.into(),
+            };
 
-            anyhow::Ok((path, value, proof))
+            anyhow::Ok((kv_pair, proof))
         }))
         .await?;
 

@@ -5,17 +5,23 @@ use crate::programs::{
     UpdateClientProgram,
 };
 use alloy_sol_types::SolValue;
-use ibc_client_tendermint_types::{Header, Misbehaviour};
 use ibc_core_commitment_types::merkle::MerkleProof;
-pub use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::SupportedZkAlgorithm;
-use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, ConsensusState as SolConsensusState,
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
+    IMembershipMsgs::KVPair,
 };
-use ibc_proto::Protobuf;
+use ibc_proto::{
+    ibc::lightclients::tendermint::v1::{Header, Misbehaviour},
+    Protobuf,
+};
+use prost::Message;
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::{
     Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
+
+// Re-export the supported zk algorithms.
+pub use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::SupportedZkAlgorithm;
 
 /// A prover for for [`SP1Program`] programs.
 #[allow(clippy::module_name_repetitions)]
@@ -33,7 +39,6 @@ where
     /// The proof type.
     pub proof_type: SupportedZkAlgorithm,
     _phantom: std::marker::PhantomData<T>,
-    _phantom2: std::marker::PhantomData<C>,
 }
 
 impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
@@ -54,7 +59,6 @@ where
             vkey,
             proof_type,
             _phantom: std::marker::PhantomData,
-            _phantom2: std::marker::PhantomData,
         }
     }
 
@@ -106,9 +110,8 @@ where
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = trusted_consensus_state.abi_encode();
-        let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
+        let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
-        // TODO: find an encoding that works for all the structs above.
 
         // Write the encoded light blocks to stdin.
         let mut stdin = SP1Stdin::new();
@@ -133,7 +136,7 @@ where
     pub fn generate_proof(
         &self,
         commitment_root: &[u8],
-        kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, MerkleProof)>,
+        kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
         let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
@@ -141,9 +144,8 @@ where
         let mut stdin = SP1Stdin::new();
         stdin.write_slice(commitment_root);
         stdin.write_vec(vec![len]);
-        for (path, value, proof) in kv_proofs {
-            stdin.write_vec(bincode::serialize(&path).unwrap());
-            stdin.write_vec(value);
+        for (kv_pair, proof) in kv_proofs {
+            stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }
 
@@ -169,17 +171,15 @@ where
         trusted_consensus_state: &SolConsensusState,
         proposed_header: &Header,
         time: u64,
-        kv_proofs: Vec<(Vec<Vec<u8>>, Vec<u8>, MerkleProof)>,
+        kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
         let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = trusted_consensus_state.abi_encode();
-        // NOTE: The Header struct is not deserializable by bincode, so we use CBOR instead.
-        let encoded_3 = serde_cbor::to_vec(proposed_header).unwrap();
+        let encoded_3 = proposed_header.encode_to_vec();
         let encoded_4 = time.to_le_bytes().into();
-        // TODO: find an encoding that works for all the structs above.
 
         // Write the encoded light blocks to stdin.
         let mut stdin = SP1Stdin::new();
@@ -188,9 +188,8 @@ where
         stdin.write_vec(encoded_3);
         stdin.write_vec(encoded_4);
         stdin.write_vec(vec![len]);
-        for (path, value, proof) in kv_proofs {
-            stdin.write_vec(bincode::serialize(&path).unwrap());
-            stdin.write_vec(value);
+        for (kv_pair, proof) in kv_proofs {
+            stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
         }
 
@@ -216,7 +215,7 @@ where
         time: u64,
     ) -> SP1ProofWithPublicValues {
         let encoded_1 = client_state.abi_encode();
-        let encoded_2 = serde_cbor::to_vec(misbehaviour).unwrap();
+        let encoded_2 = misbehaviour.encode_to_vec();
         let encoded_3 = trusted_consensus_state_1.abi_encode();
         let encoded_4 = trusted_consensus_state_2.abi_encode();
         let encoded_5 = time.to_le_bytes().into();

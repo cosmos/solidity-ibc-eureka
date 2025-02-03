@@ -16,4 +16,3 @@ ibc-core-commitment-types     = { workspace = true }
 alloy-sol-types               = { workspace = true }
 ibc-eureka-solidity-types     = { workspace = true }
 ibc-proto                     = { workspace = true }
-bincode                       = { workspace = true }
