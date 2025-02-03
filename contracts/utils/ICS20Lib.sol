@@ -13,22 +13,6 @@ import { IBCERC20 } from "./IBCERC20.sol";
 // This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 // It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
 library ICS20Lib {
-    /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
-    /// @dev PacketData is defined in
-    /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
-    /// @param denom The denomination of the token
-    /// @param sender The sender of the token
-    /// @param receiver The receiver of the token
-    /// @param amount The amount of tokens
-    /// @param memo Optional memo
-    struct FungibleTokenPacketData {
-        string denom;
-        string sender;
-        string receiver;
-        uint256 amount;
-        string memo;
-    }
-
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
 
@@ -48,16 +32,6 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice A dummy function to generate the ABI for the parameters.
-    /// @param o1 The FungibleTokenPacketData.
-    function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
-    // solhint-disable-next-line no-empty-blocks
-    {
-        // This is a dummy function to generate the ABI for outputs
-        // so that it can be used in the SP1 verifier contract.
-        // The function is not used in the contract.
-    }
-
     /// @notice Create an ICS20Lib.FungibleTokenPacketData message for ics20-1.
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
@@ -68,7 +42,7 @@ library ICS20Lib {
     )
         external
         view
-        returns (ICS20Lib.FungibleTokenPacketData memory)
+        returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
@@ -82,7 +56,7 @@ library ICS20Lib {
         }
 
         // We are encoding the payload in ABI format
-        return ICS20Lib.FungibleTokenPacketData({
+        return IICS20TransferMsgs.FungibleTokenPacketData({
             denom: fullDenomPath,
             sender: Strings.toHexString(sender),
             receiver: msg_.receiver,

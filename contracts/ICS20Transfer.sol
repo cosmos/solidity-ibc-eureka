@@ -87,7 +87,7 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override returns (uint32) {
-        ICS20Lib.FungibleTokenPacketData memory packetData =
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
         (address erc20Address, bool originatorChainIsSource) =
@@ -126,8 +126,8 @@ contract ICS20Transfer is
             return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
         }
 
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         (address erc20Address, bool originatorChainIsSource) = getReceiveERC20AddressAndSource(
             msg_.payload.sourcePort, msg_.sourceClient, msg_.payload.destPort, msg_.destinationClient, packetData
         );
@@ -155,8 +155,8 @@ contract ICS20Transfer is
 
     /// @inheritdoc IIBCApp
     function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant {
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
 
         if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
             (address erc20Address,) =
@@ -167,8 +167,8 @@ contract ICS20Transfer is
 
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
         _refundTokens(packetData, erc20Address);
     }
@@ -176,7 +176,7 @@ contract ICS20Transfer is
     /// @notice Refund the tokens to the sender
     /// @param packetData The packet data
     /// @param erc20Address The address of the ERC20 contract
-    function _refundTokens(ICS20Lib.FungibleTokenPacketData memory packetData, address erc20Address) private {
+    function _refundTokens(IICS20TransferMsgs.FungibleTokenPacketData memory packetData, address erc20Address) private {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
     }
@@ -214,7 +214,7 @@ contract ICS20Transfer is
     function getSendERC20AddressAndSource(
         string memory sourcePort,
         string calldata sourceClient,
-        ICS20Lib.FungibleTokenPacketData memory packetData
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData
     )
         private
         view
@@ -254,7 +254,7 @@ contract ICS20Transfer is
         string calldata sourceClient,
         string calldata destPort,
         string calldata destClient,
-        ICS20Lib.FungibleTokenPacketData memory packetData
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData
     )
         private
         returns (address, bool)
