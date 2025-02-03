@@ -139,11 +139,11 @@ where
         kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
-        let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
+        let len = u16::try_from(kv_proofs.len()).expect("too many key-value pairs");
 
         let mut stdin = SP1Stdin::new();
         stdin.write_slice(commitment_root);
-        stdin.write_vec(vec![len]);
+        stdin.write_slice(&len.to_le_bytes());
         for (kv_pair, proof) in kv_proofs {
             stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
@@ -174,7 +174,7 @@ where
         kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
-        let len = u8::try_from(kv_proofs.len()).expect("too many key-value pairs");
+        let len = u16::try_from(kv_proofs.len()).expect("too many key-value pairs");
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = trusted_consensus_state.abi_encode();
@@ -187,7 +187,7 @@ where
         stdin.write_vec(encoded_2);
         stdin.write_vec(encoded_3);
         stdin.write_vec(encoded_4);
-        stdin.write_vec(vec![len]);
+        stdin.write_slice(&len.to_le_bytes());
         for (kv_pair, proof) in kv_proofs {
             stdin.write_vec(kv_pair.abi_encode());
             stdin.write_vec(proof.encode_vec());
