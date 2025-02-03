@@ -176,7 +176,12 @@ contract ICS20Transfer is
     /// @notice Refund the tokens to the sender
     /// @param packetData The packet data
     /// @param erc20Address The address of the ERC20 contract
-    function _refundTokens(IICS20TransferMsgs.FungibleTokenPacketData memory packetData, address erc20Address) private {
+    function _refundTokens(
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData,
+        address erc20Address
+    )
+        private
+    {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
     }

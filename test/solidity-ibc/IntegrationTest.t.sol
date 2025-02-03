@@ -1062,15 +1062,17 @@ contract IntegrationTest is Test {
 
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
 
-        uint32 sequence = ics20Transfer.sendTransfer(IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
-            amount: transferAmount,
-            receiver: receiverStr,
-            sourceClient: clientIdentifier,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: timeoutTimestamp,
-            memo: "memo"
-        }));
+        uint32 sequence = ics20Transfer.sendTransfer(
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: erc20AddressStr,
+                amount: transferAmount,
+                receiver: receiverStr,
+                sourceClient: clientIdentifier,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: timeoutTimestamp,
+                memo: "memo"
+            })
+        );
         assertEq(sequence, 1);
 
         IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);

@@ -146,7 +146,8 @@ contract BenchmarkTest is FixtureTest {
         erc20.approve(address(ics20Transfer), amountToSend);
 
         vm.prank(user);
-        ics20Transfer.sendTransfer(IICS20TransferMsgs.SendTransferMsg({
+        ics20Transfer.sendTransfer(
+            IICS20TransferMsgs.SendTransferMsg({
                 denom: packetData.denom,
                 amount: amountToSend,
                 receiver: packetData.receiver,
@@ -154,7 +155,8 @@ contract BenchmarkTest is FixtureTest {
                 destPort: fixture.packet.payloads[0].destPort,
                 timeoutTimestamp: fixture.packet.timeoutTimestamp,
                 memo: packetData.memo
-            }));
+            })
+        );
 
         uint64 gasUsed = vm.lastCallGas().gasTotalUsed;
 
