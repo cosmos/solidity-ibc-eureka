@@ -14,6 +14,7 @@ use ibc_client_tendermint::types::Misbehaviour;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
+use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
 use sp1_ics07_tendermint_misbehaviour::check_for_misbehaviour;
 
 /// The main function of the program.
@@ -30,7 +31,7 @@ pub fn main() {
     // input 1: client state
     let client_state = SolClientState::abi_decode(&encoded_1, true).unwrap();
     // input 2: the misbehaviour evidence
-    let misbehaviour = serde_cbor::from_slice::<Misbehaviour>(&encoded_2).unwrap();
+    let misbehaviour = <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(&encoded_2).unwrap();
     // input 3: header 1 trusted consensus state
     let trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3, true)
         .unwrap()

@@ -2950,12 +2950,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "half"
-version = "1.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
-
-[[package]]
 name = "halo2"
 version = "0.1.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5924,16 +5918,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_cbor"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
-dependencies = [
- "half",
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6386,7 +6370,6 @@ name = "sp1-ics07-tendermint-membership"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6398,13 +6381,12 @@ name = "sp1-ics07-tendermint-misbehaviour"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
- "serde_cbor",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
@@ -6441,12 +6423,11 @@ name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_cbor",
+ "prost",
  "sp1-helper",
  "sp1-prover",
  "sp1-sdk",
@@ -6458,12 +6439,10 @@ name = "sp1-ics07-tendermint-uc-and-membership"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_cbor",
  "sp1-ics07-tendermint-membership",
  "sp1-ics07-tendermint-update-client",
  "sp1-zkvm",
@@ -6474,13 +6453,12 @@ name = "sp1-ics07-tendermint-update-client"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "bincode",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
- "serde_cbor",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
@@ -6500,6 +6478,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=9f550f7a582f09ee82bdf58a416631715e15bad7)",
  "prost",
  "tendermint",

@@ -10,8 +10,9 @@
 sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
-
 use ibc_proto::Protobuf;
+
+use ibc_eureka_solidity_types::msgs::IMembershipMsgs::KVPair;
 use sp1_ics07_tendermint_membership::membership;
 
 use ibc_core_commitment_types::merkle::MerkleProof;
@@ -25,22 +26,20 @@ pub fn main() {
     let app_hash: [u8; 32] = encoded_1.try_into().unwrap();
 
     // encoded_2 is the number of key-value pairs we want to verify
-    let request_len = sp1_zkvm::io::read_vec()[0];
+    let encoded_2 = sp1_zkvm::io::read_vec();
+    let request_len = u16::from_le_bytes(encoded_2.try_into().unwrap());
     assert!(request_len != 0);
 
     let request_iter = (0..request_len).map(|_| {
-        // loop_encoded_1 is the path we want to verify the membership of
+        // loop_encoded_1 is the key-value pair we want to verify the membership of
         let loop_encoded_1 = sp1_zkvm::io::read_vec();
-        let path = bincode::deserialize(&loop_encoded_1).unwrap();
+        let kv_pair = KVPair::abi_decode(&loop_encoded_1, true).unwrap();
 
-        // loop_encoded_2 is the value we want to prove the membership of
-        // if it is empty, we are verifying non-membership
-        let value = sp1_zkvm::io::read_vec();
+        // loop_encoded_2 is the Merkle proof of the key-value pair
+        let loop_encoded_2 = sp1_zkvm::io::read_vec();
+        let merkle_proof = MerkleProof::decode_vec(&loop_encoded_2).unwrap();
 
-        let loop_encoded_3 = sp1_zkvm::io::read_vec();
-        let merkle_proof = MerkleProof::decode_vec(&loop_encoded_3).unwrap();
-
-        (path, value, merkle_proof)
+        (kv_pair, merkle_proof)
     });
 
     let output = membership(app_hash, request_iter);

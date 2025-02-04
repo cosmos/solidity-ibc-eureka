@@ -120,7 +120,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         let proposed_header = target_light_block.into_header(&trusted_light_block);
         let update_msg = MsgUpdateClient {
             client_id: target_client_id,
-            client_message: Some(proposed_header.into()),
+            client_message: Some(Any::from_msg(&proposed_header)?),
             signer: self.signer_address.clone(),
         };
 

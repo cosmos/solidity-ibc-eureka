@@ -15,22 +15,20 @@ use ibc_core_commitment_types::{
 #[must_use]
 pub fn membership(
     app_hash: [u8; 32],
-    request_iter: impl Iterator<Item = (Vec<Vec<u8>>, Vec<u8>, MerkleProof)>,
+    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
 ) -> MembershipOutput {
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
 
     let kv_pairs = request_iter
-        .map(|(path, value, merkle_proof)| {
-            let merkle_path = MerklePath {
-                key_path: path.into_iter().map(Into::into).collect(),
-            };
+        .map(|(kv_pair, merkle_proof)| {
+            let (merkle_path, value): (MerklePath, _) = kv_pair.clone().into();
 
-            if value.is_empty() {
+            if kv_pair.value.is_empty() {
                 merkle_proof
                     .verify_non_membership::<HostFunctionsManager>(
                         &ProofSpecs::cosmos(),
                         commitment_root.clone().into(),
-                        merkle_path.clone(),
+                        merkle_path,
                     )
                     .unwrap();
             } else {
@@ -38,21 +36,14 @@ pub fn membership(
                     .verify_membership::<HostFunctionsManager>(
                         &ProofSpecs::cosmos(),
                         commitment_root.clone().into(),
-                        merkle_path.clone(),
-                        value.clone(),
+                        merkle_path,
+                        value,
                         0,
                     )
                     .unwrap();
             }
 
-            KVPair {
-                path: merkle_path
-                    .key_path
-                    .into_iter()
-                    .map(|v| v.into_vec().into())
-                    .collect(),
-                value: value.into(),
-            }
+            kv_pair
         })
         .collect();
 

@@ -11,15 +11,15 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 
-use ibc_proto::Protobuf;
 use sp1_ics07_tendermint_uc_and_membership::update_client_and_membership;
 
-use ibc_core_commitment_types::merkle::MerkleProof;
-
 use ibc_client_tendermint_types::Header;
-use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, ConsensusState as SolConsensusState,
+use ibc_core_commitment_types::merkle::MerkleProof;
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
+    IMembershipMsgs::KVPair,
 };
+use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 
 /// The main function of the program.
 ///
@@ -31,7 +31,8 @@ pub fn main() {
     let encoded_3 = sp1_zkvm::io::read_vec();
     let encoded_4 = sp1_zkvm::io::read_vec();
     // encoded_5 is the number of key-value pairs we want to verify
-    let request_len = sp1_zkvm::io::read_vec()[0];
+    let encoded_5 = sp1_zkvm::io::read_vec();
+    let request_len = u16::from_le_bytes(encoded_5.try_into().unwrap());
     assert!(request_len != 0);
 
     // input 1: the client state
@@ -41,24 +42,20 @@ pub fn main() {
         .unwrap()
         .into();
     // input 3: the proposed header
-    let proposed_header = serde_cbor::from_slice::<Header>(&encoded_3).unwrap();
+    let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time
     let time = u64::from_le_bytes(encoded_4.try_into().unwrap());
-    // TODO: find an encoding that works for all the structs above. (#132)
 
     let request_iter = (0..request_len).map(|_| {
-        // loop_encoded_1 is the path we want to verify the membership of
+        // loop_encoded_1 is the key-value pair we want to verify the membership of
         let loop_encoded_1 = sp1_zkvm::io::read_vec();
-        let path = bincode::deserialize(&loop_encoded_1).unwrap();
+        let kv_pair = KVPair::abi_decode(&loop_encoded_1, true).unwrap();
 
-        // loop_encoded_2 is the value we want to prove the membership of
-        // if it is empty, we are verifying non-membership
-        let value = sp1_zkvm::io::read_vec();
+        // loop_encoded_2 is the Merkle proof of the key-value pair
+        let loop_encoded_2 = sp1_zkvm::io::read_vec();
+        let merkle_proof = MerkleProof::decode_vec(&loop_encoded_2).unwrap();
 
-        let loop_encoded_3 = sp1_zkvm::io::read_vec();
-        let merkle_proof = MerkleProof::decode_vec(&loop_encoded_3).unwrap();
-
-        (path, value, merkle_proof)
+        (kv_pair, merkle_proof)
     });
 
     let output = update_client_and_membership(
