@@ -277,8 +277,11 @@ contract ICS20TransferTest is Test {
     function test_failure_onRecvPacket() public {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
-        string memory ibcDenom =
-            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", Strings.toHexString(address(erc20))));
+        string memory ibcDenom = string(
+            abi.encodePacked(
+                packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", Strings.toHexString(address(erc20))
+            )
+        );
         defaultPacketData.denom = ibcDenom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
