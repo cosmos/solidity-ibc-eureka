@@ -264,7 +264,8 @@ contract ICS20Transfer is
 
     /// @notice Finds a contract in the foreign mapping, or creates a new IBCERC20 contract
     /// @notice This function will never return address(0)
-    /// @param fullDenomPath The full path denom to find or create the contract for
+    /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the token)
+    /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @return The address of the erc20 contract
     function _findOrCreateERC20Address(bytes memory fullDenomPath, bytes memory base) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
@@ -282,6 +283,12 @@ contract ICS20Transfer is
         return erc20Contract;
     }
 
+    /// @notice Returns the address of the sending ERC20 contract
+    /// @param sourcePort The source port of the packet
+    /// @param sourceClient The source client of the packet
+    /// @param denom The full path denom of the token
+    /// @return returningToSource Whether the token is returning to the source chain
+    /// @return erc20Address The address of the sending ERC20 contract
     function _getSendingERC20Address(
         string calldata sourcePort,
         string calldata sourceClient,
