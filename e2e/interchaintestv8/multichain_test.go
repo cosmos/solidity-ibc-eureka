@@ -705,7 +705,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 
 	var (
 		ibcERC20        *ibcerc20.Contract
-		ibcERC20Address string
+		ibcERC20Address ethcommon.Address
 	)
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		var recvRelayTx []byte
@@ -739,13 +739,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
-		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		var err error
+		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
-		ibcERC20Address = ibcERC20EthAddress.Hex()
-		s.Require().NotEmpty(ibcERC20Address)
-
-		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Address), eth.RPCClient)
+		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)
 		s.Require().NoError(err)
 
 		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
@@ -859,6 +857,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
@@ -881,7 +881,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
+			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         simdAUser.FormattedAddress(),
 			SourceClient:     ibctesting.FirstClientID,
