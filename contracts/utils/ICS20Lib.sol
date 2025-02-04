@@ -153,42 +153,47 @@ library ICS20Lib {
     }
 
     /// @notice getDenomPrefix returns an ibc path prefix
-    /// @param port Port
-    /// @param client client
+    /// @param portId Port
+    /// @param clientId client
     /// @return Denom prefix
-    function getDenomPrefix(string calldata port, string calldata client) internal pure returns (bytes memory) {
-        return abi.encodePacked(port, "/", client, "/");
+    function getDenomPrefix(string calldata portId, string calldata clientId) internal pure returns (bytes memory) {
+        return abi.encodePacked(portId, "/", clientId, "/");
     }
 
-    /// @notice toIBCDenom converts a full denom path to an ibc/hash(trace+base_denom) denom
-    /// @notice there is no check if the denom passed in is a base denom (if it has no trace), so it is assumed
-    /// @notice that the denom passed in is a full denom path with trace and base denom
-    /// @param fullDenomPath full denom path with trace and base denom
-    /// @return IBC denom in the format ibc/hash(trace+base_denom)
-    function toIBCDenom(string memory fullDenomPath) public pure returns (string memory) {
-        string memory hash = toHexHash(fullDenomPath);
-        return string(abi.encodePacked(IBC_DENOM_PREFIX, hash));
+    /// @notice removeHop removes the first hop from the denom trace.
+    /// @param denom Denom to remove the hop from
+    /// @param hop Hop to remove (it must be the first hop)
+    /// @return The new denom with the first hop removed
+    function removeHop(bytes memory denom, bytes memory hop) internal pure returns (bytes memory) {
+        return Bytes.slice(denom, hop.length);
     }
 
-    /// @notice toHexHash converts a string to an all uppercase hex hash (without the 0x prefix)
-    /// @param str string to convert
-    /// @return uppercase hex hash without 0x prefix
-    function toHexHash(string memory str) public pure returns (string memory) {
-        bytes32 hash = sha256(bytes(str));
-        bytes memory hexBz = bytes(Strings.toHexString(uint256(hash)));
+    /// @notice addHop adds a hop to the denom trace as the first hop.
+    /// @param denom Denom to add the hop to
+    /// @param hop Hop to add
+    /// @return The new denom with the hop added
+    function addHop(
+        bytes memory denom,
+        bytes memory hop
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(hop, denom);
+    }
 
-        // next we remove the `0x` prefix and uppercase the hash string
-        bytes memory finalHex = new bytes(hexBz.length - 2); // we skip the 0x prefix
-
-        for (uint256 i = 2; i < hexBz.length; i++) {
-            // if lowercase a-z, convert to uppercase
-            if (hexBz[i] >= 0x61 && hexBz[i] <= 0x7A) {
-                finalHex[i - 2] = bytes1(uint8(hexBz[i]) - 32);
-            } else {
-                finalHex[i - 2] = hexBz[i];
+    /// @notice hasHops checks if a denom has any hops in it (i.e it has a "/" in it).
+    /// @param denom Denom to check
+    /// @return true if the denom has any hops in it
+    function hasHops(bytes memory denom) internal pure returns (bool) {
+        // check if the denom has any '/' in it
+        for (uint256 i = 0; i < denom.length; i++) {
+            if (denom[i] == "/") {
+                return true;
             }
         }
 
-        return string(finalHex);
+        return false;
     }
 }
