@@ -187,8 +187,6 @@ contract ICS20Transfer is
                 bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
                 bytes memory newDenom = ICS20Lib.addHop(denomBz, newDenomPrefix);
 
-                console.log("minting new token for denom: ", string(newDenom));
-
                 erc20Address = _findOrCreateERC20Address(newDenom, denomBz);
                 IBCERC20(erc20Address).mint(packetData.amount);
             }
