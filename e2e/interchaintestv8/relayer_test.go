@@ -96,7 +96,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
+				Encoding:        transfertypes.EncodingJSON,
 				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -212,7 +212,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
+				Encoding:        transfertypes.EncodingJSON,
 				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -598,7 +598,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
+				Encoding:        transfertypes.EncodingJSON,
 				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -745,7 +745,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
+				Encoding:        transfertypes.EncodingJSON,
 				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{

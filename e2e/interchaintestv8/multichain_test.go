@@ -672,7 +672,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingABI,
+			Encoding:        transfertypes.EncodingJSON,
 			Value:           transferPayload.GetBytes(),
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
@@ -965,7 +965,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
-			Encoding:        transfertypes.EncodingABI,
+			Encoding:        transfertypes.EncodingJSON,
 			Value:           transferPayload.GetBytes(),
 		}
 
