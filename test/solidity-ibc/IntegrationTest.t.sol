@@ -19,7 +19,6 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IntegrationTest is Test {
@@ -408,7 +407,8 @@ contract IntegrationTest is Test {
         assertEq(supplyBeforeReceive, defaultAmount); // Not burned
 
         // Return the tokens (receive)
-        string memory receivedDenom = string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
+        string memory receivedDenom =
+            string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
         _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
         // check balances after receiving back
@@ -448,7 +448,8 @@ contract IntegrationTest is Test {
 
         // Return the tokens (receive)
         string memory receiverStr = defaultSenderStr;
-        string memory receivedDenom = string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
+        string memory receivedDenom =
+            string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
 
         (,, IICS26RouterMsgs.Packet memory receivePacket) =
             _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
@@ -549,8 +550,7 @@ contract IntegrationTest is Test {
         string memory receiverStr = Strings.toHexString(receiver);
 
         // First packet
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            _getPacketData(senderStr, receiverStr, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory packetData = _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -610,8 +610,7 @@ contract IntegrationTest is Test {
 
         // First packet
         // First packet
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            _getPacketData(senderStr, receiverStr, foreignDenom);
+        ICS20Lib.FungibleTokenPacketData memory packetData = _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -721,7 +720,9 @@ contract IntegrationTest is Test {
         assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
 
         // Receive back
-        string memory returningDenom = string(abi.encodePacked(outboundPacket.payloads[0].destPort, "/", outboundPacket.destClient, "/", receivedDenom));
+        string memory returningDenom = string(
+            abi.encodePacked(outboundPacket.payloads[0].destPort, "/", outboundPacket.destClient, "/", receivedDenom)
+        );
 
         (IERC20 returnedERC20, string memory returnedDenom,) =
             _receiveICS20Transfer("chain_c_sender", middleReceiverStr, returningDenom, defaultAmount, chainCClientID);
@@ -763,7 +764,9 @@ contract IntegrationTest is Test {
         assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
 
         // Receive back
-        string memory returningDenom = string(abi.encodePacked(outboundPacket.payloads[0].destPort, "/", outboundPacket.destClient, "/", receivedDenom));
+        string memory returningDenom = string(
+            abi.encodePacked(outboundPacket.payloads[0].destPort, "/", outboundPacket.destClient, "/", receivedDenom)
+        );
 
         (IERC20 returnedERC20, string memory returnedDenom,) =
             _receiveICS20Transfer("chain_c_sender", middleReceiverStr, returningDenom, defaultAmount, chainCClientID);
@@ -803,7 +806,8 @@ contract IntegrationTest is Test {
         // Send back
         string memory receiverStr = defaultSenderStr;
 
-        string memory denom = string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
+        string memory denom =
+            string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
 
         ICS20Lib.FungibleTokenPacketData memory receivePacketData =
             _getPacketData("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, denom);
@@ -925,11 +929,7 @@ contract IntegrationTest is Test {
         string memory denom
     )
         internal
-        returns (
-            IERC20 receivedERC20,
-            string memory receivedDenom,
-            IICS26RouterMsgs.Packet memory receivePacket
-        )
+        returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
     {
         return _receiveICS20Transfer(sender, receiver, denom, defaultAmount, clientIdentifier);
     }
@@ -942,11 +942,7 @@ contract IntegrationTest is Test {
         string memory destClient
     )
         internal
-        returns (
-            IERC20 receivedERC20,
-            string memory receivedDenom,
-            IICS26RouterMsgs.Packet memory receivePacket
-        )
+        returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
     {
         ICS20Lib.FungibleTokenPacketData memory receivePacketData = ICS20Lib.FungibleTokenPacketData({
             denom: denom,

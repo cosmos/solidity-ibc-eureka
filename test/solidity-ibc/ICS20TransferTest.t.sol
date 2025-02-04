@@ -10,7 +10,6 @@ import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
-import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
@@ -71,8 +70,7 @@ contract ICS20TransferTest is Test {
     }
 
     function test_failure_sendTransfer() public {
-        (IICS26RouterMsgs.Packet memory packet,) =
-            _getDefaultPacket();
+        (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
 
         // just to make sure it doesn't accidentally revert on the router call
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
@@ -253,11 +251,10 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test denom not found when sending a non-native token (source trace)
-        defaultPacketData.denom = string(abi.encodePacked(packet.payloads[0].sourcePort, '/', packet.sourceClient, '/', "notfound"));
+        defaultPacketData.denom =
+            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", "notfound"));
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom));
         ics20Transfer.onSendPacket(
             IIBCAppCallbacks.OnSendPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -354,11 +351,10 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test denom not found when sending a non-native token (source trace)
-        defaultPacketData.denom = string(abi.encodePacked(packet.payloads[0].sourcePort, '/', packet.sourceClient, '/', "notfound"));
+        defaultPacketData.denom =
+            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", "notfound"));
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom));
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceClient: packet.sourceClient,
@@ -372,7 +368,6 @@ contract ICS20TransferTest is Test {
         // reset denom
         defaultPacketData.denom = erc20AddressStr;
         packet.payloads[0].value = abi.encode(defaultPacketData);
-
 
         // test invalid sender
         defaultPacketData.sender = "invalid";
@@ -431,11 +426,10 @@ contract ICS20TransferTest is Test {
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test denom not found when sending a non-native token (source trace)
-        defaultPacketData.denom = string(abi.encodePacked(packet.payloads[0].sourcePort, '/', packet.sourceClient, '/', "notfound"));
+        defaultPacketData.denom =
+            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", "notfound"));
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, defaultPacketData.denom));
         ics20Transfer.onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
                 sourceClient: packet.sourceClient,

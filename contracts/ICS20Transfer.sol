@@ -18,11 +18,9 @@ import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallU
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
-import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
-import "forge-std/console.sol";
 
 using SafeERC20 for IERC20;
 
@@ -158,42 +156,42 @@ contract ICS20Transfer is
         }
 
         bytes memory denomBz = bytes(packetData.denom);
-        bytes memory prefix = ICS20Lib.getDenomPrefix(msg_.payload.sourcePort, msg_.sourceClient); 
+        bytes memory prefix = ICS20Lib.getDenomPrefix(msg_.payload.sourcePort, msg_.sourceClient);
 
-            // This is the prefix that would have been prefixed to the denomination
-            // on sender chain IF and only if the token originally came from the
-            // receiving chain.
-            //
-            // NOTE: We use SourcePort and SourceChannel here, because the counterparty
-            // chain would have prefixed with DestPort and DestChannel when originally
-            // receiving this token.
-            bool returningToOrigin = ICS20Lib.hasPrefix(denomBz, prefix);
+        // This is the prefix that would have been prefixed to the denomination
+        // on sender chain IF and only if the token originally came from the
+        // receiving chain.
+        //
+        // NOTE: We use SourcePort and SourceChannel here, because the counterparty
+        // chain would have prefixed with DestPort and DestChannel when originally
+        // receiving this token.
+        bool returningToOrigin = ICS20Lib.hasPrefix(denomBz, prefix);
 
-            address erc20Address;
-            if (returningToOrigin) {
-                // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
-                // remove the first hop to unwind the trace
-                bytes memory newDenom = ICS20Lib.removeHop(denomBz, prefix);
+        address erc20Address;
+        if (returningToOrigin) {
+            // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
+            // remove the first hop to unwind the trace
+            bytes memory newDenom = ICS20Lib.removeHop(denomBz, prefix);
 
-                (, erc20Address) = Strings.tryParseAddress(string(newDenom));
-                if (erc20Address == address(0)) {
-                    // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
-                    bytes32 denomID = keccak256(newDenom);
-                    erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
-                    require(erc20Address != address(0), ICS20DenomNotFound(string(newDenom)));
-                }
-            } else {
-                // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
-                bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
-                bytes memory newDenom = ICS20Lib.addHop(denomBz, newDenomPrefix);
-
-                erc20Address = _findOrCreateERC20Address(newDenom, denomBz);
-                IBCERC20(erc20Address).mint(packetData.amount);
+            (, erc20Address) = Strings.tryParseAddress(string(newDenom));
+            if (erc20Address == address(0)) {
+                // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
+                bytes32 denomID = keccak256(newDenom);
+                erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+                require(erc20Address != address(0), ICS20DenomNotFound(string(newDenom)));
             }
+        } else {
+            // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
+            bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
+            bytes memory newDenom = ICS20Lib.addHop(denomBz, newDenomPrefix);
 
-            // transfer the tokens to the receiver
-            // solhint-disable-next-line multiple-sends
-            _getEscrow().send(IERC20(erc20Address), receiver, packetData.amount);
+            erc20Address = _findOrCreateERC20Address(newDenom, denomBz);
+            IBCERC20(erc20Address).mint(packetData.amount);
+        }
+
+        // transfer the tokens to the receiver
+        // solhint-disable-next-line multiple-sends
+        _getEscrow().send(IERC20(erc20Address), receiver, packetData.amount);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
@@ -236,7 +234,7 @@ contract ICS20Transfer is
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
-            // solhint-disable-next-line multiple-sends
+        // solhint-disable-next-line multiple-sends
         _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
     }
 

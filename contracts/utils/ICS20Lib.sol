@@ -108,15 +108,6 @@ library ICS20Lib {
         });
     }
 
-    /// @notice hexStringToAddress converts a hex string to an address.
-    /// @param addrHexString hex address string
-    /// @return address value
-    /// @return true if the conversion was successful
-    function hexStringToAddress(string memory addrHexString) internal pure returns (address, bool) {
-        (bool success, address addr) = Strings.tryParseAddress(addrHexString);
-        return (addr, success);
-    }
-
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
     /// @param addrHexString hex address string
     /// @return address the converted address
@@ -172,14 +163,7 @@ library ICS20Lib {
     /// @param denom Denom to add the hop to
     /// @param hop Hop to add
     /// @return The new denom with the hop added
-    function addHop(
-        bytes memory denom,
-        bytes memory hop
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function addHop(bytes memory denom, bytes memory hop) internal pure returns (bytes memory) {
         return abi.encodePacked(hop, denom);
     }
 
