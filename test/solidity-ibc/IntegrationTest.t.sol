@@ -119,7 +119,7 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceBefore, 0);
 
         IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
+            denom: address(erc20),
             amount: transferAmount,
             receiver: receiverStr,
             sourceClient: clientIdentifier,
@@ -189,7 +189,7 @@ contract IntegrationTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutDuration.selector, 1 days, 2 days));
         ics20Transfer.sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
-                denom: erc20AddressStr,
+                denom: address(erc20),
                 amount: transferAmount,
                 receiver: receiverStr,
                 sourceClient: clientIdentifier,
@@ -509,7 +509,6 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.balanceOf(receiver), transferAmount);
 
         // Send out again
-        string memory backDenom = Strings.toHexString(erc20Address); // sendTransfer use the contract as the denom
         sender = receiver;
         {
             string memory tmpSenderStr = senderStr;
@@ -521,7 +520,7 @@ contract IntegrationTest is Test {
         ibcERC20.approve(address(ics20Transfer), transferAmount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: backDenom,
+            denom: erc20Address,
             amount: transferAmount,
             receiver: receiverStr,
             sourceClient: clientIdentifier,
@@ -790,7 +789,6 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.balanceOf(receiver), transferAmount);
 
         // Send out again
-        string memory backDenom = Strings.toHexString(erc20Address); // sendTransfer use the contract as the denom
         sender = receiver;
         {
             string memory tmpSenderStr = senderStr;
@@ -802,7 +800,7 @@ contract IntegrationTest is Test {
         ibcERC20.approve(address(ics20Transfer), transferAmount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: backDenom,
+            denom: erc20Address,
             amount: transferAmount,
             receiver: receiverStr,
             sourceClient: clientIdentifier,
@@ -924,7 +922,6 @@ contract IntegrationTest is Test {
         assertEq(ibcERC20.balanceOf(receiver), largeAmount);
 
         // Send out again
-        string memory backDenom = Strings.toHexString(erc20Address); // sendTransfer use the contract as the denom
         sender = receiver;
         {
             string memory tmpSenderStr = senderStr;
@@ -936,7 +933,7 @@ contract IntegrationTest is Test {
         ibcERC20.approve(address(ics20Transfer), largeAmount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: backDenom,
+            denom: erc20Address,
             amount: largeAmount,
             receiver: receiverStr,
             sourceClient: clientIdentifier,
@@ -1064,7 +1061,7 @@ contract IntegrationTest is Test {
 
         uint32 sequence = ics20Transfer.sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
-                denom: erc20AddressStr,
+                denom: address(erc20),
                 amount: transferAmount,
                 receiver: receiverStr,
                 sourceClient: clientIdentifier,

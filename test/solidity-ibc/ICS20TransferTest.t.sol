@@ -19,7 +19,6 @@ import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/trans
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
     TestERC20 public erc20;
-    string public erc20AddressStr;
 
     address public sender;
     string public senderStr;
@@ -46,11 +45,10 @@ contract ICS20TransferTest is Test {
 
         sender = makeAddr("sender");
 
-        erc20AddressStr = Strings.toHexString(address(erc20));
         senderStr = Strings.toHexString(sender);
 
         defaultPacketData = IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: erc20AddressStr,
+            denom: Strings.toHexString(address(erc20)),
             sender: senderStr,
             receiver: receiverStr,
             amount: defaultAmount,
@@ -68,7 +66,7 @@ contract ICS20TransferTest is Test {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
+            denom: address(erc20),
             amount: defaultAmount,
             receiver: receiverStr,
             sourceClient: packet.sourceClient,
@@ -96,7 +94,7 @@ contract ICS20TransferTest is Test {
         vm.startPrank(sender);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: erc20AddressStr,
+            denom: address(erc20),
             amount: defaultAmount,
             receiver: receiverStr,
             sourceClient: packet.sourceClient,
@@ -115,13 +113,6 @@ contract ICS20TransferTest is Test {
         ics20Transfer.sendTransfer(msgSendTransfer);
         // reset amount
         msgSendTransfer.amount = defaultAmount;
-
-        // denom is not an address
-        msgSendTransfer.denom = "notanaddress";
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "notanaddress"));
-        ics20Transfer.sendTransfer(msgSendTransfer);
-        // reset denom
-        msgSendTransfer.denom = erc20AddressStr;
     }
 
     function test_failure_sendTransfer_cases() public {
@@ -155,15 +146,6 @@ contract ICS20TransferTest is Test {
         // reset amount
         defaultPacketData.amount = defaultAmount;
 
-        // test invalid token contract
-        defaultPacketData.denom = "invalid";
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
-        vm.prank(sender);
-        ics20Transfer.sendTransfer(_getTestSendTransferMsg());
-
-        // reset denom
-        defaultPacketData.denom = erc20AddressStr;
-
         // test malfunctioning transfer
         MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
         malfunctioningERC20.mint(sender, defaultAmount);
@@ -178,7 +160,7 @@ contract ICS20TransferTest is Test {
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
 
         // reset denom
-        defaultPacketData.denom = erc20AddressStr;
+        defaultPacketData.denom = Strings.toHexString(address(erc20));
     }
 
     function test_failure_onAcknowledgementPacket() public {
@@ -216,7 +198,7 @@ contract ICS20TransferTest is Test {
             })
         );
         // reset denom
-        defaultPacketData.denom = erc20AddressStr;
+        defaultPacketData.denom = Strings.toHexString(address(erc20));
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test invalid sender
@@ -271,7 +253,7 @@ contract ICS20TransferTest is Test {
             })
         );
         // reset denom
-        defaultPacketData.denom = erc20AddressStr;
+        defaultPacketData.denom = Strings.toHexString(address(erc20));
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test invalid sender
@@ -296,7 +278,7 @@ contract ICS20TransferTest is Test {
         IICS26RouterMsgs.Packet memory packet = _getTestPacket();
 
         string memory ibcDenom =
-            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", erc20AddressStr));
+            string(abi.encodePacked(packet.payloads[0].sourcePort, "/", packet.sourceClient, "/", Strings.toHexString(address(erc20))));
         defaultPacketData.denom = ibcDenom;
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
@@ -406,7 +388,7 @@ contract ICS20TransferTest is Test {
 
     function _getTestSendTransferMsg() internal view returns (IICS20TransferMsgs.SendTransferMsg memory) {
         return IICS20TransferMsgs.SendTransferMsg({
-            denom: defaultPacketData.denom,
+            denom: ICS20Lib.mustHexStringToAddress(defaultPacketData.denom),
             amount: defaultPacketData.amount,
             receiver: defaultPacketData.receiver,
             sourceClient: "sourceClient",

@@ -46,12 +46,12 @@ library ICS20Lib {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
         string memory fullDenomPath;
-        try IBCERC20(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+        try IBCERC20(msg_.denom).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
             // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
             fullDenomPath = ibcERC20FullDenomPath;
         } catch {
             // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = msg_.denom;
+            fullDenomPath = Strings.toHexString(msg_.denom);
         }
 
         // We are encoding the payload in ABI format

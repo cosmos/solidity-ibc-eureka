@@ -147,7 +147,7 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         ics20Transfer.sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
-                denom: packetData.denom,
+                denom: ICS20Lib.mustHexStringToAddress(packetData.denom),
                 amount: amountToSend,
                 receiver: packetData.receiver,
                 sourceClient: fixture.packet.sourceClient,

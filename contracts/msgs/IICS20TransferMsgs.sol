@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 interface IICS20TransferMsgs {
     /// @notice Message for sending a transfer
-    /// @param denom The denomination of the token, usually the contract address
+    /// @param denom The address of the ERC20 token contract, used as the denomination
     /// @param amount The amount of tokens to transfer
     /// @param receiver The receiver of the transfer on the counterparty chain
     /// @param sourceClient The source client identifier
@@ -11,7 +11,7 @@ interface IICS20TransferMsgs {
     /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
     /// @param memo Optional memo
     struct SendTransferMsg {
-        string denom;
+        address denom;
         uint256 amount;
         string receiver;
         string sourceClient;
