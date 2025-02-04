@@ -317,8 +317,8 @@
         "components": [
           {
             "name": "denom",
-            "type": "string",
-            "internalType": "string"
+            "type": "address",
+            "internalType": "address"
           },
           {
             "name": "amount",

@@ -40,7 +40,7 @@ type IICS20TransferMsgsFungibleTokenPacketData struct {
 
 // IICS20TransferMsgsSendTransferMsg is an auto generated low-level Go binding around an user-defined struct.
 type IICS20TransferMsgsSendTransferMsg struct {
-	Denom            string
+	Denom            common.Address
 	Amount           *big.Int
 	Receiver         string
 	SourceClient     string
@@ -51,7 +51,7 @@ type IICS20TransferMsgsSendTransferMsg struct {
 
 // LibMetaData contains all meta data concerning the Lib contract.
 var LibMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"IBC_DENOM_PREFIX\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"newFungibleTokenPacketDataV1\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.FungibleTokenPacketData\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"toHexHash\",\"inputs\":[{\"name\":\"str\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toIBCDenom\",\"inputs\":[{\"name\":\"fullDenomPath\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"ICS20InvalidAddress\",\"inputs\":[{\"name\":\"addr\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"DEFAULT_PORT_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"FAILED_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"IBC_DENOM_PREFIX\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_ENCODING\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ICS20_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUCCESSFUL_ACKNOWLEDGEMENT_JSON\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"newFungibleTokenPacketDataV1\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"msg_\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.SendTransferMsg\",\"components\":[{\"name\":\"denom\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sourceClient\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"destPort\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"timeoutTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIICS20TransferMsgs.FungibleTokenPacketData\",\"components\":[{\"name\":\"denom\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memo\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"toHexHash\",\"inputs\":[{\"name\":\"str\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"toIBCDenom\",\"inputs\":[{\"name\":\"fullDenomPath\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"ICS20InvalidAmount\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"StringsInsufficientHexLength\",\"inputs\":[{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]",
 }
 
 // LibABI is the input ABI used to generate the binding from.
@@ -386,9 +386,9 @@ func (_Lib *LibCallerSession) SUCCESSFULACKNOWLEDGEMENTJSON() ([]byte, error) {
 	return _Lib.Contract.SUCCESSFULACKNOWLEDGEMENTJSON(&_Lib.CallOpts)
 }
 
-// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x7ffbaa80.
+// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x0c79d14c.
 //
-// Solidity: function newFungibleTokenPacketDataV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
+// Solidity: function newFungibleTokenPacketDataV1(address sender, (address,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
 func (_Lib *LibCaller) NewFungibleTokenPacketDataV1(opts *bind.CallOpts, sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS20TransferMsgsFungibleTokenPacketData, error) {
 	var out []interface{}
 	err := _Lib.contract.Call(opts, &out, "newFungibleTokenPacketDataV1", sender, msg_)
@@ -403,16 +403,16 @@ func (_Lib *LibCaller) NewFungibleTokenPacketDataV1(opts *bind.CallOpts, sender 
 
 }
 
-// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x7ffbaa80.
+// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x0c79d14c.
 //
-// Solidity: function newFungibleTokenPacketDataV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
+// Solidity: function newFungibleTokenPacketDataV1(address sender, (address,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
 func (_Lib *LibSession) NewFungibleTokenPacketDataV1(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS20TransferMsgsFungibleTokenPacketData, error) {
 	return _Lib.Contract.NewFungibleTokenPacketDataV1(&_Lib.CallOpts, sender, msg_)
 }
 
-// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x7ffbaa80.
+// NewFungibleTokenPacketDataV1 is a free data retrieval call binding the contract method 0x0c79d14c.
 //
-// Solidity: function newFungibleTokenPacketDataV1(address sender, (string,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
+// Solidity: function newFungibleTokenPacketDataV1(address sender, (address,uint256,string,string,string,uint64,string) msg_) view returns((string,string,string,uint256,string))
 func (_Lib *LibCallerSession) NewFungibleTokenPacketDataV1(sender common.Address, msg_ IICS20TransferMsgsSendTransferMsg) (IICS20TransferMsgsFungibleTokenPacketData, error) {
 	return _Lib.Contract.NewFungibleTokenPacketDataV1(&_Lib.CallOpts, sender, msg_)
 }
