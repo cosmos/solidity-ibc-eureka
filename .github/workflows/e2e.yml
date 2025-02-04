@@ -132,7 +132,7 @@ jobs:
           path: |
             ~/.cargo/bin/relayer
             ~/.cargo/bin/operator
-          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'programs/**') }}
+          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'programs/**', 'abi/**') }}
 
       - name: Install SP1 toolchain
         if: (steps.cache-relayer.outputs.cache-hit != 'true')
