@@ -36,7 +36,6 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
@@ -661,22 +660,20 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := transfertypes.FungibleTokenPacketData{
 			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.BigInt(),
+			Amount:   transferCoin.Amount.String(),
 			Sender:   simdAUser.FormattedAddress(),
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     "",
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
 			Encoding:        transfertypes.EncodingABI,
-			Value:           transferBz,
+			Value:           transferPayload.GetBytes(),
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
 			SourceClient:     testvalues.FirstWasmClientID,
@@ -784,17 +781,17 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 	var ethSendTxHash []byte
 	s.Require().True(s.Run("Transfer tokens from Ethereum to SimdB", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			ibcERC20Address,
-			transferAmount,
-			simdBUser.FormattedAddress(),
-			ibctesting.SecondClientID,
-			timeout,
-			"",
-		)
+		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            ibcERC20Address,
+			Amount:           transferAmount,
+			Receiver:         simdBUser.FormattedAddress(),
+			SourceClient:     ibctesting.SecondClientID,
+			DestPort:         transfertypes.PortID,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		}
 
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -883,17 +880,17 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 	s.Require().True(s.Run("Send from Ethereum to SimdA", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			s.contractAddresses.Erc20,
-			transferAmount,
-			simdAUser.FormattedAddress(),
-			ibctesting.FirstClientID,
-			timeout,
-			"",
-		)
+		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            s.contractAddresses.Erc20,
+			Amount:           transferAmount,
+			Receiver:         simdAUser.FormattedAddress(),
+			SourceClient:     ibctesting.FirstClientID,
+			DestPort:         transfertypes.PortID,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		}
 
-		tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
@@ -953,25 +950,23 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		denomOnSimdA := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+		transferPayload := transfertypes.FungibleTokenPacketData{
 			// Denom:    denomOnSimdA.IBCDenom(),
 			// BUG: Allowing user to choose the above is a bug in ibc-go
 			// https://github.com/cosmos/ibc-go/issues/7848
 			Denom:    denomOnSimdA.Path(),
-			Amount:   transferAmount,
+			Amount:   transferAmount.String(),
 			Sender:   simdAUser.FormattedAddress(),
 			Receiver: simdBUser.FormattedAddress(),
 			Memo:     "",
 		}
-		transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{
 			SourcePort:      transfertypes.PortID,
 			DestinationPort: transfertypes.PortID,
 			Version:         transfertypes.V1,
 			Encoding:        transfertypes.EncodingABI,
-			Value:           transferBz,
+			Value:           transferPayload.GetBytes(),
 		}
 
 		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
@@ -1026,42 +1021,4 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			s.Require().Equal(finalDenom.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
-}
-
-func (s *MultichainTestSuite) createICS20MsgSendPacket(
-	sender ethcommon.Address,
-	denom string,
-	amount *big.Int,
-	receiver string,
-	sourceClient string,
-	timeoutTimestamp uint64,
-	memo string,
-) ics26router.IICS26RouterMsgsMsgSendPacket {
-	msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-		Denom:            denom,
-		Amount:           amount,
-		Receiver:         receiver,
-		SourceClient:     sourceClient,
-		DestPort:         transfertypes.PortID,
-		TimeoutTimestamp: timeoutTimestamp,
-		Memo:             memo,
-	}
-	msgSendPacket, err := s.ics20Contract.ContractCaller.NewMsgSendPacketV1(nil, sender, msgSendTransfer)
-	s.Require().NoError(err)
-
-	// Because of the way abi generation work, the type returned by ics20 is ics20transfer.IICS26RouterMsgsMsgSendPacket
-	// So we just move the values over here:
-	return ics26router.IICS26RouterMsgsMsgSendPacket{
-		SourceClient:     sourceClient,
-		TimeoutTimestamp: timeoutTimestamp,
-		Payloads: []ics26router.IICS26RouterMsgsPayload{
-			{
-				SourcePort: msgSendPacket.Payloads[0].SourcePort,
-				DestPort:   msgSendPacket.Payloads[0].DestPort,
-				Version:    msgSendPacket.Payloads[0].Version,
-				Encoding:   msgSendPacket.Payloads[0].Encoding,
-				Value:      msgSendPacket.Payloads[0].Value,
-			},
-		},
-	}
 }

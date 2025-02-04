@@ -27,8 +27,7 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -85,22 +84,20 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
 				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -203,22 +200,20 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		for i := 0; i < numConcurrentTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
 				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -318,7 +313,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
-	ics26routerAbi, err := abi.JSON(strings.NewReader(ics26router.ContractABI))
+	ics20transferAbi, err := abi.JSON(strings.NewReader(ics20transfer.ContractABI))
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
@@ -339,17 +334,15 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
 
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			s.contractAddresses.Erc20,
-			transferAmount,
-			cosmosUserAddress,
-			ibctesting.FirstClientID,
-			timeout,
-			"",
-		)
+		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            s.contractAddresses.Erc20,
+			Amount:           transferAmount,
+			Receiver:         cosmosUserAddress,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		}
 
-		encodedMsg, err := ics26routerAbi.Pack("sendPacket", msgSendPacket)
+		encodedMsg, err := ics20transferAbi.Pack("sendTransfer", msgSendPacket)
 		s.Require().NoError(err)
 		for i := 0; i < numOfTransfers; i++ {
 			transferMulticall[i] = encodedMsg
@@ -486,18 +479,17 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		msgSendPacket := s.createICS20MsgSendPacket(
-			ethereumUserAddress,
-			s.contractAddresses.Erc20,
-			transferAmount,
-			cosmosUserAddress,
-			ibctesting.FirstClientID,
-			timeout,
-			"",
-		)
+		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            s.contractAddresses.Erc20,
+			DestPort:         transfertypes.PortID,
+			Amount:           transferAmount,
+			Receiver:         cosmosUserAddress,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		}
 
 		for i := 0; i < numOfTransfers; i++ {
-			tx, err := s.ics26Contract.SendPacket(s.GetTransactOpts(s.key, eth), msgSendPacket)
+			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
 			s.Require().NoError(err)
 
 			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -594,22 +586,20 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
 				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -743,22 +733,20 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			timeout := uint64(time.Now().Add(45 * time.Second).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   cosmosUserAddress,
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
 				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
