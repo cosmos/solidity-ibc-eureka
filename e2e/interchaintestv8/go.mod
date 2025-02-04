@@ -311,7 +311,7 @@ replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
 
 replace (
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250127153654-4ff42e4d4a3c
-	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20250127153654-4ff42e4d4a3c
+	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20250204213856-3b42e101ff1c
 )
 
 //TODO: remove everything below after tags are created
