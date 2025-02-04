@@ -308,6 +308,8 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
@@ -335,7 +337,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		transferMulticall := make([][]byte, numOfTransfers)
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
+			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
 			TimeoutTimestamp: timeout,
@@ -457,6 +459,8 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
@@ -480,7 +484,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
+			Denom:            erc20Address,
 			DestPort:         transfertypes.PortID,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,

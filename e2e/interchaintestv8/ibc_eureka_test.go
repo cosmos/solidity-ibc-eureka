@@ -408,6 +408,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
@@ -439,7 +440,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		transferMulticall := make([][]byte, numOfTransfers)
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
+			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
 			TimeoutTimestamp: timeout,
@@ -792,7 +793,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	var (
 		ibcERC20        *ibcerc20.Contract
-		ibcERC20Address string
+		ibcERC20Address ethcommon.Address
 
 		ackTxHash []byte
 	)
@@ -830,13 +831,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		// Recreate the full denom path
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
-		ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		var err error
+		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
 		s.Require().NoError(err)
 
-		ibcERC20Address = ibcERC20Addr.Hex()
-		s.Require().NotEmpty(ibcERC20Address)
-
-		ibcERC20, err = ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Address), eth.RPCClient)
+		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)
 		s.Require().NoError(err)
 
 		actualDenom, err := ibcERC20.Name(nil)
@@ -1073,6 +1072,8 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	eth, _ := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
@@ -1101,7 +1102,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		for i := 0; i < numOfTransfers; i++ {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-				Denom:            s.contractAddresses.Erc20,
+				Denom:            erc20Address,
 				Amount:           transferAmount,
 				Receiver:         cosmosUserAddress,
 				TimeoutTimestamp: timeout,
@@ -1198,6 +1199,8 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
@@ -1221,7 +1224,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 
 		// Send a transfer to an invalid Cosmos address
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			Denom:            s.contractAddresses.Erc20,
+			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         ibctesting.InvalidID,
 			TimeoutTimestamp: timeout,
