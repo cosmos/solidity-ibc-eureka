@@ -19,6 +19,7 @@ import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 
@@ -41,12 +42,12 @@ contract ICS20Transfer is
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param escrow The escrow contract
-    /// @param denomIDContracts Mapping of non-native denoms to their respective IBCERC20 contracts
+    /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
-        mapping(bytes32 => IBCERC20) ibcDenomContracts;
+        mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
     }
 
@@ -80,7 +81,7 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function ibcERC20Contract(string calldata denom) external view returns (address) {
-        address contractAddress = address(_getICS20TransferStorage().ibcDenomContracts[keccak256(bytes(denom))]);
+        address contractAddress = address(_getICS20TransferStorage().ibcERC20Contracts[keccak256(bytes(denom))]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
         return contractAddress;
     }
@@ -150,8 +151,8 @@ contract ICS20Transfer is
             return ICS20Lib.errorAck("invalid amount: 0");
         }
 
-        (bool receiverConvertSuccess, address receiver) = Strings.tryParseAddress(packetData.receiver);
-        if (!receiverConvertSuccess) {
+        (bool isAddress, address receiver) = Strings.tryParseAddress(packetData.receiver);
+        if (!isAddress) {
             return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
         }
 
@@ -171,26 +172,25 @@ contract ICS20Transfer is
         if (returningToOrigin) {
             // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
             // remove the first hop to unwind the trace
-            bytes memory newDenom = ICS20Lib.removeHop(denomBz, prefix);
+            bytes memory newDenom = Bytes.slice(denomBz, prefix.length);
 
             (, erc20Address) = Strings.tryParseAddress(string(newDenom));
             if (erc20Address == address(0)) {
                 // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
                 bytes32 denomID = keccak256(newDenom);
-                erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+                erc20Address = address(_getICS20TransferStorage().ibcERC20Contracts[denomID]);
                 require(erc20Address != address(0), ICS20DenomNotFound(string(newDenom)));
             }
         } else {
             // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
-            bytes memory newDenom = ICS20Lib.addHop(denomBz, newDenomPrefix);
+            bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
             erc20Address = _findOrCreateERC20Address(newDenom, denomBz);
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
         // transfer the tokens to the receiver
-        // solhint-disable-next-line multiple-sends
         _getEscrow().send(IERC20(erc20Address), receiver, packetData.amount);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
@@ -234,7 +234,6 @@ contract ICS20Transfer is
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
-        // solhint-disable-next-line multiple-sends
         _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
     }
 
@@ -273,11 +272,11 @@ contract ICS20Transfer is
 
         // check if denom already has a foreign registered contract
         bytes32 denomID = keccak256(bytes(fullDenomPath));
-        address erc20Contract = address($.ibcDenomContracts[denomID]);
+        address erc20Contract = address($.ibcERC20Contracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
             IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, string(base), string(fullDenomPath));
-            $.ibcDenomContracts[denomID] = ibcERC20;
+            $.ibcERC20Contracts[denomID] = ibcERC20;
             erc20Contract = address(ibcERC20);
         }
 
@@ -309,14 +308,14 @@ contract ICS20Transfer is
         returningToSource = ICS20Lib.hasPrefix(denomBz, prefix);
         if (returningToSource) {
             // receiving chain is source of the token, so we've received and mapped this token before
-            erc20Address = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+            erc20Address = address(_getICS20TransferStorage().ibcERC20Contracts[denomID]);
         } else {
             // the receiving chain is not the source of the token, so the token is either a native token
             // or we are a middle chain and the token was minted (and mapped) here.
             // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
             // that is an address on their chain, and we would parse it as an address and fail to find the
             // mapped contract (or worse, find a contract that is not the correct one).
-            address denomIDContract = address(_getICS20TransferStorage().ibcDenomContracts[denomID]);
+            address denomIDContract = address(_getICS20TransferStorage().ibcERC20Contracts[denomID]);
             if (denomIDContract != address(0)) {
                 erc20Address = denomIDContract;
             } else {

@@ -19,6 +19,7 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IntegrationTest is Test {
@@ -965,10 +966,10 @@ contract IntegrationTest is Test {
         bytes memory prefix = abi.encodePacked(payloads[0].sourcePort, "/", receivePacket.sourceClient, "/");
         string memory expectedDenom;
         if (ICS20Lib.hasPrefix(denomBz, prefix)) {
-            expectedDenom = string(ICS20Lib.removeHop(denomBz, prefix));
+            expectedDenom = string(Bytes.slice(denomBz, prefix.length));
         } else {
             bytes memory newDenomPrefix = abi.encodePacked(payloads[0].destPort, "/", receivePacket.destClient, "/");
-            expectedDenom = string(ICS20Lib.addHop(denomBz, newDenomPrefix));
+            expectedDenom = string(abi.encodePacked(newDenomPrefix, denomBz));
         }
 
         vm.expectEmit();

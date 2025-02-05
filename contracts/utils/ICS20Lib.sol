@@ -151,22 +151,6 @@ library ICS20Lib {
         return abi.encodePacked(portId, "/", clientId, "/");
     }
 
-    /// @notice removeHop removes the first hop from the denom trace.
-    /// @param denom Denom to remove the hop from
-    /// @param hop Hop to remove (it must be the first hop)
-    /// @return The new denom with the first hop removed
-    function removeHop(bytes memory denom, bytes memory hop) internal pure returns (bytes memory) {
-        return Bytes.slice(denom, hop.length);
-    }
-
-    /// @notice addHop adds a hop to the denom trace as the first hop.
-    /// @param denom Denom to add the hop to
-    /// @param hop Hop to add
-    /// @return The new denom with the hop added
-    function addHop(bytes memory denom, bytes memory hop) internal pure returns (bytes memory) {
-        return abi.encodePacked(hop, denom);
-    }
-
     /// @notice hasHops checks if a denom has any hops in it (i.e it has a "/" in it).
     /// @param denom Denom to check
     /// @return true if the denom has any hops in it
