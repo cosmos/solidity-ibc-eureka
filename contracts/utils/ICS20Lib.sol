@@ -37,7 +37,7 @@ library ICS20Lib {
     /// @return The constructed MsgSendPacket
     function newFungibleTokenPacketDataV1(
         address sender,
-        IICS20TransferMsgs.SendTransferMsg memory msg_
+        IICS20TransferMsgs.SendTransferMsg calldata msg_
     )
         external
         view

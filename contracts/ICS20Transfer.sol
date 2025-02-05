@@ -90,6 +90,7 @@ contract ICS20Transfer is
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
+        // TODO: refactor here to avoid code duplication
         (address erc20Address, bool originatorChainIsSource) =
             getSendERC20AddressAndSource(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData);
 
