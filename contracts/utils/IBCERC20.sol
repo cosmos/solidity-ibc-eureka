@@ -21,11 +21,10 @@ contract IBCERC20 is IIBCERC20, ERC20 {
     constructor(
         IICS20Transfer ics20_,
         IEscrow escrow_,
-        string memory ibcDenom_,
         string memory baseDenom_,
         string memory fullDenomPath_
     )
-        ERC20(ibcDenom_, baseDenom_)
+        ERC20(fullDenomPath_, baseDenom_)
     {
         _fullDenomPath = fullDenomPath_;
         ESCROW = address(escrow_);

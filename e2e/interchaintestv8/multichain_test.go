@@ -742,7 +742,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
-		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		ibcERC20EthAddress, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 		s.Require().NoError(err)
 
 		ibcERC20Address = ibcERC20EthAddress.Hex()
