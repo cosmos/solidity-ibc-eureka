@@ -21,7 +21,7 @@ import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitial
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 
-contract IBCUUPSUpgradeableTest is Test {
+contract IBCAdminTest is Test {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
 
