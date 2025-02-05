@@ -98,7 +98,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
             address(ics20TransferLogic),
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
-                address(routerProxy)
+                address(routerProxy),
+                address(0)
             )
         );
 
