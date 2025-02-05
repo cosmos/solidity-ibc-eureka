@@ -13,11 +13,6 @@
         "internalType": "contract IEscrow"
       },
       {
-        "name": "ibcDenom_",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
         "name": "baseDenom_",
         "type": "string",
         "internalType": "string"
