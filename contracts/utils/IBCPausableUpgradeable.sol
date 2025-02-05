@@ -47,7 +47,7 @@ abstract contract IBCPausableUpgradeable is IIBCPausableUpgradeableErrors, IIBCP
     }
 
     /// @inheritdoc IIBCPausableUpgradeable
-    function setPauser(address pauser) public onlyPauser {
+    function setPauser(address pauser) public {
         _authorizeSetPauser(pauser);
         _getIBCPausableUpgradeableStorage()._pauser = pauser;
     }

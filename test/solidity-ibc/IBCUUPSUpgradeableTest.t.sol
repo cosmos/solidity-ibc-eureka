@@ -4,16 +4,22 @@ pragma solidity ^0.8.28;
 // solhint-disable gas-custom-errors
 
 import { Test } from "forge-std/Test.sol";
+
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+
+import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
+import { IIBCPausableUpgradeableErrors } from "../../contracts/errors/IIBCPausableUpgradeableErrors.sol";
+
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
-import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 
 contract IBCUUPSUpgradeableTest is Test {
     ICS26Router public ics26Router;
@@ -143,5 +149,53 @@ contract IBCUUPSUpgradeableTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
         ics26Router.setTimelockedAdmin(newTimelockedAdmin);
+    }
+
+    function test_success_pauseAndUnpause() public {
+        assertEq(ics20Transfer.getPauser(), ics20Pauser);
+
+        vm.prank(ics20Pauser);
+        ics20Transfer.pause();
+        assert(ics20Transfer.paused());
+
+        // Try to call a paused function
+        IICS20TransferMsgs.SendTransferMsg memory sendMsg;
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics20Transfer.sendTransfer(sendMsg);
+
+        vm.prank(ics20Pauser);
+        ics20Transfer.unpause();
+        assert(!ics20Transfer.paused());
+    }
+
+    function test_failure_pauseAndUnpause() public {
+        vm.expectRevert(abi.encodeWithSelector(IIBCPausableUpgradeableErrors.Unauthorized.selector));
+        ics20Transfer.pause();
+        assert(!ics20Transfer.paused());
+
+        vm.prank(ics20Pauser);
+        ics20Transfer.pause();
+        assert(ics20Transfer.paused());
+
+        vm.expectRevert(abi.encodeWithSelector(IIBCPausableUpgradeableErrors.Unauthorized.selector));
+        ics20Transfer.unpause();
+        assert(ics20Transfer.paused());
+    }
+
+    function test_success_setPauser() public {
+        address newPauser = makeAddr("newPauser");
+
+        ics20Transfer.setPauser(newPauser);
+        assertEq(ics20Transfer.getPauser(), newPauser);
+    }
+
+    function test_failure_setPauser() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newPauser = makeAddr("newPauser");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.setPauser(newPauser);
+        assertEq(ics20Transfer.getPauser(), ics20Pauser);
     }
 }
