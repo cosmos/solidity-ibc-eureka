@@ -19,6 +19,8 @@ contract IBCUUPSUpgradeableTest is Test {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
 
+    address ics20Pauser = makeAddr("ics20Pauser");
+
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
@@ -35,7 +37,7 @@ contract IBCUUPSUpgradeableTest is Test {
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
-            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
+            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), ics20Pauser)
         );
 
         // ============== Step 3: Wire up the contracts ==============

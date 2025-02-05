@@ -76,7 +76,7 @@ abstract contract IBCUUPSUpgradeable is
     function _authorizeUpgrade(address) internal view virtual override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
-    /// @notice Returns the storage of the IBCUpgradeable contract
+    /// @notice Returns the storage of the IBCUUPSUpgradeable contract
     function _getIBCUUPSUpgradeableStorage() internal pure returns (IBCUUPSUpgradeableStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

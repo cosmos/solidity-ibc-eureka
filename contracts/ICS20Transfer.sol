@@ -10,6 +10,7 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
+import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -20,7 +21,7 @@ import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
+import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
@@ -35,7 +36,8 @@ contract ICS20Transfer is
     IIBCApp,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IBCPausableUpgradeable
 {
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -63,9 +65,11 @@ contract ICS20Transfer is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
-    function initialize(address ics26Router) public initializer {
+    /// @param pauser The address that can pause and unpause the contract
+    function initialize(address ics26Router, address pauser) public initializer {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
+        __IBCPausable_init(pauser);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
@@ -99,12 +103,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override returns (uint32) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override whenNotPaused returns (uint32) {
         return _getICS26Router().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
     /// @inheritdoc IIBCApp
-    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyRouter nonReentrant {
+    function onSendPacket(OnSendPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
         require(
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
@@ -136,7 +140,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyRouter nonReentrant returns (bytes memory) {
+    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused returns (bytes memory) {
         // TODO: Figure out if should actually error out, or if just error acking is enough (#112)
 
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
@@ -172,7 +176,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant {
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 
@@ -184,7 +188,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant {
+    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
         (address erc20Address,) = getSendERC20AddressAndSource(msg_.payload.sourcePort, msg_.sourceClient, packetData);
@@ -303,7 +307,7 @@ contract ICS20Transfer is
     /// @param fullDenomPath The full path denom to find or create the contract for
     /// @param base The base denom of the token, used when creating a new IBCERC20 contract
     /// @return The address of the erc20 contract
-    function findOrCreateERC20Address(string memory fullDenomPath, string memory base) internal returns (address) {
+    function findOrCreateERC20Address(string memory fullDenomPath, string memory base) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -328,7 +332,13 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal virtual override {
+    function _authorizeUpgrade(address) internal view override {
+        address ics26Router = address(_getICS26Router());
+        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
+    }
+
+    /// @inheritdoc IBCPausableUpgradeable
+    function _authorizeSetPauser(address) internal view override {
         address ics26Router = address(_getICS26Router());
         require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
     }

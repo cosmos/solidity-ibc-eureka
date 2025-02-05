@@ -39,7 +39,7 @@ contract ICS20TransferTest is Test {
         TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
             address(ics20TransferLogic),
             address(this),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(this))
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(this), address(0))
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
