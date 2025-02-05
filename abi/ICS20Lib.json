@@ -166,44 +166,6 @@
     "stateMutability": "view"
   },
   {
-    "type": "function",
-    "name": "toHexHash",
-    "inputs": [
-      {
-        "name": "str",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
-    "type": "function",
-    "name": "toIBCDenom",
-    "inputs": [
-      {
-        "name": "fullDenomPath",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
     "type": "error",
     "name": "ICS20InvalidAmount",
     "inputs": [

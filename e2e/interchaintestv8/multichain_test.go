@@ -742,7 +742,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
 
 		var err error
-		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+		ibcERC20Address, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 		s.Require().NoError(err)
 
 		ibcERC20, err = ibcerc20.NewContract(ibcERC20Address, eth.RPCClient)

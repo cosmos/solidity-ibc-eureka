@@ -155,7 +155,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
 
-			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.IBCDenom())
+			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 			s.Require().NoError(err)
 
 			ibcERC20, err := ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), s.EthChain.RPCClient)

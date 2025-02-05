@@ -19,13 +19,13 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function setUp() public {
         _escrow = new Escrow(address(this));
-        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, "ibc/test", "test", "full/denom/path/test");
+        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, "test", "full/denom/path/test");
     }
 
     function test_ERC20Metadata() public view {
         assertEq(ibcERC20.ICS20(), address(this));
         assertEq(ibcERC20.ESCROW(), address(_escrow));
-        assertEq(ibcERC20.name(), "ibc/test");
+        assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
         assertEq(0, ibcERC20.totalSupply());
