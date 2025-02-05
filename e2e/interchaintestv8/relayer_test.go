@@ -91,13 +91,15 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
+			encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingJSON,
-				Value:           transferPayload.GetBytes(),
+				Encoding:        transfertypes.EncodingABI,
+				Value:           encodedPayload,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -207,13 +209,15 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     "",
 			}
+			encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingJSON,
-				Value:           transferPayload.GetBytes(),
+				Encoding:        transfertypes.EncodingABI,
+				Value:           encodedPayload,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -597,13 +601,15 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
+			encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingJSON,
-				Value:           transferPayload.GetBytes(),
+				Encoding:        transfertypes.EncodingABI,
+				Value:           encodedPayload,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
@@ -744,13 +750,15 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 				Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 				Memo:     sendMemo,
 			}
+			encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingJSON,
-				Value:           transferPayload.GetBytes(),
+				Encoding:        transfertypes.EncodingABI,
+				Value:           encodedPayload,
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
