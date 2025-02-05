@@ -25,7 +25,7 @@ contract IBCAdminTest is Test {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
 
-    address ics20Pauser = makeAddr("ics20Pauser");
+    address public ics20Pauser = makeAddr("ics20Pauser");
 
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
