@@ -103,7 +103,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external override whenNotPaused returns (uint32) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_)
+        external
+        override
+        whenNotPaused
+        returns (uint32)
+    {
         return _getICS26Router().sendPacket(ICS20Lib.newMsgSendPacketV1(_msgSender(), msg_));
     }
 
@@ -140,7 +145,13 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(OnRecvPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused returns (bytes memory) {
+    function onRecvPacket(OnRecvPacketCallback calldata msg_)
+        external
+        onlyRouter
+        nonReentrant
+        whenNotPaused
+        returns (bytes memory)
+    {
         // TODO: Figure out if should actually error out, or if just error acking is enough (#112)
 
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
@@ -176,7 +187,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
+    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)
+        external
+        onlyRouter
+        nonReentrant
+        whenNotPaused
+    {
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
 

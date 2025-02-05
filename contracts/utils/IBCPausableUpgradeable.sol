@@ -8,7 +8,12 @@ import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpg
 
 /// @title IBC Pausable Upgradeable contract
 /// @notice This contract is an abstract contract for adding pausability to IBC contracts.
-abstract contract IBCPausableUpgradeable is IIBCPausableUpgradeableErrors, IIBCPausableUpgradeable, ContextUpgradeable, PausableUpgradeable {
+abstract contract IBCPausableUpgradeable is
+    IIBCPausableUpgradeableErrors,
+    IIBCPausableUpgradeable,
+    ContextUpgradeable,
+    PausableUpgradeable
+{
     /// @notice Storage of the IBCPausableUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -18,7 +23,8 @@ abstract contract IBCPausableUpgradeable is IIBCPausableUpgradeableErrors, IIBCP
     }
 
     /// @notice ERC-7201 slot for the IBCPausableUpgradeable storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCPausableUpgradeable")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCPausableUpgradeable")) - 1)) &
+    /// ~bytes32(uint256(0xff))
     bytes32 private constant IBCPAUSABLEUPGRADEABLE_STORAGE_SLOT =
         0x3cb0d659d6ec9ab9509297c9cf14e29ed0165d10590ef43eb31ba393e648af00;
 
