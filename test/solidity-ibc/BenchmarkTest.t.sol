@@ -6,7 +6,6 @@ pragma solidity ^0.8.28;
 // solhint-disable-next-line no-global-import
 import "forge-std/console.sol";
 
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { TestERC20 } from "./mocks/TestERC20.sol";
@@ -135,8 +134,8 @@ contract BenchmarkTest is FixtureTest {
     function sendTransfer(Fixture memory fixture) internal returns (uint64) {
         TestERC20 erc20 = TestERC20(fixture.erc20Address);
 
-        ICS20Lib.FungibleTokenPacketData memory packetData =
-            abi.decode(fixture.packet.payloads[0].value, (ICS20Lib.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(fixture.packet.payloads[0].value, (IICS20TransferMsgs.FungibleTokenPacketData));
 
         address user = ICS20Lib.mustHexStringToAddress(packetData.sender);
 
@@ -145,10 +144,10 @@ contract BenchmarkTest is FixtureTest {
         vm.prank(user);
         erc20.approve(address(ics20Transfer), amountToSend);
 
-        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket = ics20Transfer.newMsgSendPacketV1(
-            user,
+        vm.prank(user);
+        ics20Transfer.sendTransfer(
             IICS20TransferMsgs.SendTransferMsg({
-                denom: packetData.denom,
+                denom: ICS20Lib.mustHexStringToAddress(packetData.denom),
                 amount: amountToSend,
                 receiver: packetData.receiver,
                 sourceClient: fixture.packet.sourceClient,
@@ -157,9 +156,6 @@ contract BenchmarkTest is FixtureTest {
                 memo: packetData.memo
             })
         );
-
-        vm.prank(user);
-        ics26Router.sendPacket(msgSendPacket);
 
         uint64 gasUsed = vm.lastCallGas().gasTotalUsed;
 

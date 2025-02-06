@@ -112,9 +112,8 @@ contract ICS26Router is
     /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
-        // TODO: Support multi-payload packets #93
-        require(msg_.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
-        IICS26RouterMsgs.Payload calldata payload = msg_.payloads[0];
+        address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
+        require(ibcApp == _msgSender(), IBCUnauthorizedSender(_msgSender()));
 
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
@@ -129,23 +128,15 @@ contract ICS26Router is
 
         uint32 sequence = nextSequenceSend(msg_.sourceClient);
 
+        // TODO: Support multi-payload packets #93
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: sequence,
             sourceClient: msg_.sourceClient,
             destClient: counterpartyId,
             timeoutTimestamp: msg_.timeoutTimestamp,
-            payloads: msg_.payloads
+            payloads: new IICS26RouterMsgs.Payload[](1)
         });
-
-        getIBCApp(payload.sourcePort).onSendPacket(
-            IIBCAppCallbacks.OnSendPacketCallback({
-                sourceClient: msg_.sourceClient,
-                destinationClient: counterpartyId,
-                sequence: sequence,
-                payload: payload,
-                sender: _msgSender()
-            })
-        );
+        packet.payloads[0] = msg_.payload;
 
         commitPacket(packet);
 

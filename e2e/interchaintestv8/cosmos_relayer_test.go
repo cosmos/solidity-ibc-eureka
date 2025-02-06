@@ -27,8 +27,6 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v9/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20lib"
-
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
@@ -253,22 +251,20 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   simdAUser.FormattedAddress(),
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Encoding:        transfertypes.EncodingJSON,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     ibctesting.FirstClientID,
@@ -405,22 +401,20 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
-			transferPayload := ics20lib.ICS20LibFungibleTokenPacketData{
+			transferPayload := transfertypes.FungibleTokenPacketData{
 				Denom:    transferCoin.Denom,
-				Amount:   transferCoin.Amount.BigInt(),
+				Amount:   transferCoin.Amount.String(),
 				Sender:   simdAUser.FormattedAddress(),
 				Receiver: simdBUser.FormattedAddress(),
 				Memo:     "",
 			}
-			transferBz, err := ics20lib.EncodeFungibleTokenPacketData(transferPayload)
-			s.Require().NoError(err)
 
 			payload := channeltypesv2.Payload{
 				SourcePort:      transfertypes.PortID,
 				DestinationPort: transfertypes.PortID,
 				Version:         transfertypes.V1,
-				Encoding:        transfertypes.EncodingABI,
-				Value:           transferBz,
+				Encoding:        transfertypes.EncodingJSON,
+				Value:           transferPayload.GetBytes(),
 			}
 			msgSendPacket := channeltypesv2.MsgSendPacket{
 				SourceClient:     ibctesting.FirstClientID,

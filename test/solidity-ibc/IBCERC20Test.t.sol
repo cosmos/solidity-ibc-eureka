@@ -5,7 +5,6 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
@@ -126,18 +125,5 @@ contract IBCERC20Test is Test, IICS20Transfer {
     // Dummy implementation of IICS20Transfer
     function ibcERC20Contract(string calldata) external pure override returns (address) {
         return address(0);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function newMsgSendPacketV1(
-        address,
-        IICS20TransferMsgs.SendTransferMsg calldata
-    )
-        external
-        pure
-        override
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
-    {
-        return IICS26RouterMsgs.MsgSendPacket("", 0, new IICS26RouterMsgs.Payload[](0));
     }
 }

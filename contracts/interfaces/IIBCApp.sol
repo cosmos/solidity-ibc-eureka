@@ -6,10 +6,6 @@ import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 /// @title IBC Application Interface
 /// @notice IIBCApp is an interface for the IBC Eureka application
 interface IIBCApp is IIBCAppCallbacks {
-    /// @notice Called when a packet is to be sent to the counterparty chain.
-    /// @param msg_ The callback message
-    function onSendPacket(OnSendPacketCallback calldata msg_) external;
-
     /// @notice Called when a packet is received from the counterparty chain.
     /// @param msg_ The callback message
     /// @return The acknowledgement data

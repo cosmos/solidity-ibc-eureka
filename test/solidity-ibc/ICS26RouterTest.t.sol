@@ -9,6 +9,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -51,6 +52,20 @@ contract ICS26RouterTest is Test {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+    }
+
+    function test_UnauthorizedSender() public {
+        ICS20Transfer ics20Transfer = new ICS20Transfer();
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+
+        address unauthorizedSender = makeAddr("unauthorizedSender");
+
+        IICS26RouterMsgs.MsgSendPacket memory msgSendPacket;
+        msgSendPacket.payload.sourcePort = ICS20Lib.DEFAULT_PORT_ID;
+
+        vm.prank(unauthorizedSender);
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCUnauthorizedSender.selector, unauthorizedSender));
+        ics26Router.sendPacket(msgSendPacket);
     }
 
     function test_RecvPacketWithFailedMembershipVerification() public {
