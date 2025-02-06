@@ -20,6 +20,10 @@ library ICS24Host {
     bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 =
         keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
+    /// @notice Universal error acknowledgement
+    /// @dev The error acknowledgement used when a packet is not successfully received
+    bytes32 internal constant UNIVERSAL_ERROR_ACK = sha256("UNIVERSAL_ERROR_ACK");
+
     /// @notice Generator for the path of a packet commitment
     /// @param clientId The client identifier
     /// @param sequence The sequence number
@@ -178,7 +182,7 @@ library ICS24Host {
     /// @return The big endian bytes representation
     function uint64ToBigEndian(uint64 value) private pure returns (bytes8) {
         bytes8 result;
-        // solhint-disable no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             // Shift the uint64 value left by 192 bits to align with a bytes8's starting position
             result := shl(192, value)
