@@ -31,7 +31,7 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice Create an ICS20Lib.FungibleTokenPacketData message for ics20-1.
+    /// @notice Create an IICS20TransferMsgs.FungibleTokenPacketData message for ics20-1.
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
