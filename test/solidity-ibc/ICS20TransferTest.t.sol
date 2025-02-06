@@ -472,7 +472,10 @@ contract ICS20TransferTest is Test {
 
         // test invalid version
         packet.payloads[0].version = "invalid";
-        bytes memory ack = ics20Transfer.onRecvPacket(
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedVersion.selector, ICS20Lib.ICS20_VERSION, "invalid")
+        );
+        ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceClient: packet.sourceClient,
                 destinationClient: packet.destClient,
@@ -481,7 +484,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"unexpected version: invalid\"}");
         // Reset version
         packet.payloads[0].version = ICS20Lib.ICS20_VERSION;
         packet.payloads[0].value = abi.encode(defaultPacketData);
@@ -505,7 +507,8 @@ contract ICS20TransferTest is Test {
         // test invalid amount
         defaultPacketData.amount = 0;
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        ack = ics20Transfer.onRecvPacket(
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
+        ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceClient: packet.sourceClient,
                 destinationClient: packet.destClient,
@@ -514,7 +517,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"invalid amount: 0\"}");
         // reset amount
         defaultPacketData.amount = defaultAmount;
         packet.payloads[0].value = abi.encode(defaultPacketData);
@@ -541,7 +543,8 @@ contract ICS20TransferTest is Test {
         // test invalid receiver
         defaultPacketData.receiver = "invalid";
         packet.payloads[0].value = abi.encode(defaultPacketData);
-        ack = ics20Transfer.onRecvPacket(
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAddress.selector, "invalid"));
+        ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceClient: packet.sourceClient,
                 destinationClient: packet.destClient,
@@ -550,7 +553,6 @@ contract ICS20TransferTest is Test {
                 relayer: makeAddr("relayer")
             })
         );
-        assertEq(string(ack), "{\"error\":\"invalid receiver: invalid\"}");
         // reset receiver
         defaultPacketData.receiver = receiverStr;
         packet.payloads[0].value = abi.encode(defaultPacketData);
