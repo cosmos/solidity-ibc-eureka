@@ -71,40 +71,6 @@ contract ICS20TransferTest is Test {
     }
 
     function test_failure_sendTransfer() public {
-        (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
-
-        erc20.mint(sender, defaultAmount);
-        vm.prank(sender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
-
-        // just to make sure it doesn't accidentally revert on the router call
-        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
-
-        vm.startPrank(sender);
-
-        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
-            amount: defaultAmount,
-            receiver: receiverStr,
-            sourceClient: packet.sourceClient,
-            destPort: packet.payloads[0].sourcePort,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            memo: "memo"
-        });
-
-        // just to prove that it works with the unaltered transfer message
-        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
-        assertEq(sequence, 42);
-
-        // initial amount is zero
-        msgSendTransfer.amount = 0;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
-        ics20Transfer.sendTransfer(msgSendTransfer);
-        // reset amount
-        msgSendTransfer.amount = defaultAmount;
-    }
-
-    function test_failure_sendTransfer_cases() public {
         // this contract acts as the ics26Router
 
         // test missing approval
