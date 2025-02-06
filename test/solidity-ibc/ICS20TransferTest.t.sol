@@ -25,8 +25,6 @@ contract ICS20TransferTest is Test {
     address public receiver;
     string public receiverStr;
 
-    string public erc20AddressStr;
-
     /// @dev the default send amount for sendTransfer
     uint256 public defaultAmount = 1_000_000_100_000_000_001;
 
@@ -47,8 +45,6 @@ contract ICS20TransferTest is Test {
 
         receiver = makeAddr(receiverStr);
         receiverStr = Strings.toHexString(receiver);
-
-        erc20AddressStr = Strings.toHexString(address(erc20));
     }
 
     function test_success_sendTransfer() public {
@@ -188,7 +184,7 @@ contract ICS20TransferTest is Test {
             })
         );
         // reset denom
-        defaultPacketData.denom = erc20AddressStr;
+        defaultPacketData.denom = Strings.toHexString(address(erc20));
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test denom not found when sending a non-native token (source trace)
@@ -263,7 +259,7 @@ contract ICS20TransferTest is Test {
             })
         );
         // reset denom
-        defaultPacketData.denom = erc20AddressStr;
+        defaultPacketData.denom = Strings.toHexString(address(erc20));
         packet.payloads[0].value = abi.encode(defaultPacketData);
 
         // test denom not found when sending a non-native token (source trace)
@@ -429,7 +425,7 @@ contract ICS20TransferTest is Test {
 
     function _getDefaultPacketData() internal view returns (IICS20TransferMsgs.FungibleTokenPacketData memory) {
         IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData = IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: erc20AddressStr,
+            denom: Strings.toHexString(address(erc20)),
             amount: defaultAmount,
             sender: senderStr,
             receiver: receiverStr,
