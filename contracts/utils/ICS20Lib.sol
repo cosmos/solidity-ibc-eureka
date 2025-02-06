@@ -6,29 +6,12 @@ pragma solidity ^0.8.28;
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
-import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { IBCERC20 } from "./IBCERC20.sol";
 
 // This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 // It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
 library ICS20Lib {
-    /// @notice FungibleTokenPacketData is the payload for a fungible token transfer packet.
-    /// @dev PacketData is defined in
-    /// [ICS-20](https://github.com/cosmos/ibc/tree/main/spec/app/ics-020-fungible-token-transfer).
-    /// @param denom The denomination of the token
-    /// @param sender The sender of the token
-    /// @param receiver The receiver of the token
-    /// @param amount The amount of tokens
-    /// @param memo Optional memo
-    struct FungibleTokenPacketData {
-        string denom;
-        string sender;
-        string receiver;
-        uint256 amount;
-        string memo;
-    }
-
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
     string public constant ICS20_VERSION = "ics20-1";
 
@@ -48,63 +31,36 @@ library ICS20Lib {
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice A dummy function to generate the ABI for the parameters.
-    /// @param o1 The FungibleTokenPacketData.
-    function abiPublicTypes(FungibleTokenPacketData memory o1) public pure 
-    // solhint-disable-next-line no-empty-blocks
-    {
-        // This is a dummy function to generate the ABI for outputs
-        // so that it can be used in the SP1 verifier contract.
-        // The function is not used in the contract.
-    }
-
-    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
-    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
+    /// @notice Create an ICS20Lib.FungibleTokenPacketData message for ics20-1.
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
-    function newMsgSendPacketV1(
+    function newFungibleTokenPacketDataV1(
         address sender,
-        IICS20TransferMsgs.SendTransferMsg memory msg_
+        IICS20TransferMsgs.SendTransferMsg calldata msg_
     )
-        external
+        internal
         view
-        returns (IICS26RouterMsgs.MsgSendPacket memory)
+        returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
 
         string memory fullDenomPath;
-        try IBCERC20(mustHexStringToAddress(msg_.denom)).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
+        try IBCERC20(msg_.denom).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
             // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
             fullDenomPath = ibcERC20FullDenomPath;
         } catch {
             // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = msg_.denom;
+            fullDenomPath = Strings.toHexString(msg_.denom);
         }
 
         // We are encoding the payload in ABI format
-        bytes memory packetData = abi.encode(
-            ICS20Lib.FungibleTokenPacketData({
-                denom: fullDenomPath,
-                sender: Strings.toHexString(sender),
-                receiver: msg_.receiver,
-                amount: msg_.amount,
-                memo: msg_.memo
-            })
-        );
-
-        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
-        payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: msg_.destPort,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: packetData
-        });
-        return IICS26RouterMsgs.MsgSendPacket({
-            sourceClient: msg_.sourceClient,
-            timeoutTimestamp: msg_.timeoutTimestamp,
-            payloads: payloads
+        return IICS20TransferMsgs.FungibleTokenPacketData({
+            denom: fullDenomPath,
+            sender: Strings.toHexString(sender),
+            receiver: msg_.receiver,
+            amount: msg_.amount,
+            memo: msg_.memo
         });
     }
 
@@ -147,7 +103,7 @@ library ICS20Lib {
     /// @param portId Port
     /// @param clientId client
     /// @return Denom prefix
-    function getDenomPrefix(string calldata portId, string calldata clientId) internal pure returns (bytes memory) {
+    function getDenomPrefix(string memory portId, string calldata clientId) internal pure returns (bytes memory) {
         return abi.encodePacked(portId, "/", clientId, "/");
     }
 

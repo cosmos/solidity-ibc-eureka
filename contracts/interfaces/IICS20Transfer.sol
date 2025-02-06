@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
-import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
 interface IICS20Transfer {
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
@@ -21,17 +20,4 @@ interface IICS20Transfer {
     /// @param denom The IBC denom
     /// @return The ERC20 contract address
     function ibcERC20Contract(string calldata denom) external view returns (address);
-
-    /// @notice Create an ICS26RouterMsgs.MsgSendPacket message for ics20-1.
-    /// @notice This is a helper function for constructing the MsgSendPacket for ICS26Router.
-    /// @param sender The sender of the transfer
-    /// @param msg The message for sending a transfer
-    /// @return The constructed MsgSendPacket
-    function newMsgSendPacketV1(
-        address sender,
-        IICS20TransferMsgs.SendTransferMsg calldata msg
-    )
-        external
-        view
-        returns (IICS26RouterMsgs.MsgSendPacket memory);
 }
