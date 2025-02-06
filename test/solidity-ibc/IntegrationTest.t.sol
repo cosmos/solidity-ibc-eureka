@@ -543,7 +543,9 @@ contract IntegrationTest is Test {
         vm.prank(receiver);
         ibcERC20.approve(address(ics20Transfer), largeAmount);
 
-        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", address(receivedERC20), largeAmount, clientIdentifier);
+        _sendICS20TransferPacket(
+            Strings.toHexString(sender), "whatever", address(receivedERC20), largeAmount, clientIdentifier
+        );
 
         // check balances after sending out
         uint256 senderBalanceAfterSend = ibcERC20.balanceOf(sender);
@@ -562,7 +564,8 @@ contract IntegrationTest is Test {
         string memory receiverStr = Strings.toHexString(receiver);
 
         // First packet
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData = _getPacketData(senderStr, receiverStr, foreignDenom);
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -622,7 +625,8 @@ contract IntegrationTest is Test {
 
         // First packet
         // First packet
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData = _getPacketData(senderStr, receiverStr, foreignDenom);
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
         IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
@@ -725,8 +729,9 @@ contract IntegrationTest is Test {
         vm.prank(middleReceiver);
         receivedERC20.approve(address(ics20Transfer), defaultAmount);
 
-        IICS26RouterMsgs.Packet memory outboundPacket =
-            _sendICS20TransferPacket(middleReceiverStr, "whatever", address(receivedERC20), defaultAmount, chainCClientID);
+        IICS26RouterMsgs.Packet memory outboundPacket = _sendICS20TransferPacket(
+            middleReceiverStr, "whatever", address(receivedERC20), defaultAmount, chainCClientID
+        );
         assertEq(outboundPacket.sourceClient, chainCClientID);
         assertEq(receivedERC20.balanceOf(middleReceiver), 0);
         assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
