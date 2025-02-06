@@ -1463,6 +1463,11 @@
   },
   {
     "type": "error",
+    "name": "IBCErrorUniversalAcknowledgement",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCInvalidClientType",
     "inputs": [
       {
