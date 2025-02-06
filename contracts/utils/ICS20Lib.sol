@@ -73,14 +73,6 @@ library ICS20Lib {
         return addr;
     }
 
-    /// @notice equal returns true if two byte arrays are equal.
-    /// @param a bytes
-    /// @param b bytes
-    /// @return true if the byte arrays are equal
-    function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
-        return keccak256(a) == keccak256(b);
-    }
-
     /// @notice hasPrefix checks a denom for a prefix
     /// @param denomBz the denom to check
     /// @param prefix the prefix to check with
@@ -89,14 +81,7 @@ library ICS20Lib {
         if (denomBz.length < prefix.length) {
             return false;
         }
-        return equal(Bytes.slice(denomBz, 0, prefix.length), prefix);
-    }
-
-    /// @notice errorAck returns an error acknowledgement.
-    /// @param reason Error reason
-    /// @return Error acknowledgement
-    function errorAck(bytes memory reason) internal pure returns (bytes memory) {
-        return abi.encodePacked("{\"error\":\"", reason, "\"}");
+        return keccak256(Bytes.slice(denomBz, 0, prefix.length)) == keccak256(prefix);
     }
 
     /// @notice getDenomPrefix returns an ibc path prefix
