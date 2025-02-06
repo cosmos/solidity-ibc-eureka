@@ -49,6 +49,9 @@ impl TryFrom<routerEvents> for EurekaEvent {
             }
             routerEvents::Noop(_) => Err(anyhow::anyhow!("Noop event")),
             routerEvents::IBCAppAdded(_) => Err(anyhow::anyhow!("IBCAppAdded event")),
+            routerEvents::IBCAppRecvPacketCallbackError(_) => {
+                Err(anyhow::anyhow!("IBCAppRecvPacketCallbackError event"))
+            }
             routerEvents::ICS02ClientAdded(_) => Err(anyhow::anyhow!("ICS02ClientAdded event")),
             routerEvents::Initialized(_) => Err(anyhow::anyhow!("Initialized event")),
             routerEvents::Upgraded(_) => Err(anyhow::anyhow!("Upgraded event")),
