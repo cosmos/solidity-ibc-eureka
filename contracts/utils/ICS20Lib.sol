@@ -39,7 +39,7 @@ library ICS20Lib {
         address sender,
         IICS20TransferMsgs.SendTransferMsg calldata msg_
     )
-        external
+        internal
         view
         returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
