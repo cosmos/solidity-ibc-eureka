@@ -4,18 +4,22 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length,max-states-count
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
+
+import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
-import { TestERC20 } from "./mocks/TestERC20.sol";
-import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+
+import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
+import { TestERC20 } from "./mocks/TestERC20.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -864,7 +868,6 @@ contract IntegrationTest is Test {
         internal
         returns (IICS26RouterMsgs.Packet memory)
     {
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData = _getPacketData(sender, receiver, Strings.toHexString(denom), amount);
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
@@ -877,26 +880,11 @@ contract IntegrationTest is Test {
             memo: "memo"
         });
 
+        vm.recordLogs();
         vm.prank(ICS20Lib.mustHexStringToAddress(sender));
         uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
 
-        assertEq(sequence, 1); // TODO: get this from contract and check correctly!
-
-        IICS26RouterMsgs.Payload[] memory packetPayloads = new IICS26RouterMsgs.Payload[](1);
-        packetPayloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            version: ICS20Lib.ICS20_VERSION,
-            encoding: ICS20Lib.ICS20_ENCODING,
-            value: abi.encode(packetData)
-        });
-        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
-            sequence: sequence,
-            sourceClient: sourceClient,
-            destClient: counterpartyId,
-            timeoutTimestamp: timeoutTimestamp,
-            payloads: packetPayloads
-        });
+        IICS26RouterMsgs.Packet memory packet = _getPacketFromSendEvent();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sourceClient, sequence);
         bytes32 storedCommitment = ics26Router.getCommitment(path);
@@ -987,7 +975,6 @@ contract IntegrationTest is Test {
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
-        vm.recordLogs();
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
@@ -1027,5 +1014,18 @@ contract IntegrationTest is Test {
             value: data
         });
         return payloads;
+    }
+
+    function _getPacketFromSendEvent() internal returns (IICS26RouterMsgs.Packet memory) {
+        Vm.Log[] memory sendEvent = vm.getRecordedLogs();
+        for (uint256 i = 0; i < sendEvent.length; i++) {
+            Vm.Log memory log = sendEvent[i];
+            for (uint256 j = 0; j < log.topics.length; j++) {
+                if (log.topics[j] == IICS26Router.SendPacket.selector) {
+                    return abi.decode(log.data, (IICS26RouterMsgs.Packet));
+                }
+            }
+        }
+        revert("SendPacket event not found");
     }
 }
