@@ -62,7 +62,8 @@ contract IntegrationTest is Test {
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
-            address(ics20TransferLogic), abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy))
+            address(ics20TransferLogic),
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), address(0))
         );
 
         // ============== Step 3: Wire up the contracts ==============
