@@ -1031,6 +1031,7 @@ contract IntegrationTest is Test {
                 }
             }
         }
+        // solhint-disable-next-line gas-custom-errors
         revert("SendPacket event not found");
     }
 }
