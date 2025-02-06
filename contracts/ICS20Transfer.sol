@@ -153,7 +153,10 @@ contract ICS20Transfer is
         returns (bytes memory)
     {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
-        require(keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)), ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version));
+        require(
+            keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
+            ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
+        );
 
         ICS20Lib.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (ICS20Lib.FungibleTokenPacketData));
