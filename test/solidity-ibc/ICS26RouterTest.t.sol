@@ -12,6 +12,7 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
@@ -106,6 +107,47 @@ contract ICS26RouterTest is Test {
          });
 
         vm.expectRevert();
+        ics26Router.recvPacket(msgRecvPacket);
+    }
+
+    function test_RecvPacketWithErrorAck() public {
+        string memory counterpartyID = "42-dummy-01";
+        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
+        string memory clientIdentifier = ics26Router.addClient(
+            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
+        );
+
+        // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
+        ICS20Transfer ics20Transfer = new ICS20Transfer();
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: "0x"
+        });
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            sourceClient: counterpartyID,
+            destClient: clientIdentifier,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads
+        });
+
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = IICS26RouterMsgs.MsgRecvPacket({
+            packet: packet,
+            proofCommitment: "0x", // doesn't matter
+            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
+         });
+
+        bytes[] memory expAcks = new bytes[](1);
+        expAcks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
+
+        vm.expectEmit();
+        emit IICS26Router.WriteAcknowledgement(packet, expAcks);
         ics26Router.recvPacket(msgRecvPacket);
     }
 }
