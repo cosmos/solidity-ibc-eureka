@@ -13,25 +13,23 @@ import { IBCERC20 } from "./IBCERC20.sol";
 // It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
 library ICS20Lib {
     /// @notice ICS20_VERSION is the version string for ICS20 packet data.
-    string public constant ICS20_VERSION = "ics20-1";
+    string internal constant ICS20_VERSION = "ics20-1";
 
     /// @notice ICS20_ENCODING is the encoding string for ICS20 packet data.
-    string public constant ICS20_ENCODING = "application/x-solidity-abi";
+    string internal constant ICS20_ENCODING = "application/x-solidity-abi";
 
     /// @notice IBC_DENOM_PREFIX is the prefix for IBC denoms.
-    string public constant IBC_DENOM_PREFIX = "ibc/";
+    string internal constant IBC_DENOM_PREFIX = "ibc/";
 
     /// @notice DEFAULT_PORT_ID is the default port id for ICS20.
-    string public constant DEFAULT_PORT_ID = "transfer";
+    string internal constant DEFAULT_PORT_ID = "transfer";
 
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
-    bytes public constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
-    /// @notice FAILED_ACKNOWLEDGEMENT_JSON is the JSON bytes for a failed acknowledgement.
-    bytes public constant FAILED_ACKNOWLEDGEMENT_JSON = bytes("{\"error\":\"failed\"}");
+    bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
     /// @notice KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the keccak256 hash of SUCCESSFUL_ACKNOWLEDGEMENT_JSON.
     bytes32 internal constant KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON = keccak256(SUCCESSFUL_ACKNOWLEDGEMENT_JSON);
 
-    /// @notice Create an ICS20Lib.FungibleTokenPacketData message for ics20-1.
+    /// @notice Create an IICS20TransferMsgs.FungibleTokenPacketData message for ics20-1.
     /// @param sender The sender of the transfer
     /// @param msg_ The message for sending a transfer
     /// @return The constructed MsgSendPacket
@@ -43,7 +41,7 @@ library ICS20Lib {
         view
         returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
-        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(msg_.amount));
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
 
         string memory fullDenomPath;
         try IBCERC20(msg_.denom).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
@@ -73,14 +71,6 @@ library ICS20Lib {
         return addr;
     }
 
-    /// @notice equal returns true if two byte arrays are equal.
-    /// @param a bytes
-    /// @param b bytes
-    /// @return true if the byte arrays are equal
-    function equal(bytes memory a, bytes memory b) internal pure returns (bool) {
-        return keccak256(a) == keccak256(b);
-    }
-
     /// @notice hasPrefix checks a denom for a prefix
     /// @param denomBz the denom to check
     /// @param prefix the prefix to check with
@@ -89,14 +79,7 @@ library ICS20Lib {
         if (denomBz.length < prefix.length) {
             return false;
         }
-        return equal(Bytes.slice(denomBz, 0, prefix.length), prefix);
-    }
-
-    /// @notice errorAck returns an error acknowledgement.
-    /// @param reason Error reason
-    /// @return Error acknowledgement
-    function errorAck(bytes memory reason) internal pure returns (bytes memory) {
-        return abi.encodePacked("{\"error\":\"", reason, "\"}");
+        return keccak256(Bytes.slice(denomBz, 0, prefix.length)) == keccak256(prefix);
     }
 
     /// @notice getDenomPrefix returns an ibc path prefix

@@ -148,7 +148,7 @@ contract ICS26Router is
     /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
-        // TODO: Support multi-payload packets #93
+        // TODO: Support multi-payload packets (#93)
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
 
@@ -177,7 +177,6 @@ contract ICS26Router is
         getClient(msg_.packet.destClient).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
-        // solhint-disable-next-line no-empty-blocks
         bool isReceiptSet = setPacketReceipt(msg_.packet);
         if (!isReceiptSet) {
             emit Noop();
@@ -185,7 +184,7 @@ contract ICS26Router is
         }
 
         bytes[] memory acks = new bytes[](1);
-        acks[0] = getIBCApp(payload.destPort).onRecvPacket(
+        try getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceClient: msg_.packet.sourceClient,
                 destinationClient: msg_.packet.destClient,
@@ -193,11 +192,16 @@ contract ICS26Router is
                 payload: payload,
                 relayer: _msgSender()
             })
-        );
-        require(acks[0].length != 0, IBCAsyncAcknowledgementNotSupported());
+        ) returns (bytes memory ack) {
+            require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
+            require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
+            acks[0] = ack;
+        } catch (bytes memory reason) {
+            emit IBCAppRecvPacketCallbackError(reason);
+            acks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
+        }
 
         writeAcknowledgement(msg_.packet, acks);
-
         emit RecvPacket(msg_.packet);
     }
 

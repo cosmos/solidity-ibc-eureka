@@ -28,6 +28,9 @@ interface IICS26RouterErrors {
     /// @notice IBC async acknowledgement not supported
     error IBCAsyncAcknowledgementNotSupported();
 
+    /// @notice IBC application cannot return the universal error acknowledgement
+    error IBCErrorUniversalAcknowledgement();
+
     /// @notice IBC packet commitment mismatch
     /// @param expected stored packet commitment
     /// @param actual actual packet commitment

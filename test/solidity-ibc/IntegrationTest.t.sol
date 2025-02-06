@@ -247,7 +247,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
-            acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+            acknowledgement: abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK),
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
@@ -275,7 +275,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
-            acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+            acknowledgement: abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK),
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });

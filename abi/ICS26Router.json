@@ -960,6 +960,19 @@
   },
   {
     "type": "event",
+    "name": "IBCAppRecvPacketCallbackError",
+    "inputs": [
+      {
+        "name": "reason",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ICS02ClientAdded",
     "inputs": [
       {
@@ -1460,6 +1473,11 @@
         "internalType": "string"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "IBCErrorUniversalAcknowledgement",
+    "inputs": []
   },
   {
     "type": "error",

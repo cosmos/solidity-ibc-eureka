@@ -17,6 +17,7 @@ import { ReentrancyGuardTransientUpgradeable } from
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -129,24 +130,18 @@ contract ICS20Transfer is
         whenNotPaused
         returns (bytes memory)
     {
-        // TODO: Figure out if should actually error out, or if just error acking is enough (#112)
-
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
-        if (keccak256(bytes(msg_.payload.version)) != keccak256(bytes(ICS20Lib.ICS20_VERSION))) {
-            return ICS20Lib.errorAck(abi.encodePacked("unexpected version: ", msg_.payload.version));
-        }
+        require(
+            keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
+            ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
+        );
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
-
-        if (packetData.amount == 0) {
-            return ICS20Lib.errorAck("invalid amount: 0");
-        }
+        require(packetData.amount > 0, ICS20InvalidAmount(0));
 
         (bool isAddress, address receiver) = Strings.tryParseAddress(packetData.receiver);
-        if (!isAddress) {
-            return ICS20Lib.errorAck(abi.encodePacked("invalid receiver: ", packetData.receiver));
-        }
+        require(isAddress, ICS20InvalidAddress(packetData.receiver));
 
         bytes memory denomBz = bytes(packetData.denom);
         bytes memory prefix = ICS20Lib.getDenomPrefix(msg_.payload.sourcePort, msg_.sourceClient);
@@ -195,7 +190,7 @@ contract ICS20Transfer is
         nonReentrant
         whenNotPaused
     {
-        if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
+        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
             IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
                 abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
 

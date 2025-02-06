@@ -42,6 +42,9 @@ interface IICS26Router {
     /// @param portId The port identifier
     /// @param app The address of the IBC application contract
     event IBCAppAdded(string portId, address app);
+    /// @notice Emitted when an error occurs during the IBC application's recvPacket callback
+    /// @param reason The error message
+    event IBCAppRecvPacketCallbackError(bytes reason);
     /// @notice Emitted when a packet is sent
     /// @param packet The sent packet
     event SendPacket(IICS26RouterMsgs.Packet packet);

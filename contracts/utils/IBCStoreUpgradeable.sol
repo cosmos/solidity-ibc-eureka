@@ -58,7 +58,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @notice Deletes the packet commitment for the given packet if it exists
     /// @param packet Packet to delete the commitment for
     /// @return True if the packet commitment was deleted, false otherwise
-    function deletePacketCommitment(IICS26RouterMsgs.Packet memory packet) internal returns (bool, bytes32) {
+    function deletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal returns (bool, bytes32) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
@@ -74,7 +74,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @notice Sets the packet receipt for the given packet if it doesn't already exist
     /// @param packet Packet to set the receipt for
     /// @return True if the packet receipt was set, false otherwise
-    function setPacketReceipt(IICS26RouterMsgs.Packet memory packet) internal returns (bool) {
+    function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destClient, packet.sequence);
@@ -86,7 +86,10 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
         return true;
     }
 
-    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet memory packet, bytes[] memory acks) internal {
+    /// @notice Commits the successful packet acknowledgements for the given packet
+    /// @param packet Packet to commit the acknowledgements for
+    /// @param acks Acknowledgements to commit
+    function commitPacketAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) internal {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(packet.destClient, packet.sequence);
