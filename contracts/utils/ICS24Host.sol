@@ -103,7 +103,7 @@ library ICS24Host {
     /// @param sequence The sequence number
     /// @return The keccak256 hash of the packet receipt commitment path
     function packetReceiptCommitmentKeyCalldata(
-        string memory clientId,
+        string calldata clientId,
         uint64 sequence
     )
         internal
