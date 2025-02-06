@@ -206,7 +206,8 @@ contract ICS26Router is
             require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
             require(keccak256(ack) != keccak256(universalErrorAck), IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
-        } catch {
+        } catch  (bytes memory reason) {
+            emit IBCAppRecvPacketCallbackError(reason);
             acks[0] = universalErrorAck;
         }
 
