@@ -183,7 +183,6 @@ contract ICS26Router is
             return;
         }
 
-        bytes memory universalErrorAck = abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK);
         bytes[] memory acks = new bytes[](1);
         try getIBCApp(payload.destPort).onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
@@ -195,11 +194,11 @@ contract ICS26Router is
             })
         ) returns (bytes memory ack) {
             require(ack.length != 0, IBCAsyncAcknowledgementNotSupported());
-            require(keccak256(ack) != keccak256(universalErrorAck), IBCErrorUniversalAcknowledgement());
+            require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
         } catch (bytes memory reason) {
             emit IBCAppRecvPacketCallbackError(reason);
-            acks[0] = universalErrorAck;
+            acks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
         }
 
         writeAcknowledgement(msg_.packet, acks);

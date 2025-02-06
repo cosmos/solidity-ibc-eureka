@@ -22,7 +22,11 @@ library ICS24Host {
 
     /// @notice Universal error acknowledgement
     /// @dev The error acknowledgement used when a packet is not successfully received
-    bytes32 internal constant UNIVERSAL_ERROR_ACK = sha256("UNIVERSAL_ERROR_ACK");
+    /// @dev abi.encodePacked(sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT"))
+    bytes internal constant UNIVERSAL_ERROR_ACK = hex"4774d4a575993f963b1c06573736617a457abef8589178db8d10c94b4ab511ab";
+
+    /// @notice Keccak256 hash of the universal error acknowledgement
+    bytes32 internal constant KECCAK256_UNIVERSAL_ERROR_ACK = keccak256(UNIVERSAL_ERROR_ACK);
 
     /// @notice Generator for the path of a packet commitment
     /// @param clientId The client identifier

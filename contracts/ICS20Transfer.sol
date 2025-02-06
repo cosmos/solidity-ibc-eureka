@@ -17,6 +17,7 @@ import { ReentrancyGuardTransientUpgradeable } from
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Escrow } from "./utils/Escrow.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -189,7 +190,7 @@ contract ICS20Transfer is
         nonReentrant
         whenNotPaused
     {
-        if (keccak256(msg_.acknowledgement) != ICS20Lib.KECCAK256_SUCCESSFUL_ACKNOWLEDGEMENT_JSON) {
+        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
             IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
                 abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
 

@@ -4,15 +4,19 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
+
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
-import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
-import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+
+import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
+import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
-import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -121,14 +125,14 @@ contract ICS20TransferTest is Test {
         // test invalid data
         bytes memory data = bytes("invalid");
         packet.payloads[0].value = data;
-        vm.expectRevert(bytes(""));
+        vm.expectRevert();
         ics20Transfer.onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
                 sourceClient: packet.sourceClient,
                 destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                acknowledgement: ICS24Host.UNIVERSAL_ERROR_ACK,
                 relayer: makeAddr("relayer")
             })
         );
@@ -145,7 +149,7 @@ contract ICS20TransferTest is Test {
                 destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                acknowledgement: abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK),
                 relayer: makeAddr("relayer")
             })
         );
@@ -164,7 +168,7 @@ contract ICS20TransferTest is Test {
                 destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                acknowledgement: abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK),
                 relayer: makeAddr("relayer")
             })
         );
@@ -182,7 +186,7 @@ contract ICS20TransferTest is Test {
                 destinationClient: packet.destClient,
                 sequence: packet.sequence,
                 payload: packet.payloads[0],
-                acknowledgement: ICS20Lib.FAILED_ACKNOWLEDGEMENT_JSON,
+                acknowledgement: abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK),
                 relayer: makeAddr("relayer")
             })
         );
