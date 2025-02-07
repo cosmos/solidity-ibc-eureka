@@ -72,6 +72,16 @@
         "internalType": "address"
       },
       {
+        "name": "escrowLogic",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "ibcERC20Logic",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "pauser",
         "type": "address",
         "internalType": "address"
