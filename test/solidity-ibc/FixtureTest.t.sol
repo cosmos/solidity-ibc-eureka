@@ -16,6 +16,8 @@ import { stdJson } from "forge-std/StdJson.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../contracts/utils/Escrow.sol";
 
 abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     ICS26Router public ics26Router;
@@ -49,6 +51,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
@@ -60,7 +64,9 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), address(0))
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, address(0)
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============

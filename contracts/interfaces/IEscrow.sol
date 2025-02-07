@@ -11,4 +11,12 @@ interface IEscrow {
     /// @param to The address to send the tokens to
     /// @param amount The amount of tokens to send
     function send(IERC20 token, address to, uint256 amount) external;
+
+    /// @notice Get the ICS20 contract address
+    /// @return The ICS20 contract address
+    function ics20() external view returns (address);
+
+    /// @notice Get the ICS26 contract address
+    /// @return The ICS26 contract address
+    function ics26() external view returns (address);
 }

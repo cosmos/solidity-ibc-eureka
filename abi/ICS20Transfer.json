@@ -72,6 +72,16 @@
         "internalType": "address"
       },
       {
+        "name": "escrowLogic",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "ibcERC20Logic",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "pauser",
         "type": "address",
         "internalType": "address"
@@ -437,6 +447,25 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "event",
+    "name": "IBCERC20ContractCreated",
+    "inputs": [
+      {
+        "name": "contractAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "fullDenomPath",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
