@@ -14,7 +14,8 @@ using SafeERC20 for IERC20;
 /// @notice This contract is used to escrow the funds for the ICS20 contract
 contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
     /// @notice Storage of the Escrow contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param _ics20 The ICS20 contract address, can send funds from the escrow
     /// @param _ics26 The ICS26 contract address, used for upgradeability
     struct EscrowStorage {
@@ -39,13 +40,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
     /// @dev This function is meant to be called by a proxy
     /// @param ics20_ The ICS20 contract address, can send funds from the escrow
     /// @param ics26_ The ICS26 contract address, used for upgradeability
-    function initialize(
-        address ics20_,
-        address ics26_
-    )
-        external
-        initializer
-    {
+    function initialize(address ics20_, address ics26_) external initializer {
         __Context_init();
 
         EscrowStorage storage $ = _getEscrowStorage();

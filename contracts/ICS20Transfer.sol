@@ -82,8 +82,7 @@ contract ICS20Transfer is
         $.escrow = IEscrow(
             address(
                 new ERC1967Proxy(
-                    escrowLogic,
-                    abi.encodeWithSelector(Escrow.initialize.selector, address(this), ics26Router)
+                    escrowLogic, abi.encodeWithSelector(Escrow.initialize.selector, address(this), ics26Router)
                 )
             )
         );
