@@ -208,9 +208,7 @@ contract IBCAdminTest is Test {
         DummyInitializable newLogic = new DummyInitializable();
         Escrow escrow = Escrow(ics20Transfer.escrow());
 
-        escrow.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
     }
 
     function test_failure_escrow_upgrade() public {
@@ -220,19 +218,28 @@ contract IBCAdminTest is Test {
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(Escrow.EscrowUnauthorized.selector, unauthorized));
-        escrow.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
     }
 
     function test_success_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        
+
         address ibcERC20Logic = address(new IBCERC20());
-        IBCERC20 ibcERC20Proxy = IBCERC20(address(new ERC1967Proxy(
-            ibcERC20Logic,
-            abi.encodeWithSelector(IBCERC20.initialize.selector, address(ics20Transfer), address(ics20Transfer.escrow()), address(ics26Router), "test", "full/denom/path/test")
-        )));
+        IBCERC20 ibcERC20Proxy = IBCERC20(
+            address(
+                new ERC1967Proxy(
+                    ibcERC20Logic,
+                    abi.encodeWithSelector(
+                        IBCERC20.initialize.selector,
+                        address(ics20Transfer),
+                        address(ics20Transfer.escrow()),
+                        address(ics26Router),
+                        "test",
+                        "full/denom/path/test"
+                    )
+                )
+            )
+        );
 
         ibcERC20Proxy.upgradeToAndCall(
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
@@ -241,12 +248,23 @@ contract IBCAdminTest is Test {
 
     function test_failure_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        
+
         address ibcERC20Logic = address(new IBCERC20());
-        IBCERC20 ibcERC20Proxy = IBCERC20(address(new ERC1967Proxy(
-            ibcERC20Logic,
-            abi.encodeWithSelector(IBCERC20.initialize.selector, address(ics20Transfer), address(ics20Transfer.escrow()), address(ics26Router), "test", "full/denom/path/test")
-        )));
+        IBCERC20 ibcERC20Proxy = IBCERC20(
+            address(
+                new ERC1967Proxy(
+                    ibcERC20Logic,
+                    abi.encodeWithSelector(
+                        IBCERC20.initialize.selector,
+                        address(ics20Transfer),
+                        address(ics20Transfer.escrow()),
+                        address(ics26Router),
+                        "test",
+                        "full/denom/path/test"
+                    )
+                )
+            )
+        );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
