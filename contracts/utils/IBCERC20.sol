@@ -7,6 +7,21 @@ import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20 {
+    /// @notice Storage of the IBCERC20 contract
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @param _fullDenomPath The full IBC denom path for this token
+    /// @param _escrow The escrow contract address
+    /// @param _ics20 The ICS20 contract address
+    struct IBCERC20Storage {
+        string _fullDenomPath;
+        address _escrow;
+        address _ics20;
+    }
+
+    /// @notice ERC-7201 slot for the IBCERC20 storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCERC20")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant IBCERC20_STORAGE_SLOT = 0x1dd677b5a02f77610493322b5fdbbfdb607b541c6e6045daab3464e895dea800;
+
     /// @notice The full IBC denom path for this token
     string private _fullDenomPath;
     /// @notice The escrow contract address
