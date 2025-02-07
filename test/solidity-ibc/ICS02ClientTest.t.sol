@@ -77,6 +77,7 @@ contract ICS02ClientTest is Test {
         vm.expectEmit();
         emit IICS02Client.ICS02ClientAdded("client-1", counterpartyInfo);
         string memory substituteIdentifier = ics02Client.addClient(counterpartyInfo, address(noopLightClient));
+        assertEq(2, ics02Client.getNextClientSeq());
 
         vm.expectRevert(
             abi.encodeWithSelector(
