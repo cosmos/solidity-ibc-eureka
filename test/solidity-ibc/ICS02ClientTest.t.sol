@@ -43,8 +43,8 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("07-tendermint-0", counterpartyInfo);
-        clientIdentifier = ics02Client.addClient("07-tendermint", counterpartyInfo, address(lightClient));
+        emit IICS02Client.ICS02ClientAdded("client-0", counterpartyInfo);
+        clientIdentifier = ics02Client.addClient(counterpartyInfo, address(lightClient));
         vm.stopPrank();
 
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
@@ -75,9 +75,9 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("07-tendermint-1", counterpartyInfo);
-        string memory substituteIdentifier =
-            ics02Client.addClient("07-tendermint", counterpartyInfo, address(noopLightClient));
+        emit IICS02Client.ICS02ClientAdded("client-1", counterpartyInfo);
+        string memory substituteIdentifier = ics02Client.addClient(counterpartyInfo, address(noopLightClient));
+        assertEq(2, ics02Client.getNextClientSeq());
 
         vm.expectRevert(
             abi.encodeWithSelector(
