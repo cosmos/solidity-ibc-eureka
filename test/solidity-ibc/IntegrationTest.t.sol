@@ -75,7 +75,7 @@ contract IntegrationTest is Test {
         defaultNativeDenom = erc20AddressStr;
 
         clientIdentifier = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
@@ -714,7 +714,7 @@ contract IntegrationTest is Test {
 
         // Create a secondary client to send out to a different chain
         string memory chainCClientID = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
 
         string memory foreignDenom = "uatom";
@@ -758,7 +758,7 @@ contract IntegrationTest is Test {
 
         // Create a secondary client to send out to a different chain
         string memory chainCClientID = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
         );
 
         string memory foreignDenom = someRandomERC20Str;

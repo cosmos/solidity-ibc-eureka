@@ -96,7 +96,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         );
 
         ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint)
         );
         ics26Router.addIBCApp("transfer", address(ics20Transfer));
 
