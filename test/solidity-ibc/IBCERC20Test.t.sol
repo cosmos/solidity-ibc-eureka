@@ -17,7 +17,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
-    address mockICS26;
+    address public mockICS26;
 
     function setUp() public {
         mockICS26 = makeAddr("mockICS26");
