@@ -24,6 +24,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 using SafeERC20 for IERC20;
 
@@ -267,9 +268,20 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcERC20Contracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, string(base), string(fullDenomPath));
-            $.ibcERC20Contracts[denomID] = ibcERC20;
-            erc20Contract = address(ibcERC20);
+            address ibcERC20Logic = address(new IBCERC20());
+            ERC1967Proxy ibcERC20Proxy = new ERC1967Proxy(
+                ibcERC20Logic,
+                abi.encodeWithSelector(
+                    IBCERC20.initialize.selector,
+                    address(this),
+                    $.escrow,
+                    address($.ics26Router),
+                    string(base),
+                    string(fullDenomPath)
+                )
+            );
+            $.ibcERC20Contracts[denomID] = IBCERC20(address(ibcERC20Proxy));
+            erc20Contract = address(ibcERC20Proxy);
         }
 
         return erc20Contract;

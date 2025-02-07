@@ -2,9 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
-import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
@@ -35,9 +33,16 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
+    /// @notice Initializes the IBCERC20 contract
+    /// @dev This function is meant to be called by a proxy
+    /// @param ics20_ The ICS20 contract address
+    /// @param escrow_ The escrow contract address
+    /// @param ics26_ The ICS26 contract address, used for upgradeability
+    /// @param baseDenom_ The base denom for this token
+    /// @param fullDenomPath_ The full IBC denom path for this token
     function initialize(
-        IICS20Transfer ics20_,
-        IEscrow escrow_,
+        address ics20_,
+        address escrow_,
         address ics26_,
         string memory baseDenom_,
         string memory fullDenomPath_
@@ -47,8 +52,8 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         IBCERC20Storage storage $ = _getIBCERC20Storage();
 
         $._fullDenomPath = fullDenomPath_;
-        $._escrow = address(escrow_);
-        $._ics20 = address(ics20_);
+        $._escrow = escrow_;
+        $._ics20 = ics20_;
         $._ics26 = IIBCUUPSUpgradeable(ics26_);
     }
 
@@ -65,6 +70,21 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     /// @inheritdoc IIBCERC20
     function burn(uint256 amount) external onlyICS20 {
         _burn(_getIBCERC20Storage()._escrow, amount);
+    }
+
+    /// @inheritdoc IIBCERC20
+    function escrow() external view returns (address) {
+        return _getIBCERC20Storage()._escrow;
+    }
+
+    /// @inheritdoc IIBCERC20
+    function ics20() external view returns (address) {
+        return _getIBCERC20Storage()._ics20;
+    }
+
+    /// @inheritdoc IIBCERC20
+    function ics26() external view returns (address) {
+        return address(_getIBCERC20Storage()._ics26);
     }
 
     /// @inheritdoc UUPSUpgradeable
