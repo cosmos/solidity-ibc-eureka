@@ -8,7 +8,6 @@ import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
 import { IICS02Client } from "../interfaces/IICS02Client.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 
-import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
