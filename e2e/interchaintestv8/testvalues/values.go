@@ -85,18 +85,13 @@ const (
 	// SP1ICS07DeployScriptPath is the path to the SP1ICS07 deploy script.
 	SP1ICS07DeployScriptPath = "scripts/SP1ICS07Tendermint.s.sol:SP1TendermintScript"
 
-	// DefaultGovV1ProposalTokenAmount is the default amount of tokens used to submit a proposal.
-	DefaultGovV1ProposalTokenAmount = 500_000_000
-
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
 
 	// FirstWasmClientID is the first wasm client ID. Used for testing.
 	FirstWasmClientID = "08-wasm-0"
-
 	// FirstUniversalClientID is the first universal client ID. Used for testing.
 	FirstUniversalClientID = "client-0"
-
 	// SecondUniversalClientID is the second universal client ID. Used for testing.
 	SecondUniversalClientID = "client-1"
 )
