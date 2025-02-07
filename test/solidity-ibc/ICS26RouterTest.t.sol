@@ -72,9 +72,8 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
-        );
+        string memory clientIdentifier =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient));
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
         ERC1967Proxy transferProxy = new ERC1967Proxy(
@@ -113,9 +112,8 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithErrorAck() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        string memory clientIdentifier = ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient)
-        );
+        string memory clientIdentifier =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient));
 
         // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
         ICS20Transfer ics20Transfer = new ICS20Transfer();
