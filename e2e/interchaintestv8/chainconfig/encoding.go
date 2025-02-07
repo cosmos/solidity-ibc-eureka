@@ -1,22 +1,33 @@
 package chainconfig
 
 import (
-	"cosmossdk.io/x/authz"
-	banktypes "cosmossdk.io/x/bank/types"
-	govv1 "cosmossdk.io/x/gov/types/v1"
-	govv1beta1 "cosmossdk.io/x/gov/types/v1beta1"
-	grouptypes "cosmossdk.io/x/group"
-	proposaltypes "cosmossdk.io/x/params/types/proposal"
+	"github.com/cosmos/gogoproto/proto"
+
+	txsigning "cosmossdk.io/x/tx/signing"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
+	"github.com/cosmos/cosmos-sdk/codec/address"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	grouptypes "github.com/cosmos/cosmos-sdk/x/group"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	icacontrollertypes "github.com/cosmos/ibc-go/v9/modules/apps/27-interchain-accounts/controller/types"
 	icahosttypes "github.com/cosmos/ibc-go/v9/modules/apps/27-interchain-accounts/host/types"
 	feetypes "github.com/cosmos/ibc-go/v9/modules/apps/29-fee/types"
@@ -30,53 +41,72 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 )
 
-// Codec returns the global E2E protobuf codec.
-func Codec() *codec.ProtoCodec {
-	cdc, _ := codecAndEncodingConfig()
-	return cdc
+// CosmosEncodingConfig returns the global E2E encoding config for simd.
+func CosmosEncodingConfig() *sdktestutil.TestEncodingConfig {
+	return encodingConfig("cosmos")
 }
 
-// SDKEncodingConfig returns the global E2E encoding config.
-func SDKEncodingConfig() *sdktestutil.TestEncodingConfig {
-	_, cfg := codecAndEncodingConfig()
-	return &sdktestutil.TestEncodingConfig{
-		InterfaceRegistry: cfg.InterfaceRegistry,
-		Codec:             cfg.Codec,
-		TxConfig:          cfg.TxConfig,
-		Amino:             cfg.Amino,
+// EncodingConfig returns the global E2E encoding config.
+// It includes CosmosSDK, IBC, and Wasm messages
+func encodingConfig(bech32Prefix string) *sdktestutil.TestEncodingConfig {
+	amino := codec.NewLegacyAmino()
+	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
+		ProtoFiles: proto.HybridResolver,
+		SigningOptions: txsigning.Options{
+			AddressCodec: address.Bech32Codec{
+				Bech32Prefix: bech32Prefix,
+			},
+			ValidatorAddressCodec: address.Bech32Codec{
+				Bech32Prefix: bech32Prefix + sdk.PrefixValidator + sdk.PrefixOperator,
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
 	}
-}
-
-// codecAndEncodingConfig returns the codec and encoding config used in the E2E tests.
-// Note: any new types added to the codec must be added here.
-func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig) {
-	cfg := sdktestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{})
 
 	// ibc types
-	icacontrollertypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	icahosttypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	feetypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	solomachine.RegisterInterfaces(cfg.InterfaceRegistry)
-	v7migrations.RegisterInterfaces(cfg.InterfaceRegistry)
-	transfertypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	clienttypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	channeltypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	connectiontypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	ibctmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	wasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	channeltypesv2.RegisterInterfaces(cfg.InterfaceRegistry)
+	icacontrollertypes.RegisterInterfaces(interfaceRegistry)
+	icahosttypes.RegisterInterfaces(interfaceRegistry)
+	feetypes.RegisterInterfaces(interfaceRegistry)
+	transfertypes.RegisterInterfaces(interfaceRegistry)
+	v7migrations.RegisterInterfaces(interfaceRegistry)
+	clienttypes.RegisterInterfaces(interfaceRegistry)
+	connectiontypes.RegisterInterfaces(interfaceRegistry)
+	channeltypes.RegisterInterfaces(interfaceRegistry)
+	channeltypesv2.RegisterInterfaces(interfaceRegistry)
+	solomachine.RegisterInterfaces(interfaceRegistry)
+	ibctmtypes.RegisterInterfaces(interfaceRegistry)
+	ibcwasmtypes.RegisterInterfaces(interfaceRegistry)
 
-	// all other types
-	upgradetypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	banktypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	govv1beta1.RegisterInterfaces(cfg.InterfaceRegistry)
-	govv1.RegisterInterfaces(cfg.InterfaceRegistry)
-	authtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	cryptocodec.RegisterInterfaces(cfg.InterfaceRegistry)
-	grouptypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	proposaltypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	authz.RegisterInterfaces(cfg.InterfaceRegistry)
-	txtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	cdc := codec.NewProtoCodec(cfg.InterfaceRegistry)
-	return cdc, cfg
+	// sdk types
+	upgradetypes.RegisterInterfaces(interfaceRegistry)
+	banktypes.RegisterInterfaces(interfaceRegistry)
+	govv1beta1.RegisterInterfaces(interfaceRegistry)
+	govv1.RegisterInterfaces(interfaceRegistry)
+	authtypes.RegisterInterfaces(interfaceRegistry)
+	cryptocodec.RegisterInterfaces(interfaceRegistry)
+	grouptypes.RegisterInterfaces(interfaceRegistry)
+	proposaltypes.RegisterInterfaces(interfaceRegistry)
+	authz.RegisterInterfaces(interfaceRegistry)
+	txtypes.RegisterInterfaces(interfaceRegistry)
+	stakingtypes.RegisterInterfaces(interfaceRegistry)
+	minttypes.RegisterInterfaces(interfaceRegistry)
+	distrtypes.RegisterInterfaces(interfaceRegistry)
+	slashingtypes.RegisterInterfaces(interfaceRegistry)
+	consensustypes.RegisterInterfaces(interfaceRegistry)
+
+	// custom module types
+	ibcwasmtypes.RegisterInterfaces(interfaceRegistry)
+
+	cdc := codec.NewProtoCodec(interfaceRegistry)
+
+	cfg := &sdktestutil.TestEncodingConfig{
+		InterfaceRegistry: interfaceRegistry,
+		Codec:             cdc,
+		TxConfig:          authtx.NewTxConfig(cdc, authtx.DefaultSignModes),
+		Amino:             amino,
+	}
+
+	return cfg
 }

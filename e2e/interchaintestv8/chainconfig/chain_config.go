@@ -1,8 +1,8 @@
 package chainconfig
 
 import (
-	interchaintest "github.com/strangelove-ventures/interchaintest/v9"
-	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	interchaintest "github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 )
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{
@@ -28,7 +28,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.3,
-			EncodingConfig: SDKEncodingConfig(),
+			EncodingConfig: CosmosEncodingConfig(),
 			ModifyGenesis:  defaultModifyGenesis(),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,

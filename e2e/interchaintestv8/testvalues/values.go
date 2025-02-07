@@ -12,7 +12,7 @@ import (
 
 	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 
-	"github.com/strangelove-ventures/interchaintest/v9/chain/ethereum"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 )

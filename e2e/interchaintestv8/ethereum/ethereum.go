@@ -22,7 +22,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/strangelove-ventures/interchaintest/v9/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )

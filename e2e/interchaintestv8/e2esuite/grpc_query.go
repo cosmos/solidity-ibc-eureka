@@ -14,7 +14,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 )
 
 var queryReqToPath = make(map[string]string)
@@ -42,22 +42,22 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 	return nil
 }
 
-func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.QueryRequest) (*abci.QueryResponse, error) {
+func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
 	// Create a connection to the gRPC server.
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return &abci.QueryResponse{}, err
+		return &abci.ResponseQuery{}, err
 	}
 
 	defer grpcConn.Close()
 
-	resp := &abci.QueryResponse{}
+	resp := &abci.ResponseQuery{}
 	err = grpcConn.Invoke(ctx, "cosmos.base.tendermint.v1beta1.Service/ABCIQuery", req, resp)
 	if err != nil {
-		return &abci.QueryResponse{}, err
+		return &abci.ResponseQuery{}, err
 	}
 
 	return resp, nil
