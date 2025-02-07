@@ -269,7 +269,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.SecondClientID, event.ClientId)
+		s.Require().Equal(testvalues.SecondUniversalClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
@@ -290,7 +290,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
@@ -511,11 +511,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 
-		clientAddress, err = s.ics26Contract.GetClient(nil, ibctesting.SecondClientID)
+		clientAddress, err = s.ics26Contract.GetClient(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, ibctesting.SecondClientID)
+		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
@@ -785,7 +785,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Denom:            ibcERC20Address,
 			Amount:           transferAmount,
 			Receiver:         simdBUser.FormattedAddress(),
-			SourceClient:     ibctesting.SecondClientID,
+			SourceClient:     testvalues.SecondUniversalClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
 			Memo:             "",
