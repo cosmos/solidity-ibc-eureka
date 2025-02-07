@@ -12,7 +12,7 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     /// upgradeable contracts.
     /// @param _fullDenomPath The full IBC denom path for this token
     /// @param _escrow The escrow contract address
-    /// @param _ics20 The ICS20 contract address
+    /// @param _ics20 The ICS20 contract address, can burn and mint tokens
     /// @param _ics26 The ICS26 contract address, used for upgradeability
     struct IBCERC20Storage {
         string _fullDenomPath;
@@ -37,7 +37,7 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     /// @notice Initializes the IBCERC20 contract
     /// @dev This function is meant to be called by a proxy
     /// @param ics20_ The ICS20 contract address
-    /// @param escrow_ The escrow contract address
+    /// @param escrow_ The escrow contract address, can burn and mint tokens
     /// @param ics26_ The ICS26 contract address, used for upgradeability
     /// @param baseDenom_ The base denom for this token
     /// @param fullDenomPath_ The full IBC denom path for this token
