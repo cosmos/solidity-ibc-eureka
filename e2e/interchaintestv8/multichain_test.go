@@ -269,7 +269,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.SecondClientID, event.ClientId)
+		s.Require().Equal(testvalues.SecondUniversalClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
@@ -290,7 +290,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
@@ -370,8 +370,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		// We can do this because we know what the counterparty channel ID will be
 		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.SecondClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
+			ClientId:                 testvalues.SecondUniversalClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
 		})
@@ -382,8 +382,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.SecondClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
+			ClientId:                 testvalues.SecondUniversalClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
@@ -511,11 +511,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 
-		clientAddress, err = s.ics26Contract.GetClient(nil, ibctesting.SecondClientID)
+		clientAddress, err = s.ics26Contract.GetClient(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, ibctesting.SecondClientID)
+		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
@@ -563,12 +563,12 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(testvalues.SecondUniversalClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
 		clientStateResp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdB, &clienttypes.QueryClientStateRequest{
-			ClientId: ibctesting.SecondClientID,
+			ClientId: testvalues.SecondUniversalClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotZero(clientStateResp.ClientState.Value)
@@ -581,7 +581,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 	s.Require().True(s.Run("Verify Light Client of Chain B on Chain A", func() {
 		clientStateResp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simdA, &clienttypes.QueryClientStateRequest{
-			ClientId: ibctesting.SecondClientID,
+			ClientId: testvalues.SecondUniversalClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotZero(clientStateResp.ClientState.Value)
@@ -785,7 +785,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Denom:            ibcERC20Address,
 			Amount:           transferAmount,
 			Receiver:         simdBUser.FormattedAddress(),
-			SourceClient:     ibctesting.SecondClientID,
+			SourceClient:     testvalues.SecondUniversalClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
 			Memo:             "",
@@ -974,7 +974,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		}
 
 		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
-			SourceClient:     ibctesting.SecondClientID,
+			SourceClient:     testvalues.SecondUniversalClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{
 				payload,
@@ -993,7 +993,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
 			resp, err := s.ChainAToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:    [][]byte{simdASendTxHash},
-				TargetClientId: ibctesting.SecondClientID,
+				TargetClientId: testvalues.SecondUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1010,7 +1010,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			finalDenom := transfertypes.NewDenom(
 				s.contractAddresses.Erc20,
-				transfertypes.NewHop(transfertypes.PortID, ibctesting.SecondClientID),
+				transfertypes.NewHop(transfertypes.PortID, testvalues.SecondUniversalClientID),
 				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID),
 			)
 

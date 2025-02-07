@@ -96,6 +96,9 @@ const (
 
 	// FirstUniversalClientID is the first universal client ID. Used for testing.
 	FirstUniversalClientID = "client-0"
+
+	// SecondUniversalClientID is the second universal client ID. Used for testing.
+	SecondUniversalClientID = "client-1"
 )
 
 var (
