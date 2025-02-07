@@ -51,9 +51,7 @@ contract IBCAdminTest is Test {
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
-        ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
-        );
+        ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
     }
 

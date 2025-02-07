@@ -88,8 +88,8 @@ func getGenesisFixture() ([]byte, error) {
 func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
 	structType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "sequence", Type: "uint32"},
-		{Name: "sourceChannel", Type: "string"},
-		{Name: "destChannel", Type: "string"},
+		{Name: "sourceClient", Type: "string"},
+		{Name: "destClient", Type: "string"},
 		{Name: "timeoutTimestamp", Type: "uint64"},
 		{Name: "payloads", Type: "tuple[]", Components: []abi.ArgumentMarshaling{
 			{Name: "sourcePort", Type: "string"},

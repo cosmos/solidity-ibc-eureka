@@ -239,7 +239,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -247,7 +247,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.FirstClientID, event.ClientId)
+		s.Require().Equal(testvalues.FirstUniversalClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
@@ -261,7 +261,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -269,7 +269,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.SecondClientID, event.ClientId)
+		s.Require().Equal(testvalues.SecondUniversalClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
@@ -278,7 +278,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     ibctesting.FirstClientID,
+			CounterpartyClientId:     testvalues.FirstUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
 		})
@@ -290,7 +290,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
 		})
@@ -503,19 +503,19 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		clientAddress, err := s.ics26Contract.GetClient(nil, ibctesting.FirstClientID)
+		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, ibctesting.FirstClientID)
+		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 
-		clientAddress, err = s.ics26Contract.GetClient(nil, ibctesting.SecondClientID)
+		clientAddress, err = s.ics26Contract.GetClient(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, ibctesting.SecondClientID)
+		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
@@ -548,7 +548,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.FirstClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(testvalues.FirstUniversalClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
@@ -714,7 +714,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.ChainAToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:    [][]byte{simdASendTxHash},
-				TargetClientId: ibctesting.FirstClientID,
+				TargetClientId: testvalues.FirstUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -785,7 +785,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Denom:            ibcERC20Address,
 			Amount:           transferAmount,
 			Receiver:         simdBUser.FormattedAddress(),
-			SourceClient:     ibctesting.SecondClientID,
+			SourceClient:     testvalues.SecondUniversalClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
 			Memo:             "",
@@ -834,7 +834,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			finalDenom := transfertypes.NewDenom(
 				simdA.Config().Denom,
 				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID),
-				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID),
+				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstUniversalClientID),
 			)
 
 			// Check the balance of UserB
@@ -886,7 +886,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         simdAUser.FormattedAddress(),
-			SourceClient:     ibctesting.FirstClientID,
+			SourceClient:     testvalues.FirstUniversalClientID,
 			DestPort:         transfertypes.PortID,
 			TimeoutTimestamp: timeout,
 			Memo:             "",

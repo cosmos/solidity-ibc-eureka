@@ -74,9 +74,8 @@ contract IntegrationTest is Test {
 
         defaultNativeDenom = erc20AddressStr;
 
-        clientIdentifier = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
-        );
+        clientIdentifier =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         vm.expectEmit();
@@ -682,7 +681,7 @@ contract IntegrationTest is Test {
         (IERC20 receivedERC20, string memory receivedDenom,) =
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
 
-        assertEq(receivedDenom, "transfer/07-tendermint-0/transfer/channel-42/uatom");
+        assertEq(receivedDenom, "transfer/client-0/transfer/channel-42/uatom");
 
         IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
         assertEq(ibcERC20.fullDenomPath(), receivedDenom);
@@ -713,9 +712,8 @@ contract IntegrationTest is Test {
         // There are three chains in this scenario: A -> B -> C with B being us
 
         // Create a secondary client to send out to a different chain
-        string memory chainCClientID = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
-        );
+        string memory chainCClientID =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
 
         string memory foreignDenom = "uatom";
 
@@ -757,9 +755,8 @@ contract IntegrationTest is Test {
         string memory someRandomERC20Str = Strings.toHexString(address(new TestERC20()));
 
         // Create a secondary client to send out to a different chain
-        string memory chainCClientID = ics26Router.addClient(
-            "07-tendermint", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient)
-        );
+        string memory chainCClientID =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
 
         string memory foreignDenom = someRandomERC20Str;
 

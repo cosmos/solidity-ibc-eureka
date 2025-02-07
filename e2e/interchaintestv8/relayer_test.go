@@ -24,7 +24,6 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
-	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
@@ -137,7 +136,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:    sendTxHashes,
-				TargetClientId: ibctesting.FirstClientID,
+				TargetClientId: testvalues.FirstUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -153,7 +152,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID))
+			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstUniversalClientID))
 
 			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 			s.Require().NoError(err)
@@ -257,7 +256,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SourceTxIds:    sendTxHashes,
-			TargetClientId: ibctesting.FirstClientID,
+			TargetClientId: testvalues.FirstUniversalClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -275,7 +274,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 				defer wg.Done() // decrement the counter when the request completes
 				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 					SourceTxIds:    [][]byte{txHash},
-					TargetClientId: ibctesting.FirstClientID,
+					TargetClientId: testvalues.FirstUniversalClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -341,7 +340,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		transferMulticall := make([][]byte, numOfTransfers)
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			SourceClient:     ibctesting.FirstClientID,
+			SourceClient:     testvalues.FirstUniversalClientID,
 			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
@@ -420,7 +419,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: ibctesting.FirstClientID,
+				TargetClientId: testvalues.FirstUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -490,7 +489,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            erc20Address,
-			SourceClient:     ibctesting.FirstClientID,
+			SourceClient:     testvalues.FirstUniversalClientID,
 			DestPort:         transfertypes.PortID,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
@@ -650,7 +649,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SourceTxIds:    sendTxHashes,
-				TargetClientId: ibctesting.FirstClientID,
+				TargetClientId: testvalues.FirstUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)

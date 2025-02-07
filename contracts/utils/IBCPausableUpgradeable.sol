@@ -14,19 +14,19 @@ abstract contract IBCPausableUpgradeable is
     ContextUpgradeable,
     PausableUpgradeable
 {
-    /// @notice Storage of the IBCPausableUpgradeable contract
+    /// @notice Storage of the IBCPausable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _pauser The address that can pause and unpause the contract
-    struct IBCPausableUpgradeableStorage {
+    struct IBCPausableStorage {
         address _pauser;
     }
 
-    /// @notice ERC-7201 slot for the IBCPausableUpgradeable storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCPausableUpgradeable")) - 1)) &
+    /// @notice ERC-7201 slot for the IBCPausable storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCPausable")) - 1)) &
     /// ~bytes32(uint256(0xff))
-    bytes32 private constant IBCPAUSABLEUPGRADEABLE_STORAGE_SLOT =
-        0x3cb0d659d6ec9ab9509297c9cf14e29ed0165d10590ef43eb31ba393e648af00;
+    bytes32 private constant IBCPAUSABLE_STORAGE_SLOT =
+        0xf205aa58a40d121ba2119531ecfad12344b90ab99f75444bf95259654539d700;
 
     /**
      * @dev Initializes the contract in unpaused state.
@@ -34,12 +34,12 @@ abstract contract IBCPausableUpgradeable is
     function __IBCPausable_init(address pauser) internal onlyInitializing {
         __Pausable_init();
 
-        _getIBCPausableUpgradeableStorage()._pauser = pauser;
+        _getIBCPausableStorage()._pauser = pauser;
     }
 
     /// @inheritdoc IIBCPausableUpgradeable
     function getPauser() public view returns (address) {
-        return _getIBCPausableUpgradeableStorage()._pauser;
+        return _getIBCPausableStorage()._pauser;
     }
 
     /// @inheritdoc IIBCPausableUpgradeable
@@ -55,7 +55,7 @@ abstract contract IBCPausableUpgradeable is
     /// @inheritdoc IIBCPausableUpgradeable
     function setPauser(address pauser) public {
         _authorizeSetPauser(pauser);
-        _getIBCPausableUpgradeableStorage()._pauser = pauser;
+        _getIBCPausableStorage()._pauser = pauser;
     }
 
     /// @notice Authorizes the setting of a new pauser
@@ -64,10 +64,10 @@ abstract contract IBCPausableUpgradeable is
     function _authorizeSetPauser(address pauser) internal virtual;
 
     /// @notice Returns the storage of the IBCPausableUpgradeable contract
-    function _getIBCPausableUpgradeableStorage() internal pure returns (IBCPausableUpgradeableStorage storage $) {
+    function _getIBCPausableStorage() internal pure returns (IBCPausableStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := IBCPAUSABLEUPGRADEABLE_STORAGE_SLOT
+            $.slot := IBCPAUSABLE_STORAGE_SLOT
         }
     }
 

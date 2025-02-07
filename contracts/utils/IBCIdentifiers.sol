@@ -40,11 +40,4 @@ library IBCIdentifiers {
         }
         return true;
     }
-
-    /// @notice validateClientType checks if the client type is allowed
-    /// @param clientType The client type
-    /// @return True if the client type is allowed
-    function validateClientType(string memory clientType) internal pure returns (bool) {
-        return keccak256(bytes(clientType)) == keccak256("07-tendermint");
-    }
 }

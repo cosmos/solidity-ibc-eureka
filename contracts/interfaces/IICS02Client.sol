@@ -26,13 +26,16 @@ interface IICS02Client {
     /// @return The address of the client contract
     function getClient(string calldata clientId) external view returns (ILightClient);
 
+    /// @notice Returns the next client sequence number.
+    /// @dev This function can be used to determine when to stop iterating over clients.
+    /// @return The next client sequence number
+    function getNextClientSeq() external view returns (uint256);
+
     /// @notice Adds a client to the client router.
-    /// @param clientType The client type, e.g., "07-tendermint".
     /// @param counterpartyInfo The counterparty client information
     /// @param client The address of the client contract
     /// @return The client identifier
     function addClient(
-        string calldata clientType,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
