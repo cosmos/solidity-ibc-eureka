@@ -681,7 +681,7 @@ contract IntegrationTest is Test {
         (IERC20 receivedERC20, string memory receivedDenom,) =
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
 
-        assertEq(receivedDenom, "transfer/07-tendermint-0/transfer/channel-42/uatom");
+        assertEq(receivedDenom, "transfer/client-0/transfer/channel-42/uatom");
 
         IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
         assertEq(ibcERC20.fullDenomPath(), receivedDenom);
