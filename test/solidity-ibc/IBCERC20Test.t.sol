@@ -21,9 +21,17 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function setUp() public {
         mockICS26 = makeAddr("mockICS26");
-        _escrow = new Escrow(address(this));
-        IBCERC20 ibcERC20Logic = new IBCERC20();
+        address escrowLogic = address(new Escrow());
+        _escrow = Escrow(
+            address(
+                new ERC1967Proxy(
+                    escrowLogic,
+                    abi.encodeCall(Escrow.initialize, (address(this), mockICS26))
+                )
+            )
+        );
 
+        IBCERC20 ibcERC20Logic = new IBCERC20();
         ibcERC20 = IBCERC20(
             address(
                 new ERC1967Proxy(

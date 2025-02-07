@@ -76,8 +76,17 @@ contract ICS20Transfer is
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
-        $.escrow = new Escrow(address(this));
         $.ics26Router = IICS26Router(ics26Router);
+
+        address escrowLogic = address(new Escrow());
+        $.escrow = IEscrow(
+            address(
+                new ERC1967Proxy(
+                    escrowLogic,
+                    abi.encodeWithSelector(Escrow.initialize.selector, address(this), ics26Router)
+                )
+            )
+        );
     }
 
     /// @inheritdoc IICS20Transfer
