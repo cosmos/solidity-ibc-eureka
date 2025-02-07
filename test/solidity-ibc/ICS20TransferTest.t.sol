@@ -41,7 +41,9 @@ contract ICS20TransferTest is Test {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(this), escrowLogic, ibcERC20Logic, address(0))
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector, address(this), escrowLogic, ibcERC20Logic, address(0)
+            )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
