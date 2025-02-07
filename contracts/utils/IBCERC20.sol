@@ -8,7 +8,8 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 
 contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     /// @notice Storage of the IBCERC20 contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param _fullDenomPath The full IBC denom path for this token
     /// @param _escrow The escrow contract address
     /// @param _ics20 The ICS20 contract address
@@ -46,7 +47,10 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         address ics26_,
         string memory baseDenom_,
         string memory fullDenomPath_
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         __ERC20_init(fullDenomPath_, baseDenom_);
 
         IBCERC20Storage storage $ = _getIBCERC20Storage();

@@ -24,13 +24,17 @@ contract IBCERC20Test is Test, IICS20Transfer {
         _escrow = new Escrow(address(this));
         IBCERC20 ibcERC20Logic = new IBCERC20();
 
-        ibcERC20 = IBCERC20(address(new ERC1967Proxy(address(ibcERC20Logic), abi.encodeCall(ibcERC20Logic.initialize, (
-            address(this),
-            address(_escrow),
-            mockICS26,
-            "test",
-            "full/denom/path/test"
-        )))));
+        ibcERC20 = IBCERC20(
+            address(
+                new ERC1967Proxy(
+                    address(ibcERC20Logic),
+                    abi.encodeCall(
+                        ibcERC20Logic.initialize,
+                        (address(this), address(_escrow), mockICS26, "test", "full/denom/path/test")
+                    )
+                )
+            )
+        );
     }
 
     function test_ERC20Metadata() public view {
