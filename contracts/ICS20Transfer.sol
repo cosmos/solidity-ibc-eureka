@@ -290,6 +290,8 @@ contract ICS20Transfer is
             );
             $.ibcERC20Contracts[denomID] = IBCERC20(address(ibcERC20Proxy));
             erc20Contract = address(ibcERC20Proxy);
+
+            emit IBCERC20ContractCreated(erc20Contract, string(fullDenomPath));
         }
 
         return erc20Contract;
