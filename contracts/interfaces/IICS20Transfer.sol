@@ -20,4 +20,11 @@ interface IICS20Transfer {
     /// @param denom The IBC denom
     /// @return The ERC20 contract address
     function ibcERC20Contract(string calldata denom) external view returns (address);
+
+    // --------------------- Events --------------------- //
+
+    /// @notice Emitted when an IBCERC20 contract is created
+    /// @param contractAddress The address of the IBCERC20 contract
+    /// @param fullDenomPath The full IBC denom path for this token
+    event IBCERC20ContractCreated(address indexed contractAddress, string fullDenomPath);
 }

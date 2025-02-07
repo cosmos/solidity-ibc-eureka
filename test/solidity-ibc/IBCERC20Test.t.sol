@@ -12,23 +12,47 @@ import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
+    address public mockICS26;
 
     function setUp() public {
-        _escrow = new Escrow(address(this));
-        ibcERC20 = new IBCERC20(IICS20Transfer(this), _escrow, "test", "full/denom/path/test");
+        mockICS26 = makeAddr("mockICS26");
+        address escrowLogic = address(new Escrow());
+        _escrow = Escrow(
+            address(new ERC1967Proxy(escrowLogic, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
+        );
+
+        IBCERC20 ibcERC20Logic = new IBCERC20();
+        ibcERC20 = IBCERC20(
+            address(
+                new ERC1967Proxy(
+                    address(ibcERC20Logic),
+                    abi.encodeCall(
+                        ibcERC20Logic.initialize,
+                        (address(this), address(_escrow), mockICS26, "test", "full/denom/path/test")
+                    )
+                )
+            )
+        );
     }
 
     function test_ERC20Metadata() public view {
-        assertEq(ibcERC20.ICS20(), address(this));
-        assertEq(ibcERC20.ESCROW(), address(_escrow));
+        assertEq(ibcERC20.ics20(), address(this));
+        assertEq(ibcERC20.escrow(), address(_escrow));
+        assertEq(ibcERC20.ics26(), mockICS26);
         assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
         assertEq(0, ibcERC20.totalSupply());
+    }
+
+    function test_EscrowSetup() public view {
+        assertEq(_escrow.ics20(), address(this));
+        assertEq(_escrow.ics26(), mockICS26);
     }
 
     function testFuzz_success_Mint(uint256 amount) public {
