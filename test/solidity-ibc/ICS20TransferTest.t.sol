@@ -18,7 +18,7 @@ import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract ICS20TransferTest is Test {
     ICS20Transfer public ics20Transfer;
@@ -35,9 +35,8 @@ contract ICS20TransferTest is Test {
     function setUp() public {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        TransparentUpgradeableProxy transferProxy = new TransparentUpgradeableProxy(
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            address(this),
             abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(this), address(0))
         );
 
