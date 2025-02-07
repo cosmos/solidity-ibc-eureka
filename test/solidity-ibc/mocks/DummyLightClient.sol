@@ -12,7 +12,7 @@ contract DummyLightClient is ILightClient, ILightClientMsgs {
     bool public membershipShouldFail;
     bytes public latestUpdateMsg;
 
-    error MembershipShouldFail(string reason);
+    error MembershipShouldFail();
 
     constructor(UpdateResult updateResult_, uint64 membershipResult_, bool membershipShouldFail_) {
         updateResult = updateResult_;
@@ -27,7 +27,7 @@ contract DummyLightClient is ILightClient, ILightClientMsgs {
 
     function membership(MsgMembership calldata) external view returns (uint256) {
         if (membershipShouldFail) {
-            revert MembershipShouldFail("membership should fail");
+            revert MembershipShouldFail();
         }
         return membershipResult;
     }

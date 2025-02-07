@@ -20,6 +20,8 @@ import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../contracts/utils/Escrow.sol";
 
 contract IBCAdminTest is Test {
     ICS26Router public ics26Router;
@@ -33,6 +35,8 @@ contract IBCAdminTest is Test {
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
@@ -44,7 +48,7 @@ contract IBCAdminTest is Test {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), ics20Pauser)
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser)
         );
 
         // ============== Step 3: Wire up the contracts ==============

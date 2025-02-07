@@ -45,14 +45,16 @@ contract ICS20Transfer is
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param escrow The escrow contract
+    /// @param escrow The escrow contract. Immutable.
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @param ics26Router The ICS26Router contract
+    /// @param ics26Router The ICS26Router contract address. Immutable.
+    /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
+        address ibcERC20Logic;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
@@ -68,8 +70,17 @@ contract ICS20Transfer is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
+    /// @param escrowLogic The address of the Escrow logic contract
     /// @param pauser The address that can pause and unpause the contract
-    function initialize(address ics26Router, address pauser) public initializer {
+    function initialize(
+        address ics26Router,
+        address escrowLogic,
+        address ibcERC20Logic,
+        address pauser
+    )
+        public
+        initializer
+    {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __IBCPausable_init(pauser);
@@ -77,8 +88,6 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.ics26Router = IICS26Router(ics26Router);
-
-        address escrowLogic = address(new Escrow());
         $.escrow = IEscrow(
             address(
                 new ERC1967Proxy(
@@ -86,6 +95,7 @@ contract ICS20Transfer is
                 )
             )
         );
+        $.ibcERC20Logic = ibcERC20Logic;
     }
 
     /// @inheritdoc IICS20Transfer
@@ -276,9 +286,8 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcERC20Contracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            address ibcERC20Logic = address(new IBCERC20());
             ERC1967Proxy ibcERC20Proxy = new ERC1967Proxy(
-                ibcERC20Logic,
+                $.ibcERC20Logic,
                 abi.encodeWithSelector(
                     IBCERC20.initialize.selector,
                     address(this),

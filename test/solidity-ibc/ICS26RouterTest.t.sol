@@ -17,6 +17,8 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../contracts/utils/Escrow.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
@@ -76,9 +78,11 @@ contract ICS26RouterTest is Test {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient));
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router), address(0))
+            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(ics26Router), escrowLogic, ibcERC20Logic, address(0))
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
@@ -105,7 +109,7 @@ contract ICS26RouterTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
          });
 
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector));
         ics26Router.recvPacket(msgRecvPacket);
     }
 
