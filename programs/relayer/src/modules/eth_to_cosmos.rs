@@ -211,7 +211,7 @@ impl ModuleServer for EthToCosmosRelayerModule {
 
         let server = EthToCosmosRelayerModuleServer::new(config).await;
 
-        tracing::info!(%addr, "Started Cosmos to Ethereum relayer server.");
+        tracing::info!(%addr, "Started Ethereum to Cosmos relayer server.");
 
         Server::builder()
             .add_service(RelayerServiceServer::new(server))
