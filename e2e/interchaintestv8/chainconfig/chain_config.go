@@ -28,7 +28,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.3,
-			EncodingConfig: CosmosEncodingConfig(),
+			EncodingConfig: SDKEncodingConfig(),
 			ModifyGenesis:  defaultModifyGenesis(),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,

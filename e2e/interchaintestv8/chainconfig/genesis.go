@@ -52,7 +52,7 @@ func defaultModifyGenesis() func(ibc.ChainConfig, []byte) ([]byte, error) {
 
 // modifyGovV1AppState takes the existing gov app state and marshals it to a govv1 GenesisState.
 func modifyGovV1AppState(chainConfig ibc.ChainConfig, govAppState []byte) ([]byte, error) {
-	cdc := CosmosEncodingConfig().Codec
+	cdc := SDKEncodingConfig().Codec
 
 	govGenesisState := &govv1.GenesisState{}
 	if err := cdc.UnmarshalJSON(govAppState, govGenesisState); err != nil {
