@@ -29,7 +29,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     struct ICS02ClientStorage {
         mapping(string clientId => ILightClient) clients;
         mapping(string clientId => IICS02ClientMsgs.CounterpartyInfo info) counterpartyInfos;
-        uint32 nextClientSeq;
+        uint256 nextClientSeq;
     }
 
     /// @notice ERC-7201 slot for the ICS02Client storage
@@ -41,21 +41,26 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev The role identifier is driven in _getLightClientMigratorRole
     string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
+    /// @notice Prefix for the client identifiers
+    string private constant CLIENT_ID_PREFIX = "client-";
+
     // no need to run any initialization logic
     // solhint-disable-next-line no-empty-blocks
     function __ICS02Client_init() internal onlyInitializing { }
 
+    /// @inheritdoc IICS02Client
+    function getNextClientSeq() external view returns (uint256) {
+        return _getICS02ClientStorage().nextClientSeq;
+    }
+
     /// @notice Generates the next client identifier
-    /// @param clientType The client type
     /// @return The next client identifier
-    function getNextClientId(string calldata clientType) private returns (string memory) {
+    function getNextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
-        require(IBCIdentifiers.validateClientType(clientType), IBCInvalidClientType(clientType));
-
-        uint32 seq = $.nextClientSeq;
+        uint256 seq = $.nextClientSeq;
         $.nextClientSeq = seq + 1;
-        return string.concat(clientType, "-", Strings.toString(seq));
+        return string.concat(CLIENT_ID_PREFIX, Strings.toString(seq));
     }
 
     /// @inheritdoc IICS02Client
@@ -76,7 +81,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @inheritdoc IICS02Client
     function addClient(
-        string calldata clientType,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
@@ -85,7 +89,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
-        string memory clientId = getNextClientId(clientType);
+        string memory clientId = getNextClientId();
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
