@@ -239,7 +239,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -261,7 +261,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), ibcexported.Tendermint, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())

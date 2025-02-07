@@ -93,6 +93,9 @@ const (
 
 	// FirstWasmClientID is the first wasm client ID. Used for testing.
 	FirstWasmClientID = "08-wasm-0"
+
+	// FirstUniversalClientID is the first universal client ID. Used for testing.
+	FirstUniversalClientID = "client-0"
 )
 
 var (
