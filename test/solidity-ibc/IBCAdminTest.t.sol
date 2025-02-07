@@ -203,4 +203,25 @@ contract IBCAdminTest is Test {
         ics20Transfer.setPauser(newPauser);
         assertEq(ics20Transfer.getPauser(), ics20Pauser);
     }
+
+    function test_success_escrow_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        Escrow escrow = Escrow(ics20Transfer.escrow());
+
+        escrow.upgradeToAndCall(
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
+
+    function test_failure_escrow_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        Escrow escrow = Escrow(ics20Transfer.escrow());
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(Escrow.EscrowUnauthorized.selector, unauthorized));
+        escrow.upgradeToAndCall(
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
 }
