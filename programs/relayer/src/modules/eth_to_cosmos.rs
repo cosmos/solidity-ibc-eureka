@@ -4,8 +4,7 @@ use std::{net::SocketAddr, str::FromStr};
 
 use alloy::{
     primitives::{Address, TxHash},
-    providers::{ProviderBuilder, RootProvider},
-    transports::BoxTransport,
+    providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
     events::EurekaEvent,
@@ -32,7 +31,7 @@ pub struct EthToCosmosRelayerModule;
 /// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
 struct EthToCosmosRelayerModuleServer {
     /// The chain listener for `EthEureka`.
-    pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
+    pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The transaction builder for Ethereum to Cosmos.
@@ -40,8 +39,8 @@ struct EthToCosmosRelayerModuleServer {
 }
 
 enum EthToCosmosTxBuilder {
-    Real(eth_to_cosmos::TxBuilder<BoxTransport, RootProvider<BoxTransport>>),
-    Mock(eth_to_cosmos::MockTxBuilder<BoxTransport, RootProvider<BoxTransport>>),
+    Real(eth_to_cosmos::TxBuilder<RootProvider>),
+    Mock(eth_to_cosmos::MockTxBuilder<RootProvider>),
 }
 
 /// The configuration for the Cosmos to Cosmos relayer module.
@@ -66,7 +65,7 @@ pub struct EthToCosmosConfig {
 
 impl EthToCosmosRelayerModuleServer {
     async fn new(config: EthToCosmosConfig) -> Self {
-        let provider = ProviderBuilder::new()
+        let provider = RootProvider::builder()
             .on_builtin(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));

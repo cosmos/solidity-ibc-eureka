@@ -1,6 +1,6 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
-use alloy::{hex, primitives::U256, providers::Provider, transports::Transport};
+use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::eth_api::client::EthApiClient;
 use ethereum_light_client::membership::ibc_commitment_key_v2;
@@ -174,11 +174,11 @@ pub async fn inject_tendermint_proofs(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone>(
+pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
     timeout_msgs: &mut [MsgTimeout],
-    eth_client: &EthApiClient<T, P>,
+    eth_client: &EthApiClient<P>,
     ibc_contrct_address: &str,
     ibc_contract_slot: U256,
     target_block_number: u64,
@@ -256,8 +256,8 @@ pub async fn inject_ethereum_proofs<T: Transport + Clone, P: Provider<T> + Clone
     Ok(())
 }
 
-async fn get_commitment_proof<T: Transport + Clone, P: Provider<T> + Clone>(
-    eth_client: &EthApiClient<T, P>,
+async fn get_commitment_proof<P: Provider + Clone>(
+    eth_client: &EthApiClient<P>,
     ibc_contrct_address: &str,
     block_number: u64,
     path: Vec<u8>,

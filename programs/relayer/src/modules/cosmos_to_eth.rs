@@ -4,8 +4,7 @@ use std::{net::SocketAddr, str::FromStr};
 
 use alloy::{
     primitives::{Address, TxHash},
-    providers::{ProviderBuilder, RootProvider},
-    transports::BoxTransport,
+    providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
@@ -33,9 +32,9 @@ struct CosmosToEthRelayerModuleServer {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
-    pub eth_listener: eth_eureka::ChainListener<BoxTransport, RootProvider<BoxTransport>>,
+    pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The transaction builder for `EthEureka`.
-    pub tx_builder: TxBuilder<BoxTransport, RootProvider<BoxTransport>>,
+    pub tx_builder: TxBuilder<RootProvider>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -66,7 +65,7 @@ impl CosmosToEthRelayerModuleServer {
 
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let provider = ProviderBuilder::new()
+        let provider = RootProvider::builder()
             .on_builtin(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
