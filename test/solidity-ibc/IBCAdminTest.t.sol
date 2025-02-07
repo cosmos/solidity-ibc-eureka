@@ -224,4 +224,35 @@ contract IBCAdminTest is Test {
             address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
         );
     }
+
+    function test_success_ibcERC20_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        
+        address ibcERC20Logic = address(new IBCERC20());
+        IBCERC20 ibcERC20Proxy = IBCERC20(address(new ERC1967Proxy(
+            ibcERC20Logic,
+            abi.encodeWithSelector(IBCERC20.initialize.selector, address(ics20Transfer), address(ics20Transfer.escrow()), address(ics26Router), "test", "full/denom/path/test")
+        )));
+
+        ibcERC20Proxy.upgradeToAndCall(
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
+
+    function test_failure_ibcERC20_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        
+        address ibcERC20Logic = address(new IBCERC20());
+        IBCERC20 ibcERC20Proxy = IBCERC20(address(new ERC1967Proxy(
+            ibcERC20Logic,
+            abi.encodeWithSelector(IBCERC20.initialize.selector, address(ics20Transfer), address(ics20Transfer.escrow()), address(ics26Router), "test", "full/denom/path/test")
+        )));
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, unauthorized));
+        ibcERC20Proxy.upgradeToAndCall(
+            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        );
+    }
 }

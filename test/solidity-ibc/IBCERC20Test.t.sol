@@ -50,6 +50,11 @@ contract IBCERC20Test is Test, IICS20Transfer {
         assertEq(0, ibcERC20.totalSupply());
     }
 
+    function test_EscrowSetup() public view {
+        assertEq(_escrow.ics20(), address(this));
+        assertEq(_escrow.ics26(), mockICS26);
+    }
+
     function testFuzz_success_Mint(uint256 amount) public {
         ibcERC20.mint(amount);
         assertEq(ibcERC20.balanceOf(address(_escrow)), amount);
