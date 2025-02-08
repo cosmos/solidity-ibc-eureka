@@ -337,31 +337,25 @@ func marshalMisbehaviour(cdc codec.Codec, misbehaviour tmclient.Misbehaviour) ([
 		}
 		val["address"] = hex.EncodeToString(valAddressBz)
 
-		pubKeyBytes, ok := val["pub_key_bytes"].(string)
+		pubKey, ok := val["pub_key"].(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("pub_key not found in path: %s", val)
 		}
-		val["pub_key"] = map[string]string{
-			"type":  "tendermint/PubKeyEd25519",
-			"value": pubKeyBytes,
-		}
+		ed25519PubKey := pubKey["ed25519"].(string)
+		pubKey["type"] = "tendermint/PubKeyEd25519"
+		pubKey["value"] = ed25519PubKey
 	}
 
-	var proposers []map[string]interface{}
-	proposers = append(proposers, jsonIntermediary["header_1"].(map[string]interface{})["validator_set"].(map[string]interface{})["proposer"].(map[string]interface{}))
-	proposers = append(proposers, jsonIntermediary["header_1"].(map[string]interface{})["trusted_validators"].(map[string]interface{})["proposer"].(map[string]interface{}))
-	proposers = append(proposers, jsonIntermediary["header_2"].(map[string]interface{})["validator_set"].(map[string]interface{})["proposer"].(map[string]interface{}))
-	proposers = append(proposers, jsonIntermediary["header_2"].(map[string]interface{})["trusted_validators"].(map[string]interface{})["proposer"].(map[string]interface{}))
+	var pubKeys []map[string]interface{}
+	pubKeys = append(pubKeys, jsonIntermediary["header_1"].(map[string]interface{})["validator_set"].(map[string]interface{})["proposer"].(map[string]interface{})["pub_key"].(map[string]interface{}))
+	pubKeys = append(pubKeys, jsonIntermediary["header_1"].(map[string]interface{})["trusted_validators"].(map[string]interface{})["proposer"].(map[string]interface{})["pub_key"].(map[string]interface{}))
+	pubKeys = append(pubKeys, jsonIntermediary["header_2"].(map[string]interface{})["validator_set"].(map[string]interface{})["proposer"].(map[string]interface{})["pub_key"].(map[string]interface{}))
+	pubKeys = append(pubKeys, jsonIntermediary["header_2"].(map[string]interface{})["trusted_validators"].(map[string]interface{})["proposer"].(map[string]interface{})["pub_key"].(map[string]interface{}))
 
-	for _, proposer := range proposers {
-		pubKeyBytes, ok := proposer["pub_key_bytes"].(string)
-		if !ok {
-			return nil, fmt.Errorf("pub_key not found in path: %s", proposer)
-		}
-		proposer["pub_key"] = map[string]string{
-			"type":  "tendermint/PubKeyEd25519",
-			"value": pubKeyBytes,
-		}
+	for _, proposerPubKey := range pubKeys {
+		ed25519PubKey := proposerPubKey["ed25519"].(string)
+		proposerPubKey["type"] = "tendermint/PubKeyEd25519"
+		proposerPubKey["value"] = ed25519PubKey
 	}
 
 	header1Sigs := jsonIntermediary["header_1"].(map[string]interface{})["signed_header"].(map[string]interface{})["commit"].(map[string]interface{})["signatures"].([]interface{})

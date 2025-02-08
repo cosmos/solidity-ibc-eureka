@@ -2,9 +2,9 @@ package cosmos
 
 import (
 	"cosmossdk.io/collections"
-	banktypes "cosmossdk.io/x/bank/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // CloneAppend returns a new slice with the contents of the provided slices.

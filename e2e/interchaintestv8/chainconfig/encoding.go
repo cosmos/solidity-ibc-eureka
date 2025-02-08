@@ -1,22 +1,21 @@
 package chainconfig
 
 import (
-	"cosmossdk.io/x/authz"
-	banktypes "cosmossdk.io/x/bank/types"
-	govv1 "cosmossdk.io/x/gov/types/v1"
-	govv1beta1 "cosmossdk.io/x/gov/types/v1beta1"
-	grouptypes "cosmossdk.io/x/group"
-	proposaltypes "cosmossdk.io/x/params/types/proposal"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	grouptypes "github.com/cosmos/cosmos-sdk/x/group"
+	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 
-	wasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	icacontrollertypes "github.com/cosmos/ibc-go/v9/modules/apps/27-interchain-accounts/controller/types"
 	icahosttypes "github.com/cosmos/ibc-go/v9/modules/apps/27-interchain-accounts/host/types"
 	feetypes "github.com/cosmos/ibc-go/v9/modules/apps/29-fee/types"
@@ -50,7 +49,7 @@ func SDKEncodingConfig() *sdktestutil.TestEncodingConfig {
 // codecAndEncodingConfig returns the codec and encoding config used in the E2E tests.
 // Note: any new types added to the codec must be added here.
 func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig) {
-	cfg := sdktestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{})
+	cfg := sdktestutil.MakeTestEncodingConfig()
 
 	// ibc types
 	icacontrollertypes.RegisterInterfaces(cfg.InterfaceRegistry)
@@ -63,7 +62,7 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	channeltypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	connectiontypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	ibctmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
-	wasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
+	ibcwasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	channeltypesv2.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	// all other types
