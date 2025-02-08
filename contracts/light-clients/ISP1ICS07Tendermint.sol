@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { IICS07TendermintMsgs } from "./msgs/IICS07TendermintMsgs.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
@@ -35,4 +36,7 @@ interface ISP1ICS07Tendermint is ILightClient {
     /// @param revisionHeight The revision height.
     /// @return The consensus state at the given revision height.
     function getConsensusStateHash(uint32 revisionHeight) external view returns (bytes32);
+
+    /// @notice Returns the client state.
+    function clientState() external returns (IICS07TendermintMsgs.ClientState calldata);
 }
