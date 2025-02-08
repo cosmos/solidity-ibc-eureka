@@ -27,7 +27,7 @@
   ],
   "private": true,
   "scripts": {
-    "lint:sol": "forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'",
+    "lint:sol": "forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol' && bun natspec-smells --include 'contracts/**/*.sol'",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }

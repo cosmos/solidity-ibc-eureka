@@ -54,6 +54,7 @@ test-abigen:
 lint:
 	@echo "Linting the Solidity code..."
 	forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'
+	bun natspec-smells --include 'contracts/**/*.sol'
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run
 	cd abigen && golangci-lint run
