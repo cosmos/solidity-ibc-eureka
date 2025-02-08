@@ -25,6 +25,8 @@ import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../contracts/utils/Escrow.sol";
 
 contract IntegrationTest is Test {
     using Strings for string;
@@ -52,10 +54,12 @@ contract IntegrationTest is Test {
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        // ============== Step 2: Deploy Transparent Proxies ==============
+        // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
             abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
@@ -63,7 +67,9 @@ contract IntegrationTest is Test {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(ICS20Transfer.initialize.selector, address(routerProxy), address(0))
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, address(0)
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============

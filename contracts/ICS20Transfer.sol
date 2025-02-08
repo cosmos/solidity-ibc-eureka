@@ -24,6 +24,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 using SafeERC20 for IERC20;
 
@@ -44,14 +45,16 @@ contract ICS20Transfer is
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param escrow The escrow contract
+    /// @param escrow The escrow contract. Immutable.
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @param ics26Router The ICS26Router contract
+    /// @param ics26Router The ICS26Router contract address. Immutable.
+    /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
+        address ibcERC20Logic;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
@@ -67,16 +70,32 @@ contract ICS20Transfer is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
+    /// @param escrowLogic The address of the Escrow logic contract
     /// @param pauser The address that can pause and unpause the contract
-    function initialize(address ics26Router, address pauser) public initializer {
+    function initialize(
+        address ics26Router,
+        address escrowLogic,
+        address ibcERC20Logic,
+        address pauser
+    )
+        public
+        initializer
+    {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __IBCPausable_init(pauser);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
-        $.escrow = new Escrow(address(this));
         $.ics26Router = IICS26Router(ics26Router);
+        $.escrow = IEscrow(
+            address(
+                new ERC1967Proxy(
+                    escrowLogic, abi.encodeWithSelector(Escrow.initialize.selector, address(this), ics26Router)
+                )
+            )
+        );
+        $.ibcERC20Logic = ibcERC20Logic;
     }
 
     /// @inheritdoc IICS20Transfer
@@ -267,9 +286,21 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcERC20Contracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            IBCERC20 ibcERC20 = new IBCERC20(this, $.escrow, string(base), string(fullDenomPath));
-            $.ibcERC20Contracts[denomID] = ibcERC20;
-            erc20Contract = address(ibcERC20);
+            ERC1967Proxy ibcERC20Proxy = new ERC1967Proxy(
+                $.ibcERC20Logic,
+                abi.encodeWithSelector(
+                    IBCERC20.initialize.selector,
+                    address(this),
+                    $.escrow,
+                    address($.ics26Router),
+                    string(base),
+                    string(fullDenomPath)
+                )
+            );
+            $.ibcERC20Contracts[denomID] = IBCERC20(address(ibcERC20Proxy));
+            erc20Contract = address(ibcERC20Proxy);
+
+            emit IBCERC20ContractCreated(erc20Contract, string(fullDenomPath));
         }
 
         return erc20Contract;
