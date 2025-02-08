@@ -25,4 +25,20 @@ interface IIBCERC20 {
     /// @notice Get the ICS26 contract address
     /// @return the ICS26 contract address
     function ics26() external view returns (address);
+
+    /// @notice Initializes the IBCERC20 contract
+    /// @dev This function is meant to be called by a proxy
+    /// @param ics20_ The ICS20 contract address
+    /// @param escrow_ The escrow contract address, can burn and mint tokens
+    /// @param ics26_ The ICS26 contract address, used for upgradeability
+    /// @param baseDenom_ The base denom for this token
+    /// @param fullDenomPath_ The full IBC denom path for this token
+    function initialize(
+        address ics20_,
+        address escrow_,
+        address ics26_,
+        string memory baseDenom_,
+        string memory fullDenomPath_
+    )
+        external;
 }
