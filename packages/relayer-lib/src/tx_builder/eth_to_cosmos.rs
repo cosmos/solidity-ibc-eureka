@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use alloy::{primitives::Address, providers::Provider, transports::Transport};
+use alloy::{primitives::Address, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;
@@ -37,13 +37,13 @@ use crate::{
 use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
-pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct TxBuilder<P: Provider + Clone> {
     /// The ETH API client.
-    pub eth_client: EthApiClient<T, P>,
+    pub eth_client: EthApiClient<P>,
     /// The Beacon API client.
     pub beacon_api_client: BeaconApiClient,
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<T, P>,
+    pub ics26_router: routerInstance<(), P>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -52,16 +52,16 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
 
 /// The `MockTxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`]
 /// for testing purposes.
-pub struct MockTxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct MockTxBuilder<P: Provider + Clone> {
     /// The ETH API client.
-    pub eth_client: EthApiClient<T, P>,
+    pub eth_client: EthApiClient<P>,
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<T, P>,
+    pub ics26_router: routerInstance<(), P>,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
+impl<P: Provider + Clone> TxBuilder<P> {
     /// Create a new [`TxBuilder`] instance.
     pub fn new(
         ics26_address: Address,
@@ -197,10 +197,9 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
 }
 
 #[async_trait::async_trait]
-impl<T, P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<T, P>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
-    T: Transport + Clone,
-    P: Provider<T> + Clone,
+    P: Provider + Clone,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
@@ -380,7 +379,7 @@ where
     }
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone> MockTxBuilder<T, P> {
+impl<P: Provider + Clone> MockTxBuilder<P> {
     /// Create a new [`MockTxBuilder`] instance for testing.
     pub fn new(ics26_address: Address, provider: P, signer_address: String) -> Self {
         Self {
@@ -392,10 +391,9 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> MockTxBuilder<T, P> {
 }
 
 #[async_trait::async_trait]
-impl<T, P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<T, P>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<P>
 where
-    T: Transport + Clone,
-    P: Provider<T> + Clone,
+    P: Provider + Clone,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(

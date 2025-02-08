@@ -36,10 +36,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    /// @notice Initializes the IBCERC20 contract
-    /// @dev This function is meant to be called by a proxy
-    /// @param ics20_ The ICS20 contract address, can send funds from the escrow
-    /// @param ics26_ The ICS26 contract address, used for upgradeability
+    /// @inheritdoc IEscrow
     function initialize(address ics20_, address ics26_) external initializer {
         __Context_init();
 
@@ -77,6 +74,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
         }
     }
 
+    /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
         require(_msgSender() == _getEscrowStorage()._ics20, EscrowUnauthorized(_msgSender()));
         _;

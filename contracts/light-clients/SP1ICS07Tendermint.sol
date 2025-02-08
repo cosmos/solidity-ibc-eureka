@@ -507,6 +507,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, M
         return timestamp;
     }
 
+    /// @notice Modifier to check if the client is not frozen.
     modifier notFrozen() {
         require(!clientState.isFrozen, FrozenClientState());
         _;

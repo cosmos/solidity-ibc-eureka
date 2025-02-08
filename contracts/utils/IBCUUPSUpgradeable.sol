@@ -42,6 +42,7 @@ abstract contract IBCUUPSUpgradeable is
     /// @dev This contract is meant to be initialized with only the timelockedAdmin, and the govAdmin should be set by
     /// the timelockedAdmin later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
+    /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     function __IBCUUPSUpgradeable_init(address timelockedAdmin) internal onlyInitializing {
         _getIBCUUPSUpgradeableStorage().timelockedAdmin = timelockedAdmin;
     }
@@ -84,6 +85,7 @@ abstract contract IBCUUPSUpgradeable is
         }
     }
 
+    /// @notice Modifier to check if the caller is an admin
     modifier onlyAdmin() {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
         require(_msgSender() == $.timelockedAdmin || _msgSender() == $.govAdmin, Unauthorized());

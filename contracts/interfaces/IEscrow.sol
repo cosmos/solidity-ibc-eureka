@@ -19,4 +19,10 @@ interface IEscrow {
     /// @notice Get the ICS26 contract address
     /// @return The ICS26 contract address
     function ics26() external view returns (address);
+
+    /// @notice Initializes the IBCERC20 contract
+    /// @dev This function is meant to be called by a proxy
+    /// @param ics20_ The ICS20 contract address, can send funds from the escrow
+    /// @param ics26_ The ICS26 contract address, used for upgradeability
+    function initialize(address ics20_, address ics26_) external;
 }

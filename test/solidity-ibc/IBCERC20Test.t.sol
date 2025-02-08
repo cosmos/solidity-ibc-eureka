@@ -150,4 +150,8 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function ibcERC20Contract(string calldata) external pure override returns (address) {
         return address(0);
     }
+
+    /// @notice Dummy implementation of IICS20Transfer
+    function initialize(address, address, address, address) external pure override { }
+    // solhint-disable-previous-line no-empty-blocks
 }

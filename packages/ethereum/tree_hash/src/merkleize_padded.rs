@@ -304,7 +304,7 @@ mod test {
 
         fn random_bytes(bytes: usize) -> Vec<u8> {
             let mut bytes = Vec::with_capacity(bytes);
-            rand::thread_rng().fill_bytes(&mut bytes);
+            rand::rng().fill_bytes(&mut bytes);
             bytes
         }
 

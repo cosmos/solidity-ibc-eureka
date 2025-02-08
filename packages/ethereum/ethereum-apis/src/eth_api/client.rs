@@ -6,7 +6,6 @@ use alloy::{
     primitives::{Address, StorageKey},
     providers::Provider,
     rpc::types::EIP1186AccountProofResponse,
-    transports::Transport,
 };
 
 use super::error::EthGetProofError;
@@ -15,18 +14,14 @@ const RPC_METHOD_GET_PROOF: &str = "eth_getProof";
 
 /// The api client for interacting with the Beacon API
 #[allow(clippy::module_name_repetitions)]
-pub struct EthApiClient<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct EthApiClient<P: Provider + Clone> {
     provider: P,
-    _transport: std::marker::PhantomData<T>,
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone> EthApiClient<T, P> {
+impl<P: Provider + Clone> EthApiClient<P> {
     /// Create new `EthApiClient`
     pub const fn new(provider: P) -> Self {
-        Self {
-            provider,
-            _transport: std::marker::PhantomData,
-        }
+        Self { provider }
     }
 
     /// Fetches proof for an account and optionally storage keys under the given account at the block.

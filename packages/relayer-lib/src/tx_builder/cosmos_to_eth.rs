@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use alloy::{primitives::Address, providers::Provider, sol_types::SolCall, transports::Transport};
+use alloy::{primitives::Address, providers::Provider, sol_types::SolCall};
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
@@ -31,9 +31,9 @@ use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
-pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
+pub struct TxBuilder<P: Provider + Clone> {
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<T, P>,
+    pub ics26_router: routerInstance<(), P>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// The SP1 private key for the prover network
@@ -43,7 +43,7 @@ pub struct TxBuilder<T: Transport + Clone, P: Provider<T> + Clone> {
     mock: bool,
 }
 
-impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
+impl<P: Provider + Clone> TxBuilder<P> {
     /// Create a new [`TxBuilder`] instance.
     pub const fn new(
         ics26_address: Address,
@@ -105,10 +105,9 @@ impl<T: Transport + Clone, P: Provider<T> + Clone> TxBuilder<T, P> {
 }
 
 #[async_trait::async_trait]
-impl<T, P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<T, P>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
-    T: Transport + Clone,
-    P: Provider<T> + Clone,
+    P: Provider + Clone,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
