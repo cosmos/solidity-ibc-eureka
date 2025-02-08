@@ -37,7 +37,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, M
     /// @inheritdoc ISP1ICS07Tendermint
     ISP1Verifier public immutable VERIFIER;
 
-    /// @inheritdoc ISP1ICS07Tendermint
+    /// @notice The ICS07Tendermint client state
     IICS07TendermintMsgs.ClientState public clientState;
     /// @notice The mapping from height to consensus state keccak256 hashes.
     mapping(uint32 height => bytes32 hash) private consensusStateHashes;

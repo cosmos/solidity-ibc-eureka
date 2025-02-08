@@ -353,7 +353,6 @@ contract ICS20Transfer is
     }
 
     /// @notice Returns the storage of the ICS20Transfer contract
-    /// @return $ The storage of the ICS20Transfer contract
     function _getICS20TransferStorage() private pure returns (ICS20TransferStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

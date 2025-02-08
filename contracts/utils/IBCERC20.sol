@@ -104,6 +104,7 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         }
     }
 
+    /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
         require(_msgSender() == _getIBCERC20Storage()._ics20, IBCERC20Unauthorized(_msgSender()));
         _;

@@ -77,6 +77,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
         }
     }
 
+    /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
         require(_msgSender() == _getEscrowStorage()._ics20, EscrowUnauthorized(_msgSender()));
         _;

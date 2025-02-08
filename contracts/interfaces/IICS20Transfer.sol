@@ -25,6 +25,7 @@ interface IICS20Transfer {
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic The address of the Escrow logic contract
+    /// @param ibcERC20Logic The address of the IBCERC20 logic contract
     /// @param pauser The address that can pause and unpause the contract
     function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address pauser) external;
 

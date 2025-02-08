@@ -36,7 +36,4 @@ interface ISP1ICS07Tendermint is ILightClient {
     /// @param revisionHeight The revision height.
     /// @return The consensus state at the given revision height.
     function getConsensusStateHash(uint32 revisionHeight) external view returns (bytes32);
-
-    /// @notice Returns the client state.
-    function clientState() external returns (IICS07TendermintMsgs.ClientState calldata);
 }
