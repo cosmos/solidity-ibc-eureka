@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IICS07TendermintMsgs } from "./msgs/IICS07TendermintMsgs.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
