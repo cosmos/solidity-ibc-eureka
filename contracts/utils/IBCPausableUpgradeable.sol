@@ -28,9 +28,8 @@ abstract contract IBCPausableUpgradeable is
     bytes32 private constant IBCPAUSABLE_STORAGE_SLOT =
         0xf205aa58a40d121ba2119531ecfad12344b90ab99f75444bf95259654539d700;
 
-    /**
-     * @dev Initializes the contract in unpaused state.
-     */
+    /// @dev Initializes the contract in unpaused state.
+    /// @param pauser The address that can pause and unpause the contract
     function __IBCPausable_init(address pauser) internal onlyInitializing {
         __Pausable_init();
 

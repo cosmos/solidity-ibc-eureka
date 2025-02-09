@@ -5,7 +5,6 @@ use alloy::{
     providers::Provider,
     rpc::types::Filter,
     sol_types::SolEventInterface,
-    transports::Transport,
 };
 use anyhow::{anyhow, Result};
 use futures::future;
@@ -16,12 +15,12 @@ use crate::{chain::EthEureka, events::EurekaEvent};
 use super::ChainListenerService;
 
 /// The `ChainListenerService` listens for events on the Ethereum chain.
-pub struct ChainListener<T: Transport + Clone, P: Provider<T>> {
+pub struct ChainListener<P: Provider> {
     /// The IBC Eureka router instance.
-    ics26_router: routerInstance<T, P>,
+    ics26_router: routerInstance<(), P>,
 }
 
-impl<T: Transport + Clone, P: Provider<T>> ChainListener<T, P> {
+impl<P: Provider> ChainListener<P> {
     /// Create a new `ChainListenerService` instance.
     pub const fn new(ics26_address: Address, provider: P) -> Self {
         Self {
@@ -30,10 +29,9 @@ impl<T: Transport + Clone, P: Provider<T>> ChainListener<T, P> {
     }
 }
 
-impl<T, P> ChainListener<T, P>
+impl<P> ChainListener<P>
 where
-    T: Transport + Clone,
-    P: Provider<T>,
+    P: Provider,
 {
     /// Get the chain ID.
     /// # Errors
@@ -49,10 +47,9 @@ where
 }
 
 #[async_trait::async_trait]
-impl<T, P> ChainListenerService<EthEureka> for ChainListener<T, P>
+impl<P> ChainListenerService<EthEureka> for ChainListener<P>
 where
-    T: Transport + Clone,
-    P: Provider<T>,
+    P: Provider,
 {
     async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEvent>> {
         Ok(

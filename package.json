@@ -11,10 +11,10 @@
     "@openzeppelin/contracts-upgradeable": "^5.2.0"
   },
   "devDependencies": {
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#987ecfdd329b9170f5f0bfe5210d3e032e0a4308",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.5",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.6",
     "solhint": "^5.0.5",
-    "@defi-wonderland/natspec-smells": "^1.1.5"
+    "@defi-wonderland/natspec-smells": "^1.1.6"
   },
   "keywords": [
     "blockchain",
@@ -28,6 +28,7 @@
   "private": true,
   "scripts": {
     "lint:sol": "forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'",
+    "lint:natspec": "bun natspec-smells --include 'contracts/**/*.sol'",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
   }

@@ -72,6 +72,7 @@ contract ICS20Transfer is
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param pauser The address that can pause and unpause the contract
+    /// @inheritdoc IICS20Transfer
     function initialize(
         address ics26Router,
         address escrowLogic,
@@ -371,14 +372,19 @@ contract ICS20Transfer is
         require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
     }
 
+    /// @notice Returns the escrow contract
+    /// @return The escrow contract address
     function _getEscrow() private view returns (IEscrow) {
         return _getICS20TransferStorage().escrow;
     }
 
+    /// @notice Returns the ICS26Router contract
+    /// @return The ICS26Router contract address
     function _getICS26Router() private view returns (IICS26Router) {
         return _getICS20TransferStorage().ics26Router;
     }
 
+    /// @notice Modifier to check if the caller is the ICS26Router contract
     modifier onlyRouter() {
         require(_msgSender() == address(_getICS26Router()), ICS20Unauthorized(_msgSender()));
         _;

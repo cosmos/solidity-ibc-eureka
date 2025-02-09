@@ -30,7 +30,6 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     // Instantiate a Tendermint prover based on the environment variable.
     let wallet = eth::wallet_from_env();
     let provider = ProviderBuilder::new()
-        .with_recommended_fillers()
         .wallet(wallet)
         .on_http(rpc_url.parse()?);
 

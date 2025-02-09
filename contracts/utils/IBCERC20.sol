@@ -34,13 +34,7 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    /// @notice Initializes the IBCERC20 contract
-    /// @dev This function is meant to be called by a proxy
-    /// @param ics20_ The ICS20 contract address
-    /// @param escrow_ The escrow contract address, can burn and mint tokens
-    /// @param ics26_ The ICS26 contract address, used for upgradeability
-    /// @param baseDenom_ The base denom for this token
-    /// @param fullDenomPath_ The full IBC denom path for this token
+    /// @inheritdoc IIBCERC20
     function initialize(
         address ics20_,
         address escrow_,
@@ -104,6 +98,7 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         }
     }
 
+    /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
         require(_msgSender() == _getIBCERC20Storage()._ics20, IBCERC20Unauthorized(_msgSender()));
         _;
