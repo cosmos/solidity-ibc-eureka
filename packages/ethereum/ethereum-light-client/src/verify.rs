@@ -45,7 +45,7 @@ pub trait BlsVerify {
 /// Verifies the header of the light client.
 /// # Errors
 /// Returns an error if the header cannot be verified.
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_header<V: BlsVerify>(
     consensus_state: &ConsensusState,
     client_state: &ClientState,
@@ -76,7 +76,7 @@ pub fn verify_header<V: BlsVerify>(
         &trusted_consensus_state,
         &header.consensus_update,
         current_slot,
-        bls_verifier,
+        &bls_verifier,
     )?;
 
     // check whether at least 2/3 of the sync committee signed
@@ -128,7 +128,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     trusted_consensus_state: &TrustedConsensusState,
     update: &LightClientUpdate,
     current_slot: u64,
-    bls_verifier: V,
+    bls_verifier: &V,
 ) -> Result<(), EthereumIBCError> {
     // Verify sync committee has sufficient participants
     ensure!(
