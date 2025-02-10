@@ -1,6 +1,9 @@
 //! This module provides [`verify_misbehavior`] function to check for misbehaviour
 
-use ethereum_types::consensus::light_client_header::LightClientUpdate;
+use ethereum_types::consensus::{
+    light_client_header::LightClientUpdate,
+    slot::{compute_slot_at_timestamp, GENESIS_SLOT},
+};
 
 use crate::{
     client_state::ClientState,
@@ -26,7 +29,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
     trusted_consensus_state: &TrustedConsensusState,
     update_1: &LightClientUpdate,
     update_2: &LightClientUpdate,
-    current_slot: u64,
+    current_timestamp: u64,
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
     // There is no point to check for misbehaviour when the headers are not for the same height
@@ -47,6 +50,18 @@ pub fn verify_misbehaviour<V: BlsVerify>(
         state_root_1 != state_root_2,
         EthereumIBCError::MisbehaviourStorageRootsMatch(state_root_1)
     );
+
+    let current_slot = compute_slot_at_timestamp(
+        client_state.genesis_time,
+        client_state.seconds_per_slot,
+        current_timestamp,
+    )
+    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+        timestamp: current_timestamp,
+        genesis: client_state.genesis_time,
+        seconds_per_slot: client_state.seconds_per_slot,
+        genesis_slot: GENESIS_SLOT,
+    })?;
 
     validate_light_client_update::<V>(
         client_state,

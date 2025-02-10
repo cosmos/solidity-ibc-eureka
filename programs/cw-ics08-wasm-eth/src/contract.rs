@@ -73,7 +73,9 @@ pub fn sudo(
             sudo::verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
         }
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
-        SudoMsg::UpdateStateOnMisbehaviour(_) => todo!(),
+        SudoMsg::UpdateStateOnMisbehaviour(misbehaviour_msg) => {
+            sudo::misbehaviour(deps, misbehaviour_msg)?
+        }
         SudoMsg::VerifyUpgradeAndUpdateState(_) => todo!(),
         SudoMsg::MigrateClientStore(_) => todo!(),
     };
@@ -181,7 +183,7 @@ mod tests {
                 latest_slot: 42,
                 ibc_commitment_slot: U256::from(0),
                 ibc_contract_address: Address::default(),
-                frozen_slot: 0,
+                is_frozen: false,
             };
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 

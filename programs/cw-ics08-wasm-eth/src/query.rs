@@ -1,10 +1,14 @@
 //! This module contains the query message handlers
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
+use ethereum_light_client::consensus_state::TrustedConsensusState;
 
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
-    msg::{StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg},
+    msg::{
+        EthereumMisbehaviourMsg, StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult,
+        VerifyClientMessageMsg,
+    },
     state::{get_eth_client_state, get_eth_consensus_state},
     ContractError,
 };
@@ -22,23 +26,49 @@ pub fn verify_client_message(
     verify_client_message_msg: VerifyClientMessageMsg,
 ) -> Result<Binary, ContractError> {
     let eth_client_state = get_eth_client_state(deps.storage)?;
-    let eth_consensus_state = get_eth_consensus_state(deps.storage, eth_client_state.latest_slot)?;
-    let header = serde_json::from_slice(&verify_client_message_msg.client_message)
-        .map_err(ContractError::DeserializeClientMessageFailed)?;
+
     let bls_verifier = BlsVerifier {
         querier: deps.querier,
     };
 
-    ethereum_light_client::verify::verify_header(
-        &eth_consensus_state,
-        &eth_client_state,
-        env.block.time.seconds(),
-        &header,
-        bls_verifier,
-    )
-    .map_err(ContractError::VerifyClientMessageFailed)?;
+    if let Ok(header) = serde_json::from_slice(&verify_client_message_msg.client_message) {
+        let eth_consensus_state =
+            get_eth_consensus_state(deps.storage, eth_client_state.latest_slot)?;
 
-    Ok(Binary::default())
+        ethereum_light_client::verify::verify_header(
+            &eth_consensus_state,
+            &eth_client_state,
+            env.block.time.seconds(),
+            &header,
+            bls_verifier,
+        )
+        .map_err(ContractError::VerifyClientMessageFailed)?;
+
+        return Ok(Binary::default());
+    }
+
+    if let Ok(misbehaviour) =
+        serde_json::from_slice::<EthereumMisbehaviourMsg>(&verify_client_message_msg.client_message)
+    {
+        let eth_consensus_state = get_eth_consensus_state(deps.storage, misbehaviour.trusted_slot)?;
+
+        ethereum_light_client::misbehaviour::verify_misbehaviour(
+            &eth_client_state,
+            &TrustedConsensusState {
+                state: eth_consensus_state,
+                sync_committee: misbehaviour.sync_committee,
+            },
+            &misbehaviour.update_1,
+            &misbehaviour.update_2,
+            env.block.time.seconds(),
+            bls_verifier,
+        )
+        .map_err(ContractError::VerifyClientMessageFailed)?;
+
+        return Ok(Binary::default());
+    }
+
+    Err(ContractError::InvalidClientMessage)
 }
 
 /// Gets the consensus timestamp at a given height
