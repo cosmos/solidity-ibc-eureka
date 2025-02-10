@@ -186,7 +186,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                IICS20Errors.ICS20InvalidPermit2.selector, "permit denom not the same as transfer denom"
+                IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), address(erc20)
             )
         );
         vm.prank(sender);
