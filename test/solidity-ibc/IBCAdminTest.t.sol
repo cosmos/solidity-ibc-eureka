@@ -49,7 +49,12 @@ contract IBCAdminTest is Test {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser
+                ICS20Transfer.initialize.selector,
+                address(routerProxy),
+                escrowLogic,
+                ibcERC20Logic,
+                ics20Pauser,
+                address(0)
             )
         );
 

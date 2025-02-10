@@ -65,7 +65,12 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, address(0)
+                ICS20Transfer.initialize.selector,
+                address(routerProxy),
+                escrowLogic,
+                ibcERC20Logic,
+                address(0),
+                address(0)
             )
         );
 

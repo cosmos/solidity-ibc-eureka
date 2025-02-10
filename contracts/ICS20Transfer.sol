@@ -11,6 +11,7 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -49,12 +50,14 @@ contract ICS20Transfer is
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract address. Immutable.
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
+    /// @param permit2 The permit2 contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         IEscrow escrow;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
         address ibcERC20Logic;
+        ISignatureTransfer permit2;
     }
 
     /// @notice ERC-7201 slot for the ICS20Transfer storage
@@ -77,7 +80,8 @@ contract ICS20Transfer is
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
-        address pauser
+        address pauser,
+        address permit2
     )
         public
         initializer
@@ -97,6 +101,7 @@ contract ICS20Transfer is
             )
         );
         $.ibcERC20Logic = ibcERC20Logic;
+        $.permit2 = ISignatureTransfer(permit2);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -112,16 +117,56 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external whenNotPaused returns (uint32) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint32)
+    {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        // transfer the tokens to us (requires the allowance to be set)
+        _transferFrom(_msgSender(), escrow(), msg_.denom, msg_.amount);
+
+        return sendTransferFromEscrow(msg_);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function permitSendTransfer(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata signature
+    )
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint32 sequence)
+    {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        require(
+            permit.permitted.token == msg_.denom,
+            IICS20Errors.ICS20Permit2TokenMismatch(permit.permitted.token, msg_.denom)
+        );
+        // transfer the tokens to us with permit
+        _getPermit2().permitTransferFrom(
+            permit,
+            ISignatureTransfer.SignatureTransferDetails({ to: escrow(), requestedAmount: msg_.amount }),
+            _msgSender(),
+            signature
+        );
+
+        return sendTransferFromEscrow(msg_);
+    }
+
+    /// @notice Send a transfer after the funds have been transferred to escrow
+    /// @param msg_ The message for sending a transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransferFromEscrow(IICS20TransferMsgs.SendTransferMsg calldata msg_) private returns (uint32) {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
         (bool returningToSource, address erc20Address) =
             _getSendingERC20Address(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData.denom);
-
-        // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(_msgSender(), escrow(), erc20Address, packetData.amount);
-
+        require(erc20Address == msg_.denom, ICS20DenomNotFound(Strings.toHexString(msg_.denom)));
         if (returningToSource) {
             // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
             IBCERC20(erc20Address).burn(packetData.amount);
@@ -382,6 +427,10 @@ contract ICS20Transfer is
     /// @return The ICS26Router contract address
     function _getICS26Router() private view returns (IICS26Router) {
         return _getICS20TransferStorage().ics26Router;
+    }
+
+    function _getPermit2() private view returns (ISignatureTransfer) {
+        return _getICS20TransferStorage().permit2;
     }
 
     /// @notice Modifier to check if the caller is the ICS26Router contract

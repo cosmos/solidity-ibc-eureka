@@ -32,12 +32,8 @@ interface IICS20Errors {
     /// @param denom Denomination of the token being transferred, for which we have no foreign ibcERC20 contract
     error ICS20DenomNotFound(string denom);
 
-    /// @notice Unsupported feature
-    /// @param feature Unsupported feature
-    error ICS20UnsupportedFeature(string feature);
-
-    // ICS20Lib Errors:
-
-    /// @notice Abi encoding/decoding failure
-    error ICS20AbiEncodingFailure();
+    /// @notice Permit2 token mismatch
+    /// @param permitToken The token in the permit
+    /// @param sentToken The token being sent
+    error ICS20Permit2TokenMismatch(address permitToken, address sentToken);
 }

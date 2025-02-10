@@ -27,8 +27,11 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
+import { PermitSignature } from "./utils/PermitSignature.sol";
 
-contract IntegrationTest is Test {
+contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
 
     ICS26Router public ics26Router;
@@ -38,11 +41,13 @@ contract IntegrationTest is Test {
     string public ics20AddressStr;
     TestERC20 public erc20;
     string public erc20AddressStr;
+    ISignatureTransfer public permit2;
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
     address public defaultSender;
+    uint256 public defaultSenderKey;
     string public defaultSenderStr;
     address public defaultReceiver;
     string public defaultReceiverStr;
@@ -58,6 +63,7 @@ contract IntegrationTest is Test {
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        permit2 = ISignatureTransfer(deployPermit2());
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
@@ -68,7 +74,12 @@ contract IntegrationTest is Test {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, address(0)
+                ICS20Transfer.initialize.selector,
+                address(routerProxy),
+                escrowLogic,
+                ibcERC20Logic,
+                address(0),
+                address(permit2)
             )
         );
 
@@ -90,14 +101,14 @@ contract IntegrationTest is Test {
 
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
 
-        defaultSender = makeAddr("sender");
+        (defaultSender, defaultSenderKey) = makeAddrAndKey("sender");
         defaultSenderStr = Strings.toHexString(defaultSender);
 
         defaultReceiver = makeAddr("receiver");
         defaultReceiverStr = Strings.toHexString(defaultReceiver);
     }
 
-    function test_success_sendICS20PacketDirectlyFromRouter() public {
+    function test_success_sendICS20PacketWithAllowance() public {
         erc20.mint(defaultSender, defaultAmount);
         vm.prank(defaultSender);
         erc20.approve(address(ics20Transfer), defaultAmount);
@@ -128,45 +139,28 @@ contract IntegrationTest is Test {
         assertEq(contractBalanceAfter, defaultAmount);
     }
 
-    function test_success_sendICS20PacketFromICS20Contract() public {
+    function test_success_sendICS20PacketWithPermit2() public {
         erc20.mint(defaultSender, defaultAmount);
-        vm.startPrank(defaultSender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
+        vm.prank(defaultSender);
+        erc20.approve(address(permit2), defaultAmount);
+
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: defaultAmount }),
+            nonce: 0,
+            deadline: block.timestamp + 100
+        });
+        bytes memory signature = this.getPermitTransferSignature(
+            permit, defaultSenderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
+        );
 
         uint256 senderBalanceBefore = erc20.balanceOf(defaultSender);
         uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
-        IICS20TransferMsgs.SendTransferMsg memory transferMsg = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(erc20),
-            amount: defaultAmount,
-            receiver: defaultReceiverStr,
-            sourceClient: clientIdentifier,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: uint64(block.timestamp + 1000),
-            memo: "memo"
-        });
-
-        vm.startPrank(defaultSender);
-        uint32 sequence = ics20Transfer.sendTransfer(transferMsg);
-        assertEq(sequence, 1);
-
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
-            _getPacketData(defaultSenderStr, defaultReceiverStr, defaultNativeDenom);
-
-        IICS26RouterMsgs.Payload[] memory packetPayloads = _getPayloads(abi.encode(packetData));
-        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
-            sequence: sequence,
-            sourceClient: transferMsg.sourceClient,
-            destClient: counterpartyId, // If we test with something else, we need to add this to the args
-            timeoutTimestamp: transferMsg.timeoutTimestamp,
-            payloads: packetPayloads
-        });
-
-        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(transferMsg.sourceClient, sequence);
-        bytes32 storedCommitment = ics26Router.getCommitment(path);
-        assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket(
+            defaultSenderStr, defaultReceiverStr, address(erc20), defaultAmount, clientIdentifier, permit, signature
+        );
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -174,11 +168,10 @@ contract IntegrationTest is Test {
             proofAcked: bytes("doesntmatter"), // dummy client will accept
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
          });
-
         ics26Router.ackPacket(ackMsg);
-
         // commitment should be deleted
-        storedCommitment = ics26Router.getCommitment(path);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
@@ -877,6 +870,22 @@ contract IntegrationTest is Test {
         internal
         returns (IICS26RouterMsgs.Packet memory)
     {
+        ISignatureTransfer.PermitTransferFrom memory emptyPermit;
+        return _sendICS20TransferPacket(sender, receiver, denom, amount, sourceClient, emptyPermit, "");
+    }
+
+    function _sendICS20TransferPacket(
+        string memory sender,
+        string memory receiver,
+        address denom,
+        uint256 amount,
+        string memory sourceClient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory signature
+    )
+        internal
+        returns (IICS26RouterMsgs.Packet memory)
+    {
         uint64 timeoutTimestamp = uint64(block.timestamp + 1000);
 
         IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
@@ -890,8 +899,15 @@ contract IntegrationTest is Test {
         });
 
         vm.recordLogs();
-        vm.prank(ICS20Lib.mustHexStringToAddress(sender));
-        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+
+        uint32 sequence;
+        if (signature.length > 0) {
+            vm.prank(ICS20Lib.mustHexStringToAddress(sender));
+            sequence = ics20Transfer.permitSendTransfer(msgSendTransfer, permit, signature);
+        } else {
+            vm.prank(ICS20Lib.mustHexStringToAddress(sender));
+            sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        }
 
         IICS26RouterMsgs.Packet memory packet = _getPacketFromSendEvent();
 
