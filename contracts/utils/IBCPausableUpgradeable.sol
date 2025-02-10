@@ -16,7 +16,7 @@ abstract contract IBCPausableUpgradeable is
     PausableUpgradeable,
     AccessControlUpgradeable
 {
-    /// @notice The role identifier for the pauser role
+    /// @inheritdoc IIBCPausableUpgradeable
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
