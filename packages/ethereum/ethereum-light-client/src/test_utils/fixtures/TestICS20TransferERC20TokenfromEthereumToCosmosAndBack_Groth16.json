@@ -25,7 +25,7 @@
       "genesis_fork_version": "10000038",
       "genesis_slot": 0
      },
-     "frozen_slot": 0,
+     "is_frozen": false,
      "genesis_time": 1734449555,
      "genesis_validators_root": "d61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11",
      "ibc_commitment_slot": "0x1",
@@ -71,7 +71,7 @@
       "genesis_fork_version": "10000038",
       "genesis_slot": 0
      },
-     "frozen_slot": 0,
+     "is_frozen": false,
      "genesis_time": 1734449555,
      "genesis_validators_root": "d61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11",
      "ibc_commitment_slot": "0x1",
@@ -300,7 +300,7 @@
       "genesis_fork_version": "0x10000038",
       "genesis_slot": 0
      },
-     "frozen_slot": 0,
+     "is_frozen": false,
      "genesis_time": 1734449555,
      "genesis_validators_root": "0xd61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11",
      "ibc_commitment_slot": "0x1",
@@ -356,7 +356,7 @@
       "genesis_fork_version": "0x10000038",
       "genesis_slot": 0
      },
-     "frozen_slot": 0,
+     "is_frozen": false,
      "genesis_time": 1734449555,
      "genesis_validators_root": "0xd61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11",
      "ibc_commitment_slot": "0x1",
@@ -585,7 +585,7 @@
       "genesis_fork_version": "0x10000038",
       "genesis_slot": 0
      },
-     "frozen_slot": 0,
+     "is_frozen": false,
      "genesis_time": 1734449555,
      "genesis_validators_root": "0xd61ea484febacfae5298d52a2b581f3e305a51f3112a9241b968dccf019f7b11",
      "ibc_commitment_slot": "0x1",

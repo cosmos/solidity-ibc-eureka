@@ -28,6 +28,9 @@ pub enum ContractError {
     #[error("deserializing client message failed: {0}")]
     DeserializeClientMessageFailed(#[source] serde_json::Error),
 
+    #[error("deserializing ethereum misbehaviour message failed: {0}")]
+    DeserializeEthMisbehaviourFailed(#[source] serde_json::Error),
+
     #[error("verify membership failed: {0}")]
     VerifyMembershipFailed(#[source] EthereumIBCError),
 
@@ -55,4 +58,7 @@ pub enum ContractError {
 
     #[error("serde json error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("invalid client message")]
+    InvalidClientMessage,
 }

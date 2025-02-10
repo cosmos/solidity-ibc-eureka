@@ -48,6 +48,7 @@
             buf
             protoc-gen-go
             protoc-gen-go-grpc
+            quicktype
           ];
 
           NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [
