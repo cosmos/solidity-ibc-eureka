@@ -131,7 +131,7 @@ contract ICS20Transfer is
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bytes calldata signature
     )
-        external
+        external whenNotPaused nonReentrant
         returns (uint32 sequence)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
