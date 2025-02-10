@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-interface IIBCPausableUpgradeable {
+interface IIBCPausable {
     /// @notice The role identifier for the pauser role
     function PAUSER_ROLE() external view returns (bytes32);
 
