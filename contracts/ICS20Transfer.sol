@@ -144,7 +144,7 @@ contract ICS20Transfer is
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         require(
             permit.permitted.token == msg_.denom,
-            IICS20Errors.ICS20InvalidPermit2("permit denom not the same as transfer denom")
+            IICS20Errors.ICS20Permit2TokenMismatch(permit.permitted.token, msg_.denom)
         );
         // transfer the tokens to us with permit
         _getPermit2().permitTransferFrom(
