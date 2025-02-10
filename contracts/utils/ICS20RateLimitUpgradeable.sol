@@ -2,15 +2,16 @@
 pragma solidity ^0.8.28;
 
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { IICS20RateLimitErrors } from "../errors/IICS20RateLimitErrors.sol";
 
 /// @title ICS20 Rate Limit Upgradeable contract
 /// @notice This contract is an abstract contract for adding rate limiting to ICS20 contracts.
 /// @dev Rate limits are set per token address by the rate limiter role and are enforced per day.
 /// @dev Rate limits are applied to tokens leaving the escrow contract or minted by the ICS20 contract.
-abstract contract ICS20RateLimitUpgradeable is AccessControlUpgradeable {
+abstract contract ICS20RateLimitUpgradeable is IICS20RateLimitErrors, AccessControlUpgradeable {
     /// @notice Storage of the ICS20RateLimit contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
-    /// @param rateLimits Mapping of token addresses to their rate limits
+    /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
     /// @param dailyUsage Mapping of daily token keys to their usage
     struct ICS20RateLimitStorage {
         mapping(address token => uint256) rateLimits;
@@ -33,13 +34,28 @@ abstract contract ICS20RateLimitUpgradeable is AccessControlUpgradeable {
     function __ICS20RateLimit_init_unchained() internal onlyInitializing {}
     // solhint-disable-previous-line no-empty-blocks
 
+    /// @notice Checks the rate limit for a token and updates the daily usage
+    /// @param token The token address
+    /// @param amount The amount to check against the rate limit
     function _checkRateLimit(address token, uint256 amount) internal {
         ICS20RateLimitStorage storage $ = _getICS20RateLimitStorage();
         bytes32 dailyTokenKey = _getDailyTokenKey(token);
 
         uint256 usage = $.dailyUsage[dailyTokenKey] + amount;
-        require(usage <= $.rateLimits[token], "ICS20RateLimit: rate limit exceeded");
+        uint256 rateLimit = $.rateLimits[token];
+        if (rateLimit != 0) {
+            require(usage <= rateLimit, ICS20RateLimitExceeded(usage, rateLimit));
+        }
+
         $.dailyUsage[dailyTokenKey] = usage;
+    }
+
+    /// @notice Sets the rate limit for a token
+    /// @dev The caller must have the rate limiter role
+    /// @param token The token address
+    /// @param rateLimit The rate limit to set
+    function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
+        _getICS20RateLimitStorage().rateLimits[token] = rateLimit;
     }
 
     /// @notice Grants the rate limiter role to an account
