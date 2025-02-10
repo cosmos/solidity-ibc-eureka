@@ -5,24 +5,24 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 import { IRateLimitErrors } from "../errors/IRateLimitErrors.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
 
-/// @title ICS20 Rate Limit Upgradeable contract
-/// @notice This contract is an abstract contract for adding rate limiting to ICS20 contracts.
+/// @title Rate Limit Upgradeable contract
+/// @notice This contract is an abstract contract for adding rate limiting to escrow contracts.
 /// @dev Rate limits are set per token address by the rate limiter role and are enforced per day.
-/// @dev Rate limits are applied to tokens leaving the escrow contract or minted by the ICS20 contract.
-abstract contract ICS20RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessControlUpgradeable {
-    /// @notice Storage of the ICS20RateLimit contract
+/// @dev Rate limits are applied to tokens leaving the escrow contract.
+abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessControlUpgradeable {
+    /// @notice Storage of the RateLimit contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
     /// @param dailyUsage Mapping of daily token keys to their usage
-    struct ICS20RateLimitStorage {
+    struct RateLimitStorage {
         mapping(address token => uint256) rateLimits;
         mapping(bytes32 dailyTokenKey => uint256 usage) dailyUsage;
     }
 
-    /// @notice ERC-7201 slot for the ICS20RateLimit storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS20RateLimit")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICS20RATELIMIT_STORAGE_SLOT =
-        0xc7cd134226e58c84bf05772acb0cd1a5f7ad8109284407e942f521929a147000;
+    /// @notice ERC-7201 slot for the RateLimit storage
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.RateLimit")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant RATELIMIT_STORAGE_SLOT =
+        0xcb05b6cb8e6c87c443cb04d44193d7d46d51c1198725a0ee3478d5baa736c100;
 
     /// @inheritdoc IRateLimit
     bytes32 public constant RATE_LIMITER_ROLE = keccak256("RATE_LIMITER_ROLE");
@@ -30,22 +30,22 @@ abstract contract ICS20RateLimitUpgradeable is IRateLimitErrors, IRateLimit, Acc
     /// @notice The period for rate limiting
     uint256 private constant RATE_LIMIT_PERIOD = 1 days;
 
-    /// @notice The initializer for the ICS20RateLimit contract
+    /// @notice The initializer for the RateLimit contract
     /// @dev This function doesn't need to do anything
-    function __ICS20RateLimit_init_unchained() internal onlyInitializing {}
+    function __RateLimit_init_unchained() internal onlyInitializing {}
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Checks the rate limit for a token and updates the daily usage
     /// @param token The token address
     /// @param amount The amount to check against the rate limit
     function _checkRateLimit(address token, uint256 amount) internal {
-        ICS20RateLimitStorage storage $ = _getICS20RateLimitStorage();
+        RateLimitStorage storage $ = _getRateLimitStorage();
         bytes32 dailyTokenKey = _getDailyTokenKey(token);
 
         uint256 usage = $.dailyUsage[dailyTokenKey] + amount;
         uint256 rateLimit = $.rateLimits[token];
         if (rateLimit != 0) {
-            require(usage <= rateLimit, ICS20RateLimitExceeded(usage, rateLimit));
+            require(usage <= rateLimit, RateLimitExceeded(usage, rateLimit));
         }
 
         $.dailyUsage[dailyTokenKey] = usage;
@@ -53,7 +53,7 @@ abstract contract ICS20RateLimitUpgradeable is IRateLimitErrors, IRateLimit, Acc
 
     /// @inheritdoc IRateLimit
     function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
-        _getICS20RateLimitStorage().rateLimits[token] = rateLimit;
+        _getRateLimitStorage().rateLimits[token] = rateLimit;
     }
 
     /// @inheritdoc IRateLimit
@@ -79,11 +79,11 @@ abstract contract ICS20RateLimitUpgradeable is IRateLimitErrors, IRateLimit, Acc
     /// @param account The account to authorize
     function _authorizeSetRateLimiterRole(address account) internal virtual;
 
-    /// @notice Returns the storage of the ICS20RateLimit contract
-    function _getICS20RateLimitStorage() internal pure returns (ICS20RateLimitStorage storage $) {
+    /// @notice Returns the storage of the RateLimit contract
+    function _getRateLimitStorage() internal pure returns (RateLimitStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := ICS20RATELIMIT_STORAGE_SLOT
+            $.slot := RATELIMIT_STORAGE_SLOT
         }
     }
 }
