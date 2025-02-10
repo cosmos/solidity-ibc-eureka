@@ -21,6 +21,7 @@ abstract contract IBCPausableUpgradeable is
     /// @param pauser The address that can pause and unpause the contract
     function __IBCPausable_init(address pauser) internal onlyInitializing {
         __Pausable_init();
+        __AccessControl_init();
 
         _grantRole(PAUSER_ROLE, pauser);
     }
