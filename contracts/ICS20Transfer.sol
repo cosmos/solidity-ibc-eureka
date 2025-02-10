@@ -11,6 +11,7 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -25,7 +26,6 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 using SafeERC20 for IERC20;
 
