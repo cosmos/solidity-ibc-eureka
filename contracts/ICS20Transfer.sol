@@ -142,6 +142,7 @@ contract ICS20Transfer is
         returns (uint32 sequence)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        require(permit.permitted.token == msg_.denom, IICS20Errors.ICS20InvalidPermit2("permit denom not the same as transfer denom"));
         // transfer the tokens to us with permit
         _getPermit2().permitTransferFrom(
             permit,
@@ -162,6 +163,7 @@ contract ICS20Transfer is
 
         (bool returningToSource, address erc20Address) =
             _getSendingERC20Address(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData.denom);
+        require(erc20Address == msg_.denom, ICS20DenomNotFound(Strings.toHexString(msg_.denom)));
         if (returningToSource) {
             // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
             IBCERC20(erc20Address).burn(packetData.amount);

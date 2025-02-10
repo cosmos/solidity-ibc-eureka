@@ -21,13 +21,18 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
+import { PermitSignature } from "./utils/PermitSignature.sol";
 
-contract ICS20TransferTest is Test {
+contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     ICS20Transfer public ics20Transfer;
     TestERC20 public erc20;
+    ISignatureTransfer public permit2;
 
     address public sender;
     string public senderStr;
+    uint256 public senderKey;
     address public receiver;
     string public receiverStr;
 
@@ -38,18 +43,19 @@ contract ICS20TransferTest is Test {
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        permit2 = ISignatureTransfer(deployPermit2());
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(this), escrowLogic, ibcERC20Logic, address(0), address(0)
+                ICS20Transfer.initialize.selector, address(this), escrowLogic, ibcERC20Logic, address(0), address(permit2)
             )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
         erc20 = new TestERC20();
 
-        sender = makeAddr("sender");
+        (sender, senderKey) = makeAddrAndKey("sender");
         senderStr = Strings.toHexString(sender);
 
         receiver = makeAddr(receiverStr);
@@ -81,6 +87,7 @@ contract ICS20TransferTest is Test {
 
     function test_failure_sendTransfer() public {
         // this contract acts as the ics26Router
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
 
         // test missing approval
         vm.expectRevert(
@@ -116,11 +123,76 @@ contract ICS20TransferTest is Test {
         malfunctioningERC20.setMalfunction(true); // Turn on the malfunctioning behaviour (no update)
         vm.prank(sender);
         malfunctioningERC20.approve(address(ics20Transfer), defaultAmount);
-        erc20 = malfunctioningERC20; // This is not reset since it is the last test
+        TestERC20 tmpERC20 = erc20;
+        erc20 = malfunctioningERC20;
 
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, 0));
         vm.prank(sender);
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
+
+        // prove that it works with valid data
+        erc20 = tmpERC20; 
+        vm.prank(sender);
+        ics20Transfer.sendTransfer(_getTestSendTransferMsg());
+    }
+
+    function test_failure_permitSendTransfer() public {
+        // this contract acts as the ics26Router
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: defaultAmount }),
+            nonce: 0,
+            deadline: block.timestamp + 100
+        });
+        bytes memory signature = this.getPermitTransferSignature(
+            permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
+        );
+
+        // test missing approval
+        vm.expectRevert("TRANSFER_FROM_FAILED"); 
+        vm.prank(sender);
+        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+
+        // mint and approve permit2
+        erc20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        erc20.approve(address(permit2), defaultAmount);
+
+        // test invalid amount
+        defaultAmount = 0;
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
+        vm.prank(sender);
+        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        // reset amount
+        defaultAmount = 1_000_000_100_000_000_001;
+
+        // test different permit and send token
+        TestERC20 differentERC20 = new TestERC20();
+        differentERC20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        differentERC20.approve(address(permit2), defaultAmount);
+        ISignatureTransfer.PermitTransferFrom memory differentPermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(differentERC20), amount: defaultAmount }),
+            nonce: 1,
+            deadline: block.timestamp + 100
+        });
+        bytes memory differentSignature = this.getPermitTransferSignature(
+            differentPermit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
+        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPermit2.selector, "permit denom not the same as transfer denom"));
+        vm.prank(sender);
+        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), differentPermit, differentSignature);
+
+        // test invalid signature
+        bytes memory invalidSignature = new bytes(65);
+        vm.expectRevert();
+        vm.prank(sender);
+        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, invalidSignature);
+
+        // prove that it works with a valid signature
+        vm.prank(sender);
+        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
     }
 
     function test_failure_onAcknowledgementPacket() public {

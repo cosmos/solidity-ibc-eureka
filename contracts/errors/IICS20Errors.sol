@@ -36,6 +36,10 @@ interface IICS20Errors {
     /// @param feature Unsupported feature
     error ICS20UnsupportedFeature(string feature);
 
+    /// @notice Invalid permit2
+    /// @param error Error message
+    error ICS20InvalidPermit2(string error);
+
     // ICS20Lib Errors:
 
     /// @notice Abi encoding/decoding failure
