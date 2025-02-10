@@ -6,8 +6,8 @@ use ethereum_light_client::consensus_state::TrustedConsensusState;
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
     msg::{
-        EthereumMisbehaviourMsg, StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult,
-        VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, StatusResult,
+        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
     },
     state::{get_eth_client_state, get_eth_consensus_state},
     ContractError,
@@ -69,6 +69,48 @@ pub fn verify_client_message(
     }
 
     Err(ContractError::InvalidClientMessage)
+}
+
+/// Checks for misbehaviour. Returning an error means no misbehaviour was found.
+///
+/// Note that we are replicating some of the logic of `verify_client_message` here, ideally we
+/// would also check for misbehavior of the header in this function.
+/// # Errors
+/// Returns an error if the misbehaviour cannot be verified
+#[allow(clippy::needless_pass_by_value)]
+pub fn check_for_misbehaviour(
+    deps: Deps<EthereumCustomQuery>,
+    env: Env,
+    check_for_misbehaviour_msg: CheckForMisbehaviourMsg,
+) -> Result<Binary, ContractError> {
+    let misbehaviour = serde_json::from_slice::<EthereumMisbehaviourMsg>(
+        &check_for_misbehaviour_msg.client_message,
+    )
+    .map_err(ContractError::DeserializeEthMisbehaviourFailed)?;
+
+    let eth_client_state = get_eth_client_state(deps.storage)?;
+    let eth_consensus_state = get_eth_consensus_state(deps.storage, misbehaviour.trusted_slot)?;
+
+    let bls_verifier = BlsVerifier {
+        querier: deps.querier,
+    };
+
+    ethereum_light_client::misbehaviour::verify_misbehaviour(
+        &eth_client_state,
+        &TrustedConsensusState {
+            state: eth_consensus_state,
+            sync_committee: misbehaviour.sync_committee,
+        },
+        &misbehaviour.update_1,
+        &misbehaviour.update_2,
+        env.block.time.seconds(),
+        bls_verifier,
+    )
+    .map_err(ContractError::VerifyClientMessageFailed)?;
+
+    Ok(to_json_binary(&CheckForMisbehaviourResult {
+        found_misbehaviour: true,
+    })?)
 }
 
 /// Gets the consensus timestamp at a given height

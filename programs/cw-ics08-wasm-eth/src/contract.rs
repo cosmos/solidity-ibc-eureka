@@ -109,7 +109,9 @@ pub fn query(
         QueryMsg::VerifyClientMessage(verify_client_message_msg) => {
             query::verify_client_message(deps, env, verify_client_message_msg)
         }
-        QueryMsg::CheckForMisbehaviour(_) => todo!(),
+        QueryMsg::CheckForMisbehaviour(check_for_misbehaviour_msg) => {
+            query::check_for_misbehaviour(deps, env, check_for_misbehaviour_msg)
+        }
         QueryMsg::TimestampAtHeight(timestamp_at_height_msg) => {
             query::timestamp_at_height(deps, timestamp_at_height_msg)
         }
