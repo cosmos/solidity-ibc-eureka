@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// This test contract was originally copied, with minor adjustments, from
+// https://github.com/Uniswap/v4-periphery/blob/59a4dfbb8e3e98f0da0d14794641afc7955e82f7/test/shared/Permit2SignatureHelpers.sol#L30
+
 // solhint-disable const-name-snakecase
 
 import { Vm } from "forge-std/Vm.sol";
