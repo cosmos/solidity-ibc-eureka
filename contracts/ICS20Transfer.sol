@@ -148,7 +148,14 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function permitSendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_, ISignatureTransfer.PermitTransferFrom calldata permit, bytes calldata signature) external returns (uint32 sequence)  {
+    function permitSendTransfer(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata signature
+    )
+        external
+        returns (uint32 sequence)
+    {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
@@ -156,10 +163,12 @@ contract ICS20Transfer is
             _getSendingERC20Address(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData.denom);
 
         // transfer the tokens to us with permit
-        _getPermit2().permitTransferFrom(permit, ISignatureTransfer.SignatureTransferDetails({
-            to: escrow(),
-            requestedAmount: packetData.amount
-        }), _msgSender(), signature);
+        _getPermit2().permitTransferFrom(
+            permit,
+            ISignatureTransfer.SignatureTransferDetails({ to: escrow(), requestedAmount: packetData.amount }),
+            _msgSender(),
+            signature
+        );
 
         if (returningToSource) {
             // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)

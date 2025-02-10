@@ -75,7 +75,12 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(permit2)
+                ICS20Transfer.initialize.selector,
+                address(routerProxy),
+                escrowLogic,
+                ibcERC20Logic,
+                address(0),
+                address(permit2)
             )
         );
 
@@ -141,22 +146,22 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         erc20.approve(address(permit2), defaultAmount);
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({
-                token: address(erc20),
-                amount: defaultAmount
-            }),
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: defaultAmount }),
             nonce: 0,
             deadline: block.timestamp + 100
         });
-        bytes memory signature = this.getPermitTransferSignature(permit, defaultSenderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+        bytes memory signature = this.getPermitTransferSignature(
+            permit, defaultSenderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
+        );
 
         uint256 senderBalanceBefore = erc20.balanceOf(defaultSender);
         uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
-        IICS26RouterMsgs.Packet memory packet =
-            _sendICS20TransferPacket(defaultSenderStr, defaultReceiverStr, address(erc20), defaultAmount, clientIdentifier, permit, signature);
+        IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket(
+            defaultSenderStr, defaultReceiverStr, address(erc20), defaultAmount, clientIdentifier, permit, signature
+        );
 
         IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
             packet: packet,
@@ -870,7 +875,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         return _sendICS20TransferPacket(sender, receiver, denom, amount, sourceClient, emptyPermit, "");
     }
 
-
     function _sendICS20TransferPacket(
         string memory sender,
         string memory receiver,
@@ -905,7 +909,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
             sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         }
-
 
         IICS26RouterMsgs.Packet memory packet = _getPacketFromSendEvent();
 

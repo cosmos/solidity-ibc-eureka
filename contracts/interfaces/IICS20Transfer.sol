@@ -15,7 +15,13 @@ interface IICS20Transfer {
     /// @param permit The permit data
     /// @param signature The signature of the permit data
     /// @return sequence The sequence number of the packet created
-    function permitSendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_, ISignatureTransfer.PermitTransferFrom calldata permit, bytes calldata signature) external returns (uint32 sequence);
+    function permitSendTransfer(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata signature
+    )
+        external
+        returns (uint32 sequence);
 
     /// @notice Retrieve the escrow contract address
     /// @return The escrow contract address
@@ -33,7 +39,14 @@ interface IICS20Transfer {
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
     /// @param pauser The address that can pause and unpause the contract
     /// @param permit2 The address of the permit2 contract
-    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address pauser, address permit2) external;
+    function initialize(
+        address ics26Router,
+        address escrowLogic,
+        address ibcERC20Logic,
+        address pauser,
+        address permit2
+    )
+        external;
 
     // --------------------- Events --------------------- //
 
