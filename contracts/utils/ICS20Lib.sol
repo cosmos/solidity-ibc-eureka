@@ -39,8 +39,6 @@ library ICS20Lib {
         view
         returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
-        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
-
         string memory fullDenomPath;
         try IBCERC20(msg_.denom).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
             // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there

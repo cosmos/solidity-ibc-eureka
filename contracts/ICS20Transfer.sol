@@ -117,34 +117,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external whenNotPaused returns (uint32) {
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
-            ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
-
-        (bool returningToSource, address erc20Address) =
-            _getSendingERC20Address(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData.denom);
-
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external whenNotPaused nonReentrant returns (uint32) {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(_msgSender(), escrow(), erc20Address, packetData.amount);
+        _transferFrom(_msgSender(), escrow(), msg_.denom, msg_.amount);
 
-        if (returningToSource) {
-            // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
-            IBCERC20(erc20Address).burn(packetData.amount);
-        }
-
-        return _getICS26Router().sendPacket(
-            IICS26RouterMsgs.MsgSendPacket({
-                sourceClient: msg_.sourceClient,
-                timeoutTimestamp: msg_.timeoutTimestamp,
-                payload: IICS26RouterMsgs.Payload({
-                    sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-                    destPort: ICS20Lib.DEFAULT_PORT_ID,
-                    version: ICS20Lib.ICS20_VERSION,
-                    encoding: ICS20Lib.ICS20_ENCODING,
-                    value: abi.encode(packetData)
-                })
-            })
-        );
+        return sendTransferFromEscrow(msg_);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -156,20 +134,27 @@ contract ICS20Transfer is
         external
         returns (uint32 sequence)
     {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        // transfer the tokens to us with permit
+        _getPermit2().permitTransferFrom(
+            permit,
+            ISignatureTransfer.SignatureTransferDetails({ to: escrow(), requestedAmount: msg_.amount }),
+            _msgSender(),
+            signature
+        );
+
+        return sendTransferFromEscrow(msg_);
+    }
+
+    /// @notice Send a transfer after the funds have been transferred to escrow
+    /// @param msg_ The message for sending a transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransferFromEscrow(IICS20TransferMsgs.SendTransferMsg calldata msg_) private returns (uint32) {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             ICS20Lib.newFungibleTokenPacketDataV1(_msgSender(), msg_);
 
         (bool returningToSource, address erc20Address) =
             _getSendingERC20Address(ICS20Lib.DEFAULT_PORT_ID, msg_.sourceClient, packetData.denom);
-
-        // transfer the tokens to us with permit
-        _getPermit2().permitTransferFrom(
-            permit,
-            ISignatureTransfer.SignatureTransferDetails({ to: escrow(), requestedAmount: packetData.amount }),
-            _msgSender(),
-            signature
-        );
-
         if (returningToSource) {
             // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
             IBCERC20(erc20Address).burn(packetData.amount);
