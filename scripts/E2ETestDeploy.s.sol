@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 /*
-    This script is used for end-to-end testing with SP1_PROVER=network.
+    This script is used for end-to-end testing
 */
 
 // solhint-disable custom-errors,gas-custom-errors
@@ -105,6 +105,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
                 address(routerProxy),
                 escrowLogic,
                 ibcERC20Logic,
+                address(0),
                 address(0)
             )
         );

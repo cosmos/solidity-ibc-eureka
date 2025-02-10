@@ -2,15 +2,20 @@
 pragma solidity ^0.8.28;
 
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 interface IICS20Transfer {
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
-    /// @notice This function is not strictly necessary. You can construct IICS26RouterMsgs.SendPacketMsg
-    /// @notice yourself and call IICS26Router.sendPacket, which uses less gas than this function
-    /// @notice There is also a helper function newMsgSendPacketV1 to help construct the message
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external returns (uint32 sequence);
+
+    /// @notice Send a permit2 transfer by constructing a message and calling IICS26Router.sendPacket
+    /// @param msg_ The message for sending a transfer
+    /// @param permit The permit data
+    /// @param signature The signature of the permit data
+    /// @return sequence The sequence number of the packet created
+    function permitSendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_, ISignatureTransfer.PermitTransferFrom calldata permit, bytes calldata signature) external returns (uint32 sequence);
 
     /// @notice Retrieve the escrow contract address
     /// @return The escrow contract address
@@ -27,7 +32,8 @@ interface IICS20Transfer {
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
     /// @param pauser The address that can pause and unpause the contract
-    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address pauser) external;
+    /// @param permit2 The address of the permit2 contract
+    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address pauser, address permit2) external;
 
     // --------------------- Events --------------------- //
 

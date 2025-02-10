@@ -13,6 +13,7 @@ import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
@@ -151,7 +152,12 @@ contract IBCERC20Test is Test, IICS20Transfer {
         return address(0);
     }
 
+    // Dummy implementation of IICS20Transfer
+    function permitSendTransfer(IICS20TransferMsgs.SendTransferMsg calldata, ISignatureTransfer.PermitTransferFrom calldata, bytes calldata) external pure returns (uint32 sequence)  {
+        return 0;
+    }
+
     /// @notice Dummy implementation of IICS20Transfer
-    function initialize(address, address, address, address) external pure override { }
+    function initialize(address, address, address, address, address) external pure override { }
     // solhint-disable-previous-line no-empty-blocks
 }

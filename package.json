@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0",
-    "@openzeppelin/contracts-upgradeable": "^5.2.0"
+    "@openzeppelin/contracts-upgradeable": "^5.2.0",
+    "@uniswap/permit2": "github:Uniswap/permit2"
   },
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0",
