@@ -11,8 +11,6 @@ import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol"
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
-import { IIBCPausableUpgradeableErrors } from "../../contracts/errors/IIBCPausableUpgradeableErrors.sol";
-import { IIBCPausableUpgradeable } from "../../contracts/interfaces/IIBCPausableUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";

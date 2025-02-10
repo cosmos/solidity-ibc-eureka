@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IIBCPausableUpgradeableErrors } from "../errors/IIBCPausableUpgradeableErrors.sol";
-import { IIBCPausableUpgradeable } from "../interfaces/IIBCPausableUpgradeable.sol";
+import { IIBCPausableErrors } from "../errors/IIBCPausableErrors.sol";
+import { IIBCPausable } from "../interfaces/IIBCPausable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
@@ -10,13 +10,13 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 /// @title IBC Pausable Upgradeable contract
 /// @notice This contract is an abstract contract for adding pausability to IBC contracts.
 abstract contract IBCPausableUpgradeable is
-    IIBCPausableUpgradeableErrors,
-    IIBCPausableUpgradeable,
+    IIBCPausableErrors,
+    IIBCPausable,
     ContextUpgradeable,
     PausableUpgradeable,
     AccessControlUpgradeable
 {
-    /// @inheritdoc IIBCPausableUpgradeable
+    /// @inheritdoc IIBCPausable
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
@@ -27,23 +27,23 @@ abstract contract IBCPausableUpgradeable is
         _grantRole(PAUSER_ROLE, pauser);
     }
 
-    /// @inheritdoc IIBCPausableUpgradeable
+    /// @inheritdoc IIBCPausable
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    /// @inheritdoc IIBCPausableUpgradeable
+    /// @inheritdoc IIBCPausable
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
-    /// @inheritdoc IIBCPausableUpgradeable
+    /// @inheritdoc IIBCPausable
     function grantPauserRole(address account) external {
         _authorizeSetPauser(account);
         _grantRole(PAUSER_ROLE, account);
     }
 
-    /// @inheritdoc IIBCPausableUpgradeable
+    /// @inheritdoc IIBCPausable
     function revokePauserRole(address account) external {
         _authorizeSetPauser(account);
         _revokeRole(PAUSER_ROLE, account);
