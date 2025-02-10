@@ -2,14 +2,14 @@
 pragma solidity ^0.8.28;
 
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
-import { IICS20RateLimitErrors } from "../errors/IICS20RateLimitErrors.sol";
-import { IICS20RateLimit } from "../interfaces/IICS20RateLimit.sol";
+import { IRateLimitErrors } from "../errors/IRateLimitErrors.sol";
+import { IRateLimit } from "../interfaces/IRateLimit.sol";
 
 /// @title ICS20 Rate Limit Upgradeable contract
 /// @notice This contract is an abstract contract for adding rate limiting to ICS20 contracts.
 /// @dev Rate limits are set per token address by the rate limiter role and are enforced per day.
 /// @dev Rate limits are applied to tokens leaving the escrow contract or minted by the ICS20 contract.
-abstract contract ICS20RateLimitUpgradeable is IICS20RateLimitErrors, IICS20RateLimit, AccessControlUpgradeable {
+abstract contract ICS20RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessControlUpgradeable {
     /// @notice Storage of the ICS20RateLimit contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
     /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
@@ -24,7 +24,7 @@ abstract contract ICS20RateLimitUpgradeable is IICS20RateLimitErrors, IICS20Rate
     bytes32 private constant ICS20RATELIMIT_STORAGE_SLOT =
         0xc7cd134226e58c84bf05772acb0cd1a5f7ad8109284407e942f521929a147000;
 
-    /// @inheritdoc IICS20RateLimit
+    /// @inheritdoc IRateLimit
     bytes32 public constant RATE_LIMITER_ROLE = keccak256("RATE_LIMITER_ROLE");
 
     /// @notice The period for rate limiting
@@ -51,18 +51,18 @@ abstract contract ICS20RateLimitUpgradeable is IICS20RateLimitErrors, IICS20Rate
         $.dailyUsage[dailyTokenKey] = usage;
     }
 
-    /// @inheritdoc IICS20RateLimit
+    /// @inheritdoc IRateLimit
     function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
         _getICS20RateLimitStorage().rateLimits[token] = rateLimit;
     }
 
-    /// @inheritdoc IICS20RateLimit
+    /// @inheritdoc IRateLimit
     function grantRateLimiterRole(address account) external {
         _authorizeSetRateLimiterRole(account);
         _grantRole(RATE_LIMITER_ROLE, account);
     }
 
-    /// @inheritdoc IICS20RateLimit
+    /// @inheritdoc IRateLimit
     function revokeRateLimiterRole(address account) external {
         _authorizeSetRateLimiterRole(account);
         _revokeRole(RATE_LIMITER_ROLE, account);

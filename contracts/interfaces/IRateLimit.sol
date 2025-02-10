@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-interface IICS20RateLimit {
+interface IRateLimit {
     /// @notice The role identifier for the rate limiter role
     function RATE_LIMITER_ROLE() external view returns (bytes32);
 
