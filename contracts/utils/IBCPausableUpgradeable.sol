@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IIBCPausableErrors } from "../errors/IIBCPausableErrors.sol";
 import { IIBCPausable } from "../interfaces/IIBCPausable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
@@ -10,7 +9,6 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 /// @title IBC Pausable Upgradeable contract
 /// @notice This contract is an abstract contract for adding pausability to IBC contracts.
 abstract contract IBCPausableUpgradeable is
-    IIBCPausableErrors,
     IIBCPausable,
     ContextUpgradeable,
     PausableUpgradeable,
