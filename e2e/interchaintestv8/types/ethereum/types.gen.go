@@ -25,8 +25,6 @@ type ClientState struct {
 	EpochsPerSyncCommitteePeriod uint64 `json:"epochs_per_sync_committee_period"`
 	// The fork parameters
 	ForkParameters ForkParameters `json:"fork_parameters"`
-	// The slot at which the client was frozen
-	FrozenSlot uint64 `json:"frozen_slot"`
 	// The time of genesis (unix timestamp)
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root
@@ -35,6 +33,8 @@ type ClientState struct {
 	IbcCommitmentSlot string `json:"ibc_commitment_slot"`
 	// The address of the IBC contract being tracked on Ethereum
 	IbcContractAddress string `json:"ibc_contract_address"`
+	// Whether the client is frozen
+	IsFrozen bool `json:"is_frozen"`
 	// The latest slot of this client
 	LatestSlot uint64 `json:"latest_slot"`
 	// The minimum number of participants in the sync committee

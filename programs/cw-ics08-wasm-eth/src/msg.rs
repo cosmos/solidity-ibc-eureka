@@ -3,6 +3,8 @@
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
+use ethereum_light_client::header::ActiveSyncCommittee;
+use ethereum_types::consensus::light_client_header::LightClientUpdate;
 
 /// The message to instantiate the contract
 #[cw_serde]
@@ -98,6 +100,19 @@ pub struct VerifyUpgradeAndUpdateStateMsg {
 /// Migrate client store message
 #[cw_serde]
 pub struct MigrateClientStoreMsg {}
+
+/// The misbehaviour message for the ethereum light client
+#[cw_serde]
+pub struct EthereumMisbehaviourMsg {
+    /// The slot of the trusted consensus state
+    pub trusted_slot: u64,
+    /// The trusted sync committee, active or next
+    pub sync_committee: ActiveSyncCommittee,
+    /// The first light client update
+    pub update_1: LightClientUpdate,
+    /// The second conflicting light client update
+    pub update_2: LightClientUpdate,
+}
 
 /// The query messages called by `ibc-go`
 #[cw_serde]

@@ -9,7 +9,10 @@ use ibc_proto::ibc::{
 
 use crate::{
     custom_query::EthereumCustomQuery,
-    msg::{Height, UpdateStateMsg, UpdateStateResult, VerifyMembershipMsg, VerifyNonMembershipMsg},
+    msg::{
+        Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult,
+        VerifyMembershipMsg, VerifyNonMembershipMsg,
+    },
     state::{
         get_eth_client_state, get_eth_consensus_state, get_wasm_client_state, store_client_state,
         store_consensus_state,
@@ -128,6 +131,28 @@ pub fn update_state(
             revision_height: updated_slot,
         }],
     })?)
+}
+
+/// Update the state of the light client on misbehaviour
+/// # Errors
+/// Returns an error if the misbehaviour verification fails
+#[allow(clippy::needless_pass_by_value)]
+pub fn misbehaviour(
+    deps: DepsMut<EthereumCustomQuery>,
+    _msg: UpdateStateOnMisbehaviourMsg,
+) -> Result<Binary, ContractError> {
+    let mut eth_client_state = get_eth_client_state(deps.storage)?;
+    eth_client_state.is_frozen = true;
+
+    let client_state_bz: Vec<u8> =
+        serde_json::to_vec(&eth_client_state).map_err(ContractError::SerializeClientStateFailed)?;
+
+    let mut wasm_client_state = get_wasm_client_state(deps.storage)?;
+    wasm_client_state.data = client_state_bz;
+
+    store_client_state(deps.storage, &wasm_client_state)?;
+
+    Ok(Binary::default())
 }
 
 #[cfg(test)]

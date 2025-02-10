@@ -27,8 +27,8 @@ pub struct ClientState {
     pub epochs_per_sync_committee_period: u64,
     /// The latest slot of this client
     pub latest_slot: u64,
-    /// The slot at which the client was frozen
-    pub frozen_slot: u64,
+    /// Whether the client is frozen
+    pub is_frozen: bool,
     /// The address of the IBC contract being tracked on Ethereum
     #[schemars(with = "String")]
     pub ibc_contract_address: Address,

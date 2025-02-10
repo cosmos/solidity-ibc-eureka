@@ -133,6 +133,12 @@ pub enum EthereumIBCError {
         seconds_per_slot: u64,
         genesis_slot: u64,
     },
+
+    #[error("conflicting updates are for different slots: {0} != {1}")]
+    MisbehaviourSlotMismatch(u64, u64),
+
+    #[error("storage roots are not conflicting: {0} == {0}")]
+    MisbehaviourStorageRootsMatch(B256),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]
