@@ -429,6 +429,8 @@ contract ICS20Transfer is
         return _getICS20TransferStorage().ics26Router;
     }
 
+    /// @notice Returns the permit2 contract
+    /// @return The permit2 contract address
     function _getPermit2() private view returns (ISignatureTransfer) {
         return _getICS20TransferStorage().permit2;
     }
