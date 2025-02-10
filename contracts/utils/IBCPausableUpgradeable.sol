@@ -17,7 +17,7 @@ abstract contract IBCPausableUpgradeable is
     AccessControlUpgradeable
 {
     /// @notice The role identifier for the pauser role
-    bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
     /// @param pauser The address that can pause and unpause the contract

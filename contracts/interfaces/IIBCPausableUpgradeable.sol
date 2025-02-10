@@ -2,6 +2,9 @@
 pragma solidity ^0.8.28;
 
 interface IIBCPausableUpgradeable {
+    /// @notice The role identifier for the pauser role
+    function PAUSER_ROLE() external view returns (bytes32);
+
     /// @notice Pauses the contract
     /// @dev The caller must have the pauser role
     function pause() external;
