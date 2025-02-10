@@ -53,9 +53,7 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory fetchedCounterparty = ics02Client.getCounterparty(clientIdentifier);
         assertEq(fetchedCounterparty.clientId, counterpartyId, "counterparty not set correctly");
 
-        bool hasRole = ics02Client.hasRole(
-            ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner
-        );
+        bool hasRole = ics02Client.hasRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         assertTrue(hasRole, "client owner not set correctly");
     }
 

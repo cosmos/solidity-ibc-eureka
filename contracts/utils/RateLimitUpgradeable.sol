@@ -11,7 +11,8 @@ import { IRateLimit } from "../interfaces/IRateLimit.sol";
 /// @dev Rate limits are applied to tokens leaving the escrow contract.
 abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessControlUpgradeable {
     /// @notice Storage of the RateLimit contract
-    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with upgradeable contracts.
+    /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
+    /// upgradeable contracts.
     /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
     /// @param dailyUsage Mapping of daily token keys to their usage
     struct RateLimitStorage {
@@ -21,8 +22,7 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
 
     /// @notice ERC-7201 slot for the RateLimit storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.RateLimit")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant RATELIMIT_STORAGE_SLOT =
-        0xcb05b6cb8e6c87c443cb04d44193d7d46d51c1198725a0ee3478d5baa736c100;
+    bytes32 private constant RATELIMIT_STORAGE_SLOT = 0xcb05b6cb8e6c87c443cb04d44193d7d46d51c1198725a0ee3478d5baa736c100;
 
     /// @inheritdoc IRateLimit
     bytes32 public constant RATE_LIMITER_ROLE = keccak256("RATE_LIMITER_ROLE");

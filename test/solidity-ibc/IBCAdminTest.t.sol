@@ -177,7 +177,11 @@ contract IBCAdminTest is Test {
     }
 
     function test_failure_pauseAndUnpause() public {
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+            )
+        );
         ics20Transfer.pause();
         assert(!ics20Transfer.paused());
 
@@ -185,7 +189,11 @@ contract IBCAdminTest is Test {
         ics20Transfer.pause();
         assert(ics20Transfer.paused());
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+            )
+        );
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
     }
