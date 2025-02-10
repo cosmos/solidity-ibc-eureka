@@ -2,21 +2,21 @@
 pragma solidity ^0.8.28;
 
 interface IIBCPausableUpgradeable {
-    /// @notice Returns the pauser address
-    /// @return The pauser address
-    function getPauser() external view returns (address);
-
     /// @notice Pauses the contract
-    /// @dev The caller must be the pauser
+    /// @dev The caller must have the pauser role
     function pause() external;
 
     /// @notice Unpauses the contract
-    /// @dev The caller must be the pauser
+    /// @dev The caller must have the pauser role
     function unpause() external;
 
-    /// @notice Sets the pauser address
-    /// @dev Must be authorized by this contract
-    /// @dev This operation cannot be paused
-    /// @param pauser The new pauser address
-    function setPauser(address pauser) external;
+    /// @notice Grants the pauser role to an account
+    /// @dev The caller must be authorized by the derived contract
+    /// @param account The account to grant the role to
+    function grantPauserRole(address account) external;
+
+    /// @notice Revokes the pauser role from an account
+    /// @dev The caller must be authorized by the derived contract
+    /// @param account The account to revoke the role from
+    function revokePauserRole(address account) external;
 }

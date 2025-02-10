@@ -24,7 +24,7 @@ abstract contract ICS20RateLimitUpgradeable is AccessControlUpgradeable {
     /// @param account The account to grant the role to
     function grantRateLimiterRole(address account) external {
         _authorizeSetRateLimiterRole(account);
-        grantRole(RATE_LIMITER_ROLE, account);
+        _grantRole(RATE_LIMITER_ROLE, account);
     }
 
     /// @notice Revokes the rate limiter role from an account
@@ -32,7 +32,7 @@ abstract contract ICS20RateLimitUpgradeable is AccessControlUpgradeable {
     /// @param account The account to revoke the role from
     function revokeRateLimiterRole(address account) external {
         _authorizeSetRateLimiterRole(account);
-        revokeRole(RATE_LIMITER_ROLE, account);
+        _revokeRole(RATE_LIMITER_ROLE, account);
     }
 
     /// @notice Authorizes the granting or revoking of the rate limiter role
