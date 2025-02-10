@@ -7,12 +7,13 @@ import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
+import { RateLimitUpgradeable } from "./RateLimitUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
 /// @title Escrow Contract
 /// @notice This contract is used to escrow the funds for the ICS20 contract
-contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
+contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable, RateLimitUpgradeable {
     /// @notice Storage of the Escrow contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -39,6 +40,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
     /// @inheritdoc IEscrow
     function initialize(address ics20_, address ics26_) external initializer {
         __Context_init();
+        __RateLimit_init();
 
         EscrowStorage storage $ = _getEscrowStorage();
 
@@ -48,6 +50,7 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
 
     /// @inheritdoc IEscrow
     function send(IERC20 token, address to, uint256 amount) external override onlyICS20 {
+        _checkRateLimit(address(token), amount);
         token.safeTransfer(to, amount);
     }
 
@@ -63,6 +66,11 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable {
 
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal view override {
+        require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
+    }
+
+    /// @inheritdoc RateLimitUpgradeable
+    function _authorizeSetRateLimiterRole(address) internal view override {
         require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
     }
 

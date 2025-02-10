@@ -31,9 +31,9 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     uint256 private constant RATE_LIMIT_PERIOD = 1 days;
 
     /// @notice The initializer for the RateLimit contract
-    /// @dev This function doesn't need to do anything
-    function __RateLimit_init_unchained() internal onlyInitializing {}
-    // solhint-disable-previous-line no-empty-blocks
+    function __RateLimit_init() internal onlyInitializing {
+        __AccessControl_init();
+    }
 
     /// @notice Checks the rate limit for a token and updates the daily usage
     /// @param token The token address
