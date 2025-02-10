@@ -117,7 +117,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external whenNotPaused nonReentrant returns (uint32) {
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint32)
+    {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
         _transferFrom(_msgSender(), escrow(), msg_.denom, msg_.amount);
@@ -131,7 +136,9 @@ contract ICS20Transfer is
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bytes calldata signature
     )
-        external whenNotPaused nonReentrant
+        external
+        whenNotPaused
+        nonReentrant
         returns (uint32 sequence)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
