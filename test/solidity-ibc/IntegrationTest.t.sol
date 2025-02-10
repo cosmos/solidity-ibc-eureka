@@ -30,7 +30,6 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
-import "forge-std/console.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
