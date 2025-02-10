@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
+import { IEscrowErrors } from "../errors/IEscrowErrors.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
@@ -13,7 +14,7 @@ using SafeERC20 for IERC20;
 
 /// @title Escrow Contract
 /// @notice This contract is used to escrow the funds for the ICS20 contract
-contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable, RateLimitUpgradeable {
+contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, UUPSUpgradeable, RateLimitUpgradeable {
     /// @notice Storage of the Escrow contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -27,10 +28,6 @@ contract Escrow is IEscrow, ContextUpgradeable, UUPSUpgradeable, RateLimitUpgrad
     /// @notice ERC-7201 slot for the Escrow storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.Escrow")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ESCROW_STORAGE_SLOT = 0x537eb9d931756581e7ea6f7811162c646321946650ac0ac6bf83b24932e41600;
-
-    /// @notice Unauthorized function call
-    /// @param caller The caller of the function
-    error EscrowUnauthorized(address caller);
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
