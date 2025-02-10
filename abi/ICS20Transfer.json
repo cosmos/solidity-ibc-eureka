@@ -663,11 +663,6 @@
   },
   {
     "type": "error",
-    "name": "ICS20AbiEncodingFailure",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "ICS20DenomNotFound",
     "inputs": [
       {
@@ -696,6 +691,22 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20Permit2TokenMismatch",
+    "inputs": [
+      {
+        "name": "permitToken",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "sentToken",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -748,17 +759,6 @@
       },
       {
         "name": "version",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ICS20UnsupportedFeature",
-    "inputs": [
-      {
-        "name": "feature",
         "type": "string",
         "internalType": "string"
       }
