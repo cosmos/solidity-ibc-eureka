@@ -94,7 +94,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         emit ICS02ClientAdded(clientId, counterpartyInfo);
 
-        bytes32 role = _getLightClientMigratorRole(clientId);
+        bytes32 role = getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
 
         return clientId;
@@ -106,7 +106,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         string calldata substituteClientId
     )
         external
-        onlyRole(_getLightClientMigratorRole(subjectClientId))
+        onlyRole(getLightClientMigratorRole(subjectClientId))
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
@@ -149,10 +149,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         }
     }
 
-    /// @notice Returns the role identifier for a light client
-    /// @param clientId The client identifier
-    /// @return The role identifier
-    function _getLightClientMigratorRole(string memory clientId) private pure returns (bytes32) {
+    /// @inheritdoc IICS02Client
+    function getLightClientMigratorRole(string memory clientId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
     }
 }

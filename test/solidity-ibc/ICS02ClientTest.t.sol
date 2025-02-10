@@ -54,7 +54,7 @@ contract ICS02ClientTest is Test {
         assertEq(fetchedCounterparty.clientId, counterpartyId, "counterparty not set correctly");
 
         bool hasRole = ics02Client.hasRole(
-            keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier)), clientOwner
+            ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner
         );
         assertTrue(hasRole, "client owner not set correctly");
     }
@@ -83,7 +83,7 @@ contract ICS02ClientTest is Test {
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector,
                 bob,
-                keccak256(abi.encodePacked("LIGHT_CLIENT_MIGRATOR_ROLE_", clientIdentifier))
+                ics02Client.getLightClientMigratorRole(clientIdentifier)
             )
         );
         ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
@@ -102,10 +102,10 @@ contract ICS02ClientTest is Test {
 
     function test_RenounceRole() public {
         vm.startPrank(clientOwner);
-        ics02Client.renounceRole(keccak256(bytes(clientIdentifier)), clientOwner);
+        ics02Client.renounceRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         vm.stopPrank();
 
-        bool hasRole = ics02Client.hasRole(keccak256(bytes(clientIdentifier)), clientOwner);
+        bool hasRole = ics02Client.hasRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         assertFalse(hasRole, "client owner not renounced");
     }
 
