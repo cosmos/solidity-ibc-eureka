@@ -48,7 +48,12 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector, address(this), escrowLogic, ibcERC20Logic, address(0), address(permit2)
+                ICS20Transfer.initialize.selector,
+                address(this),
+                escrowLogic,
+                ibcERC20Logic,
+                address(0),
+                address(permit2)
             )
         );
 
@@ -131,7 +136,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
 
         // prove that it works with valid data
-        erc20 = tmpERC20; 
+        erc20 = tmpERC20;
         vm.prank(sender);
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
     }
@@ -145,12 +150,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             nonce: 0,
             deadline: block.timestamp + 100
         });
-        bytes memory signature = this.getPermitTransferSignature(
-            permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
-        );
+        bytes memory signature =
+            this.getPermitTransferSignature(permit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
 
         // test missing approval
-        vm.expectRevert("TRANSFER_FROM_FAILED"); 
+        vm.expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(sender);
         ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
 
@@ -180,7 +184,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         bytes memory differentSignature = this.getPermitTransferSignature(
             differentPermit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR()
         );
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPermit2.selector, "permit denom not the same as transfer denom"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS20Errors.ICS20InvalidPermit2.selector, "permit denom not the same as transfer denom"
+            )
+        );
         vm.prank(sender);
         ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), differentPermit, differentSignature);
 

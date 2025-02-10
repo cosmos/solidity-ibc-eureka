@@ -142,7 +142,10 @@ contract ICS20Transfer is
         returns (uint32 sequence)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
-        require(permit.permitted.token == msg_.denom, IICS20Errors.ICS20InvalidPermit2("permit denom not the same as transfer denom"));
+        require(
+            permit.permitted.token == msg_.denom,
+            IICS20Errors.ICS20InvalidPermit2("permit denom not the same as transfer denom")
+        );
         // transfer the tokens to us with permit
         _getPermit2().permitTransferFrom(
             permit,
