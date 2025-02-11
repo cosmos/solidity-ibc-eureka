@@ -288,6 +288,25 @@
   },
   {
     "type": "function",
+    "name": "getLightClientMigratorRole",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "getNextClientSeq",
     "inputs": [],
     "outputs": [
