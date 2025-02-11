@@ -98,10 +98,10 @@ alloy-provider         = { version = "0.11", default-features = false }
 alloy-transport        = { version = "0.11", default-features = false }
 alloy-rpc-types-eth    = { version = "0.11", default-features = false }
 
-sp1-sdk    = { version = "4.0", default-features = false }
-sp1-prover = { version = "4.0", default-features = false }
-sp1-zkvm   = { version = "4.0", default-features = false }
-sp1-helper = { version = "4.0", default-features = false }
+sp1-sdk    = { version = "4.1", default-features = false }
+sp1-prover = { version = "4.1", default-features = false }
+sp1-zkvm   = { version = "4.1", default-features = false }
+sp1-helper = { version = "4.1", default-features = false }
 
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
