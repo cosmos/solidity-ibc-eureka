@@ -19,8 +19,14 @@
   },
   {
     "type": "function",
-    "name": "escrow",
-    "inputs": [],
+    "name": "getEscrow",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -691,6 +697,22 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20InvalidPort",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "actual",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },
