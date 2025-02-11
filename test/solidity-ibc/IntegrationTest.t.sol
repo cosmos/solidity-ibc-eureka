@@ -43,7 +43,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public erc20AddressStr;
     ISignatureTransfer public permit2;
     string public counterpartyId = "42-dummy-01";
-    string public firstClientId = "client-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
