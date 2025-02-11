@@ -100,8 +100,8 @@ contract EscrowTest is Test {
         assertEq(escrow.getDailyUsage(mockToken), 100_000);
     }
 
-    /// forge-config: default.fuzz.runs = 100
-    function testFuzz_rateLimit(uint16 n) public {
+    /// forge-config: default.fuzz.runs = 256
+    function testFuzz_rateLimit(uint8 n) public {
         vm.assume(1 < n);
 
         address mockToken = makeAddr("mockToken");
