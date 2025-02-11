@@ -47,7 +47,7 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, UUPSUpgradeable, 
 
     /// @inheritdoc IEscrow
     function send(IERC20 token, address to, uint256 amount) external override onlyICS20 {
-        _checkRateLimit(address(token), amount);
+        _assertAndUpdateRateLimit(address(token), amount);
         token.safeTransfer(to, amount);
     }
 

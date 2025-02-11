@@ -83,14 +83,21 @@ contract EscrowTest is Test {
     function test_dailyUsage() public {
         address mockToken = makeAddr("mockToken");
 
+        // Daily usage should not be updated if rate limit is 0
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 10_000);
-        assertEq(escrow.getDailyUsage(mockToken), 10_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
+        // Set rate limit and check daily usage
+        vm.prank(rateLimiter);
+        escrow.setRateLimit(mockToken, 100_000);
+        assertEq(escrow.getRateLimit(mockToken), 100_000);
 
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 1020);
-        assertEq(escrow.getDailyUsage(mockToken), 11_020);
+        assertEq(escrow.getDailyUsage(mockToken), 1020);
 
+        // Next day
         vm.warp(block.timestamp + 1 days);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 

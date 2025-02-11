@@ -53,15 +53,16 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     /// @notice Checks the rate limit for a token and updates the daily usage
     /// @param token The token address
     /// @param amount The amount to check against the rate limit
-    function _checkRateLimit(address token, uint256 amount) internal {
+    function _assertAndUpdateRateLimit(address token, uint256 amount) internal {
         RateLimitStorage storage $ = _getRateLimitStorage();
         bytes32 dailyTokenKey = _getDailyTokenKey(token);
 
         uint256 usage = $._dailyUsage[dailyTokenKey] + amount;
         uint256 rateLimit = $._rateLimits[token];
-        if (rateLimit != 0) {
-            require(usage <= rateLimit, RateLimitExceeded(rateLimit, usage));
+        if (rateLimit == 0) {
+            return;
         }
+        require(usage <= rateLimit, RateLimitExceeded(rateLimit, usage));
 
         $._dailyUsage[dailyTokenKey] = usage;
     }
