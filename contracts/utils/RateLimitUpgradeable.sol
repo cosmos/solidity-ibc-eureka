@@ -45,6 +45,11 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         return _getRateLimitStorage().rateLimits[token];
     }
 
+    /// @inheritdoc IRateLimit
+    function getDailyUsage(address token) external view returns (uint256) {
+        return _getRateLimitStorage().dailyUsage[_getDailyTokenKey(token)];
+    }
+
     /// @notice Checks the rate limit for a token and updates the daily usage
     /// @param token The token address
     /// @param amount The amount to check against the rate limit
