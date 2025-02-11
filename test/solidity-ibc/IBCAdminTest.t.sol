@@ -12,6 +12,7 @@ import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol"
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
 import { IIBCPausableUpgradeableErrors } from "../../contracts/errors/IIBCPausableUpgradeableErrors.sol";
+import { IIBCUpgradeableBeaconErrors } from "../../contracts/errors/IIBCUpgradeableBeaconErrors.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -235,7 +236,7 @@ contract IBCAdminTest is Test {
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IBCUpgradeableBeacon.Unauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.Unauthorized.selector, unauthorized));
         beacon.upgradeTo(address(newLogic));
     }
 
@@ -272,7 +273,7 @@ contract IBCAdminTest is Test {
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IBCUpgradeableBeacon.Unauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.Unauthorized.selector, unauthorized));
         beacon.upgradeTo(address(newLogic));
     }
 }
