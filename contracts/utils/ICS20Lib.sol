@@ -6,8 +6,6 @@ pragma solidity ^0.8.28;
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
-import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
-import { IBCERC20 } from "./IBCERC20.sol";
 
 // This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 // It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
@@ -26,8 +24,6 @@ library ICS20Lib {
 
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
-
-    
 
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
     /// @param addrHexString hex address string

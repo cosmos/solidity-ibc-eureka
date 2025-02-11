@@ -175,14 +175,13 @@ contract ICS20Transfer is
             }
         }
 
-        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
-            IICS20TransferMsgs.FungibleTokenPacketData({
-                denom: fullDenomPath,
-                sender: Strings.toHexString(_msgSender()),
-                receiver: msg_.receiver,
-                amount: msg_.amount,
-                memo: msg_.memo
-            });
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
+            denom: fullDenomPath,
+            sender: Strings.toHexString(_msgSender()),
+            receiver: msg_.receiver,
+            amount: msg_.amount,
+            memo: msg_.memo
+        });
 
         return _getICS26Router().sendPacket(
             IICS26RouterMsgs.MsgSendPacket({
