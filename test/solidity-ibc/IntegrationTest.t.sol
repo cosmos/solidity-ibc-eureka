@@ -714,7 +714,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,,IICS26RouterMsgs.Packet memory receivedPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, defaultAmount
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
@@ -729,8 +729,19 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         vm.prank(sender);
         attackerContract.approve(address(ics20Transfer), defaultAmount);
 
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: address(attackerContract),
+            amount: defaultAmount,
+            receiver: "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh",
+            sourceClient: receivedPacket.destClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: ""
+        });
+
+        vm.prank(sender);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, Strings.toHexString(address(attackerContract))));
-        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", address(attackerContract));
+        ics20Transfer.sendTransfer(msgSendTransfer);
     }
 
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {
