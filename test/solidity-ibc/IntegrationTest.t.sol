@@ -912,11 +912,13 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         escrow.setRateLimit(address(receivedERC20), defaultAmount);
 
         // receive again, should revert
+        vm.expectEmit();
+        emit IICS26Router.IBCAppRecvPacketCallbackError(abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount, defaultAmount*2));
         (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
         );
 
-        // Check that the ack is written
+        // Check that the error ack is written
         bytes32 storedAck = ics26Router.getCommitment(
             ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
         );
