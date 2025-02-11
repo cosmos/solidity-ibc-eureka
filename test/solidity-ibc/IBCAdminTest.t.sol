@@ -236,6 +236,13 @@ contract IBCAdminTest is Test {
     }
 
     function test_failure_escrow_upgrade() public {
+        // Case 1: Fail to deploy IBCUpgradeableBeacon
+        vm.expectRevert(
+            abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.BeaconInvalidImplementation.selector, address(0))
+        );
+        new IBCUpgradeableBeacon(address(0), address(ics26Router));
+
+        // Case 2: Fail to upgrade the beacon due to unauthorized sender
         DummyInitializable newLogic = new DummyInitializable();
         Escrow _escrowLogic = new Escrow();
         IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
@@ -249,6 +256,12 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.Unauthorized.selector, unauthorized));
         beacon.upgradeTo(address(newLogic));
+
+        // Case 3: Fail to upgrade escrow due to empty code
+        vm.expectRevert(
+            abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.BeaconInvalidImplementation.selector, address(0))
+        );
+        beacon.upgradeTo(address(0));
     }
 
     function test_success_ibcERC20_upgrade() public {
