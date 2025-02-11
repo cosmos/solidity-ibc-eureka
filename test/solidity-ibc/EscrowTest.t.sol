@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 // solhint-disable max-line-length,gas-custom-errors
 
+import { console } from "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
@@ -95,5 +96,28 @@ contract EscrowTest is Test {
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 100_000);
         assertEq(escrow.getDailyUsage(mockToken), 100_000);
+    }
+
+    /// forge-config: default.fuzz.runs = 1000
+    function testFuzz_rateLimit(uint16 n) public {
+        vm.assume(1 < n);
+        vm.assume(n < 1000);
+
+        address mockToken = makeAddr("mockToken");
+        uint256 sendAmount = 10_000;
+        uint256 rateLimit = sendAmount * n - 1;
+
+        vm.prank(rateLimiter);
+        escrow.setRateLimit(mockToken, rateLimit);
+
+        for (uint256 i = 0; i < n - 1; i++) {
+            vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+            escrow.send(IERC20(mockToken), address(this), sendAmount);
+            assertEq(escrow.getDailyUsage(mockToken), sendAmount * (i + 1));
+        }
+
+        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.expectRevert(abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, rateLimit, sendAmount * n));
+        escrow.send(IERC20(mockToken), address(this), sendAmount);
     }
 }

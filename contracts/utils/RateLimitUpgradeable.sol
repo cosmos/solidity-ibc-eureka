@@ -60,7 +60,7 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         uint256 usage = $.dailyUsage[dailyTokenKey] + amount;
         uint256 rateLimit = $.rateLimits[token];
         if (rateLimit != 0) {
-            require(usage <= rateLimit, RateLimitExceeded(usage, rateLimit));
+            require(usage <= rateLimit, RateLimitExceeded(rateLimit, usage));
         }
 
         $.dailyUsage[dailyTokenKey] = usage;
