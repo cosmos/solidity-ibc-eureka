@@ -10,7 +10,6 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
-import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
@@ -713,14 +712,24 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
+        // Sending double, so we can also send some funds to the escrow to simluate a re-entrency attack
         (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory receivedPacket) = _receiveICS20Transfer(
-            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, defaultAmount
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh",
+            Strings.toHexString(receiver),
+            foreignDenom,
+            defaultAmount * 2
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
         AttackerIBCERC20 attackerContract =
             new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
         uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
-        assertEq(attackerRealTokenBalance, defaultAmount);
+        assertEq(attackerRealTokenBalance, defaultAmount * 2);
+
+        // Send some funds to the escrow to simulate a re-entrency attack where the escrow gets funded so that it can
+        // still burn
+        vm.startPrank(receiver); // Not sure why this is needed, but it is...
+        realIBCERC20.transfer(realIBCERC20.escrow(), defaultAmount);
+        vm.stopPrank();
 
         // Try to send out agian with the same denom, but using the attacker contract
         address sender = receiver;
@@ -740,12 +749,13 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         });
 
         vm.prank(sender);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20DenomNotFound.selector, Strings.toHexString(address(attackerContract))
-            )
-        );
         ics20Transfer.sendTransfer(msgSendTransfer);
+
+        // Check that the correct denom was sent (the "attacking token"), and not the real token
+        uint256 attackerFakeTokenBalanceAfter = attackerContract.balanceOf(receiver);
+        assertEq(attackerFakeTokenBalanceAfter, 0);
+        uint256 attackerRealTokenBalanceAfter = realIBCERC20.balanceOf(receiver);
+        assertEq(attackerRealTokenBalanceAfter, defaultAmount); // because we already sent some to the escrow
     }
 
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {

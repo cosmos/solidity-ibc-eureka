@@ -41,4 +41,8 @@ interface IICS20Errors {
     /// @param expected Expected port
     /// @param actual Actual port
     error ICS20InvalidPort(string expected, string actual);
+
+    /// @notice Escrow not found
+    /// @param clientID Client ID
+    error ICS20EscrowNotFound(string clientID);
 }
