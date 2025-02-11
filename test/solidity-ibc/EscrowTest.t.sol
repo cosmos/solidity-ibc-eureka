@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable max-line-length,gas-custom-errors
+// solhint-disable max-line-length,gas-custom-errors,multiple-sends
 
-import { console } from "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";

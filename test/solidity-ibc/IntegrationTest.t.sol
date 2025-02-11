@@ -59,7 +59,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public defaultNativeDenom;
 
     /// @dev used by some internal functions to generate a receive packet
-    mapping(string => uint32) private recvSeqs;
+    mapping(string counterpartyClientId => uint32 recvSeq) private recvSeqs;
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
