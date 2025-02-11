@@ -24,8 +24,9 @@ interface IICS20Transfer {
         returns (uint32 sequence);
 
     /// @notice Retrieve the escrow contract address
+    /// @param clientId The client identifier
     /// @return The escrow contract address
-    function escrow() external view returns (address);
+    function getEscrow(string calldata clientId) external view returns (address);
 
     /// @notice Retrieve the ERC20 contract address for the given IBC denom
     /// @param denom The IBC denom

@@ -334,7 +334,10 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var sendTxHashes [][]byte
+	var (
+		sendTxHashes  [][]byte
+		escrowAddress ethcommon.Address
+	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferMulticall := make([][]byte, numOfTransfers)
@@ -369,8 +372,12 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
+			// Get the escrow address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
@@ -445,7 +452,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
@@ -483,7 +490,10 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var sendTxHashes [][]byte
+	var (
+		sendTxHashes  [][]byte
+		escrowAddress ethcommon.Address
+	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -514,8 +524,12 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
+			// Get the escrow address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))

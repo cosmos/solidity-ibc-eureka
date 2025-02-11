@@ -451,6 +451,23 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset receiver
         defaultPacketData.receiver = receiverStr;
         packet.payloads[0].value = abi.encode(defaultPacketData);
+
+        // test invalid source port
+        packet.payloads[0].sourcePort = "invalid";
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPort.selector, ICS20Lib.DEFAULT_PORT_ID, "invalid")
+        );
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset receiver
+        packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
     }
 
     function _getDefaultPacket()
@@ -462,7 +479,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         bytes memory data = abi.encode(defaultPacketData);
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
-            sourcePort: "sourcePort",
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
             destPort: "destinationPort",
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
