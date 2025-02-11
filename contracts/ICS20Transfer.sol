@@ -315,10 +315,8 @@ contract ICS20Transfer is
             // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
             // that is an address on their chain, and we would parse it as an address and fail to find the
             // mapped contract (or worse, find a contract that is not the correct one).
-            address denomIDContract = address(_getICS20TransferStorage().ibcERC20Contracts[packetData.denom]);
-            if (denomIDContract != address(0)) {
-                erc20Address = denomIDContract;
-            } else {
+            erc20Address = address(_getICS20TransferStorage().ibcERC20Contracts[packetData.denom]);
+            if (erc20Address == address(0)) {
                 // the token is not mapped, so the token must be native
                 erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);
                 require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
