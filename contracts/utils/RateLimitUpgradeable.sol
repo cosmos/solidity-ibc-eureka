@@ -13,11 +13,11 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     /// @notice Storage of the RateLimit contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
-    /// @param dailyUsage Mapping of daily token keys to their usage
+    /// @param _rateLimits Mapping of token addresses to their rate limits, 0 means no limit
+    /// @param _dailyUsage Mapping of daily token keys to their usage
     struct RateLimitStorage {
-        mapping(address token => uint256 limit) rateLimits;
-        mapping(bytes32 dailyTokenKey => uint256 usage) dailyUsage;
+        mapping(address token => uint256 limit) _rateLimits;
+        mapping(bytes32 dailyTokenKey => uint256 usage) _dailyUsage;
     }
 
     /// @notice ERC-7201 slot for the RateLimit storage
@@ -37,17 +37,17 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
 
     /// @inheritdoc IRateLimit
     function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
-        _getRateLimitStorage().rateLimits[token] = rateLimit;
+        _getRateLimitStorage()._rateLimits[token] = rateLimit;
     }
 
     /// @inheritdoc IRateLimit
     function getRateLimit(address token) external view returns (uint256) {
-        return _getRateLimitStorage().rateLimits[token];
+        return _getRateLimitStorage()._rateLimits[token];
     }
 
     /// @inheritdoc IRateLimit
     function getDailyUsage(address token) external view returns (uint256) {
-        return _getRateLimitStorage().dailyUsage[_getDailyTokenKey(token)];
+        return _getRateLimitStorage()._dailyUsage[_getDailyTokenKey(token)];
     }
 
     /// @notice Checks the rate limit for a token and updates the daily usage
@@ -57,13 +57,13 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         RateLimitStorage storage $ = _getRateLimitStorage();
         bytes32 dailyTokenKey = _getDailyTokenKey(token);
 
-        uint256 usage = $.dailyUsage[dailyTokenKey] + amount;
-        uint256 rateLimit = $.rateLimits[token];
+        uint256 usage = $._dailyUsage[dailyTokenKey] + amount;
+        uint256 rateLimit = $._rateLimits[token];
         if (rateLimit != 0) {
             require(usage <= rateLimit, RateLimitExceeded(rateLimit, usage));
         }
 
-        $.dailyUsage[dailyTokenKey] = usage;
+        $._dailyUsage[dailyTokenKey] = usage;
     }
 
     /// @inheritdoc IRateLimit
