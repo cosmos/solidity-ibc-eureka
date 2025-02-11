@@ -68,4 +68,9 @@ interface IICS02Client {
     /// @param clientId The client identifier
     /// @param upgradeMsg The upgrade message
     function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external;
+
+    /// @notice Returns the role identifier for a light client
+    /// @param clientId The client identifier
+    /// @return The role identifier
+    function getLightClientMigratorRole(string memory clientId) external view returns (bytes32);
 }

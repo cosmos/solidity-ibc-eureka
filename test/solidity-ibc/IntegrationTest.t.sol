@@ -15,6 +15,8 @@ import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
@@ -29,7 +31,6 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
 import "forge-std/console.sol";
@@ -48,6 +49,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
+    bytes[] public singleErrorAck = [ICS24Host.UNIVERSAL_ERROR_ACK];
 
     address public defaultSender;
     uint256 public defaultSenderKey;
@@ -58,6 +60,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     /// @dev the default send amount for sendTransfer
     uint256 public defaultAmount = 1_000_000_000_000_000_000;
     string public defaultNativeDenom;
+
+    /// @dev used by some internal functions to keep track of receive packet sequences
+    mapping(string counterpartyClientId => uint32 recvSeq) private recvSeqs;
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -328,9 +333,15 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         address receiverOfForeignDenom = makeAddr("receiver_of_foreign_denom");
         string memory receiverOfForeignDenomStr = Strings.toHexString(receiverOfForeignDenom);
 
-        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverOfForeignDenomStr, foreignDenom
         );
+
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // Send out again
         vm.prank(receiverOfForeignDenom);
@@ -423,7 +434,14 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // Return the tokens (receive)
         string memory receivedDenom =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
-        _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
+        (,, IICS26RouterMsgs.Packet memory recvPacket) =
+            _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
+
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
@@ -468,6 +486,12 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         (,, IICS26RouterMsgs.Packet memory receivePacket) =
             _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
 
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destClient, receivePacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+
         // call recvPacket again, should be noop
         vm.expectEmit();
         emit IICS26Router.Noop();
@@ -486,9 +510,15 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
         );
+
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -522,13 +552,19 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh",
             Strings.toHexString(receiver),
             foreignDenom,
             largeAmount,
             clientIdentifier
         );
+
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -704,8 +740,14 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         address receiver = makeAddr("receiver_of_foreign_denom");
         string memory receiverStr = Strings.toHexString(receiver);
 
-        (IERC20 receivedERC20, string memory receivedDenom,) =
+        (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory recvPacket) =
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
+
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         assertEq(receivedDenom, "transfer/client-0/transfer/channel-42/uatom");
 
@@ -876,6 +918,46 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
     }
 
+    function test_success_rateLimitWithForeignBaseDenom() public {
+        string memory foreignDenom = "uatom";
+
+        address receiver = makeAddr("receiver_of_foreign_denom");
+
+        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
+        );
+
+        // check balances after receiving
+        uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
+        assertEq(senderBalanceAfterReceive, defaultAmount);
+        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
+        assertEq(contractBalanceAfterReceive, 0);
+        uint256 supplyAfterReceive = receivedERC20.totalSupply();
+        assertEq(supplyAfterReceive, defaultAmount);
+
+        Escrow escrow = Escrow(ics20Transfer.getEscrow(clientIdentifier));
+        uint256 dailyLimit = escrow.getDailyUsage(address(receivedERC20));
+        assertEq(dailyLimit, 0); // 0 before rate limit has been set
+        escrow.grantRateLimiterRole(address(this));
+        escrow.setRateLimit(address(receivedERC20), defaultAmount - 1);
+
+        // receive again, should hit rate limit and write error ack
+        vm.expectEmit();
+        emit IICS26Router.IBCAppRecvPacketCallbackError(
+            abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount - 1, defaultAmount)
+        );
+        (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
+        );
+
+        // Check that the error ack is written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleErrorAck));
+        assertEq(receivedERC20.balanceOf(receiver), defaultAmount);
+    }
+
     function _sendICS20TransferPacket(
         string memory sender,
         string memory receiver,
@@ -1019,7 +1101,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         IICS26RouterMsgs.Payload[] memory payloads = _getPayloads(abi.encode(receivePacketData));
         receivePacket = IICS26RouterMsgs.Packet({
-            sequence: 1,
+            sequence: recvSeqs[counterpartyId],
             sourceClient: counterpartyId,
             destClient: destClient,
             timeoutTimestamp: uint64(block.timestamp + 1000),
@@ -1047,12 +1129,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
              })
         );
 
-        // Check that the ack is written
-        bytes32 storedAck = ics26Router.getCommitment(
-            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destClient, receivePacket.sequence)
-        );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
         try ics20Transfer.ibcERC20Contract(expectedDenom) returns (address ibcERC20Addres) {
             receivedERC20 = IERC20(ibcERC20Addres);
 
@@ -1064,6 +1140,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             receivedERC20 = IERC20(ICS20Lib.mustHexStringToAddress(expectedDenom));
         }
         receivedDenom = expectedDenom;
+
+        recvSeqs[counterpartyId]++;
 
         return (receivedERC20, receivedDenom, receivePacket);
     }
