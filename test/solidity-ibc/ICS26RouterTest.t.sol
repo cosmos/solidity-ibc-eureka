@@ -30,7 +30,7 @@ contract ICS26RouterTest is Test {
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
+            abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
         ics26Router = ICS26Router(address(routerProxy));
@@ -82,13 +82,15 @@ contract ICS26RouterTest is Test {
         address ibcERC20Logic = address(new IBCERC20());
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (
                 address(ics26Router),
                 escrowLogic,
                 ibcERC20Logic,
                 address(0),
                 address(0)
+                )
             )
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));

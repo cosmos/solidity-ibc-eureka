@@ -34,7 +34,7 @@ contract ICS02ClientTest is Test {
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
+            abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
 
