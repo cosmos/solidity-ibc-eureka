@@ -46,21 +46,13 @@ contract IBCAdminTest is Test {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic),
-            abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize,
-                (
-                address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
-                ics20Pauser,
-                address(0)
-                )
+                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, address(0))
             )
         );
 
@@ -235,8 +227,9 @@ contract IBCAdminTest is Test {
         IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
         assertEq(beacon.ics26(), address(ics26Router));
 
-        BeaconProxy escrow =
-            new BeaconProxy(address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer),address(ics26Router))));
+        BeaconProxy escrow = new BeaconProxy(
+            address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer), address(ics26Router)))
+        );
 
         beacon.upgradeTo(address(newLogic));
         assertEq(beacon.implementation(), address(newLogic));
@@ -249,7 +242,9 @@ contract IBCAdminTest is Test {
         IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
         assertEq(beacon.ics26(), address(ics26Router));
 
-        new BeaconProxy(address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer), address(ics26Router))));
+        new BeaconProxy(
+            address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer), address(ics26Router)))
+        );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
@@ -265,9 +260,7 @@ contract IBCAdminTest is Test {
 
         BeaconProxy ibcERC20Proxy = new BeaconProxy(
             address(beacon),
-            abi.encodeCall(
-                IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test")
-            )
+            abi.encodeCall(IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test"))
         );
 
         beacon.upgradeTo(address(newLogic));
@@ -283,9 +276,7 @@ contract IBCAdminTest is Test {
 
         new BeaconProxy(
             address(beacon),
-            abi.encodeCall(
-                IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test")
-            )
+            abi.encodeCall(IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test"))
         );
 
         address unauthorized = makeAddr("unauthorized");
