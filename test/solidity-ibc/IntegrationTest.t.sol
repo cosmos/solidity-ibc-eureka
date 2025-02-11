@@ -58,7 +58,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     uint256 public defaultAmount = 1_000_000_000_000_000_000;
     string public defaultNativeDenom;
 
-    /// @dev used by some internal functions to generate a receive packet
+    /// @dev used by some internal functions to keep track of receive packet sequences
     mapping(string counterpartyClientId => uint32 recvSeq) private recvSeqs;
 
     function setUp() public {
@@ -912,7 +912,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         escrow.grantRateLimiterRole(address(this));
         escrow.setRateLimit(address(receivedERC20), defaultAmount);
 
-        // receive again, should revert
+        // receive again, should hit rate limit and write error ack
         vm.expectEmit();
         emit IICS26Router.IBCAppRecvPacketCallbackError(
             abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount, defaultAmount * 2)

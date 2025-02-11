@@ -16,18 +16,18 @@ interface IRateLimit {
     /// @return The rate limit for the token
     function getRateLimit(address token) external view returns (uint256);
 
-    /// @notice Gets the daily usage for a token
+    /// @notice Gets a token's actual usage for the current date
     /// @param token The token address
     /// @return The daily usage for the token
     function getDailyUsage(address token) external view returns (uint256);
 
     /// @notice Grants the rate limiter role to an account
-    /// @dev The caller must be authorized by the derived contract
+    /// @dev The caller must be authorized by the implementing contract
     /// @param account The account to grant the role to
     function grantRateLimiterRole(address account) external;
 
     /// @notice Revokes the rate limiter role from an account
-    /// @dev The caller must be authorized by the derived contract
+    /// @dev The caller must be authorized by the implementing contract
     /// @param account The account to revoke the role from
     function revokeRateLimiterRole(address account) external;
 }
