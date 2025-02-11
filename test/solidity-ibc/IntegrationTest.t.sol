@@ -10,6 +10,7 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
@@ -17,6 +18,7 @@ import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.so
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
+import { AttackerIBCERC20 } from "./mocks/AttackerIBCERC20.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -30,6 +32,7 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
+import "forge-std/console.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
@@ -623,7 +626,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         string memory receiverStr = Strings.toHexString(receiver);
 
         // First packet
-        // First packet
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
@@ -668,6 +670,31 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             abi.encodeWithSelector(IICS26RouterErrors.IBCAppNotFound.selector, invalidPacket.payloads[0].destPort)
         );
         ics26Router.multicall(multicallData);
+    }
+
+    function test_failure_sendFakeIBCERC20Contract() public {
+        // receive legit token
+        string memory foreignDenom = "uatom";
+
+        address receiver = makeAddr("receiver_of_foreign_denom");
+
+        (IERC20 receivedERC20,,) = _receiveICS20Transfer(
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, defaultAmount
+        );
+        IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
+        AttackerIBCERC20 attackerContract = new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
+        uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
+        assertEq(attackerRealTokenBalance, defaultAmount);
+
+        // Try to send out agian with the same denom, but using the attacker contract
+        address sender = receiver;
+
+        attackerContract.mintTo(sender, defaultAmount); // To make sure it has balance to send
+        vm.prank(sender);
+        attackerContract.approve(address(ics20Transfer), defaultAmount);
+
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, Strings.toHexString(address(attackerContract))));
+        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", address(attackerContract));
     }
 
     function test_success_receiveICS20PacketWithForeignIBCDenom() public {
@@ -958,6 +985,18 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
     {
         return _receiveICS20Transfer(sender, receiver, denom, defaultAmount, clientIdentifier);
+    }
+
+    function _receiveICS20Transfer(
+        string memory sender,
+        string memory receiver,
+        string memory denom,
+        uint256 amount
+    )
+        internal
+        returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
+    {
+        return _receiveICS20Transfer(sender, receiver, denom, amount, clientIdentifier);
     }
 
     function _receiveICS20Transfer(
