@@ -9,6 +9,7 @@ import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradea
 import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
 import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -65,6 +66,7 @@ contract EscrowTest is Test {
 
         vm.prank(rateLimiter);
         escrow.setRateLimit(mockToken, rateLimit);
+        assertEq(escrow.getRateLimit(mockToken), rateLimit);
     }
 
     function test_failure_setRateLimit() public {
@@ -73,5 +75,25 @@ contract EscrowTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), escrow.RATE_LIMITER_ROLE()));
         escrow.setRateLimit(mockToken, rateLimit);
+        assertEq(escrow.getRateLimit(mockToken), 0);
+    }
+
+    function test_dailyUsage() public {
+        address mockToken = makeAddr("mockToken");
+
+        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        escrow.send(IERC20(mockToken), address(this), 10_000);
+        assertEq(escrow.getDailyUsage(mockToken), 10_000);
+
+        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        escrow.send(IERC20(mockToken), address(this), 1_020);
+        assertEq(escrow.getDailyUsage(mockToken), 11_020);
+
+        vm.warp(block.timestamp + 1 days);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
+        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        escrow.send(IERC20(mockToken), address(this), 100_000);
+        assertEq(escrow.getDailyUsage(mockToken), 100_000);
     }
 }
