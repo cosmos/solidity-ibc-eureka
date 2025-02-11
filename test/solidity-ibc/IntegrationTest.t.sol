@@ -30,7 +30,7 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
-import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
@@ -66,14 +66,14 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
-        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
-        address ibcERC20Beacon = address(new UpgradeableBeacon(_ibcERC20Logic, address(this)));
-
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic),
             abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
         );
+
+        address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(routerProxy)));
+        address ibcERC20Beacon = address(new IBCUpgradeableBeacon(_ibcERC20Logic, address(routerProxy)));
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
