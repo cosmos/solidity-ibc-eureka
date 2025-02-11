@@ -30,6 +30,7 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
@@ -58,12 +59,15 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
+        permit2 = ISignatureTransfer(deployPermit2());
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
+        address _escrowLogic = address(new Escrow());
+        address _ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        permit2 = ISignatureTransfer(deployPermit2());
+
+        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
+        address ibcERC20Beacon = address(new UpgradeableBeacon(_ibcERC20Logic, address(this)));
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
@@ -76,8 +80,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
                 address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
+                escrowBeacon,
+                ibcERC20Beacon,
                 address(0),
                 address(permit2)
             )

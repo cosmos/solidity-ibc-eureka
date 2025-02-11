@@ -14,6 +14,8 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
 contract IBCERC20Test is Test, IICS20Transfer {
     IBCERC20 public ibcERC20;
@@ -22,9 +24,10 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function setUp() public {
         mockICS26 = makeAddr("mockICS26");
-        address escrowLogic = address(new Escrow());
+        address _escrowLogic = address(new Escrow());
+        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
         _escrow = Escrow(
-            address(new ERC1967Proxy(escrowLogic, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
+            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
         );
 
         IBCERC20 ibcERC20Logic = new IBCERC20();

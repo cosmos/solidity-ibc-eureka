@@ -18,6 +18,7 @@ import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1V
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     ICS26Router public ics26Router;
@@ -51,10 +52,13 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
+        address _escrowLogic = address(new Escrow());
+        address _ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
+        address ibcERC20Beacon = address(new UpgradeableBeacon(_ibcERC20Logic, address(this)));
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
@@ -67,8 +71,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
                 address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
+                escrowBeacon,
+                ibcERC20Beacon,
                 address(0),
                 address(0)
             )

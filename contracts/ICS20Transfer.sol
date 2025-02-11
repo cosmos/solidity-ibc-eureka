@@ -24,7 +24,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
 using SafeERC20 for IERC20;
 
@@ -48,16 +48,16 @@ contract ICS20Transfer is
     /// @param escrows The escrow contract per client.
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract address. Immutable.
-    /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
-    /// @param escrowLogic The address of the Escrow logic contract. Immutable.
+    /// @param ibcERC20Beacon The address of the IBCERC20 beacon contract. Immutable.
+    /// @param escrowBeacon The address of the Escrow beacon contract. Immutable.
     /// @param permit2 The permit2 contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         mapping(string clientId => IEscrow escrow) escrows;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
-        address ibcERC20Logic;
-        address escrowLogic;
+        address ibcERC20Beacon;
+        address escrowBeacon;
         ISignatureTransfer permit2;
     }
 
@@ -74,13 +74,14 @@ contract ICS20Transfer is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
-    /// @param escrowLogic The address of the Escrow logic contract
+    /// @param escrowBeacon The address of the Escrow beacon contract
+    /// @param ibcERC20Beacon The address of the IBCERC20 beacon contract
     /// @param pauser The address that can pause and unpause the contract
     /// @inheritdoc IICS20Transfer
     function initialize(
         address ics26Router,
-        address escrowLogic,
-        address ibcERC20Logic,
+        address escrowBeacon,
+        address ibcERC20Beacon,
         address pauser,
         address permit2
     )
@@ -94,8 +95,8 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.ics26Router = IICS26Router(ics26Router);
-        $.ibcERC20Logic = ibcERC20Logic;
-        $.escrowLogic = escrowLogic;
+        $.ibcERC20Beacon = ibcERC20Beacon;
+        $.escrowBeacon = escrowBeacon;
         $.permit2 = ISignatureTransfer(permit2);
     }
 
@@ -343,8 +344,8 @@ contract ICS20Transfer is
         address erc20Contract = address($.ibcERC20Contracts[denomID]);
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
-            ERC1967Proxy ibcERC20Proxy = new ERC1967Proxy(
-                $.ibcERC20Logic,
+            BeaconProxy ibcERC20Proxy = new BeaconProxy(
+                $.ibcERC20Beacon,
                 abi.encodeWithSelector(
                     IBCERC20.initialize.selector,
                     address(this),
@@ -438,8 +439,8 @@ contract ICS20Transfer is
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
                 address(
-                    new ERC1967Proxy(
-                        $.escrowLogic,
+                    new BeaconProxy(
+                        $.escrowBeacon,
                         abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
                     )
                 )

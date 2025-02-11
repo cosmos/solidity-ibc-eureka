@@ -24,6 +24,7 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     ICS20Transfer public ics20Transfer;
@@ -40,18 +41,21 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     uint256 public defaultAmount = 1_000_000_100_000_000_001;
 
     function setUp() public {
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
-        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
         permit2 = ISignatureTransfer(deployPermit2());
+        address _escrowLogic = address(new Escrow());
+        address _ibcERC20Logic = address(new IBCERC20());
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
+        address ibcERC20Beacon = address(new UpgradeableBeacon(_ibcERC20Logic, address(this)));
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
                 address(this),
-                escrowLogic,
-                ibcERC20Logic,
+                escrowBeacon,
+                ibcERC20Beacon,
                 address(0),
                 address(permit2)
             )
