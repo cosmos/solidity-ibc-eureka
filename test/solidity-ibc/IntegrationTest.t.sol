@@ -33,7 +33,6 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
-import "forge-std/console.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
@@ -714,11 +713,12 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,IICS26RouterMsgs.Packet memory receivedPacket) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory receivedPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, defaultAmount
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
-        AttackerIBCERC20 attackerContract = new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
+        AttackerIBCERC20 attackerContract =
+            new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
         uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
         assertEq(attackerRealTokenBalance, defaultAmount);
 
@@ -740,7 +740,11 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         });
 
         vm.prank(sender);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomNotFound.selector, Strings.toHexString(address(attackerContract))));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS20Errors.ICS20DenomNotFound.selector, Strings.toHexString(address(attackerContract))
+            )
+        );
         ics20Transfer.sendTransfer(msgSendTransfer);
     }
 
