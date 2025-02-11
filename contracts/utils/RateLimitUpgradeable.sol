@@ -35,6 +35,16 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         __AccessControl_init();
     }
 
+    /// @inheritdoc IRateLimit
+    function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
+        _getRateLimitStorage().rateLimits[token] = rateLimit;
+    }
+
+    /// @inheritdoc IRateLimit
+    function getRateLimit(address token) external view returns (uint256) {
+        return _getRateLimitStorage().rateLimits[token];
+    }
+
     /// @notice Checks the rate limit for a token and updates the daily usage
     /// @param token The token address
     /// @param amount The amount to check against the rate limit
@@ -49,11 +59,6 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         }
 
         $.dailyUsage[dailyTokenKey] = usage;
-    }
-
-    /// @inheritdoc IRateLimit
-    function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
-        _getRateLimitStorage().rateLimits[token] = rateLimit;
     }
 
     /// @inheritdoc IRateLimit

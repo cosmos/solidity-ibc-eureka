@@ -11,6 +11,11 @@ interface IRateLimit {
     /// @param rateLimit The rate limit to set
     function setRateLimit(address token, uint256 rateLimit) external;
 
+    /// @notice Gets the rate limit for a token
+    /// @param token The token address
+    /// @return The rate limit for the token
+    function getRateLimit(address token) external view returns (uint256);
+
     /// @notice Grants the rate limiter role to an account
     /// @dev The caller must be authorized by the derived contract
     /// @param account The account to grant the role to

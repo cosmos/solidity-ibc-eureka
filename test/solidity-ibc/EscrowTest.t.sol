@@ -6,6 +6,8 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
+import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
+import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -42,5 +44,25 @@ contract EscrowTest is Test {
         vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(true));
         escrow.revokeRateLimiterRole(newRateLimiter);
         assertFalse(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
+    }
+
+    function test_failure_setRateLimiterRole() public {
+        address newRateLimiter = makeAddr("newRateLimiter");
+
+        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
+        escrow.grantRateLimiterRole(newRateLimiter);
+
+        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
+        escrow.revokeRateLimiterRole(rateLimiter);
+    }
+
+    function test_success_setRateLimit() public {
+        address mockToken = makeAddr("mockToken");
+        uint256 rateLimit = 10_000;
+
+        vm.prank(rateLimiter);
+        escrow.setRateLimit(mockToken, rateLimit);
     }
 }
