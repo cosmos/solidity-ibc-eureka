@@ -27,36 +27,7 @@ library ICS20Lib {
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
 
-    /// @notice Create an IICS20TransferMsgs.FungibleTokenPacketData message for ics20-1.
-    /// @param sender The sender of the transfer
-    /// @param msg_ The message for sending a transfer
-    /// @return The constructed MsgSendPacket
-    function newFungibleTokenPacketDataV1(
-        address sender,
-        IICS20TransferMsgs.SendTransferMsg calldata msg_
-    )
-        internal
-        view
-        returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
-    {
-        string memory fullDenomPath;
-        try IBCERC20(msg_.denom).fullDenomPath() returns (string memory ibcERC20FullDenomPath) {
-            // if the address is one of our IBCERC20 contracts, we get the correct denom for the packet there
-            fullDenomPath = ibcERC20FullDenomPath;
-        } catch {
-            // otherwise this is just an ERC20 address, so we use it as the denom
-            fullDenomPath = Strings.toHexString(msg_.denom);
-        }
-
-        // We are encoding the payload in ABI format
-        return IICS20TransferMsgs.FungibleTokenPacketData({
-            denom: fullDenomPath,
-            sender: Strings.toHexString(sender),
-            receiver: msg_.receiver,
-            amount: msg_.amount,
-            memo: msg_.memo
-        });
-    }
+    
 
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
     /// @param addrHexString hex address string
