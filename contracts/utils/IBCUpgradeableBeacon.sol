@@ -25,7 +25,11 @@ contract IBCUpgradeableBeacon is IBeacon {
 
     /// @dev Sets the address of the initial implementation, and the initial owner who can upgrade the beacon.
     constructor(address implementation_, address ics26_) {
-        _setImplementation(implementation_);
+        if (implementation_.code.length == 0) {
+            revert BeaconInvalidImplementation(implementation_);
+        }
+
+        _implementation = implementation_;
         _ics26 = ics26_;
     }
 
