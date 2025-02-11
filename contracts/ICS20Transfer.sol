@@ -20,7 +20,6 @@ import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallU
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
-import { Escrow } from "./utils/Escrow.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -46,17 +45,19 @@ contract ICS20Transfer is
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param escrow The escrow contract. Immutable.
+    /// @param escrows The escrow contract per client.
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract address. Immutable.
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
+    /// @param escrowLogic The address of the Escrow logic contract. Immutable.
     /// @param permit2 The permit2 contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
-        IEscrow escrow;
+        mapping(string clientId => IEscrow escrow) escrows;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
         address ibcERC20Logic;
+        address escrowLogic;
         ISignatureTransfer permit2;
     }
 
@@ -93,20 +94,14 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.ics26Router = IICS26Router(ics26Router);
-        $.escrow = IEscrow(
-            address(
-                new ERC1967Proxy(
-                    escrowLogic, abi.encodeWithSelector(Escrow.initialize.selector, address(this), ics26Router)
-                )
-            )
-        );
         $.ibcERC20Logic = ibcERC20Logic;
+        $.escrowLogic = escrowLogic;
         $.permit2 = ISignatureTransfer(permit2);
     }
 
     /// @inheritdoc IICS20Transfer
-    function escrow() public view returns (address) {
-        return address(_getEscrow());
+    function getEscrow(string calldata clientId) external view returns (address) {
+        return address(_getICS20TransferStorage().escrows[clientId]);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -125,7 +120,8 @@ contract ICS20Transfer is
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
-        _transferFrom(_msgSender(), escrow(), msg_.denom, msg_.amount);
+        IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
+        _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
 
         return sendTransferFromEscrow(msg_);
     }
@@ -147,9 +143,10 @@ contract ICS20Transfer is
             IICS20Errors.ICS20Permit2TokenMismatch(permit.permitted.token, msg_.denom)
         );
         // transfer the tokens to us with permit
+        IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
         _getPermit2().permitTransferFrom(
             permit,
-            ISignatureTransfer.SignatureTransferDetails({ to: escrow(), requestedAmount: msg_.amount }),
+            ISignatureTransfer.SignatureTransferDetails({ to: address(escrow), requestedAmount: msg_.amount }),
             _msgSender(),
             signature
         );
@@ -200,6 +197,10 @@ contract ICS20Transfer is
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
+        require(
+            keccak256(bytes(msg_.payload.sourcePort)) == keccak256(bytes(ICS20Lib.DEFAULT_PORT_ID)),
+            ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
+        );
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
@@ -220,6 +221,7 @@ contract ICS20Transfer is
         // receiving this token.
         bool returningToOrigin = ICS20Lib.hasPrefix(denomBz, prefix);
 
+        IEscrow escrow = _getOrCreateEscrow(msg_.destinationClient);
         address erc20Address;
         if (returningToOrigin) {
             // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
@@ -238,12 +240,12 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _findOrCreateERC20Address(newDenom, denomBz);
+            erc20Address = _findOrCreateERC20Address(newDenom, denomBz, address(escrow));
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
         // transfer the tokens to the receiver
-        _getEscrow().send(IERC20(erc20Address), receiver, packetData.amount);
+        escrow.send(IERC20(erc20Address), receiver, packetData.amount);
 
         return ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON;
     }
@@ -282,6 +284,7 @@ contract ICS20Transfer is
         private
     {
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
+        IEscrow escrow = _getOrCreateEscrow(sourceClient);
 
         (bool returningToSource, address erc20Address) =
             _getSendingERC20Address(sourcePort, sourceClient, packetData.denom);
@@ -291,7 +294,7 @@ contract ICS20Transfer is
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
-        _getEscrow().send(IERC20(erc20Address), refundee, packetData.amount);
+        escrow.send(IERC20(erc20Address), refundee, packetData.amount);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -323,8 +326,16 @@ contract ICS20Transfer is
     /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the
     /// token)
     /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
+    /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _findOrCreateERC20Address(bytes memory fullDenomPath, bytes memory base) private returns (address) {
+    function _findOrCreateERC20Address(
+        bytes memory fullDenomPath,
+        bytes memory base,
+        address escrow
+    )
+        private
+        returns (address)
+    {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -337,7 +348,7 @@ contract ICS20Transfer is
                 abi.encodeWithSelector(
                     IBCERC20.initialize.selector,
                     address(this),
-                    $.escrow,
+                    escrow,
                     address($.ics26Router),
                     string(base),
                     string(fullDenomPath)
@@ -416,10 +427,26 @@ contract ICS20Transfer is
         _authorizeUpgrade(address(0));
     }
 
-    /// @notice Returns the escrow contract
+    /// @notice Returns the escrow contract for a client
+    /// @param clientId The client ID
     /// @return The escrow contract address
-    function _getEscrow() private view returns (IEscrow) {
-        return _getICS20TransferStorage().escrow;
+    function _getOrCreateEscrow(string memory clientId) private returns (IEscrow) {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+
+        IEscrow escrow = $.escrows[clientId];
+        if (address(escrow) == address(0)) {
+            escrow = IEscrow(
+                address(
+                    new ERC1967Proxy(
+                        $.escrowLogic,
+                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
+                    )
+                )
+            );
+            $.escrows[clientId] = escrow;
+        }
+
+        return escrow;
     }
 
     /// @notice Returns the ICS26Router contract

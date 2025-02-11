@@ -63,11 +63,10 @@ type IbcEurekaTestSuite struct {
 
 	contractAddresses ethereum.DeployedContracts
 
-	sp1Ics07Contract   *sp1ics07tendermint.Contract
-	ics26Contract      *ics26router.Contract
-	ics20Contract      *ics20transfer.Contract
-	erc20Contract      *erc20.Contract
-	escrowContractAddr ethcommon.Address
+	sp1Ics07Contract *sp1ics07tendermint.Contract
+	ics26Contract    *ics26router.Contract
+	ics20Contract    *ics20transfer.Contract
+	erc20Contract    *erc20.Contract
 
 	EthToCosmosRelayerClient relayertypes.RelayerServiceClient
 	CosmosToEthRelayerClient relayertypes.RelayerServiceClient
@@ -174,7 +173,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
-		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
 	}))
 
 	s.T().Cleanup(func() {
@@ -434,6 +432,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	var (
 		sendPacket    ics26router.IICS26RouterMsgsPacket
 		ethSendTxHash []byte
+		escrowAddress ethcommon.Address
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -481,8 +480,12 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
+			// Get the escrow address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
@@ -568,7 +571,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
@@ -671,7 +674,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Zero(escrowBalance.Int64())
 		}))
@@ -1102,6 +1105,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	var (
 		ethSendTxHashes [][]byte
 		sendPacket      ics26router.IICS26RouterMsgsPacket
+		escrowAddress   ethcommon.Address
 	)
 	s.Require().True(s.Run("Send packets on Ethereum", func() {
 		for i := 0; i < numOfTransfers; i++ {
@@ -1138,8 +1142,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
+			// Get the escrow address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(totalTransferAmount, escrowBalance)
 		}))
@@ -1179,7 +1187,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Zero(escrowBalance.Int64())
 		}))
@@ -1223,7 +1231,10 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
-	var ethSendTxHash []byte
+	var (
+		ethSendTxHash []byte
+		escrowAddress ethcommon.Address
+	)
 	s.Require().True(s.Run("Send transfer on Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -1252,8 +1263,12 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, transferAmount), userBalance)
 
+			// Get the escrow address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, escrowBalance)
 		}))
@@ -1328,7 +1343,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Zero(escrowBalance.Int64())
 		}))

@@ -66,7 +66,6 @@ type MultichainTestSuite struct {
 	ics26Contract          *ics26router.Contract
 	ics20Contract          *ics20transfer.Contract
 	erc20Contract          *erc20.Contract
-	escrowContractAddr     ethcommon.Address
 
 	EthToChainARelayerClient    relayertypes.RelayerServiceClient
 	ChainAToEthRelayerClient    relayertypes.RelayerServiceClient
@@ -177,7 +176,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
-		s.escrowContractAddr = ethcommon.HexToAddress(s.contractAddresses.Escrow)
 	}))
 
 	s.Require().True(s.Run("Deploy SimdB light client on ethereum", func() {
@@ -878,7 +876,10 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		s.Require().Equal(transferAmount, allowance)
 	}))
 
-	var ethSendTxHash []byte
+	var (
+		ethSendTxHash []byte
+		escrowAddress ethcommon.Address
+	)
 	s.Require().True(s.Run("Send from Ethereum to SimdA", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -906,8 +907,12 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			s.Require().NoError(err)
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, transferAmount), userBalance)
 
+			// Get the escrow contract address
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			s.Require().NoError(err)
+
 			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, s.escrowContractAddr)
+			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, escrowBalance)
 		}))

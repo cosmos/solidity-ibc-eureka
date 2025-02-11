@@ -225,14 +225,32 @@ contract IBCAdminTest is Test {
 
     function test_success_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow escrow = Escrow(ics20Transfer.escrow());
+        Escrow escrowLogic = new Escrow();
+
+        Escrow escrow = Escrow(
+            address(
+                new ERC1967Proxy(
+                    address(escrowLogic),
+                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer), address(ics26Router))
+                )
+            )
+        );
 
         escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
     }
 
     function test_failure_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow escrow = Escrow(ics20Transfer.escrow());
+        Escrow escrowLogic = new Escrow();
+
+        Escrow escrow = Escrow(
+            address(
+                new ERC1967Proxy(
+                    address(escrowLogic),
+                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer), address(ics26Router))
+                )
+            )
+        );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
@@ -251,7 +269,7 @@ contract IBCAdminTest is Test {
                     abi.encodeWithSelector(
                         IBCERC20.initialize.selector,
                         address(ics20Transfer),
-                        address(ics20Transfer.escrow()),
+                        address(0),
                         address(ics26Router),
                         "test",
                         "full/denom/path/test"
@@ -276,7 +294,7 @@ contract IBCAdminTest is Test {
                     abi.encodeWithSelector(
                         IBCERC20.initialize.selector,
                         address(ics20Transfer),
-                        address(ics20Transfer.escrow()),
+                        address(0),
                         address(ics26Router),
                         "test",
                         "full/denom/path/test"
