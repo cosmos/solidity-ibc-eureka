@@ -18,7 +18,6 @@ import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1V
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
 
 abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     ICS26Router public ics26Router;
@@ -52,8 +51,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
-        address _escrowLogic = address(new Escrow());
-        address _ibcERC20Logic = address(new IBCERC20());
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
@@ -62,13 +61,10 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
-        address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(routerProxy)));
-        address ibcERC20Beacon = address(new IBCUpgradeableBeacon(_ibcERC20Logic, address(routerProxy)));
-
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowBeacon, ibcERC20Beacon, address(0), address(0))
+                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(0))
             )
         );
 

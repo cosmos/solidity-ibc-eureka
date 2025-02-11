@@ -23,7 +23,6 @@ import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
-import { IBCUpgradeableBeacon } from "../contracts/utils/IBCUpgradeableBeacon.sol";
 
 struct SP1ICS07TendermintGenesisJson {
     bytes trustedClientState;
@@ -85,8 +84,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         );
 
         // Deploy IBC Eureka with proxy
-        address _escrowLogic = address(new Escrow());
-        address _ibcERC20Logic = address(new IBCERC20());
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
@@ -99,16 +98,13 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
             )
         );
 
-        address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(routerProxy)));
-        address ibcERC20Beacon = address(new IBCUpgradeableBeacon(_ibcERC20Logic, address(routerProxy)));
-
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             ics20TransferLogic,
             abi.encodeWithSelector(
                 ICS20Transfer.initialize.selector,
                 address(routerProxy),
-                escrowBeacon,
-                ibcERC20Beacon,
+                escrowLogic,
+                ibcERC20Logic,
                 address(0),
                 address(0)
             )

@@ -33,7 +33,6 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
-import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     using Strings for string;
@@ -68,8 +67,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // ============ Step 1: Deploy the logic contracts ==============
         permit2 = ISignatureTransfer(deployPermit2());
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        address _escrowLogic = address(new Escrow());
-        address _ibcERC20Logic = address(new IBCERC20());
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
@@ -78,14 +77,11 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
-        address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(routerProxy)));
-        address ibcERC20Beacon = address(new IBCUpgradeableBeacon(_ibcERC20Logic, address(routerProxy)));
-
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), escrowBeacon, ibcERC20Beacon, address(0), address(permit2))
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(permit2))
             )
         );
 

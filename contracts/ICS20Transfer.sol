@@ -25,6 +25,7 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 using SafeERC20 for IERC20;
 
@@ -74,14 +75,14 @@ contract ICS20Transfer is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
-    /// @param escrowBeacon The address of the Escrow beacon contract
-    /// @param ibcERC20Beacon The address of the IBCERC20 beacon contract
+    /// @param escrowLogic Is the address of the Escrow logic contract
+    /// @param ibcERC20Logic Is the address of the IBCERC20 logic contract
     /// @param pauser The address that can pause and unpause the contract
     /// @inheritdoc IICS20Transfer
     function initialize(
         address ics26Router,
-        address escrowBeacon,
-        address ibcERC20Beacon,
+        address escrowLogic,
+        address ibcERC20Logic,
         address pauser,
         address permit2
     )
@@ -95,8 +96,8 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.ics26Router = IICS26Router(ics26Router);
-        $.ibcERC20Beacon = ibcERC20Beacon;
-        $.escrowBeacon = escrowBeacon;
+        $.ibcERC20Beacon = address(new UpgradeableBeacon(ibcERC20Logic, address(this)));
+        $.escrowBeacon = address(new UpgradeableBeacon(escrowLogic, address(this)));
         $.permit2 = ISignatureTransfer(permit2);
     }
 
