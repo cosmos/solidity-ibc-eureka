@@ -431,7 +431,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // Return the tokens (receive)
         string memory receivedDenom =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
-        (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
+        (,, IICS26RouterMsgs.Packet memory recvPacket) =
+            _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
         // acknowledgement should be written
         bytes32 storedAck = ics26Router.getCommitment(
@@ -506,7 +507,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
         );
 
@@ -548,7 +549,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         address receiver = makeAddr("receiver_of_foreign_denom");
 
-        (IERC20 receivedERC20,,IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
+        (IERC20 receivedERC20,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh",
             Strings.toHexString(receiver),
             foreignDenom,
@@ -712,7 +713,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         address receiver = makeAddr("receiver_of_foreign_denom");
         string memory receiverStr = Strings.toHexString(receiver);
 
-        (IERC20 receivedERC20, string memory receivedDenom,IICS26RouterMsgs.Packet memory recvPacket) =
+        (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory recvPacket) =
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
 
         // acknowledgement should be written
@@ -913,7 +914,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         // receive again, should revert
         vm.expectEmit();
-        emit IICS26Router.IBCAppRecvPacketCallbackError(abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount, defaultAmount*2));
+        emit IICS26Router.IBCAppRecvPacketCallbackError(
+            abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, defaultAmount, defaultAmount * 2)
+        );
         (,, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20Transfer(
             "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom
         );
