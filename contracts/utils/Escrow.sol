@@ -7,6 +7,7 @@ import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IEscrowErrors } from "../errors/IEscrowErrors.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { RateLimitUpgradeable } from "./RateLimitUpgradeable.sol";
+import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
@@ -17,8 +18,10 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _ics20 The ICS20 contract address, can send funds from the escrow
+    /// @param _ics26 The ICS26 contract address, can set the rate limiter role
     struct EscrowStorage {
         address _ics20;
+        IIBCUUPSUpgradeable _ics26;
     }
 
     /// @notice ERC-7201 slot for the Escrow storage
@@ -31,13 +34,14 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     }
 
     /// @inheritdoc IEscrow
-    function initialize(address ics20_) external initializer {
+    function initialize(address ics20_, address ics26_) external initializer {
         __Context_init();
         __RateLimit_init();
 
         EscrowStorage storage $ = _getEscrowStorage();
 
         $._ics20 = ics20_;
+        $._ics26 = IIBCUUPSUpgradeable(ics26_);
     }
 
     /// @inheritdoc IEscrow
@@ -53,8 +57,7 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
 
     /// @inheritdoc RateLimitUpgradeable
     function _authorizeSetRateLimiterRole(address) internal view override {
-        // FIX:
-        // require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
+        require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
     }
 
     /// @notice Returns the storage of the Escrow contract

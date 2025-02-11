@@ -13,6 +13,8 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
 contract EscrowTest is Test {
     address public mockICS26 = makeAddr("mockICS26");
@@ -21,10 +23,11 @@ contract EscrowTest is Test {
 
     function setUp() public {
         // setup code here
-        address escrowLogic = address(new Escrow());
+        address _escrowLogic = address(new Escrow());
+        address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, mockICS26));
 
-        ERC1967Proxy escrowProxy =
-            new ERC1967Proxy(escrowLogic, abi.encodeWithSelector(Escrow.initialize.selector, address(this), mockICS26));
+        BeaconProxy escrowProxy =
+            new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26)));
         escrow = Escrow(address(escrowProxy));
 
         // Have admin approval for next call

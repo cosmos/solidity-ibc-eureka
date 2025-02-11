@@ -26,7 +26,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
         mockICS26 = makeAddr("mockICS26");
         address _escrowLogic = address(new Escrow());
         address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(this)));
-        _escrow = Escrow(address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this))))));
+        _escrow = Escrow(address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26)))));
 
         IBCERC20 _ibcERC20Logic = new IBCERC20();
         address ibcERC20Beacon = address(new IBCUpgradeableBeacon(address(_ibcERC20Logic), address(this)));

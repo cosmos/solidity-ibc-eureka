@@ -434,7 +434,7 @@ contract ICS20Transfer is
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
                 address(
-                    new BeaconProxy($.escrowBeacon, abi.encodeWithSelector(IEscrow.initialize.selector, address(this)))
+                    new BeaconProxy($.escrowBeacon, abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router)))
                 )
             );
             $.escrows[clientId] = escrow;
