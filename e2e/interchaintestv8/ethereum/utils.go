@@ -27,7 +27,6 @@ type DeployedContracts struct {
 	Ics26Router     string `json:"ics26Router"`
 	Ics20Transfer   string `json:"ics20Transfer"`
 	Erc20           string `json:"erc20"`
-	Escrow          string `json:"escrow"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
@@ -52,8 +51,7 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	if embeddedContracts.Erc20 == "" ||
 		embeddedContracts.Ics07Tendermint == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
-		embeddedContracts.Ics26Router == "" ||
-		embeddedContracts.Escrow == "" {
+		embeddedContracts.Ics26Router == "" {
 
 		return DeployedContracts{}, fmt.Errorf("one or more contracts missing: %+v", embeddedContracts)
 	}

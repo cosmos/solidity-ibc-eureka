@@ -36,4 +36,9 @@ interface IICS20Errors {
     /// @param permitToken The token in the permit
     /// @param sentToken The token being sent
     error ICS20Permit2TokenMismatch(address permitToken, address sentToken);
+
+    /// @notice Invalid port
+    /// @param expected Expected port
+    /// @param actual Actual port
+    error ICS20InvalidPort(string expected, string actual);
 }
