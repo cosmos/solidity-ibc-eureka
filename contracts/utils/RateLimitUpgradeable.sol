@@ -16,7 +16,7 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     /// @param rateLimits Mapping of token addresses to their rate limits, 0 means no limit
     /// @param dailyUsage Mapping of daily token keys to their usage
     struct RateLimitStorage {
-        mapping(address token => uint256) rateLimits;
+        mapping(address token => uint256 limit) rateLimits;
         mapping(bytes32 dailyTokenKey => uint256 usage) dailyUsage;
     }
 
