@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
 import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
+import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -63,6 +64,14 @@ contract EscrowTest is Test {
         uint256 rateLimit = 10_000;
 
         vm.prank(rateLimiter);
+        escrow.setRateLimit(mockToken, rateLimit);
+    }
+
+    function test_failure_setRateLimit() public {
+        address mockToken = makeAddr("mockToken");
+        uint256 rateLimit = 10_000;
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), escrow.RATE_LIMITER_ROLE()));
         escrow.setRateLimit(mockToken, rateLimit);
     }
 }
