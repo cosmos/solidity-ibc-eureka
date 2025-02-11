@@ -10,6 +10,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
@@ -254,7 +255,7 @@ contract IBCAdminTest is Test {
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(Escrow.EscrowUnauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, unauthorized));
         escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
     }
 
