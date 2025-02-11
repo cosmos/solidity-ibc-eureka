@@ -38,6 +38,26 @@ contract IBCUpgradeableBeacon is IBeacon {
         return _implementation;
     }
 
+    /// @dev Returns the ICS26 contract address.
+    function ics26() external view returns (address) {
+        return _ics26;
+    }
+
+    /**
+     * @dev Upgrades the beacon to a new implementation.
+     *
+     * Emits an {Upgraded} event.
+     *
+     * Requirements:
+     *
+     * - msg.sender must be the owner of the contract.
+     * - `newImplementation` must be a contract.
+     */
+    function upgradeTo(address newImplementation) public virtual {
+        require(IIBCUUPSUpgradeable(_ics26).isAdmin(msg.sender), Unauthorized(msg.sender));
+        _setImplementation(newImplementation);
+    }
+
     /**
      * @dev Sets the implementation contract address for this beacon
      *

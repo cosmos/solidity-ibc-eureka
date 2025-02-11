@@ -27,17 +27,18 @@ contract IBCERC20Test is Test, IICS20Transfer {
         address _escrowLogic = address(new Escrow());
         address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(this)));
         _escrow = Escrow(
-            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
+            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this)))))
         );
 
-        IBCERC20 ibcERC20Logic = new IBCERC20();
+        IBCERC20 _ibcERC20Logic = new IBCERC20();
+        address ibcERC20Beacon = address(new IBCUpgradeableBeacon(address(_ibcERC20Logic), address(this)));
         ibcERC20 = IBCERC20(
             address(
-                new ERC1967Proxy(
-                    address(ibcERC20Logic),
+                new BeaconProxy(
+                    address(ibcERC20Beacon),
                     abi.encodeCall(
-                        ibcERC20Logic.initialize,
-                        (address(this), address(_escrow), mockICS26, "test", "full/denom/path/test")
+                        _ibcERC20Logic.initialize,
+                        (address(this), address(_escrow), "test", "full/denom/path/test")
                     )
                 )
             )
@@ -47,7 +48,6 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function test_ERC20Metadata() public view {
         assertEq(ibcERC20.ics20(), address(this));
         assertEq(ibcERC20.escrow(), address(_escrow));
-        assertEq(ibcERC20.ics26(), mockICS26);
         assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
@@ -56,7 +56,6 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function test_EscrowSetup() public view {
         assertEq(_escrow.ics20(), address(this));
-        assertEq(_escrow.ics26(), mockICS26);
     }
 
     function testFuzz_success_Mint(uint256 amount) public {

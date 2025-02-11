@@ -22,6 +22,8 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
 contract IBCAdminTest is Test {
     ICS26Router public ics26Router;
@@ -211,89 +213,85 @@ contract IBCAdminTest is Test {
 
     function test_success_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow escrowLogic = new Escrow();
+        Escrow _escrowLogic = new Escrow();
+        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
+        assertEq(beacon.ics26(), address(ics26Router));
 
-        Escrow escrow = Escrow(
-            address(
-                new ERC1967Proxy(
-                    address(escrowLogic),
-                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer), address(ics26Router))
-                )
-            )
-        );
+        BeaconProxy escrow =
+                new BeaconProxy(
+                    address(beacon),
+                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer))
+                );
 
-        escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
+        beacon.upgradeTo(address(newLogic));
+        assertEq(beacon.implementation(), address(newLogic));
     }
 
     function test_failure_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow escrowLogic = new Escrow();
+        Escrow _escrowLogic = new Escrow();
+        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
+        assertEq(beacon.ics26(), address(ics26Router));
 
-        Escrow escrow = Escrow(
-            address(
-                new ERC1967Proxy(
-                    address(escrowLogic),
-                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer), address(ics26Router))
-                )
-            )
-        );
+        BeaconProxy escrow = 
+                new BeaconProxy(
+                    address(beacon),
+                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer))
+                );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(Escrow.EscrowUnauthorized.selector, unauthorized));
-        escrow.upgradeToAndCall(address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBCUpgradeableBeacon.Unauthorized.selector, unauthorized));
+        beacon.upgradeTo(address(newLogic));
     }
 
     function test_success_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
+        address _ibcERC20Logic = address(new IBCERC20());
+        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(_ibcERC20Logic, address(ics26Router));
+        assertEq(beacon.ics26(), address(ics26Router));
 
-        address ibcERC20Logic = address(new IBCERC20());
-        IBCERC20 ibcERC20Proxy = IBCERC20(
-            address(
-                new ERC1967Proxy(
-                    ibcERC20Logic,
+        BeaconProxy ibcERC20Proxy =
+                new BeaconProxy(
+                    address(beacon),
                     abi.encodeWithSelector(
                         IBCERC20.initialize.selector,
                         address(ics20Transfer),
                         address(0),
-                        address(ics26Router),
                         "test",
                         "full/denom/path/test"
                     )
-                )
-            )
         );
 
-        ibcERC20Proxy.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        beacon.upgradeTo(
+            address(newLogic)
         );
+        assertEq(beacon.implementation(), address(newLogic));
     }
 
     function test_failure_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
+        address _ibcERC20Logic = address(new IBCERC20());
+        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(_ibcERC20Logic, address(ics26Router));
+        assertEq(beacon.ics26(), address(ics26Router));
 
-        address ibcERC20Logic = address(new IBCERC20());
-        IBCERC20 ibcERC20Proxy = IBCERC20(
-            address(
-                new ERC1967Proxy(
-                    ibcERC20Logic,
+        BeaconProxy ibcERC20Proxy =
+                new BeaconProxy(
+                    address(beacon),
                     abi.encodeWithSelector(
                         IBCERC20.initialize.selector,
                         address(ics20Transfer),
                         address(0),
-                        address(ics26Router),
                         "test",
                         "full/denom/path/test"
                     )
-                )
-            )
         );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, unauthorized));
-        ibcERC20Proxy.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+        vm.expectRevert(abi.encodeWithSelector(IBCUpgradeableBeacon.Unauthorized.selector, unauthorized));
+        beacon.upgradeTo(
+            address(newLogic)
         );
     }
 }
