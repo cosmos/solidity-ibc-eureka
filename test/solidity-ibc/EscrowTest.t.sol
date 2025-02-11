@@ -12,7 +12,6 @@ import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCUpgradeableBeacon } from "../../contracts/utils/IBCUpgradeableBeacon.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 

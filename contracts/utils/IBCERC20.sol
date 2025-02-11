@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
-import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 
 contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
     /// @notice Storage of the IBCERC20 contract
