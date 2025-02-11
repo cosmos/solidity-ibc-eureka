@@ -20,7 +20,6 @@ import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallU
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { IBCERC20 } from "./utils/IBCERC20.sol";
-import { Escrow } from "./utils/Escrow.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
