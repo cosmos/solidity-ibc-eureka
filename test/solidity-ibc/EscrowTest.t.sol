@@ -24,10 +24,8 @@ contract EscrowTest is Test {
         // setup code here
         address escrowLogic = address(new Escrow());
 
-        ERC1967Proxy escrowProxy = new ERC1967Proxy(
-            escrowLogic,
-            abi.encodeWithSelector(Escrow.initialize.selector, address(this), mockICS26)
-        );
+        ERC1967Proxy escrowProxy =
+            new ERC1967Proxy(escrowLogic, abi.encodeWithSelector(Escrow.initialize.selector, address(this), mockICS26));
         escrow = Escrow(address(escrowProxy));
 
         // Have admin approval for next call
@@ -74,7 +72,11 @@ contract EscrowTest is Test {
         address mockToken = makeAddr("mockToken");
         uint256 rateLimit = 10_000;
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), escrow.RATE_LIMITER_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), escrow.RATE_LIMITER_ROLE()
+            )
+        );
         escrow.setRateLimit(mockToken, rateLimit);
         assertEq(escrow.getRateLimit(mockToken), 0);
     }
@@ -87,7 +89,7 @@ contract EscrowTest is Test {
         assertEq(escrow.getDailyUsage(mockToken), 10_000);
 
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
-        escrow.send(IERC20(mockToken), address(this), 1_020);
+        escrow.send(IERC20(mockToken), address(this), 1020);
         assertEq(escrow.getDailyUsage(mockToken), 11_020);
 
         vm.warp(block.timestamp + 1 days);
