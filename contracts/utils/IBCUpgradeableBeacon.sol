@@ -2,11 +2,10 @@
 pragma solidity ^0.8.28;
 
 /**
-    This contract is a modified version of OpenZeppelin's UpgradeableBeacon.sol
-
-    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/f4237626c2e107f120783a15e7820e60bc73b2d8/contracts/proxy/beacon/UpgradeableBeacon.sol#L2
-*/
-
+ * This contract is a modified version of OpenZeppelin's UpgradeableBeacon.sol
+ *
+ *     https://github.com/OpenZeppelin/openzeppelin-contracts/blob/f4237626c2e107f120783a15e7820e60bc73b2d8/contracts/proxy/beacon/UpgradeableBeacon.sol#L2
+ */
 import { IBeacon } from "@openzeppelin-contracts/proxy/beacon/IBeacon.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 

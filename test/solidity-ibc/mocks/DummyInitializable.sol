@@ -13,7 +13,9 @@ contract DummyInitializable is Initializable, UUPSUpgradeable {
 
     function _authorizeUpgrade(address) internal override { }
 
-    function getTestValue() public pure returns (string memory) { return TEST_VALUE; }
+    function getTestValue() public pure returns (string memory) {
+        return TEST_VALUE;
+    }
 }
 
 contract ErroneousInitializable is Initializable, UUPSUpgradeable {

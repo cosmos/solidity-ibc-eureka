@@ -347,11 +347,7 @@ contract ICS20Transfer is
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 $.ibcERC20Beacon,
                 abi.encodeWithSelector(
-                    IBCERC20.initialize.selector,
-                    address(this),
-                    escrow,
-                    string(base),
-                    string(fullDenomPath)
+                    IBCERC20.initialize.selector, address(this), escrow, string(base), string(fullDenomPath)
                 )
             );
             $.ibcERC20Contracts[denomID] = IBCERC20(address(ibcERC20Proxy));
@@ -438,10 +434,7 @@ contract ICS20Transfer is
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
                 address(
-                    new BeaconProxy(
-                        $.escrowBeacon,
-                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this))
-                    )
+                    new BeaconProxy($.escrowBeacon, abi.encodeWithSelector(IEscrow.initialize.selector, address(this)))
                 )
             );
             $.escrows[clientId] = escrow;
