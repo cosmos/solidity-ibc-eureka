@@ -10,9 +10,10 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
+import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
-import { IIBCPausableUpgradeableErrors } from "../../contracts/errors/IIBCPausableUpgradeableErrors.sol";
 import { IIBCUpgradeableBeaconErrors } from "../../contracts/errors/IIBCUpgradeableBeaconErrors.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -165,8 +166,6 @@ contract IBCAdminTest is Test {
     }
 
     function test_success_pauseAndUnpause() public {
-        assertEq(ics20Transfer.getPauser(), ics20Pauser);
-
         vm.prank(ics20Pauser);
         ics20Transfer.pause();
         assert(ics20Transfer.paused());
@@ -182,7 +181,11 @@ contract IBCAdminTest is Test {
     }
 
     function test_failure_pauseAndUnpause() public {
-        vm.expectRevert(abi.encodeWithSelector(IIBCPausableUpgradeableErrors.Unauthorized.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+            )
+        );
         ics20Transfer.pause();
         assert(!ics20Transfer.paused());
 
@@ -190,7 +193,11 @@ contract IBCAdminTest is Test {
         ics20Transfer.pause();
         assert(ics20Transfer.paused());
 
-        vm.expectRevert(abi.encodeWithSelector(IIBCPausableUpgradeableErrors.Unauthorized.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+            )
+        );
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
     }
@@ -198,8 +205,11 @@ contract IBCAdminTest is Test {
     function test_success_setPauser() public {
         address newPauser = makeAddr("newPauser");
 
-        ics20Transfer.setPauser(newPauser);
-        assertEq(ics20Transfer.getPauser(), newPauser);
+        ics20Transfer.grantPauserRole(newPauser);
+        assertTrue(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newPauser));
+
+        ics20Transfer.revokePauserRole(newPauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newPauser));
     }
 
     function test_failure_setPauser() public {
@@ -208,8 +218,13 @@ contract IBCAdminTest is Test {
 
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
-        ics20Transfer.setPauser(newPauser);
-        assertEq(ics20Transfer.getPauser(), ics20Pauser);
+        ics20Transfer.grantPauserRole(newPauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newPauser));
+
+        // Revoke the pauser role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokePauserRole(ics20Pauser);
     }
 
     function test_success_escrow_upgrade() public {
