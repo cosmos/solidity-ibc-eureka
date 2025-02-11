@@ -73,8 +73,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic),
-            abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
         address escrowBeacon = address(new IBCUpgradeableBeacon(_escrowLogic, address(routerProxy)));
@@ -84,13 +83,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (
-                address(routerProxy),
-                escrowBeacon,
-                ibcERC20Beacon,
-                address(0),
-                address(permit2)
-                )
+                (address(routerProxy), escrowBeacon, ibcERC20Beacon, address(0), address(permit2))
             )
         );
 

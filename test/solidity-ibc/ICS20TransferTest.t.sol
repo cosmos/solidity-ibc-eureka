@@ -52,14 +52,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize,
-                (
-                address(this),
-                escrowBeacon,
-                ibcERC20Beacon,
-                address(0),
-                address(permit2)
-                )
+                ICS20Transfer.initialize, (address(this), escrowBeacon, ibcERC20Beacon, address(0), address(permit2))
             )
         );
 
