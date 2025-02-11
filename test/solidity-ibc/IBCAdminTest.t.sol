@@ -225,6 +225,7 @@ contract IBCAdminTest is Test {
 
         beacon.upgradeTo(address(newLogic));
         assertEq(beacon.implementation(), address(newLogic));
+        assertEq(DummyInitializable(address(escrow)).getTestValue(), newLogic.TEST_VALUE());
     }
 
     function test_failure_escrow_upgrade() public {
@@ -233,11 +234,10 @@ contract IBCAdminTest is Test {
         IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
         assertEq(beacon.ics26(), address(ics26Router));
 
-        BeaconProxy escrow = 
-                new BeaconProxy(
-                    address(beacon),
-                    abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer))
-                );
+        new BeaconProxy(
+            address(beacon),
+            abi.encodeWithSelector(Escrow.initialize.selector, address(ics20Transfer))
+        );
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
@@ -267,6 +267,7 @@ contract IBCAdminTest is Test {
             address(newLogic)
         );
         assertEq(beacon.implementation(), address(newLogic));
+        assertEq(DummyInitializable(address(ibcERC20Proxy)).getTestValue(), newLogic.TEST_VALUE());
     }
 
     function test_failure_ibcERC20_upgrade() public {
@@ -275,16 +276,15 @@ contract IBCAdminTest is Test {
         IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(_ibcERC20Logic, address(ics26Router));
         assertEq(beacon.ics26(), address(ics26Router));
 
-        BeaconProxy ibcERC20Proxy =
-                new BeaconProxy(
-                    address(beacon),
-                    abi.encodeWithSelector(
-                        IBCERC20.initialize.selector,
-                        address(ics20Transfer),
-                        address(0),
-                        "test",
-                        "full/denom/path/test"
-                    )
+        new BeaconProxy(
+            address(beacon),
+            abi.encodeWithSelector(
+                IBCERC20.initialize.selector,
+                address(ics20Transfer),
+                address(0),
+                "test",
+                "full/denom/path/test"
+            )
         );
 
         address unauthorized = makeAddr("unauthorized");
