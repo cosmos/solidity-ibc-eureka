@@ -431,6 +431,7 @@ contract ICS20Transfer is
                 $.escrowLogic,
                 abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
             )));
+            $.escrows[clientId] = escrow;
         }
 
         return escrow;
