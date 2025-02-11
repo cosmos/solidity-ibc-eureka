@@ -350,7 +350,6 @@ contract ICS20Transfer is
                     IBCERC20.initialize.selector,
                     address(this),
                     escrow,
-                    address($.ics26Router),
                     string(base),
                     string(fullDenomPath)
                 )
@@ -441,7 +440,7 @@ contract ICS20Transfer is
                 address(
                     new BeaconProxy(
                         $.escrowBeacon,
-                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
+                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this))
                     )
                 )
             );
