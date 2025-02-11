@@ -54,7 +54,7 @@ contract ICS20Transfer is
     /// @param permit2 The permit2 contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
-        mapping (string clientId => IEscrow escrow) escrows;
+        mapping(string clientId => IEscrow escrow) escrows;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
         address ibcERC20Logic;
@@ -198,7 +198,10 @@ contract ICS20Transfer is
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
-        require(keccak256(bytes(msg_.payload.sourcePort)) == keccak256(bytes(ICS20Lib.DEFAULT_PORT_ID)), ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort));
+        require(
+            keccak256(bytes(msg_.payload.sourcePort)) == keccak256(bytes(ICS20Lib.DEFAULT_PORT_ID)),
+            ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
+        );
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
@@ -326,7 +329,14 @@ contract ICS20Transfer is
     /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _findOrCreateERC20Address(bytes memory fullDenomPath, bytes memory base, address escrow) private returns (address) {
+    function _findOrCreateERC20Address(
+        bytes memory fullDenomPath,
+        bytes memory base,
+        address escrow
+    )
+        private
+        returns (address)
+    {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -427,10 +437,14 @@ contract ICS20Transfer is
 
         IEscrow escrow = $.escrows[clientId];
         if (address(escrow) == address(0)) {
-            escrow = IEscrow(address(new ERC1967Proxy(
-                $.escrowLogic,
-                abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
-            )));
+            escrow = IEscrow(
+                address(
+                    new ERC1967Proxy(
+                        $.escrowLogic,
+                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
+                    )
+                )
+            );
             $.escrows[clientId] = escrow;
         }
 

@@ -454,7 +454,9 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         // test invalid source port
         packet.payloads[0].sourcePort = "invalid";
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidPort.selector, ICS20Lib.DEFAULT_PORT_ID, "invalid"));
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPort.selector, ICS20Lib.DEFAULT_PORT_ID, "invalid")
+        );
         ics20Transfer.onRecvPacket(
             IIBCAppCallbacks.OnRecvPacketCallback({
                 sourceClient: packet.sourceClient,
