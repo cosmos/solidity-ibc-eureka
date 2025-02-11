@@ -776,7 +776,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
         assertEq(outboundPacket.sourceClient, chainCClientID);
         assertEq(receivedERC20.balanceOf(middleReceiver), 0);
-        assertEq(receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier)), defaultAmount);
+        assertEq(receivedERC20.balanceOf(ics20Transfer.getEscrow(chainCClientID)), defaultAmount);
 
         // Receive back
         string memory returningDenom = string(
