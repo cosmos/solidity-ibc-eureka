@@ -143,7 +143,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     // Dummy implementation of IICS20Transfer
-    function escrow() external view override returns (address) {
+    function getEscrow(string memory) external view override returns (address) {
         return address(_escrow);
     }
 

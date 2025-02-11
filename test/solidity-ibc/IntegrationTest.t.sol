@@ -43,6 +43,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public erc20AddressStr;
     ISignatureTransfer public permit2;
     string public counterpartyId = "42-dummy-01";
+    string public firstClientId = "client-0";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
 
@@ -114,7 +115,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         erc20.approve(address(ics20Transfer), defaultAmount);
 
         uint256 senderBalanceBefore = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -134,7 +135,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfter, 0);
         assertEq(contractBalanceAfter, defaultAmount);
     }
@@ -154,7 +155,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         uint256 senderBalanceBefore = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceBefore, defaultAmount);
         assertEq(contractBalanceBefore, 0);
 
@@ -175,7 +176,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfter, 0);
         assertEq(contractBalanceAfter, defaultAmount);
     }
@@ -189,7 +190,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         uint256 senderBalanceBefore = erc20.balanceOf(defaultSender);
         assertEq(senderBalanceBefore, largeAmount);
-        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceBefore = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceBefore, 0);
 
         IICS26RouterMsgs.Packet memory packet = _sendICS20TransferPacket(
@@ -209,7 +210,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfter = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfter, 0);
         assertEq(contractBalanceAfter, largeAmount);
     }
@@ -258,7 +259,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         // transfer should be reverted
         uint256 senderBalanceAfterAck = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterAck = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfterAck, defaultAmount);
         assertEq(contractBalanceAfterAck, 0);
     }
@@ -313,7 +314,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         // transfer should be reverted
         uint256 senderBalanceAfterTimeout = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfterTimeout = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterTimeout = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfterTimeout, defaultAmount);
         assertEq(contractBalanceAfterTimeout, 0);
     }
@@ -337,7 +338,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         uint256 senderBalanceBeforeTimeout = receivedERC20.balanceOf(receiverOfForeignDenom);
         assertEq(senderBalanceBeforeTimeout, 0);
-        uint256 contractBalanceBeforeTimeout = receivedERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceBeforeTimeout = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceBeforeTimeout, 0); // Burned
 
         // make light client return timestamp that is after our timeout
@@ -358,7 +359,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // transfer should be reverted
         uint256 senderBalanceAfterTimeout = receivedERC20.balanceOf(receiverOfForeignDenom);
         assertEq(senderBalanceAfterTimeout, defaultAmount); // Minted and returned
-        uint256 contractBalanceAfterTimeout = receivedERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterTimeout = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterTimeout, 0);
     }
 
@@ -412,7 +413,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         uint256 senderBalanceBeforeReceive = erc20.balanceOf(defaultSender);
         assertEq(senderBalanceBeforeReceive, 0);
-        uint256 contractBalanceBeforeReceive = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceBeforeReceive = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceBeforeReceive, defaultAmount); // Escrowed
         uint256 supplyBeforeReceive = erc20.totalSupply();
         assertEq(supplyBeforeReceive, defaultAmount); // Not burned
@@ -425,7 +426,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
         assertEq(senderBalanceAfterReceive, defaultAmount);
-        uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterReceive, 0);
         uint256 supplyAfterReceive = erc20.totalSupply();
         assertEq(supplyAfterReceive, defaultAmount);
@@ -453,7 +454,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(defaultSender);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(senderBalanceAfterSend, 0);
         assertEq(contractBalanceAfterSend, defaultAmount);
 
@@ -490,7 +491,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
         assertEq(senderBalanceAfterReceive, defaultAmount);
-        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterReceive, 0);
         uint256 supplyAfterReceive = receivedERC20.totalSupply();
         assertEq(supplyAfterReceive, defaultAmount);
@@ -507,7 +508,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // check balances after sending out
         uint256 senderBalanceAfterSend = ibcERC20.balanceOf(sender);
         assertEq(senderBalanceAfterSend, 0);
-        uint256 contractBalanceAfterSend = ibcERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterSend = ibcERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterSend, 0); // Burned
         uint256 supplyAfterSend = ibcERC20.totalSupply();
         assertEq(supplyAfterSend, 0); // Burned
@@ -530,7 +531,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
         assertEq(senderBalanceAfterReceive, largeAmount);
-        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterReceive, 0);
         uint256 supplyAfterReceive = receivedERC20.totalSupply();
         assertEq(supplyAfterReceive, largeAmount);
@@ -549,7 +550,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // check balances after sending out
         uint256 senderBalanceAfterSend = ibcERC20.balanceOf(sender);
         assertEq(senderBalanceAfterSend, 0);
-        uint256 contractBalanceAfterSend = ibcERC20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterSend = ibcERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterSend, 0); // Burned
         uint256 supplyAfterSend = ibcERC20.totalSupply();
         assertEq(supplyAfterSend, 0); // Burned
@@ -732,7 +733,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
         assertEq(outboundPacket.sourceClient, chainCClientID);
         assertEq(receivedERC20.balanceOf(middleReceiver), 0);
-        assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
+        assertEq(receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier)), defaultAmount);
 
         // Receive back
         string memory returningDenom = string(
@@ -775,7 +776,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
         assertEq(outboundPacket.sourceClient, chainCClientID);
         assertEq(receivedERC20.balanceOf(middleReceiver), 0);
-        assertEq(receivedERC20.balanceOf(ics20Transfer.escrow()), defaultAmount);
+        assertEq(receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier)), defaultAmount);
 
         // Receive back
         string memory returningDenom = string(
@@ -814,7 +815,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(defaultSender);
         assertEq(senderBalanceAfterSend, 0);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.escrow());
+        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
         assertEq(contractBalanceAfterSend, defaultAmount);
 
         // Send back
