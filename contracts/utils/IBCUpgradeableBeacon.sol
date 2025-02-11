@@ -8,19 +8,12 @@ pragma solidity ^0.8.28;
  */
 import { IBeacon } from "@openzeppelin-contracts/proxy/beacon/IBeacon.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
+import { IIBCUpgradeableBeaconErrors } from "../errors/IIBCUpgradeableBeaconErrors.sol";
+import { IIBCUpgradeableBeacon } from "../interfaces/IIBCUpgradeableBeacon.sol";
 
-contract IBCUpgradeableBeacon is IBeacon {
+contract IBCUpgradeableBeacon is IIBCUpgradeableBeaconErrors, IIBCUpgradeableBeacon, IBeacon {
     address private _implementation;
     address private _ics26;
-
-    /// @dev The `implementation` of the beacon is invalid.
-    error BeaconInvalidImplementation(address implementation);
-
-    /// @dev The sender is not authorized to update the implementation.
-    error Unauthorized(address sender);
-
-    /// @dev Emitted when the implementation returned by the beacon is changed.
-    event Upgraded(address indexed implementation);
 
     /// @dev Sets the address of the initial implementation, and the initial owner who can upgrade the beacon.
     constructor(address implementation_, address ics26_) {
@@ -32,26 +25,17 @@ contract IBCUpgradeableBeacon is IBeacon {
         _ics26 = ics26_;
     }
 
-    /// @dev Returns the current implementation address.
+    /// @inheritdoc IBeacon
     function implementation() public view virtual returns (address) {
         return _implementation;
     }
 
-    /// @dev Returns the ICS26 contract address.
+    /// @inheritdoc IIBCUpgradeableBeacon
     function ics26() external view returns (address) {
         return _ics26;
     }
 
-    /**
-     * @dev Upgrades the beacon to a new implementation.
-     *
-     * Emits an {Upgraded} event.
-     *
-     * Requirements:
-     *
-     * - msg.sender must be the owner of the contract.
-     * - `newImplementation` must be a contract.
-     */
+    /// @inheritdoc IIBCUpgradeableBeacon
     function upgradeTo(address newImplementation) public virtual {
         require(IIBCUUPSUpgradeable(_ics26).isAdmin(msg.sender), Unauthorized(msg.sender));
         _setImplementation(newImplementation);
