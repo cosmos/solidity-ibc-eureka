@@ -200,6 +200,7 @@ contract ICS20Transfer is
             keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
+        require(keccak256(bytes(msg_.payload.sourcePort)) == keccak256(bytes(ICS20Lib.DEFAULT_PORT_ID)), ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort));
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
