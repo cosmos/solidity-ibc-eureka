@@ -165,12 +165,12 @@
         "internalType": "address"
       },
       {
-        "name": "escrowLogic",
+        "name": "escrowBeacon",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "ibcERC20Logic",
+        "name": "ibcERC20Beacon",
         "type": "address",
         "internalType": "address"
       },
