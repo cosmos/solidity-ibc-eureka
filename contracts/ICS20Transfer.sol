@@ -45,7 +45,7 @@ contract ICS20Transfer is
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param escrows The escrow contract per client. Immutable.
+    /// @param escrows The escrow contract per client.
     /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
     /// @param ics26Router The ICS26Router contract address. Immutable.
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract. Immutable.
