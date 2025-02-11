@@ -424,7 +424,8 @@ contract ICS20Transfer is
 
     /// @inheritdoc IBCPausableUpgradeable
     function _authorizeSetPauser(address) internal view override {
-        _authorizeUpgrade(address(0));
+        address ics26Router = address(_getICS26Router());
+        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
     }
 
     /// @notice Returns the escrow contract for a client
