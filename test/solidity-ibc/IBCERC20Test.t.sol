@@ -168,4 +168,12 @@ contract IBCERC20Test is Test, IICS20Transfer {
     /// @notice Dummy implementation of IICS20Transfer
     function initialize(address, address, address, address, address) external pure override { }
     // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Dummy implementation of IICS20Transfer
+    function upgradeEscrowTo(address) external { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Dummy implementation of IICS20Transfer
+    function upgradeIBCERC20To(address) external { }
+    // solhint-disable-previous-line no-empty-blocks
 }
