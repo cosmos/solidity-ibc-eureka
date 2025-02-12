@@ -49,6 +49,14 @@ interface IICS20Transfer {
     )
         external;
 
+    /// @notice Upgrades the implementation of the escrow beacon contract
+    /// @param newEscrowLogic The address of the new escrow logic contract
+    function upgradeEscrowTo(address newEscrowLogic) external;
+
+    /// @notice Upgrades the implementation of the ibcERC20 beacon contract
+    /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
+    function upgradeIBCERC20To(address newIbcERC20Logic) external;
+
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBCERC20 contract is created

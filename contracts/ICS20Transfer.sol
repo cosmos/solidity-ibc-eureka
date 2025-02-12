@@ -57,8 +57,8 @@ contract ICS20Transfer is
         mapping(string clientId => IEscrow escrow) escrows;
         mapping(bytes32 => IBCERC20) ibcERC20Contracts;
         IICS26Router ics26Router;
-        address ibcERC20Beacon;
-        address escrowBeacon;
+        UpgradeableBeacon ibcERC20Beacon;
+        UpgradeableBeacon escrowBeacon;
         ISignatureTransfer permit2;
     }
 
@@ -96,8 +96,8 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         $.ics26Router = IICS26Router(ics26Router);
-        $.ibcERC20Beacon = address(new UpgradeableBeacon(ibcERC20Logic, address(this)));
-        $.escrowBeacon = address(new UpgradeableBeacon(escrowLogic, address(this)));
+        $.ibcERC20Beacon = new UpgradeableBeacon(ibcERC20Logic, address(this));
+        $.escrowBeacon = new UpgradeableBeacon(escrowLogic, address(this));
         $.permit2 = ISignatureTransfer(permit2);
     }
 
@@ -346,7 +346,7 @@ contract ICS20Transfer is
         if (erc20Contract == address(0)) {
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
-                $.ibcERC20Beacon,
+                address($.ibcERC20Beacon),
                 abi.encodeWithSelector(
                     IBCERC20.initialize.selector, address(this), escrow, string(base), string(fullDenomPath)
                 )
@@ -414,15 +414,21 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override {
-        address ics26Router = address(_getICS26Router());
-        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
-    }
+    function _authorizeUpgrade(address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IBCPausableUpgradeable
-    function _authorizeSetPauser(address) internal view override {
-        address ics26Router = address(_getICS26Router());
-        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
+    function _authorizeSetPauser(address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @inheritdoc IICS20Transfer
+    function upgradeEscrowTo(address newEscrowLogic) external onlyAdmin {
+        _getICS20TransferStorage().escrowBeacon.upgradeTo(newEscrowLogic);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function upgradeIBCERC20To(address newIBCERC20Logic) external onlyAdmin {
+        _getICS20TransferStorage().ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
     }
 
     /// @notice Returns the escrow contract for a client
@@ -436,7 +442,7 @@ contract ICS20Transfer is
             escrow = IEscrow(
                 address(
                     new BeaconProxy(
-                        $.escrowBeacon,
+                        address($.escrowBeacon),
                         abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
                     )
                 )
@@ -462,6 +468,13 @@ contract ICS20Transfer is
     /// @notice Modifier to check if the caller is the ICS26Router contract
     modifier onlyRouter() {
         require(_msgSender() == address(_getICS26Router()), ICS20Unauthorized(_msgSender()));
+        _;
+    }
+
+    /// @notice Modifier to check if the caller is an admin via the ICS26Router contract
+    modifier onlyAdmin() {
+        address ics26Router = address(_getICS26Router());
+        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
         _;
     }
 }
