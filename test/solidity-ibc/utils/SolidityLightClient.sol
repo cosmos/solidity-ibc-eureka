@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.28;
+
+// solhint-disable no-empty-blocks
+
+import { ILightClientMsgs } from "../../../contracts/msgs/ILightClientMsgs.sol";
+import { ILightClient } from "../../../contracts/interfaces/ILightClient.sol";
+import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
+
+import { ICS26Router } from "../../../contracts/ICS26Router.sol";
+
+contract SolidityLightClient is ILightClient {
+    ICS26Router private immutable _counterpartyIcs26;
+
+    constructor(ICS26Router counterpartyIcs26) {
+        _counterpartyIcs26 = counterpartyIcs26;
+    }
+
+    function updateClient(bytes calldata) external pure returns (ILightClientMsgs.UpdateResult) {
+        revert("not implemented");
+    }
+
+    function membership(ILightClientMsgs.MsgMembership calldata msg_) external view returns (uint256) {
+        require(msg_.path.length == 1, "only support single path");
+        bytes32 solidityPath = keccak256(msg_.path[0]);
+        bytes32 commitment = _counterpartyIcs26.getCommitment(solidityPath);
+        require(commitment == keccak256(msg_.value), "invalid commitment");
+        return block.timestamp;
+    }
+
+    function misbehaviour(bytes calldata) external pure {
+        revert("not implemented");
+    }
+
+    function upgradeClient(bytes calldata) external pure {
+        revert("not implemented");
+    }
+
+    function getClientState() external pure returns (bytes memory) {
+        revert("not implemented");
+    }
+}
