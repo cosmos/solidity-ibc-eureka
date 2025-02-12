@@ -16,7 +16,7 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-contract IBCERC20Test is Test, IICS20Transfer {
+contract IBCERC20Test is Test {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
     address public mockICS26;
@@ -137,18 +137,21 @@ contract IBCERC20Test is Test, IICS20Transfer {
         ibcERC20.burn(1001);
     }
 
+    // TODO: Remove the following when refactoring this test suite to use a mock
+    // =========================================================================
+
     // Dummy implementation of IICS20Transfer
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata) external pure returns (uint32 sequence) {
         return 0;
     }
 
     // Dummy implementation of IICS20Transfer
-    function getEscrow(string memory) external view override returns (address) {
+    function getEscrow(string memory) external view returns (address) {
         return address(_escrow);
     }
 
     // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(string calldata) external pure override returns (address) {
+    function ibcERC20Contract(string calldata) external pure returns (address) {
         return address(0);
     }
 
@@ -166,7 +169,7 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     /// @notice Dummy implementation of IICS20Transfer
-    function initialize(address, address, address, address, address) external pure override { }
+    function initialize(address, address, address, address, address) external pure { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Dummy implementation of IICS20Transfer

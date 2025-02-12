@@ -53,7 +53,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
+        assertEq(ics20Transfer.getPermit2(), address(permit2));
+        assertEq(ics20Transfer.ics26(), address(this));
+
         erc20 = new TestERC20();
+        assertEq(ics20Transfer.ibcERC20Denom(address(erc20)), "");
 
         (sender, senderKey) = makeAddrAndKey("sender");
         senderStr = Strings.toHexString(sender);
