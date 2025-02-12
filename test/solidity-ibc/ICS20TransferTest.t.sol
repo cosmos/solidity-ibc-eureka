@@ -40,25 +40,24 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     uint256 public defaultAmount = 1_000_000_100_000_000_001;
 
     function setUp() public {
+        permit2 = ISignatureTransfer(deployPermit2());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        permit2 = ISignatureTransfer(deployPermit2());
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(this),
-                escrowLogic,
-                ibcERC20Logic,
-                address(0),
-                address(permit2)
+            abi.encodeCall(
+                ICS20Transfer.initialize, (address(this), escrowLogic, ibcERC20Logic, address(0), address(permit2))
             )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
+        assertEq(ics20Transfer.getPermit2(), address(permit2));
+        assertEq(ics20Transfer.ics26(), address(this));
+
         erc20 = new TestERC20();
+        assertEq(ics20Transfer.ibcERC20Denom(address(erc20)), "");
 
         (sender, senderKey) = makeAddrAndKey("sender");
         senderStr = Strings.toHexString(sender);

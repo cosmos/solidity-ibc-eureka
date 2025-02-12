@@ -3,22 +3,18 @@ pragma solidity ^0.8.28;
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
-import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
-contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
+contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
     /// @notice Storage of the IBCERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _fullDenomPath The full IBC denom path for this token
     /// @param _escrow The escrow contract address
     /// @param _ics20 The ICS20 contract address, can burn and mint tokens
-    /// @param _ics26 The ICS26 contract address, used for upgradeability
     struct IBCERC20Storage {
         string _fullDenomPath;
         address _escrow;
         address _ics20;
-        IIBCUUPSUpgradeable _ics26;
     }
 
     /// @notice ERC-7201 slot for the IBCERC20 storage
@@ -38,7 +34,6 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     function initialize(
         address ics20_,
         address escrow_,
-        address ics26_,
         string memory baseDenom_,
         string memory fullDenomPath_
     )
@@ -52,7 +47,6 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
         $._fullDenomPath = fullDenomPath_;
         $._escrow = escrow_;
         $._ics20 = ics20_;
-        $._ics26 = IIBCUUPSUpgradeable(ics26_);
     }
 
     /// @inheritdoc IIBCERC20
@@ -78,16 +72,6 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable, UUPSUpgradeable {
     /// @inheritdoc IIBCERC20
     function ics20() external view returns (address) {
         return _getIBCERC20Storage()._ics20;
-    }
-
-    /// @inheritdoc IIBCERC20
-    function ics26() external view returns (address) {
-        return address(_getIBCERC20Storage()._ics26);
-    }
-
-    /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override {
-        require(_getIBCERC20Storage()._ics26.isAdmin(_msgSender()), IBCERC20Unauthorized(_msgSender()));
     }
 
     /// @notice Returns the storage of the IBCERC20 contract

@@ -5,21 +5,20 @@ import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IEscrowErrors } from "../errors/IEscrowErrors.sol";
-import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { RateLimitUpgradeable } from "./RateLimitUpgradeable.sol";
+import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
 /// @title Escrow Contract
 /// @notice This contract is used to escrow the funds for the ICS20 contract
-contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, UUPSUpgradeable, RateLimitUpgradeable {
+contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradeable {
     /// @notice Storage of the Escrow contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _ics20 The ICS20 contract address, can send funds from the escrow
-    /// @param _ics26 The ICS26 contract address, used for upgradeability
+    /// @param _ics26 The ICS26 contract address, can set the rate limiter role
     struct EscrowStorage {
         address _ics20;
         IIBCUUPSUpgradeable _ics26;
@@ -54,16 +53,6 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, UUPSUpgradeable, 
     /// @inheritdoc IEscrow
     function ics20() external view override returns (address) {
         return _getEscrowStorage()._ics20;
-    }
-
-    /// @inheritdoc IEscrow
-    function ics26() external view override returns (address) {
-        return address(_getEscrowStorage()._ics26);
-    }
-
-    /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override {
-        require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
     }
 
     /// @inheritdoc RateLimitUpgradeable

@@ -7,34 +7,35 @@ import { Test } from "forge-std/Test.sol";
 
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
-import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-contract IBCERC20Test is Test, IICS20Transfer {
+contract IBCERC20Test is Test {
     IBCERC20 public ibcERC20;
     Escrow public _escrow;
     address public mockICS26;
 
     function setUp() public {
         mockICS26 = makeAddr("mockICS26");
-        address escrowLogic = address(new Escrow());
+        address _escrowLogic = address(new Escrow());
+        address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
         _escrow = Escrow(
-            address(new ERC1967Proxy(escrowLogic, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
+            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
         );
 
-        IBCERC20 ibcERC20Logic = new IBCERC20();
+        IBCERC20 _ibcERC20Logic = new IBCERC20();
+        address ibcERC20Beacon = address(new UpgradeableBeacon(address(_ibcERC20Logic), address(this)));
         ibcERC20 = IBCERC20(
             address(
-                new ERC1967Proxy(
-                    address(ibcERC20Logic),
+                new BeaconProxy(
+                    address(ibcERC20Beacon),
                     abi.encodeCall(
-                        ibcERC20Logic.initialize,
-                        (address(this), address(_escrow), mockICS26, "test", "full/denom/path/test")
+                        _ibcERC20Logic.initialize, (address(this), address(_escrow), "test", "full/denom/path/test")
                     )
                 )
             )
@@ -44,7 +45,6 @@ contract IBCERC20Test is Test, IICS20Transfer {
     function test_ERC20Metadata() public view {
         assertEq(ibcERC20.ics20(), address(this));
         assertEq(ibcERC20.escrow(), address(_escrow));
-        assertEq(ibcERC20.ics26(), mockICS26);
         assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
@@ -53,7 +53,6 @@ contract IBCERC20Test is Test, IICS20Transfer {
 
     function test_EscrowSetup() public view {
         assertEq(_escrow.ics20(), address(this));
-        assertEq(_escrow.ics26(), mockICS26);
     }
 
     function testFuzz_success_Mint(uint256 amount) public {
@@ -137,18 +136,21 @@ contract IBCERC20Test is Test, IICS20Transfer {
         ibcERC20.burn(1001);
     }
 
+    // TODO: Remove the following when refactoring this test suite to use a mock
+    // =========================================================================
+
     // Dummy implementation of IICS20Transfer
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata) external pure returns (uint32 sequence) {
         return 0;
     }
 
     // Dummy implementation of IICS20Transfer
-    function getEscrow(string memory) external view override returns (address) {
+    function getEscrow(string memory) external view returns (address) {
         return address(_escrow);
     }
 
     // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(string calldata) external pure override returns (address) {
+    function ibcERC20Contract(string calldata) external pure returns (address) {
         return address(0);
     }
 
@@ -166,6 +168,14 @@ contract IBCERC20Test is Test, IICS20Transfer {
     }
 
     /// @notice Dummy implementation of IICS20Transfer
-    function initialize(address, address, address, address, address) external pure override { }
+    function initialize(address, address, address, address, address) external pure { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Dummy implementation of IICS20Transfer
+    function upgradeEscrowTo(address) external { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Dummy implementation of IICS20Transfer
+    function upgradeIBCERC20To(address) external { }
     // solhint-disable-previous-line no-empty-blocks
 }

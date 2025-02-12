@@ -33,6 +33,27 @@ interface IICS20Transfer {
     /// @return The ERC20 contract address
     function ibcERC20Contract(string calldata denom) external view returns (address);
 
+    /// @notice Retrieve the full IBC denom path for the given token address
+    /// @param token The token address
+    /// @return The full IBC denom path
+    function ibcERC20Denom(address token) external view returns (string memory);
+
+    /// @notice Retrieve the Escrow beacon contract address
+    /// @return The Escrow beacon contract address
+    function getEscrowBeacon() external view returns (address);
+
+    /// @notice Retrieve the IBCERC20 beacon contract address
+    /// @return The IBCERC20 beacon contract address
+    function getIBCERC20Beacon() external view returns (address);
+
+    /// @notice Retrieve the ICS26Router contract address
+    /// @return The ICS26Router contract address
+    function ics26() external view returns (address);
+
+    /// @notice Retrieve the Permit2 contract address
+    /// @return The Permit2 contract address
+    function getPermit2() external view returns (address);
+
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param ics26Router The ICS26Router contract address
@@ -48,6 +69,14 @@ interface IICS20Transfer {
         address permit2
     )
         external;
+
+    /// @notice Upgrades the implementation of the escrow beacon contract
+    /// @param newEscrowLogic The address of the new escrow logic contract
+    function upgradeEscrowTo(address newEscrowLogic) external;
+
+    /// @notice Upgrades the implementation of the ibcERC20 beacon contract
+    /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
+    function upgradeIBCERC20To(address newIbcERC20Logic) external;
 
     // --------------------- Events --------------------- //
 

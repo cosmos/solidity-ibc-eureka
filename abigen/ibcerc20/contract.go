@@ -31,7 +31,7 @@ var (
 
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"allowance\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"balanceOf\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"burn\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"decimals\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"escrow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"fullDenomPath\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ics20\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ics26\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics20_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"ics26_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"baseDenom_\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"fullDenomPath_\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"mint\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"symbol\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"totalSupply\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer\",\"inputs\":[{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferFrom\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"Approval\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"spender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Transfer\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC20InsufficientAllowance\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"allowance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC20InsufficientBalance\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidApprover\",\"inputs\":[{\"name\":\"approver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidReceiver\",\"inputs\":[{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidSender\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidSpender\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IBCERC20Unauthorized\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"allowance\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"balanceOf\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"burn\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"decimals\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"escrow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"fullDenomPath\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ics20\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics20_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"baseDenom_\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"fullDenomPath_\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"mint\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"symbol\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"totalSupply\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer\",\"inputs\":[{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferFrom\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Approval\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"spender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Transfer\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ERC20InsufficientAllowance\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"allowance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC20InsufficientBalance\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidApprover\",\"inputs\":[{\"name\":\"approver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidReceiver\",\"inputs\":[{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidSender\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC20InvalidSpender\",\"inputs\":[{\"name\":\"spender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"IBCERC20Unauthorized\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -178,37 +178,6 @@ func (_Contract *ContractTransactorRaw) Transfer(opts *bind.TransactOpts) (*type
 // Transact invokes the (paid) contract method with params as input values.
 func (_Contract *ContractTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _Contract.Contract.contract.Transact(opts, method, params...)
-}
-
-// UPGRADEINTERFACEVERSION is a free data retrieval call binding the contract method 0xad3cb1cc.
-//
-// Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
-func (_Contract *ContractCaller) UPGRADEINTERFACEVERSION(opts *bind.CallOpts) (string, error) {
-	var out []interface{}
-	err := _Contract.contract.Call(opts, &out, "UPGRADE_INTERFACE_VERSION")
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
-}
-
-// UPGRADEINTERFACEVERSION is a free data retrieval call binding the contract method 0xad3cb1cc.
-//
-// Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
-func (_Contract *ContractSession) UPGRADEINTERFACEVERSION() (string, error) {
-	return _Contract.Contract.UPGRADEINTERFACEVERSION(&_Contract.CallOpts)
-}
-
-// UPGRADEINTERFACEVERSION is a free data retrieval call binding the contract method 0xad3cb1cc.
-//
-// Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
-func (_Contract *ContractCallerSession) UPGRADEINTERFACEVERSION() (string, error) {
-	return _Contract.Contract.UPGRADEINTERFACEVERSION(&_Contract.CallOpts)
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
@@ -397,37 +366,6 @@ func (_Contract *ContractCallerSession) Ics20() (common.Address, error) {
 	return _Contract.Contract.Ics20(&_Contract.CallOpts)
 }
 
-// Ics26 is a free data retrieval call binding the contract method 0xd413227d.
-//
-// Solidity: function ics26() view returns(address)
-func (_Contract *ContractCaller) Ics26(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Contract.contract.Call(opts, &out, "ics26")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// Ics26 is a free data retrieval call binding the contract method 0xd413227d.
-//
-// Solidity: function ics26() view returns(address)
-func (_Contract *ContractSession) Ics26() (common.Address, error) {
-	return _Contract.Contract.Ics26(&_Contract.CallOpts)
-}
-
-// Ics26 is a free data retrieval call binding the contract method 0xd413227d.
-//
-// Solidity: function ics26() view returns(address)
-func (_Contract *ContractCallerSession) Ics26() (common.Address, error) {
-	return _Contract.Contract.Ics26(&_Contract.CallOpts)
-}
-
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
 // Solidity: function name() view returns(string)
@@ -457,37 +395,6 @@ func (_Contract *ContractSession) Name() (string, error) {
 // Solidity: function name() view returns(string)
 func (_Contract *ContractCallerSession) Name() (string, error) {
 	return _Contract.Contract.Name(&_Contract.CallOpts)
-}
-
-// ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
-//
-// Solidity: function proxiableUUID() view returns(bytes32)
-func (_Contract *ContractCaller) ProxiableUUID(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _Contract.contract.Call(opts, &out, "proxiableUUID")
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
-//
-// Solidity: function proxiableUUID() view returns(bytes32)
-func (_Contract *ContractSession) ProxiableUUID() ([32]byte, error) {
-	return _Contract.Contract.ProxiableUUID(&_Contract.CallOpts)
-}
-
-// ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
-//
-// Solidity: function proxiableUUID() view returns(bytes32)
-func (_Contract *ContractCallerSession) ProxiableUUID() ([32]byte, error) {
-	return _Contract.Contract.ProxiableUUID(&_Contract.CallOpts)
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -594,25 +501,25 @@ func (_Contract *ContractTransactorSession) Burn(amount *big.Int) (*types.Transa
 	return _Contract.Contract.Burn(&_Contract.TransactOpts, amount)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x83b43589.
+// Initialize is a paid mutator transaction binding the contract method 0x2016a0d2.
 //
-// Solidity: function initialize(address ics20_, address escrow_, address ics26_, string baseDenom_, string fullDenomPath_) returns()
-func (_Contract *ContractTransactor) Initialize(opts *bind.TransactOpts, ics20_ common.Address, escrow_ common.Address, ics26_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
-	return _Contract.contract.Transact(opts, "initialize", ics20_, escrow_, ics26_, baseDenom_, fullDenomPath_)
+// Solidity: function initialize(address ics20_, address escrow_, string baseDenom_, string fullDenomPath_) returns()
+func (_Contract *ContractTransactor) Initialize(opts *bind.TransactOpts, ics20_ common.Address, escrow_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
+	return _Contract.contract.Transact(opts, "initialize", ics20_, escrow_, baseDenom_, fullDenomPath_)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x83b43589.
+// Initialize is a paid mutator transaction binding the contract method 0x2016a0d2.
 //
-// Solidity: function initialize(address ics20_, address escrow_, address ics26_, string baseDenom_, string fullDenomPath_) returns()
-func (_Contract *ContractSession) Initialize(ics20_ common.Address, escrow_ common.Address, ics26_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
-	return _Contract.Contract.Initialize(&_Contract.TransactOpts, ics20_, escrow_, ics26_, baseDenom_, fullDenomPath_)
+// Solidity: function initialize(address ics20_, address escrow_, string baseDenom_, string fullDenomPath_) returns()
+func (_Contract *ContractSession) Initialize(ics20_ common.Address, escrow_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
+	return _Contract.Contract.Initialize(&_Contract.TransactOpts, ics20_, escrow_, baseDenom_, fullDenomPath_)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0x83b43589.
+// Initialize is a paid mutator transaction binding the contract method 0x2016a0d2.
 //
-// Solidity: function initialize(address ics20_, address escrow_, address ics26_, string baseDenom_, string fullDenomPath_) returns()
-func (_Contract *ContractTransactorSession) Initialize(ics20_ common.Address, escrow_ common.Address, ics26_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
-	return _Contract.Contract.Initialize(&_Contract.TransactOpts, ics20_, escrow_, ics26_, baseDenom_, fullDenomPath_)
+// Solidity: function initialize(address ics20_, address escrow_, string baseDenom_, string fullDenomPath_) returns()
+func (_Contract *ContractTransactorSession) Initialize(ics20_ common.Address, escrow_ common.Address, baseDenom_ string, fullDenomPath_ string) (*types.Transaction, error) {
+	return _Contract.Contract.Initialize(&_Contract.TransactOpts, ics20_, escrow_, baseDenom_, fullDenomPath_)
 }
 
 // Mint is a paid mutator transaction binding the contract method 0xa0712d68.
@@ -676,27 +583,6 @@ func (_Contract *ContractSession) TransferFrom(from common.Address, to common.Ad
 // Solidity: function transferFrom(address from, address to, uint256 value) returns(bool)
 func (_Contract *ContractTransactorSession) TransferFrom(from common.Address, to common.Address, value *big.Int) (*types.Transaction, error) {
 	return _Contract.Contract.TransferFrom(&_Contract.TransactOpts, from, to, value)
-}
-
-// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
-//
-// Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_Contract *ContractTransactor) UpgradeToAndCall(opts *bind.TransactOpts, newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.contract.Transact(opts, "upgradeToAndCall", newImplementation, data)
-}
-
-// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
-//
-// Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_Contract *ContractSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.Contract.UpgradeToAndCall(&_Contract.TransactOpts, newImplementation, data)
-}
-
-// UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
-//
-// Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_Contract *ContractTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.Contract.UpgradeToAndCall(&_Contract.TransactOpts, newImplementation, data)
 }
 
 // ContractApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the Contract contract.
@@ -1135,150 +1021,6 @@ func (_Contract *ContractFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan
 func (_Contract *ContractFilterer) ParseTransfer(log types.Log) (*ContractTransfer, error) {
 	event := new(ContractTransfer)
 	if err := _Contract.contract.UnpackLog(event, "Transfer", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ContractUpgradedIterator is returned from FilterUpgraded and is used to iterate over the raw logs and unpacked data for Upgraded events raised by the Contract contract.
-type ContractUpgradedIterator struct {
-	Event *ContractUpgraded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ContractUpgradedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ContractUpgraded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ContractUpgraded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ContractUpgradedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ContractUpgradedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ContractUpgraded represents a Upgraded event raised by the Contract contract.
-type ContractUpgraded struct {
-	Implementation common.Address
-	Raw            types.Log // Blockchain specific contextual infos
-}
-
-// FilterUpgraded is a free log retrieval operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
-//
-// Solidity: event Upgraded(address indexed implementation)
-func (_Contract *ContractFilterer) FilterUpgraded(opts *bind.FilterOpts, implementation []common.Address) (*ContractUpgradedIterator, error) {
-
-	var implementationRule []interface{}
-	for _, implementationItem := range implementation {
-		implementationRule = append(implementationRule, implementationItem)
-	}
-
-	logs, sub, err := _Contract.contract.FilterLogs(opts, "Upgraded", implementationRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ContractUpgradedIterator{contract: _Contract.contract, event: "Upgraded", logs: logs, sub: sub}, nil
-}
-
-// WatchUpgraded is a free log subscription operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
-//
-// Solidity: event Upgraded(address indexed implementation)
-func (_Contract *ContractFilterer) WatchUpgraded(opts *bind.WatchOpts, sink chan<- *ContractUpgraded, implementation []common.Address) (event.Subscription, error) {
-
-	var implementationRule []interface{}
-	for _, implementationItem := range implementation {
-		implementationRule = append(implementationRule, implementationItem)
-	}
-
-	logs, sub, err := _Contract.contract.WatchLogs(opts, "Upgraded", implementationRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ContractUpgraded)
-				if err := _Contract.contract.UnpackLog(event, "Upgraded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseUpgraded is a log parse operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
-//
-// Solidity: event Upgraded(address indexed implementation)
-func (_Contract *ContractFilterer) ParseUpgraded(log types.Log) (*ContractUpgraded, error) {
-	event := new(ContractUpgraded)
-	if err := _Contract.contract.UnpackLog(event, "Upgraded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

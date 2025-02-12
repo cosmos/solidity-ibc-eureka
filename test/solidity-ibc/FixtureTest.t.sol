@@ -58,19 +58,13 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
-                address(0),
-                address(0)
+            abi.encodeCall(
+                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(0))
             )
         );
 

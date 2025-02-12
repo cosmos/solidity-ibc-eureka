@@ -64,28 +64,23 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
+        permit2 = ISignatureTransfer(deployPermit2());
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        permit2 = ISignatureTransfer(deployPermit2());
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic),
-            abi.encodeWithSelector(ICS26Router.initialize.selector, address(this), address(this))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
-                address(0),
-                address(permit2)
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(permit2))
             )
         );
 
