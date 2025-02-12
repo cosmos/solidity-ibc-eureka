@@ -165,12 +165,12 @@
         "internalType": "address"
       },
       {
-        "name": "escrowBeacon",
+        "name": "escrowLogic",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "ibcERC20Beacon",
+        "name": "ibcERC20Logic",
         "type": "address",
         "internalType": "address"
       },
@@ -680,6 +680,32 @@
   },
   {
     "type": "function",
+    "name": "upgradeEscrowTo",
+    "inputs": [
+      {
+        "name": "newEscrowLogic",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeIBCERC20To",
+    "inputs": [
+      {
+        "name": "newIBCERC20Logic",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "upgradeToAndCall",
     "inputs": [
       {
@@ -911,6 +937,17 @@
     "inputs": [
       {
         "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20EscrowNotFound",
+    "inputs": [
+      {
+        "name": "clientID",
         "type": "string",
         "internalType": "string"
       }
