@@ -219,82 +219,37 @@ contract IBCAdminTest is Test {
         ics20Transfer.revokePauserRole(ics20Pauser);
     }
 
-    /*
     function test_success_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow _escrowLogic = new Escrow();
-        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
-        assertEq(beacon.ics26(), address(ics26Router));
 
-        BeaconProxy escrow = new BeaconProxy(
-            address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer), address(ics26Router)))
-        );
-
-        beacon.upgradeTo(address(newLogic));
+        ics20Transfer.upgradeEscrowTo(address(newLogic));
+        UpgradeableBeacon beacon = UpgradeableBeacon(ics20Transfer.getEscrowBeacon());
         assertEq(beacon.implementation(), address(newLogic));
-        assertEq(DummyInitializable(address(escrow)).getTestValue(), newLogic.TEST_VALUE());
     }
 
     function test_failure_escrow_upgrade() public {
-        // Case 1: Fail to deploy IBCUpgradeableBeacon
-        vm.expectRevert(
-            abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.BeaconInvalidImplementation.selector, address(0))
-        );
-        new IBCUpgradeableBeacon(address(0), address(ics26Router));
-
-        // Case 2: Fail to upgrade the beacon due to unauthorized sender
         DummyInitializable newLogic = new DummyInitializable();
-        Escrow _escrowLogic = new Escrow();
-        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(address(_escrowLogic), address(ics26Router));
-        assertEq(beacon.ics26(), address(ics26Router));
-
-        new BeaconProxy(
-            address(beacon), abi.encodeCall(Escrow.initialize, (address(ics20Transfer), address(ics26Router)))
-        );
-
         address unauthorized = makeAddr("unauthorized");
-        vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.Unauthorized.selector, unauthorized));
-        beacon.upgradeTo(address(newLogic));
 
-        // Case 3: Fail to upgrade escrow due to empty code
-        vm.expectRevert(
-            abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.BeaconInvalidImplementation.selector, address(0))
-        );
-        beacon.upgradeTo(address(0));
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.upgradeEscrowTo(address(newLogic));
     }
 
     function test_success_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        address _ibcERC20Logic = address(new IBCERC20());
-        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(_ibcERC20Logic, address(ics26Router));
-        assertEq(beacon.ics26(), address(ics26Router));
 
-        BeaconProxy ibcERC20Proxy = new BeaconProxy(
-            address(beacon),
-            abi.encodeCall(IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test"))
-        );
-
-        beacon.upgradeTo(address(newLogic));
+        ics20Transfer.upgradeIBCERC20To(address(newLogic));
+        UpgradeableBeacon beacon = UpgradeableBeacon(ics20Transfer.getIBCERC20Beacon());
         assertEq(beacon.implementation(), address(newLogic));
-        assertEq(DummyInitializable(address(ibcERC20Proxy)).getTestValue(), newLogic.TEST_VALUE());
     }
 
     function test_failure_ibcERC20_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
-        address _ibcERC20Logic = address(new IBCERC20());
-        IBCUpgradeableBeacon beacon = new IBCUpgradeableBeacon(_ibcERC20Logic, address(ics26Router));
-        assertEq(beacon.ics26(), address(ics26Router));
-
-        new BeaconProxy(
-            address(beacon),
-            abi.encodeCall(IBCERC20.initialize, (address(ics20Transfer), address(0), "test", "full/denom/path/test"))
-        );
-
         address unauthorized = makeAddr("unauthorized");
+
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUpgradeableBeaconErrors.Unauthorized.selector, unauthorized));
-        beacon.upgradeTo(address(newLogic));
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.upgradeIBCERC20To(address(newLogic));
     }
-    */
 }
