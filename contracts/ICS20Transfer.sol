@@ -108,6 +108,31 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
+    function getEscrowBeacon() external view returns (address) {
+        return address(_getICS20TransferStorage().escrowBeacon);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function getIBCERC20Beacon() external view returns (address) {
+        return address(_getICS20TransferStorage().ibcERC20Beacon);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function ics26() external view returns (address) {
+        return address(_getICS20TransferStorage().ics26Router);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function getPermit2() external view returns (address) {
+        return address(_getICS20TransferStorage().permit2);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function ibcERC20Denom(address token) external view returns (string memory) {
+        return _getICS20TransferStorage().ibcERC20Denoms[token];
+    }
+
+    /// @inheritdoc IICS20Transfer
     function ibcERC20Contract(string calldata denom) external view returns (address) {
         address contractAddress = address(_getICS20TransferStorage().ibcERC20Contracts[denom]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
