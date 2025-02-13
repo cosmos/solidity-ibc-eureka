@@ -4,19 +4,23 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::future;
 
-use crate::cli::config::RelayerConfig;
+use crate::{
+    api::{self, relayer_service_server::RelayerService},
+    cli::config::RelayerConfig,
+};
+use tonic::{Request, Response};
 
 use super::modules::ModuleServer;
 
 /// The `RelayerBuilder` struct is used to build the relayer binary.
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
-pub struct Relayer {
+pub struct RelayerBuilder {
     /// The relayer modules to include in the relayer binary and their ports.
     modules: HashMap<String, Arc<dyn ModuleServer>>,
 }
 
-impl Relayer {
+impl RelayerBuilder {
     /// Create a new `RelayerBuilder` instance.
     #[must_use]
     pub fn new() -> Self {
@@ -33,5 +37,24 @@ impl Relayer {
         );
         self.modules
             .insert(module.name().to_string(), Arc::new(module));
+    }
+}
+
+#[tonic::async_trait]
+impl RelayerService for RelayerBuilder {
+    #[tracing::instrument(skip_all)]
+    async fn info(
+        &self,
+        _request: Request<api::InfoRequest>,
+    ) -> Result<Response<api::InfoResponse>, tonic::Status> {
+        todo!()
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn relay_by_tx(
+        &self,
+        request: Request<api::RelayByTxRequest>,
+    ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        todo!()
     }
 }
