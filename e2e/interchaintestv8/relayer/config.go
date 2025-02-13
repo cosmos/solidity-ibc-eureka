@@ -45,7 +45,7 @@ func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
 	return tmpl.Execute(f, c)
 }
 
-// ChainAToChainBGRPCAddress returns the address for the cosmos to cosmos relayer gRPC server.
-func (c *CosmosToCosmosConfigInfo) DefaultRelayerGRPCAddress() string {
+// DefaultRelayerGRPCAddress returns the default gRPC address for the relayer.
+func DefaultRelayerGRPCAddress() string {
 	return "127.0.0.1:3000"
 }
