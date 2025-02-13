@@ -39,7 +39,12 @@ message RelayByTxResponse {
 }
 
 // Information request message
-message InfoRequest {}
+message InfoRequest {
+    // The source chain identifier
+    string src_chain = 1;
+    // The target chain identifier
+    string dst_chain = 2;
+}
 
 // Information response message
 message InfoResponse {

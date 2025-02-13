@@ -40,6 +40,8 @@ pub struct ModuleConfig {
 pub struct ServerConfig {
     /// The address to bind the server to.
     pub address: String,
+    /// The port to bind the server to.
+    pub port: u16,
     /// The log level for the server.
     #[serde(default)]
     pub log_level: String,
