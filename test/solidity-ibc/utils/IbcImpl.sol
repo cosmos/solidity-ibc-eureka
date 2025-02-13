@@ -13,6 +13,7 @@ import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.s
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS26Router } from "../../../contracts/interfaces/IICS26Router.sol";
+import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { ICS26Router } from "../../../contracts/ICS26Router.sol";
 import { IBCERC20 } from "../../../contracts/utils/IBCERC20.sol";
@@ -85,6 +86,27 @@ contract IbcImpl is Test {
             timeoutTimestamp: uint64(block.timestamp + 10 minutes),
             memo: ""
         }));
+        vm.stopPrank();
+
+        return _getPacketFromSendEvent();
+    }
+
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) public returns (IICS26RouterMsgs.Packet memory) {
+        return sendTransferAsUser(token, sender, receiver, _testValues.FIRST_CLIENT_ID(), permit, signature);
+    }
+
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, string memory sourceClient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) public returns (IICS26RouterMsgs.Packet memory) {
+        vm.startPrank(sender);
+        vm.recordLogs();
+        ics20Transfer.permitSendTransfer(IICS20TransferMsgs.SendTransferMsg({
+            denom: address(token),
+            amount: permit.permitted.amount,
+            receiver: receiver,
+            sourceClient: sourceClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+            memo: ""
+        }), permit, signature);
         vm.stopPrank();
 
         return _getPacketFromSendEvent();

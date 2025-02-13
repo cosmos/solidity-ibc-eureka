@@ -10,13 +10,17 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { TestERC20 } from "../mocks/TestERC20.sol";
 import { TestValues } from "./TestValues.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
+import { PermitSignature } from "./PermitSignature.sol";
 
 contract IntegrationEnv is Test, DeployPermit2 {
     uint256 private _userCount = 0;
     TestValues private _testValues = new TestValues();
+    PermitSignature private _permitHelper = new PermitSignature();
 
     TestERC20 public immutable _erc20;
     ISignatureTransfer public immutable _permit2;
+
+    mapping(address => uint256) private _userPrivateKeys;
 
     constructor() {
         // Set the default starting balance for the ERC20 token
@@ -30,17 +34,6 @@ contract IntegrationEnv is Test, DeployPermit2 {
 
     function erc20() public view returns (IERC20) {
         return IERC20(_erc20);
-    }
-
-    function signPermitAsUser(
-        address user,
-        uint256 amount
-    ) public view returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({ token: address(_erc20), amount: amount }),
-            nonce: 0,
-            deadline: block.timestamp + 100
-        });
     }
 
     /// @notice Creates a new user and funds the user with the default amount of tokens
@@ -73,9 +66,54 @@ contract IntegrationEnv is Test, DeployPermit2 {
     function createAndFundUser(
         TestERC20 token,
         uint256 amount
-    ) public returns (address user) {
-        // Create a new user
-        user = vm.addr(++_userCount);
+    ) public returns (address) {
+        address user = createUser();
         token.mint(user, amount);
+
+        return user;
+    }
+
+    function createUser() public returns (address) {
+        // Create a new user
+        Vm.Wallet memory wallet = vm.createWallet(++_userCount);
+        _userPrivateKeys[wallet.addr] = wallet.privateKey;
+
+        return wallet.addr;
+    }
+
+    function getPermitAndSignature(
+        address user,
+        uint256 amount
+    ) public returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+        return getPermitAndSignature(
+            user,
+            amount,
+            address(_erc20)
+        );
+    }
+
+    function getPermitAndSignature(
+        address spender,
+        uint256 amount,
+        address token
+    )
+        public
+        returns (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
+    {
+        uint256 privateKey = _userPrivateKeys[spender];
+        require(privateKey != 0, "User not found");
+
+        permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: token, amount: amount }),
+            nonce: vm.randomUint(),
+            deadline: block.timestamp + 100
+        });
+        sig = _permitHelper.getPermitTransferSignature(
+            permit,
+            privateKey,
+            spender,
+            _permit2.DOMAIN_SEPARATOR()
+        );
+        return (permit, sig);
     }
 }
