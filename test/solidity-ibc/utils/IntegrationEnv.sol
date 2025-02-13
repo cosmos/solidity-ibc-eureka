@@ -5,6 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { TestERC20 } from "../mocks/TestERC20.sol";
 import { TestValues } from "./TestValues.sol";
@@ -27,8 +28,19 @@ contract IntegrationEnv is Test, DeployPermit2 {
         return address(_permit2);
     }
 
-    function erc20() public view returns (address) {
-        return address(_erc20);
+    function erc20() public view returns (IERC20) {
+        return IERC20(_erc20);
+    }
+
+    function signPermitAsUser(
+        address user,
+        uint256 amount
+    ) public view returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(_erc20), amount: amount }),
+            nonce: 0,
+            deadline: block.timestamp + 100
+        });
     }
 
     /// @notice Creates a new user and funds the user with the default amount of tokens

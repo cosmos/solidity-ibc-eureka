@@ -12,6 +12,7 @@ import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IICS26Router } from "../../../contracts/interfaces/IICS26Router.sol";
 
 import { ICS26Router } from "../../../contracts/ICS26Router.sol";
 import { IBCERC20 } from "../../../contracts/utils/IBCERC20.sol";
@@ -67,13 +68,14 @@ contract IbcImpl is Test {
         return ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testValues.EMPTY_MERKLE_PREFIX()), address(lightClient));
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount) external {
-        sendTransferAsUser(token, sender, receiver, amount, _testValues.FIRST_CLIENT_ID());
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount) external returns (IICS26RouterMsgs.Packet memory) {
+        return sendTransferAsUser(token, sender, receiver, amount, _testValues.FIRST_CLIENT_ID());
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount, string memory sourceClient) public {
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount, string memory sourceClient) public returns (IICS26RouterMsgs.Packet memory) {
         vm.startPrank(sender);
         token.approve(address(ics20Transfer), amount);
+        vm.recordLogs();
         ics20Transfer.sendTransfer(IICS20TransferMsgs.SendTransferMsg({
             denom: address(token),
             amount: amount,
@@ -84,6 +86,14 @@ contract IbcImpl is Test {
             memo: ""
         }));
         vm.stopPrank();
+
+        return _getPacketFromSendEvent();
+    }
+
+    function recvPacket(IICS26RouterMsgs.Packet calldata packet) external {
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
+        msgRecvPacket.packet = packet;
+        ics26Router.recvPacket(msgRecvPacket);
     }
 
     function getMsgMembershipForRecv(IICS26RouterMsgs.Packet calldata packet) external pure returns (ILightClientMsgs.MsgMembership memory) {
@@ -116,5 +126,19 @@ contract IbcImpl is Test {
         msg_.path[0] = path;
 
         return msg_;
+    }
+
+    function _getPacketFromSendEvent() private returns (IICS26RouterMsgs.Packet memory) {
+        Vm.Log[] memory sendEvent = vm.getRecordedLogs();
+        for (uint256 i = 0; i < sendEvent.length; i++) {
+            Vm.Log memory log = sendEvent[i];
+            for (uint256 j = 0; j < log.topics.length; j++) {
+                if (log.topics[j] == IICS26Router.SendPacket.selector) {
+                    return abi.decode(log.data, (IICS26RouterMsgs.Packet));
+                }
+            }
+        }
+        // solhint-disable-next-line gas-custom-errors
+        revert("SendPacket event not found");
     }
 }

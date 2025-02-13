@@ -6,12 +6,15 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestValues } from "./utils/TestValues.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 
 contract IntegrationTest is Test {
     IbcImpl public ibcImplA;
@@ -53,13 +56,24 @@ contract IntegrationTest is Test {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
-        string memory receiver = "receiver";
+        address receiver = makeAddr("receiver");
 
-        ibcImplA.sendTransferAsUser(
-            IERC20(integrationEnv.erc20()),
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendTransferAsUser(
+            integrationEnv.erc20(),
             user,
-            receiver,
+            Strings.toHexString(receiver),
             amount
         );
+        assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+
+        // check that the packet was committed correctly
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+
+        // check that the escrow was created and funded correctly
+        address escrow = ibcImplA.ics20Transfer().getEscrow(sentPacket.sourceClient);
+        assertEq(integrationEnv.erc20().balanceOf(escrow), amount, "escrow balance mismatch");
     }
 }
