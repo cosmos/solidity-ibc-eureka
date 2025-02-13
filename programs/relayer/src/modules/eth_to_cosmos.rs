@@ -195,6 +195,15 @@ impl ModuleServer for EthToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "eth_to_cosmos"
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn serve(&self, config: serde_json::Value) -> anyhow::Result<Box<dyn RelayerService>> {
+        let config = serde_json::from_value::<EthToCosmosConfig>(config)
+            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+
+        tracing::info!("Starting Ethereum to Cosmos relayer server.");
+        Ok(Box::new(EthToCosmosRelayerModuleServer::new(config).await))
+    }
 }
 
 impl EthToCosmosTxBuilder {
@@ -203,7 +212,7 @@ impl EthToCosmosTxBuilder {
         src_events: Vec<EurekaEvent>,
         target_events: Vec<EurekaEvent>,
         target_client_id: String,
-    ) -> Result<Vec<u8>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real(tb) => {
                 tb.relay_events(src_events, target_events, target_client_id)

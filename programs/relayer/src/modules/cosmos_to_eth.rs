@@ -183,4 +183,13 @@ impl ModuleServer for CosmosToEthRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_eth"
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn serve(&self, config: serde_json::Value) -> anyhow::Result<Box<dyn RelayerService>> {
+        let config = serde_json::from_value::<CosmosToEthConfig>(config)
+            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+
+        tracing::info!("Starteing Cosmos to Ethereum relayer server.");
+        Ok(Box::new(CosmosToEthRelayerModuleServer::new(config).await))
+    }
 }

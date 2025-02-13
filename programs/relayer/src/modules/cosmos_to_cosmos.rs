@@ -171,4 +171,13 @@ impl ModuleServer for CosmosToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_cosmos"
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn serve(&self, config: serde_json::Value) -> anyhow::Result<Box<dyn RelayerService>> {
+        let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
+            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+
+        tracing::info!("Starting Cosmos to Cosmos relayer server.");
+        Ok(Box::new(CosmosToCosmosRelayerModuleServer::new(config)))
+    }
 }
