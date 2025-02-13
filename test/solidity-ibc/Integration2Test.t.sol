@@ -59,12 +59,8 @@ contract IntegrationTest is Test {
         address user = integrationEnv.createAndFundUser(amount);
         address receiver = makeAddr("receiver");
 
-        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendTransferAsUser(
-            integrationEnv.erc20(),
-            user,
-            Strings.toHexString(receiver),
-            amount
-        );
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
 
         // check that the packet was committed correctly
@@ -88,13 +84,8 @@ contract IntegrationTest is Test {
         bytes memory signature;
         (permit, signature) = integrationEnv.getPermitAndSignature(user, amount);
 
-        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendTransferAsUser(
-            integrationEnv.erc20(),
-            user,
-            Strings.toHexString(receiver),
-            permit,
-            signature
-        );
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), permit, signature);
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
 
         // check that the packet was committed correctly

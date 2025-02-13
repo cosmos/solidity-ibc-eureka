@@ -66,47 +66,91 @@ contract IbcImpl is Test {
         ICS26Router counterpartyIcs26 = counterparty.ics26Router();
         SolidityLightClient lightClient = new SolidityLightClient(counterpartyIcs26);
 
-        return ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testValues.EMPTY_MERKLE_PREFIX()), address(lightClient));
+        return ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testValues.EMPTY_MERKLE_PREFIX()), address(lightClient)
+        );
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount) external returns (IICS26RouterMsgs.Packet memory) {
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount
+    )
+        external
+        returns (IICS26RouterMsgs.Packet memory)
+    {
         return sendTransferAsUser(token, sender, receiver, amount, _testValues.FIRST_CLIENT_ID());
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount, string memory sourceClient) public returns (IICS26RouterMsgs.Packet memory) {
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount,
+        string memory sourceClient
+    )
+        public
+        returns (IICS26RouterMsgs.Packet memory)
+    {
         vm.startPrank(sender);
         token.approve(address(ics20Transfer), amount);
         vm.recordLogs();
-        ics20Transfer.sendTransfer(IICS20TransferMsgs.SendTransferMsg({
-            denom: address(token),
-            amount: amount,
-            receiver: receiver,
-            sourceClient: sourceClient,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: uint64(block.timestamp + 10 minutes),
-            memo: ""
-        }));
+        ics20Transfer.sendTransfer(
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: address(token),
+                amount: amount,
+                receiver: receiver,
+                sourceClient: sourceClient,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+                memo: ""
+            })
+        );
         vm.stopPrank();
 
         return _getPacketFromSendEvent();
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) public returns (IICS26RouterMsgs.Packet memory) {
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory signature
+    )
+        public
+        returns (IICS26RouterMsgs.Packet memory)
+    {
         return sendTransferAsUser(token, sender, receiver, _testValues.FIRST_CLIENT_ID(), permit, signature);
     }
 
-    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, string memory sourceClient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) public returns (IICS26RouterMsgs.Packet memory) {
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        string memory sourceClient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory signature
+    )
+        public
+        returns (IICS26RouterMsgs.Packet memory)
+    {
         vm.startPrank(sender);
         vm.recordLogs();
-        ics20Transfer.permitSendTransfer(IICS20TransferMsgs.SendTransferMsg({
-            denom: address(token),
-            amount: permit.permitted.amount,
-            receiver: receiver,
-            sourceClient: sourceClient,
-            destPort: ICS20Lib.DEFAULT_PORT_ID,
-            timeoutTimestamp: uint64(block.timestamp + 10 minutes),
-            memo: ""
-        }), permit, signature);
+        ics20Transfer.permitSendTransfer(
+            IICS20TransferMsgs.SendTransferMsg({
+                denom: address(token),
+                amount: permit.permitted.amount,
+                receiver: receiver,
+                sourceClient: sourceClient,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+                memo: ""
+            }),
+            permit,
+            signature
+        );
         vm.stopPrank();
 
         return _getPacketFromSendEvent();
@@ -118,7 +162,11 @@ contract IbcImpl is Test {
         ics26Router.recvPacket(msgRecvPacket);
     }
 
-    function getMsgMembershipForRecv(IICS26RouterMsgs.Packet calldata packet) external pure returns (ILightClientMsgs.MsgMembership memory) {
+    function getMsgMembershipForRecv(IICS26RouterMsgs.Packet calldata packet)
+        external
+        pure
+        returns (ILightClientMsgs.MsgMembership memory)
+    {
         bytes memory path = ICS24Host.packetCommitmentPathCalldata(packet.sourceClient, packet.sequence);
         bytes32 value = ICS24Host.packetCommitmentBytes32(packet);
 
@@ -129,7 +177,14 @@ contract IbcImpl is Test {
         return msg_;
     }
 
-    function getMsgMembershipForAck(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) external pure returns (ILightClientMsgs.MsgMembership memory) {
+    function getMsgMembershipForAck(
+        IICS26RouterMsgs.Packet calldata packet,
+        bytes[] memory acks
+    )
+        external
+        pure
+        returns (ILightClientMsgs.MsgMembership memory)
+    {
         bytes memory path = ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destClient, packet.sequence);
         bytes32 value = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
 
@@ -140,7 +195,11 @@ contract IbcImpl is Test {
         return msg_;
     }
 
-    function getMsgMembershipForTimeout(IICS26RouterMsgs.Packet calldata packet) external pure returns (ILightClientMsgs.MsgMembership memory) {
+    function getMsgMembershipForTimeout(IICS26RouterMsgs.Packet calldata packet)
+        external
+        pure
+        returns (ILightClientMsgs.MsgMembership memory)
+    {
         bytes memory path = ICS24Host.packetReceiptCommitmentPathCalldata(packet.destClient, packet.sequence);
 
         ILightClientMsgs.MsgMembership memory msg_;

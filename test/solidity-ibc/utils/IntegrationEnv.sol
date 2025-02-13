@@ -43,30 +43,17 @@ contract IntegrationEnv is Test, DeployPermit2 {
     }
 
     /// @notice Creates a new user and funds the user with the specified amount of tokens
-    function createAndFundUser(
-        uint256 amount
-    ) public returns (address) {
-        return createAndFundUser(
-            _erc20,
-            amount
-        );
+    function createAndFundUser(uint256 amount) public returns (address) {
+        return createAndFundUser(_erc20, amount);
     }
 
     /// @notice Creates a new user and funds them with the default amount of tokens from the specified token
-    function createAndFundUser(
-        TestERC20 token
-    ) public returns (address) {
-        return createAndFundUser(
-            token,
-            _testValues.DEFAULT_ERC20_STARTING_BALANCE()
-        );
+    function createAndFundUser(TestERC20 token) public returns (address) {
+        return createAndFundUser(token, _testValues.DEFAULT_ERC20_STARTING_BALANCE());
     }
 
     /// @notice Creates a new user and funds them with the specified amount of tokens from the specified token
-    function createAndFundUser(
-        TestERC20 token,
-        uint256 amount
-    ) public returns (address) {
+    function createAndFundUser(TestERC20 token, uint256 amount) public returns (address) {
         address user = createUser();
         token.mint(user, amount);
 
@@ -84,12 +71,11 @@ contract IntegrationEnv is Test, DeployPermit2 {
     function getPermitAndSignature(
         address user,
         uint256 amount
-    ) public returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory) {
-        return getPermitAndSignature(
-            user,
-            amount,
-            address(_erc20)
-        );
+    )
+        public
+        returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
+    {
+        return getPermitAndSignature(user, amount, address(_erc20));
     }
 
     function getPermitAndSignature(
@@ -108,12 +94,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
             nonce: vm.randomUint(),
             deadline: block.timestamp + 100
         });
-        sig = _permitHelper.getPermitTransferSignature(
-            permit,
-            privateKey,
-            spender,
-            _permit2.DOMAIN_SEPARATOR()
-        );
+        sig = _permitHelper.getPermitTransferSignature(permit, privateKey, spender, _permit2.DOMAIN_SEPARATOR());
         return (permit, sig);
     }
 }
