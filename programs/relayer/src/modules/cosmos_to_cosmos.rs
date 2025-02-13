@@ -1,6 +1,6 @@
 //! Defines Cosmos to Cosmos relayer module.
 
-use std::{net::SocketAddr, str::FromStr};
+use std::str::FromStr;
 
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
@@ -8,13 +8,10 @@ use ibc_eureka_relayer_lib::{
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
-use tonic::{transport::Server, Request, Response};
+use tonic::{Request, Response};
 
 use crate::{
-    api::{
-        self,
-        relayer_service_server::{RelayerService, RelayerServiceServer},
-    },
+    api::{self, relayer_service_server::RelayerService},
     core::modules::ModuleServer,
 };
 
@@ -48,7 +45,6 @@ pub struct CosmosToCosmosConfig {
 }
 
 impl CosmosToCosmosRelayerModuleServer {
-    #[allow(dead_code)]
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::new(
             Url::from_str(&config.src_rpc_url)
@@ -174,24 +170,5 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
 impl ModuleServer for CosmosToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_cosmos"
-    }
-
-    #[tracing::instrument(skip_all)]
-    async fn serve(
-        &self,
-        config: serde_json::Value,
-        addr: SocketAddr,
-    ) -> Result<(), tonic::transport::Error> {
-        let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
-            .unwrap_or_else(|e| panic!("failed to parse config: {e}"));
-
-        let server = CosmosToCosmosRelayerModuleServer::new(config);
-
-        tracing::info!(%addr, "Started Cosmos to Cosmos relayer server.");
-
-        Server::builder()
-            .add_service(RelayerServiceServer::new(server))
-            .serve(addr)
-            .await
     }
 }
