@@ -6,19 +6,27 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestValues } from "./utils/TestValues.sol";
+import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 contract IntegrationTest is Test {
     IbcImpl public ibcImplA;
     IbcImpl public ibcImplB;
 
     TestValues public testValues = new TestValues();
+    IntegrationEnv public integrationEnv;
 
     function setUp() public {
+        // Set up the environment
+        integrationEnv = new IntegrationEnv();
+
         // Deploy the IBC implementation
-        ibcImplA = new IbcImpl(address(0));
-        ibcImplB = new IbcImpl(address(0));
+        ibcImplA = new IbcImpl(integrationEnv.permit2());
+        ibcImplB = new IbcImpl(integrationEnv.permit2());
 
         // Add the counterparty implementations
         string memory clientId;
@@ -38,6 +46,20 @@ contract IntegrationTest is Test {
         assertEq(
             ibcImplB.ics26Router().getClient(testValues.FIRST_CLIENT_ID()).getClientState(),
             abi.encodePacked(address(ibcImplA.ics26Router()))
+        );
+    }
+
+    function testFuzz_success_sendICS20PacketWithAllowance(uint256 amount) public {
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        string memory receiver = "receiver";
+
+        ibcImplA.sendTransferAsUser(
+            IERC20(integrationEnv.erc20()),
+            user,
+            receiver,
+            amount
         );
     }
 }

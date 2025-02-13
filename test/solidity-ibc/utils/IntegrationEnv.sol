@@ -14,21 +14,40 @@ contract IntegrationEnv is Test, DeployPermit2 {
     uint256 private _userCount = 0;
     TestValues private _testValues = new TestValues();
 
+    TestERC20 public immutable _erc20;
     ISignatureTransfer public immutable _permit2;
 
     constructor() {
         // Set the default starting balance for the ERC20 token
         _permit2 = ISignatureTransfer(deployPermit2());
+        _erc20 = new TestERC20();
     }
 
-    /// @notice Creates a new user and erc20 token, and funds the user with the default amount of tokens
-    function createAndFundUser() public returns (address erc20, address user) {
-        erc20 = address(new TestERC20());
-        user = createAndFundUser(TestERC20(erc20));
-        return (erc20, user);
+    function permit2() public view returns (address) {
+        return address(_permit2);
     }
 
-    /// @notice Creates a new user and funds them with the default amount of tokens
+    function erc20() public view returns (address) {
+        return address(_erc20);
+    }
+
+    /// @notice Creates a new user and funds the user with the default amount of tokens
+    function createAndFundUser() public returns (address user) {
+        user = createAndFundUser(_erc20);
+        return user;
+    }
+
+    /// @notice Creates a new user and funds the user with the specified amount of tokens
+    function createAndFundUser(
+        uint256 amount
+    ) public returns (address) {
+        return createAndFundUser(
+            _erc20,
+            amount
+        );
+    }
+
+    /// @notice Creates a new user and funds them with the default amount of tokens from the specified token
     function createAndFundUser(
         TestERC20 token
     ) public returns (address) {
@@ -38,7 +57,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
         );
     }
 
-    /// @notice Creates a new user and funds them with the specified amount of tokens
+    /// @notice Creates a new user and funds them with the specified amount of tokens from the specified token
     function createAndFundUser(
         TestERC20 token,
         uint256 amount
