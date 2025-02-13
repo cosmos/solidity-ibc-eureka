@@ -1,12 +1,14 @@
 {
   "server": {
     "log_level": "info",
-    "address": "127.0.0.1"
+    "address": "127.0.0.1",
+    "port": 3000
   },
   "modules": [
     {
       "name": "eth_to_cosmos",
-      "port": {{ .EthToCosmosPort }},
+      "src_chain": "{{ .EthChainID }}",
+      "dst_chain": "{{ .CosmosChainID }}",
       "config": {
         "tm_rpc_url": "{{ .TmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",
@@ -18,7 +20,8 @@
     },
     {
       "name": "cosmos_to_eth",
-      "port": {{ .CosmosToEthPort }},
+      "src_chain": "{{ .CosmosChainID }}",
+      "dst_chain": "{{ .EthChainID }}",
       "config": {
         "tm_rpc_url": "{{ .TmRPC }}",
         "ics26_address": "{{ .ICS26Address }}",

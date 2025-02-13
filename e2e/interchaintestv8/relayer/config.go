@@ -1,17 +1,16 @@
 package relayer
 
 import (
-	"fmt"
 	"os"
 	"text/template"
 )
 
 // EthCosmosConfigInfo is a struct that holds the configuration information for the Eth to Cosmos config template
 type EthCosmosConfigInfo struct {
-	// gRPC port for the Eth to Cosmos relayer module
-	EthToCosmosPort uint64
-	// gRPC port for the Cosmos to Eth relayer module
-	CosmosToEthPort uint64
+	// Ethereum chain identifier
+	EthChainID string
+	// Cosmos chain identifier
+	CosmosChainID string
 	// Tendermint RPC URL
 	TmRPC string
 	// ICS26 Router address
@@ -46,18 +45,12 @@ func (c *EthCosmosConfigInfo) GenerateEthCosmosConfigFile(path string) error {
 	return tmpl.Execute(f, c)
 }
 
-// EthToCosmosGRPCAddress returns the address for the eth to cosmos relayer gRPC server.
-func (c *EthCosmosConfigInfo) EthToCosmosGRPCAddress() string {
-	return fmt.Sprintf("127.0.0.1:%d", c.EthToCosmosPort)
-}
-
-// CosmosToEthGRPCAddress returns the address for the cosmos to eth relayer gRPC server.
-func (c *EthCosmosConfigInfo) CosmosToEthGRPCAddress() string {
-	return fmt.Sprintf("127.0.0.1:%d", c.CosmosToEthPort)
-}
-
 // CosmosToCosmosConfigInfo is a struct that holds the configuration information for the Cosmos to Cosmos config template
 type CosmosToCosmosConfigInfo struct {
+	// Chain A chain identifier
+	ChainAID string
+	// Chain B chain identifier
+	ChainBID string
 	// ChainA Tendermint RPC URL
 	ChainATmRPC string
 	// ChainB Tendermint RPC URL
