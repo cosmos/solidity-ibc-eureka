@@ -462,8 +462,8 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       s.SimdA.Config().ChainID,
-				DstChain:       s.SimdB.Config().ChainID,
+				SrcChain:       s.SimdB.Config().ChainID,
+				DstChain:       s.SimdA.Config().ChainID,
 				TimeoutTxIds:   txHashes,
 				TargetClientId: ibctesting.FirstClientID,
 			})
