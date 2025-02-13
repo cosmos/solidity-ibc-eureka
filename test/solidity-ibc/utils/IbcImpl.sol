@@ -6,16 +6,17 @@ pragma solidity ^0.8.28;
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
-import { ICS26Router } from "../../../contracts/ICS26Router.sol";
-import { IBCERC20 } from "../../../contracts/utils/IBCERC20.sol";
-import { Escrow } from "../../../contracts/utils/Escrow.sol";
-import { ICS20Transfer } from "../../../contracts/ICS20Transfer.sol";
-
 import { ILightClientMsgs } from "../../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
 
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+
+import { ICS26Router } from "../../../contracts/ICS26Router.sol";
+import { IBCERC20 } from "../../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../../contracts/utils/Escrow.sol";
+import { ICS20Transfer } from "../../../contracts/ICS20Transfer.sol";
 import { TestValues } from "./TestValues.sol";
 import { SolidityLightClient } from "../utils/SolidityLightClient.sol";
 import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
@@ -26,7 +27,7 @@ contract IbcImpl is Test {
     ICS26Router public immutable ics26Router;
     ICS20Transfer public immutable ics20Transfer;
 
-    TestValues private _testValues;
+    TestValues private _testValues = new TestValues();
 
     constructor(address permit2) {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -34,7 +35,6 @@ contract IbcImpl is Test {
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        _testValues = new TestValues();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
@@ -65,6 +65,25 @@ contract IbcImpl is Test {
         SolidityLightClient lightClient = new SolidityLightClient(counterpartyIcs26);
 
         return ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testValues.EMPTY_MERKLE_PREFIX()), address(lightClient));
+    }
+
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount) external {
+        sendTransferAsUser(token, sender, receiver, amount, _testValues.FIRST_CLIENT_ID());
+    }
+
+    function sendTransferAsUser(IERC20 token, address sender, string calldata receiver, uint256 amount, string memory sourceClient) public {
+        vm.startPrank(sender);
+        token.approve(address(ics20Transfer), amount);
+        ics20Transfer.sendTransfer(IICS20TransferMsgs.SendTransferMsg({
+            denom: address(token),
+            amount: amount,
+            receiver: receiver,
+            sourceClient: sourceClient,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+            memo: ""
+        }));
+        vm.stopPrank();
     }
 
     function getMsgMembershipForRecv(IICS26RouterMsgs.Packet calldata packet) external pure returns (ILightClientMsgs.MsgMembership memory) {

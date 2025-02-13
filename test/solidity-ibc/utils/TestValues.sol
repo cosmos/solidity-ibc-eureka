@@ -7,6 +7,8 @@ import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
 contract TestValues {
     /// @notice The first client ID used in the test
     string constant public FIRST_CLIENT_ID = "client-0";
+    /// @notice The default starting balance for the ERC20 token
+    uint256 constant public DEFAULT_ERC20_STARTING_BALANCE = type(uint256).max;
 
     /// @notice The default merkle prefix used in cosmos chains
     bytes[] private _cosmosMerklePrefix = [bytes("ibc"), bytes("")];
