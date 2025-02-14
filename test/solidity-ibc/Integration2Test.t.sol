@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
@@ -57,10 +58,10 @@ contract IntegrationTest is Test {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
-        address receiver = makeAddr("receiver");
+        string memory receiver = integrationEnv.randomString();
 
         IICS26RouterMsgs.Packet memory sentPacket =
-            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, receiver, amount);
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
 
         // check that the packet was committed correctly
@@ -78,14 +79,14 @@ contract IntegrationTest is Test {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
-        address receiver = makeAddr("receiver");
+        string memory receiver = integrationEnv.randomString();
 
         ISignatureTransfer.PermitTransferFrom memory permit;
         bytes memory signature;
         (permit, signature) = integrationEnv.getPermitAndSignature(user, address(ibcImplA.ics20Transfer()), amount);
 
         IICS26RouterMsgs.Packet memory sentPacket =
-            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), permit, signature);
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, receiver, permit, signature);
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
 
         // check that the packet was committed correctly
@@ -97,5 +98,19 @@ contract IntegrationTest is Test {
         // check that the escrow was created and funded correctly
         address escrow = ibcImplA.ics20Transfer().getEscrow(sentPacket.sourceClient);
         assertEq(integrationEnv.erc20().balanceOf(escrow), amount, "escrow balance mismatch");
+    }
+
+    function testFuzz_success_recvNativeICS20Packet(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
+
+        // Receive the packet on B
+        ibcImplB.recvPacket(sentPacket);
     }
 }

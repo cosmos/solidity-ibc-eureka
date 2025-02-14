@@ -109,4 +109,10 @@ contract IntegrationEnv is Test, DeployPermit2 {
         sig = _permitHelper.getPermitTransferSignature(permit, privateKey, spender, _permit2.DOMAIN_SEPARATOR());
         return (permit, sig);
     }
+
+    /// @dev retuns a random base64 string
+    function randomString() public returns (string memory) {
+        uint256 randomNum = vm.randomUint();
+        return vm.toBase64(abi.encodePacked(randomNum));
+    }
 }
