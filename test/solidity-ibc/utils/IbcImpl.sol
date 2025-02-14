@@ -19,7 +19,7 @@ import { ICS26Router } from "../../../contracts/ICS26Router.sol";
 import { IBCERC20 } from "../../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../../contracts/utils/Escrow.sol";
 import { ICS20Transfer } from "../../../contracts/ICS20Transfer.sol";
-import { TestValues } from "./TestValues.sol";
+import { TestHelper } from "./TestHelper.sol";
 import { SolidityLightClient } from "../utils/SolidityLightClient.sol";
 import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -29,7 +29,7 @@ contract IbcImpl is Test {
     ICS26Router public immutable ics26Router;
     ICS20Transfer public immutable ics20Transfer;
 
-    TestValues private _testValues = new TestValues();
+    TestHelper private _testHelper = new TestHelper();
 
     constructor(address permit2) {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -67,7 +67,7 @@ contract IbcImpl is Test {
         SolidityLightClient lightClient = new SolidityLightClient(counterpartyIcs26);
 
         return ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testValues.EMPTY_MERKLE_PREFIX()), address(lightClient)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testHelper.EMPTY_MERKLE_PREFIX()), address(lightClient)
         );
     }
 
@@ -80,7 +80,7 @@ contract IbcImpl is Test {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, amount, _testValues.FIRST_CLIENT_ID());
+        return sendTransferAsUser(token, sender, receiver, amount, _testHelper.FIRST_CLIENT_ID());
     }
 
     function sendTransferAsUser(
@@ -104,7 +104,7 @@ contract IbcImpl is Test {
                 sourceClient: sourceClient,
                 destPort: ICS20Lib.DEFAULT_PORT_ID,
                 timeoutTimestamp: uint64(block.timestamp + 10 minutes),
-                memo: ""
+                memo: _testHelper.randomString()
             })
         );
         vm.stopPrank();
@@ -122,7 +122,7 @@ contract IbcImpl is Test {
         public
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, _testValues.FIRST_CLIENT_ID(), permit, signature);
+        return sendTransferAsUser(token, sender, receiver, _testHelper.FIRST_CLIENT_ID(), permit, signature);
     }
 
     function sendTransferAsUser(

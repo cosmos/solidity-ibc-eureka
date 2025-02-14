@@ -8,13 +8,13 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { TestERC20 } from "../mocks/TestERC20.sol";
-import { TestValues } from "./TestValues.sol";
+import { TestHelper } from "./TestHelper.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./PermitSignature.sol";
 
 contract IntegrationEnv is Test, DeployPermit2 {
     uint256 private _userCount = 0;
-    TestValues private _testValues = new TestValues();
+    TestHelper private _testValues = new TestHelper();
     PermitSignature private _permitHelper = new PermitSignature();
 
     TestERC20 public immutable _erc20;
@@ -108,11 +108,5 @@ contract IntegrationEnv is Test, DeployPermit2 {
         });
         sig = _permitHelper.getPermitTransferSignature(permit, privateKey, spender, _permit2.DOMAIN_SEPARATOR());
         return (permit, sig);
-    }
-
-    /// @dev retuns a random base64 string
-    function randomString() public returns (string memory) {
-        uint256 randomNum = vm.randomUint();
-        return vm.toBase64(abi.encodePacked(randomNum));
     }
 }

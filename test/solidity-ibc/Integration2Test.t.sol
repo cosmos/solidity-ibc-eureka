@@ -13,7 +13,7 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
-import { TestValues } from "./utils/TestValues.sol";
+import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
@@ -22,7 +22,7 @@ contract IntegrationTest is Test {
     IbcImpl public ibcImplA;
     IbcImpl public ibcImplB;
 
-    TestValues public testValues = new TestValues();
+    TestHelper public testHelper = new TestHelper();
     IntegrationEnv public integrationEnv;
 
     function setUp() public {
@@ -35,21 +35,21 @@ contract IntegrationTest is Test {
 
         // Add the counterparty implementations
         string memory clientId;
-        clientId = ibcImplA.addCounterpartyImpl(ibcImplB, testValues.FIRST_CLIENT_ID());
-        assertEq(clientId, testValues.FIRST_CLIENT_ID());
+        clientId = ibcImplA.addCounterpartyImpl(ibcImplB, testHelper.FIRST_CLIENT_ID());
+        assertEq(clientId, testHelper.FIRST_CLIENT_ID());
 
-        clientId = ibcImplB.addCounterpartyImpl(ibcImplA, testValues.FIRST_CLIENT_ID());
-        assertEq(clientId, testValues.FIRST_CLIENT_ID());
+        clientId = ibcImplB.addCounterpartyImpl(ibcImplA, testHelper.FIRST_CLIENT_ID());
+        assertEq(clientId, testHelper.FIRST_CLIENT_ID());
     }
 
     function test_deployment() public view {
         // Check that the counterparty implementations are set correctly
         assertEq(
-            ibcImplA.ics26Router().getClient(testValues.FIRST_CLIENT_ID()).getClientState(),
+            ibcImplA.ics26Router().getClient(testHelper.FIRST_CLIENT_ID()).getClientState(),
             abi.encodePacked(address(ibcImplB.ics26Router()))
         );
         assertEq(
-            ibcImplB.ics26Router().getClient(testValues.FIRST_CLIENT_ID()).getClientState(),
+            ibcImplB.ics26Router().getClient(testHelper.FIRST_CLIENT_ID()).getClientState(),
             abi.encodePacked(address(ibcImplA.ics26Router()))
         );
     }
@@ -58,7 +58,7 @@ contract IntegrationTest is Test {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
-        string memory receiver = integrationEnv.randomString();
+        string memory receiver = testHelper.randomString();
 
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, receiver, amount);
@@ -79,7 +79,7 @@ contract IntegrationTest is Test {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
-        string memory receiver = integrationEnv.randomString();
+        string memory receiver = testHelper.randomString();
 
         ISignatureTransfer.PermitTransferFrom memory permit;
         bytes memory signature;
