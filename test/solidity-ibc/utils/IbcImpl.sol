@@ -158,56 +158,14 @@ contract IbcImpl is Test {
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
-    function recvPacket(IICS26RouterMsgs.Packet calldata packet) external {
+    function recvPacket(IICS26RouterMsgs.Packet calldata packet) external returns (bytes[] memory acks) {
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
         msgRecvPacket.packet = packet;
+        vm.recordLogs();
         ics26Router.recvPacket(msgRecvPacket);
-    }
 
-    function getMsgMembershipForRecv(IICS26RouterMsgs.Packet calldata packet)
-        external
-        pure
-        returns (ILightClientMsgs.MsgMembership memory)
-    {
-        bytes memory path = ICS24Host.packetCommitmentPathCalldata(packet.sourceClient, packet.sequence);
-        bytes32 value = ICS24Host.packetCommitmentBytes32(packet);
-
-        ILightClientMsgs.MsgMembership memory msg_;
-        msg_.value = abi.encodePacked(value);
-        msg_.path[0] = path;
-
-        return msg_;
-    }
-
-    function getMsgMembershipForAck(
-        IICS26RouterMsgs.Packet calldata packet,
-        bytes[] memory acks
-    )
-        external
-        pure
-        returns (ILightClientMsgs.MsgMembership memory)
-    {
-        bytes memory path = ICS24Host.packetAcknowledgementCommitmentPathCalldata(packet.destClient, packet.sequence);
-        bytes32 value = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
-
-        ILightClientMsgs.MsgMembership memory msg_;
-        msg_.value = abi.encodePacked(value);
-        msg_.path[0] = path;
-
-        return msg_;
-    }
-
-    function getMsgMembershipForTimeout(IICS26RouterMsgs.Packet calldata packet)
-        external
-        pure
-        returns (ILightClientMsgs.MsgMembership memory)
-    {
-        bytes memory path = ICS24Host.packetReceiptCommitmentPathCalldata(packet.destClient, packet.sequence);
-
-        ILightClientMsgs.MsgMembership memory msg_;
-        msg_.value = bytes("");
-        msg_.path[0] = path;
-
-        return msg_;
+        bytes memory ackBz = _testHelper.getValueFromEvent(IICS26Router.WriteAcknowledgement.selector);
+        (, acks) = abi.decode(ackBz, (IICS26RouterMsgs.Packet, bytes[]));
+        return acks;
     }
 }

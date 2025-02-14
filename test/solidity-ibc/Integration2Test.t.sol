@@ -11,12 +11,15 @@ import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol"
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
+import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 
 contract IntegrationTest is Test {
     IbcImpl public ibcImplA;
@@ -111,6 +114,40 @@ contract IntegrationTest is Test {
             ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
 
         // Receive the packet on B
-        ibcImplB.recvPacket(sentPacket);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, testHelper.SINGLE_SUCCESS_ACK(), "ack mismatch");
+
+        // Verify that the packet acknowledgement was written correctly
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(sentPacket.destClient, sentPacket.sequence);
+        bytes32 expAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(testHelper.SINGLE_SUCCESS_ACK());
+        bytes32 storedAckCommitment = ibcImplB.ics26Router().getCommitment(path);
+        assertEq(storedAckCommitment, expAckCommitment, "ack commitment mismatch");
+
+        // Verify that the packet receipt was set correctly
+        bytes32 receiptPath =
+            keccak256(ICS24Host.packetReceiptCommitmentPathCalldata(sentPacket.destClient, sentPacket.sequence));
+        bytes32 expReceipt = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
+        bytes32 storedReceipt = ibcImplB.ics26Router().getCommitment(receiptPath);
+        assertEq(storedReceipt, expReceipt, "receipt mismatch");
+
+        // Check that a new IBCERC20 token was created
+        string memory expDenomPath = string.concat(
+            ICS20Lib.DEFAULT_PORT_ID,
+            "/",
+            testHelper.FIRST_CLIENT_ID(),
+            "/",
+            Strings.toHexString(address(integrationEnv.erc20()))
+        );
+        IERC20 token = IERC20(ibcImplB.ics20Transfer().ibcERC20Contract(expDenomPath));
+        assertTrue(address(token) != address(0), "IBCERC20 token not found");
+        assertEq(token.balanceOf(receiver), amount, "receiver balance mismatch");
+
+        // Check replay protection
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
+        msgRecvPacket.packet = sentPacket;
+        vm.recordLogs();
+        ibcImplB.ics26Router().recvPacket(msgRecvPacket);
+        testHelper.getValueFromEvent(IICS26Router.Noop.selector);
     }
 }
