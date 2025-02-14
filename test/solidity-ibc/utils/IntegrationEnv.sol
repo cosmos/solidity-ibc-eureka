@@ -55,7 +55,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
     /// @notice Creates a new user and funds them with the specified amount of tokens from the specified token
     function createAndFundUser(TestERC20 token, uint256 amount) public returns (address) {
         address user = createUser();
-        token.mint(user, amount);
+        fundUser(token, user, amount);
 
         return user;
     }
@@ -68,17 +68,29 @@ contract IntegrationEnv is Test, DeployPermit2 {
         return wallet.addr;
     }
 
+    function fundUser(address user, uint256 amount) public {
+        return fundUser(_erc20, user, amount);
+    }
+
+    function fundUser(TestERC20 token, address user, uint256 amount) public {
+        token.mint(user, amount);
+        vm.prank(user);
+        _erc20.approve(address(_permit2), amount);
+    }
+
     function getPermitAndSignature(
         address user,
+        address spender,
         uint256 amount
     )
         public
         returns (ISignatureTransfer.PermitTransferFrom memory, bytes memory)
     {
-        return getPermitAndSignature(user, amount, address(_erc20));
+        return getPermitAndSignature(user, spender, amount, address(_erc20));
     }
 
     function getPermitAndSignature(
+        address user,
         address spender,
         uint256 amount,
         address token
@@ -86,7 +98,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
         public
         returns (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
     {
-        uint256 privateKey = _userPrivateKeys[spender];
+        uint256 privateKey = _userPrivateKeys[user];
         require(privateKey != 0, "User not found");
 
         permit = ISignatureTransfer.PermitTransferFrom({

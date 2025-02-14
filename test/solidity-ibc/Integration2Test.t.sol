@@ -82,7 +82,7 @@ contract IntegrationTest is Test {
 
         ISignatureTransfer.PermitTransferFrom memory permit;
         bytes memory signature;
-        (permit, signature) = integrationEnv.getPermitAndSignature(user, amount);
+        (permit, signature) = integrationEnv.getPermitAndSignature(user, address(ibcImplA.ics20Transfer()), amount);
 
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), permit, signature);
