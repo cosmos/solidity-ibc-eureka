@@ -168,4 +168,18 @@ contract IbcImpl is Test {
         (, acks) = abi.decode(ackBz, (IICS26RouterMsgs.Packet, bytes[]));
         return acks;
     }
+
+    function cheatPacketCommitment(IICS26RouterMsgs.Packet calldata packet) external {
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 value = ICS24Host.packetCommitmentBytes32(packet);
+        _cheatCommit(path, value);
+    }
+
+    function _cheatCommit(bytes32 path, bytes32 value) private {
+        bytes32 erc7201Slot = 0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
+        bytes32 commitmentSlot = keccak256(abi.encodePacked(path, erc7201Slot));
+        // This is a cheat code to commit a value to the light client
+        // It should only be used for testing purposes
+        vm.store(address(ics26Router), commitmentSlot, value);
+    }
 }
