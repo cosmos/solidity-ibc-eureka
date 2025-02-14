@@ -21,6 +21,7 @@ struct SP1ICS07TendermintGenesisJson {
     bytes32 misbehaviourVkey;
 }
 
+/// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity
 contract SP1TendermintScript is Script, IICS07TendermintMsgs {
     using stdJson for string;
 

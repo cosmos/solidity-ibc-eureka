@@ -26,3 +26,10 @@
   quote_style = "double"
   tab_width = 4
   wrap_comments = true
+
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+

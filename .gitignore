@@ -13,6 +13,7 @@ lcov.info
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+soljson-latest.js
 
 # broadcasts
 !broadcast
@@ -32,3 +33,4 @@ bacon.toml
 # Config files and test artifacts
 programs/relayer/config.json
 scripts/genesis.json
+scripts/deploymentConfig.json
