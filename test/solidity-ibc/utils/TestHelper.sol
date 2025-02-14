@@ -42,4 +42,19 @@ contract TestHelper is Test {
         uint256 randomNum = vm.randomUint();
         return vm.toBase64(abi.encodePacked(randomNum));
     }
+
+    /// @dev Searches all the logs for the given event selector and returns the first value found
+    function getValueFromEvent(bytes32 eventSelector) public returns (bytes memory) {
+        Vm.Log[] memory events = vm.getRecordedLogs();
+        for (uint256 i = 0; i < events.length; i++) {
+            Vm.Log memory log = events[i];
+            for (uint256 j = 0; j < log.topics.length; j++) {
+                if (log.topics[j] == eventSelector) {
+                    return log.data;
+                }
+            }
+        }
+        // solhint-disable-next-line gas-custom-errors
+        revert("Event not found");
+    }
 }

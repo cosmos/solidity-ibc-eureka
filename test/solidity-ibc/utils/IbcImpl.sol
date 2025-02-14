@@ -109,7 +109,8 @@ contract IbcImpl is Test {
         );
         vm.stopPrank();
 
-        return _getPacketFromSendEvent();
+        bytes memory packetBz = _testHelper.getValueFromEvent(IICS26Router.SendPacket.selector);
+        return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
     function sendTransferAsUser(
@@ -153,7 +154,8 @@ contract IbcImpl is Test {
         );
         vm.stopPrank();
 
-        return _getPacketFromSendEvent();
+        bytes memory packetBz = _testHelper.getValueFromEvent(IICS26Router.SendPacket.selector);
+        return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
     function recvPacket(IICS26RouterMsgs.Packet calldata packet) external {
@@ -207,19 +209,5 @@ contract IbcImpl is Test {
         msg_.path[0] = path;
 
         return msg_;
-    }
-
-    function _getPacketFromSendEvent() private returns (IICS26RouterMsgs.Packet memory) {
-        Vm.Log[] memory sendEvent = vm.getRecordedLogs();
-        for (uint256 i = 0; i < sendEvent.length; i++) {
-            Vm.Log memory log = sendEvent[i];
-            for (uint256 j = 0; j < log.topics.length; j++) {
-                if (log.topics[j] == IICS26Router.SendPacket.selector) {
-                    return abi.decode(log.data, (IICS26RouterMsgs.Packet));
-                }
-            }
-        }
-        // solhint-disable-next-line gas-custom-errors
-        revert("SendPacket event not found");
     }
 }
