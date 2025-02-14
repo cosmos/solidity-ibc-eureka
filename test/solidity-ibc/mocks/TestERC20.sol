@@ -11,6 +11,16 @@ contract TestERC20 is ERC20 {
     function mint(address _to, uint256 _amount) external {
         _mint(_to, _amount);
     }
+
+    function _update(address from, address to, uint256 value) internal virtual override {
+        // Simulating some computation in the IBC App
+        for(uint i=0; i<20000; i++) {
+            uint x;
+            x = x*i;
+        }
+        super._update(from, to, value);
+    }
+
 }
 
 contract MalfunctioningERC20 is TestERC20 {

