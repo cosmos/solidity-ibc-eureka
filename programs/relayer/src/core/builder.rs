@@ -11,14 +11,14 @@ use crate::{
 };
 use tonic::{transport::Server, Request, Response};
 
-use super::modules::ModuleServer;
+use super::modules::RelayerModule;
 
-/// The `RelayerBuilder` struct is used to build the relayer binary.
+/// The `RelayerBuilder` struct is used to build the relayer.
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct RelayerBuilder {
-    /// The relayer modules to include in the relayer binary and their ports.
-    modules: HashMap<String, Box<dyn ModuleServer>>,
+    /// The relayer modules that can be used by the relayer to create services from configuration.
+    modules: HashMap<String, Box<dyn RelayerModule>>,
 }
 
 /// The `Relayer` is a router that implements the [`RelayerService`] trait.
@@ -38,7 +38,7 @@ impl RelayerBuilder {
     /// Add a relayer module to the relayer binary.
     /// # Panics
     /// Panics if the module has already been added.
-    pub fn add_module<T: ModuleServer>(&mut self, module: T) {
+    pub fn add_module<T: RelayerModule>(&mut self, module: T) {
         assert!(
             !self.modules.contains_key(module.name()),
             "Relayer module already added"
@@ -62,7 +62,11 @@ impl RelayerBuilder {
                 self.modules.get(&c.name).map(|v| &**v).ok_or_else(|| {
                     anyhow::anyhow!("Module {} not found in relayer builder", c.name)
                 })?;
-            relayer.add_module(c.src_chain, c.dst_chain, module.serve(c.config).await?);
+            relayer.add_module(
+                c.src_chain,
+                c.dst_chain,
+                module.create_service(c.config).await?,
+            );
         }
 
         // Start the gRPC server

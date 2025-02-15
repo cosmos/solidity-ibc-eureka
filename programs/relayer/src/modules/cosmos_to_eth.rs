@@ -16,7 +16,7 @@ use tonic::{Request, Response};
 
 use crate::{
     api::{self, relayer_service_server::RelayerService},
-    core::modules::ModuleServer,
+    core::modules::RelayerModule,
 };
 
 /// The `CosmosToEthRelayerModule` struct defines the Cosmos to Ethereum relayer module.
@@ -24,8 +24,8 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthRelayerModule;
 
-/// The `CosmosToEthRelayerModuleServer` defines the relayer server from Cosmos to Ethereum.
-struct CosmosToEthRelayerModuleServer {
+/// The `CosmosToEthRelayerModuleService` defines the relayer service from Cosmos to Ethereum.
+struct CosmosToEthRelayerModuleService {
     /// The chain listener for Cosmos SDK.
     pub tm_listener: cosmos_sdk::ChainListener,
     /// The chain listener for `EthEureka`.
@@ -52,7 +52,7 @@ pub struct CosmosToEthConfig {
     pub mock: bool,
 }
 
-impl CosmosToEthRelayerModuleServer {
+impl CosmosToEthRelayerModuleService {
     async fn new(config: CosmosToEthConfig) -> Self {
         let tm_client = HttpClient::new(
             Url::from_str(&config.tm_rpc_url)
@@ -88,7 +88,7 @@ impl CosmosToEthRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToEthRelayerModuleServer {
+impl RelayerService for CosmosToEthRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -179,17 +179,20 @@ impl RelayerService for CosmosToEthRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl ModuleServer for CosmosToEthRelayerModule {
+impl RelayerModule for CosmosToEthRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_eth"
     }
 
     #[tracing::instrument(skip_all)]
-    async fn serve(&self, config: serde_json::Value) -> anyhow::Result<Box<dyn RelayerService>> {
+    async fn create_service(
+        &self,
+        config: serde_json::Value,
+    ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config = serde_json::from_value::<CosmosToEthConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starteing Cosmos to Ethereum relayer server.");
-        Ok(Box::new(CosmosToEthRelayerModuleServer::new(config).await))
+        Ok(Box::new(CosmosToEthRelayerModuleService::new(config).await))
     }
 }

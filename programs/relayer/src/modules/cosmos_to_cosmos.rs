@@ -12,7 +12,7 @@ use tonic::{Request, Response};
 
 use crate::{
     api::{self, relayer_service_server::RelayerService},
-    core::modules::ModuleServer,
+    core::modules::RelayerModule,
 };
 
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
@@ -20,9 +20,9 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub struct CosmosToCosmosRelayerModule;
 
-/// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
+/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
 #[allow(dead_code)]
-struct CosmosToCosmosRelayerModuleServer {
+struct CosmosToCosmosRelayerModuleService {
     /// The souce chain listener for Cosmos SDK.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Cosmos SDK.
@@ -44,7 +44,7 @@ pub struct CosmosToCosmosConfig {
     pub signer_address: String,
 }
 
-impl CosmosToCosmosRelayerModuleServer {
+impl CosmosToCosmosRelayerModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::new(
             Url::from_str(&config.src_rpc_url)
@@ -74,7 +74,7 @@ impl CosmosToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToCosmosRelayerModuleServer {
+impl RelayerService for CosmosToCosmosRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -167,17 +167,20 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl ModuleServer for CosmosToCosmosRelayerModule {
+impl RelayerModule for CosmosToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_cosmos"
     }
 
     #[tracing::instrument(skip_all)]
-    async fn serve(&self, config: serde_json::Value) -> anyhow::Result<Box<dyn RelayerService>> {
+    async fn create_service(
+        &self,
+        config: serde_json::Value,
+    ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starting Cosmos to Cosmos relayer server.");
-        Ok(Box::new(CosmosToCosmosRelayerModuleServer::new(config)))
+        Ok(Box::new(CosmosToCosmosRelayerModuleService::new(config)))
     }
 }
