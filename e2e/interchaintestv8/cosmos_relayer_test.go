@@ -16,13 +16,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
@@ -180,7 +181,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
 		// We can do this because we know what the counterparty client ID will be
-		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 ibctesting.FirstClientID,
 			CounterpartyClientId:     ibctesting.FirstClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
@@ -192,7 +193,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Register counterparty on Chain B", func() {
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 ibctesting.FirstClientID,
 			CounterpartyClientId:     ibctesting.FirstClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
