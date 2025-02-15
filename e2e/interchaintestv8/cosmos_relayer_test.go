@@ -44,8 +44,7 @@ type CosmosRelayerTestSuite struct {
 	SimdASubmitter ibc.Wallet
 	SimdBSubmitter ibc.Wallet
 
-	AtoBRelayerClient relayertypes.RelayerServiceClient
-	BtoARelayerClient relayertypes.RelayerServiceClient
+	RelayerClient relayertypes.RelayerServiceClient
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -75,6 +74,8 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		configInfo = relayer.CosmosToCosmosConfigInfo{
+			ChainAID:    s.SimdA.Config().ChainID,
+			ChainBID:    s.SimdB.Config().ChainID,
 			ChainATmRPC: s.SimdA.GetHostRPCAddress(),
 			ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
 			ChainAUser:  s.SimdASubmitter.FormattedAddress(),
@@ -103,10 +104,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
 		var err error
-		s.AtoBRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainAToChainBGRPCAddress())
-		s.Require().NoError(err)
-
-		s.BtoARelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToChainAGRPCAddress())
+		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
@@ -210,7 +208,10 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	s.SetupSuite(ctx)
 
 	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
-		info, err := s.AtoBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: s.SimdA.Config().ChainID,
+			DstChain: s.SimdB.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(s.SimdA.Config().ChainID, info.SourceChain.ChainId)
@@ -218,7 +219,10 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	}))
 
 	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
-		info, err := s.BtoARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: s.SimdB.Config().ChainID,
+			DstChain: s.SimdA.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(s.SimdB.Config().ChainID, info.SourceChain.ChainId)
@@ -301,7 +305,9 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 	s.Require().True(s.Run("Receive packets on Chain B", func() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.AtoBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       s.SimdA.Config().ChainID,
+				DstChain:       s.SimdB.Config().ChainID,
 				SourceTxIds:    txHashes,
 				TargetClientId: ibctesting.FirstClientID,
 			})
@@ -349,7 +355,9 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
-			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       s.SimdB.Config().ChainID,
+				DstChain:       s.SimdA.Config().ChainID,
 				SourceTxIds:    [][]byte{ackTxHash},
 				TargetClientId: ibctesting.FirstClientID,
 			})
@@ -453,7 +461,9 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 	s.Require().True(s.Run("Timeout packet on Chain A", func() {
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
-			resp, err := s.BtoARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       s.SimdB.Config().ChainID,
+				DstChain:       s.SimdA.Config().ChainID,
 				TimeoutTxIds:   txHashes,
 				TargetClientId: ibctesting.FirstClientID,
 			})

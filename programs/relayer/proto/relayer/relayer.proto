@@ -16,14 +16,18 @@ service RelayerService {
 
 // The request message
 message RelayByTxRequest {
+    // The source chain identifier
+    string src_chain = 1;
+    // The target chain identifier
+    string dst_chain = 2;
     // The identifiers for the IBC transactions to be relayed
     // This is usually the transaction hash
-    repeated bytes source_tx_ids = 1;
+    repeated bytes source_tx_ids = 3;
     // The identifiers for the IBC transactions on the target chain to be timed out
-    repeated bytes timeout_tx_ids = 2;
+    repeated bytes timeout_tx_ids = 4;
     // The identifier for the target client
     // Used for event filtering
-    string target_client_id = 3;
+    string target_client_id = 5;
 }
 
 // The response message
@@ -35,7 +39,12 @@ message RelayByTxResponse {
 }
 
 // Information request message
-message InfoRequest {}
+message InfoRequest {
+    // The source chain identifier
+    string src_chain = 1;
+    // The target chain identifier
+    string dst_chain = 2;
+}
 
 // Information response message
 message InfoResponse {

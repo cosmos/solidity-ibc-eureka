@@ -21,8 +21,12 @@ pub struct RelayerConfig {
 pub struct ModuleConfig {
     /// The name of the module.
     pub name: String,
-    /// The port for the RPC server of the module.
-    pub port: u16,
+    /// The source chain identifier for the module.
+    /// Used to route requests to the correct module.
+    pub src_chain: String,
+    /// The destination chain identifier for the module.
+    /// Used to route requests to the correct module.
+    pub dst_chain: String,
     /// The custom configuration for the module.
     pub config: Value,
     /// Whether the module is enabled.
@@ -36,6 +40,8 @@ pub struct ModuleConfig {
 pub struct ServerConfig {
     /// The address to bind the server to.
     pub address: String,
+    /// The port to bind the server to.
+    pub port: u16,
     /// The log level for the server.
     #[serde(default)]
     pub log_level: String,

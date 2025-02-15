@@ -1,0 +1,6 @@
+{
+  "timelockAdminAddress": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
+  "portCustomizerAddress": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
+  "ics20PauserAddress": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
+  "permit2Address": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+} 
