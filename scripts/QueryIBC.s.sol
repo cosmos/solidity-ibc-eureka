@@ -10,21 +10,29 @@ import { DeployLib } from "./DeployLib.sol";
 import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
 import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import "forge-std/console.sol";
-import { Escrow } from "../contracts/utils/Escrow.sol";
-import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
+import { IICS02Client } from "../contracts/interfaces/IICS02Client.sol";
 import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
-import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
-import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
+import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
+import { ILightClient } from "../contracts/interfaces/ILightClient.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity
 contract QueryIBC is Script {
     function run() public {
         address routerAddress = vm.promptAddress("Enter ICS26 Router address");
 
-        IICS26Router router = IICS26Router(routerAddress);
+        IICS02Client client = IICS02Client(routerAddress);
 
+        uint256 seq = client.getNextClientSeq();
+
+        console.log("Number of clients:", seq);
+
+        for (uint256 i = 0; i < seq; i++) {
+            string memory clientID = string.concat("client-", Strings.toString(i));
+            console.log(clientID);
+            IICS02ClientMsgs.CounterpartyInfo memory counterparty = client.getCounterparty(clientID);
+            console.log("Counterparty client ID:", counterparty.clientId);
+        }
     }
 }
