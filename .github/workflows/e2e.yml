@@ -52,7 +52,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61
+          version: v1.63
           working-directory: e2e/interchaintestv8
   e2e:
     strategy:
