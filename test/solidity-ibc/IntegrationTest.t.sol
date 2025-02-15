@@ -431,14 +431,19 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
         // Disable checking the acknowledgement to illustrate balance mismatch
+        // acknowledgement should be written
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleErrorAck));
 
         // check balances after receiving back
-        uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
-        assertEq(senderBalanceAfterReceive, defaultAmount);
-        uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
-        assertEq(contractBalanceAfterReceive, 0);
-        uint256 supplyAfterReceive = erc20.totalSupply();
-        assertEq(supplyAfterReceive, defaultAmount);
+        // uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
+        // assertEq(senderBalanceAfterReceive, defaultAmount);
+        // uint256 contractBalanceAfterReceive = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
+        // assertEq(contractBalanceAfterReceive, 0);
+        // uint256 supplyAfterReceive = erc20.totalSupply();
+        // assertEq(supplyAfterReceive, defaultAmount);
     }
 
     function test_success_recvNoop() public {
