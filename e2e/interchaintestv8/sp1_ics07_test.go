@@ -26,12 +26,12 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	ibcclientutils "github.com/cosmos/ibc-go/v9/modules/core/02-client/client/utils"
-	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-	ibchostv2 "github.com/cosmos/ibc-go/v9/modules/core/24-host/v2"
-	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+	ibcclientutils "github.com/cosmos/ibc-go/v10/modules/core/02-client/client/utils"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 
