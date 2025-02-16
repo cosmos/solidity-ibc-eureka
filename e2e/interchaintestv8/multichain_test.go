@@ -25,13 +25,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
-	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v9/testing"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
@@ -67,12 +68,7 @@ type MultichainTestSuite struct {
 	ics20Contract          *ics20transfer.Contract
 	erc20Contract          *erc20.Contract
 
-	EthToChainARelayerClient    relayertypes.RelayerServiceClient
-	ChainAToEthRelayerClient    relayertypes.RelayerServiceClient
-	EthToChainBRelayerClient    relayertypes.RelayerServiceClient
-	ChainBToEthRelayerClient    relayertypes.RelayerServiceClient
-	ChainAToChainBRelayerClient relayertypes.RelayerServiceClient
-	ChainBToChainARelayerClient relayertypes.RelayerServiceClient
+	RelayerClient relayertypes.RelayerServiceClient
 
 	SimdARelayerSubmitter ibc.Wallet
 	SimdBRelayerSubmitter ibc.Wallet
@@ -274,7 +270,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	s.Require().True(s.Run("Register counterparty on SimdA", func() {
 		merklePathPrefix := [][]byte{[]byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
 			CounterpartyClientId:     testvalues.FirstUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
@@ -286,7 +282,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	s.Require().True(s.Run("Register counterparty on SimdB", func() {
 		merklePathPrefix := [][]byte{[]byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
 			CounterpartyClientId:     testvalues.SecondUniversalClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
@@ -367,7 +363,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
 		// We can do this because we know what the counterparty channel ID will be
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 ibctesting.SecondClientID,
 			CounterpartyClientId:     ibctesting.SecondClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
@@ -379,7 +375,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
 		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
 
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypes.MsgRegisterCounterparty{
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 ibctesting.SecondClientID,
 			CounterpartyClientId:     ibctesting.SecondClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
@@ -398,12 +394,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}
 
 		configInfo = relayer.MultichainConfigInfo{
-			EthToChainAPort:     3000,
-			ChainAToEthPort:     3001,
-			EthToChainBPort:     3002,
-			ChainBToEthPort:     3003,
-			ChainAToChainBPort:  3004,
-			ChainBToChainAPort:  3005,
+			ChainAID:            simdA.Config().ChainID,
+			ChainBID:            simdB.Config().ChainID,
+			EthChainID:          eth.ChainID.String(),
 			ChainATmRPC:         simdA.GetHostRPCAddress(),
 			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
 			ChainBTmRPC:         simdB.GetHostRPCAddress(),
@@ -438,22 +431,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 	s.Require().True(s.Run("Create Relayer Clients", func() {
 		var err error
-		s.EthToChainARelayerClient, err = relayer.GetGRPCClient(configInfo.EthToChainAGRPCAddress())
-		s.Require().NoError(err)
-
-		s.ChainAToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainAToEthGRPCAddress())
-		s.Require().NoError(err)
-
-		s.EthToChainBRelayerClient, err = relayer.GetGRPCClient(configInfo.EthToChainBGRPCAddress())
-		s.Require().NoError(err)
-
-		s.ChainBToEthRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToEthGRPCAddress())
-		s.Require().NoError(err)
-
-		s.ChainAToChainBRelayerClient, err = relayer.GetGRPCClient(configInfo.ChainAToChainBGRPCAddress())
-		s.Require().NoError(err)
-
-		s.ChainBToChainARelayerClient, err = relayer.GetGRPCClient(configInfo.ChainBToChainAGRPCAddress())
+		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err)
 	}))
 }
@@ -591,7 +569,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
-		info, err := s.ChainAToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: simdA.Config().ChainID,
+			DstChain: eth.ChainID.String(),
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(simdA.Config().ChainID, info.SourceChain.ChainId)
@@ -599,7 +580,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify Eth to SimdA Relayer Info", func() {
-		info, err := s.EthToChainARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: eth.ChainID.String(),
+			DstChain: simdA.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
@@ -607,7 +591,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify SimdB to Eth Relayer Info", func() {
-		info, err := s.ChainBToEthRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: simdB.Config().ChainID,
+			DstChain: eth.ChainID.String(),
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(simdB.Config().ChainID, info.SourceChain.ChainId)
@@ -615,7 +602,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify Eth to SimdB Relayer Info", func() {
-		info, err := s.EthToChainBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: eth.ChainID.String(),
+			DstChain: simdB.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(eth.ChainID.String(), info.SourceChain.ChainId)
@@ -623,7 +613,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
-		info, err := s.ChainAToChainBRelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: simdA.Config().ChainID,
+			DstChain: simdB.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(simdA.Config().ChainID, info.SourceChain.ChainId)
@@ -631,7 +624,10 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 
 	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
-		info, err := s.ChainBToChainARelayerClient.Info(context.Background(), &relayertypes.InfoRequest{})
+		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			SrcChain: simdB.Config().ChainID,
+			DstChain: simdA.Config().ChainID,
+		})
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal(simdB.Config().ChainID, info.SourceChain.ChainId)
@@ -710,7 +706,9 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.ChainAToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simdA.Config().ChainID,
+				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{simdASendTxHash},
 				TargetClientId: testvalues.FirstUniversalClientID,
 			})
@@ -813,7 +811,9 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 	s.Require().True(s.Run("Receive packet on SimdB", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.EthToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simdB.Config().ChainID,
 				SourceTxIds:    [][]byte{ethSendTxHash},
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
@@ -921,7 +921,9 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 	s.Require().True(s.Run("Receive packets on SimdA", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.EthToChainARelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simdA.Config().ChainID,
 				SourceTxIds:    [][]byte{ethSendTxHash},
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
@@ -996,7 +998,9 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 	s.Require().True(s.Run("Receive packet on SimdB", func() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
-			resp, err := s.ChainAToChainBRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simdA.Config().ChainID,
+				DstChain:       simdB.Config().ChainID,
 				SourceTxIds:    [][]byte{simdASendTxHash},
 				TargetClientId: ibctesting.SecondClientID,
 			})

@@ -1,20 +1,17 @@
 //! Defines the [`RelayerModule`] trait that must be implemented by all relayer modules.
 
-use std::{
-    marker::{Send, Sync},
-    net::SocketAddr,
-};
+use std::marker::{Send, Sync};
 
-/// The `RelayerModuleServer` trait defines the interface for launching a relayer module server.
+use anyhow::Result;
+
+use crate::api::relayer_service_server::RelayerService;
+
+/// The `RelayerModule` trait defines the interface for interacting with a relayer module.
 #[tonic::async_trait]
-pub trait ModuleServer: Send + Sync + 'static {
+pub trait RelayerModule: Send + Sync + 'static {
     /// Returns the name of the relayer module.
     fn name(&self) -> &'static str;
 
-    /// Serve the relayer module RPC on the given address.
-    async fn serve(
-        &self,
-        config: serde_json::Value,
-        _addr: SocketAddr,
-    ) -> Result<(), tonic::transport::Error>;
+    /// Creates a relayer service of the given module type with the provided config.
+    async fn create_service(&self, config: serde_json::Value) -> Result<Box<dyn RelayerService>>;
 }
