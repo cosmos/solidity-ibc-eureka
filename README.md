@@ -9,7 +9,7 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This project also includes an [SP1](https://github.com/succinctlabs/sp1) based tendermint light client for the Ethereum chain, and a POC relayer implementation.
+This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between ethereum and a Cosmos SDK chain.
 
 ## Overview
 
@@ -232,6 +232,43 @@ This repository contains an Ethereum light client which is implemented as two se
 
 - A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
 - A stateless light client verification package in `packages/ethereum-light-client`
+
+## Security Assumtions
+
+IBC is a peer-to-peer light client based interop protocol. As such, this repository contains two light clients:
+
+- The SP1 light client to verify the consensus state of the Cosmos SDK chain.
+- The Ethereum light client to verify the consensus state of the Ethereum chain.
+
+In IBC, the security of the connection is based on the security of the light clients and the validators of the chains. However, IBC light clients also define conditions under which they may become frozen, for example, if two valid and conflicting headers are submitted, or if the light client is not updated for a long time. In this case, Cosmos SDK chains rely on governance to resolve the issue by restarting the light client. However, Ethereum does not have a governance mechanism to restart the light client. **As such, the Solidity implementation of IBC requires a (timelocked) security council to restart the light client in case of a freeze.**
+
+This security council also has the power to upgrade all IBC contracts in case of a vulnerability, or to add new features. This is a trade-off between decentralization and security, and is a necessary step to ensure the security of the IBC connection. Ideally, the security council should be equal to the validators of the counterparty Cosmos SDK chain for the sake of decentralization. And since IBC is a general-purpose protocol, IBC itself can be used to allow the governance of the Cosmos SDK chain to make calls to the Ethereum contracts to upgrade them. This is a future feature, called `govAdmin`, that is not yet implemented. (#278)
+
+### Security Council and the Governance Admin
+
+Although the governance admin is not yet implemented, the contract for tracking both admins is in [`IBCUUPSUpgradeable.sol`](./contracts/utils/IBCUUPSUpgradeable.sol). This contract is used in (i.e. inherited by) [`ICS26Router.sol`](./contracts/ICS26Router.sol), which stores the security council (referred to as `timelockedAdmin`) and the governance admin (referred to as `govAdmin`). Other IBC contracts which require admin access, or upgradability, should simply query the `ICS26Router` contract for the current admin ([see how it is done in `ICS20Transfer.sol`](https://github.com/cosmos/solidity-ibc-eureka/blob/1db4d38d00f7935e2aa4564b7026182a4c095ef1/contracts/ICS20Transfer.sol#L487-L492)).
+
+The governance admin field can be set by the security council once the feature is implemented. Until then, the security council is the only admin. By the `IBCUUPSUpgradeable` contract, the security council and the governance admin have equal powers:
+
+- Either admin can set the other admin.
+- Either admin can manage roles on IBC contracts.
+- Either admin can upgrade the IBC contracts.
+
+The only difference between the two admins is that the security council should apply itself a timelock before setting the governance admim. This is to ensure that once a governance admin is set, the security council only has any power if IBC light clients are frozen (i.e. the governance admin is also frozen).
+
+> [!NOTE]
+> The timelock on the security council is not enforced in the IBC contracts, but should be enforced by the security council itself.
+> The timelock on the security council should be at least as long as the timelock on the governance admin (if any) + the time it takes for governance proposals to pass.
+
+### Roles and Permissions
+
+The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
+
+| **Role Name** | **Contract** | **Default** | **Description** |
+|:---:|:---:|:---:|:---:|
+| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Bearer can (un)pause the contract. |
+| `RATE_LIMITER_ROLE` | `Escrow.sol` | `address(0)` | Bearer can set withdraw rate limits per `ERC20`. |
+| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Bearer can migrate the light client with client id. |
 
 ## License
 
