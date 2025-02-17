@@ -11,6 +11,10 @@
 
 This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between ethereum and a Cosmos SDK chain.
 
+## Overview
+
+`solidity-ibc-eureka` is an implementation of IBC in Solidity.
+
 - [IBC Eureka in Solidity     ](#ibc-eureka-in-solidity-----)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
@@ -25,7 +29,6 @@ This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is 
     - [Single Packet Benchmarks](#single-packet-benchmarks)
     - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
   - [Run ICS-07 Tendermint Light Client End to End](#run-ics-07-tendermint-light-client-end-to-end)
-  - [Etheruem Light Client](#etheruem-light-client)
   - [Security Assumptions](#security-assumptions)
     - [Handling Frozen Light Clients](#handling-frozen-light-clients)
     - [Security Council and Governance Admin](#security-council-and-governance-admin)
@@ -34,10 +37,6 @@ This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is 
     - [Roles and Permissions](#roles-and-permissions)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
-
-## Overview
-
-`solidity-ibc-eureka` is an implementation of IBC in Solidity.
 
 ### Project Structure
 
@@ -247,22 +246,12 @@ Note: These gas benchmarks are with Groth16.
     RUST_LOG=info cargo run --bin operator --release -- start
     ```
 
-## Etheruem Light Client
-
-> [!CAUTION]
-> ⚠ The Ethereum Light Client is currently under heavy development, and is not ready for use.
-
-This repository contains an Ethereum light client which is implemented as two separate layers:
-
-- A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
-- A stateless light client verification package in `packages/ethereum-light-client`
-
 ## Security Assumptions
 
 IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains two light clients:
 
 - **SP1 Light Client** – Verifies the consensus state of a Cosmos SDK chain.
-- **Ethereum Light Client** – Verifies the consensus state of the Ethereum chain.
+- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain.
 
 The security of an IBC connection depends on the integrity of these light clients and the validator sets of the respective chains. However, IBC light clients can become **frozen** under certain conditions, such as:
 
