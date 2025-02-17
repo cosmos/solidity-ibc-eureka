@@ -150,4 +150,27 @@ contract IntegrationTest is Test {
         ibcImplB.ics26Router().recvPacket(msgRecvPacket);
         testHelper.getValueFromEvent(IICS26Router.Noop.selector);
     }
+
+    function testFuzz_success_ackPacket(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // Verify that the packet commitment was deleted
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertTrue(storedCommitment == 0, "packet commitment not deleted");
+
+        // Verify that the tokens were transferred
+        assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+    }
 }

@@ -169,6 +169,15 @@ contract IbcImpl is Test {
         return acks;
     }
 
+    function ackPacket(IICS26RouterMsgs.Packet calldata packet, bytes[] calldata acks) external {
+        require(acks.length == 1, "multiple acks not supported");
+        IICS26RouterMsgs.MsgAckPacket memory msgWriteAck;
+        msgWriteAck.packet = packet;
+        msgWriteAck.acknowledgement = acks[0];
+
+        ics26Router.ackPacket(msgWriteAck);
+    }
+
     function cheatPacketCommitment(IICS26RouterMsgs.Packet calldata packet) external {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
         bytes32 value = ICS24Host.packetCommitmentBytes32(packet);
