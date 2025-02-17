@@ -256,7 +256,7 @@ The governance admin field can be set by the security council once the feature i
 
 The only difference between the two admins is that the security council should apply itself a timelock before setting the governance admim. This is to ensure that once a governance admin is set, the security council only has any power if IBC light clients are frozen (i.e. the governance admin is also frozen).
 
-> [!NOTE]
+> [!WARNING]
 > The timelock on the security council is not enforced in the IBC contracts, but should be enforced by the security council itself.
 > The timelock on the security council should be at least as long as the timelock on the governance admin (if any) + the time it takes for governance proposals to pass.
 
@@ -268,7 +268,7 @@ The IBC contracts use `AccessControl` to manage roles and permissions and allow 
 |:---:|:---:|:---:|:---:|
 | `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Bearer can (un)pause the contract. |
 | `RATE_LIMITER_ROLE` | `Escrow.sol` | `address(0)` | Bearer can set withdraw rate limits per `ERC20`. |
-| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Bearer can migrate the light client with client id. |
+| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Bearer can migrate the light client with `client_id`. |
 
 ## License
 
