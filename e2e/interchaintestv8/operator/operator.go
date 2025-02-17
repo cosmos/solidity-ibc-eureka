@@ -17,7 +17,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
-	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
+	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
 

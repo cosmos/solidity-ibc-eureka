@@ -1,6 +1,6 @@
 //! Defines Ethereum to Cosmos relayer module.
 
-use std::{net::SocketAddr, str::FromStr};
+use std::str::FromStr;
 
 use alloy::{
     primitives::{Address, TxHash},
@@ -13,14 +13,11 @@ use ibc_eureka_relayer_lib::{
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
-use tonic::{transport::Server, Request, Response};
+use tonic::{Request, Response};
 
 use crate::{
-    api::{
-        self,
-        relayer_service_server::{RelayerService, RelayerServiceServer},
-    },
-    core::modules::ModuleServer,
+    api::{self, relayer_service_server::RelayerService},
+    core::modules::RelayerModule,
 };
 
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
@@ -28,8 +25,8 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosRelayerModule;
 
-/// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
-struct EthToCosmosRelayerModuleServer {
+/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
+struct EthToCosmosRelayerModuleService {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The chain listener for Cosmos SDK.
@@ -63,7 +60,7 @@ pub struct EthToCosmosConfig {
     pub mock: bool,
 }
 
-impl EthToCosmosRelayerModuleServer {
+impl EthToCosmosRelayerModuleService {
     async fn new(config: EthToCosmosConfig) -> Self {
         let provider = RootProvider::builder()
             .on_builtin(&config.eth_rpc_url)
@@ -103,7 +100,7 @@ impl EthToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl RelayerService for EthToCosmosRelayerModuleServer {
+impl RelayerService for EthToCosmosRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -194,28 +191,21 @@ impl RelayerService for EthToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl ModuleServer for EthToCosmosRelayerModule {
+impl RelayerModule for EthToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "eth_to_cosmos"
     }
 
     #[tracing::instrument(skip_all)]
-    async fn serve(
+    async fn create_service(
         &self,
         config: serde_json::Value,
-        addr: SocketAddr,
-    ) -> Result<(), tonic::transport::Error> {
+    ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config = serde_json::from_value::<EthToCosmosConfig>(config)
-            .unwrap_or_else(|e| panic!("failed to parse config: {e}"));
+            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        let server = EthToCosmosRelayerModuleServer::new(config).await;
-
-        tracing::info!(%addr, "Started Ethereum to Cosmos relayer server.");
-
-        Server::builder()
-            .add_service(RelayerServiceServer::new(server))
-            .serve(addr)
-            .await
+        tracing::info!("Starting Ethereum to Cosmos relayer server.");
+        Ok(Box::new(EthToCosmosRelayerModuleService::new(config).await))
     }
 }
 
@@ -225,7 +215,7 @@ impl EthToCosmosTxBuilder {
         src_events: Vec<EurekaEvent>,
         target_events: Vec<EurekaEvent>,
         target_client_id: String,
-    ) -> Result<Vec<u8>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real(tb) => {
                 tb.relay_events(src_events, target_events, target_client_id)

@@ -22,8 +22,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
-	channeltypesv2 "github.com/cosmos/ibc-go/v9/modules/core/04-channel/v2/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
@@ -134,7 +134,9 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	s.Require().True(s.Run("Receive packets on Ethereum", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simd.Config().ChainID,
+				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    sendTxHashes,
 				TargetClientId: testvalues.FirstUniversalClientID,
 			})
@@ -254,7 +256,9 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		// to avoid the overhead of installing the artifacts for each relayer instance (which also panics).
 		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
 
-		resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       simd.Config().ChainID,
+			DstChain:       s.EthChain.ChainID.String(),
 			SourceTxIds:    sendTxHashes,
 			TargetClientId: testvalues.FirstUniversalClientID,
 		})
@@ -272,7 +276,9 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			time.Sleep(3 * time.Second)
 			go func() {
 				defer wg.Done() // decrement the counter when the request completes
-				resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SrcChain:       simd.Config().ChainID,
+					DstChain:       s.EthChain.ChainID.String(),
 					SourceTxIds:    [][]byte{txHash},
 					TargetClientId: testvalues.FirstUniversalClientID,
 				})
@@ -387,7 +393,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simd.Config().ChainID,
 				SourceTxIds:    sendTxHashes,
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
@@ -424,7 +432,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simd.Config().ChainID,
+				DstChain:       s.EthChain.ChainID.String(),
 				SourceTxIds:    [][]byte{ackTxHash},
 				TargetClientId: testvalues.FirstUniversalClientID,
 			})
@@ -538,7 +548,9 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simd.Config().ChainID,
 				SourceTxIds:    sendTxHashes,
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
@@ -661,7 +673,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 	s.Require().True(s.Run("Receive packets on Ethereum", func() {
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.CosmosToEthRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simd.Config().ChainID,
+				DstChain:       s.EthChain.ChainID.String(),
 				SourceTxIds:    sendTxHashes,
 				TargetClientId: testvalues.FirstUniversalClientID,
 			})
@@ -695,7 +709,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       s.EthChain.ChainID.String(),
+				DstChain:       simd.Config().ChainID,
 				SourceTxIds:    [][]byte{ackTxHash},
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
@@ -737,7 +753,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	_, simd := s.EthChain, s.CosmosChains[0]
+	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
@@ -812,7 +828,9 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	s.Require().True(s.Run("Timeout packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
-			resp, err := s.EthToCosmosRelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simd.Config().ChainID,
 				TimeoutTxIds:   sendTxHashes,
 				TargetClientId: testvalues.FirstWasmClientID,
 			})

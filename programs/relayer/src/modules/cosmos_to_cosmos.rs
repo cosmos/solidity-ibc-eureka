@@ -1,6 +1,6 @@
 //! Defines Cosmos to Cosmos relayer module.
 
-use std::{net::SocketAddr, str::FromStr};
+use std::str::FromStr;
 
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
@@ -8,14 +8,11 @@ use ibc_eureka_relayer_lib::{
 };
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
-use tonic::{transport::Server, Request, Response};
+use tonic::{Request, Response};
 
 use crate::{
-    api::{
-        self,
-        relayer_service_server::{RelayerService, RelayerServiceServer},
-    },
-    core::modules::ModuleServer,
+    api::{self, relayer_service_server::RelayerService},
+    core::modules::RelayerModule,
 };
 
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
@@ -23,9 +20,9 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub struct CosmosToCosmosRelayerModule;
 
-/// The `CosmosToCosmosRelayerModuleServer` defines the relayer server from Cosmos to Cosmos.
+/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
 #[allow(dead_code)]
-struct CosmosToCosmosRelayerModuleServer {
+struct CosmosToCosmosRelayerModuleService {
     /// The souce chain listener for Cosmos SDK.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Cosmos SDK.
@@ -47,8 +44,7 @@ pub struct CosmosToCosmosConfig {
     pub signer_address: String,
 }
 
-impl CosmosToCosmosRelayerModuleServer {
-    #[allow(dead_code)]
+impl CosmosToCosmosRelayerModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::new(
             Url::from_str(&config.src_rpc_url)
@@ -78,7 +74,7 @@ impl CosmosToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToCosmosRelayerModuleServer {
+impl RelayerService for CosmosToCosmosRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn info(
         &self,
@@ -171,27 +167,20 @@ impl RelayerService for CosmosToCosmosRelayerModuleServer {
 }
 
 #[tonic::async_trait]
-impl ModuleServer for CosmosToCosmosRelayerModule {
+impl RelayerModule for CosmosToCosmosRelayerModule {
     fn name(&self) -> &'static str {
         "cosmos_to_cosmos"
     }
 
     #[tracing::instrument(skip_all)]
-    async fn serve(
+    async fn create_service(
         &self,
         config: serde_json::Value,
-        addr: SocketAddr,
-    ) -> Result<(), tonic::transport::Error> {
+    ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
-            .unwrap_or_else(|e| panic!("failed to parse config: {e}"));
+            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        let server = CosmosToCosmosRelayerModuleServer::new(config);
-
-        tracing::info!(%addr, "Started Cosmos to Cosmos relayer server.");
-
-        Server::builder()
-            .add_service(RelayerServiceServer::new(server))
-            .serve(addr)
-            .await
+        tracing::info!("Starting Cosmos to Cosmos relayer server.");
+        Ok(Box::new(CosmosToCosmosRelayerModuleService::new(config)))
     }
 }
