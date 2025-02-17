@@ -11,6 +11,30 @@
 
 This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between ethereum and a Cosmos SDK chain.
 
+- [IBC Eureka in Solidity     ](#ibc-eureka-in-solidity-----)
+  - [Overview](#overview)
+    - [Project Structure](#project-structure)
+    - [Contracts](#contracts)
+    - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
+  - [Requirements](#requirements)
+  - [Unit Testing](#unit-testing)
+  - [End to End Testing](#end-to-end-testing)
+    - [Running the tests](#running-the-tests)
+  - [Linting](#linting)
+  - [End to End Benchmarks](#end-to-end-benchmarks)
+    - [Single Packet Benchmarks](#single-packet-benchmarks)
+    - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
+  - [Run ICS-07 Tendermint Light Client End to End](#run-ics-07-tendermint-light-client-end-to-end)
+  - [Etheruem Light Client](#etheruem-light-client)
+  - [Security Assumptions](#security-assumptions)
+    - [Handling Frozen Light Clients](#handling-frozen-light-clients)
+    - [Security Council and Governance Admin](#security-council-and-governance-admin)
+      - [Admin Powers and Restrictions](#admin-powers-and-restrictions)
+      - [Key Distinction Between Admins](#key-distinction-between-admins)
+    - [Roles and Permissions](#roles-and-permissions)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
+
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
