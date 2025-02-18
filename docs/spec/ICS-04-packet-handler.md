@@ -95,7 +95,15 @@ SendPacket Invariants:
 
 RecvPacket is called by relayers once a packet has been committed on the sender chain in order to process the packet on the receiving chain. Since the relayer is not trusted, the relayer must provide a proof that the sender chain had indeed committed the provided packet which will be verified against the `destClient` on the receiving chain.
 
-If the proof succeeds, and the packet passes replay and timeout checks; then each payload is sent to the receiving application as part of the receiving application callback.
+RecvPacket MUST ensure a receipt has not been written in the ICS24 path for this packet already; this functions as replay protection. RecvPacket MUST also ensure that the packet has not already timed out. If the packet is received in a block that has a time **greater than or equal** to the packet timeoutTimestamp, then the packet MUST be rejected by the destination chain. This prevents a timeout succeeding on the sending chain simultaneously with a successful receive on the destination chain.
+
+If the proof succeeds, and the packet passes replay and timeout checks; then each payload is sent to the receiving application as part of the receiving application callback. Application callbacks SHOULD NOT cause the entire transaction to revert. Instead, any application error MUST cause all application state changes to be reverted. The transaction should commit core IBC state successfully and write the `ErrorAcknowledgement` in the case of application error. This ensures that multi-payload packets succeed atomically i.e. a single payload error causes all payload processing to revert.
+
+Implementations that force the entire transaction to revert upon application error will prevent `ErrorAcknowledgement` from ever being committed and thus the sending chain cannot process an error acknowledgement. Instead, the sending chain will have to wait for the packet timeout and process a packet timeout which should execute the same logic as the acknowledgePacket error logic.
+
+RecvPacket MUST write a receipt with successful transaction execution in order to set the replay protection described above. Implementations MAY support asynchronous acknowledgements. This means that receiving applications are not required to return an acknowledgement as part of the `recvPacket` logic. Every receiving application that receives a payload from the packet MUST return an acknowledgement for the packet eventually. Implementations supporting asynchronous acknowledgement MUST wait for all applications to return their individual acknowledgement before calling `WriteAcknowledgement`.
+
+If the receiving applications return all their acknowledgements synchronously `onRecvPacket`, then the core IBC handler MUST call `WriteAcknowledgement` with the full acknowledgment to be committed under the ICS24 path.
 
 RecvPacket Inputs:
 `packet: Packet`: The packet sent from the sending chain to our chain
