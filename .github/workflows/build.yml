@@ -1,0 +1,50 @@
+name: Build images
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'eureka-relayer-v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch: # this will kick off a dev deployment
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      registry_url: ghcr.io/cosmos/eureka-relayer
+    steps:
+      - name: Check out the repo
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+      - name: Check out the PR commit head
+        uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_PR_HEAD_SHA: true
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            ${{ env.registry_url }}
+          tags: |
+            type=sha,priority=900,prefix=
+            type=semver,priority=1000,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}.{{patch}}
+            type=semver,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=pr
+      - name: Build and push
+        uses: docker/build-and-push-action@v4
+        with:
+          context: .
+          file: './hack/relayer.Containerfile'
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: true
