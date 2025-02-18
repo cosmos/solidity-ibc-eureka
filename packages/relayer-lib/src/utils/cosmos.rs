@@ -30,10 +30,10 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceClient == target_client_id {
+            EurekaEvent::SendPacket(packet) => {
+                if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(MsgTimeout {
-                        packet: Some(se.packet.into()),
+                        packet: Some(packet.into()),
                         proof_height: Some(*target_height),
                         proof_unreceived: vec![],
                         signer: signer_address.to_string(),
@@ -42,7 +42,7 @@ pub fn target_events_to_timeout_msgs(
                     None
                 }
             }
-            _ => None,
+            EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
 }
@@ -59,44 +59,42 @@ pub fn src_events_to_recv_and_ack_msgs(
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
         .filter(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                se.packet.timeoutTimestamp > now && se.packet.destClient == target_client_id
+            EurekaEvent::SendPacket(packet) => {
+                packet.timeoutTimestamp > now && packet.destClient == target_client_id
             }
-            EurekaEvent::WriteAcknowledgement(we) => we.packet.sourceClient == target_client_id,
-            EurekaEvent::RecvPacket(_) => false,
+            EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == target_client_id,
         })
         .partition(|e| match e {
             EurekaEvent::SendPacket(_) => true,
-            EurekaEvent::WriteAcknowledgement(_) => false,
-            EurekaEvent::RecvPacket(_) => unreachable!(),
+            EurekaEvent::WriteAcknowledgement(..) => false,
         });
 
     let recv_msgs = src_send_events
         .into_iter()
         .map(|e| match e {
-            EurekaEvent::SendPacket(se) => MsgRecvPacket {
-                packet: Some(se.packet.into()),
+            EurekaEvent::SendPacket(packet) => MsgRecvPacket {
+                packet: Some(packet.into()),
                 proof_height: Some(*target_height),
                 proof_commitment: vec![],
                 signer: signer_address.to_string(),
             },
-            _ => unreachable!(),
+            EurekaEvent::WriteAcknowledgement(..) => unreachable!(),
         })
         .collect::<Vec<MsgRecvPacket>>();
 
     let ack_msgs = src_ack_events
         .into_iter()
         .map(|e| match e {
-            EurekaEvent::WriteAcknowledgement(we) => MsgAcknowledgement {
-                packet: Some(we.packet.into()),
+            EurekaEvent::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
+                packet: Some(packet.into()),
                 acknowledgement: Some(Acknowledgement {
-                    app_acknowledgements: we.acknowledgements.into_iter().map(Into::into).collect(),
+                    app_acknowledgements: acks.into_iter().map(Into::into).collect(),
                 }),
                 proof_height: Some(*target_height),
                 proof_acked: vec![],
                 signer: signer_address.to_string(),
             },
-            _ => unreachable!(),
+            EurekaEvent::SendPacket(_) => unreachable!(),
         })
         .collect::<Vec<MsgAcknowledgement>>();
 
