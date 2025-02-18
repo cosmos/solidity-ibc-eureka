@@ -177,8 +177,9 @@ contract ICS26Router is
         getClient(msg_.packet.destClient).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
-        bool isReceiptSet = setPacketReceipt(msg_.packet);
-        if (!isReceiptSet) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
+        if (!setReceiptSuccessful) {
             emit Noop();
             return;
         }

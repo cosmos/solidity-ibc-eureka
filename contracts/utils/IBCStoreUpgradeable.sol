@@ -82,7 +82,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
 
     /// @notice Sets the packet receipt for the given packet if it doesn't already exist
     /// @param packet Packet to set the receipt for
-    /// @return True if the packet receipt was set, false otherwise
+    /// @return True if the packet receipt was not already set, and then set by this call, false otherwise
     function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
