@@ -1139,7 +1139,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         }
 
         vm.expectEmit();
-        emit IICS26Router.RecvPacket(receivePacket);
+        emit IICS26Router.WriteAcknowledgement(receivePacket.destClient, receivePacket.sequence, receivePacket, singleSuccessAck);
 
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({

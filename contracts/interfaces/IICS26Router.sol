@@ -51,7 +51,7 @@ interface IICS26Router {
     /// @param packet The sent packet
     event SendPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet acknowledgement is written
-    /// @param clientId The dest client identifier
+    /// @param clientId The destination client identifier
     /// @param sequence The sequence number of the packet
     /// @param packet The packet that was acknowledged
     /// @param acknowledgements The list of acknowledgements data
@@ -59,9 +59,13 @@ interface IICS26Router {
         string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes[] acknowledgements
     );
     /// @notice Emitted when a packet is timed out
+    /// @param clientId The source client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The packet that was timed out
     event TimeoutPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet is acknowledged
+    /// @param clientId The source client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
     event AckPacket(
