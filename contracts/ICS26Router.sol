@@ -201,7 +201,8 @@ contract ICS26Router is
             acks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
         }
 
-        writeAcknowledgement(msg_.packet, acks);
+        commitPacketAcknowledgement(msg_.packet, acks);
+        emit WriteAcknowledgement(msg_.packet.destClient, msg_.packet.sequence, msg_.packet, acks);
     }
 
     /// @notice Acknowledges a packet
@@ -310,14 +311,6 @@ contract ICS26Router is
         );
 
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
-    }
-
-    /// @notice Writes a packet acknowledgement and emits an event
-    /// @param packet The packet to acknowledge
-    /// @param acks The acknowledgement
-    function writeAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) private {
-        commitPacketAcknowledgement(packet, acks);
-        emit WriteAcknowledgement(packet.destClient, packet.sequence, packet, acks);
     }
 
     /// @notice Returns the storage of the ICS26Router contract
