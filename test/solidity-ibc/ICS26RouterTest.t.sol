@@ -4,18 +4,22 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,max-line-length
 
 import { Test } from "forge-std/Test.sol";
+
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
+import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
+
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+
+import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
-import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
@@ -152,5 +156,52 @@ contract ICS26RouterTest is Test {
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(packet, expAcks);
         ics26Router.recvPacket(msgRecvPacket);
+    }
+
+    function test_RecvPacketWithOOG() public {
+        string memory counterpartyID = "42-dummy-01";
+        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
+        string memory clientIdentifier =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, merklePrefix), address(lightClient));
+
+        // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
+        MockApplication mockApp = new MockApplication();
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockApp));
+
+        IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
+        payloads[0] = IICS26RouterMsgs.Payload({
+            sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
+            version: ICS20Lib.ICS20_VERSION,
+            encoding: ICS20Lib.ICS20_ENCODING,
+            value: "0x"
+        });
+        IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
+            sequence: 1,
+            sourceClient: counterpartyID,
+            destClient: clientIdentifier,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads
+        });
+
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = IICS26RouterMsgs.MsgRecvPacket({
+            packet: packet,
+            proofCommitment: "0x", // doesn't matter
+            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
+         });
+
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCFailedCallback.selector));
+        ics26Router.recvPacket{gas: 900_000}(msgRecvPacket);
+    }
+}
+
+contract MockApplication is Test {
+    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata) external pure returns (bytes memory) {
+        for(uint i=0; i<14_000; i++) {
+            uint x;
+            x = x*i;
+        }
+
+        return bytes("mock");
     }
 }
