@@ -62,19 +62,22 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
 
     /// @notice Deletes the packet commitment for the given packet if it exists
     /// @param packet Packet to delete the commitment for
-    /// @return True if the packet commitment was deleted, false otherwise
-    /// @return The commitment that was deleted
-    function deletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal returns (bool, bytes32) {
+    /// @return True if the packet commitment was found and then deleted, false otherwise
+    function checkAndDeletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
         bytes32 commitment = $.commitments[path];
         if (commitment == 0) {
-            return (false, 0);
+            return false;
         }
+        require(
+            commitment == ICS24Host.packetCommitmentBytes32(packet),
+            IBCPacketCommitmentMismatch(commitment, ICS24Host.packetCommitmentBytes32(packet))
+        );
 
         delete $.commitments[path];
-        return (true, commitment);
+        return true;
     }
 
     /// @notice Sets the packet receipt for the given packet if it doesn't already exist
