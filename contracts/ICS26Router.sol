@@ -197,6 +197,7 @@ contract ICS26Router is
             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
         } catch (bytes memory reason) {
+            require(reason.length != 0, IBCFailedCallback()); // covers OOG
             emit IBCAppRecvPacketCallbackError(reason);
             acks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
         }
