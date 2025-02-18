@@ -153,6 +153,10 @@ deploy-create-light-client:
 query-ibc:
 	forge script --chain sepolia scripts/QueryIBC.s.sol:QueryIBC -vvvv --rpc-url $SEPOLIA_RPC_URL
 
+mint-testnet-tokens:
+	forge script --chain sepolia scripts/MintTestnetTokens.s.sol:MintTestnetTokens --broadcast -vvvv --rpc-url $SEPOLIA_RPC_URL --private-key $SEPOLIA_PRIVATE_KEY --sender $SEPOLIA_PUBLIC_KEY
+
+
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."

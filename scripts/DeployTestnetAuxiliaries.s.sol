@@ -16,10 +16,9 @@ import "forge-std/console.sol";
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity
 contract DeployTestnetAuxiliaries is Script {
     function run() public {
-        vm.startBroadcast();
-
         address admin = vm.promptAddress("Enter the admin address");
 
+        vm.startBroadcast();
         // Deploy SP1 verifiers
         address mockVerifier = address(new SP1MockVerifier());
         address plonkVerifier = address(new SP1VerifierPlonk());
