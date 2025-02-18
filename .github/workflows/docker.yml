@@ -1,14 +1,14 @@
-name: Build images
+name: docker
 on:
   push:
     branches:
       - main
     tags:
-      - 'eureka-relayer-v[0-9]+.[0-9]+.[0-9]+'
+      - 'relayer-v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch: # this will kick off a dev deployment
   pull_request:
 jobs:
-  build:
+  build-relayer:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -43,15 +43,13 @@ jobs:
           tags: |
             type=sha,priority=900,prefix=
             type=semver,priority=1000,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}.{{patch}}
-            type=semver,pattern={{major}}
             type=ref,event=branch
             type=ref,event=pr
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: './hack/relayer.Containerfile'
+          file: './programs/relayer/Dockerfile'
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
