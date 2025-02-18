@@ -191,15 +191,15 @@ contract ICS26RouterTest is Test {
          });
 
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCFailedCallback.selector));
-        ics26Router.recvPacket{gas: 900_000}(msgRecvPacket);
+        ics26Router.recvPacket{ gas: 900_000 }(msgRecvPacket);
     }
 }
 
 contract MockApplication is Test {
     function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata) external pure returns (bytes memory) {
-        for(uint i=0; i<14_000; i++) {
-            uint x;
-            x = x*i;
+        for (uint256 i = 0; i < 14_000; i++) {
+            uint256 x;
+            x = x * i;
         }
 
         return bytes("mock");
