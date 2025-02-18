@@ -55,14 +55,18 @@ interface IICS26Router {
     /// @param sequence The sequence number of the packet
     /// @param packet The packet that was acknowledged
     /// @param acknowledgements The list of acknowledgements data
-    event WriteAcknowledgement(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes[] acknowledgements);
+    event WriteAcknowledgement(
+        string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes[] acknowledgements
+    );
     /// @notice Emitted when a packet is timed out
     /// @param packet The packet that was timed out
     event TimeoutPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet is acknowledged
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
-    event AckPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes acknowledgement);
+    event AckPacket(
+        string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes acknowledgement
+    );
     /// @notice Emitted when a redundant relay occurs
     event Noop();
 }
