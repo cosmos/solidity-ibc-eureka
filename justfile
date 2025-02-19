@@ -156,6 +156,9 @@ query-ibc:
 mint-testnet-tokens:
 	forge script --chain sepolia scripts/MintTestnetTokens.s.sol:MintTestnetTokens --broadcast -vvvv --rpc-url $SEPOLIA_RPC_URL --private-key $SEPOLIA_PRIVATE_KEY --sender $SEPOLIA_PUBLIC_KEY
 
+upgrade-ics26-router:
+	forge script --chain sepolia scripts/UpgradeICS26.s.sol:UpgradeICS26 --broadcast -vvvv --rpc-url $SEPOLIA_RPC_URL --private-key $SEPOLIA_PRIVATE_KEY --sender $SEPOLIA_PUBLIC_KEY
+
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
