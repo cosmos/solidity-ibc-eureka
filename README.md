@@ -161,11 +161,11 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~149,000 | ~149,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~522,788 | ~605,734 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,092,349 | ~1,176,657 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~391,990 | ~475,788 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~464,141 | ~548,602 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~150,000 | ~150,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~509,542 | ~592,518 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,079,133 | ~1,163,441 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~393,224 | ~477,022 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~465,360 | ~549,821 |
 
 ### Aggregated Packet Benchmarks
 
@@ -174,8 +174,8 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
 |:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~183,517 | ~176,964 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~90,903 | ~85,198 |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~170,301 | ~163,748 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,137 | ~86,432 |
 
 Note: These gas benchmarks are with Groth16.
 
