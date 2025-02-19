@@ -49,9 +49,8 @@ contract ICS26Router is
     /// @dev The maximum timeout duration for a packet
     uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
 
-    /// @dev The role identifier for the port customizer role
-    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
-    bytes32 private constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
+    /// @inheritdoc IICS26Router
+    bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {

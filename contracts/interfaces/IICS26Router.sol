@@ -7,6 +7,11 @@ import { IIBCApp } from "./IIBCApp.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router {
+    /// @notice The role identifier for the port customizer role
+    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
+    /// @return The role identifier
+    function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
