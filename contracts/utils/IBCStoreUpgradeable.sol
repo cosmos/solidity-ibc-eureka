@@ -36,11 +36,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @param clientId The client ID
     /// @return The next sequence send for the given client
     function nextSequenceSend(string calldata clientId) internal returns (uint32) {
-        IBCStoreStorage storage $ = _getIBCStoreStorage();
-
-        uint32 seq = $.prevSequenceSends[clientId] + 1;
-        $.prevSequenceSends[clientId] = seq;
-        return seq;
+        return ++_getIBCStoreStorage().prevSequenceSends[clientId];
     }
 
     /// @notice Commits the packet commitment for a packet if it doesn't already exist
