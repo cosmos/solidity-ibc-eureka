@@ -177,8 +177,9 @@ contract ICS26Router is
         getClient(msg_.packet.destClient).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
-        bool isReceiptSet = setPacketReceipt(msg_.packet);
-        if (!isReceiptSet) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
+        if (!setReceiptSuccessful) {
             emit Noop();
             return;
         }
@@ -236,15 +237,12 @@ contract ICS26Router is
         getClient(msg_.packet.sourceClient).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
-        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
-        if (!isDeleted) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool commitmentFound = checkAndDeletePacketCommitment(msg_.packet);
+        if (!commitmentFound) {
             emit Noop();
             return;
         }
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -290,15 +288,12 @@ contract ICS26Router is
         );
 
         // timeoutPacket will no-op if the packet commitment does not exist
-        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
-        if (!isDeleted) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool commitmentFound = checkAndDeletePacketCommitment(msg_.packet);
+        if (!commitmentFound) {
             emit Noop();
             return;
         }
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
