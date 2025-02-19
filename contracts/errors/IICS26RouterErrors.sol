@@ -38,4 +38,8 @@ interface IICS26RouterErrors {
     /// @notice IBC unauthorized packet sender
     /// @param caller unauthorized sender address
     error IBCUnauthorizedSender(address caller);
+
+    /// @notice IBC callback failed due to unknown reason
+    /// @dev Usually OOG
+    error IBCFailedCallback();
 }
