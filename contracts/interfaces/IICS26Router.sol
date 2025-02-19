@@ -36,6 +36,16 @@ interface IICS26Router {
     /// @param msg The message for timing out packets
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
 
+    /// @notice Grants the port customizer role to an account
+    /// @dev Can only be called by an admin
+    /// @param account The account to grant the role to
+    function grantPortCustomizerRole(address account) external;
+
+    /// @notice Revokes the port customizer role from an account
+    /// @dev Can only be called by an admin
+    /// @param account The account to revoke the role from
+    function revokePortCustomizerRole(address account) external;
+
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBC application is added to the router

@@ -308,6 +308,16 @@ contract ICS26Router is
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }
 
+    /// @inheritdoc IICS26Router
+    function grantPortCustomizerRole(address account) external onlyAdmin {
+        _grantRole(PORT_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS26Router
+    function revokePortCustomizerRole(address account) external onlyAdmin {
+        _revokeRole(PORT_CUSTOMIZER_ROLE, account);
+    }
+
     /// @notice Returns the storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
