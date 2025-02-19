@@ -38,7 +38,7 @@ const (
 	DefaultCosmosRPC = "https://highway-devnet-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "project-highway-devnet-node-02:9090"
+	DefaultCosmosGRPC = "highway-devnet-node-01-rpc.dev.skip.build:9090"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "highway-dev-1"
@@ -51,7 +51,7 @@ const (
 	// TODO: Add the non-mock versions of these
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
-	EnvCosmosPrivateKey = "ENV_COSMOS_PRIVATE_KEY"
+	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 )
 
 func main() {
@@ -81,8 +81,8 @@ func AddEthFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagErc20Address, DefaultErc20Address, "ERC20 contract address")
 }
 
-func AddCommonFlags(cmd *cobra.Command) {
-	cmd.Flags().String(FlagCosmosChainID, DefaultCosmosChainID, "Cosmos Chain ID")
+func AddCosmosFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagCosmosRPC, DefaultCosmosRPC, "Cosmos RPC URL")
 	cmd.Flags().String(FlagCosmosGRPC, DefaultCosmosGRPC, "Cosmos gRPC URL")
+	cmd.Flags().String(FlagCosmosChainID, DefaultCosmosChainID, "Cosmos Chain ID")
 }

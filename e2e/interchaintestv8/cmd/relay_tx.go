@@ -29,11 +29,12 @@ import (
 )
 
 func RelayTxCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "relay_tx [txHash]",
 		Short: "Relay a transaction (currently only from eth to cosmos)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("Relaying tx with hash %s\n", args[0])
 			if err := os.Chdir("../../"); err != nil {
 				return err
 			}
@@ -41,6 +42,8 @@ func RelayTxCmd() *cobra.Command {
 
 			db := dbm.NewMemDB()
 			app := simapp.NewSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
+
+			fmt.Println("App created")
 
 			// Get args
 			txHashHexStr := args[0]
@@ -56,12 +59,33 @@ func RelayTxCmd() *cobra.Command {
 			}
 
 			cosmosRPC, _ := cmd.Flags().GetString(FlagCosmosRPC)
+			if cosmosRPC == "" {
+				return fmt.Errorf("cosmos-rpc flag not set")
+			}
 			cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
+			if cosmosGrpcAddress == "" {
+				return fmt.Errorf("cosmos-grpc flag not set")
+			}
 			ethRPC, _ := cmd.Flags().GetString(FlagEthRPC)
+			if ethRPC == "" {
+				return fmt.Errorf("eth-rpc flag not set")
+			}
 			ethBeaconURL, _ := cmd.Flags().GetString(FlagEthBeaconURL)
+			if ethBeaconURL == "" {
+				return fmt.Errorf("eth-beacon-url flag not set")
+			}
 			cosmosChainID, _ := cmd.Flags().GetString(FlagCosmosChainID)
+			if cosmosChainID == "" {
+				return fmt.Errorf("cosmos-chain-id flag not set")
+			}
 			ics26AddressStr, _ := cmd.Flags().GetString(FlagIcs26Address)
+			if ics26AddressStr == "" {
+				return fmt.Errorf("ics26-address flag not set")
+			}
 			targetClientID, _ := cmd.Flags().GetString(FlagTargetClientID)
+			if targetClientID == "" {
+				return fmt.Errorf("target-client-id flag not set")
+			}
 
 			// Set up everything we need to relay
 			cosmosAddress := sdk.AccAddress(cosmosPrivateKey.PubKey().Address())
@@ -84,6 +108,8 @@ func RelayTxCmd() *cobra.Command {
 
 			ethChainID, err := ethClient.ChainID(ctx)
 
+			fmt.Println("Eth and cosmos setup completed, creating relayer...")
+
 			configInfo := relayer.EthCosmosConfigInfo{
 				EthChainID:     ethChainID.String(),
 				CosmosChainID:  cosmosChainID,
@@ -103,16 +129,22 @@ func RelayTxCmd() *cobra.Command {
 				os.Remove(testvalues.RelayerConfigFilePath)
 			}()
 
+			fmt.Printf("Relayer config file created at %s\n", testvalues.RelayerConfigFilePath)
+
 			relayerProcess, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
 			if err != nil {
 				return err
 			}
 			defer relayerProcess.Kill()
 
+			fmt.Printf("Relayer started with PID %d\n", relayerProcess.Pid)
+
 			relayerClient, err := relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 			if err != nil {
 				return err
 			}
+
+			fmt.Println("Relayer client connected, relaying tx...")
 
 			resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 				SrcChain:       ethChainID.String(),
@@ -128,6 +160,10 @@ func RelayTxCmd() *cobra.Command {
 			var txBody txtypes.TxBody
 			if err := proto.Unmarshal(resp.Tx, &txBody); err != nil {
 				return err
+			}
+
+			if len(txBody.Messages) == 0 {
+				return fmt.Errorf("no messages to relay")
 			}
 
 			var msgs []sdk.Msg
@@ -211,4 +247,10 @@ func RelayTxCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	AddEthFlags(cmd)
+	AddCosmosFlags(cmd)
+	cmd.Flags().String(FlagTargetClientID, MockEthClientID, "Ethereum Client ID on Cosmos")
+
+	return cmd
 }
