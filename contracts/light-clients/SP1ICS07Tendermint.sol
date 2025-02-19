@@ -133,6 +133,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         notFrozen
         returns (uint256)
     {
+        require(msg_.value.length > 0, EmptyValue());
         return membership(msg_.proof, msg_.proofHeight, msg_.path, msg_.value);
     }
 
