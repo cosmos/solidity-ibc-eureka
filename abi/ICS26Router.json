@@ -1489,6 +1489,11 @@
   },
   {
     "type": "error",
+    "name": "IBCFailedCallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCInvalidClientType",
     "inputs": [
       {
