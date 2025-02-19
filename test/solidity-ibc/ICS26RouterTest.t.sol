@@ -150,7 +150,7 @@ contract ICS26RouterTest is Test {
         expAcks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
 
         vm.expectEmit();
-        emit IICS26Router.WriteAcknowledgement(packet, expAcks);
+        emit IICS26Router.WriteAcknowledgement(packet.destClient, packet.sequence, packet, expAcks);
         ics26Router.recvPacket(msgRecvPacket);
     }
 }
