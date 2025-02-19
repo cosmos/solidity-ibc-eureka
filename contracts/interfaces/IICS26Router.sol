@@ -46,22 +46,31 @@ interface IICS26Router {
     /// @param reason The error message
     event IBCAppRecvPacketCallbackError(bytes reason);
     /// @notice Emitted when a packet is sent
+    /// @param clientId The source client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The sent packet
-    event SendPacket(IICS26RouterMsgs.Packet packet);
-    /// @notice Emitted when a packet is received
-    /// @param packet The received packet
-    event RecvPacket(IICS26RouterMsgs.Packet packet);
+    event SendPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet acknowledgement is written
+    /// @param clientId The destination client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The packet that was acknowledged
     /// @param acknowledgements The list of acknowledgements data
-    event WriteAcknowledgement(IICS26RouterMsgs.Packet packet, bytes[] acknowledgements);
+    event WriteAcknowledgement(
+        string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes[] acknowledgements
+    );
     /// @notice Emitted when a packet is timed out
+    /// @param clientId The source client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The packet that was timed out
-    event TimeoutPacket(IICS26RouterMsgs.Packet packet);
+    event TimeoutPacket(string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet);
     /// @notice Emitted when a packet is acknowledged
+    /// @param clientId The source client identifier
+    /// @param sequence The sequence number of the packet
     /// @param packet The packet that was acknowledged
     /// @param acknowledgement The acknowledgement data
-    event AckPacket(IICS26RouterMsgs.Packet packet, bytes acknowledgement);
+    event AckPacket(
+        string indexed clientId, uint256 indexed sequence, IICS26RouterMsgs.Packet packet, bytes acknowledgement
+    );
     /// @notice Emitted when a redundant relay occurs
     event Noop();
 }

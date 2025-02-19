@@ -37,12 +37,12 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceClient == target_client_id {
+            EurekaEvent::SendPacket(packet) => {
+                if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(routerCalls::timeoutPacket(
                         ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
                             msg_: MsgTimeoutPacket {
-                                packet: se.packet,
+                                packet,
                                 proofHeight: target_height.clone(),
                                 proofTimeout: Bytes::default(),
                             },
@@ -52,7 +52,7 @@ pub fn target_events_to_timeout_msgs(
                     None
                 }
             }
-            _ => None,
+            EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
 }
@@ -68,11 +68,11 @@ pub fn src_events_to_recv_and_ack_msgs(
     src_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if se.packet.timeoutTimestamp > now && se.packet.destClient == target_client_id {
+            EurekaEvent::SendPacket(packet) => {
+                if packet.timeoutTimestamp > now && packet.destClient == target_client_id {
                     Some(routerCalls::recvPacket(recvPacketCall {
                         msg_: MsgRecvPacket {
-                            packet: se.packet,
+                            packet,
                             proofHeight: target_height.clone(),
                             proofCommitment: Bytes::default(),
                         },
@@ -81,12 +81,12 @@ pub fn src_events_to_recv_and_ack_msgs(
                     None
                 }
             }
-            EurekaEvent::WriteAcknowledgement(we) => {
-                if we.packet.sourceClient == target_client_id {
+            EurekaEvent::WriteAcknowledgement(packet, acks) => {
+                if packet.sourceClient == target_client_id {
                     Some(routerCalls::ackPacket(ackPacketCall {
                         msg_: MsgAckPacket {
-                            packet: we.packet,
-                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks (#93)
+                            packet,
+                            acknowledgement: acks[0].clone(), // TODO: handle multiple acks (#93)
                             proofHeight: target_height.clone(),
                             proofAcked: Bytes::default(),
                         },
@@ -95,7 +95,6 @@ pub fn src_events_to_recv_and_ack_msgs(
                     None
                 }
             }
-            EurekaEvent::RecvPacket(_) => None,
         })
         .collect()
 }
