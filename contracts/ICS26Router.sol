@@ -167,14 +167,13 @@ contract ICS26Router is
             ICS24Host.packetCommitmentPathCalldata(msg_.packet.sourceClient, msg_.packet.sequence);
         bytes32 commitmentBz = ICS24Host.packetCommitmentBytes32(msg_.packet);
 
-        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg = ILightClientMsgs.MsgVerifyMembership({
             proof: msg_.proofCommitment,
             proofHeight: msg_.proofHeight,
             path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
-
-        getClient(msg_.packet.destClient).membership(membershipMsg);
+        getClient(msg_.packet.destClient).verifyMembership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
         bool isReceiptSet = setPacketReceipt(msg_.packet);
@@ -226,14 +225,13 @@ contract ICS26Router is
         bytes32 commitmentBz = ICS24Host.packetAcknowledgementCommitmentBytes32(acks);
 
         // verify the packet acknowledgement
-        ILightClientMsgs.MsgMembership memory membershipMsg = ILightClientMsgs.MsgMembership({
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg = ILightClientMsgs.MsgVerifyMembership({
             proof: msg_.proofAcked,
             proofHeight: msg_.proofHeight,
             path: ICS24Host.prefixedPath(cInfo.merklePrefix, commitmentPath),
             value: abi.encodePacked(commitmentBz)
         });
-
-        getClient(msg_.packet.sourceClient).membership(membershipMsg);
+        getClient(msg_.packet.sourceClient).verifyMembership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
         (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
@@ -276,14 +274,12 @@ contract ICS26Router is
 
         bytes memory receiptPath =
             ICS24Host.packetReceiptCommitmentPathCalldata(msg_.packet.destClient, msg_.packet.sequence);
-        ILightClientMsgs.MsgMembership memory nonMembershipMsg = ILightClientMsgs.MsgMembership({
+        ILightClientMsgs.MsgVerifyNonMembership memory nonMembershipMsg = ILightClientMsgs.MsgVerifyNonMembership({
             proof: msg_.proofTimeout,
             proofHeight: msg_.proofHeight,
-            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath),
-            value: bytes("")
+            path: ICS24Host.prefixedPath(cInfo.merklePrefix, receiptPath)
         });
-
-        uint256 counterpartyTimestamp = getClient(msg_.packet.sourceClient).membership(nonMembershipMsg);
+        uint256 counterpartyTimestamp = getClient(msg_.packet.sourceClient).verifyNonMembership(nonMembershipMsg);
         require(
             counterpartyTimestamp >= msg_.packet.timeoutTimestamp,
             IBCInvalidTimeoutTimestamp(msg_.packet.timeoutTimestamp, counterpartyTimestamp)
