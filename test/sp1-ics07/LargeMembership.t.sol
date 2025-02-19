@@ -44,14 +44,15 @@ contract SP1ICS07LargeMembershipTest is MembershipTest {
                 proofBz = abi.encode(fixture.membershipProof);
             }
 
-            if (getOutput().kvPairs[i].value.length > 0) {
+            bytes memory value = getOutput().kvPairs[i].value;
+            if (value.length > 0) {
                 multicallData[i] = abi.encodeCall(
                     ILightClient.verifyMembership,
                     MsgVerifyMembership({
                         proof: proofBz, // cached kv pairs
                         proofHeight: fixture.proofHeight,
                         path: getOutput().kvPairs[i].path,
-                        value: getOutput().kvPairs[i].value
+                        value: value
                     })
                 );
             } else {

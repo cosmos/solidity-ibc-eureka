@@ -143,7 +143,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         notFrozen
         returns (uint256)
     {
-        return membership(msg_.proof, msg_.proofHeight, msg_.path, "");
+        return membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
     }
 
     /// @notice The entrypoint for verifying (non)membership proof.
