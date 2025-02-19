@@ -35,7 +35,7 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "tcp://project-highway-devnet-node-02:26657"
+	DefaultCosmosRPC = "https://highway-devnet-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
 	DefaultCosmosGRPC = "project-highway-devnet-node-02:9090"
