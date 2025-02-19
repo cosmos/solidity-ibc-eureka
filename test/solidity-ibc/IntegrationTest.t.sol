@@ -325,9 +325,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // Send out again
@@ -422,9 +420,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
@@ -473,9 +469,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
@@ -504,9 +498,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
@@ -553,9 +545,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
@@ -639,13 +629,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ics26Router.multicall(multicallData);
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-        bytes32 storedAck2 = ics26Router.queryAckCommitment(
-            recvPacket2.destClient, recvPacket2.sequence
-        );
+        bytes32 storedAck2 = ics26Router.queryAckCommitment(recvPacket2.destClient, recvPacket2.sequence);
         assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // Check that the packet receipt is written
@@ -770,9 +756,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         assertEq(receivedDenom, "transfer/client-0/transfer/channel-42/uatom");
@@ -976,9 +960,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // Check that the error ack is written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-            recvPacket.destClient, recvPacket.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleErrorAck));
         assertEq(receivedERC20.balanceOf(receiver), defaultAmount);
 

@@ -58,7 +58,8 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(ackFixture.packet.sourceClient, ackFixture.packet.sequence);
+        bytes32 storedCommitment =
+            ics26Router.queryPacketCommitment(ackFixture.packet.sourceClient, ackFixture.packet.sequence);
         assertEq(storedCommitment, 0);
 
         // Step 3: Cosmos has sent the tokens back and commited a packet, which we will now prove and receive
@@ -71,9 +72,7 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // ack is written
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-                recvFixture.packet.destClient, recvFixture.packet.sequence
-        );
+        bytes32 storedAck = ics26Router.queryAckCommitment(recvFixture.packet.destClient, recvFixture.packet.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
@@ -92,9 +91,8 @@ contract BenchmarkTest is FixtureTest {
         console.log("Multicall native recv gas used: ", vm.lastCallGas().gasTotalUsed);
         assertTrue(success);
 
-        bytes32 storedAck = ics26Router.queryAckCommitment(
-                recvNativeFixture.packet.destClient, recvNativeFixture.packet.sequence
-        );
+        bytes32 storedAck =
+            ics26Router.queryAckCommitment(recvNativeFixture.packet.destClient, recvNativeFixture.packet.sequence);
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
     }
 
@@ -121,7 +119,9 @@ contract BenchmarkTest is FixtureTest {
         assertTrue(success);
 
         // commitment should be deleted
-        assertEq(ics26Router.queryPacketCommitment(timeoutFixture.packet.sourceClient, timeoutFixture.packet.sequence), 0);
+        assertEq(
+            ics26Router.queryPacketCommitment(timeoutFixture.packet.sourceClient, timeoutFixture.packet.sequence), 0
+        );
     }
 
     function sendTransfer(Fixture memory fixture) internal returns (uint64) {
@@ -152,7 +152,10 @@ contract BenchmarkTest is FixtureTest {
 
         uint64 gasUsed = vm.lastCallGas().gasTotalUsed;
 
-        assertEq(ics26Router.queryPacketCommitment(fixture.packet.sourceClient, fixture.packet.sequence), ICS24Host.packetCommitmentBytes32(fixture.packet));
+        assertEq(
+            ics26Router.queryPacketCommitment(fixture.packet.sourceClient, fixture.packet.sequence),
+            ICS24Host.packetCommitmentBytes32(fixture.packet)
+        );
 
         return gasUsed;
     }
