@@ -38,26 +38,32 @@ contract SP1ICS07LargeMembershipTest is MembershipTest {
 
         bytes[] memory multicallData = new bytes[](n);
 
-        multicallData[0] = abi.encodeCall(
-            ILightClient.membership,
-            MsgMembership({
-                proof: abi.encode(fixture.membershipProof),
-                proofHeight: fixture.proofHeight,
-                path: getOutput().kvPairs[0].path,
-                value: getOutput().kvPairs[0].value
-            })
-        );
+        for (uint32 i = 0; i < n; i++) {
+            bytes memory proofBz = bytes("");
+            if (i == 0) {
+                proofBz = abi.encode(fixture.membershipProof);
+            }
 
-        for (uint32 i = 1; i < n; i++) {
-            multicallData[i] = abi.encodeCall(
-                ILightClient.membership,
-                MsgMembership({
-                    proof: bytes(""), // cached kv pairs
-                    proofHeight: fixture.proofHeight,
-                    path: getOutput().kvPairs[i].path,
-                    value: getOutput().kvPairs[i].value
-                })
-            );
+            if (getOutput().kvPairs[i].value.length > 0) {
+                multicallData[i] = abi.encodeCall(
+                    ILightClient.verifyMembership,
+                    MsgVerifyMembership({
+                        proof: proofBz, // cached kv pairs
+                        proofHeight: fixture.proofHeight,
+                        path: getOutput().kvPairs[i].path,
+                        value: getOutput().kvPairs[i].value
+                    })
+                );
+            } else {
+                multicallData[i] = abi.encodeCall(
+                    ILightClient.verifyNonMembership,
+                    MsgVerifyNonMembership({
+                        proof: proofBz, // cached kv pairs
+                        proofHeight: fixture.proofHeight,
+                        path: getOutput().kvPairs[i].path
+                    })
+                );
+            }
         }
 
         ics07Tendermint.multicall(multicallData);
