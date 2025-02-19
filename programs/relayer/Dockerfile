@@ -1,3 +1,4 @@
+# TODO: dynamically fetch this from cargo file
 ARG SP1_VERSION="v4.1.0"
 FROM ghcr.io/succinctlabs/sp1:${SP1_VERSION} as BUILD
 
