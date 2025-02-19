@@ -161,6 +161,7 @@ library ICS24Host {
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
+        require(acks.length > 0, IICS24HostErrors.NoAcknowledgements());
         bytes memory ackBytes = "";
         for (uint256 i = 0; i < acks.length; i++) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
