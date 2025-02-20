@@ -12,4 +12,3 @@ FROM gcr.io/distroless/base-debian11:debug
 WORKDIR /usr/local/bin
 COPY --from=BUILD /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
 ENTRYPOINT [ "/usr/local/bin/relayer", "--config", "/usr/local/relayer/relayer.json"]
-
