@@ -1,5 +1,6 @@
 //! Defines Cosmos to Ethereum relayer module.
 
+use std::env;
 use std::str::FromStr;
 
 use alloy::{
@@ -189,8 +190,16 @@ impl RelayerModule for CosmosToEthRelayerModule {
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<CosmosToEthConfig>(config)
+        let mut config = serde_json::from_value::<CosmosToEthConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+
+        // this assumes that we only have one SP1 private key for all modules
+        // but this is an OK assumption for now since you can always use the config
+        // for more configurability
+        config.sp1_private_key = match &config.sp1_private_key {
+            Some => config.sp1_private_key,
+            None => env::var("SP1_PRIVATE_KEY").ok(),
+        };
 
         tracing::info!("Starteing Cosmos to Ethereum relayer server.");
         Ok(Box::new(CosmosToEthRelayerModuleService::new(config).await))
