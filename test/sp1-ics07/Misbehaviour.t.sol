@@ -87,9 +87,14 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         ics07Tendermint.updateClient(bytes(""));
 
         // try to submit a membership msg
-        MsgMembership memory membership;
+        MsgVerifyMembership memory membership;
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        ics07Tendermint.membership(membership);
+        ics07Tendermint.verifyMembership(membership);
+
+        // try to submit a non-membership msg
+        MsgVerifyNonMembership memory nonMembership;
+        vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
+        ics07Tendermint.verifyNonMembership(nonMembership);
 
         // try to submit a misbehaviour msg
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
