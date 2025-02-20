@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
@@ -21,8 +22,6 @@ import (
 	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/testing/simapp"
 	"github.com/spf13/cobra"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cmd/utils"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -51,7 +50,7 @@ func RelayTxCmd() *cobra.Command {
 			txHashHexStr := args[0]
 
 			// Get flags
-			cosmosPrivateKeyStr := os.Getenv(EnvCosmosPrivateKey)
+			cosmosPrivateKeyStr := os.Getenv(EnvRelayerWallet)
 			if cosmosPrivateKeyStr == "" {
 				return fmt.Errorf("%s env var not set", EnvCosmosPrivateKey)
 			}
@@ -95,49 +94,11 @@ func RelayTxCmd() *cobra.Command {
 
 			txHash := ethcommon.HexToHash(txHashHexStr)
 
-			ethClient, err := ethclient.Dial(ethRPC)
-			if err != nil {
-				return err
-			}
-
-			ethChainID, err := ethClient.ChainID(ctx)
-
 			if verbose {
-				fmt.Println("Eth and cosmos setup completed, creating relayer...")
+				fmt.Println("Eth and cosmos setup completed, connecting to relayer on", RelayerURL)
 			}
 
-			configInfo := relayer.EthCosmosConfigInfo{
-				EthChainID:     ethChainID.String(),
-				CosmosChainID:  cosmosChainID,
-				TmRPC:          cosmosRPC,
-				ICS26Address:   ics26AddressStr,
-				EthRPC:         ethRPC,
-				BeaconAPI:      ethBeaconURL,
-				SP1PrivateKey:  "", // for now
-				SignerAddress:  cosmosAddress.String(),
-				MockWasmClient: true, // for now
-				MockSP1Client:  true,
-			}
-			if err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath); err != nil {
-				return err
-			}
-			defer func() {
-				os.Remove(testvalues.RelayerConfigFilePath)
-			}()
-
-			fmt.Printf("Relayer config file created at %s\n", testvalues.RelayerConfigFilePath)
-
-			relayerProcess, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-			if err != nil {
-				return err
-			}
-			defer relayerProcess.Kill()
-
-			if verbose {
-				fmt.Printf("Relayer started with PID %d\n", relayerProcess.Pid)
-			}
-
-			relayerClient, err := relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+			relayerClient, err := GetTLSGRPCClient(RelayerURL)
 			if err != nil {
 				return err
 			}
@@ -147,13 +108,13 @@ func RelayTxCmd() *cobra.Command {
 			}
 
 			resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
-				SrcChain:       ethChainID.String(),
+				SrcChain:       "0x1",
 				DstChain:       cosmosChainID,
 				SourceTxIds:    [][]byte{txHash.Bytes()},
 				TargetClientId: targetClientID,
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to relayed tx: %w", err)
 			}
 
 			// Extract messages from the response (cosmos specific)
@@ -264,4 +225,18 @@ func RelayTxCmd() *cobra.Command {
 	cmd.Flags().String(FlagTargetClientID, MockEthClientID, "Ethereum Client ID on Cosmos")
 
 	return cmd
+}
+
+// GetGRPCClient returns a gRPC client for the relayer.
+func GetTLSGRPCClient(addr string) (relayertypes.RelayerServiceClient, error) {
+	creds := credentials.NewTLS(nil)
+
+	// Establish a secure connection with the gRPC server
+	conn, err := grpc.Dial(addr, grpc.
+		WithTransportCredentials(creds))
+	if err != nil {
+		return nil, err
+	}
+
+	return relayertypes.NewRelayerServiceClient(conn), nil
 }

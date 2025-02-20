@@ -53,6 +53,10 @@ const (
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
+	RelayerURL = "highway-devnet-relayer-01.dev.skip.build:443"
+
+	EnvRelayerWallet = "RELAYER_WALLET"
+
 	FlagVerbose = "verbose"
 )
 
