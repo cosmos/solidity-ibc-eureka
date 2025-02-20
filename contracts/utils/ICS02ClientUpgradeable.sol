@@ -54,12 +54,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @notice Generates the next client identifier
     /// @return The next client identifier
-    function getNextClientId() private returns (string memory) {
+    function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
-
-        uint256 seq = $.nextClientSeq;
-        $.nextClientSeq = seq + 1;
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString(seq));
+        // initial client sequence should be 0, hence we use x++ instead of ++x
+        return string.concat(CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
     /// @inheritdoc IICS02Client
@@ -88,7 +86,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
-        string memory clientId = getNextClientId();
+        string memory clientId = nextClientId();
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
