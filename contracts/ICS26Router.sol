@@ -140,7 +140,7 @@ contract ICS26Router is
 
         commitPacket(packet);
 
-        emit SendPacket(packet);
+        emit SendPacket(msg_.sourceClient, sequence, packet);
         return sequence;
     }
 
@@ -177,8 +177,9 @@ contract ICS26Router is
         getClient(msg_.packet.destClient).membership(membershipMsg);
 
         // recvPacket will no-op if the packet receipt already exists
-        bool isReceiptSet = setPacketReceipt(msg_.packet);
-        if (!isReceiptSet) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
+        if (!setReceiptSuccessful) {
             emit Noop();
             return;
         }
@@ -197,12 +198,13 @@ contract ICS26Router is
             require(keccak256(ack) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, IBCErrorUniversalAcknowledgement());
             acks[0] = ack;
         } catch (bytes memory reason) {
+            require(reason.length != 0, IBCFailedCallback()); // covers OOG
             emit IBCAppRecvPacketCallbackError(reason);
             acks[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
         }
 
-        writeAcknowledgement(msg_.packet, acks);
-        emit RecvPacket(msg_.packet);
+        commitPacketAcknowledgement(msg_.packet, acks);
+        emit WriteAcknowledgement(msg_.packet.destClient, msg_.packet.sequence, msg_.packet, acks);
     }
 
     /// @notice Acknowledges a packet
@@ -236,15 +238,12 @@ contract ICS26Router is
         getClient(msg_.packet.sourceClient).membership(membershipMsg);
 
         // ackPacket will no-op if the packet commitment does not exist
-        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
-        if (!isDeleted) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool commitmentFound = checkAndDeletePacketCommitment(msg_.packet);
+        if (!commitmentFound) {
             emit Noop();
             return;
         }
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
 
         getIBCApp(payload.sourcePort).onAcknowledgementPacket(
             IIBCAppCallbacks.OnAcknowledgementPacketCallback({
@@ -257,7 +256,7 @@ contract ICS26Router is
             })
         );
 
-        emit AckPacket(msg_.packet, msg_.acknowledgement);
+        emit AckPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet, msg_.acknowledgement);
     }
 
     /// @notice Timeouts a packet
@@ -290,15 +289,12 @@ contract ICS26Router is
         );
 
         // timeoutPacket will no-op if the packet commitment does not exist
-        (bool isDeleted, bytes32 storedCommitment) = deletePacketCommitment(msg_.packet);
-        if (!isDeleted) {
+        // This no-op check must happen after the membership verification for proofs to be cached
+        bool commitmentFound = checkAndDeletePacketCommitment(msg_.packet);
+        if (!commitmentFound) {
             emit Noop();
             return;
         }
-        require(
-            storedCommitment == ICS24Host.packetCommitmentBytes32(msg_.packet),
-            IBCPacketCommitmentMismatch(storedCommitment, ICS24Host.packetCommitmentBytes32(msg_.packet))
-        );
 
         getIBCApp(payload.sourcePort).onTimeoutPacket(
             IIBCAppCallbacks.OnTimeoutPacketCallback({
@@ -310,15 +306,7 @@ contract ICS26Router is
             })
         );
 
-        emit TimeoutPacket(msg_.packet);
-    }
-
-    /// @notice Writes a packet acknowledgement and emits an event
-    /// @param packet The packet to acknowledge
-    /// @param acks The acknowledgement
-    function writeAcknowledgement(IICS26RouterMsgs.Packet calldata packet, bytes[] memory acks) private {
-        commitPacketAcknowledgement(packet, acks);
-        emit WriteAcknowledgement(packet, acks);
+        emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }
 
     /// @notice Returns the storage of the ICS26Router contract

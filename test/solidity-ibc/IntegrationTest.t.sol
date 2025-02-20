@@ -1138,9 +1138,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             expectedDenom = string(abi.encodePacked(newDenomPrefix, denomBz));
         }
 
-        vm.expectEmit();
-        emit IICS26Router.RecvPacket(receivePacket);
-
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
