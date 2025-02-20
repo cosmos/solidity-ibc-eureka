@@ -27,6 +27,7 @@ build-cw-ics08-wasm-eth:
 	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
+# Only for linux/amd64 since sp1 doesn't have an arm image built
 build-relayer-image:
     docker build -t eureka-relayer:latest --platform linux/amd64 .
 
