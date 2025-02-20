@@ -52,6 +52,8 @@ const (
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
+
+	FlagVerbose = "verbose"
 )
 
 func main() {
@@ -69,6 +71,9 @@ func RootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(TransferFromEth())
 	rootCmd.AddCommand(RelayTxCmd())
+	rootCmd.AddCommand(BalanceCmd())
+
+	rootCmd.PersistentFlags().Bool("verbose", false, "Print verbose output")
 
 	return rootCmd
 }

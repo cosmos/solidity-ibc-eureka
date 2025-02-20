@@ -35,8 +35,14 @@ func TransferFromEth() *cobra.Command {
 
 			// get flags
 			ethRPC, _ := cmd.Flags().GetString(FlagEthRPC)
+			if ethRPC == "" {
+				return fmt.Errorf("eth rpc flag not set")
+			}
 
 			ics20Str, _ := cmd.Flags().GetString(FlagIcs20Address)
+			if ics20Str == "" {
+				return fmt.Errorf("ics20 address flag not set")
+			}
 			ics20Address := ethcommon.HexToAddress(ics20Str)
 
 			ethPrivateKeyStr := os.Getenv(EnvEthPrivateKey)
@@ -45,6 +51,9 @@ func TransferFromEth() *cobra.Command {
 			}
 
 			sourceClientID, _ := cmd.Flags().GetString(FlagSourceClientID)
+			if sourceClientID == "" {
+				return fmt.Errorf("source client flag not set")
+			}
 
 			// Set up everything needed to send the transfer
 			ethClient, err := ethclient.Dial(ethRPC)
@@ -70,6 +79,7 @@ func TransferFromEth() *cobra.Command {
 			if receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("approve tx unsuccessful (%s) %+v", tx.Hash().String(), receipt)
 			}
+
 			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ics20Address.Hex(), erc20Address.Hex(), ethereumUserAddress.Hex())
 
 			timeout := uint64(time.Now().Add(1 * time.Hour).Unix())

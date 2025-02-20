@@ -24,8 +24,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func RelayTxCmd() *cobra.Command {
@@ -43,7 +41,11 @@ func RelayTxCmd() *cobra.Command {
 			db := dbm.NewMemDB()
 			app := simapp.NewSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
 
-			fmt.Println("App created")
+			verbose, _ := cmd.Flags().GetBool(FlagVerbose)
+
+			if verbose {
+				fmt.Println("App created")
+			}
 
 			// Get args
 			txHashHexStr := args[0]
@@ -61,10 +63,6 @@ func RelayTxCmd() *cobra.Command {
 			cosmosRPC, _ := cmd.Flags().GetString(FlagCosmosRPC)
 			if cosmosRPC == "" {
 				return fmt.Errorf("cosmos-rpc flag not set")
-			}
-			cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
-			if cosmosGrpcAddress == "" {
-				return fmt.Errorf("cosmos-grpc flag not set")
 			}
 			ethRPC, _ := cmd.Flags().GetString(FlagEthRPC)
 			if ethRPC == "" {
@@ -90,14 +88,10 @@ func RelayTxCmd() *cobra.Command {
 			// Set up everything we need to relay
 			cosmosAddress := sdk.AccAddress(cosmosPrivateKey.PubKey().Address())
 
-			grpcConn, err := grpc.Dial(
-				cosmosGrpcAddress,
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-			)
+			grpcConn, err := GetCosmosGRPC(cmd)
 			if err != nil {
 				return err
 			}
-			defer grpcConn.Close()
 
 			txHash := ethcommon.HexToHash(txHashHexStr)
 
@@ -108,7 +102,9 @@ func RelayTxCmd() *cobra.Command {
 
 			ethChainID, err := ethClient.ChainID(ctx)
 
-			fmt.Println("Eth and cosmos setup completed, creating relayer...")
+			if verbose {
+				fmt.Println("Eth and cosmos setup completed, creating relayer...")
+			}
 
 			configInfo := relayer.EthCosmosConfigInfo{
 				EthChainID:     ethChainID.String(),
@@ -137,14 +133,18 @@ func RelayTxCmd() *cobra.Command {
 			}
 			defer relayerProcess.Kill()
 
-			fmt.Printf("Relayer started with PID %d\n", relayerProcess.Pid)
+			if verbose {
+				fmt.Printf("Relayer started with PID %d\n", relayerProcess.Pid)
+			}
 
 			relayerClient, err := relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 			if err != nil {
 				return err
 			}
 
-			fmt.Println("Relayer client connected, relaying tx...")
+			if verbose {
+				fmt.Println("Relayer client connected, relaying tx...")
+			}
 
 			resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 				SrcChain:       ethChainID.String(),
@@ -171,6 +171,10 @@ func RelayTxCmd() *cobra.Command {
 				var sdkMsg sdk.Msg
 				if err := app.InterfaceRegistry().UnpackAny(msg, &sdkMsg); err != nil {
 					return err
+				}
+
+				if verbose {
+					fmt.Printf("Relayed message: %+v\n", sdkMsg)
 				}
 
 				msgs = append(msgs, sdkMsg)
@@ -242,6 +246,13 @@ func RelayTxCmd() *cobra.Command {
 			}
 			if grpcRes.TxResponse.Code != 0 {
 				return fmt.Errorf("tx failed with code %d: %+v", grpcRes.TxResponse.Code, grpcRes.TxResponse)
+			}
+
+			fmt.Printf("Tx relayed successfully with hash %s\n", grpcRes.TxResponse.TxHash)
+			if verbose {
+				for _, event := range grpcRes.TxResponse.Events {
+					fmt.Printf("Event: %+v\n", event)
+				}
 			}
 
 			return nil
