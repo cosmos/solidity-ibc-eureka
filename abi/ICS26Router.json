@@ -1645,6 +1645,11 @@
   },
   {
     "type": "error",
+    "name": "NoAcknowledgements",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
