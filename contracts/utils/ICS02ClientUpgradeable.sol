@@ -56,7 +56,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @return The next client identifier
     function getNextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
+
+        uint256 seq = $.nextClientSeq;
+        $.nextClientSeq = seq + 1;
+        return string.concat(CLIENT_ID_PREFIX, Strings.toString(seq));
     }
 
     /// @inheritdoc IICS02Client
