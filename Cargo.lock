@@ -1884,6 +1884,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-ibc-callbacks-helpers"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cw-ics08-wasm-eth"
 version = "0.1.0"
 dependencies = [

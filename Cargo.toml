@@ -9,6 +9,7 @@ members = [
     "packages/relayer-lib",
     "packages/sp1-ics07-tendermint-prover",
     "packages/sp1-ics07-tendermint-utils",
+    "packages/cosmwasm/ibc-callbacks-helpers",
 
     "programs/relayer",
     "programs/operator",

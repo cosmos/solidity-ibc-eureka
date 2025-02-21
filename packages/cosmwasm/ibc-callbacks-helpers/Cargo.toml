@@ -10,4 +10,6 @@ serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 
-ibc-proto-eureka    = { workspace = true }
+cosmwasm-std = { workspace = true, features = ["stargate"] }
+
+ibc-proto = { workspace = true }
