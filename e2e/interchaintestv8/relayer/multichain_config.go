@@ -27,12 +27,10 @@ type MultichainConfigInfo struct {
 	EthRPC string
 	// Ethereum Beacon API URL
 	BeaconAPI string
-	// SP1 private key
-	SP1PrivateKey string
+	// SP1 config, should be "mock" or "env"
+	SP1Config string
 	// Whether we use the mock client in the cosmos chains
 	MockWasmClient bool
-	// Whether we use the mock SP1 client
-	MockSP1Client bool
 }
 
 // GenerateMultichainConfigFile generates a multichain config file from the template.
