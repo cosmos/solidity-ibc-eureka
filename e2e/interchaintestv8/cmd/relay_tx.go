@@ -212,6 +212,8 @@ func RelayTxCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Tx relayed successfully with hash %s\n", grpcRes.TxResponse.TxHash)
+			rpcTxURL := cosmosRPC + "/tx?hash=0x" + grpcRes.TxResponse.TxHash
+			fmt.Printf("Find full event logs here: %s\n", rpcTxURL)
 			if verbose {
 				for _, event := range grpcRes.TxResponse.Events {
 					fmt.Printf("Event: %+v\n", event)
