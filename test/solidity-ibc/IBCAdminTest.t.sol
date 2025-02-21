@@ -188,7 +188,13 @@ contract IBCAdminTest is Test {
         assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer));
 
         // Check that an unauthorized account cannot set the port
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.PORT_CUSTOMIZER_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics26Router.PORT_CUSTOMIZER_ROLE()
+            )
+        );
         vm.prank(unauthorized);
         ics26Router.addIBCApp("newPort", address(ics20Transfer));
     }
