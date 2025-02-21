@@ -34,7 +34,7 @@ go build -o eureka-cli
 
 Currently, you'll need to store your private keys for both Cosmos and Ethereum as environment variables.
 
-    >:warning: Do not use mainnet keys for this testing CLI.
+>:warning: Do not use mainnet keys for this testing CLI.
 
 ```bash
 export ETH_PRIVATE_KEY="your-ethereum-private-key"

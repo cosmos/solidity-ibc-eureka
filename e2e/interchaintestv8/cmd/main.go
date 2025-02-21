@@ -15,8 +15,8 @@ const (
 	// CLIENT_ID_ON_ETH = "client-0"
 	//
 	// COSMOS_CHAIN_ID     = "highway-dev-1"
-	// COSMOS_RPC          = "tcp://project-highway-devnet-node-02:26657"
-	// COSMOS_GRPC         = "project-highway-devnet-node-02:9090"
+	// COSMOS_RPC          = "https://eureka-devnet-node-01-rpc.dev.skip.build:443"
+	// COSMOS_GRPC         = "eureka-devnet-node-01-rpc.dev.skip.build:9090"
 	// CLIENT_ID_ON_COSMOS = "08-wasm-0"
 
 	FlagEthRPC    = "eth-rpc"
@@ -35,10 +35,10 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://highway-devnet-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "https://eureka-devnet-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "highway-devnet-node-01-rpc.dev.skip.build:9090"
+	DefaultCosmosGRPC = "eureka-devnet-node-01-rpc.dev.skip.build:9090"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "highway-dev-1"
@@ -53,7 +53,7 @@ const (
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "highway-devnet-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-devnet-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 
@@ -69,8 +69,8 @@ func main() {
 
 func RootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "highway-cli",
-		Short: "Highway CLI",
+		Use:   "eureka-cli",
+		Short: "IBC Eureka CLI",
 	}
 
 	rootCmd.AddCommand(TransferFromEth())
