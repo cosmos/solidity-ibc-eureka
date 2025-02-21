@@ -6040,6 +6040,8 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "sp1-prover",
+ "sp1-sdk",
  "tendermint",
  "tendermint-rpc",
  "tokio",
