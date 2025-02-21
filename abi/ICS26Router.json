@@ -481,78 +481,6 @@
   },
   {
     "type": "function",
-    "name": "queryAckCommitment",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queryPacketCommitment",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queryPacketReceipt",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "recvPacket",
     "inputs": [
       {
@@ -1714,11 +1642,6 @@
         "internalType": "bytes[]"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "NoAcknowledgements",
-    "inputs": []
   },
   {
     "type": "error",

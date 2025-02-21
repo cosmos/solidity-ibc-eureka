@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ILightClient } from "../interfaces/ILightClient.sol";
 import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
 /// @title ISP1ICS07Tendermint
 /// @notice ISP1ICS07Tendermint is the interface for the ICS07 Tendermint light client
-interface ISP1ICS07Tendermint {
+interface ISP1ICS07Tendermint is ILightClient {
     /// @notice Immutable update client program verification key.
     /// @return The verification key for the update client program.
     function UPDATE_CLIENT_PROGRAM_VKEY() external view returns (bytes32);

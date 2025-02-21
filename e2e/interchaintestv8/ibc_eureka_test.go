@@ -230,16 +230,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config string
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = testvalues.EnvValueSp1Prover_Mock
-		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = "env"
-		default:
-			s.Require().Fail("Unsupported prover type: %s", prover)
-		}
-
 		configInfo = relayer.EthCosmosConfigInfo{
 			EthChainID:     eth.ChainID.String(),
 			CosmosChainID:  simd.Config().ChainID,
@@ -247,9 +237,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			ICS26Address:   s.contractAddresses.Ics26Router,
 			EthRPC:         eth.RPC,
 			BeaconAPI:      beaconAPI,
-			SP1Config:      sp1Config,
+			SP1PrivateKey:  os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
 			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockSP1Client:  prover == testvalues.EnvValueSp1Prover_Mock,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)

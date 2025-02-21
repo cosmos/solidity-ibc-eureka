@@ -9,34 +9,11 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between ethereum and a Cosmos SDK chain.
+This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This project also includes an [SP1](https://github.com/succinctlabs/sp1) based tendermint light client for the Ethereum chain, and a POC relayer implementation.
 
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
-
-- [IBC Eureka in Solidity     ](#ibc-eureka-in-solidity-----)
-  - [Overview](#overview)
-    - [Project Structure](#project-structure)
-    - [Contracts](#contracts)
-    - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
-  - [Requirements](#requirements)
-  - [Unit Testing](#unit-testing)
-  - [End to End Testing](#end-to-end-testing)
-    - [Running the tests](#running-the-tests)
-  - [Linting](#linting)
-  - [End to End Benchmarks](#end-to-end-benchmarks)
-    - [Single Packet Benchmarks](#single-packet-benchmarks)
-    - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
-  - [Run ICS-07 Tendermint Light Client End to End](#run-ics-07-tendermint-light-client-end-to-end)
-  - [Security Assumptions](#security-assumptions)
-    - [Handling Frozen Light Clients](#handling-frozen-light-clients)
-    - [Security Council and Governance Admin](#security-council-and-governance-admin)
-      - [Admin Powers and Restrictions](#admin-powers-and-restrictions)
-      - [Key Distinction Between Admins](#key-distinction-between-admins)
-    - [Roles and Permissions](#roles-and-permissions)
-  - [License](#license)
-  - [Acknowledgements](#acknowledgements)
 
 ### Project Structure
 
@@ -246,65 +223,15 @@ Note: These gas benchmarks are with Groth16.
     RUST_LOG=info cargo run --bin operator --release -- start
     ```
 
-## Security Assumptions
+## Etheruem Light Client
 
-IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains two light clients:
+> [!CAUTION]
+> ⚠ The Ethereum Light Client is currently under heavy development, and is not ready for use.
 
-- **SP1 Light Client** – Verifies the consensus state of a Cosmos SDK chain.
-- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain.
+This repository contains an Ethereum light client which is implemented as two separate layers:
 
-The security of an IBC connection depends on the integrity of these light clients and the validator sets of the respective chains. However, IBC light clients can become **frozen** under certain conditions, such as:
-
-- Detection of two conflicting valid headers.
-- Failure to update the light client for an extended period.
-
-### Handling Frozen Light Clients
-
-When a light client freezes, Cosmos SDK chains rely on **governance** to restart the client. However, Ethereum lacks a native governance mechanism for this purpose. **To address this, the Solidity implementation of IBC requires a timelocked Security Council to restart the light client in case of a freeze.**
-
-Additionally, the Security Council is responsible for:
-
-- **Upgrading IBC contracts** in the event of a security vulnerability.
-- **Introducing new features** while balancing security and decentralization.
-
-Ideally, the Security Council should mirror the validators of the counterparty Cosmos SDK chain for better decentralization. In the future, a mechanism called **`govAdmin`** will allow the Cosmos SDK chain’s governance to directly control Ethereum contract upgrades via IBC (tracked in [#278](https://github.com/cosmos/solidity-ibc-eureka/issues/278)).
-
-### Security Council and Governance Admin
-
-Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCUUPSUpgradeable.sol`](./contracts/utils/IBCUUPSUpgradeable.sol). This contract is inherited by [`ICS26Router.sol`](./contracts/ICS26Router.sol), which maintains:
-
-- **`timelockedAdmin`** (Security Council)
-- **`govAdmin`** (Governance Admin)
-
-Other IBC contracts that require administrative access or upgradability should reference `ICS26Router` to retrieve the current admin. For example, see its implementation in [`ICS20Transfer.sol`](https://github.com/cosmos/solidity-ibc-eureka/blob/1db4d38d00f7935e2aa4564b7026182a4c095ef1/contracts/ICS20Transfer.sol#L487-L492).
-
-#### Admin Powers and Restrictions
-
-Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `IBCUUPSUpgradeable` contract, both admins will eventually have **equal authority**, including the ability to:
-
-- Assign or modify the other admin.
-- Manage roles on IBC contracts.
-- Upgrade IBC contracts. Learn more about [upgrading the Solidity contracts](./UPGRADEABILITY.md).
-
-#### Key Distinction Between Admins
-
-Once the **govAdmin** is set, the Security Council must **apply a timelock** to itself. This ensures that after delegation, the Security Council only retains power in cases where IBC light clients are **frozen**—effectively making **govAdmin** the primary administrator in normal conditions.
-
-> [!WARNING]
-> - The timelock on the **Security Council** is **not** enforced within the IBC contracts but should be self-enforced.
-> - The timelock duration should be at least as long as:
->   - The **govAdmin** timelock (if applicable).
->   - The time required for governance proposals to pass.
-
-### Roles and Permissions
-
-The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
-
-| **Role Name** | **Contract** | **Default** | **Description** |
-|:---:|:---:|:---:|:---:|
-| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause/unpause the contract. |
-| `RATE_LIMITER_ROLE` | `Escrow.sol` | `address(0)` | Can set withdrawal rate limits per `ERC20` token. |
-| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Can migrate the light client identified by `client_id`. |
+- A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
+- A stateless light client verification package in `packages/ethereum-light-client`
 
 ## License
 

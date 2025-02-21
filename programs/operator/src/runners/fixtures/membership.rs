@@ -17,8 +17,8 @@ use ibc_eureka_solidity_types::msgs::{
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{programs::MembershipProgram, prover::SP1ICS07TendermintProver};
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::{HashableKey, ProverClient};
-use std::path::PathBuf;
+use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
+use std::{env, path::PathBuf};
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`MembershipProgram`] tests.
@@ -103,9 +103,15 @@ pub async fn run_sp1_membership(
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedZkAlgorithm,
 ) -> anyhow::Result<MembershipProof> {
-    let sp1_prover = ProverClient::from_env();
+    // TODO: Just use ProverClient::from_env() here once
+    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
+    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
+        Box::new(CpuProver::mock())
+    } else {
+        Box::new(ProverClient::from_env())
+    };
     let verify_mem_prover =
-        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, &sp1_prover);
+        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, sp1_prover.as_ref());
 
     let commitment_root_bytes = ConsensusState::from(trusted_consensus_state.clone())
         .root

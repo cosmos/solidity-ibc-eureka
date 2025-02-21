@@ -130,7 +130,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
          });
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
@@ -170,7 +171,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
          });
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
@@ -203,7 +205,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
          });
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfter = erc20.balanceOf(defaultSender);
@@ -250,7 +253,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -276,7 +280,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
          });
         ics26Router.ackPacket(ackMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // call ack again, should be noop
@@ -303,7 +308,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -325,7 +331,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // Send out again
@@ -350,7 +358,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // transfer should be reverted
@@ -377,7 +386,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
          });
         ics26Router.timeoutPacket(timeoutMsg);
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         // call timeout again, should be noop
@@ -403,7 +413,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceBeforeReceive = erc20.balanceOf(defaultSender);
@@ -420,11 +431,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer(defaultReceiverStr, defaultSenderStr, receivedDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
-        // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
 
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
@@ -452,7 +462,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(defaultSender);
@@ -465,22 +476,21 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         string memory receivedDenom =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
 
-        (,, IICS26RouterMsgs.Packet memory recvPacket) =
+        (,, IICS26RouterMsgs.Packet memory receivePacket) =
             _receiveICS20Transfer("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, receivedDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destClient, receivePacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
-        // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
 
         // call recvPacket again, should be noop
         vm.expectEmit();
         emit IICS26Router.Noop();
         ics26Router.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
-                packet: recvPacket,
+                packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will
                     // accept
@@ -498,11 +508,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
-        // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -545,11 +554,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
-        // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -590,7 +598,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             _getPacketData(senderStr, receiverStr, foreignDenom);
         IICS26RouterMsgs.Payload[] memory payloads1 = _getPayloads(abi.encode(packetData));
-        IICS26RouterMsgs.Packet memory recvPacket = IICS26RouterMsgs.Packet({
+        IICS26RouterMsgs.Packet memory receivePacket = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceClient: counterpartyId,
             destClient: clientIdentifier,
@@ -600,7 +608,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         // Second packet
         IICS26RouterMsgs.Payload[] memory payloads2 = _getPayloads(abi.encode(packetData));
-        IICS26RouterMsgs.Packet memory recvPacket2 = IICS26RouterMsgs.Packet({
+        IICS26RouterMsgs.Packet memory receivePacket2 = IICS26RouterMsgs.Packet({
             sequence: 2,
             sourceClient: counterpartyId,
             destClient: clientIdentifier,
@@ -612,7 +620,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         multicallData[0] = abi.encodeCall(
             IICS26Router.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
-                packet: recvPacket,
+                packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
              })
@@ -620,7 +628,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         multicallData[1] = abi.encodeCall(
             IICS26Router.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
-                packet: recvPacket2,
+                packet: receivePacket2,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
                 proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
              })
@@ -629,14 +637,14 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ics26Router.multicall(multicallData);
 
         // Check that the ack is written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket.destClient, receivePacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-        bytes32 storedAck2 = ics26Router.queryAckCommitment(recvPacket2.destClient, recvPacket2.sequence);
+        bytes32 storedAck2 = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(receivePacket2.destClient, receivePacket2.sequence)
+        );
         assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
-
-        // Check that the packet receipt is written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
-        assert(ics26Router.queryPacketReceipt(recvPacket2.destClient, recvPacket2.sequence));
     }
 
     function test_failure_receiveMultiPacketWithForeignBaseDenom() public {
@@ -756,7 +764,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             _receiveICS20Transfer(senderStr, receiverStr, foreignDenom);
 
         // acknowledgement should be written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         assertEq(receivedDenom, "transfer/client-0/transfer/channel-42/uatom");
@@ -887,7 +897,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ics26Router.ackPacket(ackMsg);
 
         // commitment should be deleted
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(packet.sourceClient, packet.sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
         uint256 senderBalanceAfterSend = erc20.balanceOf(defaultSender);
@@ -960,12 +971,11 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         );
 
         // Check that the error ack is written
-        bytes32 storedAck = ics26Router.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        bytes32 storedAck = ics26Router.getCommitment(
+            ICS24Host.packetAcknowledgementCommitmentKeyCalldata(recvPacket.destClient, recvPacket.sequence)
+        );
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleErrorAck));
         assertEq(receivedERC20.balanceOf(receiver), defaultAmount);
-
-        // Check that the packet receipt is written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
     }
 
     function _sendICS20TransferPacket(
@@ -1030,7 +1040,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         IICS26RouterMsgs.Packet memory packet = _getPacketFromSendEvent();
 
-        bytes32 storedCommitment = ics26Router.queryPacketCommitment(sourceClient, sequence);
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sourceClient, sequence);
+        bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, ICS24Host.packetCommitmentBytes32(packet));
 
         return packet;

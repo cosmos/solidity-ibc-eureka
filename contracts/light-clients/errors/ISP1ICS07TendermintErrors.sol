@@ -116,7 +116,4 @@ interface ISP1ICS07TendermintErrors {
     /// @param path The path of the key-value pair.
     /// @param value The value of the key-value pair.
     error KeyValuePairNotInCache(bytes[] path, bytes value);
-
-    /// @notice Returned when the membership value is empty.
-    error EmptyValue();
 }

@@ -16,8 +16,8 @@ use sp1_ics07_tendermint_prover::{
     programs::MisbehaviourProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::{HashableKey, ProverClient};
-use std::path::PathBuf;
+use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
+use std::{env, path::PathBuf};
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`SP1ICS07SubmitMisbehaviourFixture`] tests.
@@ -43,7 +43,13 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+    // TODO: Just use ProverClient::from_env() here once
+    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
+    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
+        Box::new(CpuProver::mock())
+    } else {
+        Box::new(ProverClient::from_env())
+    };
 
     // get light block for trusted height of header 1
     #[allow(clippy::cast_possible_truncation)]
@@ -98,8 +104,10 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     // use the client state from genesis_2 as the client state since they will both be the same
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state, false)?;
 
-    let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.proof_type, &sp1_prover);
+    let verify_misbehaviour_prover = SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(
+        args.proof_type,
+        sp1_prover.as_ref(),
+    );
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?

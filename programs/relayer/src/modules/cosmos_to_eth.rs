@@ -10,8 +10,6 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
-use sp1_prover::components::CpuProverComponents;
-use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
 use tendermint_rpc::{HttpClient, Url};
 use tonic::{Request, Response};
@@ -33,7 +31,7 @@ struct CosmosToEthRelayerModuleService {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The transaction builder for `EthEureka`.
-    pub tx_builder: TxBuilder<RootProvider, CpuProverComponents>,
+    pub tx_builder: TxBuilder<RootProvider>,
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -46,34 +44,12 @@ pub struct CosmosToEthConfig {
     pub ics26_address: Address,
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
-    /// The SP1 prover configuration.
-    pub sp1_config: SP1Config,
-}
-
-/// The configuration for the SP1 prover.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SP1Config {
-    /// Mock prover.
-    Mock,
-    /// Prover from environment variables. (Usually a network prover)
-    /// `sp1-sdk` expects the following environment variables:
-    /// - `SP1_PROVER`: The prover type. (mock, network, cpu, cuda)
-    /// - `NETWORK_PRIVATE_KEY`: The private key for the network prover. (only network)
-    /// - `NETWORK_RPC_URL`: The RPC URL for prover network. (only network, default exists if empty)
-    Env,
-    /// The network prover with explicit private key.
-    Network {
-        /// The private key for the network prover.
-        network_private_key: String,
-        /// The optional RPC URL for the network prover.
-        #[serde(default)]
-        network_rpc_url: Option<String>,
-    },
-    /// The local CPU prover.
-    Cpu,
-    /// The local CUDA prover.
-    Cuda,
+    /// The SP1 prover network private key.
+    #[serde(default)]
+    pub sp1_private_key: Option<String>,
+    /// Whether to run in mock mode.
+    #[serde(default)]
+    pub mock: bool,
 }
 
 impl CosmosToEthRelayerModuleService {
@@ -92,38 +68,21 @@ impl CosmosToEthRelayerModuleService {
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
-
-        let sp1_prover: Box<dyn Prover<CpuProverComponents>> = match config.sp1_config {
-            SP1Config::Mock => Box::new(ProverClient::builder().mock().build()),
-            SP1Config::Env => Box::new(ProverClient::from_env()),
-            SP1Config::Network {
-                network_private_key,
-                network_rpc_url,
-            } => Box::new(network_rpc_url.map_or_else(
-                || {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .build()
-                },
-                |rpc_url| {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .rpc_url(&rpc_url)
-                        .build()
-                },
-            )),
-            SP1Config::Cpu => Box::new(ProverClient::builder().cpu().build()),
-            SP1Config::Cuda => Box::new(ProverClient::builder().cuda().build()),
+        let submitter = if config.mock {
+            TxBuilder::new_mock(config.ics26_address, provider, tm_client)
+        } else {
+            TxBuilder::new(
+                config.ics26_address,
+                provider,
+                tm_client,
+                config.sp1_private_key,
+            )
         };
-
-        let tx_builder = TxBuilder::new(config.ics26_address, provider, tm_client, sp1_prover);
 
         Self {
             tm_listener,
             eth_listener,
-            tx_builder,
+            tx_builder: submitter,
         }
     }
 }

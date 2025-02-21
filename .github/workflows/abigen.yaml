@@ -3,11 +3,6 @@ name: abigen
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "abi/**"
-      - "abigen/**"
-      - "**.sol"
-      - "bun.lockb"
   push:
     branches:
       - "main"

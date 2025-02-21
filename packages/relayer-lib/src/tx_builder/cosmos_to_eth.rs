@@ -16,10 +16,10 @@ use ibc_eureka_solidity_types::{
 };
 
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::Prover;
+use sp1_sdk::{Prover, ProverClient};
 use tendermint_rpc::HttpClient;
 
-use sp1_prover::components::SP1ProverComponents;
+use sp1_prover::components::CpuProverComponents;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
@@ -31,35 +31,41 @@ use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
-pub struct TxBuilder<P, C>
-where
-    P: Provider + Clone,
-    C: SP1ProverComponents,
-{
+pub struct TxBuilder<P: Provider + Clone> {
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<(), P>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
-    /// SP1 prover for generating proofs.
-    pub sp1_prover: Box<dyn Prover<C>>,
+    /// The SP1 private key for the prover network
+    /// Uses the local prover if not set
+    pub sp1_private_key: Option<String>,
+    /// Whether the builder is in mock mode.
+    mock: bool,
 }
 
-impl<P, C> TxBuilder<P, C>
-where
-    P: Provider + Clone,
-    C: SP1ProverComponents,
-{
+impl<P: Provider + Clone> TxBuilder<P> {
     /// Create a new [`TxBuilder`] instance.
     pub const fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
-        sp1_prover: Box<dyn Prover<C>>,
+        sp1_private_key: Option<String>,
     ) -> Self {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
-            sp1_prover,
+            sp1_private_key,
+            mock: false,
+        }
+    }
+
+    /// Create a new mock [`TxBuilder`] instance.
+    pub const fn new_mock(ics26_address: Address, provider: P, tm_client: HttpClient) -> Self {
+        Self {
+            ics26_router: routerInstance::new(ics26_address, provider),
+            tm_client,
+            sp1_private_key: None,
+            mock: true,
         }
     }
 
@@ -76,13 +82,32 @@ where
                 .into(),
         )
     }
+
+    /// Get the prover to use for generating SP1 proofs.
+    // TODO: Support other prover types (#233)
+    #[allow(clippy::option_if_let_else)]
+    pub fn sp1_prover(&self) -> Box<dyn Prover<CpuProverComponents>> {
+        if self.mock {
+            return Box::new(ProverClient::builder().mock().build());
+        }
+
+        if let Some(sp1_private_key) = &self.sp1_private_key {
+            Box::new(
+                ProverClient::builder()
+                    .network()
+                    .private_key(sp1_private_key)
+                    .build(),
+            )
+        } else {
+            Box::new(ProverClient::builder().cpu().build())
+        }
+    }
 }
 
 #[async_trait::async_trait]
-impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
-    C: SP1ProverComponents,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
@@ -131,7 +156,7 @@ where
         let client_state = self.client_state(target_client_id).await?;
 
         inject_sp1_proof(
-            self.sp1_prover.as_ref(),
+            self.sp1_prover(),
             &mut all_msgs,
             &self.tm_client,
             latest_light_block,

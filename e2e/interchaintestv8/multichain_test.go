@@ -393,16 +393,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config string
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = testvalues.EnvValueSp1Prover_Mock
-		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = "env"
-		default:
-			s.Require().Fail("Unsupported prover type: %s", prover)
-		}
-
 		configInfo = relayer.MultichainConfigInfo{
 			ChainAID:            simdA.Config().ChainID,
 			ChainBID:            simdB.Config().ChainID,
@@ -414,8 +404,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			ICS26Address:        s.contractAddresses.Ics26Router,
 			EthRPC:              eth.RPC,
 			BeaconAPI:           beaconAPI,
-			SP1Config:           sp1Config,
+			SP1PrivateKey:       os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
 			MockWasmClient:      os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			MockSP1Client:       prover == testvalues.EnvValueSp1Prover_Mock,
 		}
 
 		err := configInfo.GenerateMultichainConfigFile(testvalues.RelayerConfigFilePath)
@@ -576,8 +567,6 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().NoError(err)
 		s.Require().Equal(simdB.Config().ChainID, clientState.ChainId)
 	}))
-
-	time.Sleep(5 * time.Second) // wait for the relayer to start
 
 	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
 		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{

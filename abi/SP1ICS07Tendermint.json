@@ -219,6 +219,59 @@
   },
   {
     "type": "function",
+    "name": "membership",
+    "inputs": [
+      {
+        "name": "msgMembership",
+        "type": "tuple",
+        "internalType": "struct ILightClientMsgs.MsgMembership",
+        "components": [
+          {
+            "name": "proof",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "proofHeight",
+            "type": "tuple",
+            "internalType": "struct IICS02ClientMsgs.Height",
+            "components": [
+              {
+                "name": "revisionNumber",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "revisionHeight",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "path",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "value",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "misbehaviour",
     "inputs": [
       {
@@ -280,107 +333,6 @@
     ],
     "outputs": [],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "verifyMembership",
-    "inputs": [
-      {
-        "name": "msg_",
-        "type": "tuple",
-        "internalType": "struct ILightClientMsgs.MsgVerifyMembership",
-        "components": [
-          {
-            "name": "proof",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "proofHeight",
-            "type": "tuple",
-            "internalType": "struct IICS02ClientMsgs.Height",
-            "components": [
-              {
-                "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
-              },
-              {
-                "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
-              }
-            ]
-          },
-          {
-            "name": "path",
-            "type": "bytes[]",
-            "internalType": "bytes[]"
-          },
-          {
-            "name": "value",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "verifyNonMembership",
-    "inputs": [
-      {
-        "name": "msg_",
-        "type": "tuple",
-        "internalType": "struct ILightClientMsgs.MsgVerifyNonMembership",
-        "components": [
-          {
-            "name": "proof",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "proofHeight",
-            "type": "tuple",
-            "internalType": "struct IICS02ClientMsgs.Height",
-            "components": [
-              {
-                "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
-              },
-              {
-                "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
-              }
-            ]
-          },
-          {
-            "name": "path",
-            "type": "bytes[]",
-            "internalType": "bytes[]"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "error",
@@ -466,11 +418,6 @@
         "internalType": "bytes32"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "EmptyValue",
-    "inputs": []
   },
   {
     "type": "error",

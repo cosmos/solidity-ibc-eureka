@@ -23,7 +23,7 @@ import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
 /// @custom:poc This is a proof of concept implementation.
-contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall {
+contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, Multicall {
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -127,51 +127,33 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         return updateResult;
     }
 
-    /// @inheritdoc ILightClient
-    function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_)
-        external
-        notFrozen
-        returns (uint256)
-    {
-        require(msg_.value.length > 0, EmptyValue());
-        return membership(msg_.proof, msg_.proofHeight, msg_.path, msg_.value);
-    }
-
-    /// @inheritdoc ILightClient
-    function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_)
-        external
-        notFrozen
-        returns (uint256)
-    {
-        return membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
-    }
-
     /// @notice The entrypoint for verifying (non)membership proof.
-    /// @dev This is a non-membership proof if the value is empty.
-    /// @param proof The encoded proof.
-    /// @param proofHeight The height of the proof.
-    /// @param path The path of the key-value pair.
-    /// @param value The value of the key-value pair.
+    /// @param msgMembership The membership message.
     /// @return timestamp The timestamp of the trusted consensus state.
-    function membership(
-        bytes calldata proof,
-        IICS02ClientMsgs.Height calldata proofHeight,
-        bytes[] calldata path,
-        bytes memory value
-    )
-        private
+    /// @inheritdoc ILightClient
+    function membership(ILightClientMsgs.MsgMembership calldata msgMembership)
+        public
+        notFrozen
         returns (uint256 timestamp)
     {
-        if (proof.length == 0) {
+        if (msgMembership.proof.length == 0) {
             // cached proof
-            return getCachedKvPair(proofHeight.revisionHeight, IMembershipMsgs.KVPair(path, value));
+            return getCachedKvPair(
+                msgMembership.proofHeight.revisionHeight,
+                IMembershipMsgs.KVPair(msgMembership.path, msgMembership.value)
+            );
         }
 
-        IMembershipMsgs.MembershipProof memory membershipProof = abi.decode(proof, (IMembershipMsgs.MembershipProof));
+        IMembershipMsgs.MembershipProof memory membershipProof =
+            abi.decode(msgMembership.proof, (IMembershipMsgs.MembershipProof));
         if (membershipProof.proofType == IMembershipMsgs.MembershipProofType.SP1MembershipProof) {
-            return handleSP1MembershipProof(proofHeight, membershipProof.proof, path, value);
+            return handleSP1MembershipProof(
+                msgMembership.proofHeight, membershipProof.proof, msgMembership.path, msgMembership.value
+            );
         } else if (membershipProof.proofType == IMembershipMsgs.MembershipProofType.SP1MembershipAndUpdateClientProof) {
-            return handleSP1UpdateClientAndMembership(proofHeight, membershipProof.proof, path, value);
+            return handleSP1UpdateClientAndMembership(
+                msgMembership.proofHeight, membershipProof.proof, msgMembership.path, msgMembership.value
+            );
         }
 
         // unreachable
@@ -216,7 +198,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes memory proofBytes,
         bytes[] calldata kvPath,
-        bytes memory kvValue
+        bytes calldata kvValue
     )
         private
         returns (uint256)
@@ -276,7 +258,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes memory proofBytes,
         bytes[] calldata kvPath,
-        bytes memory kvValue
+        bytes calldata kvValue
     )
         private
         returns (uint256)

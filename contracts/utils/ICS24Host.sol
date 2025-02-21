@@ -10,9 +10,15 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
+    /// @notice Packet receipt types
+    enum PacketReceipt {
+        NONE,
+        SUCCESSFUL
+    }
+
     /// @notice successful packet receipt
-    /// @dev It doesn't matter what the value is, as long as it's not empty
-    bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 = keccak256(bytes("SUCCESSFUL"));
+    bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 =
+        keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
 
     /// @notice Universal error acknowledgement
     /// @dev The error acknowledgement used when a packet is not successfully received
@@ -155,7 +161,6 @@ library ICS24Host {
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
-        require(acks.length > 0, IICS24HostErrors.NoAcknowledgements());
         bytes memory ackBytes = "";
         for (uint256 i = 0; i < acks.length; i++) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
