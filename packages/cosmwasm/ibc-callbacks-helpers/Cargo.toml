@@ -1,0 +1,13 @@
+[package]
+name       = "cw-ibc-callbacks-helpers"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+serde      = { workspace = true, features = ["derive"] }
+prost      = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+
+ibc-proto-eureka    = { workspace = true }
