@@ -4,8 +4,9 @@ go 1.23.6
 
 require (
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.4.1-0.20240728184249-44562d751b0e
-	github.com/cosmos/ibc-go/v9 v9.0.0
+	github.com/cosmos/ibc-go/v10 v10.0.0
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 v8.0.0
+
 )
 
 require (
@@ -18,13 +19,13 @@ require (
 	cosmossdk.io/api v0.7.6 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.1 // indirect
-	cosmossdk.io/depinject v1.0.0 // indirect
+	cosmossdk.io/depinject v1.1.0 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/log v1.4.1 // indirect
 	cosmossdk.io/math v1.4.0 // indirect
 	cosmossdk.io/store v1.1.1 // indirect
 	cosmossdk.io/x/feegrant v0.1.1 // indirect
-	cosmossdk.io/x/tx v0.13.6 // indirect
+	cosmossdk.io/x/tx v0.13.7 // indirect
 	cosmossdk.io/x/upgrade v0.1.4 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
@@ -35,7 +36,6 @@ require (
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/attestantio/go-eth2-client v0.21.11 // indirect
 	github.com/avast/retry-go/v4 v4.5.1 // indirect
@@ -61,11 +61,11 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.0 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
-	github.com/cosmos/cosmos-sdk v0.50.10 // indirect
+	github.com/cosmos/cosmos-sdk v0.50.11 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
-	github.com/cosmos/iavl v1.2.0 // indirect
+	github.com/cosmos/iavl v1.2.2 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
@@ -203,7 +203,7 @@ require (
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/shamaton/msgpack/v2 v2.2.0 // indirect
-	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
@@ -215,14 +215,15 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/supranational/blst v0.3.13 // indirect
+	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/btree v1.7.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.12 // indirect
-	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/tklauser/go-sysconf v0.3.13 // indirect
+	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	github.com/zondax/hid v0.9.2 // indirect
 	github.com/zondax/ledger-go v0.14.3 // indirect
 	go.etcd.io/bbolt v1.4.0-alpha.1 // indirect
@@ -277,9 +278,10 @@ replace (
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 => ../../e2e/interchaintestv8/
 )
 
-replace (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250208010037-77030e25fbc3
-	github.com/cosmos/ibc-go/v9 => github.com/cosmos/ibc-go/v9 v9.0.0-20250208010037-77030e25fbc3
-)
+replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 
-replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250207235834-7fa4ae7a13be
+replace (
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250215063629-7325bd2b00fd
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0-20250215063629-7325bd2b00fd
+	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-20250215063629-7325bd2b00fd
+)

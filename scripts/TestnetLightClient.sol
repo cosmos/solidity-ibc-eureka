@@ -12,7 +12,11 @@ contract TestnetLightClient is ILightClient, ILightClientMsgs {
         return UpdateResult.Update;
     }
 
-    function membership(MsgMembership calldata) external pure returns (uint256) {
+    function verifyMembership(MsgVerifyMembership calldata) external pure returns (uint256) {
+        return 42;
+    }
+
+    function verifyNonMembership(MsgVerifyNonMembership calldata) external pure returns (uint256) {
         return 42;
     }
 
