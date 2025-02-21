@@ -46,9 +46,9 @@ export RELAYER_WALLET="ask-icl-team-for-the-testing-key"
 
 **You can retrieve a Cosmos `unarmored-hex` private key by:**
 
-1. Installing a node daemon CLI: `simd` or <code><a href="https://github.com/cosmos/gaia">gaiad</a></code>
+1. Installing a node daemon CLI: `simd` or <code><a href="https://github.com/cosmos/gaia">gaiad</a></code>.
 2. Adding keys to the daemon CLI: `gaiad keys add <account-name> --recover`
-3. Entering the BIP-39 mnemonic for the account you want to add
+3. Entering the BIP-39 mnemonic for the account you want to add. (Remove `--recover` to generate new)
 4. Exporting the unarmored hex: `gaiad keys export <account-name> --unarmored-hex --unsafe`
 
 **:information_source: For devnet, we are providing relayer keys manually, reach out to the ICL team for one**
@@ -57,6 +57,11 @@ export RELAYER_WALLET="ask-icl-team-for-the-testing-key"
 
 ### Transfer ERC20 Tokens from Ethereum to Cosmos
 
+```bash
+# Usage:
+eureka-cli transfer-from-eth-to-cosmos [amount] [erc20-contract-address] [to-address] [flags]
+```
+Example:
 ```bash
 go run ./ transfer-from-eth-to-cosmos 1 0xA4ff49eb6E2Ea77d7D8091f1501385078642603f 0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3 \
   --eth-rpc="https://ethereum-sepolia-rpc.publicnode.com" \
@@ -67,6 +72,11 @@ This will give you a `tx hash` in the output.
 
 ### Relay the Transaction
 
+```bash
+# Usage:
+eureka-cli relay_tx [txHash] [flags]
+```
+Example:
 ```bash
 go run ./ relay_tx 0xed13b2567a00eae7d0a6c8e24d1cf6342116d1d89d72ff9b52b690cdd3a5dd98 \
   --eth-rpc="https://ethereum-sepolia-rpc.publicnode.com" \
