@@ -577,6 +577,8 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().Equal(simdB.Config().ChainID, clientState.ChainId)
 	}))
 
+	time.Sleep(5 * time.Second) // wait for the relayer to start
+
 	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
 		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
 			SrcChain: simdA.Config().ChainID,
