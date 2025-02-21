@@ -50,11 +50,13 @@ func RelayTxCmd() *cobra.Command {
 			txHashHexStr := args[0]
 
 			// Get flags
-			cosmosPrivateKeyStr := os.Getenv(EnvRelayerWallet)
-			if cosmosPrivateKeyStr == "" {
-				return fmt.Errorf("%s env var not set", EnvCosmosPrivateKey)
+			// Get Relayer Private Key
+			cosmosRelayerPrivateKeyStr := os.Getenv(EnvRelayerWallet)
+			if cosmosRelayerPrivateKeyStr == "" {
+				return fmt.Errorf("%s env var not set", EnvRelayerWallet)
 			}
-			cosmosPrivateKey, err := utils.CosmosPrivateKeyFromHex(cosmosPrivateKeyStr)
+			// Get flags
+			cosmosRelayerPrivateKey, err := utils.CosmosPrivateKeyFromHex(cosmosRelayerPrivateKeyStr)
 			if err != nil {
 				return err
 			}
@@ -85,7 +87,7 @@ func RelayTxCmd() *cobra.Command {
 			}
 
 			// Set up everything we need to relay
-			cosmosAddress := sdk.AccAddress(cosmosPrivateKey.PubKey().Address())
+			cosmosAddress := sdk.AccAddress(cosmosRelayerPrivateKey.PubKey().Address())
 
 			grpcConn, err := GetCosmosGRPC(cmd)
 			if err != nil {
@@ -153,7 +155,7 @@ func RelayTxCmd() *cobra.Command {
 			txBuilder.SetMsgs(msgs...)
 
 			sigV2 := signing.SignatureV2{
-				PubKey: cosmosPrivateKey.PubKey(),
+				PubKey: cosmosRelayerPrivateKey.PubKey(),
 				Data: &signing.SingleSignatureData{
 					SignMode:  signing.SignMode(app.TxConfig().SignModeHandler().DefaultMode()),
 					Signature: nil,
@@ -175,7 +177,7 @@ func RelayTxCmd() *cobra.Command {
 				signing.SignMode(app.TxConfig().SignModeHandler().DefaultMode()),
 				signerData,
 				txBuilder,
-				cosmosPrivateKey,
+				cosmosRelayerPrivateKey,
 				app.TxConfig(),
 				accountRes.Info.Sequence,
 			)
