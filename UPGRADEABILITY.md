@@ -1,6 +1,6 @@
 # Upgrading the Solidity Contracts
 
-This repository contains the Solidity contracts for IBC Eureka. These contracts are upgradeable through proxies. The UUPS proxy pattern is used for the core IBC contracts, while the beacon proxy pattern is used for contracts that are deployed by the core IBC contracts.
+This repository houses the Solidity contracts for IBC Eureka, designed with upgradeability in mind. The core IBC contracts utilize the UUPS proxy pattern, ensuring controlled and efficient upgrades, while contracts deployed by the core IBC contracts follow the beacon proxy pattern for streamlined management and scalability.
 
 | **Contract* | **Autority** | **Proxy Pattern** | **Upgrade Function** |
 |:---:|:---:|:---:|:---:|
