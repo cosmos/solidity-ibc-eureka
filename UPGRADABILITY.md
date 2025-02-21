@@ -8,3 +8,5 @@ This repository contains the Solidity contracts for IBC Eureka. These contracts 
 | `ICS20Transfer.sol` | [Admins](./README.md#security-assumptions) | [UUPSUpgradeable](https://docs.openzeppelin.com/contracts/5.x/api/proxy#UUPSUpgradeable) | `ICS20Transfer::upgradeToAndCall` |
 | `Escrow.sol` | `ICS20Transfer` | [Beacon](https://docs.openzeppelin.com/contracts/5.x/api/proxy#BeaconProxy) | `ICS20Transfer::upgradeEscrowTo` |
 | `IBCERC20.sol` | `ICS20Transfer` | [Beacon](https://docs.openzeppelin.com/contracts/5.x/api/proxy#BeaconProxy) | `ICS20Transfer::upgradeIBCERC20To` |
+
+![Light Mode Diagram](./docs/assets/upgradeability-light.svg#gh-light-mode-only)![Dark Mode Diagram](./docs/assets/upgradeability-dark.svg#gh-dark-mode-only)
