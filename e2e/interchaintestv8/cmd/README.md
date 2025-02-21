@@ -16,6 +16,8 @@ This tool is currently in `devnet` phase.
 - Go 1.19 or later
 - Access to Ethereum and Cosmos endpoints
 - Private keys for both chains
+- Sepolia ETH for Ethereum gas fees on the Sepolia Testnet
+- An ERC20 token on Sepolia Ethereum such as our [$TNERC](https://sepolia.etherscan.io/token/0xa4ff49eb6e2ea77d7d8091f1501385078642603f)
 
 ## Installation
 
@@ -82,4 +84,20 @@ go run ./ relay_tx 0xed13b2567a00eae7d0a6c8e24d1cf6342116d1d89d72ff9b52b690cdd3a
   --eth-rpc="https://ethereum-sepolia-rpc.publicnode.com" \
   --cosmos-rpc="https://eureka-devnet-node-01-rpc.dev.skip.build:443" \
   --verbose
+```
+
+### Check Balance of ETH Account
+
+```bash
+# Usage:
+eureka-cli balance [address] [optional-denom-or-erc20-address] [flags]
+```
+Example:
+```bash
+go run ./ balance 0x94B00F484232D55Cc892BbE0b0C1c4a9ad112098
+```
+Output:
+```bash
+0xA4ff49eb6E2Ea77d7D8091f1501385078642603f: 999999997
+ETH: 0.092298623946995983
 ```
