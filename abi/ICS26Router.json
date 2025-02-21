@@ -481,6 +481,78 @@
   },
   {
     "type": "function",
+    "name": "queryAckCommitment",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "queryPacketCommitment",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "queryPacketReceipt",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "recvPacket",
     "inputs": [
       {
@@ -898,6 +970,18 @@
     "name": "AckPacket",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -1050,73 +1134,6 @@
   },
   {
     "type": "event",
-    "name": "RecvPacket",
-    "inputs": [
-      {
-        "name": "packet",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct IICS26RouterMsgs.Packet",
-        "components": [
-          {
-            "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "sourceClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "destClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "payloads",
-            "type": "tuple[]",
-            "internalType": "struct IICS26RouterMsgs.Payload[]",
-            "components": [
-              {
-                "name": "sourcePort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "destPort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "version",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "encoding",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "value",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "RoleAdminChanged",
     "inputs": [
       {
@@ -1195,6 +1212,18 @@
     "name": "SendPacket",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -1261,6 +1290,18 @@
     "type": "event",
     "name": "TimeoutPacket",
     "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
       {
         "name": "packet",
         "type": "tuple",
@@ -1341,6 +1382,18 @@
     "type": "event",
     "name": "WriteAcknowledgement",
     "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
       {
         "name": "packet",
         "type": "tuple",
@@ -1508,6 +1561,11 @@
   },
   {
     "type": "error",
+    "name": "IBCFailedCallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCInvalidClientType",
     "inputs": [
       {
@@ -1656,6 +1714,11 @@
         "internalType": "bytes[]"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "NoAcknowledgements",
+    "inputs": []
   },
   {
     "type": "error",

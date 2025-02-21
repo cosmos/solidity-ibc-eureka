@@ -32,6 +32,24 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
         return _getIBCStoreStorage().commitments[hashedPath];
     }
 
+    /// @inheritdoc IIBCStore
+    function queryPacketReceipt(string calldata clientId, uint64 sequence) public view override returns (bool) {
+        bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(clientId, sequence);
+        return getCommitment(path) == ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
+    }
+
+    /// @inheritdoc IIBCStore
+    function queryPacketCommitment(string calldata clientId, uint64 sequence) public view override returns (bytes32) {
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(clientId, sequence);
+        return getCommitment(path);
+    }
+
+    /// @inheritdoc IIBCStore
+    function queryAckCommitment(string calldata clientId, uint64 sequence) public view override returns (bytes32) {
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(clientId, sequence);
+        return getCommitment(path);
+    }
+
     /// @dev Returns the next sequence send for the given client
     /// @param clientId The client ID
     /// @return The next sequence send for the given client
@@ -62,24 +80,27 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
 
     /// @notice Deletes the packet commitment for the given packet if it exists
     /// @param packet Packet to delete the commitment for
-    /// @return True if the packet commitment was deleted, false otherwise
-    /// @return The commitment that was deleted
-    function deletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal returns (bool, bytes32) {
+    /// @return True if the packet commitment was found and then deleted, false otherwise
+    function checkAndDeletePacketCommitment(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
         bytes32 commitment = $.commitments[path];
         if (commitment == 0) {
-            return (false, 0);
+            return false;
         }
+        require(
+            commitment == ICS24Host.packetCommitmentBytes32(packet),
+            IBCPacketCommitmentMismatch(commitment, ICS24Host.packetCommitmentBytes32(packet))
+        );
 
         delete $.commitments[path];
-        return (true, commitment);
+        return true;
     }
 
     /// @notice Sets the packet receipt for the given packet if it doesn't already exist
     /// @param packet Packet to set the receipt for
-    /// @return True if the packet receipt was set, false otherwise
+    /// @return True if the packet receipt was not already set, and then set by this call, false otherwise
     function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
