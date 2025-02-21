@@ -284,7 +284,7 @@ Until **govAdmin** is implemented, the **Security Council** remains the sole adm
 
 - Assign or modify the other admin.
 - Manage roles on IBC contracts.
-- Upgrade IBC contracts.
+- Upgrade IBC contracts. Learn more about [upgrading the Solidity contracts](./UPGRADABILITY.md).
 
 #### Key Distinction Between Admins
 
