@@ -15,8 +15,8 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
-use std::{env, path::PathBuf};
+use sp1_sdk::{HashableKey, ProverClient};
+use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`UpdateClientProgram`] tests.
@@ -46,17 +46,9 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    // TODO: Just use ProverClient::from_env() here once
-    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
-    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
-        Box::new(CpuProver::mock())
-    } else {
-        Box::new(ProverClient::from_env())
-    };
-    let uc_prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
-        args.proof_type,
-        sp1_prover.as_ref(),
-    );
+    let sp1_prover = ProverClient::from_env();
+    let uc_prover =
+        SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.proof_type, &sp1_prover);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.trusted_block))

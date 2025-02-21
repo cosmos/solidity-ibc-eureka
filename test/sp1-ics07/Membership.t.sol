@@ -48,14 +48,14 @@ contract SP1ICS07MembershipTest is MembershipTest {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
-            MsgMembership memory membershipMsg = MsgMembership({
+            MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
                 proof: abi.encode(fixture.membershipProof),
                 proofHeight: fixture.proofHeight,
                 path: verifyMembershipPath,
                 value: VERIFY_MEMBERSHIP_VALUE
             });
 
-            ics07Tendermint.membership(membershipMsg);
+            ics07Tendermint.verifyMembership(membershipMsg);
 
             console.log("VerifyMembership-", testCases[i].name, " gas used: ", vm.lastCallGas().gasTotalUsed);
         }
@@ -69,14 +69,13 @@ contract SP1ICS07MembershipTest is MembershipTest {
             FixtureTestCase memory tc = testCases[i];
             setUpMembershipTestWithFixture(tc.fileName);
 
-            MsgMembership memory nonMembershipMsg = MsgMembership({
+            MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
                 proof: abi.encode(fixture.membershipProof),
                 proofHeight: fixture.proofHeight,
-                path: verifyNonMembershipPath,
-                value: bytes("")
+                path: verifyNonMembershipPath
             });
 
-            ics07Tendermint.membership(nonMembershipMsg);
+            ics07Tendermint.verifyNonMembership(nonMembershipMsg);
 
             console.log("VerifyNonMembership-", testCases[i].name, " gas used: ", vm.lastCallGas().gasTotalUsed);
         }
@@ -86,47 +85,46 @@ contract SP1ICS07MembershipTest is MembershipTest {
         // It doesn't matter which fixture we use, as proofs will be cached
         setUpMembershipTestWithFixture("memberships_fixture-plonk.json");
 
-        MsgMembership memory membershipMsg = MsgMembership({
+        MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
             proof: abi.encode(fixture.membershipProof),
             proofHeight: fixture.proofHeight,
             path: verifyMembershipPath,
             value: VERIFY_MEMBERSHIP_VALUE
         });
 
-        ics07Tendermint.membership(membershipMsg);
+        ics07Tendermint.verifyMembership(membershipMsg);
 
         // resubmit cached membership proof
-        MsgMembership memory cachedMembershipMsg = MsgMembership({
+        MsgVerifyMembership memory cachedMembershipMsg = MsgVerifyMembership({
             proof: bytes(""),
             proofHeight: fixture.proofHeight,
             path: verifyMembershipPath,
             value: VERIFY_MEMBERSHIP_VALUE
         });
-        ics07Tendermint.membership(cachedMembershipMsg);
+        ics07Tendermint.verifyMembership(cachedMembershipMsg);
 
         console.log("Cached VerifyMembership gas used: ", vm.lastCallGas().gasTotalUsed);
 
         // resubmit cached non-membership proof
-        MsgMembership memory cachedNonMembershipMsg = MsgMembership({
+        MsgVerifyNonMembership memory cachedNonMembershipMsg = MsgVerifyNonMembership({
             proof: bytes(""),
             proofHeight: fixture.proofHeight,
-            path: verifyNonMembershipPath,
-            value: bytes("")
+            path: verifyNonMembershipPath
         });
 
-        ics07Tendermint.membership(cachedNonMembershipMsg);
+        ics07Tendermint.verifyNonMembership(cachedNonMembershipMsg);
 
         console.log("Cached VerifyNonMembership gas used: ", vm.lastCallGas().gasTotalUsed);
 
         // resubmit invalid cached membership proof
-        MsgMembership memory invalidCachedMembershipMsg = MsgMembership({
+        MsgVerifyMembership memory invalidCachedMembershipMsg = MsgVerifyMembership({
             proof: bytes(""),
             proofHeight: fixture.proofHeight,
             path: verifyMembershipPath,
             value: bytes("invalid")
         });
         vm.expectRevert(abi.encodeWithSelector(KeyValuePairNotInCache.selector, verifyMembershipPath, bytes("invalid")));
-        ics07Tendermint.membership(invalidCachedMembershipMsg);
+        ics07Tendermint.verifyMembership(invalidCachedMembershipMsg);
     }
 
     // Confirm that submitting an invalid proof with the real verifier fails.
@@ -143,15 +141,14 @@ contract SP1ICS07MembershipTest is MembershipTest {
             MembershipProof memory membershipProof =
                 MembershipProof({ proofType: MembershipProofType.SP1MembershipProof, proof: abi.encode(proofMsg) });
 
-            MsgMembership memory membershipMsg = MsgMembership({
+            MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
                 proof: abi.encode(membershipProof),
                 proofHeight: fixture.proofHeight,
-                path: verifyNonMembershipPath,
-                value: bytes("")
+                path: verifyNonMembershipPath
             });
 
             vm.expectRevert();
-            ics07Tendermint.membership(membershipMsg);
+            ics07Tendermint.verifyNonMembership(nonMembershipMsg);
         }
     }
 
@@ -264,18 +261,42 @@ contract SP1ICS07MembershipTest is MembershipTest {
             Height memory proofHeight = fixture.proofHeight;
             proofHeight.revisionHeight = tc.proofHeight;
 
-            MsgMembership memory membershipMsg = MsgMembership({
-                proof: abi.encode(membershipProof),
-                proofHeight: proofHeight,
-                path: tc.path,
-                value: tc.value
-            });
-
             if (tc.expPass) {
-                mockIcs07Tendermint.membership(membershipMsg);
+                if (tc.value.length > 0) {
+                    MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
+                        proof: abi.encode(membershipProof),
+                        proofHeight: proofHeight,
+                        path: tc.path,
+                        value: tc.value
+                    });
+                    mockIcs07Tendermint.verifyMembership(membershipMsg);
+                } else {
+                    MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
+                        proof: abi.encode(membershipProof),
+                        proofHeight: proofHeight,
+                        path: tc.path
+                    });
+                    mockIcs07Tendermint.verifyNonMembership(membershipMsg);
+                }
             } else {
-                vm.expectRevert();
-                mockIcs07Tendermint.membership(membershipMsg);
+                if (tc.value.length > 0) {
+                    MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
+                        proof: abi.encode(membershipProof),
+                        proofHeight: proofHeight,
+                        path: tc.path,
+                        value: tc.value
+                    });
+                    vm.expectRevert();
+                    mockIcs07Tendermint.verifyMembership(membershipMsg);
+                } else {
+                    MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
+                        proof: abi.encode(membershipProof),
+                        proofHeight: proofHeight,
+                        path: tc.path
+                    });
+                    vm.expectRevert();
+                    mockIcs07Tendermint.verifyNonMembership(membershipMsg);
+                }
             }
         }
     }

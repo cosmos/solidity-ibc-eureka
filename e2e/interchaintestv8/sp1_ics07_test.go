@@ -269,14 +269,14 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        membershipKey,
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -307,14 +307,13 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        nonMembershipKey,
-			Value:       []byte(""),
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyNonMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -395,14 +394,14 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        membershipKey,
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -695,14 +694,14 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 			)
 			s.Require().NoError(err)
 
-			msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+			msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 				ProofHeight: *proofHeight,
 				Proof:       memProof,
 				Path:        membershipKeys[rndIdx],
 				Value:       expValue,
 			}
 
-			tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+			tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 			s.Require().NoError(err)
 
 			// wait until transaction is included in a block
