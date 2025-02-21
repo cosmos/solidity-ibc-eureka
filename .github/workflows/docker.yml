@@ -7,6 +7,12 @@ on:
       - 'relayer-v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch: # this will kick off a dev deployment
   pull_request:
+    paths:
+      - '**.rs'
+      - '**.toml'
+      - '**.lock'
+      - '**.proto'
+      - 'abi/**'
 jobs:
   build-relayer:
     runs-on: ubuntu-latest
