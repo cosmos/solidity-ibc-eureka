@@ -12,7 +12,7 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
 };
 use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{utils::setup_logger, CpuProver, HashableKey, Prover, ProverClient};
+use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
 use tendermint_rpc::HttpClient;
 
 /// Runs the update client program in a loop.
@@ -37,16 +37,10 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let contract_client_state = contract.clientState().call().await?;
     let tendermint_rpc_client = HttpClient::from_env();
 
-    // TODO: Just use ProverClient::from_env() here once
-    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
-    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
-        Box::new(CpuProver::mock())
-    } else {
-        Box::new(ProverClient::from_env())
-    };
+    let sp1_prover = ProverClient::from_env();
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
         contract_client_state.zkAlgorithm.try_into()?,
-        sp1_prover.as_ref(),
+        &sp1_prover,
     );
 
     loop {

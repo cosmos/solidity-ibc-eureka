@@ -19,14 +19,12 @@ type EthCosmosConfigInfo struct {
 	EthRPC string
 	// Ethereum Beacon API URL
 	BeaconAPI string
-	// SP1 private key
-	SP1PrivateKey string
+	// SP1 config, "mock" or "env"
+	SP1Config string
 	// Signer address cosmos
 	SignerAddress string
 	// Whether we use the mock client in Cosmos
 	MockWasmClient bool
-	// Whether we use the mock SP1 client
-	MockSP1Client bool
 }
 
 // GenerateEthCosmosConfigFile generates an eth to cosmos config file from the template.
