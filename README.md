@@ -9,7 +9,7 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between ethereum and a Cosmos SDK chain.
+This is a work-in-progress IBC Eureka in Solidity. IBC Eureka is an implementation of IBC v2, a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
 ## Overview
 
