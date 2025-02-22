@@ -56,8 +56,6 @@ const (
 	RelayerURL = "eureka-devnet-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
-
-	FlagVerbose = "verbose"
 )
 
 func main() {
@@ -76,8 +74,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(TransferFromEth())
 	rootCmd.AddCommand(RelayTxCmd())
 	rootCmd.AddCommand(BalanceCmd())
-
-	rootCmd.PersistentFlags().Bool("verbose", false, "Print verbose output")
+	rootCmd.AddCommand(TransferFromCosmos())
 
 	return rootCmd
 }

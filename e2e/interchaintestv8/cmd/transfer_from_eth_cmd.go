@@ -66,6 +66,9 @@ func TransferFromEth() *cobra.Command {
 			erc20Contract, err := erc20.NewContract(erc20Address, ethClient)
 
 			ethChainID, err := ethClient.ChainID(ctx)
+			if err != nil {
+				return err
+			}
 			ethPrivKey := utils.EthPrivateKeyFromHex(ethPrivateKeyStr)
 			ethereumUserAddress := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
 
