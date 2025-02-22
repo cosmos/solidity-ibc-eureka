@@ -12,6 +12,7 @@ import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
 import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
