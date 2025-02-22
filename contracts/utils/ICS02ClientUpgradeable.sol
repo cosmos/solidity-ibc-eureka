@@ -118,6 +118,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         $.counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
         $.clients[subjectClientId] = substituteClient;
+
+        emit ICS02ClientMigrated(subjectClientId, substituteClientId);
     }
 
     /// @inheritdoc IICS02Client
@@ -134,6 +136,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
+        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
     }
 
     /// @inheritdoc IICS02Client
