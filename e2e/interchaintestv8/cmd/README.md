@@ -21,49 +21,55 @@ This tool is currently in `devnet` phase.
 
 ## Installation
 
+1. First clone the repository
 ```bash
-# Clone the repository
 git clone https://github.com/cosmos/solidity-ibc-eureka
 ```
 
+2. Navigate to where the repo now lives on your machine, and move into the cmd folder to build the CLI
+
 ```bash
-cd solidity-ibc-eureka/e2e/interchaintestv8
-# Build the CLI
+cd e2e/interchaintestv8/cmd
+```
+
+3. Build the CLI tool to test transferring and relaying Eureka packets on devnet
+```bash
 go build -o eureka-cli
 ```
 
 ## Keys
 
-Currently, you'll need to store your private keys for both Cosmos and Ethereum as environment variables.
+Once the CLI is built, the next steps are to set up the Ethereum Sepolia and Cosmos devnet keys and addresses to use. Currently, you'll need to store your private keys for both Cosmos and Ethereum as environment variables.
 
->:warning: Do not use mainnet keys for this testing CLI.
+  - > **warning:** Do not use mainnet keys for this testing CLI.
 
+There are three accounts required:
+1. `ETH_PRIVATE_KEY:` You can retrieve an Ethereum private key from within Metamask by creating a new account > navigating to "Account details" > and pressing "Show private key"
+    - To test a transfer from Ethereum Sepolia to the Cosmos Devnet, you'll need to have testnet ETH on this account. You can use any Ethereum Sepolia faucet for this, an example being: https://cloud.google.com/application/web3/faucet/ethereum/sepolia
+    - You'll also be transferring an ERC20 token. you can use https://tokentool.bitbond.com/create-token/erc20-token/ethereum-sepolia to create a new ERC20 token on Ethereum Sepolia Testnet and use that in your command to do a Eureka transfer from Sepolia Testnet to Cosmos Devnet.
+2. `COSMOS_PRIVATE_KEY:` This will be used as the receiver of an Ethereum Sepolia to Cosmos Devnet transfer, and the initiator of a transfer in the other direction. You can retrieve a Cosmos `unarmored-hex` private key by following the following steps:
+    1. Installing a node daemon CLI: `simd` or <code><a href="https://github.com/cosmos/gaia">gaiad</a></code>.
+    2. Adding keys to the daemon CLI: `gaiad keys add <account-name> --recover`
+    3. Entering the BIP-39 mnemonic for the account you want to add. (Remove `--recover` to generate new)
+    4. Exporting the unarmored hex: `gaiad keys export <account-name> --unarmored-hex --unsafe`
+3. `RELAYER_WALLET:` For devnet, we are providing relayer keys manually, reach out to the ICL team and we will provide the private key for your use. 
+
+Note: All three of the above are private keys, hexadecimal, 64 characters long.
+
+Once all the necessary private keys are obtained, run the following command to set them as environment variables:
 ```bash
 export ETH_PRIVATE_KEY="your-ethereum-private-key"
 export COSMOS_PRIVATE_KEY="your-cosmos-unarmored-hex-private-key"
 export RELAYER_WALLET="ask-icl-team-for-the-testing-key"
 ```
 
-All three of the above are private keys, hexadecimal, 64 characters long.
-
-**You can retrieve an Ethereum private key from within Metamask.**
-
-**You can retrieve a Cosmos `unarmored-hex` private key by:**
-
-1. Installing a node daemon CLI: `simd` or <code><a href="https://github.com/cosmos/gaia">gaiad</a></code>.
-2. Adding keys to the daemon CLI: `gaiad keys add <account-name> --recover`
-3. Entering the BIP-39 mnemonic for the account you want to add. (Remove `--recover` to generate new)
-4. Exporting the unarmored hex: `gaiad keys export <account-name> --unarmored-hex --unsafe`
-
-**:information_source: For devnet, we are providing relayer keys manually, reach out to the ICL team for one**
-
 ## Basic Commands
 
 ### Transfer ERC20 Tokens from Ethereum to Cosmos
 
+Format:
 ```bash
-# Usage:
-eureka-cli transfer-from-eth-to-cosmos [amount] [erc20-contract-address] [to-address] [flags]
+go run ./ transfer-from-eth-to-cosmos [amount] [erc20-contract-address] [to-address] [flags]
 ```
 
 Example:
@@ -79,9 +85,9 @@ This will give you a `tx hash` in the output.
 
 ### Relay the Transaction
 
+Format:
 ```bash
-# Usage:
-eureka-cli relay_tx [txHash] [flags]
+go run ./ relay_tx [txHash] [flags]
 ```
 
 Example:
