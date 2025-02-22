@@ -141,6 +141,23 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         getClient(clientId).upgradeClient(upgradeMsg);
     }
 
+    /// @inheritdoc IICS02Client
+    function grantLightClientMigratorRole(string calldata clientId, address account) external {
+        _authorizeSetLightClientMigratorRole(clientId, account);
+        _grantRole(getLightClientMigratorRole(clientId), account);
+    }
+
+    /// @inheritdoc IICS02Client
+    function revokeLightClientMigratorRole(string calldata clientId, address account) external {
+        _authorizeSetLightClientMigratorRole(clientId, account);
+        _revokeRole(getLightClientMigratorRole(clientId), account);
+    }
+
+    /// @notice Authorizes the granting or revoking of the light client migrator role
+    /// @param clientId The client identifier
+    /// @param account The account to authorize
+    function _authorizeSetLightClientMigratorRole(string calldata clientId, address account) internal virtual;
+
     /// @notice Returns the storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
