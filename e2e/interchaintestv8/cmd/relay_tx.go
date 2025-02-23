@@ -41,17 +41,11 @@ func RelayTxCmd() *cobra.Command {
 			// Get args
 			txHash := args[0]
 
-			// Get common flags
-			targetClientID, _ := cmd.Flags().GetString(FlagTargetClientID)
-			if targetClientID == "" {
-				return fmt.Errorf("target-client-id flag not set")
-			}
-
 			var err error
 			if strings.HasPrefix(txHash, "0x") {
-				err = relayFromEthToCosmos(ctx, cmd, txHash, targetClientID)
+				err = relayFromEthToCosmos(ctx, cmd, txHash)
 			} else {
-				err = relayFromCosmosToEth(ctx, cmd, txHash, targetClientID)
+				err = relayFromCosmosToEth(ctx, cmd, txHash)
 			}
 
 			if err != nil {
@@ -66,12 +60,13 @@ func RelayTxCmd() *cobra.Command {
 
 	AddEthFlags(cmd)
 	AddCosmosFlags(cmd)
-	cmd.Flags().String(FlagTargetClientID, "", "client id of the target (receiving) chain")
+	cmd.Flags().String(FlagCosmosClientIDOnEth, "", "target client id of the cosmos client on ethereum (used for relaying from cosmos to eth)")
+	cmd.Flags().String(FlagEthClientIDOnCosmos, "", "target client id of the ethereum client on cosmos (used for relaying from eth to cosmos)")
 
 	return cmd
 }
 
-func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr string, targetClientID string) error {
+func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr string) error {
 	fmt.Println("Relaying from Ethereum to Cosmos")
 	// get the flags we need
 	cosmosRPC, _ := cmd.Flags().GetString(FlagCosmosRPC)
@@ -81,6 +76,11 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	cosmosChainID, _ := cmd.Flags().GetString(FlagCosmosChainID)
 	if cosmosChainID == "" {
 		return fmt.Errorf("cosmos-chain-id flag not set")
+	}
+
+	targetClientID, _ := cmd.Flags().GetString(FlagEthClientIDOnCosmos)
+	if targetClientID == "" {
+		targetClientID = MockEthClientID
 	}
 
 	// Set up everything we need to relay
@@ -215,7 +215,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	return nil
 }
 
-func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string, targetClientID string) error {
+func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string) error {
 	fmt.Println("Relaying from Cosmos to Ethereum")
 	txHashBz, err := hex.DecodeString(txHash)
 	if err != nil {
@@ -223,6 +223,11 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	}
 
 	// get the flags we need
+	targetClientID, _ := cmd.Flags().GetString(FlagCosmosClientIDOnEth)
+	if targetClientID == "" {
+		targetClientID = MockTendermintClientID
+	}
+
 	cosmosChainID, _ := cmd.Flags().GetString(FlagCosmosChainID)
 	if cosmosChainID == "" {
 		return fmt.Errorf("cosmos-chain-id flag not set")

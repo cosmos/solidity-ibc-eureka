@@ -43,8 +43,9 @@ const (
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "highway-dev-1"
 
-	FlagSourceClientID = "source-client-id"
-	FlagTargetClientID = "target-client-id"
+	FlagSourceClientID      = "source-client-id"
+	FlagCosmosClientIDOnEth = "client-id-on-eth"
+	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	MockTendermintClientID = "client-0"
 	MockEthClientID        = "08-wasm-0"
