@@ -95,8 +95,7 @@ Example:
 ```bash
 go run ./ relay_tx 0xed13b2567a00eae7d0a6c8e24d1cf6342116d1d89d72ff9b52b690cdd3a5dd98 \
   --eth-rpc="https://ethereum-sepolia-rpc.publicnode.com" \
-  --cosmos-rpc="https://eureka-devnet-node-01-rpc.dev.skip.build:443" \
-  --verbose
+  --cosmos-rpc="https://eureka-devnet-node-01-rpc.dev.skip.build:443"
 ```
 
 ### Check Balance of ETH Account
