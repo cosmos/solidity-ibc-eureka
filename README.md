@@ -1,4 +1,4 @@
-# IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC v2 in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
 [gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
@@ -9,13 +9,13 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka in Solidity. IBC Eureka is an implementation of IBC v2, a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
+This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
 
-- [IBC Eureka in Solidity     ](#ibc-eureka-in-solidity-----)
+- [IBC v2 in Solidity     ](#ibc-v2-in-solidity-----)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
     - [Contracts](#contracts)
@@ -59,11 +59,11 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 
 | **Contracts** | **Description** | **Status** |
 |:---:|:---:|:---:|
-| `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
-| `ICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from another Eureka transfer implementation. | ✅ |
+| `ICS26Router.sol` | IBC v2 router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
+| `ICS20Transfer.sol` | IBC v2 transfer application to send and receive tokens to/from another IBC v2 transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
-| `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
-| `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
+| `ICS27Controller.sol` | IBC v2 interchain accounts controller. | ❌ |
+| `ICS27Host.sol` | IBC v2 interchain accounts host. | ❌ |
 
 ### SP1 Programs for the Light Client
 
@@ -144,12 +144,12 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 There are three test suites in the `e2e/interchaintestv8` directory:
 
-- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC Eureka contracts via manual relaying (requires the operator to be installed).
+- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC v2 contracts via manual relaying (requires the operator to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e $TEST_NAME
         ```
-- `TestWithRelayerTestSuite`: This test suite tests the IBC Eureka contracts via the relayer (requires the relayer and operator to be installed).
+- `TestWithRelayerTestSuite`: This test suite tests the IBC v2 contracts via the relayer (requires the relayer and operator to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e-relayer $TEST_NAME
