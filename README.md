@@ -60,7 +60,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 | **Contracts** | **Description** | **Status** |
 |:---:|:---:|:---:|
 | `ICS26Router.sol` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
-| `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC v2 transfer implementation. | ✅ |
+| `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
 | `ICS27Controller.sol` | IBC interchain accounts controller. | ❌ |
 | `ICS27Host.sol` | IBC interchain accounts host. | ❌ |
@@ -144,7 +144,7 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 There are three test suites in the `e2e/interchaintestv8` directory:
 
-- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC v2 contracts via the relayer (requires the operator and the relayer to be installed).
+- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e $TEST_NAME
