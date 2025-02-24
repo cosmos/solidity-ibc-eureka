@@ -19,9 +19,8 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
-import {Deployments} from "./helpers/Deployments.sol";
-import {DeploySP1ICS07Tendermint} from "./deployments/DeploySP1ICS07Tendermint.sol";
-
+import { Deployments } from "./helpers/Deployments.sol";
+import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs {
@@ -58,12 +57,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         address ics20TransferLogic = address(new ICS20Transfer());
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            ics26RouterLogic,
-            abi.encodeWithSelector(
-                ICS26Router.initialize.selector,
-                msg.sender,
-                msg.sender
-            )
+            ics26RouterLogic, abi.encodeWithSelector(ICS26Router.initialize.selector, msg.sender, msg.sender)
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(

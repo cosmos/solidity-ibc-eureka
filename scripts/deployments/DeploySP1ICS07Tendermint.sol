@@ -3,9 +3,9 @@ pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,gas-custom-errors
 
-import {Deployments} from "../helpers/Deployments.sol";
-import {SP1ICS07Tendermint} from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
-import {stdJson} from "forge-std/StdJson.sol";
+import { Deployments } from "../helpers/Deployments.sol";
+import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { stdJson } from "forge-std/StdJson.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -15,10 +15,18 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 library DeploySP1ICS07Tendermint {
     using stdJson for string;
 
-    function deploy(Deployments.SP1ICS07TendermintDeployment memory deployment) public returns (SP1ICS07Tendermint, IICS07TendermintMsgs.ConsensusState memory, IICS07TendermintMsgs.ClientState memory) {
+    function deploy(Deployments.SP1ICS07TendermintDeployment memory deployment)
+        public
+        returns (
+            SP1ICS07Tendermint,
+            IICS07TendermintMsgs.ConsensusState memory,
+            IICS07TendermintMsgs.ClientState memory
+        )
+    {
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
-                            abi.decode(deployment.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
-        IICS07TendermintMsgs.ClientState memory trustedClientState = abi.decode(deployment.trustedClientState, (IICS07TendermintMsgs.ClientState));
+            abi.decode(deployment.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+        IICS07TendermintMsgs.ClientState memory trustedClientState =
+            abi.decode(deployment.trustedClientState, (IICS07TendermintMsgs.ClientState));
 
         address verifier = address(0);
 

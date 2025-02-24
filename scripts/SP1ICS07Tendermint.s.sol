@@ -3,12 +3,12 @@ pragma solidity ^0.8.28;
 
 // solhint-disable gas-custom-errors
 
-import {IICS07TendermintMsgs} from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
-import {Deployments} from "./helpers/Deployments.sol";
-import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
-import {DeploySP1ICS07Tendermint} from "./deployments/DeploySP1ICS07Tendermint.sol";
+import { Deployments } from "./helpers/Deployments.sol";
+import { Script } from "forge-std/Script.sol";
+import { stdJson } from "forge-std/StdJson.sol";
+import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
 
 contract SP1TendermintScript is Script, IICS07TendermintMsgs {
     using stdJson for string;

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import {Deployments} from "../helpers/Deployments.sol";
-import {stdJson} from "forge-std/StdJson.sol";
-import {TimelockController} from "@openzeppelin-contracts/governance/TimelockController.sol";
+import { Deployments } from "../helpers/Deployments.sol";
+import { stdJson } from "forge-std/StdJson.sol";
+import { TimelockController } from "@openzeppelin-contracts/governance/TimelockController.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -23,18 +23,37 @@ library UpgradeProxiedICS26Router {
     function _upgradeTimelock(Deployments.ProxiedICS26RouterUpgrade memory routerUpgrade) internal {
         TimelockController tlc = TimelockController(routerUpgrade.timeLockAdmin);
         uint256 minDelay = tlc.getMinDelay();
-        bytes32 hash = tlc.hashOperation(address(routerUpgrade.proxy), 0, abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")), 0, 0);
+        bytes32 hash = tlc.hashOperation(
+            address(routerUpgrade.proxy),
+            0,
+            abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")),
+            0,
+            0
+        );
 
         if (tlc.isOperationDone(hash)) {
             revert("Upgrade has already been executed");
         } else if (tlc.isOperationPending(hash) && !tlc.isOperationReady(hash)) {
             revert("The upgrade operation is still pending");
         } else if (tlc.isOperationReady(hash)) {
-            tlc.execute(address(routerUpgrade.proxy), 0, abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")), 0, 0);
+            tlc.execute(
+                address(routerUpgrade.proxy),
+                0,
+                abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")),
+                0,
+                0
+            );
             return;
         }
 
-        tlc.schedule(address(routerUpgrade.proxy), 0, abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")), 0, 0, minDelay);
+        tlc.schedule(
+            address(routerUpgrade.proxy),
+            0,
+            abi.encodeWithSignature("upgradeToAndCall(address,bytes)", routerUpgrade.newImplementation, bytes("")),
+            0,
+            0,
+            minDelay
+        );
     }
 
     function _upgradeDirect(Deployments.ProxiedICS26RouterUpgrade memory routerUpgrade) internal {
