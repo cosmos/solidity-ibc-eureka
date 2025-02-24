@@ -102,13 +102,13 @@ func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract strin
         "--rpc-url",
         e.RPC, 
         "--private-key",
-		hex.EncodeToString(deployer.D.Bytes()),
+        hex.EncodeToString(deployer.D.Bytes()),
         "--broadcast",
-		"--non-interactive",
+        "--non-interactive",
         "-vvvv",
-        args...
         solidityContract,
-	)
+    }, args...)
+
 	cmd := exec.Command(
 		"forge", args...,
 	)
