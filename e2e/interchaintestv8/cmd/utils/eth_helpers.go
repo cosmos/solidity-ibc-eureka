@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/briandowns/spinner"
 )
 
 func EthPrivateKeyFromHex(hexKey string) *ecdsa.PrivateKey {
@@ -53,6 +54,10 @@ func GetTransactOpts(ethClient *ethclient.Client, chainID *big.Int, key *ecdsa.P
 }
 
 func GetTxReciept(ctx context.Context, ethClient *ethclient.Client, hash ethcommon.Hash) *ethtypes.Receipt {
+    s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+    s.Start()
+    defer s.Stop()
+
 	var receipt *ethtypes.Receipt
 	if err := testutil.WaitForCondition(time.Second*120, time.Second, func() (bool, error) {
 		var err error
