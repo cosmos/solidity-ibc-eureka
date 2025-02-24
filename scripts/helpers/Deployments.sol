@@ -21,9 +21,35 @@ library Deployments {
         bytes32 misbehaviourVkey;
     }
 
+    struct ProxiedICS26RouterDeployment {
+        address implementation;
+        address timeLockAdmin;
+    }
+
+    struct ProxiedICS26RouterUpgrade {
+        address proxy;
+        address newImplementation;
+
+        // we either expect 0 or a ITimeLockController contract
+        address payable timeLockAdmin;
+    }
+
+    struct ProxiedICS20TransferDeployment {
+        address implementation;
+
+        // transparent proxies
+        address ics26Router;
+        address escrow;
+        address ibcERC20;
+
+        // admin control
+        address pauserAddress;
+        address permit2Address;
+    }
+
     function loadSP1ICS07TendermintDeployment(Vm vm, string memory fileName) public view returns (SP1ICS07TendermintDeployment memory) {
         string memory json = vm.readFile(fileName);
-        string memory verifier = json.readString(".verifier");
+        string memory verifier = json.readStringOr(".verifier", "");
         bytes memory trustedClientState = json.readBytes(".trustedClientState");
         bytes memory trustedConsensusState = json.readBytes(".trustedConsensusState");
         bytes32 updateClientVkey = json.readBytes32(".updateClientVkey");
