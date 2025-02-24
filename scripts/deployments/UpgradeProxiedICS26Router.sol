@@ -5,7 +5,8 @@ import { Deployments } from "../helpers/Deployments.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { TimelockController } from "@openzeppelin-contracts/governance/TimelockController.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+// solhint-disable custom-errors,gas-custom-errors
 
 library UpgradeProxiedICS26Router {
     using stdJson for string;
@@ -32,9 +33,9 @@ library UpgradeProxiedICS26Router {
         );
 
         if (tlc.isOperationDone(hash)) {
-            revert("Upgrade has already been executed");
+            revert("Upgrade has been executed");
         } else if (tlc.isOperationPending(hash) && !tlc.isOperationReady(hash)) {
-            revert("The upgrade operation is still pending");
+            revert("The upgrade operation is pending");
         } else if (tlc.isOperationReady(hash)) {
             tlc.execute(
                 address(routerUpgrade.proxy),

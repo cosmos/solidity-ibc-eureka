@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { Deployments } from "../helpers/Deployments.sol";
 import { stdJson } from "forge-std/StdJson.sol";
-import { TimelockController } from "@openzeppelin-contracts/governance/TimelockController.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
