@@ -23,7 +23,7 @@ import { Deployments } from "./helpers/Deployments.sol";
 import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, Deployments {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -47,9 +47,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
 
         // ============ Step 2: Deploy the contracts ==============
 
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis, vm);
-
         vm.startBroadcast();
+
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = deploySP1ICS07Tendermint(genesis);
 
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());
