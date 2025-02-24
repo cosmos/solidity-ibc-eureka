@@ -47,7 +47,7 @@ There are three accounts required:
 1. `ETH_PRIVATE_KEY:` You can retrieve an Ethereum private key from within Metamask by creating a new account > navigating to "Account details" > and pressing "Show private key"
     - To test a transfer from Ethereum Sepolia to the Cosmos Devnet, you'll need to have testnet ETH on this account. You can use any Ethereum Sepolia faucet for this, an example being: https://cloud.google.com/application/web3/faucet/ethereum/sepolia
     - You'll also be transferring an ERC20 token. you can use https://tokentool.bitbond.com/create-token/erc20-token/ethereum-sepolia to create a new ERC20 token on Ethereum Sepolia Testnet and use that in your command to do a Eureka transfer from Sepolia Testnet to Cosmos Devnet.
-2. `COSMOS_PRIVATE_KEY:` This will be used as the receiver of an Ethereum Sepolia to Cosmos Devnet transfer, and the initiator of a transfer in the other direction. You can retrieve a Cosmos `unarmored-hex` private key by following the following steps:
+2. `COSMOS_PRIVATE_KEY:` This will be used as the initiator of a transfer in the other direction. You can retrieve a Cosmos `unarmored-hex` private key by following the following steps:
     1. Installing a node daemon CLI: `simd` or <code><a href="https://github.com/cosmos/gaia">gaiad</a></code>.
     2. Adding keys to the daemon CLI: `gaiad keys add <account-name> --recover`
     3. Entering the BIP-39 mnemonic for the account you want to add. (Remove `--recover` to generate new)
