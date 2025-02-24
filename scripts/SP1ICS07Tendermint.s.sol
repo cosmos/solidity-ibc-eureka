@@ -10,7 +10,7 @@ import { Script } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
 
-contract SP1TendermintScript is Script, IICS07TendermintMsgs {
+contract SP1TendermintScript is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, Deployments {
     using stdJson for string;
 
     address public verifier;
@@ -26,13 +26,11 @@ contract SP1TendermintScript is Script, IICS07TendermintMsgs {
         // Read the initialization parameters for the SP1 Tendermint contract.
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
-        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(vm, path);
+        SP1ICS07TendermintDeployment memory genesis = loadSP1ICS07TendermintDeployment(vm, path);
         genesis.verifier = vm.envOr("VERIFIER", string(""));
 
         vm.startBroadcast();
-
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis);
-
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = deploySP1ICS07Tendermint(genesis);
         vm.stopBroadcast();
 
         bytes memory clientStateBz = ics07Tendermint.getClientState();

@@ -46,9 +46,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
         // ============ Step 2: Deploy the contracts ==============
-        vm.startBroadcast();
 
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis);
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis, vm);
+
+        vm.startBroadcast();
 
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());

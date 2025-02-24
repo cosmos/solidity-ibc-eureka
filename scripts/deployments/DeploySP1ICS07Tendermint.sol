@@ -12,10 +12,10 @@ import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
-library DeploySP1ICS07Tendermint {
+abstract contract DeploySP1ICS07Tendermint {
     using stdJson for string;
 
-    function deploy(Deployments.SP1ICS07TendermintDeployment memory deployment)
+    function deploySP1ICS07Tendermint(Deployments.SP1ICS07TendermintDeployment memory deployment)
         public
         returns (
             SP1ICS07Tendermint,

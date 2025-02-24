@@ -98,19 +98,19 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
 	args = append([]string{
-        "script",
-        "--rpc-url",
-        e.RPC, 
-        "--private-key",
-        hex.EncodeToString(deployer.D.Bytes()),
-        "--broadcast",
-        "--non-interactive",
-        "-vvvv",
-        solidityContract,
-    }, args...)
+		"script",
+		"--rpc-url",
+		e.RPC,
+		"--private-key",
+		hex.EncodeToString(deployer.D.Bytes()),
+		"--broadcast",
+		"--non-interactive",
+		"-vvvv",
+		solidityContract,
+	}, args...)
 
 	cmd := exec.Command(
-		"forge", args...,
+		"forge", append([]string{"--json"}, args...)...,
 	)
 
 	faucetAddress := crypto.PubkeyToAddress(e.Faucet.PublicKey)

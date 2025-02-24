@@ -151,13 +151,13 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		)
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath, "--code-size-limit", "10000000")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
 		case testvalues.EnvValueSp1Prover_Network:
 			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath, "--code-size-limit", "10000000")
+			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 			s.Require().NoError(err)
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)

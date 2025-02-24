@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { Vm } from "forge-std/Vm.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
-library Deployments {
+abstract contract Deployments {
     using stdJson for string;
 
     struct SP1ICS07TendermintDeployment {
