@@ -110,7 +110,7 @@ func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract strin
         solidityContract,
 	)
 	cmd := exec.Command(
-		"forge", args..,
+		"forge", args...,
 	)
 
 	faucetAddress := crypto.PubkeyToAddress(e.Faucet.PublicKey)
