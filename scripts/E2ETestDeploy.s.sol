@@ -17,10 +17,6 @@ import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
-import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import {Deployments} from "./helpers/Deployments.sol";
@@ -49,11 +45,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         genesis.verifier = vm.envOr("VERIFIER", string(""));
 
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
-
-        // The verifier address can be set in the environment variables.
-        // If not set, then the verifier is set based on the zkAlgorithm.
-        // If set to "mock", then the verifier is set to a mock verifier.
-        string memory verifierEnv = vm.envOr("VERIFIER", string(""));
 
         // ============ Step 2: Deploy the contracts ==============
         vm.startBroadcast();

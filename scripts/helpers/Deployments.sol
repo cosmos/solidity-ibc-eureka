@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.28;
 
 import {Vm} from "forge-std/Vm.sol";
 import { stdJson } from "forge-std/StdJson.sol";
@@ -8,7 +8,11 @@ library Deployments {
     using stdJson for string;
 
     struct SP1ICS07TendermintDeployment {
+        // The verifier address can be set in the environment variables.
+        // If not set, then the verifier is set based on the zkAlgorithm.
+        // If set to "mock", then the verifier is set to a mock verifier.
         string verifier;
+
         bytes trustedClientState;
         bytes trustedConsensusState;
         bytes32 updateClientVkey;
