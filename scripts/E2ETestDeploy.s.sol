@@ -20,7 +20,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import {Deployments} from "./helpers/Deployments.sol";
-import {SP1ICS07TendermintDeploy} from "./deployments/SP1ICS07TendermintDeploy.s.sol";
+import {DeploySP1ICS07Tendermint} from "./deployments/DeploySP1ICS07Tendermint.sol";
 
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -49,7 +49,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         // ============ Step 2: Deploy the contracts ==============
         vm.startBroadcast();
 
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = SP1ICS07TendermintDeploy.deploy(genesis);
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis);
 
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());

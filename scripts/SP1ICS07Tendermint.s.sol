@@ -8,7 +8,7 @@ import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermin
 import {Deployments} from "./helpers/Deployments.sol";
 import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {SP1ICS07TendermintDeploy} from "./deployments/SP1ICS07TendermintDeploy.s.sol";
+import {DeploySP1ICS07Tendermint} from "./deployments/DeploySP1ICS07Tendermint.sol";
 
 contract SP1TendermintScript is Script, IICS07TendermintMsgs {
     using stdJson for string;
@@ -31,7 +31,7 @@ contract SP1TendermintScript is Script, IICS07TendermintMsgs {
 
         vm.startBroadcast();
 
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = SP1ICS07TendermintDeploy.deploy(genesis);
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = DeploySP1ICS07Tendermint.deploy(genesis);
 
         vm.stopBroadcast();
 
