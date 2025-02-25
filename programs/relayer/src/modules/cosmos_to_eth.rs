@@ -228,9 +228,9 @@ impl RelayerModule for CosmosToEthRelayerModule {
     #[tracing::instrument(skip_all)]
     async fn create_service(
         &self,
-        config: serde_json::Value,
+        config: toml::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<CosmosToEthConfig>(config)
+        let config: CosmosToEthConfig = config.try_into()
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starteing Cosmos to Ethereum relayer server.");

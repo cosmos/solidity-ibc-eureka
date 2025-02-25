@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use serde_json::Value;
+use toml::Value;
 use tracing::Level;
 
 /// The top level configuration for the relayer.

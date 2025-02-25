@@ -175,9 +175,9 @@ impl RelayerModule for CosmosToCosmosRelayerModule {
     #[tracing::instrument(skip_all)]
     async fn create_service(
         &self,
-        config: serde_json::Value,
+        config: toml::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
+        let config: CosmosToCosmosConfig = config.try_into()
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starting Cosmos to Cosmos relayer server.");

@@ -19,8 +19,8 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Start(args) => {
             let config_path = PathBuf::from(args.config);
-            let config_bz = std::fs::read(config_path)?;
-            let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
+            let config_bz = std::fs::read_to_string(config_path)?;
+            let config: RelayerConfig = toml::from_str(config_bz.as_ref())?;
 
             // Initialize the logger with log level.
             tracing_subscriber::fmt::fmt()
