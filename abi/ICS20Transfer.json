@@ -1118,6 +1118,22 @@
   },
   {
     "type": "error",
+    "name": "ICS20UnexpectedEncoding",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "actual",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS20UnexpectedVersion",
     "inputs": [
       {
