@@ -247,6 +247,7 @@ contract ICS20Transfer is
         (bool isAddress, address receiver) = Strings.tryParseAddress(packetData.receiver);
         require(isAddress, ICS20InvalidAddress(packetData.receiver));
 
+        IEscrow escrow = _getOrCreateEscrow(msg_.destinationClient);
         bytes memory denomBz = bytes(packetData.denom);
         bytes memory prefix = ICS20Lib.getDenomPrefix(msg_.payload.sourcePort, msg_.sourceClient);
 
@@ -258,20 +259,21 @@ contract ICS20Transfer is
         // chain would have prefixed with DestPort and DestChannel when originally
         // receiving this token.
         bool returningToOrigin = ICS20Lib.hasPrefix(denomBz, prefix);
-
-        IEscrow escrow = _getOrCreateEscrow(msg_.destinationClient);
         address erc20Address;
         if (returningToOrigin) {
-            // we are the origin source of this token: it is either an IBCERC20 or a "native" ERC20:
+            // we are the origin source of this token:
+            // Case 1: Forwarded IBCERC20
+            // Case 2: Native ERC20
+
             // remove the first hop to unwind the trace
             bytes memory newDenom = Bytes.slice(denomBz, prefix.length);
 
             (, erc20Address) = Strings.tryParseAddress(string(newDenom));
-            if (erc20Address == address(0)) {
+            if (erc20Address == address(0)) { // Case 1
                 // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
                 erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[string(newDenom)]);
                 require(erc20Address != address(0), ICS20DenomNotFound(string(newDenom)));
-            }
+            } // else: Case 2: "Native" ERC20
         } else {
             // we are not origin source, i.e. sender chain is the origin source: add denom trace and mint vouchers
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
