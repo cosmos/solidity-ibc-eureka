@@ -28,8 +28,11 @@ contract IBCAdminTest is Test {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
 
+    address public clientCreator = makeAddr("clientCreator");
+    address public portCustomizer = makeAddr("portCustomizer");
     address public ics20Pauser = makeAddr("ics20Pauser");
 
+    string public clientId;
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
@@ -43,7 +46,7 @@ contract IBCAdminTest is Test {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), portCustomizer))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
@@ -57,7 +60,10 @@ contract IBCAdminTest is Test {
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
-        ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
+        vm.prank(clientCreator);
+        clientId =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
+        vm.prank(portCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
     }
 
@@ -154,6 +160,69 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
         ics26Router.setTimelockedAdmin(newTimelockedAdmin);
+    }
+
+    function test_success_setPortCustomizer() public {
+        address newPortCustomizer = makeAddr("newPortCustomizer");
+
+        ics26Router.grantPortCustomizerRole(newPortCustomizer);
+        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), newPortCustomizer));
+
+        ics26Router.revokePortCustomizerRole(portCustomizer);
+        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer));
+    }
+
+    function test_failure_setPortCustomizer() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newPortCustomizer = makeAddr("newPortCustomizer");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.grantPortCustomizerRole(newPortCustomizer);
+        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), newPortCustomizer));
+
+        // Revoke the port customizer role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.revokePortCustomizerRole(portCustomizer);
+        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer));
+
+        // Check that an unauthorized account cannot set the port
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics26Router.PORT_CUSTOMIZER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics26Router.addIBCApp("newPort", address(ics20Transfer));
+    }
+
+    function test_success_setClientMigrator() public {
+        address newLightClientMigrator = makeAddr("newLightClientMigrator");
+
+        ics26Router.grantLightClientMigratorRole(clientId, newLightClientMigrator);
+        assert(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), newLightClientMigrator));
+
+        ics26Router.revokeLightClientMigratorRole(clientId, clientCreator);
+        assertFalse(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), clientCreator));
+    }
+
+    function test_failure_setClientMigrator() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newLightClientMigrator = makeAddr("newLightClientMigrator");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.grantLightClientMigratorRole(clientId, newLightClientMigrator);
+        assertFalse(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), newLightClientMigrator));
+
+        // Revoke the light client migrator role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.revokeLightClientMigratorRole(clientId, clientCreator);
+        assert(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), clientCreator));
     }
 
     function test_success_pauseAndUnpause() public {
