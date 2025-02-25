@@ -142,7 +142,7 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 ### Running the tests
 
-There are three test suites in the `e2e/interchaintestv8` directory:
+There are five test suites in the `e2e/interchaintestv8` directory:
 
 - `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
     - To run any of the tests, run the following command:
@@ -154,10 +154,20 @@ There are three test suites in the `e2e/interchaintestv8` directory:
         ```sh
         just test-e2e-relayer $TEST_NAME
         ```
+- `TestWithCosmosRelayerTestSuite`: This test suite tests the relayer via Cosmos to Cosmos connections (requires the relayer and operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-cosmos-relayer $TEST_NAME
+        ```
 - `TestWithSP1ICS07TendermintTestSuite`: This test suite tests the SP1 ICS07 Tendermint light client (requires the operator to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e-sp1-ics07 $TEST_NAME
+        ```
+- `TestWithMultichainTestSuite`: This test suite tests multi-chain transfers with Ethereum and multiple Cosmos chains (requires the relayer and operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-multichain $TEST_NAME
         ```
 
 Where `$TEST_NAME` is the name of the test you want to run, for example:
