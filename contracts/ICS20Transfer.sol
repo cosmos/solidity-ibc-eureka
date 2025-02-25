@@ -232,11 +232,15 @@ contract ICS20Transfer is
     {
         // Since this function mostly returns acks, also when it fails, the ics26router (the caller) will log the ack
         require(
-            keccak256(bytes(msg_.payload.version)) == keccak256(bytes(ICS20Lib.ICS20_VERSION)),
+            keccak256(bytes(msg_.payload.version)) == ICS20Lib.KECCAK256_ICS20_VERSION,
             ICS20UnexpectedVersion(ICS20Lib.ICS20_VERSION, msg_.payload.version)
         );
         require(
-            keccak256(bytes(msg_.payload.sourcePort)) == keccak256(bytes(ICS20Lib.DEFAULT_PORT_ID)),
+            keccak256(bytes(msg_.payload.sourcePort)) == ICS20Lib.KECCAK256_DEFAULT_PORT_ID,
+            ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
+        );
+        require(
+            keccak256(bytes(msg_.payload.encoding)) == ICS20Lib.KECCAK256_ICS20_ENCODING,
             ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
         );
 
