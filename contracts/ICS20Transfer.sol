@@ -280,7 +280,7 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _findOrCreateERC20Address(newDenom, denomBz, address(escrow));
+            erc20Address = _getOrCreateIBCERC20(newDenom, denomBz, address(escrow));
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
@@ -388,7 +388,7 @@ contract ICS20Transfer is
     /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _findOrCreateERC20Address(
+    function _getOrCreateIBCERC20(
         bytes memory fullDenomPath,
         bytes memory base,
         address escrow
@@ -418,6 +418,28 @@ contract ICS20Transfer is
         return erc20Contract;
     }
 
+    /// @notice Returns the escrow contract for a client
+    /// @param clientId The client ID
+    /// @return The escrow contract address
+    function _getOrCreateEscrow(string memory clientId) private returns (IEscrow) {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+
+        IEscrow escrow = $.escrows[clientId];
+        if (address(escrow) == address(0)) {
+            escrow = IEscrow(
+                address(
+                    new BeaconProxy(
+                        address($.escrowBeacon),
+                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
+                    )
+                )
+            );
+            $.escrows[clientId] = escrow;
+        }
+
+        return escrow;
+    }
+
     /// @notice Returns the storage of the ICS20Transfer contract
     function _getICS20TransferStorage() private pure returns (ICS20TransferStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
@@ -442,28 +464,6 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function upgradeIBCERC20To(address newIBCERC20Logic) external onlyAdmin {
         _getICS20TransferStorage().ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
-    }
-
-    /// @notice Returns the escrow contract for a client
-    /// @param clientId The client ID
-    /// @return The escrow contract address
-    function _getOrCreateEscrow(string memory clientId) private returns (IEscrow) {
-        ICS20TransferStorage storage $ = _getICS20TransferStorage();
-
-        IEscrow escrow = $.escrows[clientId];
-        if (address(escrow) == address(0)) {
-            escrow = IEscrow(
-                address(
-                    new BeaconProxy(
-                        address($.escrowBeacon),
-                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($.ics26Router))
-                    )
-                )
-            );
-            $.escrows[clientId] = escrow;
-        }
-
-        return escrow;
     }
 
     /// @notice Returns the ICS26Router contract
