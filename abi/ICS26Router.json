@@ -1190,6 +1190,44 @@
   },
   {
     "type": "event",
+    "name": "ICS02ClientMigrated",
+    "inputs": [
+      {
+        "name": "subjectClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "substituteClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02MisbehaviourSubmitted",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "misbehaviourMsg",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
