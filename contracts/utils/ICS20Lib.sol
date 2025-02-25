@@ -27,7 +27,7 @@ library ICS20Lib {
 
     /// @notice KECCAK256_ICS20_VERSION is the keccak256 hash of the ICS20_VERSION.
     bytes32 internal constant KECCAK256_ICS20_VERSION = keccak256(bytes(ICS20_VERSION));
-    
+
     /// @notice KECCAK256_ICS20_ENCODING is the keccak256 hash of the ICS20_ENCODING.
     bytes32 internal constant KECCAK256_ICS20_ENCODING = keccak256(bytes(ICS20_ENCODING));
 
