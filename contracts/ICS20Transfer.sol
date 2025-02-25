@@ -339,9 +339,6 @@ contract ICS20Transfer is
         } else {
             // the receiving chain is not the source of the token, so the token is either a native token
             // or we are a middle chain and the token was minted (and mapped) here.
-            // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
-            // that is an address on their chain, and we would parse it as an address and fail to find the
-            // mapped contract (or worse, find a contract that is not the correct one).
             erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
             if (erc20Address == address(0)) {
                 // the token is not mapped, so the token must be native
