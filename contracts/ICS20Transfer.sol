@@ -326,8 +326,8 @@ contract ICS20Transfer is
         // if the denom is prefixed by the port and channel on which we are sending
         // the token, then we must be returning the token back to the chain they originated from
         bytes memory prefix = ICS20Lib.getDenomPrefix(sourcePort, sourceClient);
-        bool returningToSource = ICS20Lib.hasPrefix(bytes(packetData.denom), prefix);
-        if (returningToSource) {
+        bool isDestSource = ICS20Lib.hasPrefix(bytes(packetData.denom), prefix);
+        if (isDestSource) {
             // receiving chain is source of the token, so we've received and mapped this token before
             erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
