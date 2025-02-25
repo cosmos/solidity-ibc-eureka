@@ -268,8 +268,8 @@ contract ICS20Transfer is
             // remove the first hop to unwind the trace
             bytes memory newDenom = Bytes.slice(denomBz, prefix.length);
 
-            (, erc20Address) = Strings.tryParseAddress(string(newDenom));
-            if (erc20Address == address(0)) { // Case 1
+            (isAddress, erc20Address) = Strings.tryParseAddress(string(newDenom));
+            if (!isAddress || erc20Address == address(0)) { // Case 1: Forwarded IBCERC20
                 // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
                 erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[string(newDenom)]);
                 require(erc20Address != address(0), ICS20DenomNotFound(string(newDenom)));
