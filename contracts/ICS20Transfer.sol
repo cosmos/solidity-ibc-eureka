@@ -29,11 +29,8 @@ import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/Upgradea
 
 using SafeERC20 for IERC20;
 
-/*
- * Things not handled yet:
- * - Separate escrow balance tracking
- * - Related to escrow ^: invariant checking (where to implement that?)
- */
+/// @title ICS20Transfer
+/// @notice This contract is the implementation of the ics20-1 IBC specification for fungible token transfers.
 contract ICS20Transfer is
     IICS20Errors,
     IICS20Transfer,
