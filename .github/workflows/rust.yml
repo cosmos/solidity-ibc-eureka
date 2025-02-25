@@ -15,7 +15,7 @@ on:
 jobs:
   lints:
     name: fmt-and-clippy
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
 
   tests:
     name: unit-tests
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -68,7 +68,7 @@ jobs:
 
   build-relayer:
     name: build-relayer
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
       - name: Checkout sources
@@ -89,7 +89,7 @@ jobs:
 
   build-operator:
     name: build-operator
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
       - name: Checkout sources
@@ -110,7 +110,7 @@ jobs:
 
   build-08-wasm-eth:
     name: build-08-wasm-eth
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
       - name: "Check out the repo"
