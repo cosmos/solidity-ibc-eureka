@@ -28,7 +28,7 @@ This is a work-in-progress implementation, and the relayer is not yet usable. Th
 
 ## Usage
 
-To run the relayer binary, you need to write a configuration file. At the moment, there is a working example configuration file at [`config.example.json`](./config.example.json). You can copy this file and modify it to suit your needs.
+To run the relayer binary, you need to write a configuration file. At the moment, there is a working example configuration file at [`config.example.toml`](./config.example.toml). You can copy this file and modify it to suit your needs.
 
 After building/installing the relayer binary, you can run the relayer with the following command:
 
