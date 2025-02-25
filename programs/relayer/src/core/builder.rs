@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use super::modules::RelayerModule;
 use crate::{
     api::{
         self,
@@ -10,7 +11,6 @@ use crate::{
     cli::config::RelayerConfig,
 };
 use tonic::{transport::Server, Request, Response};
-use super::modules::RelayerModule;
 
 /// The `RelayerBuilder` struct is used to build the relayer.
 #[derive(Default)]
@@ -75,7 +75,9 @@ impl RelayerBuilder {
             );
         }
 
-        health_reporter.set_serving::<RelayerServiceServer<Relayer>>().await;
+        health_reporter
+            .set_serving::<RelayerServiceServer<Relayer>>()
+            .await;
 
         // Start the gRPC server
         Server::builder()
