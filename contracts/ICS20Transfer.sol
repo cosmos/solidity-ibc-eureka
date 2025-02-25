@@ -248,9 +248,7 @@ contract ICS20Transfer is
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         require(packetData.amount > 0, ICS20InvalidAmount(0));
 
-        (bool isAddress, address receiver) = Strings.tryParseAddress(packetData.receiver);
-        require(isAddress, ICS20InvalidAddress(packetData.receiver));
-
+        address receiver = ICS20Lib.mustHexStringToAddress(packetData.receiver);
         IEscrow escrow = _getOrCreateEscrow(msg_.destinationClient);
         bytes memory denomBz = bytes(packetData.denom);
         bytes memory prefix = ICS20Lib.getDenomPrefix(msg_.payload.sourcePort, msg_.sourceClient);
@@ -272,6 +270,7 @@ contract ICS20Transfer is
             // remove the first hop to unwind the trace
             bytes memory newDenom = Bytes.slice(denomBz, prefix.length);
 
+            bool isAddress;
             (isAddress, erc20Address) = Strings.tryParseAddress(string(newDenom));
             if (!isAddress || erc20Address == address(0)) { // Case 1: Forwarded IBCERC20
                 // we are the origin source and the token must be an IBCERC20 (since it is not a native token)
