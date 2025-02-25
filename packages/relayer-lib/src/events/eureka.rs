@@ -58,6 +58,12 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::RoleGranted(_)
             | routerEvents::RoleRevoked(_)
             | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),
+            routerEvents::ICS02ClientMigrated(_) => {
+                Err(anyhow::anyhow!("ICS02ClientMigrated event"))
+            }
+            routerEvents::ICS02MisbehaviourSubmitted(_) => {
+                Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
+            }
         }
     }
 }
