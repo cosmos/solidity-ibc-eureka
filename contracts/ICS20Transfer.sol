@@ -155,7 +155,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function permitSendTransfer(
+    function sendTransferWithPermit2(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bytes calldata signature

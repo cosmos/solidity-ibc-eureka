@@ -15,7 +15,7 @@ interface IICS20Transfer {
     /// @param permit The permit data
     /// @param signature The signature of the permit data
     /// @return sequence The sequence number of the packet created
-    function permitSendTransfer(
+    function sendTransferWithPermit2(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bytes calldata signature

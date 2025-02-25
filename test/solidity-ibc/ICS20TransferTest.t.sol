@@ -140,7 +140,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
     }
 
-    function test_failure_permitSendTransfer() public {
+    function test_failure_sendTransferWithPermit2() public {
         // this contract acts as the ics26Router
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
 
@@ -155,7 +155,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // test missing approval
         vm.expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
 
         // mint and approve permit2
         erc20.mint(sender, defaultAmount);
@@ -166,7 +166,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         defaultAmount = 0;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
         // reset amount
         defaultAmount = 1_000_000_100_000_000_001;
 
@@ -189,17 +189,17 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         );
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), differentPermit, differentSignature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), differentPermit, differentSignature);
 
         // test invalid signature
         bytes memory invalidSignature = new bytes(65);
         vm.expectRevert();
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, invalidSignature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, invalidSignature);
 
         // prove that it works with a valid signature
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
     }
 
     function test_failure_onAcknowledgementPacket() public {

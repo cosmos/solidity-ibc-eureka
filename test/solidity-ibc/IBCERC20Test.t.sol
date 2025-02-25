@@ -155,7 +155,7 @@ contract IBCERC20Test is Test {
     }
 
     // Dummy implementation of IICS20Transfer
-    function permitSendTransfer(
+    function sendTransferWithPermit2(
         IICS20TransferMsgs.SendTransferMsg calldata,
         ISignatureTransfer.PermitTransferFrom calldata,
         bytes calldata
