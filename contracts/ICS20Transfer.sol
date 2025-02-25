@@ -163,7 +163,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        returns (uint32 sequence)
+        returns (uint32)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         require(
