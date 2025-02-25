@@ -241,7 +241,7 @@ contract ICS20Transfer is
         );
         require(
             keccak256(bytes(msg_.payload.encoding)) == ICS20Lib.KECCAK256_ICS20_ENCODING,
-            ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
+            ICS20UnexpectedEncoding(ICS20Lib.ICS20_ENCODING, msg_.payload.encoding)
         );
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =

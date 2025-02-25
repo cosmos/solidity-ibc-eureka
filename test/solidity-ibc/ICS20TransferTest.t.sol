@@ -467,6 +467,23 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         );
         // reset receiver
         packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
+
+        // test invalid encoding
+        packet.payloads[0].encoding = "invalid";
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedEncoding.selector, ICS20Lib.ICS20_ENCODING, "invalid")
+        );
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset encoding
+        packet.payloads[0].encoding = ICS20Lib.ICS20_ENCODING;
     }
 
     function _getDefaultPacket()
