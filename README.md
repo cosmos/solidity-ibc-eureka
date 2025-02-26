@@ -147,7 +147,7 @@ There are five test suites in the `e2e/interchaintestv8` directory:
 - `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
     - To run any of the tests, run the following command:
         ```sh
-        just test-e2e $TEST_NAME
+        just test-e2e-eureka $TEST_NAME
         ```
 - `TestWithRelayerTestSuite`: This test suite tests the relayer via the IBC contracts (requires the relayer and operator to be installed).
     - To run any of the tests, run the following command:
@@ -173,7 +173,7 @@ There are five test suites in the `e2e/interchaintestv8` directory:
 Where `$TEST_NAME` is the name of the test you want to run, for example:
 
 ```sh
-just test-e2e TestDeploy_Groth16
+just test-e2e-eureka TestDeploy_Groth16
 ```
 
 ## Linting
