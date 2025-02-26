@@ -67,11 +67,20 @@ contract IBCERC20Test is Test {
         assertEq(ibcERC20.totalSupply(), 0);
     }
 
-    function testFuzz_unauthorized_Mint(uint256 amount) public {
+    function testFuzz_failure_Mint(uint256 amount) public {
+        // unauthorized mint
         address notICS20Transfer = makeAddr("notICS20Transfer");
         vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
         ibcERC20.mint(address(_escrow), amount);
+        assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
+        assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
+        assertEq(ibcERC20.totalSupply(), 0);
+
+        // non-esrow mint
+        address notEscrow = makeAddr("notEscrow");
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20NotEscrow.selector, address(_escrow), notEscrow));
+        ibcERC20.mint(notEscrow, amount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
@@ -94,15 +103,24 @@ contract IBCERC20Test is Test {
         }
     }
 
-    function testFuzz_unauthorized_Burn(uint256 startingAmount, uint256 burnAmount) public {
+    function testFuzz_failure_Burn(uint256 startingAmount, uint256 burnAmount) public {
         burnAmount = bound(burnAmount, 0, startingAmount);
         ibcERC20.mint(address(_escrow), startingAmount);
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
 
+        // unauthorized burn
         address notICS20Transfer = makeAddr("notICS20Transfer");
         vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
         ibcERC20.burn(address(_escrow), burnAmount);
+        assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
+        assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
+        assertEq(ibcERC20.totalSupply(), startingAmount);
+
+        // non-esrow burn
+        address notEscrow = makeAddr("notEscrow");
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20NotEscrow.selector, address(_escrow), notEscrow));
+        ibcERC20.burn(notEscrow, burnAmount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
         assertEq(ibcERC20.totalSupply(), startingAmount);
