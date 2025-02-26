@@ -35,7 +35,7 @@ contract IBCERC20Test is Test {
                 new BeaconProxy(
                     address(ibcERC20Beacon),
                     abi.encodeCall(
-                        _ibcERC20Logic.initialize, (address(this), address(_escrow), "test", "full/denom/path/test")
+                        _ibcERC20Logic.initialize, (address(this), address(_escrow), "full/denom/path/test")
                     )
                 )
             )
@@ -46,7 +46,7 @@ contract IBCERC20Test is Test {
         assertEq(ibcERC20.ics20(), address(this));
         assertEq(ibcERC20.escrow(), address(_escrow));
         assertEq(ibcERC20.name(), "full/denom/path/test");
-        assertEq(ibcERC20.symbol(), "test");
+        assertEq(ibcERC20.symbol(), "full/denom/path/test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
         assertEq(0, ibcERC20.totalSupply());
     }

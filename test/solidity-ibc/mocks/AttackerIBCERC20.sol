@@ -11,16 +11,15 @@ contract AttackerIBCERC20 is IIBCERC20, ERC20 {
 
     constructor(
         string memory fullDenomPath_,
-        string memory baseDenom_,
         address escrowAddress_
     )
-        ERC20(fullDenomPath_, baseDenom_)
+        ERC20(fullDenomPath_, fullDenomPath_)
     {
         escrowAddress = escrowAddress_;
     }
 
     /// @inheritdoc IIBCERC20
-    function initialize(address, address, string memory, string memory) external { }
+    function initialize(address, address, string memory) external { }
 
     /// @inheritdoc IIBCERC20
     function fullDenomPath() public pure returns (string memory) {

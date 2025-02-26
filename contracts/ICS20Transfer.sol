@@ -280,7 +280,7 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _findOrCreateERC20Address(newDenom, denomBz, address(escrow));
+            erc20Address = _findOrCreateERC20Address(newDenom, address(escrow));
             IBCERC20(erc20Address).mint(packetData.amount);
         }
 
@@ -385,12 +385,10 @@ contract ICS20Transfer is
     /// @notice This function will never return address(0)
     /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the
     /// token)
-    /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
     function _findOrCreateERC20Address(
         bytes memory fullDenomPath,
-        bytes memory base,
         address escrow
     )
         private
@@ -404,8 +402,8 @@ contract ICS20Transfer is
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 address($.ibcERC20Beacon),
-                abi.encodeWithSelector(
-                    IBCERC20.initialize.selector, address(this), escrow, string(base), string(fullDenomPath)
+                abi.encodeCall(
+                    IBCERC20.initialize, (address(this), escrow, string(fullDenomPath))
                 )
             );
             $.ibcERC20Contracts[string(fullDenomPath)] = IBCERC20(address(ibcERC20Proxy));

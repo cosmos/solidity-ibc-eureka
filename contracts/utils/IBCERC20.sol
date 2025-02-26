@@ -34,13 +34,12 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
     function initialize(
         address ics20_,
         address escrow_,
-        string memory baseDenom_,
         string memory fullDenomPath_
     )
         external
         initializer
     {
-        __ERC20_init(fullDenomPath_, baseDenom_);
+        __ERC20_init(fullDenomPath_, fullDenomPath_);
 
         IBCERC20Storage storage $ = _getIBCERC20Storage();
 
