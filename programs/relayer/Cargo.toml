@@ -28,6 +28,8 @@ tendermint-rpc = { workspace = true }
 
 sp1-sdk = { workspace = true, default-features = true }
 sp1-prover = { workspace = true }
+tonic-health = "0.12.3"
+tonic-reflection = "0.12.3"
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
