@@ -152,47 +152,4 @@ contract IBCERC20Test is Test {
         );
         ibcERC20.burn(address(_escrow), 1001);
     }
-
-    // TODO: Remove the following when refactoring this test suite to use a mock
-    // =========================================================================
-
-    // Dummy implementation of IICS20Transfer
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata) external pure returns (uint32 sequence) {
-        return 0;
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function getEscrow(string memory) external view returns (address) {
-        return address(_escrow);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function ibcERC20Contract(string calldata) external pure returns (address) {
-        return address(0);
-    }
-
-    // Dummy implementation of IICS20Transfer
-    function permitSendTransfer(
-        IICS20TransferMsgs.SendTransferMsg calldata,
-        ISignatureTransfer.PermitTransferFrom calldata,
-        bytes calldata
-    )
-        external
-        pure
-        returns (uint32 sequence)
-    {
-        return 0;
-    }
-
-    /// @notice Dummy implementation of IICS20Transfer
-    function initialize(address, address, address, address, address) external pure { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @notice Dummy implementation of IICS20Transfer
-    function upgradeEscrowTo(address) external { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @notice Dummy implementation of IICS20Transfer
-    function upgradeIBCERC20To(address) external { }
-    // solhint-disable-previous-line no-empty-blocks
 }
