@@ -33,10 +33,5 @@ interface IIBCERC20 {
     /// @param ics20_ The ICS20 contract address
     /// @param escrow_ The escrow contract address, can burn and mint tokens
     /// @param fullDenomPath_ The full IBC denom path for this token
-    function initialize(
-        address ics20_,
-        address escrow_,
-        string memory fullDenomPath_
-    )
-        external;
+    function initialize(address ics20_, address escrow_, string memory fullDenomPath_) external;
 }

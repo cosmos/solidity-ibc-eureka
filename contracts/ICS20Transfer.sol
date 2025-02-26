@@ -186,7 +186,13 @@ contract ICS20Transfer is
     /// @param msg_ The message for sending a transfer
     /// @param escrow The address of the escrow contract
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrow(IICS20TransferMsgs.SendTransferMsg calldata msg_, address escrow) private returns (uint32) {
+    function sendTransferFromEscrow(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address escrow
+    )
+        private
+        returns (uint32)
+    {
         string memory fullDenomPath = _getICS20TransferStorage().ibcERC20Denoms[msg_.denom];
         if (bytes(fullDenomPath).length == 0) {
             // if the denom is not mapped, it is a native token
@@ -388,13 +394,7 @@ contract ICS20Transfer is
     /// token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _findOrCreateERC20Address(
-        bytes memory fullDenomPath,
-        address escrow
-    )
-        private
-        returns (address)
-    {
+    function _findOrCreateERC20Address(bytes memory fullDenomPath, address escrow) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -403,9 +403,7 @@ contract ICS20Transfer is
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 address($.ibcERC20Beacon),
-                abi.encodeCall(
-                    IBCERC20.initialize, (address(this), escrow, string(fullDenomPath))
-                )
+                abi.encodeCall(IBCERC20.initialize, (address(this), escrow, string(fullDenomPath)))
             );
             $.ibcERC20Contracts[string(fullDenomPath)] = IBCERC20(address(ibcERC20Proxy));
             $.ibcERC20Denoms[address(ibcERC20Proxy)] = string(fullDenomPath);

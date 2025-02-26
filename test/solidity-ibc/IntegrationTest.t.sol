@@ -707,8 +707,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             defaultAmount * 2
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
-        AttackerIBCERC20 attackerContract =
-            new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.escrow());
+        AttackerIBCERC20 attackerContract = new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.escrow());
         uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
         assertEq(attackerRealTokenBalance, defaultAmount * 2);
 

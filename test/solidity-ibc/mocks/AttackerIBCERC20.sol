@@ -9,12 +9,7 @@ import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
 contract AttackerIBCERC20 is IIBCERC20, ERC20 {
     address private escrowAddress;
 
-    constructor(
-        string memory fullDenomPath_,
-        address escrowAddress_
-    )
-        ERC20(fullDenomPath_, fullDenomPath_)
-    {
+    constructor(string memory fullDenomPath_, address escrowAddress_) ERC20(fullDenomPath_, fullDenomPath_) {
         escrowAddress = escrowAddress_;
     }
 
