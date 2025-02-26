@@ -25,6 +25,15 @@ library ICS20Lib {
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
 
+    /// @notice KECCAK256_ICS20_VERSION is the keccak256 hash of the ICS20_VERSION.
+    bytes32 internal constant KECCAK256_ICS20_VERSION = keccak256(bytes(ICS20_VERSION));
+
+    /// @notice KECCAK256_ICS20_ENCODING is the keccak256 hash of the ICS20_ENCODING.
+    bytes32 internal constant KECCAK256_ICS20_ENCODING = keccak256(bytes(ICS20_ENCODING));
+
+    /// @notice KECCAK256_DEFAULT_PORT_ID is the keccak256 hash of the DEFAULT_PORT_ID.
+    bytes32 internal constant KECCAK256_DEFAULT_PORT_ID = keccak256(bytes(DEFAULT_PORT_ID));
+
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
     /// @param addrHexString hex address string
     /// @return address the converted address

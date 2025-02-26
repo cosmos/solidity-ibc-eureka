@@ -1022,7 +1022,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         uint32 sequence;
         if (signature.length > 0) {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
-            sequence = ics20Transfer.permitSendTransfer(msgSendTransfer, permit, signature);
+            sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
         } else {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
             sequence = ics20Transfer.sendTransfer(msgSendTransfer);
