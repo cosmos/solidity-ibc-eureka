@@ -343,7 +343,7 @@ contract ICS20Transfer is
         bool returningToSource = ICS20Lib.hasPrefix(bytes(packetData.denom), prefix);
         if (returningToSource) {
             // receiving chain is source of the token, so we've received and mapped this token before
-            erc20Address = address(_getICS20TransferStorage().ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($.ibcERC20Contracts[packetData.denom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             // if the token was returning to source, it was burned on send, so we mint it back now
             IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
@@ -353,7 +353,7 @@ contract ICS20Transfer is
             // NOTE: We check if the token is mapped _first_, to avoid a scenario where someone has a base denom
             // that is an address on their chain, and we would parse it as an address and fail to find the
             // mapped contract (or worse, find a contract that is not the correct one).
-            erc20Address = address(_getICS20TransferStorage().ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($.ibcERC20Contracts[packetData.denom]);
             if (erc20Address == address(0)) {
                 // the token is not mapped, so the token must be native
                 erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);

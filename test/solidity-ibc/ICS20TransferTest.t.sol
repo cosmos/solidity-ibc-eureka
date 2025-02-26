@@ -206,6 +206,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =
             _getDefaultPacket();
 
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
+
         // test invalid data
         bytes memory data = bytes("invalid");
         packet.payloads[0].value = data;
@@ -282,6 +286,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     function test_failure_onTimeoutPacket() public {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =
             _getDefaultPacket();
+
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
 
         // test invalid data
         bytes memory data = bytes("invalid");
@@ -518,5 +526,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             timeoutTimestamp: 0,
             memo: "memo"
         });
+    }
+
+    function _getEscrowMappingSlot(string memory clientId) internal pure returns (bytes32) {
+        bytes32 ics20Slot = 0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
+        return keccak256(abi.encodePacked(clientId, ics20Slot));
     }
 }
