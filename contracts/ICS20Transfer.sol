@@ -290,7 +290,7 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _findOrCreateERC20Address(newDenom, address(escrow));
+            erc20Address = _getOrCreateIBCERC20(newDenom, address(escrow));
             IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
         }
 
@@ -394,7 +394,7 @@ contract ICS20Transfer is
     /// token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _findOrCreateERC20Address(bytes memory fullDenomPath, address escrow) private returns (address) {
+    function _getOrCreateIBCERC20(bytes memory fullDenomPath, address escrow) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
