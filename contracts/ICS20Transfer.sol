@@ -43,12 +43,12 @@ contract ICS20Transfer is
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param escrows The escrow contract per client.
-    /// @param ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @param ics26Router The ICS26Router contract address. Immutable.
-    /// @param ibcERC20Beacon The address of the IBCERC20 beacon contract. Immutable.
-    /// @param escrowBeacon The address of the Escrow beacon contract. Immutable.
-    /// @param permit2 The permit2 contract. Immutable.
+    /// @param _escrows The escrow contract per client.
+    /// @param _ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
+    /// @param _ics26Router The ICS26Router contract address. Immutable.
+    /// @param _ibcERC20Beacon The address of the IBCERC20 beacon contract. Immutable.
+    /// @param _escrowBeacon The address of the Escrow beacon contract. Immutable.
+    /// @param _permit2 The permit2 contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         mapping(string clientId => IEscrow escrow) _escrows;
