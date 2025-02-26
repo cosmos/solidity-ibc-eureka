@@ -3,12 +3,18 @@ pragma solidity ^0.8.28;
 
 interface IIBCERC20 {
     /// @notice Mint new tokens to the Escrow contract
+    /// @dev This function can only be called by the ICS20 contract
+    /// @dev This function can only mint tokens to the Escrow contract
+    /// @param mintAddress Address to mint tokens to
     /// @param amount Amount of tokens to mint
-    function mint(uint256 amount) external;
+    function mint(address mintAddress, uint256 amount) external;
 
     /// @notice Burn tokens from the Escrow contract
+    /// @dev This function can only be called by the ICS20 contract
+    /// @dev This function can only burn tokens from the Escrow contract
+    /// @param mintAddress Address to burn tokens from
     /// @param amount Amount of tokens to burn
-    function burn(uint256 amount) external;
+    function burn(address mintAddress, uint256 amount) external;
 
     /// @notice Get the full denom path of the token
     /// @return the full path of the token's denom

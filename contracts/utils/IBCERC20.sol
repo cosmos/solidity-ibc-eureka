@@ -52,17 +52,19 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable {
     }
 
     /// @inheritdoc IIBCERC20
-    function mint(uint256 amount) external onlyICS20 {
-        _mint(_getIBCERC20Storage()._escrow, amount);
+    function mint(address mintAddress, uint256 amount) external onlyICS20 {
+        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IIBCERC20
-    function burn(uint256 amount) external onlyICS20 {
-        _burn(_getIBCERC20Storage()._escrow, amount);
+    function burn(address mintAddress, uint256 amount) external onlyICS20 {
+        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        _burn(mintAddress, amount);
     }
 
     /// @inheritdoc IIBCERC20
-    function escrow() external view returns (address) {
+    function escrow() public view returns (address) {
         return _getIBCERC20Storage()._escrow;
     }
 

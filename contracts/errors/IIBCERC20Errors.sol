@@ -6,8 +6,8 @@ interface IIBCERC20Errors {
     /// @param caller The caller of the function
     error IBCERC20Unauthorized(address caller);
 
-    /// @notice Minting is only allowed for escrow
+    /// @notice Minting or burining is only allowed for escrow
     /// @param escrow The escrow contract address
-    /// @param mintAddress The address funds are being minted to
-    error IBCERC20MintNotEscrow(address escrow, address mintAddress);
+    /// @param mintAddress The address funds are being minted or burned from
+    error IBCERC20NotEscrow(address escrow, address mintAddress);
 }

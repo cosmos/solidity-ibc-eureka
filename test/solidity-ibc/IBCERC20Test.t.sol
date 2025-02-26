@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
+import { IIBCERC20Errors } from "../../contracts/errors/IIBCERC20Errors.sol";
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
@@ -56,23 +57,23 @@ contract IBCERC20Test is Test {
     }
 
     function testFuzz_success_Mint(uint256 amount) public {
-        ibcERC20.mint(amount);
+        ibcERC20.mint(address(_escrow), amount);
         assertEq(ibcERC20.balanceOf(address(_escrow)), amount);
         assertEq(ibcERC20.totalSupply(), amount);
     }
 
     // Just to document the behaviour
     function test_MintZero() public {
-        ibcERC20.mint(0);
+        ibcERC20.mint(address(_escrow), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
     }
 
     function testFuzz_unauthorized_Mint(uint256 amount) public {
         address notICS20Transfer = makeAddr("notICS20Transfer");
-        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, notICS20Transfer));
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
-        ibcERC20.mint(amount);
+        ibcERC20.mint(address(_escrow), amount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
@@ -80,16 +81,16 @@ contract IBCERC20Test is Test {
 
     function testFuzz_success_Burn(uint256 startingAmount, uint256 burnAmount) public {
         burnAmount = bound(burnAmount, 0, startingAmount);
-        ibcERC20.mint(startingAmount);
+        ibcERC20.mint(address(_escrow), startingAmount);
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
 
-        ibcERC20.burn(burnAmount);
+        ibcERC20.burn(address(_escrow), burnAmount);
         uint256 leftOver = startingAmount - burnAmount;
         assertEq(ibcERC20.balanceOf(address(_escrow)), leftOver);
         assertEq(ibcERC20.totalSupply(), leftOver);
 
         if (leftOver != 0) {
-            ibcERC20.burn(leftOver);
+            ibcERC20.burn(address(_escrow), leftOver);
             assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
             assertEq(ibcERC20.totalSupply(), 0);
         }
@@ -97,13 +98,13 @@ contract IBCERC20Test is Test {
 
     function testFuzz_unauthorized_Burn(uint256 startingAmount, uint256 burnAmount) public {
         burnAmount = bound(burnAmount, 0, startingAmount);
-        ibcERC20.mint(startingAmount);
+        ibcERC20.mint(address(_escrow), startingAmount);
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
 
         address notICS20Transfer = makeAddr("notICS20Transfer");
-        vm.expectRevert(abi.encodeWithSelector(IBCERC20.IBCERC20Unauthorized.selector, notICS20Transfer));
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, notICS20Transfer));
         vm.prank(notICS20Transfer);
-        ibcERC20.burn(burnAmount);
+        ibcERC20.burn(address(_escrow), burnAmount);
         assertEq(ibcERC20.balanceOf(notICS20Transfer), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), startingAmount);
         assertEq(ibcERC20.totalSupply(), startingAmount);
@@ -111,12 +112,12 @@ contract IBCERC20Test is Test {
 
     // Just to document the behaviour
     function test_BurnZero() public {
-        ibcERC20.burn(0);
+        ibcERC20.burn(address(_escrow), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), 0);
         assertEq(ibcERC20.totalSupply(), 0);
 
-        ibcERC20.mint(1000);
-        ibcERC20.burn(0);
+        ibcERC20.mint(address(_escrow), 1000);
+        ibcERC20.burn(address(_escrow), 0);
         assertEq(ibcERC20.balanceOf(address(_escrow)), 1000);
         assertEq(ibcERC20.totalSupply(), 1000);
     }
@@ -124,16 +125,16 @@ contract IBCERC20Test is Test {
     function test_failure_Burn() public {
         // test burn with zero balance
         vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(_escrow), 0, 1));
-        ibcERC20.burn(1);
+        ibcERC20.burn(address(_escrow), 1);
 
         // mint some to test other cases
-        ibcERC20.mint(1000);
+        ibcERC20.mint(address(_escrow), 1000);
 
         // test burn with insufficient balance
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(_escrow), 1000, 1001)
         );
-        ibcERC20.burn(1001);
+        ibcERC20.burn(address(_escrow), 1001);
     }
 
     // TODO: Remove the following when refactoring this test suite to use a mock
