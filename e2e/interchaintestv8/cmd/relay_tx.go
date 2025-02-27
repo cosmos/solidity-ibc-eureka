@@ -56,6 +56,7 @@ func RelayTxCmd() *cobra.Command {
 
 	AddEthFlags(cmd)
 	AddCosmosFlags(cmd)
+	cmd.Flags().String(FlagEthChainID, DefaultEthChainID, "Ethereum Chain ID number (e.g. 11155111)")
 	cmd.Flags().String(FlagCosmosClientIDOnEth, "", "target client id of the cosmos client on ethereum (used for relaying from cosmos to eth)")
 	cmd.Flags().String(FlagEthClientIDOnCosmos, "", "target client id of the ethereum client on cosmos (used for relaying from eth to cosmos)")
 
@@ -84,9 +85,14 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		return fmt.Errorf("cosmos-grpc flag not set")
 	}
 
+	ethChainID, _ := cmd.Flags().GetString(FlagEthChainID)
+	if ethChainID == "" {
+		return fmt.Errorf("eth chain id flag not set")
+	}
+
 	// Set up everything we need to relay
 	db := dbm.NewMemDB()
-	app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
+	app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, false, simtestutil.EmptyAppOptions{}, nil)
 
 	cosmosRelayerPrivateKeyStr := os.Getenv(EnvRelayerWallet)
 	if cosmosRelayerPrivateKeyStr == "" {
@@ -112,7 +118,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	}
 
 	resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
-		SrcChain:       "0x1",
+		SrcChain:       ethChainID,
 		DstChain:       cosmosChainID,
 		SourceTxIds:    [][]byte{txHash.Bytes()},
 		TargetClientId: targetClientID,
@@ -234,6 +240,11 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("cosmos-chain-id flag not set")
 	}
 
+	ethChainID, _ := cmd.Flags().GetString(FlagEthChainID)
+	if ethChainID == "" {
+		return fmt.Errorf("eth chain id flag not set")
+	}
+
 	ethRPC, _ := cmd.Flags().GetString(FlagEthRPC)
 	if ethRPC == "" {
 		return fmt.Errorf("eth-rpc flag not set")
@@ -266,14 +277,14 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return err
 	}
 
-	ethChainID, err := ethClient.ChainID(ctx)
+	ethChainIDBigInt, err := ethClient.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get chain id: %w", err)
 	}
 
 	resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 		SrcChain:       cosmosChainID,
-		DstChain:       "0x1",
+		DstChain:       ethChainID,
 		SourceTxIds:    [][]byte{txHashBz},
 		TargetClientId: targetClientID,
 	})
@@ -281,7 +292,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("failed to relayed tx: %w", err)
 	}
 
-	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
+	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainIDBigInt, ethPrivKey)
 
 	unsignedTx := ethtypes.NewTransaction(
 		txOpts.Nonce.Uint64(),

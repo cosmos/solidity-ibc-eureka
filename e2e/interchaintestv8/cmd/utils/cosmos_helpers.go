@@ -34,7 +34,7 @@ func PrintBalance(ctx context.Context, grpcConn *grpc.ClientConn, coin sdk.Coin)
 			return fmt.Errorf("failed to query IBC denom: %w", err)
 		}
 
-		fmt.Printf("  IBC Denom: %s\n", coin.Denom)
+		fmt.Printf("  IBC Denom: %s\n", resp.Denom.Path())
 		denom = resp.Denom.Path()
 	}
 

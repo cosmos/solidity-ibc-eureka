@@ -31,6 +31,9 @@ const (
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "eureka-dev-3"
 
+	FlagEthChainID    = "ethereum-chain-id"
+	DefaultEthChainID = "11155111"
+
 	FlagSourceClientID      = "source-client-id"
 	FlagCosmosClientIDOnEth = "client-id-on-eth"
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"

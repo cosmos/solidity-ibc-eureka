@@ -183,6 +183,14 @@ func TransferFromCosmos() *cobra.Command {
 				return fmt.Errorf("tx failed with code %d: %+v", grpcRes.TxResponse.Code, grpcRes.TxResponse)
 			}
 
+			txResp, err := txClient.GetTx(ctx, &txtypes.GetTxRequest{Hash: grpcRes.TxResponse.TxHash})
+			if err != nil {
+				return fmt.Errorf("failed to get tx: %w", err)
+			}
+			if txResp.TxResponse.Code != 0 {
+				return fmt.Errorf("tx failed with code %d: %+v", txResp.TxResponse.Code, txResp.TxResponse)
+			}
+
 			fmt.Printf("Transfer sent from %s to %s of %d %s with tx hash %s\n", cosmosAddress.String(), to.Hex(), transferAmount, denom, grpcRes.TxResponse.TxHash)
 			rpcTxURL := cosmosRPC + "/tx?hash=0x" + grpcRes.TxResponse.TxHash
 			fmt.Printf("Find full event logs here: %s\n", rpcTxURL)
