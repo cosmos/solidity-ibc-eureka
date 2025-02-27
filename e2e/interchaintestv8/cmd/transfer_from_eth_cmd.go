@@ -74,7 +74,7 @@ func TransferFromEth() *cobra.Command {
 
 			// Approve ICS20 contract to spend ERC20
 			// TODO: Consider if we should query Permit2, so we don't have to do this every time 🤔
-			tx, err := erc20Contract.Approve(utils.GetTransactOpts(ethClient, ethChainID, ethPrivKey), ics20Address, transferAmount)
+			tx, err := erc20Contract.Approve(utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey), ics20Address, transferAmount)
 			if err != nil {
 				return fmt.Errorf("approve tx call failed: %w", err)
 			}
@@ -97,7 +97,7 @@ func TransferFromEth() *cobra.Command {
 				TimeoutTimestamp: timeout,
 				Memo:             "",
 			}
-			tx, err = ics20Contract.SendTransfer(utils.GetTransactOpts(ethClient, ethChainID, ethPrivKey), sendTransferMsg)
+			tx, err = ics20Contract.SendTransfer(utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey), sendTransferMsg)
 			if err != nil {
 				fmt.Printf("tx %+v\n", tx)
 				return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)

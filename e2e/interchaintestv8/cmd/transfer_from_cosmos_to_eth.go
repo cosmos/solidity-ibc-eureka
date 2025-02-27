@@ -34,7 +34,7 @@ func TransferFromCosmos() *cobra.Command {
 			ctx := cmd.Context()
 
 			db := dbm.NewMemDB()
-			app := simapp.NewSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
+			app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
 
 			// get args
 			amountStr := args[0]
@@ -68,6 +68,11 @@ func TransferFromCosmos() *cobra.Command {
 			cosmosChainID, _ := cmd.Flags().GetString(FlagCosmosChainID)
 			if cosmosChainID == "" {
 				return fmt.Errorf("cosmos-chain-id flag not set")
+			}
+
+			cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
+			if cosmosGrpcAddress == "" {
+				return fmt.Errorf("cosmos-grpc flag not set")
 			}
 
 			// Set up everything needed to send the transfer
@@ -105,7 +110,7 @@ func TransferFromCosmos() *cobra.Command {
 				Signer: cosmosAddress.String(),
 			}
 
-			grpcConn, err := GetCosmosGRPC(cmd)
+			grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
 			if err != nil {
 				return err
 			}

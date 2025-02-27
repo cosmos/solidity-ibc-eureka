@@ -11,8 +11,6 @@ import (
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
@@ -81,9 +79,14 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		targetClientID = MockEthClientID
 	}
 
+	cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
+	if cosmosGrpcAddress == "" {
+		return fmt.Errorf("cosmos-grpc flag not set")
+	}
+
 	// Set up everything we need to relay
 	db := dbm.NewMemDB()
-	app := simapp.NewSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
+	app := simapp.NewUnitTestSimApp(log.NewNopLogger(), db, nil, true, simtestutil.EmptyAppOptions{}, nil)
 
 	cosmosRelayerPrivateKeyStr := os.Getenv(EnvRelayerWallet)
 	if cosmosRelayerPrivateKeyStr == "" {
@@ -96,14 +99,14 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 
 	cosmosAddress := sdk.AccAddress(cosmosRelayerPrivateKey.PubKey().Address())
 
-	grpcConn, err := GetCosmosGRPC(cmd)
+	grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
 	if err != nil {
 		return err
 	}
 
 	txHash := ethcommon.HexToHash(txHashHexStr)
 
-	relayerClient, err := GetTLSGRPCClient(RelayerURL)
+	relayerClient, err := GetRelayerClient(RelayerURL)
 	if err != nil {
 		return err
 	}
@@ -258,7 +261,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("failed to dial eth client: %w", err)
 	}
 
-	relayerClient, err := GetTLSGRPCClient(RelayerURL)
+	relayerClient, err := GetRelayerClient(RelayerURL)
 	if err != nil {
 		return err
 	}
@@ -278,7 +281,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("failed to relayed tx: %w", err)
 	}
 
-	txOpts := utils.GetTransactOpts(ethClient, ethChainID, ethPrivKey)
+	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
 
 	unsignedTx := ethtypes.NewTransaction(
 		txOpts.Nonce.Uint64(),
@@ -313,14 +316,10 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 }
 
 // GetGRPCClient returns a gRPC client for the relayer.
-func GetTLSGRPCClient(addr string) (relayertypes.RelayerServiceClient, error) {
-	creds := credentials.NewTLS(nil)
-
-	// Establish a secure connection with the gRPC server
-	conn, err := grpc.Dial(addr, grpc.
-		WithTransportCredentials(creds))
+func GetRelayerClient(grpcAddr string) (relayertypes.RelayerServiceClient, error) {
+	conn, err := utils.GetTLSGRPC(grpcAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to grpc client with addr: %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to connect to gRPC server for relayer: %w", err)
 	}
 
 	return relayertypes.NewRelayerServiceClient(conn), nil

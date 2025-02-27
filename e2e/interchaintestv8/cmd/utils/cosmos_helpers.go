@@ -25,18 +25,18 @@ func CosmosPrivateKeyFromHex(hexKey string) (cryptotypes.PrivKey, error) {
 
 func PrintBalance(ctx context.Context, grpcConn *grpc.ClientConn, coin sdk.Coin) error {
 	denom := coin.Denom
+	fmt.Printf("- %s: %s\n", denom, coin.Amount)
 	if strings.HasPrefix(coin.Denom, "ibc/") {
 		// IBC token
-		transferQueryClient := transfertypes.NewQueryV2Client(grpcConn)
+		transferQueryClient := transfertypes.NewQueryClient(grpcConn)
 		resp, err := transferQueryClient.Denom(ctx, &transfertypes.QueryDenomRequest{Hash: coin.Denom})
 		if err != nil {
 			return fmt.Errorf("failed to query IBC denom: %w", err)
 		}
 
-		fmt.Printf("IBC Denom: %s\n", coin.Denom)
+		fmt.Printf("  IBC Denom: %s\n", coin.Denom)
 		denom = resp.Denom.Path()
 	}
 
-	fmt.Printf("%s: %s\n", denom, coin.Amount)
 	return nil
 }

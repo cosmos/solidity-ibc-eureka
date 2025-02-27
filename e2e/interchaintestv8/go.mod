@@ -2,6 +2,9 @@ module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
 go 1.23.6
 
+// TODO: remove this replace directive once the following PR is merged and released: https://github.com/CosmWasm/wasmd/pull/2139
+replace github.com/CosmWasm/wasmd => github.com/gjermundgaraba/wasmd v0.0.0-20250226195655-43308101e874
+
 require (
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/collections v0.4.0
@@ -12,8 +15,8 @@ require (
 	github.com/cometbft/cometbft v0.38.15
 	github.com/cosmos/cosmos-sdk v0.50.11
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.4.1-0.20240728184249-44562d751b0e
-	github.com/cosmos/ibc-go/v10 v10.0.0
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.6.1-0.20250226181012-d9f2f8899c3c
+	github.com/cosmos/ibc-go/v10 v10.0.0-beta.1
 	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.14.12
@@ -24,14 +27,15 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.69.4
-	google.golang.org/protobuf v1.36.3
+	google.golang.org/protobuf v1.36.5
 )
 
 require (
 	cosmossdk.io/client/v2 v2.0.0-beta.5 // indirect
 	cosmossdk.io/x/circuit v0.1.1 // indirect
 	cosmossdk.io/x/evidence v0.1.1 // indirect
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0 // indirect
+	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0-20250221115439-3e6d5f597fc4 // indirect
 	github.com/herumi/bls-eth-go-binary v0.0.0-20210917013441-d37c07cfda4e // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/prysmaticlabs/fastssz v0.0.0-20241008181541-518c4ce73516 // indirect
@@ -85,12 +89,11 @@ require (
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-db v1.1.0
+	github.com/cosmos/cosmos-db v1.1.1
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.2 // indirect
-	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240223125850-b1e8a79f509c // indirect
@@ -224,7 +227,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.7.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
@@ -287,12 +290,6 @@ require (
 )
 
 replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
-
-replace (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250215063629-7325bd2b00fd
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0-20250215063629-7325bd2b00fd
-	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-20250215063629-7325bd2b00fd
-)
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 

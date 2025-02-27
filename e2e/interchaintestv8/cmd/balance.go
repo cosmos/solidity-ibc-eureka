@@ -21,15 +21,17 @@ func BalanceCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			address := args[0]
+
+			var err error
 			if strings.HasPrefix(address, "0x") {
 				// Ethereum address
-				printEtheruemBalance(cmd, address, args)
+				err = printEtheruemBalance(cmd, address, args)
 			} else {
 				// Cosmos address
-				printCosmosBalance(cmd, address, args)
+				err = printCosmosBalance(cmd, address, args)
 			}
 
-			return nil
+			return err
 		},
 	}
 
@@ -99,7 +101,12 @@ func printEtheruemBalance(cmd *cobra.Command, address string, args []string) err
 }
 
 func printCosmosBalance(cmd *cobra.Command, address string, args []string) error {
-	grpcConn, err := GetCosmosGRPC(cmd)
+	cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
+	if cosmosGrpcAddress == "" {
+		return fmt.Errorf("cosmos-grpc flag not set")
+	}
+
+	grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
 	if err != nil {
 		return err
 	}
@@ -111,16 +118,18 @@ func printCosmosBalance(cmd *cobra.Command, address string, args []string) error
 			return fmt.Errorf("failed to get balance: %w", err)
 		}
 
-		utils.PrintBalance(cmd.Context(), grpcConn, *resp.Balance)
-		return nil
+		return utils.PrintBalance(cmd.Context(), grpcConn, *resp.Balance)
 	} else {
 		resp, err := bankQueryClient.AllBalances(cmd.Context(), &banktypes.QueryAllBalancesRequest{Address: address})
 		if err != nil {
 			return fmt.Errorf("failed to get balance: %w", err)
 		}
 
+		fmt.Printf("Fetched all balances (%d) for address: %s\n", len(resp.Balances), address)
 		for _, balance := range resp.Balances {
-			utils.PrintBalance(cmd.Context(), grpcConn, balance)
+			if err := utils.PrintBalance(cmd.Context(), grpcConn, balance); err != nil {
+				return err
+			}
 		}
 	}
 
