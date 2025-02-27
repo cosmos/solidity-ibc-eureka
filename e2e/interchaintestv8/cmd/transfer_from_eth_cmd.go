@@ -58,7 +58,7 @@ func TransferFromEth() *cobra.Command {
 			// Set up everything needed to send the transfer
 			ethClient, err := ethclient.Dial(ethRPC)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to connect to Ethereum RPC: %w", err)
 			}
 
 			ics20Contract, err := ics20transfer.NewContract(ics20Address, ethClient)
@@ -67,7 +67,7 @@ func TransferFromEth() *cobra.Command {
 
 			ethChainID, err := ethClient.ChainID(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get chain id: %w", err)
 			}
 			ethPrivKey := utils.EthPrivateKeyFromHex(ethPrivateKeyStr)
 			ethereumUserAddress := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
@@ -76,14 +76,13 @@ func TransferFromEth() *cobra.Command {
 			// TODO: Consider if we should query Permit2, so we don't have to do this every time 🤔
 			tx, err := erc20Contract.Approve(utils.GetTransactOpts(ethClient, ethChainID, ethPrivKey), ics20Address, transferAmount)
 			if err != nil {
-				return err
+				return fmt.Errorf("approve tx call failed: %w", err)
 			}
 			receipt := utils.GetTxReciept(ctx, ethClient, tx.Hash())
 			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("approve tx unsuccessful (%s) %+v", tx.Hash().String(), receipt)
-			} else {
+			} else if receipt == nil {
 				cmd.Printf("Approve TX (%s) was not confirmed within time limit, but it was also not rejected. We'll continue anyway.\n", tx.Hash().String())
-
 			}
 
 			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ics20Address.Hex(), erc20Address.Hex(), ethereumUserAddress.Hex())
@@ -106,7 +105,7 @@ func TransferFromEth() *cobra.Command {
 			receipt = utils.GetTxReciept(ctx, ethClient, tx.Hash())
 			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("send transfer tx (%s) unsuccessful %+v", tx.Hash().String(), receipt)
-			} else {
+			} else if receipt == nil {
 				cmd.Printf("Send transfer TX (%s) was not confirmed within time limit, but it was also not rejected. Please check the transaction in an explorer to verify the success.\n", tx.Hash().String())
 
 			}

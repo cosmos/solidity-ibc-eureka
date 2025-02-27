@@ -18,7 +18,7 @@ func GetCosmosGRPC(cmd *cobra.Command) (*grpc.ClientConn, error) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial cosmos grpc: %w", err)
 	}
 
 	return grpcConn, nil

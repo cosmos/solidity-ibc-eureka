@@ -52,8 +52,6 @@ func RelayTxCmd() *cobra.Command {
 				return err
 			}
 
-			// Get flags
-
 			return nil
 		},
 	}
@@ -144,7 +142,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	accountClient := accounttypes.NewQueryClient(grpcConn)
 	accountRes, err := accountClient.AccountInfo(ctx, &accounttypes.QueryAccountInfoRequest{Address: cosmosAddress.String()})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get account info: %w", err)
 	}
 
 	txBuilder := app.TxConfig().NewTxBuilder()
@@ -161,7 +159,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	}
 	err = txBuilder.SetSignatures(sigV2)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set signature: %w", err)
 	}
 
 	signerData := xauthsigning.SignerData{
@@ -179,17 +177,17 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		accountRes.Info.Sequence,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign with priv key: %w", err)
 	}
 	err = txBuilder.SetSignatures(sigV2)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set signature: %w", err)
 	}
 
 	// Generated Protobuf-encoded bytes.
 	txBytes, err := app.TxConfig().TxEncoder()(txBuilder.GetTx())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to encode tx: %w", err)
 	}
 
 	txClient := txtypes.NewServiceClient(grpcConn)
@@ -202,7 +200,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to broadcast tx: %w", err)
 	}
 	if grpcRes.TxResponse.Code != 0 {
 		return fmt.Errorf("tx failed with code %d: %+v", grpcRes.TxResponse.Code, grpcRes.TxResponse)
@@ -257,7 +255,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	ics26Address := ethcommon.HexToAddress(ics26AddressStr)
 	ethClient, err := ethclient.Dial(ethRPC)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to dial eth client: %w", err)
 	}
 
 	relayerClient, err := GetTLSGRPCClient(RelayerURL)
@@ -267,7 +265,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 
 	ethChainID, err := ethClient.ChainID(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get chain id: %w", err)
 	}
 
 	resp, err := relayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
@@ -293,17 +291,19 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 
 	signedTx, err := txOpts.Signer(txOpts.From, unsignedTx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign tx: %w", err)
 	}
 
 	err = ethClient.SendTransaction(ctx, signedTx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send tx: %w", err)
 	}
 
 	receipt := utils.GetTxReciept(ctx, ethClient, signedTx.Hash())
-	if receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful {
+	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 		return fmt.Errorf("relay tx unsuccessful (%s) %+v", signedTx.Hash().String(), receipt)
+	} else if receipt == nil {
+		cmd.Printf("Relay TX (%s) was not confirmed within time limit, but it was also not rejected. Please check the transaction in an explorer to verify the success.\n", signedTx.Hash().String())
 	}
 	fmt.Printf("Receipt: %+v\n", receipt)
 

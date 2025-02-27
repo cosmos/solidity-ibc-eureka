@@ -114,7 +114,7 @@ func TransferFromCosmos() *cobra.Command {
 			accountClient := accounttypes.NewQueryClient(grpcConn)
 			accountRes, err := accountClient.AccountInfo(ctx, &accounttypes.QueryAccountInfoRequest{Address: cosmosAddress.String()})
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get account info: %w", err)
 			}
 
 			txBuilder := app.TxConfig().NewTxBuilder()
@@ -131,7 +131,7 @@ func TransferFromCosmos() *cobra.Command {
 			}
 			err = txBuilder.SetSignatures(sigV2)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set signature: %w", err)
 			}
 
 			signerData := xauthsigning.SignerData{
@@ -149,17 +149,17 @@ func TransferFromCosmos() *cobra.Command {
 				accountRes.Info.Sequence,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to sign with priv key: %w", err)
 			}
 			err = txBuilder.SetSignatures(sigV2)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to set signature: %w", err)
 			}
 
 			// Generated Protobuf-encoded bytes.
 			txBytes, err := app.TxConfig().TxEncoder()(txBuilder.GetTx())
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to encode tx: %w", err)
 			}
 
 			txClient := txtypes.NewServiceClient(grpcConn)
@@ -172,7 +172,7 @@ func TransferFromCosmos() *cobra.Command {
 				},
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to broadcast tx: %w", err)
 			}
 			if grpcRes.TxResponse.Code != 0 {
 				return fmt.Errorf("tx failed with code %d: %+v", grpcRes.TxResponse.Code, grpcRes.TxResponse)

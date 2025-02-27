@@ -30,7 +30,7 @@ func PrintBalance(ctx context.Context, grpcConn *grpc.ClientConn, coin sdk.Coin)
 		transferQueryClient := transfertypes.NewQueryV2Client(grpcConn)
 		resp, err := transferQueryClient.Denom(ctx, &transfertypes.QueryDenomRequest{Hash: coin.Denom})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to query IBC denom: %w", err)
 		}
 
 		fmt.Printf("IBC Denom: %s\n", coin.Denom)

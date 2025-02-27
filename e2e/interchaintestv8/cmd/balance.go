@@ -65,24 +65,24 @@ func printEtheruemBalance(cmd *cobra.Command, address string, args []string) err
 		ics20Address := ethcommon.HexToAddress(ics20Str)
 		ics20Contract, err := ics20transfer.NewContract(ics20Address, ethClient)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to connect to ICS20 contract: %w", err)
 		}
 
 		erc20Address, err = ics20Contract.IbcERC20Contract(nil, args[1])
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get IBC ERC20 contract: %w", err)
 		}
 
 	}
 
 	erc20Contract, err := erc20.NewContract(erc20Address, ethClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to ERC20 contract: %w", err)
 	}
 
 	balance, err := erc20Contract.BalanceOf(nil, ethAddress)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get balance: %w", err)
 	}
 
 	fmt.Printf("%s: %s\n", erc20Address.String(), balance)
@@ -90,7 +90,7 @@ func printEtheruemBalance(cmd *cobra.Command, address string, args []string) err
 	// Print ETH balance
 	ethBalance, err := ethClient.BalanceAt(cmd.Context(), ethAddress, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get ETH balance: %w", err)
 	}
 
 	fmt.Printf("ETH: %s\n", (new(big.Rat).Quo(new(big.Rat).SetInt(ethBalance), new(big.Rat).SetInt64(1e18))).FloatString(18))
@@ -108,7 +108,7 @@ func printCosmosBalance(cmd *cobra.Command, address string, args []string) error
 	if len(args) > 1 {
 		resp, err := bankQueryClient.Balance(cmd.Context(), &banktypes.QueryBalanceRequest{Address: address, Denom: args[1]})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get balance: %w", err)
 		}
 
 		utils.PrintBalance(cmd.Context(), grpcConn, *resp.Balance)
@@ -116,7 +116,7 @@ func printCosmosBalance(cmd *cobra.Command, address string, args []string) error
 	} else {
 		resp, err := bankQueryClient.AllBalances(cmd.Context(), &banktypes.QueryAllBalancesRequest{Address: address})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get balance: %w", err)
 		}
 
 		for _, balance := range resp.Balances {
