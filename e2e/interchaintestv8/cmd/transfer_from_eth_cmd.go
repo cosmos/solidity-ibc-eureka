@@ -79,8 +79,11 @@ func TransferFromEth() *cobra.Command {
 				return err
 			}
 			receipt := utils.GetTxReciept(ctx, ethClient, tx.Hash())
-			if receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful {
+			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("approve tx unsuccessful (%s) %+v", tx.Hash().String(), receipt)
+			} else {
+				cmd.Printf("Approve TX (%s) was not confirmed within time limit, but it was also not rejected. We'll continue anyway.\n", tx.Hash().String())
+
 			}
 
 			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ics20Address.Hex(), erc20Address.Hex(), ethereumUserAddress.Hex())
@@ -101,8 +104,11 @@ func TransferFromEth() *cobra.Command {
 				return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)
 			}
 			receipt = utils.GetTxReciept(ctx, ethClient, tx.Hash())
-			if receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful {
+			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("send transfer tx (%s) unsuccessful %+v", tx.Hash().String(), receipt)
+			} else {
+				cmd.Printf("Send transfer TX (%s) was not confirmed within time limit, but it was also not rejected. Please check the transaction in an explorer to verify the success.\n", tx.Hash().String())
+
 			}
 
 			fmt.Printf("Transfer sent from %s to %s of %d %s with tx hash %s\n", ethereumUserAddress.Hex(), to, transferAmount, erc20Address.Hex(), tx.Hash().Hex())

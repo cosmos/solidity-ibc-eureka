@@ -320,7 +320,7 @@ func GetTLSGRPCClient(addr string) (relayertypes.RelayerServiceClient, error) {
 	conn, err := grpc.Dial(addr, grpc.
 		WithTransportCredentials(creds))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to grpc client with addr: %s: %w", addr, err)
 	}
 
 	return relayertypes.NewRelayerServiceClient(conn), nil
