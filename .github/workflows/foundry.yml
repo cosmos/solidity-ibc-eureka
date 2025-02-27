@@ -14,7 +14,7 @@ on:
 jobs:
   lint:
     name: "lint"
-    runs-on: "ubuntu-latest"
+    runs-on: "depot-ubuntu-22.04-4"
     steps:
       - uses: actions/checkout@v4
       - name: "Set up environment"
@@ -30,7 +30,7 @@ jobs:
 
   build:
     name: "build"
-    runs-on: "ubuntu-latest"
+    runs-on: "depot-ubuntu-22.04-4"
     steps:
       - uses: actions/checkout@v4
       - name: "Set up environment"
@@ -47,7 +47,7 @@ jobs:
   test:
     name: "test"
     needs: ["lint", "build"]
-    runs-on: "ubuntu-latest"
+    runs-on: "depot-ubuntu-22.04-4"
     steps:
       - uses: actions/checkout@v4
       - name: "Set up environment"
@@ -73,7 +73,7 @@ jobs:
   coverage:
     name: "coverage"
     needs: ["test"]
-    runs-on: "ubuntu-latest"
+    runs-on: "depot-ubuntu-22.04-4"
     steps:
       - uses: actions/checkout@v4
       - name: "Set up environment"

@@ -13,9 +13,15 @@ on:
       - '**.lock'
       - '**.proto'
       - 'abi/**'
+
+# Cancel the workflow if a new commit is pushed to the branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-relayer:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     permissions:
       id-token: write
       contents: read
