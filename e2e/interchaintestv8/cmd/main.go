@@ -7,18 +7,6 @@ import (
 )
 
 const (
-	// ETH_RPC          = "https://ethereum-sepolia-rpc.publicnode.com"
-	// ETH_BEACON_URL   = "https://ethereum-sepolia-beacon-api.publicnode.com"
-	// ICS26_ADDRESS    = "0x15cB0fC94d072B367a1A2D7f0c8fF9792aB9f546"
-	// ICS20_ADDRESS    = "0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358"
-	// ERC20_ADDRESS    = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
-	// CLIENT_ID_ON_ETH = "client-0"
-	//
-	// COSMOS_CHAIN_ID     = "highway-dev-1"
-	// COSMOS_RPC          = "https://eureka-devnet-node-01-rpc.dev.skip.build:443"
-	// COSMOS_GRPC         = "eureka-devnet-node-01-rpc.dev.skip.build:9090"
-	// CLIENT_ID_ON_COSMOS = "08-wasm-0"
-
 	FlagEthRPC    = "eth-rpc"
 	DefaultEthRPC = "https://ethereum-sepolia-rpc.publicnode.com"
 
@@ -35,26 +23,26 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://eureka-devnet-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "eureka-devnet-node-01-rpc.dev.skip.build:9090"
+	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "highway-dev-1"
+	DefaultCosmosChainID = "eureka-dev-3"
 
 	FlagSourceClientID      = "source-client-id"
 	FlagCosmosClientIDOnEth = "client-id-on-eth"
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
-	MockTendermintClientID = "client-0"
+	MockTendermintClientID = "client-6"
 	MockEthClientID        = "08-wasm-0"
 	// TODO: Add the non-mock versions of these
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-devnet-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 )

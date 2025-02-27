@@ -32,7 +32,7 @@ import (
 
 func RelayTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "relay_tx [txHash]",
+		Use:   "relay-tx [txHash]",
 		Short: "Relay a transaction (currently only from eth to cosmos)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

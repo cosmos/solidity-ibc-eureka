@@ -8,8 +8,9 @@ pragma solidity ^0.8.28;
 import { Script } from "forge-std/Script.sol";
 import { IICS02Client } from "../contracts/interfaces/IICS02Client.sol";
 import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
-import { ISP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
-import { DeployLib } from "./DeployLib.sol";
+import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { TendermintLib } from "./utils/TendermintLib.sol";
 import "forge-std/console.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity
@@ -18,12 +19,12 @@ contract CreateTestnetLightClient is Script {
 
     function run() public {
         address ics26router = vm.promptAddress("Enter the ics26 router address");
-        address verifier = vm.promptAddress("Enter the verifier address");
+        address sp1Verifier = vm.promptAddress("Enter the verifier address");
         string memory counterpartyClientID = vm.prompt("Enter the counterparty client ID");
 
         string memory root = vm.projectRoot();
         string memory tendermintGenesisJson = vm.readFile(string.concat(root, "/scripts/genesis.json"));
-        DeployLib.SP1ICS07TendermintGenesisJson memory genesis = DeployLib.loadTendermintGenesisFromJson(tendermintGenesisJson);
+        TendermintLib.SP1ICS07TendermintGenesisJson memory genesis = TendermintLib.loadTendermintGenesisFromJson(tendermintGenesisJson);
 
 
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo = IICS02ClientMsgs.CounterpartyInfo(
@@ -36,7 +37,19 @@ contract CreateTestnetLightClient is Script {
         vm.startBroadcast();
 
         // Deploy new light client
-        ISP1ICS07Tendermint ics07Tendermint = DeployLib.deployTendermintLightClient(genesis, verifier);
+        IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
+            abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+
+        // Deploy the SP1 ICS07 Tendermint light client
+        SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
+            genesis.updateClientVkey,
+            genesis.membershipVkey,
+            genesis.ucAndMembershipVkey,
+            genesis.misbehaviourVkey,
+            sp1Verifier,
+            genesis.trustedClientState,
+            keccak256(abi.encode(trustedConsensusState))
+        );
         string memory clientID = router.addClient(counterpartyInfo, address(ics07Tendermint));
 
         vm.stopBroadcast();
