@@ -170,12 +170,6 @@ There are five test suites in the `e2e/interchaintestv8` directory:
         just test-e2e-multichain $TEST_NAME
         ```
 
-Where `$TEST_NAME` is the name of the test you want to run, for example:
-
-```sh
-just test-e2e-eureka TestDeploy_Groth16
-```
-
 ## Linting
 
 Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
