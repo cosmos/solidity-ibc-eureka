@@ -1229,10 +1229,24 @@ func (s *IbcEurekaTestSuite) TestTimeoutPacketFromCosmos_Groth16() {
 	s.ICS20TimeoutPacketFromCosmosTest(ctx, operator.ProofTypeGroth16, 1)
 }
 
+func (s *IbcEurekaTestSuite) TestTimeoutPacketFromCosmos_Plonk() {
+	ctx := context.Background()
+	s.ICS20TimeoutPacketFromCosmosTest(ctx, operator.ProofTypePlonk, 1)
+}
+
+func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromCosmos_Groth16() {
+	ctx := context.Background()
+	s.ICS20TimeoutPacketFromCosmosTest(ctx, operator.ProofTypeGroth16, 10)
+}
+
+func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromCosmos_Plonk() {
+	ctx := context.Background()
+	s.ICS20TimeoutPacketFromCosmosTest(ctx, operator.ProofTypePlonk, 5)
+}
+
 func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromCosmosTest(
 	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int,
 ) {
-	// XXX: use numOfTransfers to generate multiple packets
 
 	s.SetupSuite(ctx, pt)
 
@@ -1243,42 +1257,46 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromCosmosTest(
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
-	var cosmosSendTxHash []byte
+	var cosmosSendTxHashes [][]byte
 	s.Require().True(s.Run("Send transfer on Cosmos chain", func() {
-		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+		for i := 0; i < numOfTransfers; i++ {
+			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 
-		transferPayload := transfertypes.FungibleTokenPacketData{
-			Denom:    transferCoin.Denom,
-			Amount:   transferCoin.Amount.String(),
-			Sender:   cosmosUserAddress,
-			Receiver: ibctesting.InvalidID,
-			Memo: "timeout-send-memo",
+			transferPayload := transfertypes.FungibleTokenPacketData{
+				Denom:    transferCoin.Denom,
+				Amount:   transferCoin.Amount.String(),
+				Sender:   cosmosUserAddress,
+				Receiver: ibctesting.InvalidID,
+				Memo: "timeout-send-memo",
+			}
+
+			encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+			s.Require().NoError(err)
+
+			payload := channeltypesv2.Payload{
+				SourcePort: transfertypes.PortID,
+				DestinationPort: transfertypes.PortID,
+				Version: transfertypes.V1,
+				Encoding: transfertypes.EncodingABI,
+				Value: encodedPayload,
+			}
+			msgSendPacket := channeltypesv2.MsgSendPacket{
+				SourceClient: testvalues.FirstWasmClientID,
+				TimeoutTimestamp: timeout,
+				Payloads: []channeltypesv2.Payload{payload},
+				Signer: cosmosUserWallet.FormattedAddress(),
+			}
+
+			resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.TxHash)
+
+			cosmosSendTxHash, err := hex.DecodeString(resp.TxHash)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(cosmosSendTxHash)
+
+			cosmosSendTxHashes = append(cosmosSendTxHashes, cosmosSendTxHash)
 		}
-
-		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
-		s.Require().NoError(err)
-
-		payload := channeltypesv2.Payload{
-			SourcePort: transfertypes.PortID,
-			DestinationPort: transfertypes.PortID,
-			Version: transfertypes.V1,
-			Encoding: transfertypes.EncodingABI,
-			Value: encodedPayload,
-		}
-		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceClient: testvalues.FirstWasmClientID,
-			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{payload},
-			Signer: cosmosUserWallet.FormattedAddress(),
-		}
-
-		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 200_000, &msgSendPacket)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.TxHash)
-
-		cosmosSendTxHash, err = hex.DecodeString(resp.TxHash)
-		s.Require().NoError(err)
-		s.Require().NotEmpty(cosmosSendTxHash)
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			balance, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
@@ -1287,7 +1305,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromCosmosTest(
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(balance)
-			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount, balance.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance-testvalues.TransferAmount*int64(numOfTransfers), balance.Balance.Amount.Int64())
 		}))
 	}))
 	
@@ -1299,7 +1317,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromCosmosTest(
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:       eth.ChainID.String(),
 				DstChain:       simd.Config().ChainID,
-				TimeoutTxIds:   [][]byte{cosmosSendTxHash},
+				TimeoutTxIds:   cosmosSendTxHashes,
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
