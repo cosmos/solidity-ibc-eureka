@@ -82,7 +82,7 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
 
         bytes32 dailyTokenKey = _getDailyTokenKey(token);
         uint256 usage = $._dailyUsage[dailyTokenKey];
-        if (usage < amount) {
+        if (usage <= amount) {
             $._dailyUsage[dailyTokenKey] = 0;
         } else {
             $._dailyUsage[dailyTokenKey] = usage - amount;
