@@ -80,6 +80,11 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     }
 
     /// @inheritdoc ILightClient
+    function isFrozen() external view override returns (bool) {
+        return clientState.isFrozen;
+    }
+
+    /// @inheritdoc ILightClient
     function getClientState() external view returns (bytes memory) {
         return abi.encode(clientState);
     }
