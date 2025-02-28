@@ -40,7 +40,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice The ICS07Tendermint client state
     IICS07TendermintMsgs.ClientState public clientState;
     /// @notice The mapping from height to consensus state keccak256 hashes.
-    mapping(uint32 height => bytes32 hash) private consensusStateHashes;
+    mapping(uint32 height => bytes32 hash) private _consensusStateHashes;
 
     /// @notice Allowed clock drift.
     /// @inheritdoc ISP1ICS07Tendermint
@@ -69,7 +69,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         MISBEHAVIOUR_PROGRAM_VKEY = misbehaviourProgramVkey;
 
         clientState = abi.decode(_clientState, (IICS07TendermintMsgs.ClientState));
-        consensusStateHashes[clientState.latestHeight.revisionHeight] = _consensusState;
+        _consensusStateHashes[clientState.latestHeight.revisionHeight] = _consensusState;
 
         VERIFIER = ISP1Verifier(sp1Verifier);
 
@@ -86,7 +86,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @inheritdoc ISP1ICS07Tendermint
     function getConsensusStateHash(uint32 revisionHeight) public view returns (bytes32) {
-        bytes32 hash = consensusStateHashes[revisionHeight];
+        bytes32 hash = _consensusStateHashes[revisionHeight];
         require(hash != 0, ConsensusStateNotFound());
         return hash;
     }
@@ -96,7 +96,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param updateMsg The encoded update message.
     /// @return The result of the update.
     /// @inheritdoc ILightClient
-    function updateClient(bytes calldata updateMsg) public notFrozen returns (ILightClientMsgs.UpdateResult) {
+    function updateClient(bytes calldata updateMsg) external notFrozen returns (ILightClientMsgs.UpdateResult) {
         IUpdateClientMsgs.MsgUpdateClient memory msgUpdateClient =
             abi.decode(updateMsg, (IUpdateClientMsgs.MsgUpdateClient));
         require(
@@ -107,22 +107,22 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IUpdateClientMsgs.UpdateClientOutput memory output =
             abi.decode(msgUpdateClient.sp1Proof.publicValues, (IUpdateClientMsgs.UpdateClientOutput));
 
-        validateUpdateClientPublicValues(output);
+        _validateUpdateClientPublicValues(output);
 
-        ILightClientMsgs.UpdateResult updateResult = checkUpdateResult(output);
+        ILightClientMsgs.UpdateResult updateResult = _checkUpdateResult(output);
         if (updateResult == ILightClientMsgs.UpdateResult.Update) {
             // adding the new consensus state to the mapping
             if (output.newHeight.revisionHeight > clientState.latestHeight.revisionHeight) {
                 clientState.latestHeight = output.newHeight;
             }
-            consensusStateHashes[output.newHeight.revisionHeight] = keccak256(abi.encode(output.newConsensusState));
+            _consensusStateHashes[output.newHeight.revisionHeight] = keccak256(abi.encode(output.newConsensusState));
         } else if (updateResult == ILightClientMsgs.UpdateResult.Misbehaviour) {
             clientState.isFrozen = true;
         } else if (updateResult == ILightClientMsgs.UpdateResult.NoOp) {
             return ILightClientMsgs.UpdateResult.NoOp;
         }
 
-        verifySP1Proof(msgUpdateClient.sp1Proof);
+        _verifySP1Proof(msgUpdateClient.sp1Proof);
 
         return updateResult;
     }
@@ -134,7 +134,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         returns (uint256)
     {
         require(msg_.value.length > 0, EmptyValue());
-        return membership(msg_.proof, msg_.proofHeight, msg_.path, msg_.value);
+        return _membership(msg_.proof, msg_.proofHeight, msg_.path, msg_.value);
     }
 
     /// @inheritdoc ILightClient
@@ -143,7 +143,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         notFrozen
         returns (uint256)
     {
-        return membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
+        return _membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
     }
 
     /// @notice The entrypoint for verifying (non)membership proof.
@@ -153,7 +153,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param path The path of the key-value pair.
     /// @param value The value of the key-value pair.
     /// @return timestamp The timestamp of the trusted consensus state.
-    function membership(
+    function _membership(
         bytes calldata proof,
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes[] calldata path,
@@ -164,14 +164,14 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     {
         if (proof.length == 0) {
             // cached proof
-            return getCachedKvPair(proofHeight.revisionHeight, IMembershipMsgs.KVPair(path, value));
+            return _getCachedKvPair(proofHeight.revisionHeight, IMembershipMsgs.KVPair(path, value));
         }
 
         IMembershipMsgs.MembershipProof memory membershipProof = abi.decode(proof, (IMembershipMsgs.MembershipProof));
         if (membershipProof.proofType == IMembershipMsgs.MembershipProofType.SP1MembershipProof) {
-            return handleSP1MembershipProof(proofHeight, membershipProof.proof, path, value);
+            return _handleSP1MembershipProof(proofHeight, membershipProof.proof, path, value);
         } else if (membershipProof.proofType == IMembershipMsgs.MembershipProofType.SP1MembershipAndUpdateClientProof) {
-            return handleSP1UpdateClientAndMembership(proofHeight, membershipProof.proof, path, value);
+            return _handleSP1UpdateClientAndMembership(proofHeight, membershipProof.proof, path, value);
         }
 
         // unreachable
@@ -180,7 +180,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice The entrypoint for misbehaviour.
     /// @inheritdoc ILightClient
-    function misbehaviour(bytes calldata misbehaviourMsg) public notFrozen {
+    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
             abi.decode(misbehaviourMsg, (IMisbehaviourMsgs.MsgSubmitMisbehaviour));
         require(
@@ -191,9 +191,9 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IMisbehaviourMsgs.MisbehaviourOutput memory output =
             abi.decode(msgSubmitMisbehaviour.sp1Proof.publicValues, (IMisbehaviourMsgs.MisbehaviourOutput));
 
-        validateMisbehaviourOutput(output);
+        _validateMisbehaviourOutput(output);
 
-        verifySP1Proof(msgSubmitMisbehaviour.sp1Proof);
+        _verifySP1Proof(msgSubmitMisbehaviour.sp1Proof);
 
         // If the misbehaviour and proof is valid, the client needs to be frozen
         clientState.isFrozen = true;
@@ -201,7 +201,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice The entrypoint for upgrading the client.
     /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) public view notFrozen {
+    function upgradeClient(bytes calldata) external view notFrozen {
         // TODO: Not yet implemented. (#78)
         revert FeatureNotSupported();
     }
@@ -212,7 +212,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param kvPath The path of the key-value pair.
     /// @param kvValue The value of the key-value pair.
     /// @return The timestamp of the trusted consensus state.
-    function handleSP1MembershipProof(
+    function _handleSP1MembershipProof(
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes memory proofBytes,
         bytes[] calldata kvPath,
@@ -253,13 +253,13 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
             require(found, MembershipProofKeyNotFound(kvPath));
         }
 
-        validateMembershipOutput(output.commitmentRoot, proofHeight.revisionHeight, proof.trustedConsensusState);
+        _validateMembershipOutput(output.commitmentRoot, proofHeight.revisionHeight, proof.trustedConsensusState);
 
-        verifySP1Proof(proof.sp1Proof);
+        _verifySP1Proof(proof.sp1Proof);
 
         // We avoid the cost of caching for single kv pairs, as reusing the proof is not necessary
         if (output.kvPairs.length > 1) {
-            cacheKvPairs(proofHeight.revisionHeight, output.kvPairs, proof.trustedConsensusState.timestamp);
+            _cacheKvPairs(proofHeight.revisionHeight, output.kvPairs, proof.trustedConsensusState.timestamp);
         }
         return proof.trustedConsensusState.timestamp;
     }
@@ -272,7 +272,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param kvValue The value of the key-value pair.
     /// @return The timestamp of the new consensus state.
     // solhint-disable-next-line code-complexity
-    function handleSP1UpdateClientAndMembership(
+    function _handleSP1UpdateClientAndMembership(
         IICS02ClientMsgs.Height calldata proofHeight,
         bytes memory proofBytes,
         bytes[] calldata kvPath,
@@ -308,20 +308,20 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
                 )
             );
 
-            validateUpdateClientPublicValues(output.updateClientOutput);
+            _validateUpdateClientPublicValues(output.updateClientOutput);
 
-            verifySP1Proof(proof.sp1Proof);
+            _verifySP1Proof(proof.sp1Proof);
         }
 
         // check update result
         {
-            ILightClientMsgs.UpdateResult updateResult = checkUpdateResult(output.updateClientOutput);
+            ILightClientMsgs.UpdateResult updateResult = _checkUpdateResult(output.updateClientOutput);
             if (updateResult == ILightClientMsgs.UpdateResult.Update) {
                 // adding the new consensus state to the mapping
                 if (proofHeight.revisionHeight > clientState.latestHeight.revisionHeight) {
                     clientState.latestHeight = proofHeight;
                 }
-                consensusStateHashes[proofHeight.revisionHeight] =
+                _consensusStateHashes[proofHeight.revisionHeight] =
                     keccak256(abi.encode(output.updateClientOutput.newConsensusState));
             } else if (updateResult == ILightClientMsgs.UpdateResult.Misbehaviour) {
                 revert CannotHandleMisbehavior();
@@ -348,7 +348,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
             require(found, MembershipProofKeyNotFound(kvPath));
         }
 
-        validateMembershipOutput(
+        _validateMembershipOutput(
             output.updateClientOutput.newConsensusState.root,
             output.updateClientOutput.newHeight.revisionHeight,
             output.updateClientOutput.newConsensusState
@@ -356,7 +356,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
         // We avoid the cost of caching for single kv pairs, as reusing the proof is not necessary
         if (output.kvPairs.length > 1) {
-            cacheKvPairs(
+            _cacheKvPairs(
                 proofHeight.revisionHeight, output.kvPairs, output.updateClientOutput.newConsensusState.timestamp
             );
         }
@@ -367,7 +367,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param outputCommitmentRoot The commitment root of the output.
     /// @param proofHeight The height of the proof.
     /// @param trustedConsensusState The trusted consensus state
-    function validateMembershipOutput(
+    function _validateMembershipOutput(
         bytes32 outputCommitmentRoot,
         uint32 proofHeight,
         IICS07TendermintMsgs.ConsensusState memory trustedConsensusState
@@ -390,8 +390,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Validates the SP1ICS07UpdateClientOutput public values.
     /// @param output The public values.
-    function validateUpdateClientPublicValues(IUpdateClientMsgs.UpdateClientOutput memory output) private view {
-        validateClientStateAndTime(output.clientState, output.time);
+    function _validateUpdateClientPublicValues(IUpdateClientMsgs.UpdateClientOutput memory output) private view {
+        _validateClientStateAndTime(output.clientState, output.time);
 
         bytes32 outputConsensusStateHash = keccak256(abi.encode(output.trustedConsensusState));
         bytes32 storedConsensusStateHash = getConsensusStateHash(output.trustedHeight.revisionHeight);
@@ -403,8 +403,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Validates the SP1ICS07MisbehaviourOutput public values.
     /// @param output The public values.
-    function validateMisbehaviourOutput(IMisbehaviourMsgs.MisbehaviourOutput memory output) private view {
-        validateClientStateAndTime(output.clientState, output.time);
+    function _validateMisbehaviourOutput(IMisbehaviourMsgs.MisbehaviourOutput memory output) private view {
+        _validateClientStateAndTime(output.clientState, output.time);
 
         // make sure the trusted consensus state from header 1 is known (trusted) by matching it with the one in the
         // mapping
@@ -429,7 +429,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev This function does not check the equality of the latest height and isFrozen.
     /// @param publicClientState The public client state.
     /// @param time The time.
-    function validateClientStateAndTime(
+    function _validateClientStateAndTime(
         IICS07TendermintMsgs.ClientState memory publicClientState,
         uint64 time
     )
@@ -472,12 +472,12 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev If any of these conditions are met, it returns a Misbehaviour UpdateResult.
     /// @param output The public values of the update client program.
     /// @return The result of the update.
-    function checkUpdateResult(IUpdateClientMsgs.UpdateClientOutput memory output)
+    function _checkUpdateResult(IUpdateClientMsgs.UpdateClientOutput memory output)
         private
         view
         returns (ILightClientMsgs.UpdateResult)
     {
-        bytes32 consensusStateHash = consensusStateHashes[output.newHeight.revisionHeight];
+        bytes32 consensusStateHash = _consensusStateHashes[output.newHeight.revisionHeight];
         if (consensusStateHash == bytes32(0)) {
             // No consensus state at the new height, so no misbehaviour
             return ILightClientMsgs.UpdateResult.Update;
@@ -496,7 +496,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Verifies the SP1 proof
     /// @param proof The SP1 proof.
-    function verifySP1Proof(ISP1Msgs.SP1Proof memory proof) private view {
+    function _verifySP1Proof(ISP1Msgs.SP1Proof memory proof) private view {
         VERIFIER.verifyProof(proof.vKey, proof.publicValues, proof.proof);
     }
 
@@ -506,7 +506,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param timestamp The timestamp of the trusted consensus state.
     /// @dev WARNING: Transient store is not reverted even if a message within a transaction reverts.
     /// @dev WARNING: This function must be called after all proof and validation checks.
-    function cacheKvPairs(uint32 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
+    function _cacheKvPairs(uint32 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
         for (uint8 i = 0; i < kvPairs.length; i++) {
             bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPairs[i]));
             kvPairHash.asUint256().tstore(timestamp);
@@ -517,7 +517,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param proofHeight The height of the proof.
     /// @param kvPair The key-value pair.
     /// @return The timestamp of the cached key-value pair.
-    function getCachedKvPair(uint32 proofHeight, IMembershipMsgs.KVPair memory kvPair) private view returns (uint256) {
+    function _getCachedKvPair(uint32 proofHeight, IMembershipMsgs.KVPair memory kvPair) private view returns (uint256) {
         bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPair));
         uint256 timestamp = kvPairHash.asUint256().tload();
         require(timestamp != 0, KeyValuePairNotInCache(kvPair.path, kvPair.value));
