@@ -10,6 +10,9 @@ interface IICS26RouterErrors {
     /// @param portId port identifier
     error IBCInvalidPortIdentifier(string portId);
 
+    /// @notice IBC light client is frozen
+    error IBCLightClientFrozen();
+
     /// @notice IBC invalid timeout timestamp
     /// @param timeoutTimestamp packet's timeout timestamp in seconds
     /// @param comparedTimestamp compared timestamp in seconds
