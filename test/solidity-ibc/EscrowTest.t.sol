@@ -90,6 +90,9 @@ contract EscrowTest is Test {
         escrow.send(IERC20(mockToken), address(this), 10_000);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 
+        escrow.recvCallback(mockToken, address(this), 10_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
         // Set rate limit and check daily usage
         vm.prank(rateLimiter);
         escrow.setRateLimit(mockToken, 100_000);
