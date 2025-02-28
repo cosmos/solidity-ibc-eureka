@@ -74,7 +74,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         VERIFIER = ISP1Verifier(sp1Verifier);
 
         require(
-            clientState.trustingPeriod <= clientState.unbondingPeriod,
+            clientState.trustingPeriod + ALLOWED_SP1_CLOCK_DRIFT <= clientState.unbondingPeriod,
             TrustingPeriodTooLong(clientState.trustingPeriod, clientState.unbondingPeriod)
         );
     }
