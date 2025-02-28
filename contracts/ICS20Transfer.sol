@@ -147,6 +147,7 @@ contract ICS20Transfer is
         // transfer the tokens to us (requires the allowance to be set)
         IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
         return sendTransferFromEscrow(msg_);
     }
@@ -175,6 +176,7 @@ contract ICS20Transfer is
             _msgSender(),
             signature
         );
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
         return sendTransferFromEscrow(msg_);
     }
