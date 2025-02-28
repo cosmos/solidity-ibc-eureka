@@ -13,6 +13,7 @@ import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -60,17 +61,31 @@ contract ICS26RouterTest is Test {
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
     }
 
-    function test_UnauthorizedSender() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer();
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+    function test_failure_sendPacket() public {
+        string memory mockPortId = "mockPortId";
+        address mockApp = makeAddr("mockApp");
+        ics26Router.addIBCApp(mockPortId, mockApp);
 
+        // Unauthorized sender
         address unauthorizedSender = makeAddr("unauthorizedSender");
 
         IICS26RouterMsgs.MsgSendPacket memory msgSendPacket;
-        msgSendPacket.payload.sourcePort = ICS20Lib.DEFAULT_PORT_ID;
+        msgSendPacket.payload.sourcePort = mockPortId;
 
         vm.prank(unauthorizedSender);
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCUnauthorizedSender.selector, unauthorizedSender));
+        ics26Router.sendPacket(msgSendPacket);
+
+        // Frozen light client
+        address mockClient = makeAddr("mockLightClient");
+        string memory clientId = ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo("counterpartyID", merklePrefix), mockClient);
+
+        msgSendPacket.sourceClient = clientId;
+        msgSendPacket.payload.sourcePort = mockPortId;
+
+        vm.mockCall(mockClient, abi.encodeWithSelector(ILightClient.isFrozen.selector), abi.encode(true));
+        vm.prank(mockApp);
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCLightClientFrozen.selector));
         ics26Router.sendPacket(msgSendPacket);
     }
 
