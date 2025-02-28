@@ -404,6 +404,17 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
 
+	var originalBalance *sdk.Coin
+	s.Require().True(s.Run("Retrieve original balance on Chain B", func() {
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+			Address: simdBUser.FormattedAddress(),
+			Denom:   s.SimdB.Config().Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		originalBalance = resp.Balance
+	}))
+
 	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
 		for i := 0; i < numOfTransfers; i++ {
@@ -488,5 +499,15 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
-	}))
+
+		s.Require().True(s.Run("Verify balances on Chain B", func() {
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+				Address: simdBUser.FormattedAddress(),
+				Denom:   s.SimdB.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(originalBalance, resp.Balance)
+		}))
+	}), 10*time.Minute)
 }

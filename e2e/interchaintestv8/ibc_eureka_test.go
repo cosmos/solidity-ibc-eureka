@@ -1116,6 +1116,19 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
+	var originalBalance *sdk.Coin
+	s.Require().True(s.Run("Retrieve original balance", func() {
+		denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   denomOnCosmos.IBCDenom(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		originalBalance = resp.Balance
+	}))
+
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
@@ -1221,7 +1234,18 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Zero(escrowBalance.Int64())
 		}))
-	}))
+
+		s.Require().True(s.Run("Verify no balance on Cosmos chain", func() {
+			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().Equal(originalBalance, resp.Balance)
+		}))
+	}), 10*time.Minute)
 }
 
 func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Groth16() {
