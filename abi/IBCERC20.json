@@ -76,6 +76,11 @@
     "name": "burn",
     "inputs": [
       {
+        "name": "mintAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
@@ -151,11 +156,6 @@
         "internalType": "address"
       },
       {
-        "name": "baseDenom_",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
         "name": "fullDenomPath_",
         "type": "string",
         "internalType": "string"
@@ -168,6 +168,11 @@
     "type": "function",
     "name": "mint",
     "inputs": [
+      {
+        "name": "mintAddress",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "amount",
         "type": "uint256",
@@ -413,6 +418,22 @@
     "inputs": [
       {
         "name": "spender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCERC20NotEscrow",
+    "inputs": [
+      {
+        "name": "escrow",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "mintAddress",
         "type": "address",
         "internalType": "address"
       }

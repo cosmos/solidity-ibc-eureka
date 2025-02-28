@@ -872,9 +872,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.Path(), actualDenom)
 
-		actualBaseDenom, err := ibcERC20.Symbol(nil)
+		actualSymbol, err := ibcERC20.Symbol(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(transferCoin.Denom, actualBaseDenom)
+		s.Require().Equal(denomOnEthereum.Path(), actualSymbol)
 
 		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
 		s.Require().NoError(err)
