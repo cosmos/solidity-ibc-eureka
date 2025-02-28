@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 
-use super::modules::RelayerModule;
 use crate::{
     api::{
         self,
@@ -11,6 +10,8 @@ use crate::{
     cli::config::RelayerConfig,
 };
 use tonic::{transport::Server, Request, Response};
+
+use super::modules::RelayerModule;
 
 /// The `RelayerBuilder` struct is used to build the relayer.
 #[derive(Default)]
@@ -54,13 +55,6 @@ impl RelayerBuilder {
         tracing::info!(%socket_addr, "Starting relayer...");
         let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
 
-        let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
-
-        let reflection_service = tonic_reflection::server::Builder::configure()
-            .register_encoded_file_descriptor_set(tonic_health::pb::FILE_DESCRIPTOR_SET)
-            .register_encoded_file_descriptor_set(api::FILE_DESCRIPTOR_SET)
-            .build_v1()?;
-
         let mut relayer = Relayer::default();
         // Iterate through all configured modules
         for c in config.modules.into_iter().filter(|c| c.enabled) {
@@ -75,15 +69,9 @@ impl RelayerBuilder {
             );
         }
 
-        health_reporter
-            .set_serving::<RelayerServiceServer<Relayer>>()
-            .await;
-
         // Start the gRPC server
         Server::builder()
             .add_service(RelayerServiceServer::new(relayer))
-            .add_service(health_service)
-            .add_service(reflection_service)
             .serve(socket_addr)
             .await?;
 
