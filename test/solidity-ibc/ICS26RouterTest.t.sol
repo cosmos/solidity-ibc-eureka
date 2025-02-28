@@ -78,7 +78,8 @@ contract ICS26RouterTest is Test {
 
         // Frozen light client
         address mockClient = makeAddr("mockLightClient");
-        string memory clientId = ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo("counterpartyID", merklePrefix), mockClient);
+        string memory clientId =
+            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo("counterpartyID", merklePrefix), mockClient);
 
         msgSendPacket.sourceClient = clientId;
         msgSendPacket.payload.sourcePort = mockPortId;
