@@ -91,10 +91,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         return hash;
     }
 
-    /// @notice The entrypoint for updating the client.
     /// @dev This function verifies the public values and forwards the proof to the SP1 verifier.
-    /// @param updateMsg The encoded update message.
-    /// @return The result of the update.
     /// @inheritdoc ILightClient
     function updateClient(bytes calldata updateMsg) external notFrozen returns (ILightClientMsgs.UpdateResult) {
         IUpdateClientMsgs.MsgUpdateClient memory msgUpdateClient =
@@ -178,7 +175,6 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         revert UnknownMembershipProofType(uint8(membershipProof.proofType));
     }
 
-    /// @notice The entrypoint for misbehaviour.
     /// @inheritdoc ILightClient
     function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
@@ -199,7 +195,6 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         clientState.isFrozen = true;
     }
 
-    /// @notice The entrypoint for upgrading the client.
     /// @inheritdoc ILightClient
     function upgradeClient(bytes calldata) external view notFrozen {
         // TODO: Not yet implemented. (#78)
@@ -236,7 +231,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         {
             // loop through the key-value pairs and validate them
             bool found = false;
-            for (uint8 i = 0; i < output.kvPairs.length; i++) {
+            for (uint256 i = 0; i < output.kvPairs.length; i++) {
                 if (!Paths.equal(output.kvPairs[i].path, kvPath)) {
                     continue;
                 }
@@ -331,7 +326,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         // loop through the key-value pairs and validate them
         {
             bool found = false;
-            for (uint8 i = 0; i < output.kvPairs.length; i++) {
+            for (uint256 i = 0; i < output.kvPairs.length; i++) {
                 if (!Paths.equal(output.kvPairs[i].path, kvPath)) {
                     continue;
                 }
@@ -507,7 +502,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev WARNING: Transient store is not reverted even if a message within a transaction reverts.
     /// @dev WARNING: This function must be called after all proof and validation checks.
     function _cacheKvPairs(uint32 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
-        for (uint8 i = 0; i < kvPairs.length; i++) {
+        for (uint256 i = 0; i < kvPairs.length; i++) {
             bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPairs[i]));
             kvPairHash.asUint256().tstore(timestamp);
         }
