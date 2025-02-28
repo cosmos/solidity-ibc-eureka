@@ -7,10 +7,18 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 /// @notice This interface is implemented by the Escrow contract
 interface IEscrow {
     /// @notice Send tokens to the specified address
+    /// @dev This function can only be called by the ICS20 contract
     /// @param token The token to send
     /// @param to The address to send the tokens to
     /// @param amount The amount of tokens to send
     function send(IERC20 token, address to, uint256 amount) external;
+
+    /// @notice Received tokens from the specified address
+    /// @dev This function can only be called by the ICS20 contract
+    /// @param token The token received
+    /// @param from The address that sent the tokens
+    /// @param amount The amount of tokens received
+    function recvCallback(address token, address from, uint256 amount) external;
 
     /// @notice Get the ICS20 contract address
     /// @return The ICS20 contract address
