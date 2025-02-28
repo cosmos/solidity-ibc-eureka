@@ -707,8 +707,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             defaultAmount * 2
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
-        AttackerIBCERC20 attackerContract =
-            new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
+        AttackerIBCERC20 attackerContract = new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.escrow());
         uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
         assertEq(attackerRealTokenBalance, defaultAmount * 2);
 
@@ -764,7 +763,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
         assertEq(ibcERC20.fullDenomPath(), receivedDenom);
         assertEq(ibcERC20.name(), receivedDenom);
-        assertEq(ibcERC20.symbol(), "transfer/channel-42/uatom");
+        assertEq(ibcERC20.symbol(), receivedDenom);
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
 
