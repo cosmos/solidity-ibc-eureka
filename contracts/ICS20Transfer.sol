@@ -148,7 +148,7 @@ contract ICS20Transfer is
         IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
 
-        return sendTransferFromEscrow(msg_);
+        return sendTransferFromEscrow(msg_, address(escrow));
     }
 
     /// @inheritdoc IICS20Transfer
@@ -176,13 +176,20 @@ contract ICS20Transfer is
             signature
         );
 
-        return sendTransferFromEscrow(msg_);
+        return sendTransferFromEscrow(msg_, address(escrow));
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
     /// @param msg_ The message for sending a transfer
+    /// @param escrow The address of the escrow contract
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrow(IICS20TransferMsgs.SendTransferMsg calldata msg_) private returns (uint32) {
+    function sendTransferFromEscrow(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address escrow
+    )
+        private
+        returns (uint32)
+    {
         string memory fullDenomPath = _getICS20TransferStorage()._ibcERC20Denoms[msg_.denom];
         if (bytes(fullDenomPath).length == 0) {
             // if the denom is not mapped, it is a native token
@@ -195,7 +202,7 @@ contract ICS20Transfer is
             bool returningToSource = ICS20Lib.hasPrefix(bytes(fullDenomPath), prefix);
             if (returningToSource) {
                 // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
-                IBCERC20(msg_.denom).burn(msg_.amount);
+                IBCERC20(msg_.denom).burn(escrow, msg_.amount);
             }
         }
 
@@ -283,8 +290,8 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _getOrCreateIBCERC20(newDenom, denomBz, address(escrow));
-            IBCERC20(erc20Address).mint(packetData.amount);
+            erc20Address = _getOrCreateIBCERC20(newDenom, address(escrow));
+            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
         }
 
         // transfer the tokens to the receiver
@@ -326,6 +333,10 @@ contract ICS20Transfer is
     )
         private
     {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+        IEscrow escrow = $._escrows[sourceClient];
+        require(address(escrow) != address(0), IICS20Errors.ICS20EscrowNotFound(sourceClient));
+
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         address erc20Address;
 
@@ -335,24 +346,20 @@ contract ICS20Transfer is
         bool isDestSource = ICS20Lib.hasPrefix(bytes(packetData.denom), prefix);
         if (isDestSource) {
             // receiving chain is source of the token, so we've received and mapped this token before
-            erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($._ibcERC20Contracts[packetData.denom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             // if the token was returning to source, it was burned on send, so we mint it back now
-            IBCERC20(erc20Address).mint(packetData.amount);
+            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
         } else {
             // the receiving chain is not the source of the token, so the token is either a native token
             // or we are a middle chain and the token was minted (and mapped) here.
-            erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($._ibcERC20Contracts[packetData.denom]);
             if (erc20Address == address(0)) {
                 // the token is not mapped, so the token must be native
                 erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);
                 require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             }
         }
-
-        ICS20TransferStorage storage $ = _getICS20TransferStorage();
-        IEscrow escrow = $._escrows[sourceClient];
-        require(address(escrow) != address(0), IICS20Errors.ICS20EscrowNotFound(sourceClient));
 
         escrow.send(IERC20(erc20Address), refundee, packetData.amount);
     }
@@ -385,17 +392,9 @@ contract ICS20Transfer is
     /// @notice This function will never return address(0)
     /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the
     /// token)
-    /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _getOrCreateIBCERC20(
-        bytes memory fullDenomPath,
-        bytes memory base,
-        address escrow
-    )
-        private
-        returns (address)
-    {
+    function _getOrCreateIBCERC20(bytes memory fullDenomPath, address escrow) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -404,9 +403,7 @@ contract ICS20Transfer is
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 address($._ibcERC20Beacon),
-                abi.encodeWithSelector(
-                    IBCERC20.initialize.selector, address(this), escrow, string(base), string(fullDenomPath)
-                )
+                abi.encodeCall(IBCERC20.initialize, (address(this), escrow, string(fullDenomPath)))
             );
             $._ibcERC20Contracts[string(fullDenomPath)] = IBCERC20(address(ibcERC20Proxy));
             $._ibcERC20Denoms[address(ibcERC20Proxy)] = string(fullDenomPath);
