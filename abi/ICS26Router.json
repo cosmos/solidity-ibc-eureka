@@ -1749,6 +1749,11 @@
   },
   {
     "type": "error",
+    "name": "IBCLightClientFrozen",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "IBCMultiPayloadPacketNotSupported",
     "inputs": []
   },
