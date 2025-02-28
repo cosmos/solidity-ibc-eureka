@@ -6,6 +6,10 @@ import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 /// @title Light Client Interface
 /// @notice ILightClient is the light client interface for the IBC Eureka light client
 interface ILightClient {
+    /// @notice Returns whether the light client is frozen
+    /// @return True if the light client is frozen, false otherwise
+    function isFrozen() external view returns (bool);
+
     /// @notice Updating the client and consensus state
     /// @param updateMsg The update message e.g., an SP1 proof and public value pair.
     /// @return The result of the update operation

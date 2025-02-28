@@ -180,7 +180,7 @@ just lint
 
 ## End to End Benchmarks
 
-The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 25 seconds. More granular and in-depth benchmarks are planned for the future.
 
 ### Single Packet Benchmarks
 
@@ -188,7 +188,7 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~150,000 | ~150,000 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~158,000 | ~158,000 |
 | `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~509,542 | ~592,518 |
 | `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,079,133 | ~1,163,441 |
 | `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~393,224 | ~477,022 |

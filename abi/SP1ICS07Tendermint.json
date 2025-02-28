@@ -219,6 +219,19 @@
   },
   {
     "type": "function",
+    "name": "isFrozen",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "misbehaviour",
     "inputs": [
       {

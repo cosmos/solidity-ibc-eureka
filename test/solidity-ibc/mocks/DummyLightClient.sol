@@ -20,6 +20,10 @@ contract DummyLightClient is ILightClient, ILightClientMsgs {
         membershipShouldFail = membershipShouldFail_;
     }
 
+    function isFrozen() external pure override returns (bool) {
+        return false;
+    }
+
     function updateClient(bytes calldata updateMsg) external returns (UpdateResult) {
         latestUpdateMsg = updateMsg;
         return updateResult;
