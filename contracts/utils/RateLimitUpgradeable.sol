@@ -68,6 +68,27 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         $._dailyUsage[dailyTokenKey] = usage;
     }
 
+    /// @notice Reduces the daily usage for a token
+    /// @dev This function is used in order to track the net usage a token
+    /// @param token The token address
+    /// @param amount The amount to reduce from the daily usage
+    function _reduceDailyUsage(address token, uint256 amount) internal {
+        RateLimitStorage storage $ = _getRateLimitStorage();
+
+        uint256 rateLimit = $._rateLimits[token];
+        if (rateLimit == 0) {
+            return;
+        }
+
+        bytes32 dailyTokenKey = _getDailyTokenKey(token);
+        uint256 usage = $._dailyUsage[dailyTokenKey];
+        if (usage < amount) {
+            $._dailyUsage[dailyTokenKey] = 0;
+        } else {
+            $._dailyUsage[dailyTokenKey] = usage - amount;
+        }
+    }
+
     /// @inheritdoc IRateLimit
     function grantRateLimiterRole(address account) external {
         _authorizeSetRateLimiterRole(account);
