@@ -95,7 +95,7 @@ func TransferFromEth() *cobra.Command {
 				SourceClient:     sourceClientID,
 				DestPort:         "transfer",
 				TimeoutTimestamp: timeout,
-				Memo:             "",
+				Memo:             `{"dest_callback": {"address":"cosmos14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s4hmalr"}}`,
 			}
 			tx, err = ics20Contract.SendTransfer(utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey), sendTransferMsg)
 			if err != nil {
