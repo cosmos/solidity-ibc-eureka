@@ -7,6 +7,11 @@ import { IIBCApp } from "./IIBCApp.sol";
 /// @title ICS26 Router Interface
 /// @notice IICS26Router is an interface for the IBC Eureka router
 interface IICS26Router {
+    /// @notice The role identifier for the port customizer role
+    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
+    /// @return The role identifier
+    function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
@@ -35,6 +40,16 @@ interface IICS26Router {
     /// @notice Timeouts a packet
     /// @param msg The message for timing out packets
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
+
+    /// @notice Grants the port customizer role to an account
+    /// @dev Can only be called by an admin
+    /// @param account The account to grant the role to
+    function grantPortCustomizerRole(address account) external;
+
+    /// @notice Revokes the port customizer role from an account
+    /// @dev Can only be called by an admin
+    /// @param account The account to revoke the role from
+    function revokePortCustomizerRole(address account) external;
 
     // --------------------- Events --------------------- //
 

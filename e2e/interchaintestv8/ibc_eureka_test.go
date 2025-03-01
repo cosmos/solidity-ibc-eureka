@@ -230,6 +230,16 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
+		var sp1Config string
+		switch prover {
+		case testvalues.EnvValueSp1Prover_Mock:
+			sp1Config = testvalues.EnvValueSp1Prover_Mock
+		case testvalues.EnvValueSp1Prover_Network:
+			sp1Config = "env"
+		default:
+			s.Require().Fail("Unsupported prover type: %s", prover)
+		}
+
 		configInfo = relayer.EthCosmosConfigInfo{
 			EthChainID:     eth.ChainID.String(),
 			CosmosChainID:  simd.Config().ChainID,
@@ -237,10 +247,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			ICS26Address:   s.contractAddresses.Ics26Router,
 			EthRPC:         eth.RPC,
 			BeaconAPI:      beaconAPI,
-			SP1PrivateKey:  os.Getenv(testvalues.EnvKeyNetworkPrivateKey),
+			SP1Config:      sp1Config,
 			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
 			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			MockSP1Client:  prover == testvalues.EnvValueSp1Prover_Mock,
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -863,9 +872,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().NoError(err)
 		s.Require().Equal(denomOnEthereum.Path(), actualDenom)
 
-		actualBaseDenom, err := ibcERC20.Symbol(nil)
+		actualSymbol, err := ibcERC20.Symbol(nil)
 		s.Require().NoError(err)
-		s.Require().Equal(transferCoin.Denom, actualBaseDenom)
+		s.Require().Equal(denomOnEthereum.Path(), actualSymbol)
 
 		actualFullDenom, err := ibcERC20.FullDenomPath(nil)
 		s.Require().NoError(err)

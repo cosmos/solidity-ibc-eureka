@@ -11,9 +11,9 @@
       "dst_chain": "0x1",
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
-        "ics26_address": "0x1234567890abcdef1234567890abcdef",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "sp1_private_key": "0x1234567890abcdef1234567890abcdef"
+        "sp1_config": "env"
       }
     },
     {
@@ -22,7 +22,7 @@
       "dst_chain": "cosmoshub-4",
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
-        "ics26_address": "0x1234567890abcdef1234567890abcdef",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
         "eth_beacon_api_url": "https://ethereum-holesky-beacon-api.publicnode.com",
         "signer_address": "cosmos1abcdef1234567890abcdef1234567890"

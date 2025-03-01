@@ -49,9 +49,8 @@ contract ICS26Router is
     /// @dev The maximum timeout duration for a packet
     uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
 
-    /// @dev The role identifier for the port customizer role
-    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
-    bytes32 private constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
+    /// @inheritdoc IICS26Router
+    bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
@@ -304,6 +303,20 @@ contract ICS26Router is
 
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }
+
+    /// @inheritdoc IICS26Router
+    function grantPortCustomizerRole(address account) external onlyAdmin {
+        _grantRole(PORT_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS26Router
+    function revokePortCustomizerRole(address account) external onlyAdmin {
+        _revokeRole(PORT_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc ICS02ClientUpgradeable
+    function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {

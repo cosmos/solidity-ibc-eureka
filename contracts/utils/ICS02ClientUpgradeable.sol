@@ -54,12 +54,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @notice Generates the next client identifier
     /// @return The next client identifier
-    function getNextClientId() private returns (string memory) {
+    function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
-
-        uint256 seq = $.nextClientSeq;
-        $.nextClientSeq = seq + 1;
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString(seq));
+        // initial client sequence should be 0, hence we use x++ instead of ++x
+        return string.concat(CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
     /// @inheritdoc IICS02Client
@@ -88,7 +86,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
-        string memory clientId = getNextClientId();
+        string memory clientId = nextClientId();
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
@@ -118,6 +116,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         $.counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
         $.clients[subjectClientId] = substituteClient;
+
+        emit ICS02ClientMigrated(subjectClientId, substituteClientId);
     }
 
     /// @inheritdoc IICS02Client
@@ -134,12 +134,30 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
+        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
     }
 
     /// @inheritdoc IICS02Client
     function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
         getClient(clientId).upgradeClient(upgradeMsg);
     }
+
+    /// @inheritdoc IICS02Client
+    function grantLightClientMigratorRole(string calldata clientId, address account) external {
+        _authorizeSetLightClientMigratorRole(clientId, account);
+        _grantRole(getLightClientMigratorRole(clientId), account);
+    }
+
+    /// @inheritdoc IICS02Client
+    function revokeLightClientMigratorRole(string calldata clientId, address account) external {
+        _authorizeSetLightClientMigratorRole(clientId, account);
+        _revokeRole(getLightClientMigratorRole(clientId), account);
+    }
+
+    /// @notice Authorizes the granting or revoking of the light client migrator role
+    /// @param clientId The client identifier
+    /// @param account The account to authorize
+    function _authorizeSetLightClientMigratorRole(string calldata clientId, address account) internal virtual;
 
     /// @notice Returns the storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {

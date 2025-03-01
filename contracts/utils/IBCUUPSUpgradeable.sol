@@ -68,7 +68,7 @@ abstract contract IBCUUPSUpgradeable is
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
-    function isAdmin(address account) external view override returns (bool) {
+    function isAdmin(address account) external view returns (bool) {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
         return account == $.timelockedAdmin || account == $.govAdmin;
     }
