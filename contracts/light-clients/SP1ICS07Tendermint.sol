@@ -40,6 +40,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice The ICS07Tendermint client state
     IICS07TendermintMsgs.ClientState public clientState;
     /// @notice The mapping from height to consensus state keccak256 hashes.
+    /// @dev Revision number need not be keyed as it is not allowed to change.
     mapping(uint32 height => bytes32 hash) private _consensusStateHashes;
 
     /// @notice Allowed clock drift.
@@ -175,6 +176,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         revert UnknownMembershipProofType(uint8(membershipProof.proofType));
     }
 
+    /// @dev The misbehavior is verfied in the sp1 program. Here we only check the public values which contain the trusted headers.
     /// @inheritdoc ILightClient
     function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
@@ -491,6 +493,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Verifies the SP1 proof
     /// @param proof The SP1 proof.
+    /// @dev WARNING: proof.vKey must be verified before calling this function.
     function _verifySP1Proof(ISP1Msgs.SP1Proof memory proof) private view {
         VERIFIER.verifyProof(proof.vKey, proof.publicValues, proof.proof);
     }
