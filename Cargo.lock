@@ -1887,9 +1887,11 @@ dependencies = [
 name = "cw-ibc-callbacks-helpers"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types",
  "cosmwasm-std",
  "hex",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-eureka-solidity-types",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=9f550f7a582f09ee82bdf58a416631715e15bad7)",
  "prost",
  "serde",
  "serde_json",
@@ -3435,7 +3437,9 @@ dependencies = [
  "cosmos-sdk-proto",
  "flex-error",
  "ics23",
+ "informalsystems-pbjson",
  "prost",
+ "serde",
  "subtle-encoding",
  "tendermint-proto",
 ]

@@ -1,7 +1,10 @@
 //! Helpers for ICS20 Packets
 
+use alloy_sol_types::SolType;
 use cosmwasm_std::IbcPacket;
-use ibc_proto::ibc::apps::transfer::v2::FungibleTokenPacketData;
+use ibc_eureka_solidity_types::msgs::IICS20TransferMsgs::FungibleTokenPacketData as AbiFungibleTokenPacketData;
+use ibc_proto_eureka::ibc::apps::transfer::v2::FungibleTokenPacketData;
+use prost::Message;
 use sha2::{Digest, Sha256};
 
 /// Extension trait for ICS20 packets
@@ -18,7 +21,24 @@ pub trait ICS20PacketExt {
 
 impl ICS20PacketExt for IbcPacket {
     fn get_ics20_ftpd(&self) -> Option<FungibleTokenPacketData> {
-        serde_json::from_slice(self.data.as_slice()).ok()
+        let data = self.data.as_slice();
+
+        // Try to parse the packet data as a JSON encoded FungibleTokenPacketData
+        if let Ok(ftpd) = serde_json::from_slice(data) {
+            return Some(ftpd);
+        }
+
+        // Try to parse the packet data as an ABI encoded FungibleTokenPacketData
+        if let Ok(ftpd) = AbiFungibleTokenPacketData::abi_decode(data, true) {
+            return Some(ftpd.into());
+        }
+
+        // Try to parse the packet data as a protobuf encoded FungibleTokenPacketData
+        if let Ok(ftpd) = FungibleTokenPacketData::decode(data) {
+            return Some(ftpd);
+        }
+
+        None
     }
 
     fn get_recv_denom(&self) -> Option<String> {

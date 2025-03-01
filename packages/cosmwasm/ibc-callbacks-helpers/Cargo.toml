@@ -6,6 +6,8 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
+ibc-eureka-solidity-types = { workspace = true }
+
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
@@ -13,6 +15,8 @@ hex        = { workspace = true }
 
 sha2       = { workspace = true }
 
+alloy-sol-types = { workspace = true, features = ["json"] }
+
 cosmwasm-std = { workspace = true, features = ["stargate"] }
 
-ibc-proto = { workspace = true, features = ["serde"] }
+ibc-proto-eureka = { workspace = true, features = ["serde"] }

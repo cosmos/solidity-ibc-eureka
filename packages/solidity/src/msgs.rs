@@ -6,6 +6,7 @@ use super::sp1_ics07;
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState;
 use ibc_core_commitment_types::{commitment::CommitmentRoot, merkle::MerklePath};
+use ibc_proto_eureka::ibc::apps::transfer::v2::FungibleTokenPacketData;
 use tendermint::{hash::Algorithm, Time};
 use tendermint_light_client_verifier::types::{Hash, TrustThreshold as TendermintTrustThreshold};
 use time::OffsetDateTime;
@@ -170,6 +171,18 @@ impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
             revisionNumber: height.revision_number().try_into()?,
             revisionHeight: height.revision_height().try_into()?,
         })
+    }
+}
+
+impl From<IICS20TransferMsgs::FungibleTokenPacketData> for FungibleTokenPacketData {
+    fn from(packet_data: IICS20TransferMsgs::FungibleTokenPacketData) -> Self {
+        Self {
+            denom: packet_data.denom,
+            amount: packet_data.amount.to_string(),
+            sender: packet_data.sender,
+            receiver: packet_data.receiver,
+            memo: packet_data.memo,
+        }
     }
 }
 
