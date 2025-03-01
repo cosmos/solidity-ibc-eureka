@@ -90,6 +90,9 @@ contract EscrowTest is Test {
         escrow.send(IERC20(mockToken), address(this), 10_000);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 
+        escrow.recvCallback(mockToken, address(this), 10_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
         // Set rate limit and check daily usage
         vm.prank(rateLimiter);
         escrow.setRateLimit(mockToken, 100_000);
@@ -99,6 +102,9 @@ contract EscrowTest is Test {
         escrow.send(IERC20(mockToken), address(this), 1020);
         assertEq(escrow.getDailyUsage(mockToken), 1020);
 
+        escrow.recvCallback(mockToken, address(this), 20);
+        assertEq(escrow.getDailyUsage(mockToken), 1000);
+
         // Next day
         vm.warp(block.timestamp + 1 days);
         assertEq(escrow.getDailyUsage(mockToken), 0);
@@ -106,6 +112,23 @@ contract EscrowTest is Test {
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 100_000);
         assertEq(escrow.getDailyUsage(mockToken), 100_000);
+
+        escrow.recvCallback(mockToken, address(this), 100_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
+        // next day
+        vm.warp(block.timestamp + 1 days);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
+        escrow.recvCallback(mockToken, address(this), 100_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
+
+        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        escrow.send(IERC20(mockToken), address(this), 100_000);
+        assertEq(escrow.getDailyUsage(mockToken), 100_000);
+
+        escrow.recvCallback(mockToken, address(this), 150_000);
+        assertEq(escrow.getDailyUsage(mockToken), 0);
     }
 
     /// forge-config: default.fuzz.runs = 256
@@ -128,5 +151,26 @@ contract EscrowTest is Test {
         vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
         vm.expectRevert(abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, rateLimit, sendAmount * n));
         escrow.send(IERC20(mockToken), address(this), sendAmount);
+    }
+
+    /// forge-config: default.fuzz.runs = 256
+    function testFuzz_sendBackAndForth(uint8 n) public {
+        vm.assume(1 < n);
+
+        address mockToken = makeAddr("mockToken");
+        uint256 sendAmount = 10_000;
+        uint256 rateLimit = sendAmount + 1;
+
+        vm.prank(rateLimiter);
+        escrow.setRateLimit(mockToken, rateLimit);
+
+        for (uint256 i = 0; i < n; i++) {
+            vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+            escrow.send(IERC20(mockToken), address(this), sendAmount);
+            assertEq(escrow.getDailyUsage(mockToken), sendAmount);
+
+            escrow.recvCallback(mockToken, address(this), sendAmount);
+            assertEq(escrow.getDailyUsage(mockToken), 0);
+        }
     }
 }
