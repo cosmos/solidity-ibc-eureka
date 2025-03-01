@@ -47,7 +47,13 @@ impl ICS20PacketExt for IbcPacket {
 
         let is_returning_to_origin = packet_denom.starts_with(&prefix);
         let ibc_denom = if is_returning_to_origin {
-            packet_denom.trim_start_matches(&prefix).to_string()
+            let trimmed_denom = packet_denom.trim_start_matches(&prefix).to_string();
+            if !trimmed_denom.contains('/') {
+                // The denom is a base denom
+                return Some(trimmed_denom);
+            }
+
+            trimmed_denom
         } else {
             format!(
                 "{}/{}/{packet_denom}",
