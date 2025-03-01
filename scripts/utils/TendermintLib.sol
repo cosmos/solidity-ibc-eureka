@@ -5,12 +5,6 @@ pragma solidity ^0.8.28;
 // solhint-disable custom-errors,gas-custom-errors
 
 import { stdJson } from "forge-std/StdJson.sol";
-import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
-import { ISP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-
-
 
 library TendermintLib {
     using stdJson for string;

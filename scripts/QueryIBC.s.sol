@@ -6,15 +6,9 @@ pragma solidity ^0.8.28;
 */
 
 import { Script } from "forge-std/Script.sol";
-import { DeployLib } from "./DeployLib.sol";
-import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
-import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import "forge-std/console.sol";
-import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
 import { IICS02Client } from "../contracts/interfaces/IICS02Client.sol";
-import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import { IICS02ClientMsgs } from "../contracts/msgs/IICS02ClientMsgs.sol";
-import { ILightClient } from "../contracts/interfaces/ILightClient.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity

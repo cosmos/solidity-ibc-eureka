@@ -26,7 +26,6 @@ contract CreateTestnetLightClient is Script {
         string memory tendermintGenesisJson = vm.readFile(string.concat(root, "/scripts/genesis.json"));
         TendermintLib.SP1ICS07TendermintGenesisJson memory genesis = TendermintLib.loadTendermintGenesisFromJson(tendermintGenesisJson);
 
-
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo = IICS02ClientMsgs.CounterpartyInfo(
             counterpartyClientID,
             merklePrefix

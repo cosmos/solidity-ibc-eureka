@@ -9,17 +9,20 @@ pragma solidity ^0.8.28;
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
-import { ISP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { IICS26Router } from "../contracts/interfaces/IICS26Router.sol";
-import { IICS20Transfer } from "../contracts/interfaces/IICS20Transfer.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
+import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { DeployLib } from "./DeployLib.sol";
+import { Escrow } from "../contracts/utils/Escrow.sol";
+import { TendermintLib } from "./utils/TendermintLib.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/guides/scripting-with-solidity
 contract E2ETestDeploy is Script, IICS07TendermintMsgs {
@@ -29,7 +32,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         // ============ Step 1: Load parameters ==============
         string memory root = vm.projectRoot();
         string memory tendermintGenesisJson = vm.readFile(string.concat(root, "/scripts/genesis.json"));
-        DeployLib.SP1ICS07TendermintGenesisJson memory genesis = DeployLib.loadTendermintGenesisFromJson(tendermintGenesisJson);
+        TendermintLib.SP1ICS07TendermintGenesisJson memory genesis = TendermintLib.loadTendermintGenesisFromJson(tendermintGenesisJson);
         ClientState memory trustedClientState = abi.decode(genesis.trustedClientState, (ClientState));
 
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
@@ -58,10 +61,51 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         }
 
         // Deploy the SP1 ICS07 Tendermint light client
-        ISP1ICS07Tendermint ics07Tendermint = DeployLib.deployTendermintLightClient(genesis, verifier);
+                // Deploy new light client
+        IICS07TendermintMsgs.ConsensusState memory trustedConsensusState =
+            abi.decode(genesis.trustedConsensusState, (IICS07TendermintMsgs.ConsensusState));
+
+        // Deploy the SP1 ICS07 Tendermint light client
+        SP1ICS07Tendermint ics07Tendermint = new SP1ICS07Tendermint(
+            genesis.updateClientVkey,
+            genesis.membershipVkey,
+            genesis.ucAndMembershipVkey,
+            genesis.misbehaviourVkey,
+            verifier,
+            genesis.trustedClientState,
+            keccak256(abi.encode(trustedConsensusState))
+        );
 
         // Deploy IBC Eureka
-        (IICS26Router ics26Router, IICS20Transfer ics20Transfer) = DeployLib.deployIBCCore(DeployLib.DeploymentConfigJson(msg.sender, msg.sender, address(0), address(0)));
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
+        address ics26RouterLogic = address(new ICS26Router());
+        address ics20TransferLogic = address(new ICS20Transfer());
+
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            ics26RouterLogic,
+            abi.encodeWithSelector(
+                ICS26Router.initialize.selector,
+                msg.sender,
+                msg.sender
+            )
+        );
+
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
+            ics20TransferLogic,
+            abi.encodeWithSelector(
+                ICS20Transfer.initialize.selector,
+                address(routerProxy),
+                escrowLogic,
+                ibcERC20Logic,
+                msg.sender,
+                address(0)
+            )
+        );
+
+        ICS26Router ics26Router = ICS26Router(address(routerProxy));
+        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
+
         // Wire Transfer app
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
