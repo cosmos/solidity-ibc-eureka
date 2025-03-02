@@ -86,7 +86,7 @@ pub fn verify_non_membership(
 /// This function is always called after the verify client message, so
 /// we can assume the client message is valid and that the consensus state can be updated
 /// # Errors
-/// Returns an error if deserialization failes or if the light client update logic fails
+/// Returns an error if deserialization fails or if the light client update logic fails
 /// # Returns
 /// The updated slot (called height in regular IBC terms)
 #[allow(clippy::needless_pass_by_value)]
