@@ -13,5 +13,5 @@ pub trait RelayerModule: Send + Sync + 'static {
     fn name(&self) -> &'static str;
 
     /// Creates a relayer service of the given module type with the provided config.
-    async fn create_service(&self, config: serde_json::Value) -> Result<Box<dyn RelayerService>>;
+    async fn create_service(&self, config: toml::Value) -> Result<Box<dyn RelayerService>>;
 }
