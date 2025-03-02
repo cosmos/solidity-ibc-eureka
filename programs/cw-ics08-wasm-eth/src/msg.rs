@@ -163,7 +163,7 @@ pub struct StatusMsg {}
 /// Height of the ethereum chain
 #[cw_serde]
 pub struct Height {
-    /// The revision that the client is currently on
+    /// The revision the client is currently on
     /// Always zero in the ethereum light client
     #[serde(default)]
     pub revision_number: u64,
