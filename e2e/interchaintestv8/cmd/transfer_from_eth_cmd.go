@@ -55,6 +55,8 @@ func TransferFromEth() *cobra.Command {
 				return fmt.Errorf("source client flag not set")
 			}
 
+			transferWithCallbacksMemo, _ := cmd.Flags().GetBool(FlagTransferWithCallbacksMemo)
+
 			// Set up everything needed to send the transfer
 			ethClient, err := ethclient.Dial(ethRPC)
 			if err != nil {
@@ -74,7 +76,12 @@ func TransferFromEth() *cobra.Command {
 
 			// Approve ICS20 contract to spend ERC20
 			// TODO: Consider if we should query Permit2, so we don't have to do this every time 🤔
-			tx, err := erc20Contract.Approve(utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey), ics20Address, transferAmount)
+			txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
+			txOpts.GasPrice = nil
+			if IsVerbose(cmd) {
+				fmt.Printf("Approve TransactOpts: %+v\n", txOpts)
+			}
+			tx, err := erc20Contract.Approve(txOpts, ics20Address, transferAmount)
 			if err != nil {
 				return fmt.Errorf("approve tx call failed: %w", err)
 			}
@@ -95,9 +102,17 @@ func TransferFromEth() *cobra.Command {
 				SourceClient:     sourceClientID,
 				DestPort:         "transfer",
 				TimeoutTimestamp: timeout,
-				Memo:             `{"dest_callback": {"address":"cosmos1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqez7la9"}}`,
+				Memo:             "",
 			}
-			tx, err = ics20Contract.SendTransfer(utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey), sendTransferMsg)
+			if transferWithCallbacksMemo {
+				sendTransferMsg.Memo = `{"dest_callback": {"address":"cosmos1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqez7la9"}}`
+			}
+			txOpts = utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
+			txOpts.GasPrice = nil
+			if IsVerbose(cmd) {
+				fmt.Printf("SendTransfer TransactOpts: %+v\n", txOpts)
+			}
+			tx, err = ics20Contract.SendTransfer(txOpts, sendTransferMsg)
 			if err != nil {
 				fmt.Printf("tx %+v\n", tx)
 				return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)
@@ -118,6 +133,7 @@ func TransferFromEth() *cobra.Command {
 
 	AddEthFlags(cmd)
 	cmd.Flags().String(FlagSourceClientID, MockTendermintClientID, "Tendermint Client ID on Ethereum")
+	cmd.Flags().Bool(FlagTransferWithCallbacksMemo, true, "Transfer with callbacks forwarding memo")
 
 	return cmd
 }

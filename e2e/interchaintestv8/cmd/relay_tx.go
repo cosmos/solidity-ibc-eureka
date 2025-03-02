@@ -157,6 +157,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 	txBuilder := app.TxConfig().NewTxBuilder()
 	txBuilder.SetGasLimit(200000)
 	txBuilder.SetMsgs(msgs...)
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("uatom", 200000)))
 
 	sigV2 := signing.SignatureV2{
 		PubKey: cosmosRelayerPrivateKey.PubKey(),
@@ -293,6 +294,9 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	}
 
 	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainIDBigInt, ethPrivKey)
+	if IsVerbose(cmd) {
+		fmt.Printf("TransactOpts: %+v\n", txOpts)
+	}
 
 	unsignedTx := ethtypes.NewTransaction(
 		txOpts.Nonce.Uint64(),

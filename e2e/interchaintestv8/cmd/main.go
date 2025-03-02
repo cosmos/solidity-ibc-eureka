@@ -23,13 +23,13 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "https://eureka-hub-devnet-03-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
+	DefaultCosmosGRPC = "eureka-hub-devnet-03-node-01-grpc.dev.skip.build:443"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "eureka-dev-3"
+	DefaultCosmosChainID = "eureka-hub-dev-3"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -38,16 +38,20 @@ const (
 	FlagCosmosClientIDOnEth = "client-id-on-eth"
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
-	MockTendermintClientID = "client-6"
+	MockTendermintClientID = "client-7"
 	MockEthClientID        = "08-wasm-0"
 	// TODO: Add the non-mock versions of these
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-hub-devnet-03-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
+
+	FlagVerbose = "verbose"
+
+	FlagTransferWithCallbacksMemo = "transfer-with-callbacks-memo"
 )
 
 func main() {
@@ -68,6 +72,8 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(BalanceCmd())
 	rootCmd.AddCommand(TransferFromCosmos())
 
+	rootCmd.PersistentFlags().BoolP(FlagVerbose, "v", false, "verbose output")
+
 	return rootCmd
 }
 
@@ -83,4 +89,9 @@ func AddCosmosFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagCosmosRPC, DefaultCosmosRPC, "Cosmos RPC URL")
 	cmd.Flags().String(FlagCosmosGRPC, DefaultCosmosGRPC, "Cosmos gRPC URL")
 	cmd.Flags().String(FlagCosmosChainID, DefaultCosmosChainID, "Cosmos Chain ID")
+}
+
+func IsVerbose(cmd *cobra.Command) bool {
+	verbose, _ := cmd.Flags().GetBool(FlagVerbose)
+	return verbose
 }
