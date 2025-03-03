@@ -2,8 +2,6 @@
 //! program.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
 
-pub mod types;
-
 use ibc_client_tendermint::client_state::{
     check_for_misbehaviour_on_misbehavior, verify_misbehaviour,
 };
@@ -12,7 +10,7 @@ use ibc_core_host_types::identifiers::{ChainId, ClientId};
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::ClientState, IMisbehaviourMsgs::MisbehaviourOutput,
 };
-use std::collections::HashMap;
+use sp1_ics07_tendermint_update_client::types::validation::ClientValidationCtx;
 use std::time::Duration;
 use tendermint_light_client_verifier::options::Options;
 use tendermint_light_client_verifier::ProdVerifier;
@@ -40,18 +38,19 @@ pub fn check_for_misbehaviour(
 
     // Insert the two trusted consensus states into the trusted consensus state map that exists in the ClientValidationContext that is expected by verifyMisbehaviour
     // Since we are mocking the existence of prior trusted consensus states, we are only filling in the two consensus states that are passed in into the map
-    let trusted_consensus_state_map = HashMap::from([
-        (
-            misbehaviour.header1().trusted_height.revision_height(),
-            &trusted_consensus_state_1,
-        ),
-        (
-            misbehaviour.header2().trusted_height.revision_height(),
-            &trusted_consensus_state_2,
-        ),
-    ]);
-    let ctx =
-        types::validation::MisbehaviourValidationContext::new(time, trusted_consensus_state_map);
+    let mut ctx = ClientValidationCtx::new(time);
+    ctx.insert_trusted_consensus_state(
+        client_id.clone(),
+        misbehaviour.header1().trusted_height.revision_number(),
+        misbehaviour.header1().trusted_height.revision_height(),
+        &trusted_consensus_state_1,
+    );
+    ctx.insert_trusted_consensus_state(
+        client_id.clone(),
+        misbehaviour.header2().trusted_height.revision_number(),
+        misbehaviour.header2().trusted_height.revision_height(),
+        &trusted_consensus_state_2,
+    );
 
     let options = Options {
         trust_threshold: client_state.trustLevel.clone().into(),
