@@ -162,7 +162,8 @@ library ICS24Host {
 
     /// @notice Get the packet receipt commitment bytes.
     /// @dev PacketReceiptCommitment returns the keccak256 hash of the packet.
-    /// @dev The non-zero value of this commitment doesn't matter in the protocol, it is only used to prove non-membership.
+    /// @dev The non-zero value of this commitment doesn't matter in the protocol, it is only used to prove
+    /// non-membership.
     /// @dev It is important that this is non-zero to prevent replay attacks.
     /// @param packet The packet to get the receipt commitment for
     /// @return The keccak256 hash of the packet

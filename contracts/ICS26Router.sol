@@ -89,11 +89,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet)
-        external
-        view
-        returns (bool)
-    {
+    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool) {
         if (!isPacketReceived(packet)) {
             return false;
         }
