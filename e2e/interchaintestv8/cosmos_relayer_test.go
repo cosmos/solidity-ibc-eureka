@@ -527,6 +527,17 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		}))
 	}), 10*time.Minute)
 
+	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       s.SimdA.Config().ChainID,
+			DstChain:       s.SimdB.Config().ChainID,
+			TimeoutTxIds:   txHashes,
+			TargetClientId: ibctesting.FirstClientID,
+		})
+		s.Require().Error(err)
+		s.Require().Nil(resp)
+	}))
+
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
 		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 		s.Require().Error(err)
