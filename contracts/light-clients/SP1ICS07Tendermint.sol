@@ -177,7 +177,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         revert UnknownMembershipProofType(uint8(membershipProof.proofType));
     }
 
-    /// @dev The misbehavior is verfied in the sp1 program. Here we only check the public values which contain the trusted headers.
+    /// @dev The misbehavior is verfied in the sp1 program. Here we only check the public values which contain the
+    /// trusted headers.
     /// @inheritdoc ILightClient
     function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
@@ -228,7 +229,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IMembershipMsgs.MembershipOutput memory output =
             abi.decode(proof.sp1Proof.publicValues, (IMembershipMsgs.MembershipOutput));
         require(
-            output.kvPairs.length > 0 && output.kvPairs.length <= type(uint16).max, LengthIsOutOfRange(output.kvPairs.length, 1, type(uint16).max)
+            output.kvPairs.length > 0 && output.kvPairs.length <= type(uint16).max,
+            LengthIsOutOfRange(output.kvPairs.length, 1, type(uint16).max)
         );
 
         {
@@ -441,7 +443,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         // NOTE: We do not check the equality of latest height and isFrozen, this is because:
         // 1. Latest height can be updated by a frontrunner relayer in order to DOS the proof of another relayer.
         // 2. Each external call has the `notFrozen` modifier which checks if the client is frozen.
-        // 3. The revision number is not allowed to change with us checking the chain-id and the implementation in the sp1 program.
+        // 3. The revision number is not allowed to change with us checking the chain-id and the implementation in the
+        // sp1 program.
         require(
             bytes(publicClientState.chainId).length == bytes(clientState.chainId).length
                 && keccak256(bytes(publicClientState.chainId)) == keccak256(bytes(clientState.chainId)),
@@ -519,7 +522,14 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param proofHeight The height of the proof.
     /// @param kvPair The key-value pair.
     /// @return The timestamp of the cached key-value pair.
-    function _getCachedKvPair(uint32 proofHeight, IMembershipMsgs.KVPair memory kvPair) private view returns (uint256) {
+    function _getCachedKvPair(
+        uint32 proofHeight,
+        IMembershipMsgs.KVPair memory kvPair
+    )
+        private
+        view
+        returns (uint256)
+    {
         bytes32 kvPairHash = keccak256(abi.encode(proofHeight, kvPair));
         uint256 timestamp = kvPairHash.asUint256().tload();
         require(timestamp != 0, KeyValuePairNotInCache(kvPair.path, kvPair.value));
