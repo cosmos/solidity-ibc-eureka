@@ -439,7 +439,10 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         require(block.timestamp - time <= ALLOWED_SP1_CLOCK_DRIFT, ProofIsTooOld(block.timestamp, time));
 
         // Check client state equality
-        // NOTE: We do not check the equality of latest height and isFrozen
+        // NOTE: We do not check the equality of latest height and isFrozen, this is because:
+        // 1. Latest height can be updated by a frontrunner relayer in order to DOS the proof of another relayer.
+        // 2. Each external call has the `notFrozen` modifier which checks if the client is frozen.
+        // 3. The revision number is not allowed to change with us checking the chain-id and the implementation in the sp1 program.
         require(
             bytes(publicClientState.chainId).length == bytes(clientState.chainId).length
                 && keccak256(bytes(publicClientState.chainId)) == keccak256(bytes(clientState.chainId)),
