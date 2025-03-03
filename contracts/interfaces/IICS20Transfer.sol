@@ -23,6 +23,19 @@ interface IICS20Transfer {
         external
         returns (uint32 sequence);
 
+    /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket with the provided sender
+    /// @dev This is a permissioned function that can only be called by a whitelist.
+    /// @dev Useful for contracts that need to refund the tokens to a sender.
+    /// @param msg_ The message for sending a transfer
+    /// @param sender The sender of the transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
+        external
+        returns (uint32 sequence);
+
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
     /// @return The escrow contract address

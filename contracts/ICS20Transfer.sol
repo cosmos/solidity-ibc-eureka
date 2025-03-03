@@ -149,7 +149,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_, address(escrow));
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -178,16 +178,34 @@ contract ICS20Transfer is
         );
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_, address(escrow));
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function sendTransferWithSender(IICS20TransferMsgs.SendTransferMsg calldata msg_, address sender)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint32)
+    {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        // transfer the tokens to us (requires the allowance to be set)
+        IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
+        _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
+
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
     /// @param msg_ The message for sending a transfer
     /// @param escrow The address of the escrow contract
+    /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrow(
+    function sendTransferFromEscrowWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
-        address escrow
+        address escrow,
+        address sender
     )
         private
         returns (uint32)
@@ -210,7 +228,7 @@ contract ICS20Transfer is
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
             denom: fullDenomPath,
-            sender: Strings.toHexString(_msgSender()),
+            sender: Strings.toHexString(sender),
             receiver: msg_.receiver,
             amount: msg_.amount,
             memo: msg_.memo
