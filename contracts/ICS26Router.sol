@@ -176,8 +176,8 @@ contract ICS26Router is
 
         // recvPacket will no-op if the packet receipt already exists
         // This no-op check must happen after the membership verification for proofs to be cached
-        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
-        if (!setReceiptSuccessful) {
+        bool receiptAlreadySet = !setPacketReceipt(msg_.packet);
+        if (receiptAlreadySet) {
             emit Noop();
             return;
         }
