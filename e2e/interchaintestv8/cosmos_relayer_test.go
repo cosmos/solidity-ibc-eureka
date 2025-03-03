@@ -467,9 +467,25 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		}))
 	}))
 
+	// Prefetching the relay tx before the timeout
+	var txBodyBz []byte
+	s.Require().True(s.Run("Retrieve relay tx", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       s.SimdA.Config().ChainID,
+			DstChain:       s.SimdB.Config().ChainID,
+			SourceTxIds:    txHashes,
+			TargetClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		txBodyBz = resp.Tx
+	}))
+
 	// Wait until timeout
 	time.Sleep(30 * time.Second)
-
+	
 	s.Require().True(s.Run("Timeout packet on Chain A", func() {
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
@@ -509,5 +525,11 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(originalBalance, resp.Balance)
 		}))
+	}), 10*time.Minute)
+
+	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
+		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+		s.Require().Error(err)
+		s.Require().Nil(resp)
 	}), 10*time.Minute)
 }

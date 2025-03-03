@@ -1194,6 +1194,21 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		}))
 	}))
 
+	var txBodyBz []byte
+	s.Require().True(s.Run("Prefetch relay tx", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       eth.ChainID.String(),
+			DstChain:       simd.Config().ChainID,
+			SourceTxIds:    ethSendTxHashes,
+			TargetClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		txBodyBz = resp.Tx
+	}))
+
 	// sleep for 45 seconds to let the packet timeout
 	time.Sleep(45 * time.Second)
 
@@ -1245,6 +1260,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(originalBalance, resp.Balance)
 		}))
+	}), 10*time.Minute)
+
+	s.Require().True(s.Run("Receive packets on Cosmos chain after timeout", func() {
+		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+		s.Require().Error(err)
+		s.Require().Nil(resp)
 	}), 10*time.Minute)
 }
 
