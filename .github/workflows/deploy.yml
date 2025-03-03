@@ -1,0 +1,30 @@
+name: deploy
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  test-deploy:
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_ETH_RPC_URL: http://localhost:8545
+      DEPLOYMENT_ENV: local
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: "Set up environment"
+        uses: ./.github/setup
+      - name: Deploy Anvil
+        run: |
+          anvil &
+      - name: Deploy contracts
+        run: |
+          forge script scripts/deployments/DeployProxiedICS26Router.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+          forge script scripts/deployments/DeployProxiedICS20Transfer.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+          forge script scripts/deployments/DeploySP1ICS07Tendermint.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+      - name: Show final result
+        run: |
+          cat deployments/local/31337.json

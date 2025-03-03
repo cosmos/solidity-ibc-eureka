@@ -5,17 +5,23 @@ pragma solidity ^0.8.28;
 
 import { Deployments } from "../helpers/Deployments.sol";
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
+import { ISP1ICS07Tendermint } from "../../contracts/light-clients/ISP1ICS07Tendermint.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Script } from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
+import {ICS26Router} from "../../contracts/ICS26Router.sol";
 
-abstract contract DeploySP1ICS07Tendermint {
+abstract contract DeploySP1ICS07Tendermint is Deployments {
     using stdJson for string;
 
-    function deploySP1ICS07Tendermint(Deployments.SP1ICS07TendermintDeployment memory deployment)
+    function deploySP1ICS07Tendermint(SP1ICS07TendermintDeployment memory deployment)
         public
         returns (
             SP1ICS07Tendermint,
@@ -35,6 +41,11 @@ abstract contract DeploySP1ICS07Tendermint {
         } else if (bytes(deployment.verifier).length > 0) {
             (bool success, address verifierAddr) = Strings.tryParseAddress(deployment.verifier);
             require(success, string.concat("Invalid verifier address: ", deployment.verifier));
+
+            if (verifierAddr == address(0)) {
+                revert("Verifier address is zero");
+            }
+
             verifier = verifierAddr;
         } else if (trustedClientState.zkAlgorithm == IICS07TendermintMsgs.SupportedZkAlgorithm.Plonk) {
             verifier = address(new SP1VerifierPlonk());
@@ -56,5 +67,64 @@ abstract contract DeploySP1ICS07Tendermint {
         );
 
         return (ics07Tendermint, trustedConsensusState, trustedClientState);
+    }
+}
+
+contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
+    string internal constant DEPLOYMENT_NAME = "SP1ICS07Tendermint.json";
+
+    function verify(SP1ICS07TendermintDeployment memory deployment) internal view {
+        require(deployment.implementation != address(0), "bad");
+
+        ISP1ICS07Tendermint ics07Tendermint = SP1ICS07Tendermint(deployment.implementation);
+
+        (bool success, address verifierAddr) = Strings.tryParseAddress(deployment.verifier);
+        require(success, "Invalid verifier address");
+        require(address(ics07Tendermint.VERIFIER()) == verifierAddr, "bad");
+    }
+
+    function run() public {
+        string memory root = vm.projectRoot();
+        string memory deployEnv = vm.envString("DEPLOYMENT_ENV");
+        string memory path = string.concat(root, DEPLOYMENT_DIR, "/", deployEnv, "/", Strings.toString(block.chainid), ".json");
+        string memory json = vm.readFile(path);
+
+        bool verifyOnly = vm.envOr("VERIFY_ONLY", false);
+
+        SP1ICS07TendermintDeployment[] memory deployments = loadSP1ICS07TendermintDeployments(vm, json);
+        ProxiedICS26RouterDeployment memory ics26RouterDeployment = loadProxiedICS26RouterDeployment(vm, json);
+
+        IICS02Client ics26Router = IICS02Client(ics26RouterDeployment.proxy);
+
+        for (uint256 i = 0; i < deployments.length; i++) {
+            if (deployments[i].implementation != address(0) || verifyOnly) {
+                verify(deployments[i]);
+                continue;
+            }
+
+            vm.startBroadcast();
+
+            (SP1ICS07Tendermint ics07Tendermint, ,) = deploySP1ICS07Tendermint(deployments[i]);
+
+            deployments[i].implementation = address(ics07Tendermint);
+            deployments[i].verifier = vm.toString(address(ics07Tendermint.VERIFIER()));
+
+            IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = IICS02ClientMsgs.CounterpartyInfo(deployments[i].counterpartyClientId, deployments[i].merklePrefix);
+            ics26Router.addClient(counterPartyInfo, address(ics07Tendermint));
+
+            vm.stopBroadcast();
+        }
+
+        for (uint256 i = 0; i < deployments.length; ++i) {
+            verify(deployments[i]);
+        }
+
+        for (uint256 i = 0; i < deployments.length; ++i) {
+            string memory idx = Strings.toString(i);
+            string memory key = string.concat(".light_clients['", idx, "']");
+
+            vm.writeJson(vm.toString(deployments[i].implementation), path, string.concat(key, ".implementation"));
+            vm.writeJson(deployments[i].verifier, path, string.concat(key, ".verifier"));
+        }
     }
 }
