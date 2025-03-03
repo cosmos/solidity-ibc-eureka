@@ -227,7 +227,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         IMembershipMsgs.MembershipOutput memory output =
             abi.decode(proof.sp1Proof.publicValues, (IMembershipMsgs.MembershipOutput));
         require(
-            output.kvPairs.length > 0 && output.kvPairs.length <= 256, LengthIsOutOfRange(output.kvPairs.length, 1, 256)
+            output.kvPairs.length > 0 && output.kvPairs.length <= type(uint16).max, LengthIsOutOfRange(output.kvPairs.length, 1, type(uint16).max)
         );
 
         {
@@ -290,8 +290,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
             output = abi.decode(proof.sp1Proof.publicValues, (IUpdateClientAndMembershipMsgs.UcAndMembershipOutput));
             require(
-                output.kvPairs.length > 0 && output.kvPairs.length <= 256,
-                LengthIsOutOfRange(output.kvPairs.length, 1, 256)
+                output.kvPairs.length > 0 && output.kvPairs.length <= type(uint16).max,
+                LengthIsOutOfRange(output.kvPairs.length, 1, type(uint16).max)
             );
 
             require(
