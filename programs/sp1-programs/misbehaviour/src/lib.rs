@@ -34,7 +34,7 @@ pub fn check_for_misbehaviour(
             .header
             .chain_id
             .to_string()
-    );
+    ); // header2 is checked by `verify_misbehaviour`
 
     // Insert the two trusted consensus states into the trusted consensus state map that exists in the ClientValidationContext that is expected by verifyMisbehaviour
     // Since we are mocking the existence of prior trusted consensus states, we are only filling in the two consensus states that are passed in into the map
