@@ -146,6 +146,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice The entrypoint for verifying (non)membership proof.
     /// @dev This is a non-membership proof if the value is empty.
+    /// @dev If the proof is empty, then we assume that the proof was cached earlier in the same tx.
+    /// @dev The proof is cached in the transient storage.
     /// @param proof The encoded proof.
     /// @param proofHeight The height of the proof.
     /// @param path The path of the key-value pair.
