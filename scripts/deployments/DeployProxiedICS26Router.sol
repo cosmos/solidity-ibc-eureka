@@ -11,8 +11,6 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { Script } from "forge-std/Script.sol";
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
-import {IBCPausableUpgradeable} from "../../contracts/utils/IBCPausableUpgradeable.sol";
 
 abstract contract DeployProxiedICS26Router is Deployments {
     using stdJson for string;

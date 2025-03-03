@@ -15,8 +15,6 @@ import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Script } from "forge-std/Script.sol";
-import {console} from "forge-std/console.sol";
-import {ICS26Router} from "../../contracts/ICS26Router.sol";
 
 abstract contract DeploySP1ICS07Tendermint is Deployments {
     using stdJson for string;

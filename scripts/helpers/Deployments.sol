@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { Vm } from "forge-std/Vm.sol";
 import { stdJson } from "forge-std/StdJson.sol";
-import { console } from "forge-std/console.sol";
 
 abstract contract Deployments {
     using stdJson for string;

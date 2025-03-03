@@ -8,15 +8,11 @@ import {Deployments} from "../helpers/Deployments.sol";
 import {ERC1967Proxy} from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IBeacon} from "@openzeppelin-contracts/proxy/beacon/IBeacon.sol";
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
-import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 import {ICS20Transfer} from "../../contracts/ICS20Transfer.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import {IBCUUPSUpgradeable} from "../../contracts/utils/IBCUUPSUpgradeable.sol";
-import {IBCPausableUpgradeable} from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { console } from "forge-std/console.sol";
 
 abstract contract DeployProxiedICS20Transfer is Deployments {
     using stdJson for string;
