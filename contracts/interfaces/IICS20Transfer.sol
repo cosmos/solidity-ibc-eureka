@@ -5,6 +5,10 @@ import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 interface IICS20Transfer {
+    /// @notice The role identifier for the delegate sender role
+    /// @dev This role is required to call `sendTransferWithSender`
+    function DELEGATE_SENDER_ROLE() external view returns (bytes32);
+
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
@@ -24,7 +28,7 @@ interface IICS20Transfer {
         returns (uint32 sequence);
 
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket with the provided sender
-    /// @dev This is a permissioned function that can only be called by a whitelist.
+    /// @dev This is a permissioned function requiring the `DELEGATE_SENDER_ROLE`
     /// @dev Useful for contracts that need to refund the tokens to a sender.
     /// @param msg_ The message for sending a transfer
     /// @param sender The sender of the transfer

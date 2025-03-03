@@ -65,6 +65,9 @@ contract ICS20Transfer is
     bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
         0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -186,6 +189,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
+        onlyRole(DELEGATE_SENDER_ROLE)
         returns (uint32)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
