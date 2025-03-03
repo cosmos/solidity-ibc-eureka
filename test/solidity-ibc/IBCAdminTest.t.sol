@@ -318,7 +318,9 @@ contract IBCAdminTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.DELEGATE_SENDER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(this),
+                ics20Transfer.DELEGATE_SENDER_ROLE()
             )
         );
         ics20Transfer.sendTransferWithSender(msg_, sender);

@@ -210,7 +210,8 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.mockCall(address(this), IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
         ics20Transfer.grantDelegateSenderRole(sender);
 
-        (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) = _getDefaultPacket();
+        (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =
+            _getDefaultPacket();
         expPacketData.sender = Strings.toHexString(customSender);
 
         erc20.mint(sender, defaultAmount);
@@ -228,22 +229,27 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         });
 
         vm.prank(sender);
-        vm.expectCall(address(this), abi.encodeCall(IICS26Router.sendPacket, IICS26RouterMsgs.MsgSendPacket({
-            sourceClient: msgSendTransfer.sourceClient,
-            timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
-            payload: IICS26RouterMsgs.Payload({
-                sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-                destPort: ICS20Lib.DEFAULT_PORT_ID,
-                version: ICS20Lib.ICS20_VERSION,
-                encoding: ICS20Lib.ICS20_ENCODING,
-                value: abi.encode(expPacketData)
-            })
-        })));
+        vm.expectCall(
+            address(this),
+            abi.encodeCall(
+                IICS26Router.sendPacket,
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: msgSendTransfer.sourceClient,
+                    timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                        destPort: ICS20Lib.DEFAULT_PORT_ID,
+                        version: ICS20Lib.ICS20_VERSION,
+                        encoding: ICS20Lib.ICS20_ENCODING,
+                        value: abi.encode(expPacketData)
+                    })
+                })
+            )
+        );
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
         uint32 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
         assertEq(sequence, 42);
     }
-
 
     function test_failure_onAcknowledgementPacket() public {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =

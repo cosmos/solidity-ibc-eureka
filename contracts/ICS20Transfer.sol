@@ -185,7 +185,10 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function sendTransferWithSender(IICS20TransferMsgs.SendTransferMsg calldata msg_, address sender)
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
         external
         whenNotPaused
         nonReentrant
