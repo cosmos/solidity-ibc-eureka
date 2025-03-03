@@ -413,6 +413,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         uint256 supplyBeforeReceive = erc20.totalSupply();
         assertEq(supplyBeforeReceive, defaultAmount); // Not burned
 
+        // This is not a receive packet
+        assertFalse(ics26Router.isPacketReceived(packet));
+        assertFalse(ics26Router.isPacketReceiveSuccessful(packet));
+
         // Return the tokens (receive)
         string memory receivedDenom =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
@@ -426,6 +430,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // packet receipt should be written
         bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+
+        // run the receive packet queries
+        assert(ics26Router.isPacketReceived(recvPacket));
+        assert(ics26Router.isPacketReceiveSuccessful(recvPacket));
 
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
@@ -972,6 +980,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         // Check that the packet receipt is written
         bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
         assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+
+        // Run packet queries
+        assert(ics26Router.isPacketReceived(recvPacket));
+        assertFalse(ics26Router.isPacketReceiveSuccessful(recvPacket));
     }
 
     function _sendICS20TransferPacket(

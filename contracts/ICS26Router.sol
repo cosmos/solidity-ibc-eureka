@@ -92,7 +92,6 @@ contract ICS26Router is
     function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet)
         external
         view
-        override
         returns (bool)
     {
         if (!isPacketReceived(packet)) {
@@ -103,7 +102,7 @@ contract ICS26Router is
         errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
         bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
         bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
-        return storedAckCommitment != errorAckCommitment;
+        return storedAckCommitment != 0 && storedAckCommitment != errorAckCommitment;
     }
 
     /// @notice Adds an IBC application to the router
