@@ -12,6 +12,7 @@ import {ICS20Transfer} from "../../contracts/ICS20Transfer.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import {IBCPausableUpgradeable} from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 abstract contract DeployProxiedICS20Transfer is Deployments {
