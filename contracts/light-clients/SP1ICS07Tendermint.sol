@@ -43,7 +43,6 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev Revision number need not be keyed as it is not allowed to change.
     mapping(uint32 height => bytes32 hash) private _consensusStateHashes;
 
-    /// @notice Allowed clock drift.
     /// @inheritdoc ISP1ICS07Tendermint
     uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 30 minutes;
 
