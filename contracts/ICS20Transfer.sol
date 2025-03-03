@@ -489,12 +489,12 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     function grantDelegateSenderRole(address account) external onlyAdmin {
-        _grantRole(PAUSER_ROLE, account);
+        _grantRole(DELEGATE_SENDER_ROLE, account);
     }
 
     /// @inheritdoc IICS20Transfer
     function revokeDelegateSenderRole(address account) external onlyAdmin {
-        _revokeRole(PAUSER_ROLE, account);
+        _revokeRole(DELEGATE_SENDER_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract
