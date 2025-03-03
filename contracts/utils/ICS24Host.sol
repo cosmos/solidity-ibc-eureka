@@ -160,6 +160,16 @@ library ICS24Host {
         return sha256(abi.encodePacked(uint8(2), ackBytes));
     }
 
+    /// @notice Get the packet receipt commitment bytes.
+    /// @dev PacketReceiptCommitment returns the keccak256 hash of the packet.
+    /// @dev The non-zero value of this commitment doesn't matter in the protocol, it is only used to prove non-membership.
+    /// @dev It is important that this is non-zero to prevent replay attacks.
+    /// @param packet The packet to get the receipt commitment for
+    /// @return The keccak256 hash of the packet
+    function packetReceiptCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
+        return keccak256(abi.encode(packet));
+    }
+
     /// @notice Create a prefixed path
     /// @dev The path is appended to the last element of the prefix
     /// @param merklePrefix The prefix
