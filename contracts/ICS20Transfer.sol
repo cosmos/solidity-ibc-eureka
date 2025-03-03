@@ -487,6 +487,16 @@ contract ICS20Transfer is
         _getICS20TransferStorage()._ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
     }
 
+    /// @inheritdoc IICS20Transfer
+    function grantDelegateSenderRole(address account) external onlyAdmin {
+        _grantRole(PAUSER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeDelegateSenderRole(address account) external onlyAdmin {
+        _revokeRole(PAUSER_ROLE, account);
+    }
+
     /// @notice Returns the ICS26Router contract
     /// @return The ICS26Router contract address
     function _getICS26Router() private view returns (IICS26Router) {

@@ -88,12 +88,24 @@ interface IICS20Transfer {
         external;
 
     /// @notice Upgrades the implementation of the escrow beacon contract
+    /// @dev The caller must be the ICS25Router admin
     /// @param newEscrowLogic The address of the new escrow logic contract
     function upgradeEscrowTo(address newEscrowLogic) external;
 
     /// @notice Upgrades the implementation of the ibcERC20 beacon contract
+    /// @dev The caller must be the ICS25Router admin
     /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
     function upgradeIBCERC20To(address newIbcERC20Logic) external;
+
+    /// @notice Grants the delegate sender role to an account
+    /// @dev The caller must be the ICS25Router admin
+    /// @param account The account to grant the role to
+    function grantDelegateSenderRole(address account) external;
+
+    /// @notice Revokes the delegate sender role from an account
+    /// @dev The caller must be the ICS25Router admin
+    /// @param account The account to revoke the role from
+    function revokeDelegateSenderRole(address account) external;
 
     // --------------------- Events --------------------- //
 
