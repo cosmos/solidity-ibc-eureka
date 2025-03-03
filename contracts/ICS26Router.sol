@@ -82,6 +82,30 @@ contract ICS26Router is
         return app;
     }
 
+    /// @inheritdoc IICS26Router
+    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
+        return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
+    }
+
+    /// @inheritdoc IICS26Router
+    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet)
+        external
+        view
+        override
+        returns (bool)
+    {
+        if (!isPacketReceived(packet)) {
+            return false;
+        }
+
+        bytes[] memory errorAck = new bytes[](1);
+        errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
+        bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
+        bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
+        return storedAckCommitment != errorAckCommitment;
+    }
+
     /// @notice Adds an IBC application to the router
     /// @dev Only the admin can submit non-empty port identifiers
     /// @param portId The port identifier
