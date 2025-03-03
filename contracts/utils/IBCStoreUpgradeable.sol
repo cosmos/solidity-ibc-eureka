@@ -102,14 +102,13 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
-        bytes32 receipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destClient, packet.sequence);
+        bytes32 receipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
         bytes32 storedReceipt = $.commitments[path];
         if (storedReceipt == receipt) {
             return false;
-        } else if (storedReceipt != 0) {
-            revert IBCPacketReceiptMismatch(storedReceipt, receipt);
         }
+        require(storedReceipt == 0, IBCPacketReceiptMismatch(storedReceipt, receipt));
 
         $.commitments[path] = receipt;
         return true;
