@@ -33,9 +33,9 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     }
 
     /// @inheritdoc IIBCStore
-    function queryPacketReceipt(string calldata clientId, uint64 sequence) public view override returns (bool) {
+    function queryPacketReceipt(string calldata clientId, uint64 sequence) public view override returns (bytes32) {
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(clientId, sequence);
-        return getCommitment(path) == ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
+        return getCommitment(path);
     }
 
     /// @inheritdoc IIBCStore
@@ -96,17 +96,22 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     }
 
     /// @notice Sets the packet receipt for the given packet if it doesn't already exist
+    /// @dev This function reverts if the stored receipt is different from the one being set
     /// @param packet Packet to set the receipt for
-    /// @return True if the packet receipt was not already set, and then set by this call, false otherwise
+    /// @return False if the receipt was already set, true otherwise
     function setPacketReceipt(IICS26RouterMsgs.Packet calldata packet) internal returns (bool) {
         IBCStoreStorage storage $ = _getIBCStoreStorage();
 
+        bytes32 receipt = keccak256(abi.encode(packet)); // this can't be 0
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(packet.destClient, packet.sequence);
-        if ($.commitments[path] != 0) {
+        bytes32 storedReceipt = $.commitments[path];
+        if (storedReceipt == receipt) {
             return false;
+        } else if (storedReceipt != 0) {
+            revert IBCPacketReceiptMismatch(storedReceipt, receipt);
         }
 
-        $.commitments[path] = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
+        $.commitments[path] = receipt;
         return true;
     }
 

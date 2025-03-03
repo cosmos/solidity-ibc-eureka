@@ -10,10 +10,6 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
-    /// @notice successful packet receipt
-    /// @dev It doesn't matter what the value is, as long as it's not empty
-    bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 = keccak256(bytes("SUCCESSFUL"));
-
     /// @notice Universal error acknowledgement
     /// @dev The error acknowledgement used when a packet is not successfully received
     /// @dev abi.encodePacked(sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT"))

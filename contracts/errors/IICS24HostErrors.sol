@@ -24,4 +24,9 @@ interface IICS24HostErrors {
 
     /// @notice No acknowledgements to process
     error NoAcknowledgements();
+
+    /// @notice IBC packet receipt mismatch
+    /// @param expected stored packet receipt
+    /// @param actual actual packet receipt
+    error IBCPacketReceiptMismatch(bytes32 expected, bytes32 actual);
 }
