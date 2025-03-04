@@ -23,7 +23,9 @@ abstract contract IBCPausableUpgradeable is
         __Pausable_init();
         __AccessControl_init();
 
-        _grantRole(PAUSER_ROLE, pauser);
+        if (pauser != address(0)) {
+            _grantRole(PAUSER_ROLE, pauser);
+        }
     }
 
     /// @inheritdoc IIBCPausable

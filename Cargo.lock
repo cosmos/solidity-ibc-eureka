@@ -6286,6 +6286,7 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
+ "sp1-ics07-tendermint-update-client",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
 ]
