@@ -133,7 +133,7 @@ func TransferFromEth() *cobra.Command {
 
 	AddEthFlags(cmd)
 	cmd.Flags().String(FlagSourceClientID, MockTendermintClientID, "Tendermint Client ID on Ethereum")
-	cmd.Flags().Bool(FlagTransferWithCallbacksMemo, true, "Transfer with callbacks forwarding memo")
+	cmd.Flags().Bool(FlagTransferWithCallbacksMemo, false, "Transfer with callbacks forwarding memo")
 
 	return cmd
 }
