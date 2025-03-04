@@ -6,8 +6,8 @@ use ethereum_light_client::consensus_state::TrustedConsensusState;
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
     msg::{
-        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, StatusResult,
-        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, Status,
+        StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
     },
     state::{get_eth_client_state, get_eth_consensus_state},
     ContractError,
@@ -138,18 +138,17 @@ pub fn timestamp_at_height(
 /// Active status, because no other state is currently implemented
 /// # Errors
 /// It won't error at this point
-// TODO: Implement a proper status once freezing/misbehaviour is implemented #164
 pub fn status(deps: Deps<EthereumCustomQuery>) -> Result<Binary, ContractError> {
     let eth_client_state = get_eth_client_state(deps.storage)?;
 
     if eth_client_state.is_frozen {
         return Ok(to_json_binary(&StatusResult {
-            status: "Frozen".to_string(),
+            status: Status::Frozen.to_string(),
         })?);
     }
 
     Ok(to_json_binary(&StatusResult {
-        status: "Active".to_string(),
+        status: Status::Active.to_string(),
     })?)
 }
 
