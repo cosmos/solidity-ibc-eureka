@@ -94,6 +94,9 @@ const (
 	FirstUniversalClientID = "client-0"
 	// SecondUniversalClientID is the second universal client ID. Used for testing.
 	SecondUniversalClientID = "client-1"
+
+	// CustomClientID is the custom client ID used for testing.
+	CustomClientID = "cosmoshub"
 )
 
 var (
