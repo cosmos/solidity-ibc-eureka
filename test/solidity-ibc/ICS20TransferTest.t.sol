@@ -12,6 +12,7 @@ import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
@@ -200,6 +201,54 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // prove that it works with a valid signature
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
+    }
+
+    function test_success_sendTransferWithSender() public {
+        address customSender = makeAddr("customSender");
+
+        // give permission to the delegate sender
+        vm.mockCall(address(this), IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
+        ics20Transfer.grantDelegateSenderRole(sender);
+
+        (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =
+            _getDefaultPacket();
+        expPacketData.sender = Strings.toHexString(customSender);
+
+        erc20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: address(erc20),
+            amount: defaultAmount,
+            receiver: receiverStr,
+            sourceClient: packet.sourceClient,
+            destPort: packet.payloads[0].sourcePort,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        vm.prank(sender);
+        vm.expectCall(
+            address(this),
+            abi.encodeCall(
+                IICS26Router.sendPacket,
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: msgSendTransfer.sourceClient,
+                    timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                        destPort: ICS20Lib.DEFAULT_PORT_ID,
+                        version: ICS20Lib.ICS20_VERSION,
+                        encoding: ICS20Lib.ICS20_ENCODING,
+                        value: abi.encode(expPacketData)
+                    })
+                })
+            )
+        );
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        uint32 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
+        assertEq(sequence, 42);
     }
 
     function test_failure_onAcknowledgementPacket() public {

@@ -5,6 +5,10 @@ import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 interface IICS20Transfer {
+    /// @notice The role identifier for the delegate sender role
+    /// @dev This role is required to call `sendTransferWithSender`
+    function DELEGATE_SENDER_ROLE() external view returns (bytes32);
+
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
@@ -19,6 +23,19 @@ interface IICS20Transfer {
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         ISignatureTransfer.PermitTransferFrom calldata permit,
         bytes calldata signature
+    )
+        external
+        returns (uint32 sequence);
+
+    /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket with the provided sender
+    /// @dev This is a permissioned function requiring the `DELEGATE_SENDER_ROLE`
+    /// @dev Useful for contracts that need to refund the tokens to a sender.
+    /// @param msg_ The message for sending a transfer
+    /// @param sender The sender of the transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
     )
         external
         returns (uint32 sequence);
@@ -71,12 +88,24 @@ interface IICS20Transfer {
         external;
 
     /// @notice Upgrades the implementation of the escrow beacon contract
+    /// @dev The caller must be the ICS26Router admin
     /// @param newEscrowLogic The address of the new escrow logic contract
     function upgradeEscrowTo(address newEscrowLogic) external;
 
     /// @notice Upgrades the implementation of the ibcERC20 beacon contract
+    /// @dev The caller must be the ICS26Router admin
     /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
     function upgradeIBCERC20To(address newIbcERC20Logic) external;
+
+    /// @notice Grants the delegate sender role to an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to grant the role to
+    function grantDelegateSenderRole(address account) external;
+
+    /// @notice Revokes the delegate sender role from an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to revoke the role from
+    function revokeDelegateSenderRole(address account) external;
 
     // --------------------- Events --------------------- //
 

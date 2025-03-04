@@ -65,6 +65,9 @@ contract ICS20Transfer is
     bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
         0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -149,7 +152,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_, address(escrow));
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -178,16 +181,38 @@ contract ICS20Transfer is
         );
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_, address(escrow));
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
+        external
+        whenNotPaused
+        nonReentrant
+        onlyRole(DELEGATE_SENDER_ROLE)
+        returns (uint32)
+    {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        // transfer the tokens to us (requires the allowance to be set)
+        IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
+        _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
+
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
     /// @param msg_ The message for sending a transfer
     /// @param escrow The address of the escrow contract
+    /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrow(
+    function sendTransferFromEscrowWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
-        address escrow
+        address escrow,
+        address sender
     )
         private
         returns (uint32)
@@ -210,7 +235,7 @@ contract ICS20Transfer is
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
             denom: fullDenomPath,
-            sender: Strings.toHexString(_msgSender()),
+            sender: Strings.toHexString(sender),
             receiver: msg_.receiver,
             amount: msg_.amount,
             memo: msg_.memo
@@ -467,6 +492,16 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function upgradeIBCERC20To(address newIBCERC20Logic) external onlyAdmin {
         _getICS20TransferStorage()._ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function grantDelegateSenderRole(address account) external onlyAdmin {
+        _grantRole(DELEGATE_SENDER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeDelegateSenderRole(address account) external onlyAdmin {
+        _revokeRole(DELEGATE_SENDER_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract
