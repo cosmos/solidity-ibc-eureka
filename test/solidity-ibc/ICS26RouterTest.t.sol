@@ -45,7 +45,7 @@ contract ICS26RouterTest is Test {
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(mockAppStr, mockApp);
-        ics26Router.addIBCApp("", mockApp);
+        ics26Router.addIBCApp(mockApp);
 
         assertEq(mockApp, address(ics26Router.getIBCApp(mockAppStr)));
     }
