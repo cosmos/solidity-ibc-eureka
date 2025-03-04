@@ -476,7 +476,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
 		sendPacket = sendPacketEvent.Packet
-		s.Require().Equal(uint32(1), sendPacket.Sequence)
+		s.Require().Equal(uint64(1), sendPacket.Sequence)
 		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
 		s.Require().Len(sendPacket.Payloads, 1)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
@@ -973,7 +973,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 		sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 		s.Require().NoError(err)
-		s.Require().Equal(uint32(1), sendPacketEvent.Packet.Sequence)
+		s.Require().Equal(uint64(1), sendPacketEvent.Packet.Sequence)
 		s.Require().Equal(timeout, sendPacketEvent.Packet.TimeoutTimestamp)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].SourcePort)
 		s.Require().Equal(testvalues.CustomClientID, sendPacketEvent.Packet.SourceClient)

@@ -86,7 +86,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
         vm.prank(sender);
-        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        uint64 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, 42);
     }
 
@@ -247,7 +247,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         );
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
-        uint32 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
+        uint64 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
         assertEq(sequence, 42);
     }
 
