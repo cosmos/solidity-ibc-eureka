@@ -35,7 +35,6 @@ contract ICS26Router is
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _apps The mapping of port identifiers to IBC application contracts
-    /// @param ics02Client The ICS02Client contract
     /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
         mapping(string => IIBCApp) _apps;
