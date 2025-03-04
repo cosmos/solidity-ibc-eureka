@@ -102,7 +102,7 @@ contract ICS26Router is
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
         require(address($.apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
-        require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
+        require(IBCIdentifiers.validateCustomIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
 
         $.apps[newPortId] = IIBCApp(app);
 

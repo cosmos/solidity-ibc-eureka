@@ -13,10 +13,10 @@ contract IBCIdentifiersTest is Test {
         bool expPass;
     }
 
-    function testValidatePortIdentifier() public pure {
+    function test_validatePortIdentifier() public pure {
         // The following test cases are based on the test cases of ibc-go:
         // https://github.com/cosmos/ibc-go/blob/e443a88e0f2c84c131c5a1de47945a5733ff9c91/modules/core/24-host/validate_test.go#L57
-        ValidatePortIdentifierTestCase[] memory testCases = new ValidatePortIdentifierTestCase[](12);
+        ValidatePortIdentifierTestCase[] memory testCases = new ValidatePortIdentifierTestCase[](14);
         testCases[0] = ValidatePortIdentifierTestCase({ m: "valid lowercase", id: "transfer", expPass: true });
         testCases[1] =
             ValidatePortIdentifierTestCase({ m: "valid id special chars", id: "._+-#[]<>._+-#[]<>", expPass: true });
@@ -38,10 +38,12 @@ contract IBCIdentifiersTest is Test {
         testCases[9] = ValidatePortIdentifierTestCase({ m: "path-like id", id: "lower/case/id", expPass: false });
         testCases[10] = ValidatePortIdentifierTestCase({ m: "invalid id", id: "(clientid)", expPass: false });
         testCases[11] = ValidatePortIdentifierTestCase({ m: "empty string", id: "", expPass: false });
+        testCases[12] = ValidatePortIdentifierTestCase({ m: "client prefix id", id: "client-5", expPass: false });
+        testCases[13] = ValidatePortIdentifierTestCase({ m: "channel prefix id", id: "channel-0", expPass: false });
 
         for (uint256 i = 0; i < testCases.length; i++) {
             ValidatePortIdentifierTestCase memory tc = testCases[i];
-            bool res = IBCIdentifiers.validatePortIdentifier(bytes(tc.id));
+            bool res = IBCIdentifiers.validateCustomIdentifier(bytes(tc.id));
             if (tc.expPass) {
                 require(res, tc.m);
             } else {
