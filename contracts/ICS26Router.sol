@@ -88,7 +88,6 @@ contract ICS26Router is
         require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
         (bool isAddress,) = Strings.tryParseAddress(portId);
         require(!isAddress, IBCInvalidPortIdentifier(portId));
-
         _addIBCApp(portId, app);
     }
 
@@ -98,12 +97,9 @@ contract ICS26Router is
     /// @param app The address of the app contract
     function _addIBCApp(string memory portId, address app) private {
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
-
         require(address($._apps[portId]) == address(0), IBCPortAlreadyExists(portId));
         require(IBCIdentifiers.validateCustomIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
-
         $._apps[portId] = IIBCApp(app);
-
         emit IBCAppAdded(portId, app);
     }
 
