@@ -34,7 +34,13 @@ pub fn update_client(
         clock_drift: Duration::from_secs(15),
     };
 
-    let ctx = types::validation::ClientValidationCtx::new(time, &trusted_consensus_state);
+    let mut ctx = types::validation::ClientValidationCtx::new(time);
+    ctx.insert_trusted_consensus_state(
+        client_id.clone(),
+        proposed_header.trusted_height.revision_number(),
+        proposed_header.trusted_height.revision_height(),
+        &trusted_consensus_state,
+    );
 
     verify_header::<_, sha2::Sha256>(
         &ctx,
