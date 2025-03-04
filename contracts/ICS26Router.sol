@@ -91,6 +91,9 @@ contract ICS26Router is
         string memory newPortId;
         if (bytes(portId).length != 0) {
             _checkRole(PORT_CUSTOMIZER_ROLE);
+            (bool isAddress,) = Strings.tryParseAddress(portId);
+            require(!isAddress, IBCInvalidPortIdentifier(portId));
+
             newPortId = portId;
         } else {
             newPortId = Strings.toHexString(app);
