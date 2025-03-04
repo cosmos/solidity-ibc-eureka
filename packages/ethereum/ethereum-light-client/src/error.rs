@@ -49,10 +49,28 @@ pub enum EthereumIBCError {
     },
 
     #[error(
-        "current slot {current_slot} is more recent than the update slot \
+        "trusted slot {trusted_slot} is more recent than the update slot \
         {update_slot}"
     )]
-    CurrentSlotMoreRecentThanUpdateSlot { current_slot: u64, update_slot: u64 },
+    TrustedSlotMoreRecentThanUpdateSlot { trusted_slot: u64, update_slot: u64 },
+
+    #[error(
+        "current consensus slot {current_consensus_slot} is more recent than the update slot \
+        {update_slot}"
+    )]
+    CurrentConsensusSlotMoreRecentThanUpdateSlot {
+        current_consensus_slot: u64,
+        update_slot: u64,
+    },
+
+    #[error(
+        "current client state slot {current_client_state_slot} is more recent than the update slot \
+        {update_slot}"
+    )]
+    CurrentClientStateSlotMoreRecentThanUpdateSlot {
+        current_client_state_slot: u64,
+        update_slot: u64,
+    },
 
     #[error(
         "(update_signature_slot > update_attested_slot >= update_finalized_slot) must hold, \
@@ -83,13 +101,12 @@ pub enum EthereumIBCError {
     },
 
     #[error(
-        "irrelevant update since the order of the slots in the update data, and stored data is not correct. \
-        the update_attested_slot (found {update_attested_slot}) must be > the trusted_finalized_slot \
-        (found {trusted_finalized_slot})"
+        "trusted finalized slot {trusted_finalized_slot} is more recent than the update slot \
+        {update_slot}"
     )]
-    IrrelevantUpdate {
-        update_attested_slot: u64,
+    TrustedFinalizedSlotMoreRecentThanUpdateSlot {
         trusted_finalized_slot: u64,
+        update_slot: u64,
     },
 
     #[error(

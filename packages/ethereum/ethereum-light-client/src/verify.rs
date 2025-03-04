@@ -211,16 +211,11 @@ pub fn validate_light_client_update<V: BlsVerify>(
         update_attested_slot,
     );
 
-    // TODO: UPDATE
-    // There are two options to do a light client update:
-    // 1. We are updating the header with a newer one.
-    // 2. We haven't set the next sync committee yet and we can use any attested header within the same
-    // signature period to set the next sync committee. This means that the stored header could be larger.
-    // The light client implementation needs to take care of it.
+    // The new header must have a slot greater than the trusted consensus state's slot.
     ensure!(
         update_attested_slot > trusted_consensus_state.finalized_slot(),
-        EthereumIBCError::IrrelevantUpdate {
-            update_attested_slot,
+        EthereumIBCError::TrustedFinalizedSlotMoreRecentThanUpdateSlot {
+            update_slot: update_attested_slot,
             trusted_finalized_slot: trusted_consensus_state.finalized_slot(),
         }
     );
