@@ -112,7 +112,7 @@ pub async fn inject_tendermint_proofs(
     target_height: &Height,
 ) -> Result<()> {
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let commitment_path = packet.commitment_path();
         let (value, proof) = source_tm_client
             .prove_path(
@@ -131,7 +131,7 @@ pub async fn inject_tendermint_proofs(
     .await?;
 
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let (value, proof) = source_tm_client
             .prove_path(
@@ -150,7 +150,7 @@ pub async fn inject_tendermint_proofs(
     .await?;
 
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let receipt_path = packet.receipt_commitment_path();
         let (value, proof) = source_tm_client
             .prove_path(
@@ -188,7 +188,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     };
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let commitment_path = packet.commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
@@ -210,7 +210,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
 
     // ack messages
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
@@ -232,7 +232,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
 
     // timeout messages
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let receipt_path = packet.receipt_commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
