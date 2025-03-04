@@ -60,21 +60,20 @@ contract ICS26Router is
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    /// @param portCustomizer The address of the port customizer
-    function initialize(address timelockedAdmin, address portCustomizer) public initializer {
+    /// @param customizer The address of the port and client id customizer
+    function initialize(address timelockedAdmin, address customizer) public initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __ICS02Client_init();
+        __ICS02Client_init(customizer);
         __IBCStoreUpgradeable_init();
         __IBCUUPSUpgradeable_init(timelockedAdmin);
 
-        _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
+        if (customizer != address(0)) {
+            _grantRole(PORT_CUSTOMIZER_ROLE, customizer);
+        }
     }
 
-    /// @notice Returns the address of the IBC application given the port identifier
-    /// @param portId The port identifier
-    /// @return The address of the IBC application contract
     /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
         IIBCApp app = _getICS26RouterStorage().apps[portId];
@@ -82,31 +81,38 @@ contract ICS26Router is
         return app;
     }
 
-    /// @notice Adds an IBC application to the router
-    /// @dev Only the admin can submit non-empty port identifiers
-    /// @param portId The port identifier
-    /// @param app The address of the IBC application contract
     /// @inheritdoc IICS26Router
-    function addIBCApp(string calldata portId, address app) external {
-        string memory newPortId;
-        if (bytes(portId).length != 0) {
-            _checkRole(PORT_CUSTOMIZER_ROLE);
-            (bool isAddress,) = Strings.tryParseAddress(portId);
-            require(!isAddress, IBCInvalidPortIdentifier(portId));
+    function addIBCApp(address app) external nonReentrant {
+        string memory portId = Strings.toHexString(app);
+        _addIBCApp(portId, app);
+    }
 
-            newPortId = portId;
-        } else {
-            newPortId = Strings.toHexString(app);
-        }
+    /// @inheritdoc IICS26Router
+    function addIBCApp(string calldata portId, address app)
+        external 
+        nonReentrant
+        onlyRole(PORT_CUSTOMIZER_ROLE)
+    {
+        require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
+        (bool isAddress,) = Strings.tryParseAddress(portId);
+        require(!isAddress, IBCInvalidPortIdentifier(portId));
 
+        _addIBCApp(portId, app);
+    }
+
+    /// @notice This function adds an app to the app router
+    /// @dev This function assumes that the portId has already been generated and validated.
+    /// @param portId The port identifier
+    /// @param app The address of the app contract
+    function _addIBCApp(string memory portId, address app) private {
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        require(address($.apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
-        require(IBCIdentifiers.validateCustomIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
+        require(address($.apps[portId]) == address(0), IBCPortAlreadyExists(portId));
+        require(IBCIdentifiers.validateCustomIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
 
-        $.apps[newPortId] = IIBCApp(app);
+        $.apps[portId] = IIBCApp(app);
 
-        emit IBCAppAdded(newPortId, app);
+        emit IBCAppAdded(portId, app);
     }
 
     /// @notice Sends a packet

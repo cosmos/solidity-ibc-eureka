@@ -44,9 +44,11 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
 
-    // no need to run any initialization logic
-    // solhint-disable-next-line no-empty-blocks
-    function __ICS02Client_init() internal onlyInitializing { }
+    function __ICS02Client_init(address customizer) internal onlyInitializing {
+        if (customizer != address(0)) {
+            _grantRole(CLIENT_ID_CUSTOMIZER_ROLE, customizer);
+        }
+    }
 
     /// @inheritdoc IICS02Client
     function getNextClientSeq() external view returns (uint256) {

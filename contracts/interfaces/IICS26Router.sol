@@ -18,9 +18,13 @@ interface IICS26Router {
     function getIBCApp(string calldata portId) external view returns (IIBCApp);
 
     /// @notice Adds an IBC application to the router
-    /// @dev Only the admin can submit non-empty port identifiers.
-    /// @dev The default port identifier is the address of the IBC application contract.
-    /// @param portId The port identifier, only admin can submit non-empty port identifiers.
+    /// @dev The port identifier is the address of the IBC application contract.
+    /// @param app The address of the IBC application contract
+    function addIBCApp(address app) external;
+
+    /// @notice Adds an IBC application to the router
+    /// @dev Can only be called by `PORT_CUSTOMIZER_ROLE`.
+    /// @param portId The custom port identifier.
     /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external;
 
