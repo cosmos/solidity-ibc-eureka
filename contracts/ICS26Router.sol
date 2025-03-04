@@ -88,11 +88,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function addIBCApp(string calldata portId, address app)
-        external 
-        nonReentrant
-        onlyRole(PORT_CUSTOMIZER_ROLE)
-    {
+    function addIBCApp(string calldata portId, address app) external nonReentrant onlyRole(PORT_CUSTOMIZER_ROLE) {
         require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
         (bool isAddress,) = Strings.tryParseAddress(portId);
         require(!isAddress, IBCInvalidPortIdentifier(portId));
