@@ -6,6 +6,19 @@
   },
   {
     "type": "function",
+    "name": "CLIENT_ID_CUSTOMIZER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
     "inputs": [],
     "outputs": [
@@ -149,6 +162,11 @@
     "name": "addClient",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "counterpartyInfo",
         "type": "tuple",
         "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
@@ -178,6 +196,55 @@
         "internalType": "string"
       }
     ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addClient",
+    "inputs": [
+      {
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addIBCApp",
+    "inputs": [
+      {
+        "name": "app",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -365,6 +432,19 @@
   },
   {
     "type": "function",
+    "name": "grantClientIdCustomizerRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "grantLightClientMigratorRole",
     "inputs": [
       {
@@ -446,7 +526,7 @@
         "internalType": "address"
       },
       {
-        "name": "portCustomizer",
+        "name": "customizer",
         "type": "address",
         "internalType": "address"
       }
@@ -702,6 +782,19 @@
       },
       {
         "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeClientIdCustomizerRole",
+    "inputs": [
+      {
+        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -1679,10 +1772,10 @@
   },
   {
     "type": "error",
-    "name": "IBCInvalidClientType",
+    "name": "IBCInvalidClientId",
     "inputs": [
       {
-        "name": "clientType",
+        "name": "clientId",
         "type": "string",
         "internalType": "string"
       }
