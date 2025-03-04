@@ -108,9 +108,6 @@ contract ICS26Router is
         emit IBCAppAdded(portId, app);
     }
 
-    /// @notice Sends a packet
-    /// @param msg_ The message for sending packets
-    /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
     function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
         address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
@@ -144,8 +141,6 @@ contract ICS26Router is
         return sequence;
     }
 
-    /// @notice Receives a packet
-    /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets (#93)
@@ -206,8 +201,6 @@ contract ICS26Router is
         emit WriteAcknowledgement(msg_.packet.destClient, msg_.packet.sequence, msg_.packet, acks);
     }
 
-    /// @notice Acknowledges a packet
-    /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
@@ -257,8 +250,6 @@ contract ICS26Router is
         emit AckPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet, msg_.acknowledgement);
     }
 
-    /// @notice Timeouts a packet
-    /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
