@@ -143,7 +143,7 @@ mod test {
             state_root: FixedBytes::default(),
             timestamp: 0,
             current_sync_committee: FixedBytes::default(),
-            next_sync_committee: None,
+            next_sync_committee: FixedBytes::default(),
         };
 
         let key =
@@ -201,7 +201,7 @@ mod test {
             state_root: FixedBytes::default(),
             timestamp: 0,
             current_sync_committee: FixedBytes::default(),
-            next_sync_committee: None,
+            next_sync_committee: FixedBytes::default(),
         };
 
         let key =

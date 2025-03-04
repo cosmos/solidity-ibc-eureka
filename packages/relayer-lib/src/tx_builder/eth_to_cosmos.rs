@@ -308,10 +308,8 @@ where
                 .map(|resp| resp.data)
                 .collect::<Vec<_>>();
             let previous_light_client_update = previous_light_client_updates.first().unwrap();
-            let previous_next_sync_committee = previous_light_client_update
-                .next_sync_committee
-                .clone()
-                .unwrap();
+            let previous_next_sync_committee =
+                previous_light_client_update.next_sync_committee.clone();
             if previous_next_sync_committee.aggregate_pubkey == prev_pub_agg_key {
                 tracing::debug!("Skipping header with same aggregate pubkey");
                 continue;

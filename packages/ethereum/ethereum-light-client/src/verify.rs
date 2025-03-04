@@ -211,25 +211,17 @@ pub fn validate_light_client_update<V: BlsVerify>(
         update_attested_slot,
     );
 
+    // TODO: UPDATE
     // There are two options to do a light client update:
     // 1. We are updating the header with a newer one.
     // 2. We haven't set the next sync committee yet and we can use any attested header within the same
     // signature period to set the next sync committee. This means that the stored header could be larger.
     // The light client implementation needs to take care of it.
     ensure!(
-        update_attested_slot > trusted_consensus_state.finalized_slot()
-            || (update_attested_period == stored_period
-                && update.next_sync_committee.is_some()
-                && trusted_consensus_state.next_sync_committee().is_none()),
+        update_attested_slot > trusted_consensus_state.finalized_slot(),
         EthereumIBCError::IrrelevantUpdate {
             update_attested_slot,
             trusted_finalized_slot: trusted_consensus_state.finalized_slot(),
-            update_attested_period,
-            stored_period,
-            update_sync_committee_is_set: update.next_sync_committee.is_some(),
-            trusted_next_sync_committee_is_set: trusted_consensus_state
-                .next_sync_committee()
-                .is_some(),
         }
     );
 
@@ -248,31 +240,30 @@ pub fn validate_light_client_update<V: BlsVerify>(
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
 
-    // Verify that if the update contains the next sync committee, and the signature periods do match,
-    // next sync committees match too.
-    if let (Some(next_sync_committee), Some(stored_next_sync_committee)) = (
-        &update.next_sync_committee,
-        trusted_consensus_state.next_sync_committee(),
-    ) {
-        if update_attested_period == stored_period {
-            ensure!(
-                next_sync_committee == stored_next_sync_committee,
-                EthereumIBCError::NextSyncCommitteeMismatch {
-                    expected: stored_next_sync_committee.aggregate_pubkey,
-                    found: next_sync_committee.aggregate_pubkey,
-                }
-            );
-        }
-        // This validates the given next sync committee against the attested header's state root.
-        validate_merkle_branch(
-            next_sync_committee.tree_hash_root(),
-            update.next_sync_committee_branch.unwrap_or_default().into(),
-            NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
-            update.attested_header.beacon.state_root,
-        )
-        .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
+    // Verify that the signature periods match and that the next sync committees matchs too.
+    let next_sync_committee = &update.next_sync_committee;
+    let stored_next_sync_committee = trusted_consensus_state
+        .next_sync_committee()
+        .ok_or(EthereumIBCError::ExpectedNextSyncCommittee)?;
+
+    if update_attested_period == stored_period {
+        ensure!(
+            next_sync_committee == stored_next_sync_committee,
+            EthereumIBCError::NextSyncCommitteeMismatch {
+                expected: stored_next_sync_committee.aggregate_pubkey,
+                found: next_sync_committee.aggregate_pubkey,
+            }
+        );
     }
+    // This validates the given next sync committee against the attested header's state root.
+    validate_merkle_branch(
+        next_sync_committee.tree_hash_root(),
+        update.next_sync_committee_branch.into(),
+        NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
+        get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
+        update.attested_header.beacon.state_root,
+    )
+    .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
 
     // Verify sync committee aggregate signature
     let sync_committee = if signature_period == stored_period {

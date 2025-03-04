@@ -112,18 +112,16 @@ pub fn update_state(
     };
     store_consensus_state(deps.storage, &wasm_consensus_state, updated_slot)?;
 
-    if let Some(client_state) = updated_client_state {
-        let client_state_bz: Vec<u8> =
-            serde_json::to_vec(&client_state).map_err(ContractError::SerializeClientStateFailed)?;
+    let client_state_bz: Vec<u8> = serde_json::to_vec(&updated_client_state)
+        .map_err(ContractError::SerializeClientStateFailed)?;
 
-        let mut wasm_client_state = get_wasm_client_state(deps.storage)?;
-        wasm_client_state.data = client_state_bz;
-        wasm_client_state.latest_height = Some(IbcProtoHeight {
-            revision_number: 0,
-            revision_height: updated_slot,
-        });
-        store_client_state(deps.storage, &wasm_client_state)?;
-    }
+    let mut wasm_client_state = get_wasm_client_state(deps.storage)?;
+    wasm_client_state.data = client_state_bz;
+    wasm_client_state.latest_height = Some(IbcProtoHeight {
+        revision_number: 0,
+        revision_height: updated_slot,
+    });
+    store_client_state(deps.storage, &wasm_client_state)?;
 
     Ok(to_json_binary(&UpdateStateResult {
         heights: vec![Height {

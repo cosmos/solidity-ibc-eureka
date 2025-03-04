@@ -19,10 +19,10 @@ pub struct LightClientUpdate {
     /// Header attested to by the sync committee
     pub attested_header: LightClientHeader,
     /// Next sync committee corresponding to `attested_header.state_root`
-    pub next_sync_committee: Option<SyncCommittee>,
+    pub next_sync_committee: SyncCommittee,
     /// The branch of the next sync committee
     #[schemars(with = "Vec<String>")]
-    pub next_sync_committee_branch: Option<[B256; NEXT_SYNC_COMMITTEE_BRANCH_DEPTH]>,
+    pub next_sync_committee_branch: [B256; NEXT_SYNC_COMMITTEE_BRANCH_DEPTH],
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
