@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
+
 /// @title IBC Identifiers
 /// @notice Utilities for validating IBC identifiers
 library IBCIdentifiers {
+    /// @notice hasPrefix checks bytes for a prefix
+    /// @param bz the bytes to check
+    /// @param prefix the prefix to check with
+    /// @return true if `bz` has the prefix `prefix`
+    function hasPrefix(bytes memory bz, bytes memory prefix) internal pure returns (bool) {
+        if (bz.length < prefix.length) {
+            return false;
+        }
+        return keccak256(Bytes.slice(bz, 0, prefix.length)) == keccak256(prefix);
+    }
+
     /// @notice validatePortIdentifier checks if the port identifier is allowed
     /**
      * @dev validatePortIdentifier validates a port identifier string
