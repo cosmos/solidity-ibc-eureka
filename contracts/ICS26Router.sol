@@ -119,7 +119,6 @@ contract ICS26Router is
 
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
-        // TODO: validate all identifiers
         require(
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
         );

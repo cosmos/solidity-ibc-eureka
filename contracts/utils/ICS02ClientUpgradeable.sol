@@ -43,6 +43,9 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @notice Prefix for the client identifiers
     string private constant CLIENT_ID_PREFIX = "client-";
 
+    /// @inheritdoc IICS02Client
+    bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
+
     // no need to run any initialization logic
     // solhint-disable-next-line no-empty-blocks
     function __ICS02Client_init() internal onlyInitializing { }
@@ -84,9 +87,41 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         external
         returns (string memory)
     {
+        string memory clientId = nextClientId();
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
+
+    /// @inheritdoc IICS02Client
+    function addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        onlyRole(CLIENT_ID_CUSTOMIZER_ROLE)
+        returns (string memory)
+    {
+        // TODO: add validation
+        require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
+
+    /// @notice This function adds a client to the client router
+    /// @dev This function assumes that the clientId has already been generated and validated.
+    /// @param clientId The client identifier
+    /// @param counterpartyInfo The counterparty client information
+    /// @param client The address of the client contract
+    function _addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        private
+    {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
 
-        string memory clientId = nextClientId();
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
@@ -94,8 +129,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         bytes32 role = getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
-
-        return clientId;
     }
 
     /// @inheritdoc IICS02Client
