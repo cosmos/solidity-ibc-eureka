@@ -24,9 +24,10 @@ library IBCIdentifiers {
         return keccak256(Bytes.slice(bz, 0, prefix.length)) == keccak256(prefix);
     }
 
-    /// @notice validatePortIdentifier checks if the port identifier is allowed
+    /// @notice validateCustomIdentifier checks if a custom identifier is valid
     /**
-     * @dev validatePortIdentifier validates a port identifier string
+     * @dev validateCustomIdentifier validates a custom identifier string
+     *     check that the string does not start with "channel-" or "client-"
      *     check if the string consist of characters in one of the following categories only:
      *     - Alphanumeric
      *     - `.`, `_`, `+`, `-`, `#`
@@ -34,18 +35,18 @@ library IBCIdentifiers {
      */
     /// @custom:url https://github.com/hyperledger-labs/yui-ibc-solidity/blob/49d88ae8151a92e086e6ca7d27a2d3651889edff/
     /// contracts/core/26-router/IBCModuleManager.sol#L123
-    /// @param portId The port identifier
-    /// @return True if the port identifier is valid
-    function validatePortIdentifier(bytes memory portId) internal pure returns (bool) {
-        if (portId.length < 2 || portId.length > 128) {
+    /// @param customId The custom identifier
+    /// @return True if the custom identifier is valid
+    function validateCustomIdentifier(bytes memory customId) internal pure returns (bool) {
+        if (customId.length < 4 || customId.length > 128) {
             return false;
         }
-        if (hasPrefix(portId, bytes(CHANNEL_ID_PREFIX)) || hasPrefix(portId, bytes(CLIENT_ID_PREFIX))) {
+        if (hasPrefix(customId, bytes(CHANNEL_ID_PREFIX)) || hasPrefix(customId, bytes(CLIENT_ID_PREFIX))) {
             return false;
         }
         unchecked {
-            for (uint256 i = 0; i < portId.length; i++) {
-                uint256 c = uint256(uint8(portId[i]));
+            for (uint256 i = 0; i < customId.length; i++) {
+                uint256 c = uint256(uint8(customId[i]));
                 if (
                     // a-z
                     // 0-9
