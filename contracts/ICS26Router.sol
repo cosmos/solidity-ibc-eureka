@@ -57,11 +57,8 @@ contract ICS26Router is
         _disableInitializers();
     }
 
-    /// @notice Initializes the contract instead of a constructor
-    /// @dev Meant to be called only once from the proxy
-    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    /// @param customizer The address of the port and client id customizer
-    function initialize(address timelockedAdmin, address customizer) public initializer {
+    /// @inheritdoc IICS26Router
+    function initialize(address timelockedAdmin, address customizer) external initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();

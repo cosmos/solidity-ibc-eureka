@@ -55,6 +55,12 @@ interface IICS26Router {
     /// @param account The account to revoke the role from
     function revokePortCustomizerRole(address account) external;
 
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
+    /// @param customizer The address of the port and client id customizer
+    function initialize(address timelockedAdmin, address customizer) external;
+
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBC application is added to the router
