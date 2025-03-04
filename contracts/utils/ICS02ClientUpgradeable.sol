@@ -100,8 +100,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         onlyRole(CLIENT_ID_CUSTOMIZER_ROLE)
         returns (string memory)
     {
-        // TODO: add validation
         require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
+        require(IBCIdentifiers.validateCustomIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
         _addClient(clientId, counterpartyInfo, client);
         return clientId;
     }
