@@ -6,6 +6,9 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 /// @title IBC Identifiers
 /// @notice Utilities for validating IBC identifiers
 library IBCIdentifiers {
+    /// @notice Prefix for universal client identifiers
+    string internal constant CLIENT_ID_PREFIX = "client-";
+
     /// @notice hasPrefix checks bytes for a prefix
     /// @param bz the bytes to check
     /// @param prefix the prefix to check with

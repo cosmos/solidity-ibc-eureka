@@ -10,6 +10,7 @@ import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 
 /// @title ICS02 Client contract
 /// @notice This contract implements the ICS02 Client Router interface
@@ -40,9 +41,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev The role identifier is driven in _getLightClientMigratorRole
     string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
-    /// @notice Prefix for the client identifiers
-    string private constant CLIENT_ID_PREFIX = "client-";
-
     /// @inheritdoc IICS02Client
     bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
 
@@ -60,7 +58,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
         // initial client sequence should be 0, hence we use x++ instead of ++x
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
+        return string.concat(IBCIdentifiers.CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
     /// @inheritdoc IICS02Client
