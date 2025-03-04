@@ -17,6 +17,16 @@ interface IICS26Router {
     /// @return The address of the IBC application contract
     function getIBCApp(string calldata portId) external view returns (IIBCApp);
 
+    /// @notice Returns whether or not a packet was received
+    /// @param packet The packet to check
+    /// @return True if the packet was received, false otherwise
+    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) external view returns (bool);
+
+    /// @notice Returns whether or not a packet was received successfully
+    /// @param packet The packet to check
+    /// @return True if the packet was received and the application callback was successful, false otherwise
+    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool);
+
     /// @notice Adds an IBC application to the router
     /// @dev Only the admin can submit non-empty port identifiers.
     /// @dev The default port identifier is the address of the IBC application contract.
