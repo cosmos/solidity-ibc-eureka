@@ -9,6 +9,7 @@ import { IICS07TendermintMsgs } from "./IICS07TendermintMsgs.sol";
 /// @notice Defines shared types for the verify (non)membership program.
 interface IMembershipMsgs {
     /// @notice The key-value pair used in the verify (non)membership program.
+    /// @dev The path is structured as a list of bytes representing the keys in nested merkle trees.
     /// @param path The path of the value in the key-value store.
     /// @param value The value of the key-value pair.
     struct KVPair {

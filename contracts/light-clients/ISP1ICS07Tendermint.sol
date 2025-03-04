@@ -26,8 +26,8 @@ interface ISP1ICS07Tendermint {
     /// @return The SP1 verifier contract.
     function VERIFIER() external view returns (ISP1Verifier);
 
-    /// @notice Constant allowed clock drift in seconds.
-    /// @return The allowed clock drift in seconds.
+    /// @notice Constant allowed prover clock drift in seconds.
+    /// @return The allowed prover clock drift in seconds.
     function ALLOWED_SP1_CLOCK_DRIFT() external view returns (uint16);
 
     /// @notice Returns the consensus state keccak256 hash at the given revision height.

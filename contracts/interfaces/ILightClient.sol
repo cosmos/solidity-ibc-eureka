@@ -7,7 +7,7 @@ import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 /// @notice ILightClient is the light client interface for the IBC Eureka light client
 interface ILightClient {
     /// @notice Updating the client and consensus state
-    /// @param updateMsg The update message e.g., an SP1 proof and public value pair.
+    /// @param updateMsg The encoded update message e.g., an SP1 proof.
     /// @return The result of the update operation
     function updateClient(bytes calldata updateMsg) external returns (ILightClientMsgs.UpdateResult);
 
