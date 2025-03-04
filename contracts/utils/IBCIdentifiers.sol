@@ -9,6 +9,10 @@ library IBCIdentifiers {
     /// @notice Prefix for universal client identifiers
     string internal constant CLIENT_ID_PREFIX = "client-";
 
+    /// @notice Prefix for channel identifiers
+    /// @dev Only used to prevent channel ids from being used
+    string private constant CHANNEL_ID_PREFIX = "channel-";
+
     /// @notice hasPrefix checks bytes for a prefix
     /// @param bz the bytes to check
     /// @param prefix the prefix to check with
@@ -34,6 +38,9 @@ library IBCIdentifiers {
     /// @return True if the port identifier is valid
     function validatePortIdentifier(bytes memory portId) internal pure returns (bool) {
         if (portId.length < 2 || portId.length > 128) {
+            return false;
+        }
+        if (hasPrefix(portId, bytes(CHANNEL_ID_PREFIX)) || hasPrefix(portId, bytes(CLIENT_ID_PREFIX))) {
             return false;
         }
         unchecked {
