@@ -34,11 +34,11 @@ contract ICS26Router is
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param apps The mapping of port identifiers to IBC application contracts
+    /// @param _apps The mapping of port identifiers to IBC application contracts
     /// @param ics02Client The ICS02Client contract
     /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
-        mapping(string => IIBCApp) apps;
+        mapping(string => IIBCApp) _apps;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -73,7 +73,7 @@ contract ICS26Router is
 
     /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
-        IIBCApp app = _getICS26RouterStorage().apps[portId];
+        IIBCApp app = _getICS26RouterStorage()._apps[portId];
         require(address(app) != address(0), IBCAppNotFound(portId));
         return app;
     }
@@ -100,10 +100,10 @@ contract ICS26Router is
     function _addIBCApp(string memory portId, address app) private {
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
 
-        require(address($.apps[portId]) == address(0), IBCPortAlreadyExists(portId));
+        require(address($._apps[portId]) == address(0), IBCPortAlreadyExists(portId));
         require(IBCIdentifiers.validateCustomIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
 
-        $.apps[portId] = IIBCApp(app);
+        $._apps[portId] = IIBCApp(app);
 
         emit IBCAppAdded(portId, app);
     }
