@@ -305,6 +305,10 @@ contract ICS26Router is
     function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
+    /// @inheritdoc ICS02ClientUpgradeable
+    function _authorizeSetClientIdCustomizerRole(address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
+
     /// @notice Returns the storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {
         // solhint-disable-next-line no-inline-assembly

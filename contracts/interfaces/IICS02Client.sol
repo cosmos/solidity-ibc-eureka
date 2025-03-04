@@ -100,6 +100,16 @@ interface IICS02Client {
     /// @param account The account to revoke the role from
     function revokeLightClientMigratorRole(string calldata clientId, address account) external;
 
+    /// @notice Grants the client id customizer role to an account
+    /// @dev This function can only be called by an admin
+    /// @param account The account to grant the role to
+    function grantClientIdCustomizerRole(address account) external;
+
+    /// @notice Revokes the client id customizer role from an account
+    /// @dev This function can only be called by an admin
+    /// @param account The account to revoke the role from
+    function revokeClientIdCustomizerRole(address account) external;
+
     // ============ Events ============
 
     /// @notice Emitted when a new client is added to the client router.
