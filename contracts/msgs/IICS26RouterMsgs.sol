@@ -11,7 +11,7 @@ interface IICS26RouterMsgs {
     /// @param timeoutTimestamp The timeout timestamp in the counterparty chain, in unix seconds
     /// @param payloads The packet payloads
     struct Packet {
-        uint32 sequence;
+        uint64 sequence;
         string sourceClient;
         string destClient;
         uint64 timeoutTimestamp;
