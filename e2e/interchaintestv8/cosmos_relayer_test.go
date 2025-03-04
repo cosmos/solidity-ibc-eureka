@@ -485,7 +485,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 
 	// Wait until timeout
 	time.Sleep(30 * time.Second)
-	
+
 	s.Require().True(s.Run("Timeout packet on Chain A", func() {
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
