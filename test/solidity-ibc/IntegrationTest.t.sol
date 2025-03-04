@@ -60,7 +60,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public defaultNativeDenom;
 
     /// @dev used by some internal functions to keep track of receive packet sequences
-    mapping(string counterpartyClientId => uint32 recvSeq) private recvSeqs;
+    mapping(string counterpartyClientId => uint64 recvSeq) private recvSeqs;
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -1018,7 +1018,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         vm.recordLogs();
 
-        uint32 sequence;
+        uint64 sequence;
         if (signature.length > 0) {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
             sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);

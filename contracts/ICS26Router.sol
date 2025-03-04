@@ -106,11 +106,8 @@ contract ICS26Router is
         emit IBCAppAdded(newPortId, app);
     }
 
-    /// @notice Sends a packet
-    /// @param msg_ The message for sending packets
-    /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
-    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint64) {
         address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
         require(ibcApp == _msgSender(), IBCUnauthorizedSender(_msgSender()));
 
@@ -125,7 +122,7 @@ contract ICS26Router is
             IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
 
-        uint32 sequence = nextSequenceSend(msg_.sourceClient);
+        uint64 sequence = nextSequenceSend(msg_.sourceClient);
 
         // TODO: Support multi-payload packets #93
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({

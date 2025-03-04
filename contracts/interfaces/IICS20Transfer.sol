@@ -8,7 +8,7 @@ interface IICS20Transfer {
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external returns (uint32 sequence);
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external returns (uint64 sequence);
 
     /// @notice Send a permit2 transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
@@ -21,7 +21,7 @@ interface IICS20Transfer {
         bytes calldata signature
     )
         external
-        returns (uint32 sequence);
+        returns (uint64 sequence);
 
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
