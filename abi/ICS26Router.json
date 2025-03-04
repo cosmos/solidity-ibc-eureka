@@ -59,8 +59,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -611,8 +611,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -815,8 +815,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "nonpayable"
@@ -900,8 +900,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -1064,8 +1064,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1344,8 +1344,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1423,8 +1423,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1515,8 +1515,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
