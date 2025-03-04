@@ -46,6 +46,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -56,6 +57,7 @@ type IbcEurekaTestSuite struct {
 
 	// Whether to generate fixtures for tests or not
 	generateSolidityFixtures bool
+	rustFixtureGenerator     *types.RustFixtureGenerator
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -88,6 +90,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
+	shouldGenerateRustFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -135,7 +138,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateSolidityFixtures = true
 		}
+		shouldGenerateRustFixtures = os.Getenv(testvalues.EnvKeyGenerateRustFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
+
+	// Needs to be added here so the cleanup is called after the test suite is done
+	s.rustFixtureGenerator = types.NewRustFixtureGenerator(&s.Suite, shouldGenerateRustFixtures)
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
 		args := append([]string{
@@ -188,7 +195,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router)
+		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router, s.rustFixtureGenerator)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -521,6 +528,17 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			if s.generateSolidityFixtures {
+				_, ethereumClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
+				_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, testvalues.FirstWasmClientID)
+
+				s.rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
+					ClientState:    ethereumClientState,
+					ConsensusState: ethereumConsensusState,
+					Updates:        hex.EncodeToString(relayTxBodyBz),
+				})
+			}
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -723,6 +741,17 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Empty(resp.Address)
 
 			ackRelayTxBodyBz = resp.Tx
+
+			if s.generateSolidityFixtures {
+				_, ethereumClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
+				_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, testvalues.FirstWasmClientID)
+
+				s.rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
+					ClientState:    ethereumClientState,
+					ConsensusState: ethereumConsensusState,
+					Updates:        hex.EncodeToString(ackRelayTxBodyBz),
+				})
+			}
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {

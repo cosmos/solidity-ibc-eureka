@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{client_state::ClientState, consensus_state::ConsensusState, header::Header};
+use crate::{client_state::ClientState, consensus_state::ConsensusState};
 
 /// A test fixture with an ordered list of light client operations from the e2e test
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
@@ -58,8 +58,8 @@ pub struct UpdateClient {
     pub client_state: ClientState,
     /// The consensus state after the update
     pub consensus_state: ConsensusState,
-    /// The headers used to update the light client, in order
-    pub updates: Vec<Header>,
+    /// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
+    pub updates: String,
 }
 
 impl StepsFixture {
