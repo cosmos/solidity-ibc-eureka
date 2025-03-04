@@ -56,6 +56,14 @@ contract ICS02ClientTest is Test {
         assertTrue(hasRole, "client owner not set correctly");
     }
 
+    function test_customClientId() public {
+        string memory customClientId = "custom-client-id";
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(customClientId, merklePrefix);
+        string memory newId = ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        assertEq(customClientId, newId, "custom client id not set correctly");
+    }
+
     function test_UpdateClient() public {
         bytes memory updateMsg = "testUpdateMsg";
         ILightClientMsgs.UpdateResult updateResult = ics02Client.updateClient(clientIdentifier, updateMsg);
