@@ -144,7 +144,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        returns (uint32)
+        returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
@@ -164,7 +164,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        returns (uint32)
+        returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         require(
@@ -193,7 +193,7 @@ contract ICS20Transfer is
         whenNotPaused
         nonReentrant
         onlyRole(DELEGATE_SENDER_ROLE)
-        returns (uint32)
+        returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
@@ -215,7 +215,7 @@ contract ICS20Transfer is
         address sender
     )
         private
-        returns (uint32)
+        returns (uint64)
     {
         string memory fullDenomPath = _getICS20TransferStorage()._ibcERC20Denoms[msg_.denom];
         if (bytes(fullDenomPath).length == 0) {

@@ -37,7 +37,7 @@ interface IICS26Router {
     /// @notice Sends a packet
     /// @param msg The message for sending packets
     /// @return The sequence number of the packet
-    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg) external returns (uint32);
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg) external returns (uint64);
 
     /// @notice Receives a packet
     /// @param msg The message for receiving packets

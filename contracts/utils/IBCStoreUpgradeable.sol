@@ -16,7 +16,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     struct IBCStoreStorage {
         // keccak256(IBC-compatible-store-path) => sha256(IBC-compatible-commitment)
         mapping(bytes32 hashedPath => bytes32 commitment) commitments;
-        mapping(string clientId => uint32 prevSeqSend) prevSequenceSends;
+        mapping(string clientId => uint64 prevSeqSend) prevSequenceSends;
     }
 
     /// @notice ERC-7201 slot for the IBCStore storage
@@ -53,7 +53,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @dev Returns the next sequence send for the given client
     /// @param clientId The client ID
     /// @return The next sequence send for the given client
-    function nextSequenceSend(string calldata clientId) internal returns (uint32) {
+    function nextSequenceSend(string calldata clientId) internal returns (uint64) {
         // initial sequence send should be 1, hence we use ++x instead of x++
         return ++_getIBCStoreStorage().prevSequenceSends[clientId];
     }
