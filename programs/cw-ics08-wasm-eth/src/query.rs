@@ -135,7 +135,7 @@ pub fn timestamp_at_height(
 
 /// Gets the status of the light client
 /// # Returns
-/// Active status, because no other state is currently implemented
+/// The current status of the client
 /// # Errors
 /// It won't error at this point
 pub fn status(deps: Deps<EthereumCustomQuery>) -> Result<Binary, ContractError> {
