@@ -19,6 +19,19 @@
   },
   {
     "type": "function",
+    "name": "DELEGATE_SENDER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "PAUSER_ROLE",
     "inputs": [],
     "outputs": [
@@ -119,6 +132,19 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantDelegateSenderRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -512,101 +538,6 @@
   },
   {
     "type": "function",
-    "name": "permitSendTransfer",
-    "inputs": [
-      {
-        "name": "msg_",
-        "type": "tuple",
-        "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
-        "components": [
-          {
-            "name": "denom",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "receiver",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "sourceClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "destPort",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "memo",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "permit",
-        "type": "tuple",
-        "internalType": "struct ISignatureTransfer.PermitTransferFrom",
-        "components": [
-          {
-            "name": "permitted",
-            "type": "tuple",
-            "internalType": "struct ISignatureTransfer.TokenPermissions",
-            "components": [
-              {
-                "name": "token",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "amount",
-                "type": "uint256",
-                "internalType": "uint256"
-              }
-            ]
-          },
-          {
-            "name": "nonce",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
-          }
-        ]
-      },
-      {
-        "name": "signature",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "sequence",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "proxiableUUID",
     "inputs": [],
     "outputs": [
@@ -629,6 +560,19 @@
       },
       {
         "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeDelegateSenderRole",
+    "inputs": [
+      {
+        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -717,8 +661,164 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sendTransferWithPermit2",
+    "inputs": [
+      {
+        "name": "msg_",
+        "type": "tuple",
+        "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
+        "components": [
+          {
+            "name": "denom",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "receiver",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "memo",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      },
+      {
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct ISignatureTransfer.PermitTransferFrom",
+        "components": [
+          {
+            "name": "permitted",
+            "type": "tuple",
+            "internalType": "struct ISignatureTransfer.TokenPermissions",
+            "components": [
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sendTransferWithSender",
+    "inputs": [
+      {
+        "name": "msg_",
+        "type": "tuple",
+        "internalType": "struct IICS20TransferMsgs.SendTransferMsg",
+        "components": [
+          {
+            "name": "denom",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "receiver",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "sourceClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destPort",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "memo",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "nonpayable"
@@ -1113,6 +1213,22 @@
         "name": "actual",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20UnexpectedEncoding",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "actual",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },

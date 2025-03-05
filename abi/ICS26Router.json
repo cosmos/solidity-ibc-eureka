@@ -59,8 +59,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -475,6 +475,152 @@
   },
   {
     "type": "function",
+    "name": "isPacketReceiveSuccessful",
+    "inputs": [
+      {
+        "name": "packet",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.Packet",
+        "components": [
+          {
+            "name": "sequence",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sourceClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "payloads",
+            "type": "tuple[]",
+            "internalType": "struct IICS26RouterMsgs.Payload[]",
+            "components": [
+              {
+                "name": "sourcePort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "destPort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "encoding",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "value",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPacketReceived",
+    "inputs": [
+      {
+        "name": "packet",
+        "type": "tuple",
+        "internalType": "struct IICS26RouterMsgs.Packet",
+        "components": [
+          {
+            "name": "sequence",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sourceClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "destClient",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "payloads",
+            "type": "tuple[]",
+            "internalType": "struct IICS26RouterMsgs.Payload[]",
+            "components": [
+              {
+                "name": "sourcePort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "destPort",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "encoding",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "value",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "migrateClient",
     "inputs": [
       {
@@ -589,8 +735,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool",
-        "internalType": "bool"
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -611,8 +757,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -815,8 +961,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "nonpayable"
@@ -900,8 +1046,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -1064,8 +1210,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1190,6 +1336,44 @@
   },
   {
     "type": "event",
+    "name": "ICS02ClientMigrated",
+    "inputs": [
+      {
+        "name": "subjectClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "substituteClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02MisbehaviourSubmitted",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "misbehaviourMsg",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -1306,8 +1490,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1385,8 +1569,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1477,8 +1661,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1739,6 +1923,22 @@
   {
     "type": "error",
     "name": "IBCPacketCommitmentMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actual",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IBCPacketReceiptMismatch",
     "inputs": [
       {
         "name": "expected",

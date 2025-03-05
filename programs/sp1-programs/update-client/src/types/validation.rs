@@ -1,28 +1,46 @@
 //! Contains types and traits for `verify_header` validation within the program.
 
+use std::collections::HashMap;
+
 use ibc_client_tendermint::{
     client_state::ClientState as ClientStateWrapper,
     consensus_state::ConsensusState as ConsensusStateWrapper, types::ConsensusState,
 };
 use ibc_core_client::context::{ClientValidationContext, ExtClientValidationContext};
-use ibc_core_host_types::error::HostError;
+use ibc_core_host_types::{
+    error::HostError, identifiers::ClientId, path::ClientConsensusStatePath,
+};
 use ibc_primitives::Timestamp;
 
 /// The client validation context.
 pub struct ClientValidationCtx<'a> {
     /// Current time in seconds.
     now: u64,
-    trusted_consensus_state: &'a ConsensusState,
+    trusted_consensus_states: HashMap<ClientConsensusStatePath, &'a ConsensusState>,
 }
 
 impl<'a> ClientValidationCtx<'a> {
     /// Create a new instance of the client validation context.
     #[must_use]
-    pub const fn new(now: u64, trusted_consensus_state: &'a ConsensusState) -> Self {
+    pub fn new(now: u64) -> Self {
         Self {
             now,
-            trusted_consensus_state,
+            trusted_consensus_states: HashMap::new(),
         }
+    }
+
+    /// Insert a trusted consensus state into the context.
+    pub fn insert_trusted_consensus_state(
+        &mut self,
+        client_id: ClientId,
+        revision_number: u64,
+        revision_height: u64,
+        consensus_state: &'a ConsensusState,
+    ) {
+        self.trusted_consensus_states.insert(
+            ClientConsensusStatePath::new(client_id, revision_number, revision_height),
+            consensus_state,
+        );
     }
 }
 
@@ -32,11 +50,9 @@ impl ClientValidationContext for ClientValidationCtx<'_> {
 
     fn consensus_state(
         &self,
-        _client_cons_state_path: &ibc_core_host_types::path::ClientConsensusStatePath,
+        path: &ClientConsensusStatePath,
     ) -> Result<Self::ConsensusStateRef, HostError> {
-        // This is the trusted consensus state, whether or not it corresponds to the
-        // consensus state path will be checked in solidity.
-        Ok(self.trusted_consensus_state.clone().into())
+        Ok(self.trusted_consensus_states[path].clone().into())
     }
 
     fn client_state(

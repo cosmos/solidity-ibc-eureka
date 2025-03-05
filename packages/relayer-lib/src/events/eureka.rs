@@ -58,6 +58,12 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::RoleGranted(_)
             | routerEvents::RoleRevoked(_)
             | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),
+            routerEvents::ICS02ClientMigrated(_) => {
+                Err(anyhow::anyhow!("ICS02ClientMigrated event"))
+            }
+            routerEvents::ICS02MisbehaviourSubmitted(_) => {
+                Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
+            }
         }
     }
 }
@@ -76,7 +82,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                     let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                     let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self::SendPacket(packet.try_into().ok()?))
+                    Some(Self::SendPacket(packet.into()))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
@@ -103,7 +109,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                 Ok(Self::WriteAcknowledgement(
                     packet
                         .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
-                        .try_into()?,
+                        .into(),
                     ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
                         .app_acknowledgements
                         .into_iter()

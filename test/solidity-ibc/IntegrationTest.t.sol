@@ -60,7 +60,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public defaultNativeDenom;
 
     /// @dev used by some internal functions to keep track of receive packet sequences
-    mapping(string counterpartyClientId => uint32 recvSeq) private recvSeqs;
+    mapping(string counterpartyClientId => uint64 recvSeq) private recvSeqs;
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -413,6 +413,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         uint256 supplyBeforeReceive = erc20.totalSupply();
         assertEq(supplyBeforeReceive, defaultAmount); // Not burned
 
+        // This is not a receive packet
+        assertFalse(ics26Router.isPacketReceived(packet));
+        assertFalse(ics26Router.isPacketReceiveSuccessful(packet));
+
         // Return the tokens (receive)
         string memory receivedDenom =
             string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
@@ -424,7 +428,12 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+
+        // run the receive packet queries
+        assert(ics26Router.isPacketReceived(recvPacket));
+        assert(ics26Router.isPacketReceiveSuccessful(recvPacket));
 
         // check balances after receiving back
         uint256 senderBalanceAfterReceive = erc20.balanceOf(defaultSender);
@@ -473,7 +482,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
 
         // call recvPacket again, should be noop
         vm.expectEmit();
@@ -502,7 +512,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -549,7 +560,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // packet receipt should be written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
 
         // check balances after receiving
         uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
@@ -635,8 +647,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(storedAck2, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
 
         // Check that the packet receipt is written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
-        assert(ics26Router.queryPacketReceipt(recvPacket2.destClient, recvPacket2.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+        bytes32 storedReceipt2 = ics26Router.queryPacketReceipt(recvPacket2.destClient, recvPacket2.sequence);
+        assertEq(storedReceipt2, ICS24Host.packetReceiptCommitmentBytes32(recvPacket2));
     }
 
     function test_failure_receiveMultiPacketWithForeignBaseDenom() public {
@@ -707,8 +721,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             defaultAmount * 2
         );
         IBCERC20 realIBCERC20 = IBCERC20(address(receivedERC20));
-        AttackerIBCERC20 attackerContract =
-            new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.symbol(), realIBCERC20.escrow());
+        AttackerIBCERC20 attackerContract = new AttackerIBCERC20(realIBCERC20.fullDenomPath(), realIBCERC20.escrow());
         uint256 attackerRealTokenBalance = realIBCERC20.balanceOf(receiver);
         assertEq(attackerRealTokenBalance, defaultAmount * 2);
 
@@ -764,7 +777,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
         assertEq(ibcERC20.fullDenomPath(), receivedDenom);
         assertEq(ibcERC20.name(), receivedDenom);
-        assertEq(ibcERC20.symbol(), "transfer/channel-42/uatom");
+        assertEq(ibcERC20.symbol(), receivedDenom);
         assertEq(ibcERC20.totalSupply(), defaultAmount);
         assertEq(ibcERC20.balanceOf(receiver), defaultAmount);
 
@@ -965,7 +978,12 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(receivedERC20.balanceOf(receiver), defaultAmount);
 
         // Check that the packet receipt is written
-        assert(ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence));
+        bytes32 storedReceipt = ics26Router.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+
+        // Run packet queries
+        assert(ics26Router.isPacketReceived(recvPacket));
+        assertFalse(ics26Router.isPacketReceiveSuccessful(recvPacket));
     }
 
     function _sendICS20TransferPacket(
@@ -1019,10 +1037,10 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         vm.recordLogs();
 
-        uint32 sequence;
+        uint64 sequence;
         if (signature.length > 0) {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
-            sequence = ics20Transfer.permitSendTransfer(msgSendTransfer, permit, signature);
+            sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
         } else {
             vm.prank(ICS20Lib.mustHexStringToAddress(sender));
             sequence = ics20Transfer.sendTransfer(msgSendTransfer);

@@ -287,6 +287,45 @@ contract IBCAdminTest is Test {
         ics20Transfer.revokePauserRole(ics20Pauser);
     }
 
+    function test_success_setDelegateSender() public {
+        address delegateSender = makeAddr("delegateSender");
+
+        ics20Transfer.grantDelegateSenderRole(delegateSender);
+        assertTrue(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+
+        ics20Transfer.revokeDelegateSenderRole(delegateSender);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+    }
+
+    function test_failure_setDelegateSender() public {
+        address unauthorized = makeAddr("unauthorized");
+        address delegateSender = makeAddr("delegateSender");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.grantDelegateSenderRole(delegateSender);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+
+        // Revoke the delegate sender role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokeDelegateSenderRole(delegateSender);
+    }
+
+    function test_failure_sendTransferWithSender() public {
+        address sender = makeAddr("sender");
+        IICS20TransferMsgs.SendTransferMsg memory msg_;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(this),
+                ics20Transfer.DELEGATE_SENDER_ROLE()
+            )
+        );
+        ics20Transfer.sendTransferWithSender(msg_, sender);
+    }
+
     function test_success_escrow_upgrade() public {
         DummyInitializable newLogic = new DummyInitializable();
 

@@ -12,6 +12,7 @@ import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
@@ -85,7 +86,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
         vm.prank(sender);
-        uint32 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
+        uint64 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, 42);
     }
 
@@ -140,7 +141,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         ics20Transfer.sendTransfer(_getTestSendTransferMsg());
     }
 
-    function test_failure_permitSendTransfer() public {
+    function test_failure_sendTransferWithPermit2() public {
         // this contract acts as the ics26Router
         vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
 
@@ -155,7 +156,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // test missing approval
         vm.expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
 
         // mint and approve permit2
         erc20.mint(sender, defaultAmount);
@@ -166,7 +167,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         defaultAmount = 0;
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
         // reset amount
         defaultAmount = 1_000_000_100_000_000_001;
 
@@ -189,22 +190,74 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         );
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), differentPermit, differentSignature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), differentPermit, differentSignature);
 
         // test invalid signature
         bytes memory invalidSignature = new bytes(65);
         vm.expectRevert();
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, invalidSignature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, invalidSignature);
 
         // prove that it works with a valid signature
         vm.prank(sender);
-        ics20Transfer.permitSendTransfer(_getTestSendTransferMsg(), permit, signature);
+        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
+    }
+
+    function test_success_sendTransferWithSender() public {
+        address customSender = makeAddr("customSender");
+
+        // give permission to the delegate sender
+        vm.mockCall(address(this), IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
+        ics20Transfer.grantDelegateSenderRole(sender);
+
+        (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =
+            _getDefaultPacket();
+        expPacketData.sender = Strings.toHexString(customSender);
+
+        erc20.mint(sender, defaultAmount);
+        vm.prank(sender);
+        erc20.approve(address(ics20Transfer), defaultAmount);
+
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
+            denom: address(erc20),
+            amount: defaultAmount,
+            receiver: receiverStr,
+            sourceClient: packet.sourceClient,
+            destPort: packet.payloads[0].sourcePort,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            memo: "memo"
+        });
+
+        vm.prank(sender);
+        vm.expectCall(
+            address(this),
+            abi.encodeCall(
+                IICS26Router.sendPacket,
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: msgSendTransfer.sourceClient,
+                    timeoutTimestamp: msgSendTransfer.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                        destPort: ICS20Lib.DEFAULT_PORT_ID,
+                        version: ICS20Lib.ICS20_VERSION,
+                        encoding: ICS20Lib.ICS20_ENCODING,
+                        value: abi.encode(expPacketData)
+                    })
+                })
+            )
+        );
+        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        uint64 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
+        assertEq(sequence, 42);
     }
 
     function test_failure_onAcknowledgementPacket() public {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =
             _getDefaultPacket();
+
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
 
         // test invalid data
         bytes memory data = bytes("invalid");
@@ -282,6 +335,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     function test_failure_onTimeoutPacket() public {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =
             _getDefaultPacket();
+
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
 
         // test invalid data
         bytes memory data = bytes("invalid");
@@ -465,8 +522,42 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 relayer: makeAddr("relayer")
             })
         );
-        // reset receiver
+        // reset source port
         packet.payloads[0].sourcePort = ICS20Lib.DEFAULT_PORT_ID;
+
+        // test invalid dest port
+        packet.payloads[0].destPort = "invalid";
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20InvalidPort.selector, ICS20Lib.DEFAULT_PORT_ID, "invalid")
+        );
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset dest port
+        packet.payloads[0].destPort = ICS20Lib.DEFAULT_PORT_ID;
+
+        // test invalid encoding
+        packet.payloads[0].encoding = "invalid";
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedEncoding.selector, ICS20Lib.ICS20_ENCODING, "invalid")
+        );
+        ics20Transfer.onRecvPacket(
+            IIBCAppCallbacks.OnRecvPacketCallback({
+                sourceClient: packet.sourceClient,
+                destinationClient: packet.destClient,
+                sequence: packet.sequence,
+                payload: packet.payloads[0],
+                relayer: makeAddr("relayer")
+            })
+        );
+        // reset encoding
+        packet.payloads[0].encoding = ICS20Lib.ICS20_ENCODING;
     }
 
     function _getDefaultPacket()
@@ -479,7 +570,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
             sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-            destPort: "destinationPort",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             version: ICS20Lib.ICS20_VERSION,
             encoding: ICS20Lib.ICS20_ENCODING,
             value: data
@@ -514,9 +605,14 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             amount: defaultAmount,
             receiver: receiverStr,
             sourceClient: "sourceClient",
-            destPort: "destinationPort",
+            destPort: ICS20Lib.DEFAULT_PORT_ID,
             timeoutTimestamp: 0,
             memo: "memo"
         });
+    }
+
+    function _getEscrowMappingSlot(string memory clientId) internal pure returns (bytes32) {
+        bytes32 ics20Slot = 0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
+        return keccak256(abi.encodePacked(clientId, ics20Slot));
     }
 }
