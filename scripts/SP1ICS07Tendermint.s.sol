@@ -5,12 +5,11 @@ pragma solidity ^0.8.28;
 
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
-import { Deployments } from "./helpers/Deployments.sol";
 import { Script } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
 
-contract SP1TendermintScript is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, Deployments {
+contract SP1TendermintScript is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint {
     using stdJson for string;
 
     address public verifier;
@@ -26,7 +25,8 @@ contract SP1TendermintScript is Script, IICS07TendermintMsgs, DeploySP1ICS07Tend
         // Read the initialization parameters for the SP1 Tendermint contract.
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
-        SP1ICS07TendermintDeployment memory genesis = loadSP1ICS07TendermintDeployment(vm, path);
+        string memory json = vm.readFile(path);
+        SP1ICS07TendermintDeployment memory genesis = loadSP1ICS07TendermintDeployment(json, "");
         genesis.verifier = vm.envOr("VERIFIER", string(""));
 
         vm.startBroadcast();

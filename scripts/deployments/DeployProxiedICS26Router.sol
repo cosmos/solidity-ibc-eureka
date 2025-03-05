@@ -35,11 +35,19 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
     function verify(ProxiedICS26RouterDeployment memory deployment) internal view {
         ERC1967Proxy routerProxy = ERC1967Proxy(deployment.proxy);
 
-        require(getImplementation(address(routerProxy)) == deployment.implementation, "bad");
+        vm.assertEq(
+            getImplementation(address(routerProxy)),
+            deployment.implementation,
+            "implementation addresses don't match"
+        );
 
         IIBCUUPSUpgradeable uups = IIBCUUPSUpgradeable(address(routerProxy));
 
-        require(uups.getTimelockedAdmin() == deployment.timeLockAdmin, "bad");
+        vm.assertEq(
+            uups.getTimelockedAdmin(),
+            deployment.timeLockAdmin,
+            "timelockAdmin addresses don't match"
+        );
     }
 
     function run() public returns (address){
@@ -52,7 +60,7 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
 
         ProxiedICS26RouterDeployment memory deployment = loadProxiedICS26RouterDeployment(vm, json);
 
-        if ((deployment.implementation != address(0) && deployment.proxy != address(0)) || verifyOnly) {
+        if ((deployment.implementation != address(0) || deployment.proxy != address(0)) || verifyOnly) {
             verify(deployment);
             return deployment.proxy;
         }

@@ -71,14 +71,78 @@ abstract contract DeploySP1ICS07Tendermint is Deployments {
 contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
     string internal constant DEPLOYMENT_NAME = "SP1ICS07Tendermint.json";
 
-    function verify(SP1ICS07TendermintDeployment memory deployment) internal view {
-        require(deployment.implementation != address(0), "bad");
+    function verify(
+        SP1ICS07TendermintDeployment memory deployment,
+        ProxiedICS26RouterDeployment memory ics26RouterDeployment
+    ) internal view {
+        vm.assertNotEq(deployment.implementation, address(0), "implementation address is zero");
 
-        ISP1ICS07Tendermint ics07Tendermint = SP1ICS07Tendermint(deployment.implementation);
+        ISP1ICS07Tendermint ics07Tendermint = ISP1ICS07Tendermint(deployment.implementation);
+        address actualVerifierAddress = address(ics07Tendermint.VERIFIER());
 
         (bool success, address verifierAddr) = Strings.tryParseAddress(deployment.verifier);
-        require(success, "Invalid verifier address");
-        require(address(ics07Tendermint.VERIFIER()) == verifierAddr, "bad");
+
+        vm.assertTrue(
+            success,
+            string.concat(
+                "Invalid verifier address: ",
+                deployment.verifier,
+                " (actual address: ",
+                vm.toString(actualVerifierAddress),
+                ")"
+            )
+        );
+
+        vm.assertEq(
+            address(ics07Tendermint.VERIFIER()),
+            verifierAddr,
+            "verifier address doesn't match"
+        );
+
+        vm.assertEq(
+            ics07Tendermint.MEMBERSHIP_PROGRAM_VKEY(),
+            deployment.membershipVkey,
+            "membershipVkey doesn't match"
+        );
+
+        vm.assertEq(
+            ics07Tendermint.MISBEHAVIOUR_PROGRAM_VKEY(),
+            deployment.misbehaviourVkey,
+            "misbehaviourVkey doesn't match"
+        );
+
+        vm.assertEq(
+            ics07Tendermint.UPDATE_CLIENT_PROGRAM_VKEY(),
+            deployment.updateClientVkey,
+            "updateClientVkey doesn't match"
+        );
+        vm.assertEq(
+            ics07Tendermint.UPDATE_CLIENT_AND_MEMBERSHIP_PROGRAM_VKEY(),
+            deployment.ucAndMembershipVkey,
+            "ucAndMembershipVkey doesn't match"
+        );
+
+        IICS02Client router = IICS02Client(ics26RouterDeployment.proxy);
+
+        vm.assertEq(
+            address(router.getClient(deployment.clientId)),
+            deployment.implementation,
+            "address of clientId in ics26Router doesn't match implementation address"
+        );
+
+        IICS02ClientMsgs.CounterpartyInfo memory counterparty = router.getCounterparty(deployment.clientId);
+
+        vm.assertEq(
+            counterparty.merklePrefix,
+            deployment.merklePrefix,
+            "merklePrefix doesn't match"
+        );
+
+        vm.assertEq(
+            counterparty.clientId,
+            deployment.counterpartyClientId,
+            "counterpartyClientId doesn't match"
+        );
     }
 
     function run() public {
@@ -96,7 +160,7 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
 
         for (uint256 i = 0; i < deployments.length; i++) {
             if (deployments[i].implementation != address(0) || verifyOnly) {
-                verify(deployments[i]);
+                verify(deployments[i], ics26RouterDeployment);
                 continue;
             }
 
@@ -108,13 +172,13 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
             deployments[i].verifier = vm.toString(address(ics07Tendermint.VERIFIER()));
 
             IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = IICS02ClientMsgs.CounterpartyInfo(deployments[i].counterpartyClientId, deployments[i].merklePrefix);
-            ics26Router.addClient(counterPartyInfo, address(ics07Tendermint));
+            deployments[i].clientId = ics26Router.addClient(counterPartyInfo, address(ics07Tendermint));
 
             vm.stopBroadcast();
         }
 
         for (uint256 i = 0; i < deployments.length; ++i) {
-            verify(deployments[i]);
+            verify(deployments[i], ics26RouterDeployment);
         }
 
         for (uint256 i = 0; i < deployments.length; ++i) {

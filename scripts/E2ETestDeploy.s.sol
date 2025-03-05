@@ -21,9 +21,11 @@ import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { Deployments } from "./helpers/Deployments.sol";
 import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
+import {DeployProxiedICS20Transfer} from "./deployments/DeployProxiedICS20Transfer.sol";
+import {DeployProxiedICS26Router} from "./deployments/DeployProxiedICS26Router.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, Deployments {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, DeployProxiedICS20Transfer, DeployProxiedICS26Router, Deployments {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -38,8 +40,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
 
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
+        string memory json = vm.readFile(path);
 
-        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(vm, path);
+        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(json, "");
 
         genesis.verifier = vm.envOr("VERIFIER", string(""));
 
@@ -57,26 +60,27 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            ics26RouterLogic, abi.encodeWithSelector(ICS26Router.initialize.selector, msg.sender, msg.sender)
-        );
+        ProxiedICS26RouterDeployment memory ics26RouterDeployment = ProxiedICS26RouterDeployment({
+            implementation: ics26RouterLogic,
+            timeLockAdmin: address(this)
+        });
 
-        ERC1967Proxy transferProxy = new ERC1967Proxy(
-            ics20TransferLogic,
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                address(routerProxy),
-                escrowLogic,
-                ibcERC20Logic,
-                address(0),
-                address(0)
-            )
-        );
+        ERC1967Proxy routerProxy = deployProxiedICS26Router(ics26RouterDeployment);
+
+        ProxiedICS20TransferDeployment memory ics20TransferDeployment = ProxiedICS20TransferDeployment({
+            implementation: ics20TransferLogic,
+            ics26Router: address(routerProxy),
+            escrow: escrowLogic,
+            ibcERC20: ibcERC20Logic,
+            pauser: address(0),
+            permit2: address(0)
+        });
+
+        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ics20TransferDeployment);
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         TestERC20 erc20 = new TestERC20();
-
         // Wire Transfer app
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 

@@ -14,6 +14,7 @@ abstract contract Deployments {
         // If not set, then the verifier is set based on the zkAlgorithm.
         // If set to "mock", then the verifier is set to a mock verifier.
         address implementation;
+        string clientId;
         string counterpartyClientId;
         string verifier;
         bytes[] merklePrefix;
@@ -23,6 +24,28 @@ abstract contract Deployments {
         bytes32 membershipVkey;
         bytes32 ucAndMembershipVkey;
         bytes32 misbehaviourVkey;
+    }
+
+    function loadSP1ICS07TendermintDeployment(
+        string memory json,
+        string memory key
+    )
+    public
+    view
+    returns (SP1ICS07TendermintDeployment memory) {
+        return SP1ICS07TendermintDeployment({
+            clientId: json.readStringOr(string.concat(key, ".clientId"), ""),
+            verifier: json.readStringOr(string.concat(key, ".verifier"), ""),
+            merklePrefix: json.readBytesArrayOr(string.concat(key, ".merklePrefix"), new bytes[](0)),
+            counterpartyClientId: json.readStringOr(string.concat(key, ".counterpartyClientId"), ""),
+            implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
+            trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
+            trustedConsensusState: json.readBytes(string.concat(key, ".trustedConsensusState")),
+            updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
+            membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
+            ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
+            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey"))
+        });
     }
 
     function loadSP1ICS07TendermintDeployments(
@@ -38,21 +61,7 @@ abstract contract Deployments {
 
         for (uint256 i = 0; i < keys.length; i++) {
             string memory key = string.concat(".light_clients['", keys[i], "']");
-
-            SP1ICS07TendermintDeployment memory fixture = SP1ICS07TendermintDeployment({
-                merklePrefix: json.readBytesArray(string.concat(key, ".merklePrefix")),
-                counterpartyClientId: json.readString(string.concat(key, ".counterpartyClientId")),
-                implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
-                trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
-                trustedConsensusState: json.readBytes(string.concat(key, ".trustedConsensusState")),
-                updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
-                membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
-                ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
-                misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
-                verifier: json.readStringOr(string.concat(key, ".verifier"), "")
-            });
-
-            deployments[i] = fixture;
+            deployments[i] = loadSP1ICS07TendermintDeployment(json, key);
         }
 
         return deployments;

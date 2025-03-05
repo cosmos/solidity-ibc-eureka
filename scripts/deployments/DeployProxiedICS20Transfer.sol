@@ -43,17 +43,46 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
     function verify(ProxiedICS20TransferDeployment memory deployment) internal view {
         ERC1967Proxy transferProxy = ERC1967Proxy(deployment.proxy);
 
-        require(getImplementation(address(transferProxy)) == deployment.implementation, "bad");
+        vm.assertEq(
+            getImplementation(address(transferProxy)),
+            deployment.implementation,
+            "implementation addresses don't match"
+        );
 
         ICS20Transfer ics20Transfer = ICS20Transfer(deployment.proxy);
 
-        require(ics20Transfer.ics26() == deployment.ics26Router, "bad");
-        require(IBeacon(ics20Transfer.getEscrowBeacon()).implementation() == deployment.escrow, "bad");
-        require(IBeacon(ics20Transfer.getIBCERC20Beacon()).implementation() == deployment.ibcERC20, "bad");
-        require(ics20Transfer.getPermit2() == deployment.permit2, "bad");
+        vm.assertEq(
+            ics20Transfer.ics26(),
+            deployment.ics26Router,
+            "ics26Router addresses don't match"
+        );
 
-        IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
-        require(ipu.hasRole(ipu.PAUSER_ROLE(), deployment.pauser), "bad");
+        vm.assertEq(
+            IBeacon(ics20Transfer.getEscrowBeacon()).implementation(),
+            deployment.escrow,
+            "escrow addresses don't match"
+        );
+
+        vm.assertEq(
+            IBeacon(ics20Transfer.getIBCERC20Beacon()).implementation(),
+            deployment.ibcERC20,
+            "ibcERC20 addresses don't match"
+        );
+
+        vm.assertEq(
+            ics20Transfer.getPermit2(),
+            deployment.permit2,
+            "permit2 addresses don't match"
+        );
+
+        if (deployment.pauser != address(0)) {
+            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+
+            vm.assertTrue(
+                ipu.hasRole(ipu.PAUSER_ROLE(), deployment.pauser),
+                "pauser address doesn't have pauser role"
+            );
+        }
     }
 
     function run() public returns (address){
@@ -66,7 +95,7 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
 
         ProxiedICS20TransferDeployment memory deployment = loadProxiedICS20TransferDeployment(vm, json);
 
-        if ((deployment.implementation != address(0) && deployment.proxy != address(0)) || verifyOnly) {
+        if ((deployment.implementation != address(0) || deployment.proxy != address(0)) || verifyOnly) {
             verify(deployment);
             return deployment.proxy;
         }
