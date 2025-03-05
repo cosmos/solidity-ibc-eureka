@@ -72,11 +72,6 @@ pub fn update_consensus_state(
         new_consensus_state.current_sync_committee = current_consensus_state.next_sync_committee;
         new_consensus_state.next_sync_committee =
             consensus_update.next_sync_committee.aggregate_pubkey;
-    } else {
-        ensure!(
-            update_finalized_period == store_period,
-            EthereumIBCError::StorePeriodMustBeEqualToFinalizedPeriod
-        );
     }
 
     new_consensus_state.slot = update_slot;
