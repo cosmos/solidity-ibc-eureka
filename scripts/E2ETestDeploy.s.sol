@@ -63,7 +63,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         ProxiedICS26RouterDeployment memory ics26RouterDeployment = ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
             implementation: ics26RouterLogic,
-            timeLockAdmin: address(this)
+            timeLockAdmin: msg.sender
         });
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(ics26RouterDeployment);
