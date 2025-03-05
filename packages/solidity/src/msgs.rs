@@ -167,8 +167,8 @@ impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
 
     fn try_from(height: ibc_core_client_types::Height) -> Result<Self, Self::Error> {
         Ok(Self {
-            revisionNumber: height.revision_number().try_into()?,
-            revisionHeight: height.revision_height().try_into()?,
+            revisionNumber: height.revision_number(),
+            revisionHeight: height.revision_height(),
         })
     }
 }

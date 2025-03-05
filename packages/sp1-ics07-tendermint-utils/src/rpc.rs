@@ -38,7 +38,7 @@ pub trait TendermintRpcExt {
     ///
     /// # Errors
     /// Returns an error if the RPC request fails or if the response cannot be parsed.
-    async fn get_light_block(&self, block_height: Option<u32>) -> Result<LightBlock>;
+    async fn get_light_block(&self, block_height: Option<u64>) -> Result<LightBlock>;
     /// Queries the Cosmos SDK for staking parameters.
     async fn sdk_staking_params(&self) -> Result<Params>;
     /// Fetches the client state from the Tendermint node.
@@ -48,7 +48,7 @@ pub trait TendermintRpcExt {
     async fn consensus_state(&self, client_id: String, revision_height: u64) -> Result<Any>;
     /// Proves a path in the chain's Merkle tree and returns the value at the path and the proof.
     /// If the value is empty, then this is a non-inclusion proof.
-    async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)>;
+    async fn prove_path(&self, path: &[Vec<u8>], height: u64) -> Result<(Vec<u8>, MerkleProof)>;
 }
 
 #[async_trait::async_trait]
@@ -61,13 +61,13 @@ impl TendermintRpcExt for HttpClient {
         .expect("Failed to create HTTP client")
     }
 
-    async fn get_light_block(&self, block_height: Option<u32>) -> Result<LightBlock> {
+    async fn get_light_block(&self, block_height: Option<u64>) -> Result<LightBlock> {
         let peer_id = self.status().await?.node_info.id;
         let commit_response;
-        let height;
+        let height: tendermint::block::Height;
         if let Some(block_height) = block_height {
-            commit_response = self.commit(block_height).await?;
-            height = block_height;
+            height = block_height.try_into()?;
+            commit_response = self.commit(height).await?;
         } else {
             commit_response = self.latest_commit().await?;
             height = commit_response
@@ -85,7 +85,8 @@ impl TendermintRpcExt for HttpClient {
             signed_header.header().proposer_address,
         )?;
 
-        let next_validator_response = self.validators(height + 1, Paging::All).await?;
+        let next_height = height.increment();
+        let next_validator_response = self.validators(next_height, Paging::All).await?;
         let next_validators = Set::with_proposer(
             next_validator_response.validators,
             // WARN: This proposer is likely to be incorrect,
@@ -153,18 +154,19 @@ impl TendermintRpcExt for HttpClient {
             .ok_or_else(|| anyhow::anyhow!("No consensus state found"))
     }
 
-    async fn prove_path(&self, path: &[Vec<u8>], height: u32) -> Result<(Vec<u8>, MerkleProof)> {
+    async fn prove_path(&self, path: &[Vec<u8>], height: u64) -> Result<(Vec<u8>, MerkleProof)> {
+        let previous_height = (height - 1).try_into()?;
         let res = self
             .abci_query(
                 Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
                 path[1..].concat(),
                 // Proof height should be the block before the target block.
-                Some((height - 1).into()),
+                Some(previous_height),
                 true,
             )
             .await?;
 
-        if u32::try_from(res.height.value())? + 1 != height {
+        if res.height.value() + 1 != height {
             anyhow::bail!("Proof height mismatch");
         }
 

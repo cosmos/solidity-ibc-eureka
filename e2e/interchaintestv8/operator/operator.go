@@ -105,8 +105,8 @@ func MembershipProof(trusted_height uint64, paths string, writeFixtureName strin
 	}
 
 	heightType, err := abi.NewType("tuple", "IICS02ClientMsgsHeight", []abi.ArgumentMarshaling{
-		{Name: "revisionNumber", Type: "uint32"},
-		{Name: "revisionHeight", Type: "uint32"},
+		{Name: "revisionNumber", Type: "uint64"},
+		{Name: "revisionHeight", Type: "uint64"},
 	})
 	if err != nil {
 		return nil, nil, err
@@ -124,7 +124,7 @@ func MembershipProof(trusted_height uint64, paths string, writeFixtureName strin
 
 	height := abi.ConvertType(heightI[0], new(sp1ics07tendermint.IICS02ClientMsgsHeight)).(*sp1ics07tendermint.IICS02ClientMsgsHeight)
 
-	if height.RevisionHeight != uint32(trusted_height) {
+	if height.RevisionHeight != trusted_height {
 		return nil, nil, errors.New("heights do not match")
 	}
 
@@ -164,8 +164,8 @@ func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths 
 	}
 
 	heightType, err := abi.NewType("tuple", "IICS02ClientMsgsHeight", []abi.ArgumentMarshaling{
-		{Name: "revisionNumber", Type: "uint32"},
-		{Name: "revisionHeight", Type: "uint32"},
+		{Name: "revisionNumber", Type: "uint64"},
+		{Name: "revisionHeight", Type: "uint64"},
 	})
 	if err != nil {
 		return nil, nil, err
@@ -183,7 +183,7 @@ func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths 
 
 	height := abi.ConvertType(heightI[0], new(sp1ics07tendermint.IICS02ClientMsgsHeight)).(*sp1ics07tendermint.IICS02ClientMsgsHeight)
 
-	if height.RevisionHeight != uint32(target_height) {
+	if height.RevisionHeight != target_height {
 		return nil, nil, errors.New("heights do not match")
 	}
 
