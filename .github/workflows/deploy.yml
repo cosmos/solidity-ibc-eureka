@@ -53,9 +53,9 @@ jobs:
         uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/setup
-      - run: |
+      - name: Export the RPC URL
+        run: |
           cat deployments/${{ matrix.env }}/${{ matrix.file }} | jq -r ". | \"FOUNDRY_ETH_RPC_URL=\(.rpc_url)\"" >> $GITHUB_ENV
-          echo "${{ matrix.env }} - ${{ matrix.file }}"
       - name: Verify deployed contracts
         run: |
           forge script scripts/deployments/DeployProxiedICS26Router.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

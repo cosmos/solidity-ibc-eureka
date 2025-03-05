@@ -25,7 +25,7 @@ import {DeployProxiedICS20Transfer} from "./deployments/DeployProxiedICS20Transf
 import {DeployProxiedICS26Router} from "./deployments/DeployProxiedICS26Router.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, DeployProxiedICS20Transfer, DeployProxiedICS26Router, Deployments {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, DeployProxiedICS20Transfer, DeployProxiedICS26Router {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -89,7 +89,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
 
         vm.stopBroadcast();
 
-        string memory json = "json";
+        json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
