@@ -3,7 +3,7 @@ module github.com/cosmos/solidity-ibc-eureka/deployics08wasmeth
 go 1.23.6
 
 require (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.4.1-0.20240728184249-44562d751b0e
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.6.1-0.20250226181012-d9f2f8899c3c
 	github.com/cosmos/ibc-go/v10 v10.0.0
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 v8.0.0
 
@@ -59,7 +59,7 @@ require (
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-db v1.1.0 // indirect
+	github.com/cosmos/cosmos-db v1.1.1 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/cosmos-sdk v0.50.11 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
@@ -207,7 +207,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.7.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
