@@ -103,13 +103,12 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         returns (string memory)
     {
         require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
-        require(IBCIdentifiers.validateIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
         _addClient(clientId, counterpartyInfo, client);
         return clientId;
     }
 
     /// @notice This function adds a client to the client router
-    /// @dev This function assumes that the clientId has already been generated and validated.
+    /// @dev This function assumes that the clientId has already been generated.
     /// @param clientId The client identifier
     /// @param counterpartyInfo The counterparty client information
     /// @param client The address of the client contract
@@ -121,6 +120,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         private
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        require(IBCIdentifiers.validateIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
         require(address($.clients[clientId]) == address(0), IBCClientAlreadyExists(clientId));
 
         $.clients[clientId] = ILightClient(client);

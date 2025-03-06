@@ -111,13 +111,13 @@ contract ICS26Router is
     }
 
     /// @notice This function adds an app to the app router
-    /// @dev This function assumes that the portId has already been generated and validated.
+    /// @dev This function assumes that the portId has already been generated.
     /// @param portId The port identifier
     /// @param app The address of the app contract
     function _addIBCApp(string memory portId, address app) private {
         ICS26RouterStorage storage $ = _getICS26RouterStorage();
-        require(address($._apps[portId]) == address(0), IBCPortAlreadyExists(portId));
         require(IBCIdentifiers.validateIBCIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
+        require(address($._apps[portId]) == address(0), IBCPortAlreadyExists(portId));
         $._apps[portId] = IIBCApp(app);
         emit IBCAppAdded(portId, app);
     }
