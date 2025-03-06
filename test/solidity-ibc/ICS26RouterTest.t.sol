@@ -69,7 +69,9 @@ contract ICS26RouterTest is Test {
 
         // reuse of the same port
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
-        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID));
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID)
+        );
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
     }
 
