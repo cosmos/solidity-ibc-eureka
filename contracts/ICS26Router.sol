@@ -82,6 +82,25 @@ contract ICS26Router is
         return app;
     }
 
+    /// @inheritdoc IICS26Router
+    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
+        return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
+    }
+
+    /// @inheritdoc IICS26Router
+    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool) {
+        if (!isPacketReceived(packet)) {
+            return false;
+        }
+
+        bytes[] memory errorAck = new bytes[](1);
+        errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
+        bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
+        bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
+        return storedAckCommitment != 0 && storedAckCommitment != errorAckCommitment;
+    }
+
     /// @notice Adds an IBC application to the router
     /// @dev Only the admin can submit non-empty port identifiers
     /// @param portId The port identifier
@@ -106,11 +125,8 @@ contract ICS26Router is
         emit IBCAppAdded(newPortId, app);
     }
 
-    /// @notice Sends a packet
-    /// @param msg_ The message for sending packets
-    /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
-    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint64) {
         address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
         require(ibcApp == _msgSender(), IBCUnauthorizedSender(_msgSender()));
 
@@ -125,7 +141,7 @@ contract ICS26Router is
             IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
 
-        uint32 sequence = nextSequenceSend(msg_.sourceClient);
+        uint64 sequence = nextSequenceSend(msg_.sourceClient);
 
         // TODO: Support multi-payload packets #93
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
@@ -176,8 +192,8 @@ contract ICS26Router is
 
         // recvPacket will no-op if the packet receipt already exists
         // This no-op check must happen after the membership verification for proofs to be cached
-        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
-        if (!setReceiptSuccessful) {
+        bool receiptAlreadySet = !setPacketReceipt(msg_.packet);
+        if (receiptAlreadySet) {
             emit Noop();
             return;
         }
