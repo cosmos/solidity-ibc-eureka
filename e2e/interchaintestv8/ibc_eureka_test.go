@@ -594,6 +594,45 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 
 	var returnSendTxHash []byte
+	s.Require().True(s.Run("Transfer tokens back from Cosmos chain with invalid destination should fail", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		ibcCoin := sdk.NewCoin(denomOnCosmos.Path(), sdkmath.NewIntFromBigInt(transferAmount))
+
+		transferPayload := transfertypes.FungibleTokenPacketData{
+			Denom:    ibcCoin.Denom,
+			Amount:   ibcCoin.Amount.String(),
+			Sender:   cosmosUserWallet.FormattedAddress(),
+			Receiver: ibctesting.InvalidEthAddress.Hex(),
+			Memo:     "",
+		}
+		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingABI,
+			Value:           encodedPayload,
+		}
+
+		transferMsgs := make([]sdk.Msg, 1)
+		transferMsgs[0] = &channeltypesv2.MsgSendPacket{
+			SourceClient:     testvalues.FirstWasmClientID,
+			TimeoutTimestamp: timeout,
+			Payloads: []channeltypesv2.Payload{
+				payload,
+			},
+			Signer: cosmosUserWallet.FormattedAddress(),
+		}
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, 20_000_000, transferMsgs...)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		returnSendTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+	})
 	s.Require().True(s.Run("Transfer tokens back from Cosmos chain", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		ibcCoin := sdk.NewCoin(denomOnCosmos.Path(), sdkmath.NewIntFromBigInt(transferAmount))
