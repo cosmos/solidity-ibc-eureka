@@ -202,8 +202,8 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
 |:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~170,301 | ~163,748 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,137 | ~86,432 |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~178,272 | ~165,240 |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,269 | ~86,564 |
 
 Note: These gas benchmarks are with Groth16.
 
