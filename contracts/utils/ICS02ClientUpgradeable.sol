@@ -121,6 +121,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         private
     {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        require(address($.clients[clientId]) == address(0), IBCClientAlreadyExists(clientId));
 
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
