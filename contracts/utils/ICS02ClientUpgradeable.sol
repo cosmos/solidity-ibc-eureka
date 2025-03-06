@@ -103,7 +103,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         returns (string memory)
     {
         require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
-        require(IBCIdentifiers.validateIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
+        require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
         _addClient(clientId, counterpartyInfo, client);
         return clientId;
     }

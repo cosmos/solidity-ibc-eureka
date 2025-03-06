@@ -24,7 +24,7 @@ library IBCIdentifiers {
         return keccak256(Bytes.slice(bz, 0, prefix.length)) == keccak256(prefix);
     }
 
-    /// @notice validateIBCIdentifier checks if a custom identifier is valid
+    /// @notice validateCustomIBCIdentifier checks if a custom identifier is valid
     /**
      * @dev validateCustomIdentifier validates a custom identifier string
      *     check that the string does not start with "channel-" or "client-"
@@ -37,7 +37,7 @@ library IBCIdentifiers {
     /// contracts/core/26-router/IBCModuleManager.sol#L123
     /// @param customId The custom identifier
     /// @return True if the custom identifier is valid
-    function validateIBCIdentifier(bytes memory customId) internal pure returns (bool) {
+    function validateCustomIBCIdentifier(bytes memory customId) internal pure returns (bool) {
         if (customId.length < 4 || customId.length > 128) {
             return false;
         }

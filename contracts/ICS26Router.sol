@@ -107,7 +107,7 @@ contract ICS26Router is
         require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
         (bool isAddress,) = Strings.tryParseAddress(portId);
         require(!isAddress, IBCInvalidPortIdentifier(portId));
-        require(IBCIdentifiers.validateIBCIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
+        require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
         _addIBCApp(portId, app);
     }
 
