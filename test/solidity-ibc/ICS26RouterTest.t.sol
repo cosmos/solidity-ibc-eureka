@@ -62,10 +62,15 @@ contract ICS26RouterTest is Test {
 
     function test_failure_addIBCAppUsingNamedPort() public {
         address mockApp = makeAddr("mockApp");
+        // port is an address
         string memory mockAppStr = Strings.toHexString(mockApp);
-
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidPortIdentifier.selector, mockAppStr));
         ics26Router.addIBCApp(mockAppStr, mockApp);
+
+        // reuse of the same port
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID));
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
     }
 
     function test_UnauthorizedSender() public {
