@@ -16,7 +16,10 @@ use ibc_core_client_types::proto::v1::{
     QueryConsensusStateResponse,
 };
 use ibc_core_commitment_types::merkle::MerkleProof;
-use tendermint::{block::signed_header::SignedHeader, validator::Set};
+use tendermint::{
+    block::{signed_header::SignedHeader, Height},
+    validator::Set,
+};
 use tendermint_light_client_verifier::types::{LightBlock, ValidatorSet};
 use tendermint_rpc::{Client, HttpClient, Paging, Url};
 
@@ -64,29 +67,29 @@ impl TendermintRpcExt for HttpClient {
     async fn get_light_block(&self, block_height: Option<u64>) -> Result<LightBlock> {
         let peer_id = self.status().await?.node_info.id;
         let commit_response;
-        let height: tendermint::block::Height;
+        let height: u64;
         if let Some(block_height) = block_height {
-            height = block_height.try_into()?;
-            commit_response = self.commit(height).await?;
+            height = block_height;
+            let commit_height: Height = block_height.try_into()?;
+            commit_response = self.commit(commit_height).await?;
         } else {
             commit_response = self.latest_commit().await?;
-            height = commit_response
-                .signed_header
-                .header
-                .height
-                .value()
-                .try_into()?;
+            height = commit_response.signed_header.header.height.value();
         }
         let mut signed_header = commit_response.signed_header;
 
-        let validator_response = self.validators(height, Paging::All).await?;
+        let validator_response = self
+            .validators(TryInto::<Height>::try_into(height)?, Paging::All)
+            .await?;
         let validators = Set::with_proposer(
             validator_response.validators,
             signed_header.header().proposer_address,
         )?;
 
-        let next_height = height.increment();
-        let next_validator_response = self.validators(next_height, Paging::All).await?;
+        let next_height = height + 1;
+        let next_validator_response = self
+            .validators(TryInto::<Height>::try_into(next_height)?, Paging::All)
+            .await?;
         let next_validators = Set::with_proposer(
             next_validator_response.validators,
             // WARN: This proposer is likely to be incorrect,
@@ -155,13 +158,12 @@ impl TendermintRpcExt for HttpClient {
     }
 
     async fn prove_path(&self, path: &[Vec<u8>], height: u64) -> Result<(Vec<u8>, MerkleProof)> {
-        let previous_height = (height - 1).try_into()?;
         let res = self
             .abci_query(
                 Some(format!("store/{}/key", std::str::from_utf8(&path[0])?)),
                 path[1..].concat(),
                 // Proof height should be the block before the target block.
-                Some(previous_height),
+                Some((height - 1).try_into()?),
                 true,
             )
             .await?;
