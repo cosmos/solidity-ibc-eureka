@@ -1886,6 +1886,17 @@
   },
   {
     "type": "error",
+    "name": "IBCClientAlreadyExists",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCClientNotFound",
     "inputs": [
       {
