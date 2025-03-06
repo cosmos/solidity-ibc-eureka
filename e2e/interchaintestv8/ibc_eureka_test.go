@@ -1260,7 +1260,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Equal(originalBalance, resp.Balance)
 		}))
-	}), 10*time.Minute)
+	}))
 
 	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -1279,7 +1279,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 		s.Require().Error(err)
 		s.Require().Nil(resp)
-	}), 10*time.Minute)
+	}))
 }
 
 func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Groth16() {

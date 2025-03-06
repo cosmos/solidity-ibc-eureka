@@ -525,7 +525,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(originalBalance, resp.Balance)
 		}))
-	}), 10*time.Minute)
+	}))
 
 	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -542,5 +542,5 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 		s.Require().Error(err)
 		s.Require().Nil(resp)
-	}), 10*time.Minute)
+	}))
 }
