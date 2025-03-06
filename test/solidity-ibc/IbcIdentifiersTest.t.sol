@@ -19,8 +19,11 @@ contract IBCIdentifiersTest is Test {
         // https://github.com/cosmos/ibc-go/blob/e443a88e0f2c84c131c5a1de47945a5733ff9c91/modules/core/24-host/validate_test.go#L57
         ValidateCustomIBCIdentifierTestCase[] memory testCases = new ValidateCustomIBCIdentifierTestCase[](15);
         testCases[0] = ValidateCustomIBCIdentifierTestCase({ m: "valid lowercase", id: "transfer", expPass: true });
-        testCases[1] =
-            ValidateCustomIBCIdentifierTestCase({ m: "valid id special chars", id: "._+-#[]<>._+-#[]<>", expPass: true });
+        testCases[1] = ValidateCustomIBCIdentifierTestCase({
+            m: "valid id special chars",
+            id: "._+-#[]<>._+-#[]<>",
+            expPass: true
+        });
         testCases[2] = ValidateCustomIBCIdentifierTestCase({
             m: "valid id lower and special chars",
             id: "lower._+-#[]<>",
@@ -41,7 +44,11 @@ contract IBCIdentifiersTest is Test {
         testCases[11] = ValidateCustomIBCIdentifierTestCase({ m: "empty string", id: "", expPass: false });
         testCases[12] = ValidateCustomIBCIdentifierTestCase({ m: "client prefix id", id: "client-5", expPass: false });
         testCases[13] = ValidateCustomIBCIdentifierTestCase({ m: "channel prefix id", id: "channel-0", expPass: false });
-        testCases[14] = ValidateCustomIBCIdentifierTestCase({ m: "contract address", id: Strings.toHexString(makeAddr("test")), expPass: true });
+        testCases[14] = ValidateCustomIBCIdentifierTestCase({
+            m: "contract address",
+            id: Strings.toHexString(makeAddr("test")),
+            expPass: true
+        });
 
         for (uint256 i = 0; i < testCases.length; i++) {
             ValidateCustomIBCIdentifierTestCase memory tc = testCases[i];
