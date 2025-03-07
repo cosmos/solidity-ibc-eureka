@@ -178,6 +178,10 @@ mod tests {
                         version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
+                    electra: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
                 },
                 seconds_per_slot: 0,
                 slots_per_epoch: 0,

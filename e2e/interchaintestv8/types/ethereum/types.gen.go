@@ -55,6 +55,8 @@ type ForkParameters struct {
 	Capella Fork `json:"capella"`
 	// The deneb fork
 	Deneb Fork `json:"deneb"`
+	// The electra fork
+	Electra Fork `json:"electra"`
 	// The genesis fork version
 	GenesisForkVersion string `json:"genesis_fork_version"`
 	// The genesis slot
@@ -69,7 +71,9 @@ type ForkParameters struct {
 //
 // # The capella fork
 //
-// The deneb fork
+// # The deneb fork
+//
+// The electra fork
 type Fork struct {
 	// The epoch at which this fork is activated
 	Epoch uint64 `json:"epoch"`

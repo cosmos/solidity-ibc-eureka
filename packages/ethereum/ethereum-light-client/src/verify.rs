@@ -9,7 +9,8 @@ use ethereum_types::consensus::{
     light_client_header::{LightClientHeader, LightClientUpdate},
     merkle::{
         get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
-        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
+        FINALIZED_ROOT_GINDEX_ELECTRA, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
+        NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
     },
     signing_data::compute_signing_root,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
@@ -243,7 +244,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         finalized_root,
         update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
-        get_subtree_index(FINALIZED_ROOT_INDEX),
+        get_subtree_index(FINALIZED_ROOT_GINDEX_ELECTRA),
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -268,7 +269,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
             next_sync_committee.tree_hash_root(),
             update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
+            get_subtree_index(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;

@@ -127,7 +127,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		// os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		os.Setenv(testvalues.EnvKeyRustLog, "debug")
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
@@ -250,6 +251,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			SP1Config:      sp1Config,
 			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
 			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			LogLevel:       os.Getenv(testvalues.EnvKeyRustLog),
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
