@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use alloy_primitives::Bytes;
-use ethereum_types::execution::storage_proof::StorageProof;
+use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
+use prost::Message;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -35,31 +35,20 @@ pub struct InitialState {
     pub consensus_state: ConsensusState,
 }
 
-/// The proof used to verify membership
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct CommitmentProof {
-    /// The IBC path sent to verify membership
-    #[schemars(with = "String")]
-    pub path: Bytes,
-    /// The storage proof used to verify membership
-    pub storage_proof: StorageProof,
-    /// The slot of the proof (ibc height)
-    pub proof_slot: u64,
-    /// The client state at the time of the proof
-    pub client_state: ClientState,
-    /// The consensus state at the time of the proof
-    pub consensus_state: ConsensusState,
-}
-
 /// Operation to update the light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct UpdateClient {
-    /// The client state after the update
-    pub client_state: ClientState,
-    /// The consensus state after the update
-    pub consensus_state: ConsensusState,
+pub struct RelayerMessages {
     /// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
-    pub updates: String,
+    pub relayer_tx_body: String,
+}
+
+/// Decode the updates into a `TxBody`
+/// # Panics
+/// Panics if the updates cannot be decoded into a `TxBody`
+#[must_use]
+pub fn get_updates_tx_body(updates: String) -> TxBody {
+    let tx_body_bz = hex::decode(updates).unwrap();
+    TxBody::decode(tx_body_bz.as_slice()).unwrap()
 }
 
 impl StepsFixture {

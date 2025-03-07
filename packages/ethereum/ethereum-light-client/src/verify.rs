@@ -375,9 +375,14 @@ pub fn get_lc_execution_root(
 
 #[cfg(test)]
 mod test {
+    use ibc_proto_eureka::ibc::{
+        core::client::v1::MsgUpdateClient, lightclients::wasm::v1::ClientMessage,
+    };
+    use prost::Message;
+
     use crate::test_utils::{
         bls_verifier::{fast_aggregate_verify, BlsError},
-        fixtures::{self, InitialState, UpdateClient},
+        fixtures::{self, get_updates_tx_body, InitialState, RelayerMessages},
     };
 
     use super::*;
@@ -402,16 +407,38 @@ mod test {
         let bls_verifier = TestBlsVerifier;
 
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
         let client_state = initial_state.client_state;
         let consensus_state = initial_state.consensus_state;
 
-        let update_state: UpdateClient = fixture.get_data_at_step(1);
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
 
-        let header = update_state.updates[0].clone();
+        let tx_body = get_updates_tx_body(relayer_messages.relayer_tx_body);
+
+        let update_client_msgs = tx_body
+            .messages
+            .iter()
+            .filter_map(|msg| match msg.type_url.as_str() {
+                "/ibc.core.client.v1.MsgUpdateClient" => {
+                    let msg_update_client = MsgUpdateClient::decode(msg.value.as_slice()).unwrap();
+                    let client_msg = ClientMessage::decode(
+                        msg_update_client.client_message.unwrap().value.as_slice(),
+                    )
+                    .unwrap();
+                    let header: Header =
+                        serde_json::from_slice(client_msg.data.as_slice()).unwrap();
+
+                    Some(header)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let header = update_client_msgs[0].clone();
+
         verify_header(
             &consensus_state,
             &client_state,

@@ -37,7 +37,6 @@ func NewRustFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *RustFi
 	}
 
 	return rustFixtureGenerator
-
 }
 
 // GenerateRustFixture generates a fixture by json marshalling jsonMarshalble and saves it to a file
@@ -54,7 +53,6 @@ func (g *RustFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble in
 
 func (g *RustFixtureGenerator) ShouldGenerateFixture() bool {
 	return g.shouldGenerateFixture
-
 }
 
 func (g *RustFixtureGenerator) writeFixtures(fixtureName string) error {
@@ -63,6 +61,8 @@ func (g *RustFixtureGenerator) writeFixtures(fixtureName string) error {
 	}
 
 	filePath := fmt.Sprintf("%s/%s.json", testvalues.RustFixturesDir, fixtureName)
+
+	fmt.Printf("Writing %d fixtures to %s\n", len(g.fixture.Steps), filePath)
 	fixturesBz, err := json.MarshalIndent(g.fixture, "", " ")
 	if err != nil {
 		return err
@@ -70,7 +70,6 @@ func (g *RustFixtureGenerator) writeFixtures(fixtureName string) error {
 
 	// nolint:gosec
 	return os.WriteFile(filePath, fixturesBz, 0o644)
-
 }
 
 func getTopLevelTestName(s *suite.Suite) string {

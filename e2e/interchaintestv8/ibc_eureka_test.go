@@ -130,8 +130,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		// os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
-		os.Setenv(testvalues.EnvKeyRustLog, "debug")
+		if os.Getenv(testvalues.EnvKeyRustLog) == "" {
+			os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		}
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
@@ -531,16 +532,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 			relayTxBodyBz = resp.Tx
 
-			if s.generateSolidityFixtures {
-				_, ethereumClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
-				_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, testvalues.FirstWasmClientID)
-
-				s.rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
-					ClientState:    ethereumClientState,
-					ConsensusState: ethereumConsensusState,
-					Updates:        hex.EncodeToString(relayTxBodyBz),
-				})
-			}
+			s.rustFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -744,16 +738,9 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 			ackRelayTxBodyBz = resp.Tx
 
-			if s.generateSolidityFixtures {
-				_, ethereumClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
-				_, ethereumConsensusState := s.GetEthereumConsensusState(ctx, simd, testvalues.FirstWasmClientID)
-
-				s.rustFixtureGenerator.AddFixtureStep("updated_light_client", ethereumtypes.UpdateClient{
-					ClientState:    ethereumClientState,
-					ConsensusState: ethereumConsensusState,
-					Updates:        hex.EncodeToString(ackRelayTxBodyBz),
-				})
-			}
+			s.rustFixtureGenerator.AddFixtureStep("ack_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(ackRelayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -947,6 +934,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Empty(resp.Address)
 
 			ackRelayTxBodyBz = resp.Tx
+
+			s.rustFixtureGenerator.AddFixtureStep("ack_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(ackRelayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -1040,6 +1031,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			s.rustFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {

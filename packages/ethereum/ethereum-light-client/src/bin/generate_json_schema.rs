@@ -2,12 +2,11 @@
 
 use ethereum_light_client::{
     client_state::ClientState, consensus_state::ConsensusState, header::Header,
+    test_utils::fixtures::RelayerMessages,
 };
 
 #[cfg(feature = "test-utils")]
-use ethereum_light_client::test_utils::fixtures::{
-    CommitmentProof, InitialState, Step, StepsFixture, UpdateClient,
-};
+use ethereum_light_client::test_utils::fixtures::{InitialState, Step, StepsFixture};
 
 use ethereum_types::execution::storage_proof::StorageProof;
 use schemars::JsonSchema;
@@ -31,8 +30,7 @@ struct TestFixtures {
     steps_fixture: StepsFixture,
     step: Step,
     initial_state: InitialState,
-    commitment_proof: CommitmentProof,
-    update_client: UpdateClient,
+    relayer_messages: RelayerMessages,
 }
 
 fn main() {

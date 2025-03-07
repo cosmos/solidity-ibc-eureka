@@ -261,7 +261,6 @@ func (s *TestSuite) GetEthereumConsensusState(ctx context.Context, cosmosChain *
 	s.Require().NoError(err)
 
 	return wasmConsenusState, ethConsensusState
-
 }
 
 func (s *TestSuite) CreateTMClientHeader(

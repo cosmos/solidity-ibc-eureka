@@ -13,11 +13,7 @@ type GeneratedTypes struct {
 
 // The ethereum client state
 //
-// # The client state at the time of the proof
-//
-// # The client state at the initial state
-//
-// The client state after the update
+// The client state at the initial state
 type ClientState struct {
 	// The chain ID
 	ChainID uint64 `json:"chain_id"`
@@ -83,11 +79,7 @@ type Fork struct {
 
 // The consensus state of the Ethereum light client
 //
-// # The consensus state at the time of the proof
-//
-// # The consensus state at the initial state
-//
-// The consensus state after the update
+// The consensus state at the initial state
 type ConsensusState struct {
 	// aggregate public key of current sync committee
 	CurrentSyncCommittee string `json:"current_sync_committee"`
@@ -253,8 +245,6 @@ type ActiveSyncCommittee struct {
 }
 
 // The key-value storage proof for a smart contract account
-//
-// The storage proof used to verify membership
 type StorageProof struct {
 	// The key of the storage
 	Key string `json:"key"`
@@ -265,25 +255,10 @@ type StorageProof struct {
 }
 
 type TestFixtures struct {
-	CommitmentProof CommitmentProof `json:"commitment_proof"`
 	InitialState    InitialState    `json:"initial_state"`
+	RelayerMessages RelayerMessages `json:"relayer_messages"`
 	Step            Step            `json:"step"`
 	StepsFixture    StepsFixture    `json:"steps_fixture"`
-	UpdateClient    UpdateClient    `json:"update_client"`
-}
-
-// The proof used to verify membership
-type CommitmentProof struct {
-	// The client state at the time of the proof
-	ClientState ClientState `json:"client_state"`
-	// The consensus state at the time of the proof
-	ConsensusState ConsensusState `json:"consensus_state"`
-	// The IBC path sent to verify membership
-	Path string `json:"path"`
-	// The slot of the proof (ibc height)
-	ProofSlot uint64 `json:"proof_slot"`
-	// The storage proof used to verify membership
-	StorageProof StorageProof `json:"storage_proof"`
 }
 
 // The initial state of the light client in the e2e tests
@@ -292,6 +267,12 @@ type InitialState struct {
 	ClientState ClientState `json:"client_state"`
 	// The consensus state at the initial state
 	ConsensusState ConsensusState `json:"consensus_state"`
+}
+
+// Operation to update the light client
+type RelayerMessages struct {
+	// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
+	RelayerTxBody string `json:"relayer_tx_body"`
 }
 
 // Step is a light client operation such as an initial state, commitment proof, or update
@@ -307,14 +288,4 @@ type Step struct {
 type StepsFixture struct {
 	// steps is a list of light client operations
 	Steps []Step `json:"steps"`
-}
-
-// Operation to update the light client
-type UpdateClient struct {
-	// The client state after the update
-	ClientState ClientState `json:"client_state"`
-	// The consensus state after the update
-	ConsensusState ConsensusState `json:"consensus_state"`
-	// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
-	Updates string `json:"updates"`
 }
