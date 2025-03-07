@@ -315,6 +315,6 @@ type UpdateClient struct {
 	ClientState ClientState `json:"client_state"`
 	// The consensus state after the update
 	ConsensusState ConsensusState `json:"consensus_state"`
-	// The headers used to update the light client, in order
-	Updates []Header `json:"updates"`
+	// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
+	Updates string `json:"updates"`
 }

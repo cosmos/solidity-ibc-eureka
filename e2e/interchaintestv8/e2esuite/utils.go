@@ -242,6 +242,28 @@ func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cos
 	return wasmClientState, ethClientState
 }
 
+func (s *TestSuite) GetEthereumConsensusState(ctx context.Context, cosmosChain *cosmos.CosmosChain, clientID string) (*ibcwasmtypes.ConsensusState, ethereumtypes.ConsensusState) {
+	consensusStateResp, err := GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, cosmosChain, &clienttypes.QueryConsensusStateRequest{
+		ClientId:     clientID,
+		LatestHeight: true,
+	})
+	s.Require().NoError(err)
+
+	var consensusState ibcexported.ConsensusState
+	err = cosmosChain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(consensusStateResp.ConsensusState, &consensusState)
+	s.Require().NoError(err)
+
+	wasmConsenusState, ok := consensusState.(*ibcwasmtypes.ConsensusState)
+	s.Require().True(ok)
+
+	var ethConsensusState ethereumtypes.ConsensusState
+	err = json.Unmarshal(wasmConsenusState.Data, &ethConsensusState)
+	s.Require().NoError(err)
+
+	return wasmConsenusState, ethConsensusState
+
+}
+
 func (s *TestSuite) CreateTMClientHeader(
 	ctx context.Context,
 	chain *cosmos.CosmosChain,
