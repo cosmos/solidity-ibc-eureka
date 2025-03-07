@@ -6,8 +6,8 @@ use ethereum_light_client::consensus_state::TrustedConsensusState;
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
     msg::{
-        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, StatusResult,
-        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, Status,
+        StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
     },
     state::{get_eth_client_state, get_eth_consensus_state},
     ContractError,
@@ -135,13 +135,20 @@ pub fn timestamp_at_height(
 
 /// Gets the status of the light client
 /// # Returns
-/// Active status, because no other state is currently implemented
+/// The current status of the client
 /// # Errors
-/// It won't error at this point
-// TODO: Implement a proper status once freezing/misbehaviour is implemented #164
-pub fn status() -> Result<Binary, ContractError> {
+/// Errors if the client state can't be deserialized.
+pub fn status(deps: Deps<EthereumCustomQuery>) -> Result<Binary, ContractError> {
+    let eth_client_state = get_eth_client_state(deps.storage)?;
+
+    if eth_client_state.is_frozen {
+        return Ok(to_json_binary(&StatusResult {
+            status: Status::Frozen.to_string(),
+        })?);
+    }
+
     Ok(to_json_binary(&StatusResult {
-        status: "Active".to_string(),
+        status: Status::Active.to_string(),
     })?)
 }
 
@@ -257,7 +264,29 @@ mod tests {
 
     #[test]
     fn test_status() {
-        let deps = mk_deps();
+        let mut deps = mk_deps();
+        let creator = deps.api.addr_make("creator");
+        let info = message_info(&creator, &coins(1, "uatom"));
+
+        let fixture: StepsFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
+
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+        let msg = crate::msg::InstantiateMsg {
+            client_state: Binary::from(client_state_bz),
+            consensus_state: Binary::from(consensus_state_bz),
+            checksum: b"checksum".into(),
+        };
+
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
         let res = query(deps.as_ref(), mock_env(), QueryMsg::Status(StatusMsg {})).unwrap();
         let status_response: StatusResult = from_json(&res).unwrap();
         assert_eq!("Active", status_response.status);
