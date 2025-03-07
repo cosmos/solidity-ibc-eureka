@@ -200,10 +200,10 @@ The following benchmarks are for a single packet transfer without aggregation.
 The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
 Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
 
-| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
-|:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~178,272 | ~165,240 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,269 | ~86,564 |
+| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** | **Calldata size (25 packets)** | **Calldata size (50 packets)** |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~178,272 | ~165,240 | ~51,172B | ~101,380B |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,269 | ~86,564 | ~53,572B | ~105,572B |
 
 Note: These gas benchmarks are with Groth16.
 
