@@ -115,7 +115,7 @@ pub fn query(
         QueryMsg::TimestampAtHeight(timestamp_at_height_msg) => {
             query::timestamp_at_height(deps, timestamp_at_height_msg)
         }
-        QueryMsg::Status(_) => query::status(),
+        QueryMsg::Status(_) => query::status(deps),
     }
 }
 
