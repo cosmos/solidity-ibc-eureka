@@ -206,7 +206,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
 		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID, counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -214,7 +214,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
 		s.Require().NoError(err)
-		s.Require().Equal(testvalues.FirstUniversalClientID, event.ClientId)
+		s.Require().Equal(testvalues.CustomClientID, event.ClientId)
 		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 	}))
 
@@ -224,7 +224,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstWasmClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
-			CounterpartyClientId:     testvalues.FirstUniversalClientID,
+			CounterpartyClientId:     testvalues.CustomClientID,
 			Signer:                   s.SimdRelayerSubmitter.FormattedAddress(),
 		})
 		s.Require().NoError(err)
@@ -323,11 +323,11 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
-		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.FirstUniversalClientID)
+		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.CustomClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
 
-		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.FirstUniversalClientID)
+		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.CustomClientID)
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstWasmClientID, counterpartyInfo.ClientId)
 	}))
@@ -360,7 +360,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		// })
 		// s.Require().NoError(err)
 		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(testvalues.FirstUniversalClientID, channelResp.Channel.CounterpartyChannelId)
+		// s.Require().Equal(testvalues.CustomClientID, channelResp.Channel.CounterpartyChannelId)
 	}))
 
 	s.Require().True(s.Run("Verify Cosmos to Eth Relayer Info", func() {
@@ -465,7 +465,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
 			TimeoutTimestamp: timeout,
-			SourceClient:     testvalues.FirstUniversalClientID,
+			SourceClient:     testvalues.CustomClientID,
 			Memo:             "",
 		}
 
@@ -490,7 +490,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(timeout, sendPacket.TimeoutTimestamp)
 		s.Require().Len(sendPacket.Payloads, 1)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].SourcePort)
-		s.Require().Equal(testvalues.FirstUniversalClientID, sendPacket.SourceClient)
+		s.Require().Equal(testvalues.CustomClientID, sendPacket.SourceClient)
 		s.Require().Equal(transfertypes.PortID, sendPacket.Payloads[0].DestPort)
 		s.Require().Equal(testvalues.FirstWasmClientID, sendPacket.DestClient)
 		s.Require().Equal(transfertypes.V1, sendPacket.Payloads[0].Version)
@@ -503,7 +503,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// Get the escrow address
-			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
 			s.Require().NoError(err)
 
 			// ICS20 contract balance on Ethereum
@@ -567,7 +567,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -670,7 +670,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{returnSendTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -850,7 +850,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{cosmosSendTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -980,7 +980,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
 			TimeoutTimestamp: timeout,
-			SourceClient:     testvalues.FirstUniversalClientID,
+			SourceClient:     testvalues.CustomClientID,
 			Memo:             returnMemo,
 		}
 
@@ -998,7 +998,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		s.Require().Equal(uint64(1), sendPacketEvent.Packet.Sequence)
 		s.Require().Equal(timeout, sendPacketEvent.Packet.TimeoutTimestamp)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].SourcePort)
-		s.Require().Equal(testvalues.FirstUniversalClientID, sendPacketEvent.Packet.SourceClient)
+		s.Require().Equal(testvalues.CustomClientID, sendPacketEvent.Packet.SourceClient)
 		s.Require().Equal(transfertypes.PortID, sendPacketEvent.Packet.Payloads[0].DestPort)
 		s.Require().Equal(testvalues.FirstWasmClientID, sendPacketEvent.Packet.DestClient)
 		s.Require().Equal(transfertypes.V1, sendPacketEvent.Packet.Payloads[0].Version)
@@ -1060,7 +1060,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 	s.Require().True(s.Run("Acknowledge packet on Ethereum", func() {
 		s.Require().True(s.Run("Verify commitment exists", func() {
-			packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.FirstUniversalClientID, 1)
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.CustomClientID, 1)
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
@@ -1075,7 +1075,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{returnAckTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1095,7 +1095,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Verify commitment removed", func() {
-			packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.FirstUniversalClientID, 1)
+			packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.CustomClientID, 1)
 			var ethPath [32]byte
 			copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
@@ -1169,7 +1169,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 				Amount:           transferAmount,
 				Receiver:         cosmosUserAddress,
 				TimeoutTimestamp: timeout,
-				SourceClient:     testvalues.FirstUniversalClientID,
+				SourceClient:     testvalues.CustomClientID,
 				Memo:             "testmemo",
 			}
 
@@ -1197,7 +1197,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// Get the escrow address
-			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
 			s.Require().NoError(err)
 
 			// ICS20 contract balance on Ethereum
@@ -1217,7 +1217,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				TimeoutTxIds:   ethSendTxHashes,
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1300,7 +1300,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			Amount:           transferAmount,
 			Receiver:         ibctesting.InvalidID,
 			TimeoutTimestamp: timeout,
-			SourceClient:     testvalues.FirstUniversalClientID,
+			SourceClient:     testvalues.CustomClientID,
 			Memo:             "",
 		}
 
@@ -1320,7 +1320,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, transferAmount), userBalance)
 
 			// Get the escrow address
-			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
 			s.Require().NoError(err)
 
 			// ICS20 contract balance on Ethereum
@@ -1377,7 +1377,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)

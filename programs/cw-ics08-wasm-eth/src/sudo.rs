@@ -258,4 +258,43 @@ pub fn misbehaviour(
 //            update_state_result.heights[0].revision_height
 //        );
 //    }
+//
+//    #[test]
+//    fn test_misbehaviour() {
+//        let mut deps = mk_deps();
+//        let creator = deps.api.addr_make("creator");
+//        let info = message_info(&creator, &coins(1, "uatom"));
+//
+//        let fixture: StepsFixture =
+//            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+//
+//        let initial_state: InitialState = fixture.get_data_at_step(0);
+//
+//        let client_state = initial_state.client_state;
+//        let consensus_state = initial_state.consensus_state;
+//
+//        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+//        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+//
+//        let msg = crate::msg::InstantiateMsg {
+//            client_state: Binary::from(client_state_bz),
+//            consensus_state: Binary::from(consensus_state_bz),
+//            checksum: b"checksum".into(),
+//        };
+//        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+//
+//        let msg = crate::msg::UpdateStateOnMisbehaviourMsg {
+//            client_message: Binary::default(),
+//        };
+//        let res = crate::sudo::misbehaviour(deps.as_mut(), msg).unwrap();
+//        assert_eq!(0, res.len());
+//
+//        let eth_client_state = crate::state::get_eth_client_state(deps.as_ref().storage).unwrap();
+//        assert!(eth_client_state.is_frozen);
+//
+//        // Query status
+//        let res = crate::query::status(deps.as_ref()).unwrap();
+//        let status_result: crate::msg::StatusResult = from_json(res).unwrap();
+//        assert_eq!("Frozen", status_result.status);
+//    }
 //}

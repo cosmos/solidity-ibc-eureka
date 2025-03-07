@@ -94,6 +94,10 @@ const (
 	FirstUniversalClientID = "client-0"
 	// SecondUniversalClientID is the second universal client ID. Used for testing.
 	SecondUniversalClientID = "client-1"
+	// CustomClientID is the custom client ID used for testing.
+	// BUG: https://github.com/cosmos/ibc-go/issues/8145
+	// We must use a client ID of the form `type-n` due to the issue above.
+	CustomClientID = "cosmoshub-1"
 )
 
 var (
