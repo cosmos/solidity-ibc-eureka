@@ -193,6 +193,26 @@ pub struct StatusResult {
     pub status: String,
 }
 
+/// The client status types
+pub enum Status {
+    /// The client is frozen
+    Frozen,
+    /// The client is expired
+    Expired,
+    /// The client is active
+    Active,
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Frozen => write!(f, "Frozen"),
+            Self::Expired => write!(f, "Expired"),
+            Self::Active => write!(f, "Active"),
+        }
+    }
+}
+
 /// The response to the check for misbehaviour query
 #[cw_serde]
 pub struct CheckForMisbehaviourResult {
