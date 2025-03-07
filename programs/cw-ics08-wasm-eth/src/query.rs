@@ -137,7 +137,7 @@ pub fn timestamp_at_height(
 /// # Returns
 /// The current status of the client
 /// # Errors
-/// It won't error at this point
+/// Errors if the client state can't be deserialized.
 pub fn status(deps: Deps<EthereumCustomQuery>) -> Result<Binary, ContractError> {
     let eth_client_state = get_eth_client_state(deps.storage)?;
 
