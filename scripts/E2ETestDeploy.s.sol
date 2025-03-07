@@ -13,6 +13,7 @@ import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermin
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
@@ -63,7 +64,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         ProxiedICS26RouterDeployment memory ics26RouterDeployment = ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
             implementation: ics26RouterLogic,
-            timeLockAdmin: msg.sender
+            timeLockAdmin: msg.sender,
+            portCustomizer: msg.sender
         });
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(ics26RouterDeployment);

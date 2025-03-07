@@ -12,6 +12,10 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { Script } from "forge-std/Script.sol";
 
+// TODO: REMOVE:
+import "forge-std/console.sol";
+
+
 abstract contract DeployProxiedICS26Router is Deployments {
     using stdJson for string;
 
@@ -33,7 +37,7 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
     }
 
     function verify(ProxiedICS26RouterDeployment memory deployment) internal view {
-        ERC1967Proxy routerProxy = ERC1967Proxy(deployment.proxy);
+        ERC1967Proxy routerProxy = ERC1967Proxy(payable(deployment.proxy));
 
         vm.assertEq(
             getImplementation(address(routerProxy)),
@@ -53,12 +57,17 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
     function run() public returns (address){
         string memory root = vm.projectRoot();
         string memory deployEnv = vm.envString("DEPLOYMENT_ENV");
-        string memory path = string.concat(root, DEPLOYMENT_DIR, "/", deployEnv, "/", Strings.toString(block.chainid), ".json");
+        string memory path = string.concat(root, DEPLOYMENT_DIR, deployEnv, "/", Strings.toString(block.chainid), ".json");
         string memory json = vm.readFile(path);
+
+        console.log("json", json);
 
         bool verifyOnly = vm.envOr("VERIFY_ONLY", false);
 
         ProxiedICS26RouterDeployment memory deployment = loadProxiedICS26RouterDeployment(vm, json);
+        console.log("implementation", deployment.implementation);
+        console.log("timeLockAdmin", deployment.timeLockAdmin);
+        console.log("proxy", deployment.proxy);
 
         if ((deployment.implementation != address(0) || deployment.proxy != address(0)) || verifyOnly) {
             verify(deployment);
@@ -80,7 +89,8 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
 
         vm.serializeAddress("ics26Router", "proxy", address(routerProxy));
         vm.serializeAddress("ics26Router", "implementation", deployment.implementation);
-        string memory output = vm.serializeAddress("ics26Router", "timeLockAdmin", deployment.timeLockAdmin);
+        vm.serializeAddress("ics26Router", "timeLockAdmin", deployment.timeLockAdmin);
+        string memory output = vm.serializeAddress("ics26Router", "portCustomizer", deployment.portCustomizer);
 
         vm.writeJson(output, path, ".ics26Router");
         vm.writeJson(vm.toString(address(routerProxy)), path, ".ics20Transfer.ics26Router");
