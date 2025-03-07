@@ -1224,6 +1224,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().Equal(resp.Address, ics26Address.String())
 
 			timeoutRelayTx = resp.Tx
+
+			s.rustFixtureGenerator.AddFixtureStep("timeout_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(timeoutRelayTx),
+			})
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
