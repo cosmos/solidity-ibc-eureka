@@ -697,7 +697,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
 			// Vouchers should be restored to the user's balance
-			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt()) 
+			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
