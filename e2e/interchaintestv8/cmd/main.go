@@ -11,22 +11,22 @@ const (
 	DefaultEthRPC = "https://ethereum-sepolia-rpc.publicnode.com"
 
 	FlagIcs26Address    = "ics26-address"
-	DefaultIcs26Address = "0x34fE3b64308b7259860Ad05105e97988Dd72AdE2"
+	DefaultIcs26Address = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
 
 	FlagIcs20Address    = "ics20-address"
-	DefaultIcs20Address = "0x856fa347011D6D336fA34d50B0D75F119f9cd38c"
+	DefaultIcs20Address = "0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4"
 
 	FlagErc20Address    = "erc20-address"
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://cosmos-testnet-rpc.polkachu.com:443"
+	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "cosmos-testnet-grpc.polkachu.com:14990"
+	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "provider"
+	DefaultCosmosChainID = "eureka-hub-dev-5"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -36,13 +36,13 @@ const (
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "client-2"
-	MockEthClientID        = "08-wasm-246"
+	MockTendermintClientID = "hub-devnet-sp1-g16-0"
+	MockEthClientID        = "08-wasm-4"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-hub-devnet-03-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 

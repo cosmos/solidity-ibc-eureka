@@ -3,10 +3,9 @@ module github.com/cosmos/solidity-ibc-eureka/deployics08wasmeth
 go 1.23.6
 
 require (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.6.1-0.20250226181012-d9f2f8899c3c
-	github.com/cosmos/ibc-go/v10 v10.0.0
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-rc.3
+	github.com/cosmos/ibc-go/v10 v10.0.0-rc.3
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 v8.0.0
-
 )
 
 require (
@@ -31,7 +30,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.1.2 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
@@ -61,7 +60,7 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.1.1 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
-	github.com/cosmos/cosmos-sdk v0.50.11 // indirect
+	github.com/cosmos/cosmos-sdk v0.50.12 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/gogoproto v1.7.0 // indirect
@@ -154,7 +153,7 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kurtosis-tech/kurtosis-portal/api/golang v0.0.0-20230818182330-1a86869414d2 // indirect
-	github.com/kurtosis-tech/kurtosis/api/golang v1.4.3 // indirect
+	github.com/kurtosis-tech/kurtosis/api/golang v1.5.0 // indirect
 	github.com/kurtosis-tech/kurtosis/contexts-config-store v0.0.0-20230818184218-f4e3e773463b // indirect
 	github.com/kurtosis-tech/kurtosis/grpc-file-transfer/golang v0.0.0-20230803130419-099ee7a4e3dc // indirect
 	github.com/kurtosis-tech/kurtosis/path-compression v0.0.0-20240307154559-64d2929cd265 // indirect
@@ -279,9 +278,3 @@ replace (
 )
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
-
-replace (
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm => github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20250215063629-7325bd2b00fd
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0-20250215063629-7325bd2b00fd
-	github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-20250215063629-7325bd2b00fd
-)
