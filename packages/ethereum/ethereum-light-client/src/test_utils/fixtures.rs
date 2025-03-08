@@ -2,7 +2,14 @@
 
 use std::path::PathBuf;
 
-use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs;
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    ibc::core::{
+        channel::v2::{MsgAcknowledgement, MsgRecvPacket, Packet},
+        client::v1::MsgUpdateClient,
+    },
+};
 use prost::Message;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,13 +49,63 @@ pub struct RelayerMessages {
     pub relayer_tx_body: String,
 }
 
-/// Decode the updates into a `TxBody`
+impl RelayerMessages {
+    /// Get the SDK messages from the relayer tx
+    /// # Panics
+    /// Panics if the relayer tx or any of the messages cannot be decoded
+    /// # Returns
+    /// A tuple with the SDK messages contained in the SDK tx
+    #[must_use]
+    pub fn get_sdk_msgs(
+        &self,
+    ) -> (
+        Vec<MsgUpdateClient>,
+        Vec<MsgRecvPacket>,
+        Vec<MsgAcknowledgement>,
+    ) {
+        let tx_body_bz = hex::decode(self.relayer_tx_body.clone()).unwrap();
+        let tx_body = TxBody::decode(tx_body_bz.as_slice()).unwrap();
+
+        tx_body.messages.iter().fold(
+            (Vec::new(), Vec::new(), Vec::new()),
+            |(mut update_clients, mut recv_msgs, mut ack_msgs), msg| {
+                match msg.type_url.as_str() {
+                    "/ibc.core.client.v1.MsgUpdateClient" => {
+                        // Decode as MsgUpdateClient
+                        update_clients.push(MsgUpdateClient::decode(msg.value.as_slice()).unwrap());
+                    }
+                    "/ibc.core.channel.v2.MsgRecvPacket" => {
+                        // Decode as MsgRecvPacket
+                        recv_msgs.push(MsgRecvPacket::decode(msg.value.as_slice()).unwrap());
+                    }
+                    "/ibc.core.channel.v2.MsgAcknowledgement" => {
+                        // Decode as MsgAcknowledgement
+                        ack_msgs.push(MsgAcknowledgement::decode(msg.value.as_slice()).unwrap());
+                    }
+                    _ => panic!("Unknown message type: {}", msg.type_url),
+                }
+                (update_clients, recv_msgs, ack_msgs)
+            },
+        )
+    }
+}
+
+/// Get the commitment path and value for the given packet
 /// # Panics
-/// Panics if the updates cannot be decoded into a `TxBody`
+/// Panics if the packet is missing or the path cannot be constructed
+/// # Returns
+/// A tuple with the commitment path and value
 #[must_use]
-pub fn get_updates_tx_body(updates: String) -> TxBody {
-    let tx_body_bz = hex::decode(updates).unwrap();
-    TxBody::decode(tx_body_bz.as_slice()).unwrap()
+pub fn get_packet_proof(packet: Packet) -> (Vec<u8>, Vec<u8>) {
+    let mut path = Vec::new();
+    path.extend_from_slice(packet.source_client.as_bytes());
+    path.push(1_u8);
+    path.extend_from_slice(&packet.sequence.to_be_bytes());
+
+    let ics26_packet: IICS26RouterMsgs::Packet = packet.into();
+    let value = ics26_packet.commit_packet();
+
+    (path, value)
 }
 
 impl StepsFixture {

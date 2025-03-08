@@ -155,146 +155,53 @@ pub fn misbehaviour(
     Ok(Binary::default())
 }
 
-// TODO: Add back
-//#[cfg(test)]
-//mod tests {
-//    use cosmwasm_std::{
-//        coins, from_json,
-//        testing::{message_info, mock_env},
-//        Binary,
-//    };
-//    use ethereum_light_client::test_utils::fixtures::{
-//        self, CommitmentProof, InitialState, StepsFixture, UpdateClient,
-//    };
-//
-//    use crate::{
-//        contract::instantiate,
-//        msg::{Height, MerklePath, UpdateStateMsg, UpdateStateResult, VerifyMembershipMsg},
-//        sudo::{update_state, verify_membership},
-//        test::mk_deps,
-//    };
-//
-//    #[test]
-//    fn test_verify_membership() {
-//        let mut deps = mk_deps();
-//        let creator = deps.api.addr_make("creator");
-//        let info = message_info(&creator, &coins(1, "uatom"));
-//
-//        let fixture: StepsFixture =
-//            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
-//
-//        let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
-//
-//        let client_state = commitment_proof_fixture.client_state;
-//        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-//        let consensus_state = commitment_proof_fixture.consensus_state;
-//        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-//
-//        let msg = crate::msg::InstantiateMsg {
-//            client_state: Binary::from(client_state_bz),
-//            consensus_state: Binary::from(consensus_state_bz),
-//            checksum: b"checksum".into(),
-//        };
-//        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//
-//        let proof = commitment_proof_fixture.storage_proof;
-//        let proof_bz = serde_json::to_vec(&proof).unwrap();
-//        let path = commitment_proof_fixture.path;
-//        let value = proof.value;
-//        let value_bz = value.to_be_bytes_vec();
-//
-//        let msg = VerifyMembershipMsg {
-//            height: Height {
-//                revision_number: 0,
-//                revision_height: commitment_proof_fixture.proof_slot,
-//            },
-//            delay_time_period: 0,
-//            delay_block_period: 0,
-//            proof: Binary::from(proof_bz),
-//            merkle_path: MerklePath {
-//                key_path: vec![Binary::from(path.to_vec())],
-//            },
-//            value: Binary::from(value_bz),
-//        };
-//        verify_membership(deps.as_ref(), msg).unwrap();
-//    }
-//
-//    #[test]
-//    fn test_update_state() {
-//        let mut deps = mk_deps();
-//        let creator = deps.api.addr_make("creator");
-//        let info = message_info(&creator, &coins(1, "uatom"));
-//
-//        let fixture: StepsFixture =
-//            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
-//
-//        let initial_state: InitialState = fixture.get_data_at_step(0);
-//
-//        let client_state = initial_state.client_state;
-//        let consensus_state = initial_state.consensus_state;
-//
-//        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-//        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-//
-//        let msg = crate::msg::InstantiateMsg {
-//            client_state: Binary::from(client_state_bz),
-//            consensus_state: Binary::from(consensus_state_bz),
-//            checksum: b"checksum".into(),
-//        };
-//        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//
-//        let update_client: UpdateClient = fixture.get_data_at_step(1);
-//        let header = update_client.updates[0].clone();
-//        let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
-//
-//        let msg = UpdateStateMsg {
-//            client_message: Binary::from(header_bz),
-//        };
-//        let res = update_state(deps.as_mut(), msg).unwrap();
-//        let update_state_result: UpdateStateResult = from_json(res).unwrap();
-//        assert_eq!(1, update_state_result.heights.len());
-//        assert_eq!(
-//            header.consensus_update.attested_header.beacon.slot,
-//            update_state_result.heights[0].revision_height
-//        );
-//    }
-//
-//    #[test]
-//    fn test_misbehaviour() {
-//        let mut deps = mk_deps();
-//        let creator = deps.api.addr_make("creator");
-//        let info = message_info(&creator, &coins(1, "uatom"));
-//
-//        let fixture: StepsFixture =
-//            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
-//
-//        let initial_state: InitialState = fixture.get_data_at_step(0);
-//
-//        let client_state = initial_state.client_state;
-//        let consensus_state = initial_state.consensus_state;
-//
-//        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-//        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-//
-//        let msg = crate::msg::InstantiateMsg {
-//            client_state: Binary::from(client_state_bz),
-//            consensus_state: Binary::from(consensus_state_bz),
-//            checksum: b"checksum".into(),
-//        };
-//        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//
-//        let msg = crate::msg::UpdateStateOnMisbehaviourMsg {
-//            client_message: Binary::default(),
-//        };
-//        let res = crate::sudo::misbehaviour(deps.as_mut(), msg).unwrap();
-//        assert_eq!(0, res.len());
-//
-//        let eth_client_state = crate::state::get_eth_client_state(deps.as_ref().storage).unwrap();
-//        assert!(eth_client_state.is_frozen);
-//
-//        // Query status
-//        let res = crate::query::status(deps.as_ref()).unwrap();
-//        let status_result: crate::msg::StatusResult = from_json(res).unwrap();
-//        assert_eq!("Frozen", status_result.status);
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use cosmwasm_std::{
+        coins, from_json,
+        testing::{message_info, mock_env},
+        Binary,
+    };
+    use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
+
+    use crate::{contract::instantiate, test::mk_deps};
+
+    #[test]
+    fn test_misbehaviour() {
+        let mut deps = mk_deps();
+        let creator = deps.api.addr_make("creator");
+        let info = message_info(&creator, &coins(1, "uatom"));
+
+        let fixture: StepsFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
+
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+        let msg = crate::msg::InstantiateMsg {
+            client_state: Binary::from(client_state_bz),
+            consensus_state: Binary::from(consensus_state_bz),
+            checksum: b"checksum".into(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = crate::msg::UpdateStateOnMisbehaviourMsg {
+            client_message: Binary::default(),
+        };
+        let res = crate::sudo::misbehaviour(deps.as_mut(), msg).unwrap();
+        assert_eq!(0, res.len());
+
+        let eth_client_state = crate::state::get_eth_client_state(deps.as_ref().storage).unwrap();
+        assert!(eth_client_state.is_frozen);
+
+        // Query status
+        let res = crate::query::status(deps.as_ref()).unwrap();
+        let status_result: crate::msg::StatusResult = from_json(res).unwrap();
+        assert_eq!("Frozen", status_result.status);
+    }
+}

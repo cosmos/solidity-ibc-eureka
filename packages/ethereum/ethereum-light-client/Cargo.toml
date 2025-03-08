@@ -5,7 +5,7 @@ edition = { workspace = true }
 repository = { workspace = true }
 
 [features]
-test-utils = ["dep:milagro_bls", "dep:ibc-proto-eureka", "dep:prost"]
+test-utils = ["dep:milagro_bls", "dep:ibc-proto-eureka", "dep:prost", "dep:ibc-eureka-solidity-types"]
 
 [[bin]]
 name = "generate_json_schema"
@@ -26,9 +26,8 @@ sha2 = { workspace = true }
 schemars = { workspace = true }
 hex = { workspace = true }
 
-# TODO: Move to test-utils!
-
 # Only used for test-utils feature
 milagro_bls = { workspace = true, optional = true }
 ibc-proto-eureka = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
+ibc-eureka-solidity-types = { workspace = true, optional = true }

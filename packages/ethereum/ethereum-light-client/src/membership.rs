@@ -86,13 +86,14 @@ pub fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
     hasher.finalize().into()
 }
 
-// TODO: Add back
 #[cfg(test)]
 mod test {
     use crate::{
         client_state::ClientState,
         consensus_state::ConsensusState,
-        test_utils::fixtures::{self, get_updates_tx_body, InitialState, RelayerMessages},
+        header::Header,
+        test_utils::fixtures::{self, get_packet_proof, InitialState, RelayerMessages},
+        update::update_consensus_state,
     };
 
     use alloy_primitives::{
@@ -100,61 +101,56 @@ mod test {
         Bytes, FixedBytes, B256, U256,
     };
     use ethereum_types::execution::storage_proof::StorageProof;
+    use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
+
+    use prost::Message;
 
     use super::verify_membership;
 
     #[test]
     fn test_with_fixture() {
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
-        let _ = initial_state.client_state;
-        let _ = initial_state.consensus_state;
-
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        assert!(!recv_msgs.is_empty());
 
-        let tx_body = get_updates_tx_body(relayer_messages.relayer_tx_body);
-        tx_body
-            .messages
+        let headers = update_client_msgs
             .iter()
-            .for_each(|msg| println!("{:?}", msg.type_url));
-        //let update_client_msgs = tx_body
-        //    .messages
-        //    .iter()
-        //    .filter_map(|msg| match msg.type_url.as_str() {
-        //        "/ibc.core.client.v1.MsgUpdateClient" => {
-        //            let msg_update_client = MsgUpdateClient::decode(msg.value.as_slice()).unwrap();
-        //            let client_msg = ClientMessage::decode(
-        //                msg_update_client.client_message.unwrap().value.as_slice(),
-        //            )
-        //            .unwrap();
-        //            let header: Header =
-        //                serde_json::from_slice(client_msg.data.as_slice()).unwrap();
-        //
-        //            Some(header)
-        //        }
-        //        _ => None,
-        //    })
-        //    .collect::<Vec<_>>();
-        //
-        //let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
-        //
-        //let trusted_consensus_state = commitment_proof_fixture.consensus_state;
-        //let client_state = commitment_proof_fixture.client_state;
-        //let storage_proof = commitment_proof_fixture.storage_proof;
-        //let path = commitment_proof_fixture.path;
-        //let value = storage_proof.value.to_be_bytes_vec();
-        //
-        //verify_membership(
-        //    trusted_consensus_state,
-        //    client_state,
-        //    serde_json::to_vec(&storage_proof).unwrap(),
-        //    vec![path.to_vec()],
-        //    Some(value),
-        //)
-        //.unwrap();
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let (_, updated_consensus_state, updated_client_state) = update_consensus_state(
+            initial_state.consensus_state,
+            initial_state.client_state,
+            headers[0].clone(),
+        )
+        .unwrap();
+
+        let trusted_consensus_state = updated_consensus_state;
+        let client_state = updated_client_state.unwrap();
+
+        let packet = recv_msgs[0].packet.clone().unwrap();
+        let storage_proof = recv_msgs[0].proof_commitment.clone();
+        let (path, value) = get_packet_proof(packet);
+
+        verify_membership(
+            trusted_consensus_state,
+            client_state,
+            storage_proof,
+            vec![path],
+            Some(value),
+        )
+        .unwrap();
     }
 
     #[test]
