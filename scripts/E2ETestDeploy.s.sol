@@ -74,8 +74,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             proxy: payable(address(0)),
             implementation: ics20TransferLogic,
             ics26Router: address(routerProxy),
-            escrow: escrowLogic,
-            ibcERC20: ibcERC20Logic,
+            escrowImplementation: escrowLogic,
+            ibcERC20Implementation: ibcERC20Logic,
             pauser: address(0),
             permit2: address(0)
         });

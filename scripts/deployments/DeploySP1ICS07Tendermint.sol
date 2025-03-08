@@ -185,6 +185,7 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
             string memory idx = Strings.toString(i);
             string memory key = string.concat(".light_clients['", idx, "']");
 
+            vm.writeJson(deployments[i].clientId, path, string.concat(key, ".clientId"));
             vm.writeJson(vm.toString(deployments[i].implementation), path, string.concat(key, ".implementation"));
             vm.writeJson(deployments[i].verifier, path, string.concat(key, ".verifier"));
         }
