@@ -55,6 +55,7 @@ contract BenchmarkTest is FixtureTest {
         console.log(
             "Avg (", numPackets, "packets ) Multicall ack gas used: ", vm.lastCallGas().gasTotalUsed / numPackets
         );
+        console.log("Total (", numPackets, "packets ) Multicall ack msg size: ", ackFixture.msg.length);
         assertTrue(success);
 
         // ack should be deleted
@@ -69,6 +70,7 @@ contract BenchmarkTest is FixtureTest {
         console.log(
             "Avg (", numPackets, "packets ) Multicall recv gas used: ", vm.lastCallGas().gasTotalUsed / numPackets
         );
+        console.log("Total (", numPackets, "packets ) Multicall recv msg size: ", recvFixture.msg.length);
         assertTrue(success);
 
         // ack is written
@@ -93,6 +95,7 @@ contract BenchmarkTest is FixtureTest {
 
         (bool success,) = address(ics26Router).call(recvNativeFixture.msg);
         console.log("Multicall native recv gas used: ", vm.lastCallGas().gasTotalUsed);
+        console.log("Multicall native recv msg size: ", recvNativeFixture.msg.length);
         assertTrue(success);
 
         bytes32 storedAck = ics26Router.getCommitment(
@@ -123,6 +126,7 @@ contract BenchmarkTest is FixtureTest {
         vm.warp(timeoutFixture.packet.timeoutTimestamp + 45);
         (bool success,) = address(ics26Router).call(timeoutFixture.msg);
         console.log("Multicall timeout gas used: ", vm.lastCallGas().gasTotalUsed);
+        console.log("Multicall timeout msg size: ", timeoutFixture.msg.length);
         assertTrue(success);
 
         // ack should be deleted
