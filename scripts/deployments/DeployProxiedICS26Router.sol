@@ -12,9 +12,6 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { Script } from "forge-std/Script.sol";
 
-// TODO: REMOVE:
-import "forge-std/console.sol";
-
 
 abstract contract DeployProxiedICS26Router is Deployments {
     using stdJson for string;
@@ -60,14 +57,10 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
         string memory path = string.concat(root, DEPLOYMENT_DIR, deployEnv, "/", Strings.toString(block.chainid), ".json");
         string memory json = vm.readFile(path);
 
-        console.log("json", json);
 
         bool verifyOnly = vm.envOr("VERIFY_ONLY", false);
 
         ProxiedICS26RouterDeployment memory deployment = loadProxiedICS26RouterDeployment(vm, json);
-        console.log("implementation", deployment.implementation);
-        console.log("timeLockAdmin", deployment.timeLockAdmin);
-        console.log("proxy", deployment.proxy);
 
         if ((deployment.implementation != address(0) || deployment.proxy != address(0)) || verifyOnly) {
             verify(deployment);

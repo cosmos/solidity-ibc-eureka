@@ -132,11 +132,13 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
 
         IICS02ClientMsgs.CounterpartyInfo memory counterparty = router.getCounterparty(deployment.clientId);
 
-        vm.assertEq(
-            counterparty.merklePrefix,
-            deployment.merklePrefix,
-            "merklePrefix doesn't match"
-        );
+        for (uint256 i = 0; i < counterparty.merklePrefix.length; i++) {
+            vm.assertEq(
+                counterparty.merklePrefix[i],
+                bytes(deployment.merklePrefix[i]),
+                "merklePrefix doesn't match"
+            );
+        }
 
         vm.assertEq(
             counterparty.clientId,
@@ -171,8 +173,16 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
             deployments[i].implementation = address(ics07Tendermint);
             deployments[i].verifier = vm.toString(address(ics07Tendermint.VERIFIER()));
 
-            IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = IICS02ClientMsgs.CounterpartyInfo(deployments[i].counterpartyClientId, deployments[i].merklePrefix);
-            deployments[i].clientId = ics26Router.addClient(counterPartyInfo, address(ics07Tendermint));
+            bytes[] memory merklePrefix = new bytes[](deployments[i].merklePrefix.length);
+            for (uint256 j = 0; j < deployments[i].merklePrefix.length; j++) {
+                merklePrefix[j] = bytes(deployments[i].merklePrefix[j]);
+            }
+            IICS02ClientMsgs.CounterpartyInfo memory counterPartyInfo = IICS02ClientMsgs.CounterpartyInfo(deployments[i].counterpartyClientId, merklePrefix);
+            if (bytes(deployments[i].clientId).length == 0) {
+                deployments[i].clientId = ics26Router.addClient(counterPartyInfo, address(ics07Tendermint));
+            } else {
+                ics26Router.addClient(deployments[i].clientId, counterPartyInfo, address(ics07Tendermint));
+            }
 
             vm.stopBroadcast();
         }

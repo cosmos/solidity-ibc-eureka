@@ -159,7 +159,7 @@ deploy-ics20: build-contracts
 # Deploy the SP1ICS07Tendermint contract using environment variables
 deploy-light-client: build-contracts
 	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast --legacy --with-gas-price 2gwei
 
 
 # Generate the fixtures for the Solidity tests using the e2e tests

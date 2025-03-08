@@ -17,7 +17,7 @@ abstract contract Deployments {
         string clientId;
         string counterpartyClientId;
         string verifier;
-        bytes[] merklePrefix;
+        string[] merklePrefix;
         bytes trustedClientState;
         bytes trustedConsensusState;
         bytes32 updateClientVkey;
@@ -36,7 +36,7 @@ abstract contract Deployments {
         return SP1ICS07TendermintDeployment({
             clientId: json.readStringOr(string.concat(key, ".clientId"), ""),
             verifier: json.readStringOr(string.concat(key, ".verifier"), ""),
-            merklePrefix: json.readBytesArrayOr(string.concat(key, ".merklePrefix"), new bytes[](0)),
+            merklePrefix: json.readStringArray(string.concat(key, ".merklePrefix")),
             counterpartyClientId: json.readStringOr(string.concat(key, ".counterpartyClientId"), ""),
             implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
             trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
