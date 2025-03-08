@@ -107,7 +107,7 @@ jobs:
           - TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16
           - TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk
     name: ${{ matrix.test }}
-    runs-on: depot-ubuntu-22.04-4
+    runs-on: depot-ubuntu-22.04
     env:
       ETH_TESTNET_TYPE: ${{ github.event.inputs.ethTestnetType || (github.event_name == 'schedule' && 'pos') || 'pow' }}
       SP1_PROVER: ${{ (github.event.inputs.ethTestnetType == 'pos' && 'network') || (github.event_name == 'schedule' && 'network') || 'mock' }}
