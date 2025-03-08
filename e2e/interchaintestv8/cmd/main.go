@@ -10,26 +10,23 @@ const (
 	FlagEthRPC    = "eth-rpc"
 	DefaultEthRPC = "https://ethereum-sepolia-rpc.publicnode.com"
 
-	FlagEthBeaconURL    = "eth-beacon-url"
-	DefaultEthBeaconURL = "https://ethereum-sepolia-beacon-api.publicnode.com"
-
 	FlagIcs26Address    = "ics26-address"
-	DefaultIcs26Address = "0x15cB0fC94d072B367a1A2D7f0c8fF9792aB9f546"
+	DefaultIcs26Address = "0x34fE3b64308b7259860Ad05105e97988Dd72AdE2"
 
 	FlagIcs20Address    = "ics20-address"
-	DefaultIcs20Address = "0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358"
+	DefaultIcs20Address = "0x856fa347011D6D336fA34d50B0D75F119f9cd38c"
 
 	FlagErc20Address    = "erc20-address"
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://eureka-hub-devnet-03-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "https://cosmos-testnet-rpc.polkachu.com:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "eureka-hub-devnet-03-node-01-grpc.dev.skip.build:443"
+	DefaultCosmosGRPC = "cosmos-testnet-grpc.polkachu.com:14990"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "eureka-hub-dev-3"
+	DefaultCosmosChainID = "provider"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -38,9 +35,9 @@ const (
 	FlagCosmosClientIDOnEth = "client-id-on-eth"
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
-	MockTendermintClientID = "client-7"
-	MockEthClientID        = "08-wasm-0"
 	// TODO: Add the non-mock versions of these
+	MockTendermintClientID = "client-2"
+	MockEthClientID        = "08-wasm-246"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
@@ -79,7 +76,6 @@ func RootCmd() *cobra.Command {
 
 func AddEthFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagEthRPC, DefaultEthRPC, "Ethereum RPC URL")
-	cmd.Flags().String(FlagEthBeaconURL, DefaultEthBeaconURL, "Ethereum Beacon URL")
 	cmd.Flags().String(FlagIcs26Address, DefaultIcs26Address, "ICS26 contract address")
 	cmd.Flags().String(FlagIcs20Address, DefaultIcs20Address, "ICS20 contract address")
 	cmd.Flags().String(FlagErc20Address, DefaultErc20Address, "ERC20 contract address")

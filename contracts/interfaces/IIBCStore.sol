@@ -9,11 +9,11 @@ interface IIBCStore {
     /// @return The commitment for the given path.
     function getCommitment(bytes32 hashedPath) external view returns (bytes32);
 
-    /// @notice Checks if a packet receipt exists.
+    /// @notice Returns the packet receipt for a given packet.
     /// @param clientId The packet destination client identifier.
     /// @param sequence The packet sequence number.
-    /// @return True if the packet receipt exists, false otherwise.
-    function queryPacketReceipt(string calldata clientId, uint64 sequence) external view returns (bool);
+    /// @return The packet receipt for the given packet.
+    function queryPacketReceipt(string calldata clientId, uint64 sequence) external view returns (bytes32);
 
     /// @notice Returns the packet commitment for a given packet.
     /// @param clientId The packet source client identifier.

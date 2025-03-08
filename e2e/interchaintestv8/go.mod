@@ -2,9 +2,6 @@ module github.com/srdtrk/solidity-ibc-eureka/e2e/v8
 
 go 1.23.6
 
-// TODO: remove this replace directive once the following PR is merged and released: https://github.com/CosmWasm/wasmd/pull/2139
-replace github.com/CosmWasm/wasmd => github.com/gjermundgaraba/wasmd v0.0.0-20250226195655-43308101e874
-
 require (
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/collections v0.4.0
@@ -13,15 +10,15 @@ require (
 	cosmossdk.io/x/upgrade v0.1.4
 	github.com/attestantio/go-eth2-client v0.21.11
 	github.com/cometbft/cometbft v0.38.15
-	github.com/cosmos/cosmos-sdk v0.50.11
+	github.com/cosmos/cosmos-sdk v0.50.12
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.6.1-0.20250226181012-d9f2f8899c3c
-	github.com/cosmos/ibc-go/v10 v10.0.0-beta.1
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-rc.3
+	github.com/cosmos/ibc-go/v10 v10.0.0-rc.3
 	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.14.12
 	github.com/holiman/uint256 v1.3.1
-	github.com/kurtosis-tech/kurtosis/api/golang v1.4.3
+	github.com/kurtosis-tech/kurtosis/api/golang v1.5.0
 	github.com/rs/zerolog v1.33.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0
@@ -30,12 +27,13 @@ require (
 	google.golang.org/protobuf v1.36.5
 )
 
+require cosmossdk.io/store v1.1.1 // indirect
+
 require (
 	cosmossdk.io/client/v2 v2.0.0-beta.5 // indirect
 	cosmossdk.io/x/circuit v0.1.1 // indirect
 	cosmossdk.io/x/evidence v0.1.1 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.1 // indirect
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/blsverifier v0.0.0-20250221115439-3e6d5f597fc4 // indirect
 	github.com/herumi/bls-eth-go-binary v0.0.0-20210917013441-d37c07cfda4e // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/prysmaticlabs/fastssz v0.0.0-20241008181541-518c4ce73516 // indirect
@@ -55,14 +53,13 @@ require (
 	cosmossdk.io/core v0.11.1 // indirect
 	cosmossdk.io/depinject v1.1.0 // indirect
 	cosmossdk.io/log v1.4.1
-	cosmossdk.io/store v1.1.1 // indirect
 	cosmossdk.io/x/feegrant v0.1.1 // indirect
 	cosmossdk.io/x/tx v0.13.7 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.1.2 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.2.2 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect

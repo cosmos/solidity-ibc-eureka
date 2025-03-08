@@ -22,7 +22,7 @@ import (
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	accounttypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/testing/simapp"
+	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/testing/simapp"
 	"github.com/spf13/cobra"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cmd/utils"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
@@ -249,10 +249,6 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	ethRPC, _ := cmd.Flags().GetString(FlagEthRPC)
 	if ethRPC == "" {
 		return fmt.Errorf("eth-rpc flag not set")
-	}
-	ethBeaconURL, _ := cmd.Flags().GetString(FlagEthBeaconURL)
-	if ethBeaconURL == "" {
-		return fmt.Errorf("eth-beacon-url flag not set")
 	}
 	ics26AddressStr, _ := cmd.Flags().GetString(FlagIcs26Address)
 	if ics26AddressStr == "" {

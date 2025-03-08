@@ -15,7 +15,7 @@ import (
 	grouptypes "github.com/cosmos/cosmos-sdk/x/group"
 	proposaltypes "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 
-	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	icacontrollertypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/types"
 	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"

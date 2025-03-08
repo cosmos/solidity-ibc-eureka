@@ -29,7 +29,7 @@ contract IBCAdminTest is Test {
     ICS20Transfer public ics20Transfer;
 
     address public clientCreator = makeAddr("clientCreator");
-    address public portCustomizer = makeAddr("portCustomizer");
+    address public customizer = makeAddr("customizer");
     address public ics20Pauser = makeAddr("ics20Pauser");
 
     string public clientId;
@@ -46,7 +46,7 @@ contract IBCAdminTest is Test {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), portCustomizer))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), customizer))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
@@ -63,7 +63,7 @@ contract IBCAdminTest is Test {
         vm.prank(clientCreator);
         clientId =
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
-        vm.prank(portCustomizer);
+        vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
     }
 
@@ -168,8 +168,8 @@ contract IBCAdminTest is Test {
         ics26Router.grantPortCustomizerRole(newPortCustomizer);
         assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), newPortCustomizer));
 
-        ics26Router.revokePortCustomizerRole(portCustomizer);
-        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer));
+        ics26Router.revokePortCustomizerRole(customizer);
+        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), customizer));
     }
 
     function test_failure_setPortCustomizer() public {
@@ -184,8 +184,45 @@ contract IBCAdminTest is Test {
         // Revoke the port customizer role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.revokePortCustomizerRole(portCustomizer);
-        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer));
+        ics26Router.revokePortCustomizerRole(customizer);
+        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), customizer));
+
+        // Check that an unauthorized account cannot set the port
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics26Router.PORT_CUSTOMIZER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics26Router.addIBCApp("newPort", address(ics20Transfer));
+    }
+
+    function test_success_setClientIdCustomizer() public {
+        address newCustomizer = makeAddr("newCustomizer");
+
+        ics26Router.grantClientIdCustomizerRole(newCustomizer);
+        assert(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), newCustomizer));
+
+        ics26Router.revokeClientIdCustomizerRole(customizer);
+        assertFalse(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), customizer));
+    }
+
+    function test_failure_setClientIdCustomizer() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newCustomizer = makeAddr("newCustomizer");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.grantClientIdCustomizerRole(newCustomizer);
+        assertFalse(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), newCustomizer));
+
+        // Revoke the port customizer role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.revokeClientIdCustomizerRole(customizer);
+        assert(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), customizer));
 
         // Check that an unauthorized account cannot set the port
         vm.expectRevert(
@@ -285,6 +322,45 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokePauserRole(ics20Pauser);
+    }
+
+    function test_success_setDelegateSender() public {
+        address delegateSender = makeAddr("delegateSender");
+
+        ics20Transfer.grantDelegateSenderRole(delegateSender);
+        assertTrue(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+
+        ics20Transfer.revokeDelegateSenderRole(delegateSender);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+    }
+
+    function test_failure_setDelegateSender() public {
+        address unauthorized = makeAddr("unauthorized");
+        address delegateSender = makeAddr("delegateSender");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.grantDelegateSenderRole(delegateSender);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.DELEGATE_SENDER_ROLE(), delegateSender));
+
+        // Revoke the delegate sender role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokeDelegateSenderRole(delegateSender);
+    }
+
+    function test_failure_sendTransferWithSender() public {
+        address sender = makeAddr("sender");
+        IICS20TransferMsgs.SendTransferMsg memory msg_;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(this),
+                ics20Transfer.DELEGATE_SENDER_ROLE()
+            )
+        );
+        ics20Transfer.sendTransferWithSender(msg_, sender);
     }
 
     function test_success_escrow_upgrade() public {

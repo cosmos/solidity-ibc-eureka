@@ -17,7 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	accounttypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/testing/simapp"
+	"github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/testing/simapp"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ethcommon "github.com/ethereum/go-ethereum/common"

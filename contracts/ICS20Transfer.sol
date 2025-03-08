@@ -65,6 +65,9 @@ contract ICS20Transfer is
     bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
         0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -141,14 +144,15 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        returns (uint32)
+        returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         // transfer the tokens to us (requires the allowance to be set)
         IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_);
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -160,7 +164,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        returns (uint32)
+        returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
         require(
@@ -175,14 +179,44 @@ contract ICS20Transfer is
             _msgSender(),
             signature
         );
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrow(msg_);
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function sendTransferWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address sender
+    )
+        external
+        whenNotPaused
+        nonReentrant
+        onlyRole(DELEGATE_SENDER_ROLE)
+        returns (uint64)
+    {
+        require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
+        // transfer the tokens to us (requires the allowance to be set)
+        IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
+        _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
+        escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
+
+        return sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
     /// @param msg_ The message for sending a transfer
+    /// @param escrow The address of the escrow contract
+    /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrow(IICS20TransferMsgs.SendTransferMsg calldata msg_) private returns (uint32) {
+    function sendTransferFromEscrowWithSender(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        address escrow,
+        address sender
+    )
+        private
+        returns (uint64)
+    {
         string memory fullDenomPath = _getICS20TransferStorage()._ibcERC20Denoms[msg_.denom];
         if (bytes(fullDenomPath).length == 0) {
             // if the denom is not mapped, it is a native token
@@ -195,13 +229,13 @@ contract ICS20Transfer is
             bool returningToSource = ICS20Lib.hasPrefix(bytes(fullDenomPath), prefix);
             if (returningToSource) {
                 // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
-                IBCERC20(msg_.denom).burn(msg_.amount);
+                IBCERC20(msg_.denom).burn(escrow, msg_.amount);
             }
         }
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData = IICS20TransferMsgs.FungibleTokenPacketData({
             denom: fullDenomPath,
-            sender: Strings.toHexString(_msgSender()),
+            sender: Strings.toHexString(sender),
             receiver: msg_.receiver,
             amount: msg_.amount,
             memo: msg_.memo
@@ -243,6 +277,10 @@ contract ICS20Transfer is
             keccak256(bytes(msg_.payload.encoding)) == ICS20Lib.KECCAK256_ICS20_ENCODING,
             ICS20UnexpectedEncoding(ICS20Lib.ICS20_ENCODING, msg_.payload.encoding)
         );
+        require(
+            keccak256(bytes(msg_.payload.destPort)) == ICS20Lib.KECCAK256_DEFAULT_PORT_ID,
+            ICS20InvalidPort(ICS20Lib.DEFAULT_PORT_ID, msg_.payload.destPort)
+        );
 
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
@@ -283,8 +321,8 @@ contract ICS20Transfer is
             bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.payload.destPort, msg_.destinationClient);
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-            erc20Address = _getOrCreateIBCERC20(newDenom, denomBz, address(escrow));
-            IBCERC20(erc20Address).mint(packetData.amount);
+            erc20Address = _getOrCreateIBCERC20(newDenom, address(escrow));
+            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
         }
 
         // transfer the tokens to the receiver
@@ -326,6 +364,10 @@ contract ICS20Transfer is
     )
         private
     {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+        IEscrow escrow = $._escrows[sourceClient];
+        require(address(escrow) != address(0), IICS20Errors.ICS20EscrowNotFound(sourceClient));
+
         address refundee = ICS20Lib.mustHexStringToAddress(packetData.sender);
         address erc20Address;
 
@@ -335,24 +377,20 @@ contract ICS20Transfer is
         bool isDestSource = ICS20Lib.hasPrefix(bytes(packetData.denom), prefix);
         if (isDestSource) {
             // receiving chain is source of the token, so we've received and mapped this token before
-            erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($._ibcERC20Contracts[packetData.denom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             // if the token was returning to source, it was burned on send, so we mint it back now
-            IBCERC20(erc20Address).mint(packetData.amount);
+            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
         } else {
             // the receiving chain is not the source of the token, so the token is either a native token
             // or we are a middle chain and the token was minted (and mapped) here.
-            erc20Address = address(_getICS20TransferStorage()._ibcERC20Contracts[packetData.denom]);
+            erc20Address = address($._ibcERC20Contracts[packetData.denom]);
             if (erc20Address == address(0)) {
                 // the token is not mapped, so the token must be native
                 erc20Address = ICS20Lib.mustHexStringToAddress(packetData.denom);
                 require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             }
         }
-
-        ICS20TransferStorage storage $ = _getICS20TransferStorage();
-        IEscrow escrow = $._escrows[sourceClient];
-        require(address(escrow) != address(0), IICS20Errors.ICS20EscrowNotFound(sourceClient));
 
         escrow.send(IERC20(erc20Address), refundee, packetData.amount);
     }
@@ -385,17 +423,9 @@ contract ICS20Transfer is
     /// @notice This function will never return address(0)
     /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the
     /// token)
-    /// @param base The base denom to find or create the contract for (which will be the symbol for the token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
     /// @return The address of the erc20 contract
-    function _getOrCreateIBCERC20(
-        bytes memory fullDenomPath,
-        bytes memory base,
-        address escrow
-    )
-        private
-        returns (address)
-    {
+    function _getOrCreateIBCERC20(bytes memory fullDenomPath, address escrow) private returns (address) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
         // check if denom already has a foreign registered contract
@@ -404,9 +434,7 @@ contract ICS20Transfer is
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 address($._ibcERC20Beacon),
-                abi.encodeWithSelector(
-                    IBCERC20.initialize.selector, address(this), escrow, string(base), string(fullDenomPath)
-                )
+                abi.encodeCall(IBCERC20.initialize, (address(this), escrow, string(fullDenomPath)))
             );
             $._ibcERC20Contracts[string(fullDenomPath)] = IBCERC20(address(ibcERC20Proxy));
             $._ibcERC20Denoms[address(ibcERC20Proxy)] = string(fullDenomPath);
@@ -464,6 +492,16 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function upgradeIBCERC20To(address newIBCERC20Logic) external onlyAdmin {
         _getICS20TransferStorage()._ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function grantDelegateSenderRole(address account) external onlyAdmin {
+        _grantRole(DELEGATE_SENDER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeDelegateSenderRole(address account) external onlyAdmin {
+        _revokeRole(DELEGATE_SENDER_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract

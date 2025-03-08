@@ -34,11 +34,10 @@ contract ICS26Router is
     /// @notice Storage of the ICS26Router contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param apps The mapping of port identifiers to IBC application contracts
-    /// @param ics02Client The ICS02Client contract
+    /// @param _apps The mapping of port identifiers to IBC application contracts
     /// @custom:storage-location erc7201:ibc.storage.ICS26Router
     struct ICS26RouterStorage {
-        mapping(string => IIBCApp) apps;
+        mapping(string => IIBCApp) _apps;
     }
 
     /// @notice ERC-7201 slot for the ICS26Router storage
@@ -57,66 +56,79 @@ contract ICS26Router is
         _disableInitializers();
     }
 
-    /// @notice Initializes the contract instead of a constructor
-    /// @dev Meant to be called only once from the proxy
-    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    /// @param portCustomizer The address of the port customizer
-    function initialize(address timelockedAdmin, address portCustomizer) public initializer {
+    /// @inheritdoc IICS26Router
+    function initialize(address timelockedAdmin, address customizer) external initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __ICS02Client_init();
+        __ICS02Client_init(customizer);
         __IBCStoreUpgradeable_init();
         __IBCUUPSUpgradeable_init(timelockedAdmin);
 
-        _grantRole(PORT_CUSTOMIZER_ROLE, portCustomizer);
+        if (customizer != address(0)) {
+            _grantRole(PORT_CUSTOMIZER_ROLE, customizer);
+        }
     }
 
-    /// @notice Returns the address of the IBC application given the port identifier
-    /// @param portId The port identifier
-    /// @return The address of the IBC application contract
     /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
-        IIBCApp app = _getICS26RouterStorage().apps[portId];
+        IIBCApp app = _getICS26RouterStorage()._apps[portId];
         require(address(app) != address(0), IBCAppNotFound(portId));
         return app;
     }
 
-    /// @notice Adds an IBC application to the router
-    /// @dev Only the admin can submit non-empty port identifiers
-    /// @param portId The port identifier
-    /// @param app The address of the IBC application contract
     /// @inheritdoc IICS26Router
-    function addIBCApp(string calldata portId, address app) external {
-        string memory newPortId;
-        if (bytes(portId).length != 0) {
-            _checkRole(PORT_CUSTOMIZER_ROLE);
-            newPortId = portId;
-        } else {
-            newPortId = Strings.toHexString(app);
-        }
-
-        ICS26RouterStorage storage $ = _getICS26RouterStorage();
-
-        require(address($.apps[newPortId]) == address(0), IBCPortAlreadyExists(newPortId));
-        require(IBCIdentifiers.validatePortIdentifier(bytes(newPortId)), IBCInvalidPortIdentifier(newPortId));
-
-        $.apps[newPortId] = IIBCApp(app);
-
-        emit IBCAppAdded(newPortId, app);
+    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
+        return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
     }
 
-    /// @notice Sends a packet
-    /// @param msg_ The message for sending packets
-    /// @return The sequence number of the packet
     /// @inheritdoc IICS26Router
-    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint32) {
+    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool) {
+        if (!isPacketReceived(packet)) {
+            return false;
+        }
+
+        bytes[] memory errorAck = new bytes[](1);
+        errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
+        bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
+        bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
+        return storedAckCommitment != 0 && storedAckCommitment != errorAckCommitment;
+    }
+
+    /// @inheritdoc IICS26Router
+    function addIBCApp(address app) external nonReentrant {
+        string memory portId = Strings.toHexString(app);
+        _addIBCApp(portId, app);
+    }
+
+    /// @inheritdoc IICS26Router
+    function addIBCApp(string calldata portId, address app) external nonReentrant onlyRole(PORT_CUSTOMIZER_ROLE) {
+        require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
+        (bool isAddress,) = Strings.tryParseAddress(portId);
+        require(!isAddress, IBCInvalidPortIdentifier(portId));
+        require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(portId)), IBCInvalidPortIdentifier(portId));
+        _addIBCApp(portId, app);
+    }
+
+    /// @notice This function adds an app to the app router
+    /// @dev This function assumes that the portId has already been generated and validated.
+    /// @param portId The port identifier
+    /// @param app The address of the app contract
+    function _addIBCApp(string memory portId, address app) private {
+        ICS26RouterStorage storage $ = _getICS26RouterStorage();
+        require(address($._apps[portId]) == address(0), IBCPortAlreadyExists(portId));
+        $._apps[portId] = IIBCApp(app);
+        emit IBCAppAdded(portId, app);
+    }
+
+    /// @inheritdoc IICS26Router
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg_) external nonReentrant returns (uint64) {
         address ibcApp = address(getIBCApp(msg_.payload.sourcePort));
         require(ibcApp == _msgSender(), IBCUnauthorizedSender(_msgSender()));
 
         string memory counterpartyId = getCounterparty(msg_.sourceClient).clientId;
 
-        // TODO: validate all identifiers
         require(
             msg_.timeoutTimestamp > block.timestamp, IBCInvalidTimeoutTimestamp(msg_.timeoutTimestamp, block.timestamp)
         );
@@ -125,7 +137,7 @@ contract ICS26Router is
             IBCInvalidTimeoutDuration(MAX_TIMEOUT_DURATION, msg_.timeoutTimestamp - block.timestamp)
         );
 
-        uint32 sequence = nextSequenceSend(msg_.sourceClient);
+        uint64 sequence = nextSequenceSend(msg_.sourceClient);
 
         // TODO: Support multi-payload packets #93
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
@@ -143,8 +155,6 @@ contract ICS26Router is
         return sequence;
     }
 
-    /// @notice Receives a packet
-    /// @param msg_ The message for receiving packets
     /// @inheritdoc IICS26Router
     function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets (#93)
@@ -176,8 +186,8 @@ contract ICS26Router is
 
         // recvPacket will no-op if the packet receipt already exists
         // This no-op check must happen after the membership verification for proofs to be cached
-        bool setReceiptSuccessful = setPacketReceipt(msg_.packet);
-        if (!setReceiptSuccessful) {
+        bool receiptAlreadySet = !setPacketReceipt(msg_.packet);
+        if (receiptAlreadySet) {
             emit Noop();
             return;
         }
@@ -205,8 +215,6 @@ contract ICS26Router is
         emit WriteAcknowledgement(msg_.packet.destClient, msg_.packet.sequence, msg_.packet, acks);
     }
 
-    /// @notice Acknowledges a packet
-    /// @param msg_ The message for acknowledging packets
     /// @inheritdoc IICS26Router
     function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
@@ -256,8 +264,6 @@ contract ICS26Router is
         emit AckPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet, msg_.acknowledgement);
     }
 
-    /// @notice Timeouts a packet
-    /// @param msg_ The message for timing out packets
     /// @inheritdoc IICS26Router
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant {
         // TODO: Support multi-payload packets #93
@@ -316,6 +322,10 @@ contract ICS26Router is
 
     /// @inheritdoc ICS02ClientUpgradeable
     function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @inheritdoc ICS02ClientUpgradeable
+    function _authorizeSetClientIdCustomizerRole(address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the ICS26Router contract

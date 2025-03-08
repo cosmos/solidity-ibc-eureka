@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
+import { IIBCERC20Errors } from "../errors/IIBCERC20Errors.sol";
 
-contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
+import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+
+contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable {
     /// @notice Storage of the IBCERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -21,26 +23,14 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCERC20")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant IBCERC20_STORAGE_SLOT = 0x1dd677b5a02f77610493322b5fdbbfdb607b541c6e6045daab3464e895dea800;
 
-    /// @notice Unauthorized function call
-    /// @param caller The caller of the function
-    error IBCERC20Unauthorized(address caller);
-
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
     }
 
     /// @inheritdoc IIBCERC20
-    function initialize(
-        address ics20_,
-        address escrow_,
-        string memory baseDenom_,
-        string memory fullDenomPath_
-    )
-        external
-        initializer
-    {
-        __ERC20_init(fullDenomPath_, baseDenom_);
+    function initialize(address ics20_, address escrow_, string memory fullDenomPath_) external initializer {
+        __ERC20_init(fullDenomPath_, fullDenomPath_);
 
         IBCERC20Storage storage $ = _getIBCERC20Storage();
 
@@ -55,17 +45,19 @@ contract IBCERC20 is IIBCERC20, ERC20Upgradeable {
     }
 
     /// @inheritdoc IIBCERC20
-    function mint(uint256 amount) external onlyICS20 {
-        _mint(_getIBCERC20Storage()._escrow, amount);
+    function mint(address mintAddress, uint256 amount) external onlyICS20 {
+        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IIBCERC20
-    function burn(uint256 amount) external onlyICS20 {
-        _burn(_getIBCERC20Storage()._escrow, amount);
+    function burn(address mintAddress, uint256 amount) external onlyICS20 {
+        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        _burn(mintAddress, amount);
     }
 
     /// @inheritdoc IIBCERC20
-    function escrow() external view returns (address) {
+    function escrow() public view returns (address) {
         return _getIBCERC20Storage()._escrow;
     }
 

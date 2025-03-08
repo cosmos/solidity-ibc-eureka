@@ -81,7 +81,8 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
-- [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html) (for end-to-end tests)
+- [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
+- [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
@@ -147,7 +148,7 @@ There are five test suites in the `e2e/interchaintestv8` directory:
 - `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
     - To run any of the tests, run the following command:
         ```sh
-        just test-e2e $TEST_NAME
+        just test-e2e-eureka $TEST_NAME
         ```
 - `TestWithRelayerTestSuite`: This test suite tests the relayer via the IBC contracts (requires the relayer and operator to be installed).
     - To run any of the tests, run the following command:
@@ -170,12 +171,6 @@ There are five test suites in the `e2e/interchaintestv8` directory:
         just test-e2e-multichain $TEST_NAME
         ```
 
-Where `$TEST_NAME` is the name of the test you want to run, for example:
-
-```sh
-just test-e2e TestDeploy_Groth16
-```
-
 ## Linting
 
 Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
@@ -194,21 +189,21 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~150,000 | ~150,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~509,542 | ~592,518 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,079,133 | ~1,163,441 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~393,224 | ~477,022 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~465,360 | ~549,821 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~165,000 | ~165,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~518,643 | ~601,729 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,087,456 | ~1,171,586 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~393,398 | ~477,221 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~466,007 | ~549,322 |
 
 ### Aggregated Packet Benchmarks
 
 The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
 Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
 
-| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
-|:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~170,301 | ~163,748 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,137 | ~86,432 |
+| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** | **Calldata size (25 packets)** | **Calldata size (50 packets)** |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~178,272 | ~165,240 | ~51,172B | ~100,772B |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,269 | ~86,564 | ~53,572B | ~105,572B |
 
 Note: These gas benchmarks are with Groth16.
 
