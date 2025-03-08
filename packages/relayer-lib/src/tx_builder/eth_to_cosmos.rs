@@ -125,6 +125,12 @@ impl<P: Provider + Clone> TxBuilder<P> {
             client_state.epochs_per_sync_committee_period,
             finality_update.attested_header.beacon.slot,
         );
+
+        tracing::debug!(
+            "Getting light client updates from period {} to {}",
+            trusted_period + 1,
+            target_period - trusted_period
+        );
         Ok(self
             .beacon_api_client
             .light_client_updates(trusted_period + 1, target_period - trusted_period)
@@ -141,7 +147,7 @@ impl<P: Provider + Clone> TxBuilder<P> {
         ethereum_consensus_state: &ConsensusState,
     ) -> Result<()> {
         wait_for_condition(
-            Duration::from_secs(60 * 10),
+            Duration::from_secs(60 * 30),
             Duration::from_secs(10),
             || async move {
                 tracing::debug!("Waiting for finality and light client updates");
@@ -317,7 +323,7 @@ where
                 continue;
             }
 
-            headers.push(Header {
+            let header = Header {
                 trusted_sync_committee: TrustedSyncCommittee {
                     trusted_slot,
                     sync_committee: ethereum_light_client::header::ActiveSyncCommittee::Next(
@@ -326,11 +332,13 @@ where
                 },
                 account_update,
                 consensus_update: update.clone(),
-            });
+            };
+            headers.push(header.clone());
 
             tracing::debug!(
-                "Added header for slot {}",
-                update.attested_header.beacon.slot
+                "Added header for slot {}: {}",
+                update.attested_header.beacon.slot,
+                serde_json::to_string(&header)?
             );
             trusted_slot = update.attested_header.beacon.slot;
             prev_pub_agg_key = previous_next_sync_committee.aggregate_pubkey;

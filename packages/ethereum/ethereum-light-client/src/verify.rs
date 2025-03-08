@@ -9,7 +9,8 @@ use ethereum_types::consensus::{
     light_client_header::{LightClientHeader, LightClientUpdate},
     merkle::{
         get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
-        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
+        FINALIZED_ROOT_GINDEX_ELECTRA, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
+        NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
     },
     signing_data::compute_signing_root,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
@@ -243,7 +244,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         finalized_root,
         update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
-        get_subtree_index(FINALIZED_ROOT_INDEX),
+        get_subtree_index(FINALIZED_ROOT_GINDEX_ELECTRA),
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -268,7 +269,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
             next_sync_committee.tree_hash_root(),
             update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
+            get_subtree_index(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
@@ -374,9 +375,12 @@ pub fn get_lc_execution_root(
 
 #[cfg(test)]
 mod test {
+    use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
+
     use crate::test_utils::{
         bls_verifier::{fast_aggregate_verify, BlsError},
-        fixtures::{self, InitialState, UpdateClient},
+        fixtures::{self, InitialState, RelayerMessages},
     };
 
     use super::*;
@@ -401,16 +405,28 @@ mod test {
         let bls_verifier = TestBlsVerifier;
 
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
         let client_state = initial_state.client_state;
         let consensus_state = initial_state.consensus_state;
 
-        let update_state: UpdateClient = fixture.get_data_at_step(1);
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
 
-        let header = update_state.updates[0].clone();
+        let header = headers[0].clone();
+
         verify_header(
             &consensus_state,
             &client_state,

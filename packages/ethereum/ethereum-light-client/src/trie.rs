@@ -123,9 +123,12 @@ mod test {
                 version: FixedBytes([3, 0, 0, 1]),
                 epoch: 0,
             },
-
             deneb: Fork {
                 version: FixedBytes([4, 0, 0, 1]),
+                epoch: 0,
+            },
+            electra: Fork {
+                version: FixedBytes([5, 0, 0, 1]),
                 epoch: 0,
             },
         };
