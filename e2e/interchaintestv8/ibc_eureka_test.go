@@ -265,6 +265,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
+		fileBz, err := os.ReadFile(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
+		fmt.Println(string(fileBz))
+
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 

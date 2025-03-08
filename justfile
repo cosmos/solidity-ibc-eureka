@@ -104,7 +104,7 @@ generate-ethereum-types:
 # For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
 test-e2e testname: clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 40m
+	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
 # Run any e2e test in the IbcEurekaTestSuite using the test's name
 # For example, `just test-e2e-eureka TestDeploy_Groth16`

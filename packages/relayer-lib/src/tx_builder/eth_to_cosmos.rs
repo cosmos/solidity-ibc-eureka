@@ -10,8 +10,9 @@ use ethereum_light_client::consensus_state::ConsensusState;
 use ethereum_light_client::header::{AccountUpdate, TrustedSyncCommittee};
 use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::bls::BlsPublicKey;
-use ethereum_types::consensus::light_client_header::LightClientUpdate;
-use ethereum_types::consensus::slot::compute_slot_at_timestamp;
+use ethereum_types::consensus::light_client_header::{
+    LightClientFinalityUpdate, LightClientUpdate,
+};
 use ethereum_types::{
     consensus::sync_committee::compute_sync_committee_period_at_slot,
     execution::account_proof::AccountProof,
@@ -111,6 +112,7 @@ impl<P: Provider + Clone> TxBuilder<P> {
         &self,
         client_state: &ClientState,
         consensus_state: &ConsensusState,
+        finality_update: LightClientFinalityUpdate,
     ) -> Result<Vec<LightClientUpdate>> {
         let trusted_period = compute_sync_committee_period_at_slot(
             client_state.slots_per_epoch,
@@ -118,12 +120,10 @@ impl<P: Provider + Clone> TxBuilder<P> {
             consensus_state.slot,
         );
 
-        let finality_update = self.beacon_api_client.finality_update().await?.data;
-
         let target_period = compute_sync_committee_period_at_slot(
             client_state.slots_per_epoch,
             client_state.epochs_per_sync_committee_period,
-            finality_update.attested_header.beacon.slot,
+            finality_update.finalized_header.beacon.slot,
         );
 
         tracing::debug!(
@@ -145,60 +145,68 @@ impl<P: Provider + Clone> TxBuilder<P> {
         target_block_number: u64,
         ethereum_client_state: &ClientState,
         ethereum_consensus_state: &ConsensusState,
-    ) -> Result<()> {
+    ) -> Result<LightClientFinalityUpdate> {
         wait_for_condition(
-            Duration::from_secs(60 * 30),
+            Duration::from_secs(45 * 60),
             Duration::from_secs(10),
             || async move {
-                tracing::debug!("Waiting for finality and light client updates");
-
-                let light_client_updates = self.get_light_client_updates(ethereum_client_state, ethereum_consensus_state).await?;
-
-                let mut latest_light_client_update_block_number = 0;
-                let mut latest_ligth_client_signature_slot = 0;
-                for update in light_client_updates.as_slice() {
-                    if update.attested_header.beacon.slot > latest_light_client_update_block_number {
-                        latest_light_client_update_block_number =
-                            update.attested_header.execution.block_number;
-                    }
-                    if update.signature_slot > latest_ligth_client_signature_slot {
-                        latest_ligth_client_signature_slot = update.signature_slot;
-                    }
-                }
+                tracing::debug!(
+                    "Waiting for finality beyond targer block number: {}",
+                    target_block_number
+                );
 
                 let finality_update = self.beacon_api_client.finality_update().await?.data;
-                let latest_finalized_block_number =
-                    finality_update.attested_header.execution.block_number;
-
-                let computed_slot = compute_slot_at_timestamp(
-                    ethereum_client_state.genesis_time,
-                    ethereum_client_state.seconds_per_slot,
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)?
-                        .as_secs(),
-                )
-                .unwrap();
-                tracing::debug!(
-                    "Finality block number: {}, Update block number: {}, Update signature slot: {}, Target block number: {}, computed slot: {}",
-                    latest_finalized_block_number,
-                    latest_light_client_update_block_number,
-                    latest_ligth_client_signature_slot,
-                    target_block_number,
-                    computed_slot,
-                );
-                if latest_finalized_block_number > target_block_number
-                    && latest_light_client_update_block_number > target_block_number
-                    //&& target_period > trusted_period
-                    && computed_slot > latest_ligth_client_signature_slot
-                {
-                    return Ok(true);
+                if finality_update.finalized_header.execution.block_number < target_block_number {
+                    tracing::debug!(
+                        "Finality block number: {}, Target block number: {}",
+                        finality_update.finalized_header.execution.block_number,
+                        target_block_number
+                    );
+                    return Ok(false);
                 }
-                Ok(false)
+
+                Ok(true)
             },
         )
         .await?;
 
-        Ok(())
+        let finality_update = self.beacon_api_client.finality_update().await?.data;
+
+        wait_for_condition(
+            Duration::from_secs(240 * 60), // lol, just too long, and probably still wont work
+            Duration::from_secs(10),
+            || {
+                let value = finality_update.clone();
+                async move {
+                    tracing::debug!("Waiting for light client updates");
+
+                    let light_client_updates = self
+                        .get_light_client_updates(
+                            ethereum_client_state,
+                            ethereum_consensus_state,
+                            value.clone(),
+                        )
+                        .await?;
+
+                    tracing::debug!("Light client updates: #{}", light_client_updates.len());
+                    for update in light_client_updates.as_slice() {
+                        tracing::debug!(
+                            "Light client update for slot {}",
+                            update.attested_header.beacon.slot
+                        );
+                        if update.finalized_header.beacon.slot >= value.finalized_header.beacon.slot
+                        {
+                            return Ok(true);
+                        }
+                    }
+
+                    Ok(false)
+                }
+            },
+        )
+        .await?;
+
+        Ok(finality_update)
     }
 }
 
@@ -256,14 +264,19 @@ where
             .ethereum_consensus_state(target_client_id.clone(), 0)
             .await?;
 
-        self.wait_for_light_client_readiness(
-            target_block_number,
-            &ethereum_client_state,
-            &ethereum_consensus_state,
-        )
-        .await?;
+        let finality_update = self
+            .wait_for_light_client_readiness(
+                target_block_number,
+                &ethereum_client_state,
+                &ethereum_consensus_state,
+            )
+            .await?;
         let light_client_updates = self
-            .get_light_client_updates(&ethereum_client_state, &ethereum_consensus_state)
+            .get_light_client_updates(
+                &ethereum_client_state,
+                &ethereum_consensus_state,
+                finality_update,
+            )
             .await?;
         tracing::debug!("light client updates: #{}", light_client_updates.len());
 

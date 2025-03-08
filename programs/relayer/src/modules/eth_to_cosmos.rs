@@ -62,8 +62,11 @@ pub struct EthToCosmosConfig {
 
 impl EthToCosmosRelayerModuleService {
     async fn new(config: EthToCosmosConfig) -> Self {
+        tracing::debug!(
+            "Creating Ethereum to Cosmos relayer module service with config: {config:?}"
+        );
         let provider = RootProvider::builder()
-            .on_builtin(&config.eth_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());

@@ -87,7 +87,7 @@ impl CosmosToEthRelayerModuleService {
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
-            .on_builtin(&config.eth_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
