@@ -18,9 +18,7 @@ type RustFixtureGenerator struct {
 }
 
 // NewRustFixtureGenerator creates a new RustFixtureGenerator
-
 // If shouldGenerateFixture is false, the generator will not generate any fixtures
-
 func NewRustFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *RustFixtureGenerator {
 	rustFixtureGenerator := &RustFixtureGenerator{
 		shouldGenerateFixture: shouldGenerateFixture,
