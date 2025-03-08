@@ -137,10 +137,12 @@ func (s *TestSuite) createEthereumLightClient(
 	s.Require().NoError(err)
 	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
 
-	rustFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
-		ClientState:    ethClientState,
-		ConsensusState: ethConsensusState,
-	})
+	if rustFixtureGenerator != nil {
+		rustFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
+			ClientState:    ethClientState,
+			ConsensusState: ethConsensusState,
+		})
+	}
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) {
