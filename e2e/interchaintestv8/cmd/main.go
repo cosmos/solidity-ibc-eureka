@@ -3,12 +3,15 @@ package main
 import (
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 )
 
 const (
-	FlagEthRPC    = "eth-rpc"
-	DefaultEthRPC = "https://ethereum-sepolia-rpc.publicnode.com"
+	CoinDenom           = "ulom"
+	Bech32AccAddrPrefix = "lom"
+	FlagEthRPC          = "eth-rpc"
+	DefaultEthRPC       = "https://ethereum-sepolia-rpc.publicnode.com"
 
 	FlagIcs26Address    = "ics26-address"
 	DefaultIcs26Address = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
@@ -20,13 +23,13 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "SET_ME"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
+	DefaultCosmosGRPC = "SET_ME"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "eureka-hub-dev-5"
+	DefaultCosmosChainID = "localnet"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -36,13 +39,13 @@ const (
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "hub-devnet-sp1-g16-0"
-	MockEthClientID        = "08-wasm-4"
+	MockTendermintClientID = "ledger-testnet-0"
+	MockEthClientID        = "08-wasm-0"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-hub-devnet-03-relayer-02.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 
@@ -59,6 +62,15 @@ func main() {
 }
 
 func RootCmd() *cobra.Command {
+	// sdk.GetConfig().SetBech32PrefixForAccount(Bech32AccAddrPrefix, Bech32AccAddrPrefix+"pub")
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(Bech32AccAddrPrefix, Bech32AccAddrPrefix+"pub")
+	// config.SetBech32PrefixForValidator(Bech32AccAddrPrefix, yourBech32PrefixValPub)
+	// config.SetBech32PrefixForConsensusNode(yourBech32PrefixConsAddr, yourBech32PrefixConsPub)
+	// config.SetPurpose(yourPurpose)
+	// config.SetCoinType(yourCoinType)
+	config.Seal()
+
 	rootCmd := &cobra.Command{
 		Use:   "eureka-cli",
 		Short: "IBC Eureka CLI",
