@@ -55,7 +55,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
                 .unwrap()
                 .trusted_height
                 .unwrap()
-                .revision_height as u32,
+                .revision_height,
         ))
         .await?;
     #[allow(clippy::cast_possible_truncation)]
@@ -68,7 +68,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
                 .unwrap()
                 .trusted_height
                 .unwrap()
-                .revision_height as u32,
+                .revision_height,
         ))
         .await?;
 

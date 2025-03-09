@@ -31,7 +31,7 @@ struct SP1ICS07UpdateClientFixture {
     #[serde_as(as = "serde_with::hex::Hex")]
     target_consensus_state: Vec<u8>,
     /// Target height.
-    target_height: u32,
+    target_height: u64,
     /// The encoded update client message.
     #[serde_as(as = "serde_with::hex::Hex")]
     update_msg: Vec<u8>,

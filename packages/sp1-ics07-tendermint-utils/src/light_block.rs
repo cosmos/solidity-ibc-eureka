@@ -55,8 +55,8 @@ impl LightBlockExt for LightBlock {
             chainId: chain_id.to_string(),
             trustLevel: trust_level,
             latestHeight: SolHeight {
-                revisionNumber: chain_id.revision_number().try_into()?,
-                revisionHeight: self.height().value().try_into()?,
+                revisionNumber: chain_id.revision_number(),
+                revisionHeight: self.height().value(),
             },
             isFrozen: false,
             zkAlgorithm: zk_algorithm,

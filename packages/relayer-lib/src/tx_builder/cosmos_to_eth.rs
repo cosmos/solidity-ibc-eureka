@@ -96,11 +96,11 @@ where
             .as_secs();
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
-        let revision_height = u32::try_from(latest_light_block.height().value())?;
+        let revision_height = latest_light_block.height().value();
         let chain_id =
             ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
         let latest_height = Height {
-            revisionNumber: chain_id.revision_number().try_into()?,
+            revisionNumber: chain_id.revision_number(),
             revisionHeight: revision_height,
         };
 

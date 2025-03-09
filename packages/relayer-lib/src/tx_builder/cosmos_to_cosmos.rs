@@ -113,8 +113,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
                 client_state
                     .latest_height
                     .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
-                    .revision_height
-                    .try_into()?,
+                    .revision_height,
             ))
             .await?;
         let proposed_header = target_light_block.into_header(&trusted_light_block);

@@ -33,5 +33,5 @@ interface ISP1ICS07Tendermint {
     /// @notice Returns the consensus state keccak256 hash at the given revision height.
     /// @param revisionHeight The revision height.
     /// @return The consensus state at the given revision height.
-    function getConsensusStateHash(uint32 revisionHeight) external view returns (bytes32);
+    function getConsensusStateHash(uint64 revisionHeight) external view returns (bytes32);
 }

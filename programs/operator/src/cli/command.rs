@@ -61,7 +61,7 @@ pub mod genesis {
     pub struct Args {
         /// Trusted block height. [default: latest]
         #[clap(long)]
-        pub trusted_block: Option<u32>,
+        pub trusted_block: Option<u64>,
 
         /// Genesis path. If not provided, the output will be written to stdout.
         #[clap(long, short = 'o', value_parser = super::parse_output_path, default_value = "-")]
@@ -123,11 +123,11 @@ pub mod fixtures {
     pub struct UpdateClientCmd {
         /// Trusted block.
         #[clap(long)]
-        pub trusted_block: u32,
+        pub trusted_block: u64,
 
         /// Target block.
         #[clap(long, env)]
-        pub target_block: u32,
+        pub target_block: u64,
 
         /// Fixture path. If not provided, the output will be written to stdout.
         #[clap(long, short = 'o', value_parser = super::parse_output_path, default_value = "-")]
@@ -162,7 +162,7 @@ pub mod fixtures {
     pub struct MembershipArgs {
         /// Trusted block.
         #[clap(long)]
-        pub trusted_block: u32,
+        pub trusted_block: u64,
 
         /// Key paths to prove membership.
         #[clap(long, value_delimiter = ',')]
@@ -188,7 +188,7 @@ pub mod fixtures {
     pub struct UpdateClientAndMembershipCmd {
         /// Target block.
         #[clap(long, env)]
-        pub target_block: u32,
+        pub target_block: u64,
 
         /// Membership arguments.
         #[clap(flatten)]

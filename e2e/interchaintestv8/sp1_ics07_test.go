@@ -161,8 +161,8 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 }
 
@@ -206,7 +206,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
 		s.Require().Greater(clientState.LatestHeight.RevisionHeight, initialHeight)
 	}))
 }
@@ -264,7 +264,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 		memArgs := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.MembershipProof(
-			uint64(trustedHeight), operator.ToBase64KeyPaths(membershipKey), "",
+			trustedHeight, operator.ToBase64KeyPaths(membershipKey), "",
 			memArgs...,
 		)
 		s.Require().NoError(err)
@@ -302,7 +302,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 		nonMemArgs := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.MembershipProof(
-			uint64(trustedHeight), operator.ToBase64KeyPaths(nonMembershipKey), "",
+			trustedHeight, operator.ToBase64KeyPaths(nonMembershipKey), "",
 			nonMemArgs...,
 		)
 		s.Require().NoError(err)
@@ -371,7 +371,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
-		s.Require().Greater(uint32(latestHeight), trustedHeight)
+		s.Require().Greater(uint64(latestHeight), trustedHeight)
 
 		var expValue []byte
 		s.Require().True(s.Run("Get expected value for the verify membership", func() {
@@ -388,7 +388,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 
 		args := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight),
+			trustedHeight, uint64(latestHeight),
 			operator.ToBase64KeyPaths(membershipKey, nonMembershipKey),
 			args...,
 		)
@@ -413,7 +413,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
 		s.Require().Greater(clientState.LatestHeight.RevisionHeight, trustedHeight)
 		s.Require().Equal(proofHeight.RevisionHeight, clientState.LatestHeight.RevisionHeight)
 		s.Require().False(clientState.IsFrozen)
@@ -452,7 +452,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
+		trustedHeight := clienttypes.NewHeight(clientState.LatestHeight.RevisionNumber, clientState.LatestHeight.RevisionHeight)
 
 		trustedHeader.TrustedHeight = trustedHeight
 		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
@@ -558,7 +558,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
+		trustedHeight := clienttypes.NewHeight(clientState.LatestHeight.RevisionNumber, clientState.LatestHeight.RevisionHeight)
 
 		trustedHeader.TrustedHeight = trustedHeight
 		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
@@ -724,7 +724,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clientty
 	}))
 
 	return clienttypes.Height{
-		RevisionNumber: uint64(latestHeight.RevisionNumber),
-		RevisionHeight: uint64(latestHeight.RevisionHeight),
+		RevisionNumber: latestHeight.RevisionNumber,
+		RevisionHeight: latestHeight.RevisionHeight,
 	}
 }

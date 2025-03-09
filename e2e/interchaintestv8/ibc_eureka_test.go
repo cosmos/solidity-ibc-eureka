@@ -308,8 +308,8 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {

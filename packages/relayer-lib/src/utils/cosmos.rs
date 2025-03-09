@@ -117,7 +117,7 @@ pub async fn inject_tendermint_proofs(
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), commitment_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
         if value.is_empty() {
@@ -134,10 +134,7 @@ pub async fn inject_tendermint_proofs(
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let (value, proof) = source_tm_client
-            .prove_path(
-                &[b"ibc".to_vec(), ack_path],
-                target_height.revision_height.try_into().unwrap(),
-            )
+            .prove_path(&[b"ibc".to_vec(), ack_path], target_height.revision_height)
             .await?;
         if value.is_empty() {
             anyhow::bail!("Membership value is empty")
@@ -155,7 +152,7 @@ pub async fn inject_tendermint_proofs(
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), receipt_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
 

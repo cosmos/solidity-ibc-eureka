@@ -110,7 +110,7 @@ pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     client_state: ClientState,
     now: u64,
 ) -> Result<()> {
-    let target_height = u32::try_from(target_light_block.height().value())?;
+    let target_height = target_light_block.height().value();
 
     let ibc_paths = msgs
         .iter()
