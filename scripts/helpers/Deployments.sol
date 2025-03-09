@@ -36,7 +36,7 @@ abstract contract Deployments {
         return SP1ICS07TendermintDeployment({
             clientId: json.readStringOr(string.concat(key, ".clientId"), ""),
             verifier: json.readStringOr(string.concat(key, ".verifier"), ""),
-            merklePrefix: json.readStringArray(string.concat(key, ".merklePrefix")),
+            merklePrefix: json.readStringArray(string.concat(key, ".merklePrefix"), new string[](0)),
             counterpartyClientId: json.readStringOr(string.concat(key, ".counterpartyClientId"), ""),
             implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
             trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
