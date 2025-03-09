@@ -28,9 +28,13 @@ interface IICS26Router {
     function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool);
 
     /// @notice Adds an IBC application to the router
-    /// @dev Only the admin can submit non-empty port identifiers.
-    /// @dev The default port identifier is the address of the IBC application contract.
-    /// @param portId The port identifier, only admin can submit non-empty port identifiers.
+    /// @dev The port identifier is the address of the IBC application contract.
+    /// @param app The address of the IBC application contract
+    function addIBCApp(address app) external;
+
+    /// @notice Adds an IBC application to the router
+    /// @dev Can only be called by `PORT_CUSTOMIZER_ROLE`.
+    /// @param portId The custom port identifier.
     /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external;
 
@@ -60,6 +64,12 @@ interface IICS26Router {
     /// @dev Can only be called by an admin
     /// @param account The account to revoke the role from
     function revokePortCustomizerRole(address account) external;
+
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
+    /// @param customizer The address of the port and client id customizer
+    function initialize(address timelockedAdmin, address customizer) external;
 
     // --------------------- Events --------------------- //
 
