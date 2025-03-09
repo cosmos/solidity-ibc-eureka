@@ -60,3 +60,6 @@ jobs:
           forge script scripts/deployments/DeployProxiedICS26Router.sol -vvv
           forge script scripts/deployments/DeployProxiedICS20Transfer.sol -vvv
           forge script scripts/deployments/DeploySP1ICS07Tendermint.sol -vvv
+          forge script scripts/deployments/PauseTransfers.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+          forge script scripts/deployments/UnpauseTransfers.sol -vvv --broadcast --private-key ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
