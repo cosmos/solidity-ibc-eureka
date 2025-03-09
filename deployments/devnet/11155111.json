@@ -22,7 +22,7 @@
       "verifier": "0x76181902bdd0432A99f6a872f5BaB7f35CBbb8Cd",
       "counterpartyClientId": "08-wasm-0",
       "merklePrefix": [
-        "696263",
+        "ibc",
         "0x"
       ],
       "trustedClientState": "00",
