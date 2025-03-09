@@ -1,6 +1,7 @@
 //! This module contains types assosicated with the beacon api and Ethereum consensus.
 
 pub mod bls;
+pub mod bootstrap;
 pub mod domain;
 pub mod fork;
 pub mod light_client_header;

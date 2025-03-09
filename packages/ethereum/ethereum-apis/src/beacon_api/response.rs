@@ -40,3 +40,10 @@ pub struct Version {
     /// The version of the Ethereum consensus.
     pub version: EthConsensusVersion,
 }
+
+/// The Beacon Block Root response structure returned by the Beacon API.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BeaconBlockRoot {
+    /// The root of the Beacon block.
+    pub root: String,
+}

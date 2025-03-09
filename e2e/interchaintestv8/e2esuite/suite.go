@@ -50,17 +50,21 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypePoW:
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icethereum.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
-		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		// kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		// s.Require().NoError(err)
+		faucet, err := crypto.ToECDSA(ethcommon.FromHex("04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"))
 		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
+
+		beaconAPI := ethereum.NewBeaconAPIClient("http://127.0.0.1:33195")
+		s.EthChain, err = ethereum.NewEthereum(ctx, "http://127.0.0.1:33190", &beaconAPI, faucet)
 		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			ctx := context.Background()
-			if s.T().Failed() {
-				_ = kurtosisChain.DumpLogs(ctx)
-			}
-			kurtosisChain.Destroy(ctx)
-		})
+		// s.T().Cleanup(func() {
+		// 	ctx := context.Background()
+		// 	if s.T().Failed() {
+		// 		_ = kurtosisChain.DumpLogs(ctx)
+		// 	}
+		// 	kurtosisChain.Destroy(ctx)
+		// })
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:

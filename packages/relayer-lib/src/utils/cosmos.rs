@@ -30,7 +30,7 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet, _) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(MsgTimeout {
                         packet: Some(packet.into()),
@@ -59,20 +59,22 @@ pub fn src_events_to_recv_and_ack_msgs(
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
         .filter(|e| match e {
-            EurekaEvent::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet, _) => {
                 packet.timeoutTimestamp > now && packet.destClient == target_client_id
             }
-            EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == target_client_id,
+            EurekaEvent::WriteAcknowledgement(packet, _, _) => {
+                packet.sourceClient == target_client_id
+            }
         })
         .partition(|e| match e {
-            EurekaEvent::SendPacket(_) => true,
+            EurekaEvent::SendPacket(_, _) => true,
             EurekaEvent::WriteAcknowledgement(..) => false,
         });
 
     let recv_msgs = src_send_events
         .into_iter()
         .map(|e| match e {
-            EurekaEvent::SendPacket(packet) => MsgRecvPacket {
+            EurekaEvent::SendPacket(packet, _) => MsgRecvPacket {
                 packet: Some(packet.into()),
                 proof_height: Some(*target_height),
                 proof_commitment: vec![],
@@ -85,7 +87,7 @@ pub fn src_events_to_recv_and_ack_msgs(
     let ack_msgs = src_ack_events
         .into_iter()
         .map(|e| match e {
-            EurekaEvent::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
+            EurekaEvent::WriteAcknowledgement(packet, acks, _) => MsgAcknowledgement {
                 packet: Some(packet.into()),
                 acknowledgement: Some(Acknowledgement {
                     app_acknowledgements: acks.into_iter().map(Into::into).collect(),
@@ -94,7 +96,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                 proof_acked: vec![],
                 signer: signer_address.to_string(),
             },
-            EurekaEvent::SendPacket(_) => unreachable!(),
+            EurekaEvent::SendPacket(_, _) => unreachable!(),
         })
         .collect::<Vec<MsgAcknowledgement>>();
 
@@ -179,12 +181,12 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     eth_client: &EthApiClient<P>,
     ibc_contrct_address: &str,
     ibc_contract_slot: U256,
-    target_block_number: u64,
-    target_slot: u64,
+    proof_block_number: u64,
+    proof_slot: u64,
 ) -> Result<()> {
     let target_height = Height {
         revision_number: 0,
-        revision_height: target_slot,
+        revision_height: proof_slot,
     };
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
@@ -193,7 +195,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             commitment_path,
             ibc_contract_slot,
         )
@@ -215,7 +217,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             ack_path,
             ibc_contract_slot,
         )
@@ -237,7 +239,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             receipt_path,
             ibc_contract_slot,
         )

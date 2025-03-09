@@ -90,9 +90,14 @@ pub fn verify_header<V: BlsVerify>(
     );
 
     let proof_data = header.account_update.account_proof.clone();
+    print!("{proof_data:?}");
 
     verify_account_storage_root(
-        header.consensus_update.attested_header.execution.state_root,
+        header
+            .consensus_update
+            .finalized_header
+            .execution
+            .state_root,
         client_state.ibc_contract_address,
         &proof_data.proof,
         proof_data.storage_root,

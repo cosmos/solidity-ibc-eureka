@@ -2,7 +2,8 @@
 
 use alloy::{
     primitives::{hex, Bytes},
-    sol_types::SolEvent,
+    rpc::types::Log,
+    sol_types::{SolEvent, SolEventInterface},
 };
 use ibc_eureka_solidity_types::ics26::{
     router::{routerEvents, SendPacket, WriteAcknowledgement},
@@ -19,9 +20,9 @@ use super::cosmos_sdk;
 #[allow(clippy::module_name_repetitions)]
 pub enum EurekaEvent {
     /// A packet was sent.
-    SendPacket(SolPacket),
+    SendPacket(SolPacket, Option<u64>),
     /// An acknowledgement was written.
-    WriteAcknowledgement(SolPacket, Vec<Bytes>),
+    WriteAcknowledgement(SolPacket, Vec<Bytes>, Option<u64>),
 }
 
 impl EurekaEvent {
@@ -33,15 +34,22 @@ impl EurekaEvent {
     }
 }
 
-impl TryFrom<routerEvents> for EurekaEvent {
+impl TryFrom<&Log> for EurekaEvent {
     type Error = anyhow::Error;
 
-    fn try_from(event: routerEvents) -> anyhow::Result<Self> {
-        match event {
-            routerEvents::SendPacket(event) => Ok(Self::SendPacket(event.packet)),
+    fn try_from(log: &Log) -> anyhow::Result<Self> {
+        let sol_event = routerEvents::decode_log(&log.inner, true).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to decode log into ICS26Router event: {}",
+                e.to_string()
+            )
+        })?;
+        match sol_event.data {
+            routerEvents::SendPacket(event) => Ok(Self::SendPacket(event.packet, log.block_number)),
             routerEvents::WriteAcknowledgement(event) => Ok(Self::WriteAcknowledgement(
                 event.packet,
                 event.acknowledgements,
+                log.block_number,
             )),
             routerEvents::AckPacket(_) => Err(anyhow::anyhow!("AckPacket event is not used")),
             routerEvents::TimeoutPacket(_) => {
@@ -82,7 +90,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                     let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                     let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self::SendPacket(packet.into()))
+                    Some(Self::SendPacket(packet.into(), None))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
@@ -115,6 +123,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                         .into_iter()
                         .map(Into::into)
                         .collect(),
+                    None,
                 ))
             }
             cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET

@@ -32,7 +32,7 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:     "lodestar",
-				CLImage:    "ethpandaops/lighthouse:unstable",
+				CLImage:    "ethpandaops/lodestar:prague-devnet-6",
 				ELType:     "geth",
 				ELImage:    "ethpandaops/geth:prague-devnet-6",
 				ELLogLevel: "info",

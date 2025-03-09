@@ -37,7 +37,7 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet, _) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(routerCalls::timeoutPacket(
                         ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
@@ -68,7 +68,7 @@ pub fn src_events_to_recv_and_ack_msgs(
     src_events
         .into_iter()
         .filter_map(|e| match e {
-            EurekaEvent::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet, _) => {
                 if packet.timeoutTimestamp > now && packet.destClient == target_client_id {
                     Some(routerCalls::recvPacket(recvPacketCall {
                         msg_: MsgRecvPacket {
@@ -81,7 +81,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                     None
                 }
             }
-            EurekaEvent::WriteAcknowledgement(packet, acks) => {
+            EurekaEvent::WriteAcknowledgement(packet, acks, _) => {
                 if packet.sourceClient == target_client_id {
                     Some(routerCalls::ackPacket(ackPacketCall {
                         msg_: MsgAckPacket {

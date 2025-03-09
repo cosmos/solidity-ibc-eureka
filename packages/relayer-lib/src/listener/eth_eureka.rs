@@ -4,11 +4,10 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::Provider,
     rpc::types::Filter,
-    sol_types::SolEventInterface,
 };
 use anyhow::{anyhow, Result};
 use futures::future;
-use ibc_eureka_solidity_types::ics26::router::{routerEvents, routerInstance};
+use ibc_eureka_solidity_types::ics26::router::routerInstance;
 
 use crate::{chain::EthEureka, events::EurekaEvent};
 
@@ -75,10 +74,7 @@ where
                         .await?
                         .iter()
                         .filter(|log| log.transaction_hash.unwrap_or_default() == tx_id)
-                        .filter_map(|log| {
-                            let sol_event = routerEvents::decode_log(&log.inner, true).ok()?.data;
-                            EurekaEvent::try_from(sol_event).ok()
-                        })
+                        .filter_map(|log| EurekaEvent::try_from(log).ok())
                         .collect::<Vec<_>>(),
                 )
             }))
@@ -102,10 +98,7 @@ where
             .get_logs(&event_filter)
             .await?
             .iter()
-            .filter_map(|log| {
-                let sol_event = routerEvents::decode_log(&log.inner, true).ok()?.data;
-                EurekaEvent::try_from(sol_event).ok()
-            })
+            .filter_map(|log| EurekaEvent::try_from(log).ok())
             .collect())
     }
 }
