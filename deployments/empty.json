@@ -20,7 +20,7 @@
       "implementation": "0x0000000000000000000000000000000000000000",
       "verifier": "mock",
       "counterpartyClientId": "",
-      "merklePrefix": ["ibc", ""],
+      "merklePrefix": ["696263", "00"],
       "trustedClientState": "",
       "trustedConsensusState": "",
       "updateClientVkey": "",
