@@ -13,7 +13,6 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
-import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IBCPausableUpgradeable } from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
