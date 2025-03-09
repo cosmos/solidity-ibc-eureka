@@ -39,25 +39,40 @@ contract ICS26RouterTest is Test {
         ics26Router = ICS26Router(address(routerProxy));
     }
 
-    function test_AddIBCAppUsingAddress() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer();
-        string memory ics20AddressStr = Strings.toHexString(address(ics20Transfer));
+    function test_success_addIBCAppUsingAddress() public {
+        address mockApp = makeAddr("mockApp");
+        string memory mockAppStr = Strings.toHexString(mockApp);
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(ics20AddressStr, address(ics20Transfer));
-        ics26Router.addIBCApp("", address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded(mockAppStr, mockApp);
+        ics26Router.addIBCApp(mockApp);
 
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ics20AddressStr)));
+        assertEq(mockApp, address(ics26Router.getIBCApp(mockAppStr)));
     }
 
-    function test_AddIBCAppUsingNamedPort() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer();
+    function test_success_addIBCAppUsingNamedPort() public {
+        address mockApp = makeAddr("mockApp");
 
         vm.expectEmit();
-        emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
 
-        assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+        assertEq(mockApp, address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+    }
+
+    function test_failure_addIBCAppUsingNamedPort() public {
+        address mockApp = makeAddr("mockApp");
+        // port is an address
+        string memory mockAppStr = Strings.toHexString(mockApp);
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidPortIdentifier.selector, mockAppStr));
+        ics26Router.addIBCApp(mockAppStr, mockApp);
+
+        // reuse of the same port
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID)
+        );
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
     }
 
     function test_UnauthorizedSender() public {

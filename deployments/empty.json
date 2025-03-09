@@ -1,0 +1,32 @@
+{
+  "ics26Router": {
+    "proxy": "0x0000000000000000000000000000000000000000",
+    "implementation": "0x0000000000000000000000000000000000000000",
+    "timeLockAdmin": "0x0000000000000000000000000000000000000000",
+    "portCustomizer": "0x0000000000000000000000000000000000000000"
+  },
+  "ics20Transfer": {
+    "escrowImplementation": "0x0000000000000000000000000000000000000000",
+    "ibcERC20Implementation": "0x0000000000000000000000000000000000000000",
+    "ics26Router": "0x0000000000000000000000000000000000000000",
+    "implementation": "0x0000000000000000000000000000000000000000",
+    "pauser": "0x0000000000000000000000000000000000000000",
+    "permit2": "0x0000000000000000000000000000000000000000",
+    "proxy": "0x0000000000000000000000000000000000000000"
+  },
+  "light_clients": {
+    "0": {
+      "clientId": "",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "verifier": "mock",
+      "counterpartyClientId": "",
+      "merklePrefix": ["696263", "00"],
+      "trustedClientState": "",
+      "trustedConsensusState": "",
+      "updateClientVkey": "",
+      "membershipVkey": "",
+      "ucAndMembershipVkey": "",
+      "misbehaviourVkey": ""
+    }
+  }
+}
