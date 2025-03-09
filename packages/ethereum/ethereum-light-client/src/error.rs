@@ -49,6 +49,30 @@ pub enum EthereumIBCError {
     },
 
     #[error(
+        "trusted slot {trusted_slot} is more recent than the update slot \
+        {update_slot}"
+    )]
+    TrustedSlotMoreRecentThanUpdateSlot { trusted_slot: u64, update_slot: u64 },
+
+    #[error(
+        "current consensus slot {current_consensus_slot} is more recent than the update slot \
+        {update_slot}"
+    )]
+    CurrentConsensusSlotMoreRecentThanUpdateSlot {
+        current_consensus_slot: u64,
+        update_slot: u64,
+    },
+
+    #[error(
+        "current client state slot {current_client_state_slot} is more recent than the update slot \
+        {update_slot}"
+    )]
+    CurrentClientStateSlotMoreRecentThanUpdateSlot {
+        current_client_state_slot: u64,
+        update_slot: u64,
+    },
+
+    #[error(
         "(update_signature_slot > update_attested_slot >= update_finalized_slot) must hold, \
         found: ({update_signature_slot} > {update_attested_slot} >= {update_finalized_slot})"
     )]
@@ -77,20 +101,12 @@ pub enum EthereumIBCError {
     },
 
     #[error(
-        "irrelevant update since the order of the slots in the update data, and stored data is not correct. \
-        either the update_attested_slot (found {update_attested_slot}) must be > the trusted_finalized_slot \
-        (found {trusted_finalized_slot}) or if it is not, then the update_attested_period \
-        (found {update_attested_period}) must be the same as the store_period (found {stored_period}) and \
-        the update_sync_committee must be set (was set: {update_sync_committee_is_set}) and the trusted \
-        next_sync_committee must be unset (was set: {trusted_next_sync_committee_is_set})"
+        "trusted finalized slot {trusted_finalized_slot} is more recent than the update slot \
+        {update_slot}"
     )]
-    IrrelevantUpdate {
-        update_attested_slot: u64,
+    TrustedFinalizedSlotMoreRecentThanUpdateSlot {
         trusted_finalized_slot: u64,
-        update_attested_period: u64,
-        stored_period: u64,
-        update_sync_committee_is_set: bool,
-        trusted_next_sync_committee_is_set: bool,
+        update_slot: u64,
     },
 
     #[error(

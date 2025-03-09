@@ -195,7 +195,7 @@ mod tests {
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: FixedBytes::<48>::from([0; 48]),
-                next_sync_committee: None,
+                next_sync_committee: FixedBytes::<48>::from([0; 48]),
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 

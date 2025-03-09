@@ -27,7 +27,7 @@ pub struct ConsensusState {
     pub current_sync_committee: FixedBytes<48>,
     /// aggregate public key of next sync committee
     #[schemars(with = "String")]
-    pub next_sync_committee: Option<FixedBytes<48>>,
+    pub next_sync_committee: FixedBytes<48>,
 }
 
 /// The trusted consensus state of the Ethereum light client
