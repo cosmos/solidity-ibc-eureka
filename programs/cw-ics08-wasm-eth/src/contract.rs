@@ -343,7 +343,11 @@ mod tests {
             assert_eq!(1, update_state_result.heights.len());
             assert_eq!(0, update_state_result.heights[0].revision_number);
             assert_eq!(
-                header.consensus_update.attested_header.beacon.slot,
+                header.consensus_update.finalized_header.beacon.slot,
+                update_state_result.heights[0].revision_height
+            );
+            assert_eq!(
+                recv_msgs[0].proof_height.unwrap().revision_height,
                 update_state_result.heights[0].revision_height
             );
 

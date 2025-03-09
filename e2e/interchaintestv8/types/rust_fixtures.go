@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -32,9 +31,6 @@ func NewRustFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *RustFi
 			if err := rustFixtureGenerator.writeFixtures(fixtureName); err != nil {
 				s.T().Logf("Error writing fixtures: %v", err)
 			}
-
-			fmt.Println("Sleeping for 120 minutes after writing fixtures")
-			time.Sleep(120 * time.Minute)
 		})
 	}
 

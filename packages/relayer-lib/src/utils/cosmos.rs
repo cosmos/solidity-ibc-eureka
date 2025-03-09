@@ -184,7 +184,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     proof_block_number: u64,
     proof_slot: u64,
 ) -> Result<()> {
-    let target_height = Height {
+    let proof_slot_height = Height {
         revision_number: 0,
         revision_height: proof_slot,
     };
@@ -205,7 +205,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_commitment = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
@@ -227,7 +227,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_acked = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
@@ -248,7 +248,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
             anyhow::bail!("Non-Membership value is empty")
         }
         msg.proof_unreceived = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;

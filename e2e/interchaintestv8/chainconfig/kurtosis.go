@@ -32,14 +32,14 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:     "lodestar",
-				CLImage:    "ethpandaops/lodestar:prague-devnet-6",
+				CLImage:    "ethpandaops/lodestar:unstable",
 				ELType:     "geth",
 				ELImage:    "ethpandaops/geth:prague-devnet-6",
 				ELLogLevel: "info",
 			},
 		},
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           "mainnet",
+			Preset:           "minimal",
 			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,

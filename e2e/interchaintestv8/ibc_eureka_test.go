@@ -524,9 +524,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			// fmt.Println("Sleeping for 120 minutes, to test")
-			// fmt.Printf("Relay request: SrcChain: %s\n DstChain: %s\n SourceTxIds: %v\n TargetClientId: %s\n", eth.ChainID.String(), simd.Config().ChainID, ethcommon.BytesToHash(ethSendTxHash).String(), testvalues.FirstWasmClientID)
-			// time.Sleep(120 * time.Minute)
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:       eth.ChainID.String(),
 				DstChain:       simd.Config().ChainID,
