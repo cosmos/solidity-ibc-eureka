@@ -23,7 +23,7 @@
       "counterpartyClientId": "08-wasm-0",
       "merklePrefix": [
         "ibc",
-        "0x"
+        ""
       ],
       "trustedClientState": "00",
       "trustedConsensusState": "00",
