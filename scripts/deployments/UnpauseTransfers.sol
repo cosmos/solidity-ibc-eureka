@@ -17,11 +17,8 @@ contract UnpauseTransfers is Script, Deployments {
 
         ICS20Transfer ics20Transfer = ICS20Transfer(deployment.proxy);
 
-        vm.startBroadcast();
-
+        vm.broadcast();
         ics20Transfer.unpause();
-
-        vm.stopBroadcast();
 
         vm.assertFalse(ics20Transfer.paused(), "ICS20Transfer should not be paused");
     }
