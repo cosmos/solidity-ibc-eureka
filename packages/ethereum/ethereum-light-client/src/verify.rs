@@ -40,6 +40,11 @@ pub trait BlsVerify {
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error>;
+
+    /// Aggregate public keys.
+    /// # Errors
+    /// Returns an error if the public keys cannot be aggregated.
+    fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, Self::Error>;
 }
 
 /// Verifies the header of the light client.
@@ -375,7 +380,7 @@ pub fn get_lc_execution_root(
 #[cfg(test)]
 mod test {
     use crate::test_utils::{
-        bls_verifier::{fast_aggregate_verify, BlsError},
+        bls_verifier::{aggreagate, fast_aggregate_verify, BlsError},
         fixtures::{self, InitialState, UpdateClient},
     };
 
@@ -393,6 +398,10 @@ mod test {
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
             fast_aggregate_verify(public_keys, msg, signature)
+        }
+
+        fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, BlsError> {
+            aggreagate(public_keys)
         }
     }
 
