@@ -1,7 +1,6 @@
 //! This module contains the query message handlers
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
-use ethereum_light_client::consensus_state::TrustedConsensusState;
 
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
@@ -54,10 +53,8 @@ pub fn verify_client_message(
 
         ethereum_light_client::misbehaviour::verify_misbehaviour(
             &eth_client_state,
-            &TrustedConsensusState {
-                state: eth_consensus_state,
-                sync_committee: misbehaviour.sync_committee,
-            },
+            &eth_consensus_state,
+            &misbehaviour.sync_committee,
             &misbehaviour.update_1,
             &misbehaviour.update_2,
             env.block.time.seconds(),
@@ -97,10 +94,8 @@ pub fn check_for_misbehaviour(
 
     ethereum_light_client::misbehaviour::verify_misbehaviour(
         &eth_client_state,
-        &TrustedConsensusState {
-            state: eth_consensus_state,
-            sync_committee: misbehaviour.sync_committee,
-        },
+        &eth_consensus_state,
+        &misbehaviour.sync_committee,
         &misbehaviour.update_1,
         &misbehaviour.update_2,
         env.block.time.seconds(),

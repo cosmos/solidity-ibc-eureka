@@ -52,6 +52,9 @@ pub enum BlsVerifierError {
         /// The signature that was verified
         signature: BlsSignature,
     },
+
+    #[error("aggregate public key cannot be deserialized: {0}")]
+    PublicKeyTryFromError(#[from] core::array::TryFromSliceError),
 }
 
 impl BlsVerify for BlsVerifier<'_> {
@@ -89,5 +92,24 @@ impl BlsVerify for BlsVerifier<'_> {
         }
 
         Ok(())
+    }
+
+    fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, Self::Error> {
+        let binary_public_keys: Vec<Binary> = public_keys
+            .iter()
+            .map(|p| Binary::from(p.to_vec()))
+            .collect();
+
+        let request: QueryRequest<EthereumCustomQuery> =
+            QueryRequest::Custom(EthereumCustomQuery::Aggregate {
+                public_keys: binary_public_keys,
+            });
+
+        let aggregate_key: Binary = self
+            .querier
+            .query(&request)
+            .map_err(|e| BlsVerifierError::FastAggregateVerify(e.to_string()))?;
+
+        Ok(BlsPublicKey::try_from(aggregate_key.as_slice())?)
     }
 }

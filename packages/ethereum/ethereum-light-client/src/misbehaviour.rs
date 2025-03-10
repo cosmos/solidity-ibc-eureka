@@ -7,15 +7,17 @@ use ethereum_types::consensus::{
 
 use crate::{
     client_state::ClientState,
-    consensus_state::TrustedConsensusState,
+    consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
+    header::ActiveSyncCommittee,
     verify::{validate_light_client_update, BlsVerify},
 };
 
 /// Verifies if a consensus misbehaviour is valid by checking if the two conflicting light client updates are valid.
 ///
 /// * `client_state`: The current client state.
-/// * `trusted_consensus_state`: The trusted consensus state (previously verified and stored)
+/// * `consensus_state`: The current consensus state (previously verified and stored)
+/// * `full_sync_committee`: The full sync committee data. (untrusted)
 /// * `update_1`: The first light client update.
 /// * `update_2`: The second light client update.
 /// * `current_slot`: The slot number computed based on the current timestamp.
@@ -26,12 +28,19 @@ use crate::{
 #[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
 pub fn verify_misbehaviour<V: BlsVerify>(
     client_state: &ClientState,
-    trusted_consensus_state: &TrustedConsensusState,
+    consensus_state: &ConsensusState,
+    full_sync_committee: &ActiveSyncCommittee,
     update_1: &LightClientUpdate,
     update_2: &LightClientUpdate,
     current_timestamp: u64,
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
+    let trusted_consensus_state = TrustedConsensusState::new(
+        consensus_state.clone(),
+        full_sync_committee.clone(),
+        &bls_verifier,
+    )?;
+
     // There is no point to check for misbehaviour when the headers are not for the same height
     let (slot_1, slot_2) = (
         update_1.finalized_header.beacon.slot,
@@ -65,7 +74,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
 
     validate_light_client_update::<V>(
         client_state,
-        trusted_consensus_state,
+        &trusted_consensus_state,
         update_1,
         current_slot,
         &bls_verifier,
@@ -73,7 +82,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
 
     validate_light_client_update::<V>(
         client_state,
-        trusted_consensus_state,
+        &trusted_consensus_state,
         update_2,
         current_slot,
         &bls_verifier,
