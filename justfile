@@ -83,8 +83,8 @@ generate-abi: build-contracts
 # Generate the fixtures for the Rust tests using the e2e tests
 generate-fixtures-rust: clean
 	@echo "Generating fixtures... This may take a while."
-	# @echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
-	# cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 60m
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 60m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 60m
 	@echo "Generating timeoutPacket groth16 fixtures..."
