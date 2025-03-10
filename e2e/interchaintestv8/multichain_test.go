@@ -1273,7 +1273,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		}
 
 		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
-			SourceClient:     ibctesting.SecondClientID,
+			SourceClient:     testvalues.FirstWasmClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{payload},
 			Signer:         simdAUser.FormattedAddress(),
@@ -1311,7 +1311,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 			s.True(s.Run("Verify balances on Ethereum", func() {
 				userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 				s.Require().NoError(err)
-				s.Require().Equal(transferAmount, userBalance)
+				s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 			}))
 		}))
 	}))
