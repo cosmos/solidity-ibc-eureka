@@ -868,7 +868,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
 			Memo:     "",
 		}
-		
+
 		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
 		s.Require().NoError(err)
 
@@ -968,9 +968,9 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain: eth.ChainID.String(),
-				DstChain: simdA.Config().ChainID,
-				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simdA.Config().ChainID,
+				SourceTxIds:    [][]byte{ethSendTxHash},
 				TargetClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
@@ -1208,8 +1208,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		resp, err := s.BroadcastMessages(ctx, simdB, simdBUser, 2_000_000, &channeltypesv2.MsgSendPacket{
 			SourceClient:     ibctesting.SecondClientID,
 			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{payload},
-			Signer:         simdBUser.FormattedAddress(),
+			Payloads:         []channeltypesv2.Payload{payload},
+			Signer:           simdBUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
@@ -1275,8 +1275,8 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
 			SourceClient:     testvalues.FirstWasmClientID,
 			TimeoutTimestamp: timeout,
-			Payloads: []channeltypesv2.Payload{payload},
-			Signer:         simdAUser.FormattedAddress(),
+			Payloads:         []channeltypesv2.Payload{payload},
+			Signer:           simdAUser.FormattedAddress(),
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
