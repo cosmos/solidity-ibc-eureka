@@ -233,7 +233,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
         let config = serde_json::from_value::<CosmosToEthConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starteing Cosmos to Ethereum relayer server.");
+        tracing::info!("Starting Cosmos to Ethereum relayer server.");
         Ok(Box::new(CosmosToEthRelayerModuleService::new(config).await))
     }
 }

@@ -124,8 +124,15 @@ impl RelayerService for Relayer {
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
         let inner_request = request.get_ref();
-        self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+        let res = self
+            .get_module(&inner_request.src_chain, &inner_request.dst_chain)?
             .relay_by_tx(request)
             .await
+            .map_err(|e| {
+                tracing::error!("Error handling relay by tx request: {:?}", e);
+                e
+            });
+        tracing::info!("Relay by tx request handled.");
+        res
     }
 }
