@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use ethereum_types::consensus::sync_committee::SyncCommittee;
 
-use crate::{error::EthereumIBCError, header::ActiveSyncCommittee};
+use crate::{error::EthereumIBCError, header::ActiveSyncCommittee, verify::BlsVerify};
 
 /// The consensus state of the Ethereum light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
@@ -49,9 +49,10 @@ impl TrustedConsensusState {
     /// Creates a new trusted consensus state
     /// # Errors
     /// Returns an error if the untrusted sync committee does not match the trusted state
-    pub fn new(
+    pub fn new<V: BlsVerify>(
         trusted_state: ConsensusState,
         untrusted_sync_committee: ActiveSyncCommittee,
+        bls_verifier: &V,
     ) -> Result<Self, EthereumIBCError> {
         match untrusted_sync_committee {
             ActiveSyncCommittee::Current(ref committee) => {
@@ -62,7 +63,16 @@ impl TrustedConsensusState {
                         found: committee.aggregate_pubkey
                     }
                 );
-                // TODO: verify that the full committees match
+                let aggregate_pubkey = bls_verifier
+                    .aggregate(&committee.pubkeys)
+                    .map_err(|e| EthereumIBCError::FastAggregateVerifyError(e.to_string()))?;
+                ensure!(
+                    aggregate_pubkey == committee.aggregate_pubkey,
+                    EthereumIBCError::AggregatePubkeyMismatch {
+                        expected: committee.aggregate_pubkey,
+                        found: aggregate_pubkey
+                    }
+                );
             }
             ActiveSyncCommittee::Next(ref committee) => {
                 let trusted_next_sync_committee = trusted_state
@@ -75,7 +85,16 @@ impl TrustedConsensusState {
                         found: committee.aggregate_pubkey
                     }
                 );
-                // TODO: verify that the full committees match
+                let aggregate_pubkey = bls_verifier
+                    .aggregate(&committee.pubkeys)
+                    .map_err(|e| EthereumIBCError::FastAggregateVerifyError(e.to_string()))?;
+                ensure!(
+                    aggregate_pubkey == committee.aggregate_pubkey,
+                    EthereumIBCError::AggregatePubkeyMismatch {
+                        expected: committee.aggregate_pubkey,
+                        found: aggregate_pubkey
+                    }
+                );
             }
         }
 

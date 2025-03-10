@@ -58,10 +58,11 @@ pub fn verify_header<V: BlsVerify>(
     header: &Header,
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
-    let trusted_consensus_state = TrustedConsensusState {
-        state: consensus_state.clone(),
-        sync_committee: header.trusted_sync_committee.sync_committee.clone(),
-    };
+    let trusted_consensus_state = TrustedConsensusState::new(
+        consensus_state.clone(),
+        header.trusted_sync_committee.sync_committee.clone(),
+        &bls_verifier,
+    )?;
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
     let current_slot = compute_slot_at_timestamp(
@@ -323,7 +324,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
             signing_root,
             update.sync_aggregate.sync_committee_signature,
         )
-        .map_err(|err| EthereumIBCError::FastAggregateVerify(err.to_string()))?;
+        .map_err(|err| EthereumIBCError::FastAggregateVerifyError(err.to_string()))?;
 
     Ok(())
 }
