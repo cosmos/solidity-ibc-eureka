@@ -156,6 +156,22 @@ deploy-sp1-ics07: genesis-sp1-ics07
   forge install
   forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 
+# Deploy the ICS26Router contract using environment variables
+deploy-ics26: build-contracts
+	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
+# Deploy the ICS20Transfer contract using environment variables
+deploy-ics20: build-contracts
+	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
+# Deploy the SP1ICS07Tendermint contract using environment variables
+deploy-light-client: build-contracts
+	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast --legacy --with-gas-price 2gwei
+
+
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."
