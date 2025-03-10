@@ -57,6 +57,8 @@ func TransferFromEth() *cobra.Command {
 
 			transferWithCallbacksMemo, _ := cmd.Flags().GetBool(FlagTransferWithCallbacksMemo)
 
+			extraGwei, _ := cmd.Flags().GetInt64(FlagExtraGwei)
+
 			// Set up everything needed to send the transfer
 			ethClient, err := ethclient.Dial(ethRPC)
 			if err != nil {
@@ -76,8 +78,8 @@ func TransferFromEth() *cobra.Command {
 
 			// Approve ICS20 contract to spend ERC20
 			// TODO: Consider if we should query Permit2, so we don't have to do this every time 🤔
-			txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
-			txOpts.GasPrice = nil
+			txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey, extraGwei)
+			// txOpts.GasPrice = nil
 			if IsVerbose(cmd) {
 				fmt.Printf("Approve TransactOpts: %+v\n", txOpts)
 			}
@@ -107,8 +109,8 @@ func TransferFromEth() *cobra.Command {
 			if transferWithCallbacksMemo {
 				sendTransferMsg.Memo = `{"dest_callback": {"address":"cosmos1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqez7la9"}}`
 			}
-			txOpts = utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey)
-			txOpts.GasPrice = nil
+			txOpts = utils.GetTransactOpts(ctx, ethClient, ethChainID, ethPrivKey, extraGwei)
+			// txOpts.GasPrice = nil
 			if IsVerbose(cmd) {
 				fmt.Printf("SendTransfer TransactOpts: %+v\n", txOpts)
 			}

@@ -20,13 +20,13 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://eureka-devnet-02-node-01-rpc.dev.skip.build:443"
+	DefaultCosmosRPC = "https://cosmos-testnet-rpc.polkachu.com:443"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "eureka-devnet-02-node-01-grpc.dev.skip.build:443"
+	DefaultCosmosGRPC = "cosmos-testnet-grpc.polkachu.com:14990"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
-	DefaultCosmosChainID = "eureka-hub-dev-5"
+	DefaultCosmosChainID = "provider"
 
 	FlagEthChainID    = "ethereum-chain-id"
 	DefaultEthChainID = "11155111"
@@ -36,19 +36,21 @@ const (
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "hub-devnet-sp1-g16-0"
-	MockEthClientID        = "08-wasm-4"
+	MockTendermintClientID = "hub-testnet-sp1-0"
+	MockEthClientID        = "08-wasm-249"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"
 
-	RelayerURL = "eureka-devnet-02-relayer-01.dev.skip.build:443"
+	RelayerURL = "eureka-hub-devnet-03-relayer-02.dev.skip.build:443"
 
 	EnvRelayerWallet = "RELAYER_WALLET"
 
 	FlagVerbose = "verbose"
 
 	FlagTransferWithCallbacksMemo = "transfer-with-callbacks-memo"
+
+	FlagExtraGwei = "extra-gwei"
 )
 
 func main() {
@@ -79,6 +81,7 @@ func AddEthFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagIcs26Address, DefaultIcs26Address, "ICS26 contract address")
 	cmd.Flags().String(FlagIcs20Address, DefaultIcs20Address, "ICS20 contract address")
 	cmd.Flags().String(FlagErc20Address, DefaultErc20Address, "ERC20 contract address")
+	cmd.Flags().Int64(FlagExtraGwei, 0, "Extra Gwei to add to the gas price for faster confirmation")
 }
 
 func AddCosmosFlags(cmd *cobra.Command) {

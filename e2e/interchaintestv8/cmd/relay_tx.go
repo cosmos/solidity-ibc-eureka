@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 	"os"
 	"strings"
 
@@ -259,8 +260,9 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	if ethPrivateKeyStr == "" {
 		return fmt.Errorf("ETH_PRIVATE_KEY env var not set")
 	}
-
 	ethPrivKey := utils.EthPrivateKeyFromHex(ethPrivateKeyStr)
+
+	extraGwei, _ := cmd.Flags().GetInt64(FlagExtraGwei)
 
 	// set up everything we need to relay
 	ics26Address := ethcommon.HexToAddress(ics26AddressStr)
@@ -289,20 +291,29 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("failed to relayed tx: %w", err)
 	}
 
-	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainIDBigInt, ethPrivKey)
+	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainIDBigInt, ethPrivKey, extraGwei)
 	if IsVerbose(cmd) {
 		fmt.Printf("TransactOpts: %+v\n", txOpts)
 	}
 
-	unsignedTx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
-		ChainID:   ethChainIDBigInt,
-		Nonce:     txOpts.Nonce.Uint64(),
-		GasTipCap: txOpts.GasTipCap,
-		GasFeeCap: txOpts.GasFeeCap,
-		Gas:       15_000_000,
-		To:        &ics26Address,
-		Data:      resp.Tx,
-	})
+	unsignedTx := ethtypes.NewTransaction(
+		txOpts.Nonce.Uint64(),
+		ics26Address,
+		new(big.Int).SetUint64(0),
+		15_000_000,
+		txOpts.GasPrice,
+		resp.Tx,
+	)
+
+	// unsignedTx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
+	// 	ChainID:   ethChainIDBigInt,
+	// 	Nonce:     txOpts.Nonce.Uint64(),
+	// 	GasTipCap: txOpts.GasTipCap,
+	// 	GasFeeCap: txOpts.GasFeeCap,
+	// 	Gas:       15_000_000,
+	// 	To:        &ics26Address,
+	// 	Data:      resp.Tx,
+	// })
 
 	signedTx, err := txOpts.Signer(txOpts.From, unsignedTx)
 	if err != nil {

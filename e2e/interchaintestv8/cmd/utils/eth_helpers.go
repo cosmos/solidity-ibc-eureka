@@ -30,7 +30,7 @@ func EthPrivateKeyFromHex(hexKey string) *ecdsa.PrivateKey {
 	return privateKey
 }
 
-func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *big.Int, key *ecdsa.PrivateKey) *bind.TransactOpts {
+func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *big.Int, key *ecdsa.PrivateKey, extraGwei int64) *bind.TransactOpts {
 	fromAddress := crypto.PubkeyToAddress(key.PublicKey)
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
@@ -38,11 +38,13 @@ func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *
 		panic(err)
 	}
 
+	// Get the suggested gas price from the client.
 	suggestedGasPrice, err := ethClient.SuggestGasPrice(ctx)
 	if err != nil {
 		panic(err)
 	}
-	txOpts.GasPrice = suggestedGasPrice
+
+	txOpts.GasPrice = new(big.Int).Add(suggestedGasPrice, big.NewInt(extraGwei*1000000000)) // Add extra Gwei
 
 	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
@@ -50,18 +52,19 @@ func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *
 	}
 	txOpts.Nonce = big.NewInt(int64(nonce))
 
-	header, err := ethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	// Alternatively, for EIP-1559 transactions:
-	tipCap, err := ethClient.SuggestGasTipCap(ctx)
-	if err != nil {
-		panic(err)
-	}
-	txOpts.GasTipCap = tipCap
-	txOpts.GasFeeCap = new(big.Int).Add(header.BaseFee, tipCap) // baseFee would be fetched from block header
+	// header, err := ethClient.HeaderByNumber(ctx, nil)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//
+	// // For EIP-1559 transactions: double the gas tip and fee cap.
+	// tipCap, err := ethClient.SuggestGasTipCap(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// txOpts.GasTipCap = new(big.Int).Mul(tipCap, big.NewInt(5))
+	// // Compute the gas fee cap by doubling the sum of header.BaseFee and the original tipCap.
+	// txOpts.GasFeeCap = new(big.Int).Mul(new(big.Int).Add(header.BaseFee, tipCap), big.NewInt(5))
 
 	return txOpts
 }

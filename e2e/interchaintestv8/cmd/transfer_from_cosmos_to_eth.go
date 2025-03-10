@@ -110,7 +110,7 @@ func TransferFromCosmos() *cobra.Command {
 				Signer: cosmosAddress.String(),
 			}
 
-			grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
+			grpcConn, err := utils.GetNonTLSGRPC(cosmosGrpcAddress)
 			if err != nil {
 				return err
 			}
