@@ -15,6 +15,7 @@ use tendermint::abci::Event as TmEvent;
 
 use super::cosmos_sdk;
 
+// TODO: Change this to a struct to get the height as not part of the event
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]

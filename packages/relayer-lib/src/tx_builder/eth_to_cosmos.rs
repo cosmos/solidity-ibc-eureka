@@ -13,6 +13,7 @@ use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::light_client_header::{
     LightClientFinalityUpdate, LightClientUpdate,
 };
+use ethereum_types::consensus::slot::compute_slot_at_timestamp;
 use ethereum_types::consensus::sync_committee::SyncCommittee;
 use ethereum_types::{
     consensus::sync_committee::compute_sync_committee_period_at_slot,
@@ -28,7 +29,7 @@ use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use tendermint_rpc::HttpClient;
+use tendermint_rpc::{Client, HttpClient};
 
 use crate::utils::{cosmos, wait_for_condition};
 use crate::{
@@ -98,9 +99,13 @@ impl<P: Provider + Clone> TxBuilder<P> {
         client_id: String,
         revision_height: u64,
     ) -> Result<ConsensusState> {
-        let wasm_consensus_state_any = self
-            .tm_client
-            .consensus_state(client_id, revision_height)
+        // this was needed by the compiler to disambiguate the trait method call
+        let wasm_consensus_state_any =
+            sp1_ics07_tendermint_utils::rpc::TendermintRpcExt::consensus_state(
+                &self.tm_client,
+                client_id,
+                revision_height,
+            )
             .await?;
         let wasm_consensus_state =
             WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())
@@ -398,7 +403,6 @@ where
         }
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
-
         if headers.last().map_or(true, |last_header| {
             last_header.consensus_update.finalized_header.beacon.slot
                 < finality_update.finalized_header.beacon.slot
@@ -474,6 +478,31 @@ where
             messages: all_msgs,
             ..Default::default()
         };
+
+        // Final check to make sure the target chain's calculated slot is greater than our latest
+        // update slot:
+        wait_for_condition(
+            Duration::from_secs(15 * 60),
+            Duration::from_secs(10),
+            || async {
+                let latests_tm_block = self.tm_client.latest_block().await?;
+                let latest_onchain_timestamp =
+                    latests_tm_block.block.header.time.unix_timestamp() + 30;
+                let calculated_slot = compute_slot_at_timestamp(
+                    ethereum_client_state.genesis_time,
+                    ethereum_client_state.seconds_per_slot,
+                    latest_onchain_timestamp.try_into().unwrap(),
+                )
+                .unwrap();
+                tracing::debug!(
+                    "Waiting for target chain to catch up to slot {}",
+                    latest_trusted_slot
+                );
+                Ok(calculated_slot >= latest_trusted_slot)
+            },
+        )
+        .await?;
+
         Ok(tx_body.encode_to_vec())
     }
 }
