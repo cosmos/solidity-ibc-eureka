@@ -16,15 +16,20 @@ abstract contract IBCPausableUpgradeable is
 {
     /// @inheritdoc IIBCPausable
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
     /// @param pauser The address that can pause and unpause the contract
-    function __IBCPausable_init(address pauser) internal onlyInitializing {
+    function __IBCPausable_init(address pauser, address unpauser) internal onlyInitializing {
         __Pausable_init();
         __AccessControl_init();
 
         if (pauser != address(0)) {
             _grantRole(PAUSER_ROLE, pauser);
+        }
+
+        if (unpauser != address(0)) {
+            _grantRole(UNPAUSER_ROLE, unpauser);
         }
     }
 
@@ -34,7 +39,7 @@ abstract contract IBCPausableUpgradeable is
     }
 
     /// @inheritdoc IIBCPausable
-    function unpause() external onlyRole(PAUSER_ROLE) {
+    function unpause() external virtual onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
@@ -50,8 +55,25 @@ abstract contract IBCPausableUpgradeable is
         _revokeRole(PAUSER_ROLE, account);
     }
 
+    /// @inheritdoc IIBCPausable
+    function grantUnpauserRole(address account) external {
+        _authorizeSetUnpauser(account);
+        _grantRole(UNPAUSER_ROLE, account);
+    }
+
+    /// @inheritdoc IIBCPausable
+    function revokeUnpauserRole(address account) external {
+        _authorizeSetUnpauser(account);
+        _revokeRole(UNPAUSER_ROLE, account);
+    }
+
     /// @notice Authorizes the setting of a new pauser
-    /// @param pauser The new address that can pause and unpause the contract
+    /// @param pauser The new address that can pause the contract
     /// @dev This function must be overridden to add authorization logic
     function _authorizeSetPauser(address pauser) internal virtual;
+
+    /// @notice Authorizes the setting of a new unpauser
+    /// @param unpauser The new address that can unpause the contract
+    /// @dev This function must be overridden to add authorization logic
+    function _authorizeSetUnpauser(address unpauser) internal virtual;
 }
