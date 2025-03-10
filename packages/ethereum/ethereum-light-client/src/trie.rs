@@ -50,7 +50,8 @@ mod test {
     };
 
     use crate::{
-        client_state::ClientState, trie::validate_merkle_branch, verify::get_lc_execution_root,
+        client_state::ClientState, sync_protocol_helpers::get_lc_execution_root,
+        trie::validate_merkle_branch,
     };
 
     #[test]
