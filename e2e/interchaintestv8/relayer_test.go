@@ -138,7 +138,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       eth.ChainID.String(),
 				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -154,7 +154,7 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		}))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstUniversalClientID))
+			denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
 
 			ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 			s.Require().NoError(err)
@@ -260,7 +260,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			SrcChain:       simd.Config().ChainID,
 			DstChain:       s.EthChain.ChainID.String(),
 			SourceTxIds:    sendTxHashes,
-			TargetClientId: testvalues.FirstUniversalClientID,
+			TargetClientId: testvalues.CustomClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -280,7 +280,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 					SrcChain:       simd.Config().ChainID,
 					DstChain:       s.EthChain.ChainID.String(),
 					SourceTxIds:    [][]byte{txHash},
-					TargetClientId: testvalues.FirstUniversalClientID,
+					TargetClientId: testvalues.CustomClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -349,7 +349,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		transferMulticall := make([][]byte, numOfTransfers)
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-			SourceClient:     testvalues.FirstUniversalClientID,
+			SourceClient:     testvalues.CustomClientID,
 			Denom:            erc20Address,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
@@ -379,7 +379,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// Get the escrow address
-			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
 			s.Require().NoError(err)
 
 			// ICS20 contract balance on Ethereum
@@ -436,7 +436,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       s.EthChain.ChainID.String(),
 				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -509,7 +509,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 		msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			Denom:            erc20Address,
-			SourceClient:     testvalues.FirstUniversalClientID,
+			SourceClient:     testvalues.CustomClientID,
 			DestPort:         transfertypes.PortID,
 			Amount:           transferAmount,
 			Receiver:         cosmosUserAddress,
@@ -535,7 +535,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
 
 			// Get the escrow address
-			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.FirstUniversalClientID)
+			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
 			s.Require().NoError(err)
 
 			// ICS20 contract balance on Ethereum
@@ -677,7 +677,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 				SrcChain:       simd.Config().ChainID,
 				DstChain:       s.EthChain.ChainID.String(),
 				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.FirstUniversalClientID,
+				TargetClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)

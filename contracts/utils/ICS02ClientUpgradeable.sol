@@ -10,6 +10,7 @@ import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 
 /// @title ICS02 Client contract
 /// @notice This contract implements the ICS02 Client Router interface
@@ -40,12 +41,14 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev The role identifier is driven in _getLightClientMigratorRole
     string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
-    /// @notice Prefix for the client identifiers
-    string private constant CLIENT_ID_PREFIX = "client-";
+    /// @inheritdoc IICS02Client
+    bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
 
-    // no need to run any initialization logic
-    // solhint-disable-next-line no-empty-blocks
-    function __ICS02Client_init() internal onlyInitializing { }
+    function __ICS02Client_init(address customizer) internal onlyInitializing {
+        if (customizer != address(0)) {
+            _grantRole(CLIENT_ID_CUSTOMIZER_ROLE, customizer);
+        }
+    }
 
     /// @inheritdoc IICS02Client
     function getNextClientSeq() external view returns (uint256) {
@@ -57,7 +60,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
         // initial client sequence should be 0, hence we use x++ instead of ++x
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
+        return string.concat(IBCIdentifiers.CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
     /// @inheritdoc IICS02Client
@@ -84,9 +87,42 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         external
         returns (string memory)
     {
-        ICS02ClientStorage storage $ = _getICS02ClientStorage();
-
         string memory clientId = nextClientId();
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
+
+    /// @inheritdoc IICS02Client
+    function addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        onlyRole(CLIENT_ID_CUSTOMIZER_ROLE)
+        returns (string memory)
+    {
+        require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
+        require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
+
+    /// @notice This function adds a client to the client router
+    /// @dev This function assumes that the clientId has already been generated and validated.
+    /// @param clientId The client identifier
+    /// @param counterpartyInfo The counterparty client information
+    /// @param client The address of the client contract
+    function _addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        private
+    {
+        ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        require(address($.clients[clientId]) == address(0), IBCClientAlreadyExists(clientId));
+
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
@@ -94,8 +130,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         bytes32 role = getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
-
-        return clientId;
     }
 
     /// @inheritdoc IICS02Client
@@ -154,10 +188,26 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         _revokeRole(getLightClientMigratorRole(clientId), account);
     }
 
+    /// @inheritdoc IICS02Client
+    function grantClientIdCustomizerRole(address account) external {
+        _authorizeSetClientIdCustomizerRole(account);
+        _grantRole(CLIENT_ID_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS02Client
+    function revokeClientIdCustomizerRole(address account) external {
+        _authorizeSetClientIdCustomizerRole(account);
+        _revokeRole(CLIENT_ID_CUSTOMIZER_ROLE, account);
+    }
+
     /// @notice Authorizes the granting or revoking of the light client migrator role
     /// @param clientId The client identifier
     /// @param account The account to authorize
     function _authorizeSetLightClientMigratorRole(string calldata clientId, address account) internal virtual;
+
+    /// @notice Authorizes the granting of the client id customizer role
+    /// @param account The account to authorize
+    function _authorizeSetClientIdCustomizerRole(address account) internal virtual;
 
     /// @notice Returns the storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
