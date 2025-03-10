@@ -45,16 +45,17 @@ pub struct ForkParameters {
     pub capella: Fork,
     /// The deneb fork
     pub deneb: Fork,
+    /// The electra fork
+    pub electra: Fork,
 }
 
 impl ForkParameters {
     /// Returns the fork version based on the `epoch`.
-    /// NOTE: This implementation is based on capella.
-    ///
     /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/fork.md#modified-compute_fork_version)
     #[must_use]
     pub const fn compute_fork_version(&self, epoch: u64) -> Version {
         match epoch {
+            _ if epoch >= self.electra.epoch => self.electra.version,
             _ if epoch >= self.deneb.epoch => self.deneb.version,
             _ if epoch >= self.capella.epoch => self.capella.version,
             _ if epoch >= self.bellatrix.epoch => self.bellatrix.version,

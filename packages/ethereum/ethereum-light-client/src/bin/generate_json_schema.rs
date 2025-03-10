@@ -6,7 +6,7 @@ use ethereum_light_client::{
 
 #[cfg(feature = "test-utils")]
 use ethereum_light_client::test_utils::fixtures::{
-    CommitmentProof, InitialState, Step, StepsFixture, UpdateClient,
+    InitialState, RelayerMessages, Step, StepsFixture,
 };
 
 use ethereum_types::execution::storage_proof::StorageProof;
@@ -31,8 +31,7 @@ struct TestFixtures {
     steps_fixture: StepsFixture,
     step: Step,
     initial_state: InitialState,
-    commitment_proof: CommitmentProof,
-    update_client: UpdateClient,
+    relayer_messages: RelayerMessages,
 }
 
 fn main() {

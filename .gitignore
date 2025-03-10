@@ -22,6 +22,7 @@ broadcast/*/31337/
 # ide files
 .idea/
 *.iml
+CLAUDE.md
 
 # Rust
 target
@@ -32,3 +33,4 @@ bacon.toml
 # Config files and test artifacts
 programs/relayer/config.json
 scripts/genesis.json
+network_params.yaml
