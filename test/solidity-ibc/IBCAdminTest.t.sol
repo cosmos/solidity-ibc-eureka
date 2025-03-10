@@ -31,6 +31,7 @@ contract IBCAdminTest is Test {
     address public clientCreator = makeAddr("clientCreator");
     address public customizer = makeAddr("customizer");
     address public ics20Pauser = makeAddr("ics20Pauser");
+    address public ics20Unpauser = makeAddr("ics20Unpauser");
 
     string public clientId;
     string public counterpartyId = "42-dummy-01";
@@ -52,7 +53,8 @@ contract IBCAdminTest is Test {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, address(0))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, ics20Unpauser, address(0))
             )
         );
 
@@ -272,7 +274,7 @@ contract IBCAdminTest is Test {
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         ics20Transfer.sendTransfer(sendMsg);
 
-        vm.prank(ics20Pauser);
+        vm.prank(ics20Unpauser);
         ics20Transfer.unpause();
         assert(!ics20Transfer.paused());
     }
@@ -292,9 +294,18 @@ contract IBCAdminTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.UNPAUSER_ROLE()
             )
         );
+        ics20Transfer.unpause();
+        assert(ics20Transfer.paused());
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, ics20Pauser, ics20Transfer.UNPAUSER_ROLE()
+            )
+        );
+        vm.prank(ics20Pauser);
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
     }

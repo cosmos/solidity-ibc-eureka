@@ -103,6 +103,7 @@ abstract contract Deployments {
 
         // admin control
         address pauser;
+        address unpauser;
         address permit2;
         address proxy;
     }
@@ -122,6 +123,7 @@ abstract contract Deployments {
             ics26Router: vm.parseJsonAddress(json, ".ics20Transfer.ics26Router"),
             implementation: vm.parseJsonAddress(json, ".ics20Transfer.implementation"),
             pauser: vm.parseJsonAddress(json, ".ics20Transfer.pauser"),
+            unpauser: vm.parseJsonAddress(json, ".ics20Transfer.unpauser"),
             permit2: vm.parseJsonAddress(json, ".ics20Transfer.permit2"),
             proxy: vm.parseJsonAddress(json, ".ics20Transfer.proxy")
         });

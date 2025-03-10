@@ -307,7 +307,8 @@ The IBC contracts use `AccessControl` to manage roles and permissions and allow 
 
 | **Role Name** | **Contract** | **Default** | **Description** |
 |:---:|:---:|:---:|:---:|
-| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause/unpause the contract. |
+| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause the contract. |
+| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can unpause the contract. |
 | `RATE_LIMITER_ROLE` | `Escrow.sol` | `address(0)` | Can set withdrawal rate limits per `ERC20` token. |
 | `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Can migrate the light client identified by `client_id`. |
 
