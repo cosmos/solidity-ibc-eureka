@@ -24,12 +24,12 @@ import (
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet, ibcContractAddress string, rustFixtureGenerator *types.RustFixtureGenerator) {
+func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet, ibcContractAddress string, wasmFixtureGenerator *types.WasmFixtureGenerator) {
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
 		s.createDummyLightClient(ctx, cosmosChain, simdRelayerUser)
 	case testvalues.EthTestnetTypePoS:
-		s.createEthereumLightClient(ctx, cosmosChain, simdRelayerUser, ibcContractAddress, rustFixtureGenerator)
+		s.createEthereumLightClient(ctx, cosmosChain, simdRelayerUser, ibcContractAddress, wasmFixtureGenerator)
 	default:
 		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
@@ -40,7 +40,7 @@ func (s *TestSuite) createEthereumLightClient(
 	cosmosChain *cosmos.CosmosChain,
 	simdRelayerUser ibc.Wallet,
 	ibcContractAddress string,
-	rustFixtureGenerator *types.RustFixtureGenerator,
+	wasmFixtureGenerator *types.WasmFixtureGenerator,
 ) {
 	eth := s.EthChain
 
@@ -137,8 +137,8 @@ func (s *TestSuite) createEthereumLightClient(
 	s.Require().NoError(err)
 	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
 
-	if rustFixtureGenerator != nil {
-		rustFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
+	if wasmFixtureGenerator != nil {
+		wasmFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
 			ClientState:    ethClientState,
 			ConsensusState: ethConsensusState,
 		})

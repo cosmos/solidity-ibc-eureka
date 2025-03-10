@@ -12,15 +12,15 @@ import (
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-type RustFixtureGenerator struct {
+type WasmFixtureGenerator struct {
 	shouldGenerateFixture bool
 	fixture               ethereumtypes.StepsFixture
 }
 
-// NewRustFixtureGenerator creates a new RustFixtureGenerator
+// NewWasmFixtureGenerator creates a new WasmFixtureGenerator
 // If shouldGenerateFixture is false, the generator will not generate any fixtures
-func NewRustFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *RustFixtureGenerator {
-	rustFixtureGenerator := &RustFixtureGenerator{
+func NewWasmFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *WasmFixtureGenerator {
+	wasmFixtureGenerator := &WasmFixtureGenerator{
 		shouldGenerateFixture: shouldGenerateFixture,
 	}
 
@@ -28,17 +28,17 @@ func NewRustFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *RustFi
 	if shouldGenerateFixture {
 		s.T().Cleanup(func() {
 			s.T().Logf("Writing fixtures for %s", fixtureName)
-			if err := rustFixtureGenerator.writeFixtures(fixtureName); err != nil {
+			if err := wasmFixtureGenerator.writeFixtures(fixtureName); err != nil {
 				s.T().Logf("Error writing fixtures: %v", err)
 			}
 		})
 	}
 
-	return rustFixtureGenerator
+	return wasmFixtureGenerator
 }
 
-// GenerateRustFixture generates a fixture by json marshalling jsonMarshalble and saves it to a file
-func (g *RustFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble interface{}) {
+// AddFixtureStep adds a new fixture step that will be written to the fixture file at the end of the test
+func (g *WasmFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble interface{}) {
 	if !g.shouldGenerateFixture {
 		return
 	}
@@ -49,16 +49,16 @@ func (g *RustFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble in
 	})
 }
 
-func (g *RustFixtureGenerator) ShouldGenerateFixture() bool {
+func (g *WasmFixtureGenerator) ShouldGenerateFixture() bool {
 	return g.shouldGenerateFixture
 }
 
-func (g *RustFixtureGenerator) writeFixtures(fixtureName string) error {
+func (g *WasmFixtureGenerator) writeFixtures(fixtureName string) error {
 	if !g.shouldGenerateFixture {
 		return nil
 	}
 
-	filePath := fmt.Sprintf("%s/%s.json", testvalues.RustFixturesDir, fixtureName)
+	filePath := fmt.Sprintf("%s/%s.json", testvalues.WasmFixturesDir, fixtureName)
 
 	fmt.Printf("Writing %d fixtures to %s\n", len(g.fixture.Steps), filePath)
 	fixturesBz, err := json.MarshalIndent(g.fixture, "", " ")
