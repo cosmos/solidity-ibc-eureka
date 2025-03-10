@@ -79,7 +79,7 @@ const (
 	// RustFixturesDir is the directory where the Rust fixtures are stored.
 	RustFixturesDir = "packages/ethereum-light-client/src/test_utils/fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
-	RelayerConfigFilePath = "programs/relayer/config.json"
+	RelayerConfigFilePath = "programs/relayer/config.toml"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
 	// SP1ICS07DeployScriptPath is the path to the SP1ICS07 deploy script.

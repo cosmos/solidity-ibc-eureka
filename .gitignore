@@ -30,5 +30,5 @@ bacon.toml
 .bacon-locations
 
 # Config files and test artifacts
-programs/relayer/config.json
+programs/relayer/config.toml
 scripts/genesis.json
