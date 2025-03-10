@@ -42,7 +42,7 @@ pub struct TrustedConsensusState {
     /// This sync committee can either be the current sync committee or the next sync
     /// committee. That's because the verifier uses next or current sync committee's
     /// public keys to verify the signature against.
-    pub sync_committee: ActiveSyncCommittee,
+    sync_committee: ActiveSyncCommittee,
 }
 
 impl TrustedConsensusState {
