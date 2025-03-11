@@ -310,7 +310,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .sync_aggregate
         .sync_committee_bits
         .iter()
-        .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
+        .flat_map(|byte| (0..8).map(move |i| (byte & (1 << i)) != 0))
         .zip(sync_committee.pubkeys.iter())
         .filter_map(|(included, pubkey)| included.then_some(*pubkey))
         .collect::<Vec<_>>();
