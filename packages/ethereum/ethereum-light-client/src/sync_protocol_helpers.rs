@@ -5,7 +5,8 @@ use ethereum_types::consensus::{
     light_client_header::LightClientHeader,
     merkle::{
         get_subtree_index, CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA, EXECUTION_BRANCH_DEPTH,
-        EXECUTION_PAYLOAD_INDEX, FINALIZED_ROOT_GINDEX_ELECTRA, NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
+        EXECUTION_PAYLOAD_GINDEX, FINALIZED_ROOT_GINDEX_ELECTRA,
+        NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
     },
     slot::compute_epoch_at_slot,
 };
@@ -27,7 +28,7 @@ pub const fn finalized_root_gindex_at_slot(
     // We only support electra fork
     ensure!(
         epoch >= client_state.fork_parameters.electra.epoch,
-        EthereumIBCError::UnsupportedForkVersion
+        EthereumIBCError::MustBeElectra
     );
 
     Ok(FINALIZED_ROOT_GINDEX_ELECTRA)
@@ -47,7 +48,7 @@ pub const fn current_sync_committee_gindex_at_slot(
     // We only support electra fork
     ensure!(
         epoch >= client_state.fork_parameters.electra.epoch,
-        EthereumIBCError::UnsupportedForkVersion
+        EthereumIBCError::MustBeElectra
     );
 
     Ok(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA)
@@ -67,7 +68,7 @@ pub const fn next_sync_committee_gindex_at_slot(
     // We only support electra fork
     ensure!(
         epoch >= client_state.fork_parameters.electra.epoch,
-        EthereumIBCError::UnsupportedForkVersion
+        EthereumIBCError::MustBeElectra
     );
 
     Ok(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA)
@@ -87,7 +88,7 @@ pub fn get_lc_execution_root(
     // We only support electra fork
     ensure!(
         epoch >= client_state.fork_parameters.electra.epoch,
-        EthereumIBCError::UnsupportedForkVersion
+        EthereumIBCError::MustBeElectra
     );
 
     Ok(header.execution.tree_hash_root())
@@ -107,7 +108,7 @@ pub fn is_valid_light_client_header(
     // We only support electra fork
     ensure!(
         epoch >= client_state.fork_parameters.electra.epoch,
-        EthereumIBCError::UnsupportedForkVersion
+        EthereumIBCError::MustBeElectra
     );
 
     // This is required after deneb
@@ -120,7 +121,7 @@ pub fn is_valid_light_client_header(
         get_lc_execution_root(client_state, header)?,
         header.execution_branch.into(),
         EXECUTION_BRANCH_DEPTH,
-        get_subtree_index(EXECUTION_PAYLOAD_INDEX),
+        get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
         header.beacon.body_root,
     )
 }

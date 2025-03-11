@@ -28,7 +28,7 @@ pub enum EthereumIBCError {
     InsufficientSyncCommitteeParticipants(u64),
 
     #[error("unsupported fork version, we only support electra")]
-    UnsupportedForkVersion,
+    MustBeElectra,
 
     #[error(
         "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
