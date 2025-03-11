@@ -31,7 +31,7 @@ pub fn update_client(
     let options = Options {
         trust_threshold: client_state.trustLevel.clone().into(),
         trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
-        clock_drift: Duration::default(),
+        clock_drift: Duration::from_secs(15),
     };
 
     let mut ctx = types::validation::ClientValidationCtx::new(time);
