@@ -1,9 +1,8 @@
 //! This module provides [`verify_membership`] function to verify the membership of a key in the
 //! storage trie.
 
-use alloy_primitives::{keccak256, Bytes, Keccak256, U256};
-use alloy_rlp::encode_fixed_size;
-use alloy_trie::{proof::verify_proof, Nibbles};
+use alloy_primitives::{keccak256, Keccak256, U256};
+use ethereum_trie_db::trie_db::{verify_storage_exclusion_proof, verify_storage_inclusion_proof};
 use ethereum_types::execution::storage_proof::StorageProof;
 
 use crate::{client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError};
@@ -30,29 +29,39 @@ pub fn verify_membership(
         storage_proof.key.into(),
     )?;
 
-    let value = match raw_value {
-        Some(unwrapped_raw_value) => {
-            let proof_value = storage_proof.value.to_be_bytes_vec();
-            if proof_value != unwrapped_raw_value {
-                return Err(EthereumIBCError::StoredValueMistmatch {
-                    expected: unwrapped_raw_value,
-                    actual: proof_value,
-                });
+    if let Some(unwrapped_raw_value) = raw_value {
+        let proof_value = storage_proof.value.to_be_bytes_vec();
+        ensure!(
+            proof_value == unwrapped_raw_value,
+            EthereumIBCError::StoredValueMistmatch {
+                expected: unwrapped_raw_value,
+                actual: proof_value,
             }
-            Some(encode_fixed_size(&storage_proof.value).to_vec())
-        }
-        None => None,
-    };
+        );
 
-    let proof: Vec<&Bytes> = storage_proof.proof.iter().collect();
+        verify_storage_inclusion_proof(
+            &trusted_consensus_state.storage_root,
+            &storage_proof.key,
+            &proof_value,
+            storage_proof.proof.iter(),
+        )
+        .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
+    } else {
+        ensure!(
+            storage_proof.value.is_zero(),
+            EthereumIBCError::StoredValueMistmatch {
+                expected: vec![0],
+                actual: storage_proof.value.to_be_bytes_vec(),
+            }
+        );
 
-    verify_proof::<Vec<&Bytes>>(
-        trusted_consensus_state.storage_root,
-        Nibbles::unpack(keccak256(storage_proof.key)),
-        value,
-        proof,
-    )
-    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
+        verify_storage_exclusion_proof(
+            &trusted_consensus_state.storage_root,
+            &storage_proof.key,
+            storage_proof.proof.iter(),
+        )
+        .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
+    }
 }
 
 fn check_commitment_key(

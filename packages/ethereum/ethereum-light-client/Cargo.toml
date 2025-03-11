@@ -16,8 +16,6 @@ ethereum-trie-db = { workspace = true }
 ethereum-types = { workspace = true }
 
 alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }
-alloy-trie = { workspace = true }
-alloy-rlp = { workspace = true, features = ["arrayvec"] }
 tree_hash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

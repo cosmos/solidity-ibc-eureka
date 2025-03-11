@@ -37,12 +37,12 @@ pub struct Account {
 /// # Errors
 /// Returns an error if the verification fails.
 pub fn verify_storage_inclusion_proof(
-    root: H256,
-    key: U256,
+    root: &[u8; 32],
+    key: &[u8; 32],
     expected_value: &[u8],
     proof: impl IntoIterator<Item = impl AsRef<[u8]>>,
 ) -> Result<(), TrieDBError> {
-    match get_node(root, key.to_big_endian(), proof)? {
+    match get_node(H256(*root), key, proof)? {
         Some(value) if value == expected_value => Ok(()),
         Some(value) => Err(TrieDBError::ValueMismatch {
             expected: expected_value.into(),
@@ -65,11 +65,14 @@ pub fn verify_storage_inclusion_proof(
 /// # Errors
 /// Returns an error if the verification fails.
 pub fn verify_storage_exclusion_proof(
-    root: H256,
-    key: U256,
+    root: &[u8; 32],
+    key: &[u8; 32],
     proof: impl IntoIterator<Item = impl AsRef<[u8]>>,
-) -> Result<bool, TrieDBError> {
-    Ok(get_node(root, key.to_big_endian(), proof)?.is_none())
+) -> Result<(), TrieDBError> {
+    match get_node(H256(*root), key, proof)? {
+        Some(value) => Err(TrieDBError::ValueShouldBeMissing { value })?,
+        None => Ok(()),
+    }
 }
 
 /// Verifies if the `storage_root` of a contract can be verified against the state `root`.
