@@ -1316,3 +1316,157 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		}))
 	}))
 }
+
+func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
+	ctx := context.Background()
+	prootType := operator.ProofTypeGroth16
+
+	s.SetupSuite(ctx, prootType)
+
+	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
+	simdAUser := s.CosmosUsers[0]
+	simdBUser := s.CosmosUsers[1]
+	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+
+	var simdASendTxHash []byte
+	s.Require().True(s.Run("Send from SimdA to SimdB", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		transferPayload := transfertypes.FungibleTokenPacketData{
+			Denom:    transferCoin.Denom,
+			Amount:   transferCoin.Amount.String(),
+			Sender:   simdAUser.FormattedAddress(),
+			Receiver: simdBUser.FormattedAddress(),
+			Memo:     "",
+		}
+
+		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingABI,
+			Value:           encodedPayload,
+		}
+
+		resp, err := s.BroadcastMessages(ctx, simdA, simdAUser, 2_000_000, &channeltypesv2.MsgSendPacket{
+			SourceClient:     ibctesting.FirstClientID,
+			TimeoutTimestamp: timeout,
+			Payloads:         []channeltypesv2.Payload{payload},
+			Signer:           simdAUser.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		simdASendTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+	}))
+
+	denomOnSimdB := transfertypes.NewDenom(
+		transferCoin.Denom,
+		transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID),
+	)
+	s.Require().True(s.Run("Receive packet on SimdB", func() {
+		var txBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simdA.Config().ChainID,
+				DstChain:       simdB.Config().ChainID,
+				SourceTxIds:    [][]byte{simdASendTxHash},
+				TargetClientId: ibctesting.FirstClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			txBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
+			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
+		}))
+
+		s.Require().True(s.Run("Verify balances on SimdB", func() {
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simdB, &banktypes.QueryBalanceRequest{
+				Address: simdBUser.FormattedAddress(),
+				Denom:   denomOnSimdB.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(denomOnSimdB.IBCDenom(), resp.Balance.Denom)
+		}))
+	}))
+
+	var simdBTransferTxHash []byte
+	s.Require().True(s.Run("Transfer tokens from SimdB to Eth", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		transferCoin := sdk.NewCoin(denomOnSimdB.IBCDenom(), sdkmath.NewIntFromBigInt(transferAmount))
+		transferPayload := transfertypes.FungibleTokenPacketData{
+			Denom:    transferCoin.Denom,
+			Amount:   transferCoin.Amount.String(),
+			Sender:   simdBUser.FormattedAddress(),
+			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
+			Memo:     "",
+		}
+		encodedPayload, err := transfertypes.EncodeABIFungibleTokenPacketData(&transferPayload)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingABI,
+			Value:           encodedPayload,
+		}
+		msgSendPacket := &channeltypesv2.MsgSendPacket{
+			SourceClient:     testvalues.FirstWasmClientID,
+			TimeoutTimestamp: timeout,
+			Payloads:         []channeltypesv2.Payload{payload},
+			Signer:           simdBUser.FormattedAddress(),
+		}
+		
+		resp, err := s.BroadcastMessages(ctx, simdB, simdBUser, 2_000_000, msgSendPacket)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		simdBTransferTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Receive packet on Ethereum", func() {
+		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       simdB.Config().ChainID,
+				DstChain:       eth.ChainID.String(),
+				SourceTxIds:    [][]byte{simdBTransferTxHash},
+				TargetClientId: testvalues.FirstUniversalClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(ics26Address.String(), resp.Address)
+
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, relayTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+		}))
+
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
+		}))
+	}))
+}
