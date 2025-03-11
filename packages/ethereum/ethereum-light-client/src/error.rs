@@ -104,6 +104,20 @@ pub enum EthereumIBCError {
     },
 
     #[error(
+        "current sync committee ({found}) does not match with the one in the current state ({expected})"
+    )]
+    CurrenttSyncCommitteeMismatch {
+        expected: BlsPublicKey,
+        found: BlsPublicKey,
+    },
+
+    #[error("aggregate public key mismatch: expected {expected} but found {found}")]
+    AggregatePubkeyMismatch {
+        expected: BlsPublicKey,
+        found: BlsPublicKey,
+    },
+
+    #[error(
         "expected current sync committee to be provided since `update_period == current_period`"
     )]
     ExpectedCurrentSyncCommittee,
@@ -111,8 +125,14 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be provided since `update_period > current_period`")]
     ExpectedNextSyncCommittee,
 
+    #[error("expected next sync committee to be known and stored in state")]
+    NextSyncCommitteeUnknown,
+
     #[error("fast aggregate verify error: {0}")]
-    FastAggregateVerify(String),
+    FastAggregateVerifyError(String),
+
+    #[error("bls aggregate error: {0}")]
+    BlsAggregateError(String),
 
     #[error("not enough signatures")]
     NotEnoughSignatures,

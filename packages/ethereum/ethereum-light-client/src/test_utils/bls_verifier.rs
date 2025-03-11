@@ -51,7 +51,7 @@ pub fn fast_aggregate_verify(
 /// Returns an error if the signature is invalid
 /// # Returns
 /// Returns the aggregated public key
-pub fn aggreagate(public_keys: &[&BlsPublicKey]) -> Result<BlsPublicKey, BlsError> {
+pub fn aggreagate(public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, BlsError> {
     let public_keys = public_keys
         .iter()
         .map(|pk| milagro_bls::PublicKey::from_bytes(pk.as_ref()))
