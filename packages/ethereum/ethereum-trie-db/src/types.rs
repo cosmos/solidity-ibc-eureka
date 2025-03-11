@@ -196,7 +196,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
     }
 
     fn leaf_node(_: impl Iterator<Item = u8>, _: usize, _: Value) -> Vec<u8> {
-        unreachable!("we don't encode leaf nodes");
+        unreachable!("Encoding leaf nodes is not needed for proof verification.");
     }
 
     fn extension_node(
@@ -204,14 +204,14 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
         _: usize,
         _: ChildReference<<KeccakHasher as Hasher>::Out>,
     ) -> Vec<u8> {
-        unreachable!("we don't encode extension nodes");
+        unreachable!("Encoding extension nodes is not needed for proof verification.");
     }
 
     fn branch_node(
         _: impl Iterator<Item = impl Borrow<Option<ChildReference<<KeccakHasher as Hasher>::Out>>>>,
         _: Option<Value>,
     ) -> Vec<u8> {
-        unreachable!("we don't encode branch nodes");
+        unreachable!("Encoding branch nodes is not needed for proof verification.");
     }
 
     fn branch_node_nibbled(
@@ -222,6 +222,8 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
         >,
         _maybe_value: Option<Value>,
     ) -> Vec<u8> {
-        unreachable!("This codec is only used with a trie Layout that uses extension node.")
+        unreachable!(
+            "This codec is only used with a trie Layout that does not use extension nodes."
+        )
     }
 }
