@@ -21,8 +21,9 @@
 6. The signers should independently verify that the Light Client parameters are correct on-chain
     - This can be done by running `DEPLOYMENT_ENV=mainnet-prod forge script scripts/deployments/DeploySP1TendermintLightClient.sol --rpc-url <RPC>`. If the script runs successfully and the parameters are in the `deployments/mainnet-prod/<chain_id>.json` file, this means that the parameters are correct.
 7. The facilitator submits a transaction proposal to the Gnosis Safe.
-    - The transaction proposal should contain a transaction to the `TimelockController` calling `schedule(ICS26RouterAddress, 0, migrateClient(oldClient, newClientId), 0, 0, 259200)`
+    - The transaction proposal should contain a transaction to the `TimelockController` calling `schedule(ICS26RouterAddress, 0, migrateClient(oldClientId, newClientId), 0, 0, 259200)`
     - The `ICS26Router` can be verified in the deployment JSON files, as it should be calling the canonical one.
+    - The calldata to the timelock (field in the schedule call) can be verified by running `cast decode-calldata "migrateClient(string calldata,string calldata)" <calldata>`
 8. The signers independently verify that the transaction contents contain the expected call
 9.  The facilitator collects signatures from the signers on Gnosis Safe
     - ** (!!) The signers should verify the Tenderly simulation from the Gnosis Safe UI. They should make sure that the domainHash matches what they are seeing in the blind-signing window on their hardware wallet**

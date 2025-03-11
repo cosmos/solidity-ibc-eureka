@@ -18,6 +18,7 @@
     - The transaction proposal should contain a transaction to the `TimelockController` calling `schedule(ICS20TransferAddress, 0, upgradeIBCERC20To(newIBCERC20Address), 0, 0, 259200)`
     - The `ICS20Transfer` can be verified in the deployment JSON files, as it should be calling the canonical one.
     - The `TimelockController` address can be verified by looking at the canonical deployment file (`timelockAdmin` field in `ICS26Router`)
+    - The calldata to the timelock (field in the schedule call) can be verified by running `cast decode-calldata "upgradeIBCERC20To(address)" <calldata>`
 5. The signers independently verify that the transaction contents contain the expected call
 6.  The facilitator collects signatures from the signers on Gnosis Safe
     - ** (!!) The signers should verify the Tenderly simulation from the Gnosis Safe UI. They should make sure that the domainHash matches what they are seeing in the blind-signing window on their hardware wallet**
