@@ -6,21 +6,15 @@
 |-------------|--------|
 | Facilitator |        |
 | Notekeeper  |        |
-| Signers     |        |
 
 ### Runbook
 
 1. Create an operations report (copy of this document) in docs/security/operations 
+2. Call the script `DEPLOYMENT_ENV=<env> FOUNDRY_ETH_RPC_URL=<rpc> forge script scripts/deployments/PauseTransfers.sol -vvvvv --broadcast --ledger`
+3. Call it again without the `broadcast` flag to verify that the transfers are successfully paused
 
 ### Checklist
 
-- [ ] The facilitator has determined the correct parameters for the new light client
-- [ ] The facilitator has created a pull request to add the new light client
-- [ ] The signers have independently verified that the new light client parameters are correct
-- [ ] The facilitator has merged the pull request and the new light client has been deployed on-chain
-- [ ] The signers and facilitator have independently verified that the new light client parameters are correct on-chain
-- [ ] The facilitator has submitted a time-locked transaction proposal to the Gnosis Safe to migrate light clients
-- [ ] The signers have independently verified that the transaction proposal is correct
-- [ ] The signers have signed the transaction proposal for the time-lock
-- [ ] The facilitator has executed the transaction proposal for the time-lock
-- [ ] The facilitator has executed the transaction on-chain
+- [ ] The pauser has successfully broadcasted a pause transaction
+- [ ] The pauser has successfully notified the council that transfers are paused and has called a security incident
+- [ ] The pauser has successfully verified that transfers are paused
