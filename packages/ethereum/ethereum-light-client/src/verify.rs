@@ -40,6 +40,11 @@ pub trait BlsVerify {
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error>;
+
+    /// Aggregate public keys.
+    /// # Errors
+    /// Returns an error if the public keys cannot be aggregated.
+    fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, Self::Error>;
 }
 
 /// Verifies the header of the light client.
@@ -53,10 +58,11 @@ pub fn verify_header<V: BlsVerify>(
     header: &Header,
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
-    let trusted_consensus_state = TrustedConsensusState {
-        state: consensus_state.clone(),
-        sync_committee: header.trusted_sync_committee.sync_committee.clone(),
-    };
+    let trusted_consensus_state = TrustedConsensusState::new(
+        consensus_state.clone(),
+        header.trusted_sync_committee.sync_committee.clone(),
+        &bls_verifier,
+    )?;
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
     let current_slot = compute_slot_at_timestamp(
@@ -318,7 +324,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
             signing_root,
             update.sync_aggregate.sync_committee_signature,
         )
-        .map_err(|err| EthereumIBCError::FastAggregateVerify(err.to_string()))?;
+        .map_err(|err| EthereumIBCError::FastAggregateVerifyError(err.to_string()))?;
 
     Ok(())
 }
@@ -375,7 +381,7 @@ pub fn get_lc_execution_root(
 #[cfg(test)]
 mod test {
     use crate::test_utils::{
-        bls_verifier::{fast_aggregate_verify, BlsError},
+        bls_verifier::{aggreagate, fast_aggregate_verify, BlsError},
         fixtures::{self, InitialState, UpdateClient},
     };
 
@@ -393,6 +399,10 @@ mod test {
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
             fast_aggregate_verify(public_keys, msg, signature)
+        }
+
+        fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, BlsError> {
+            aggreagate(public_keys)
         }
     }
 
