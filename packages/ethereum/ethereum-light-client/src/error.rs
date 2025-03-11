@@ -128,6 +128,9 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be known and stored in state")]
     NextSyncCommitteeUnknown,
 
+    #[error("aggregate verify error: {0}")]
+    AggregateVerifyError(String),
+
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerifyError(String),
 
