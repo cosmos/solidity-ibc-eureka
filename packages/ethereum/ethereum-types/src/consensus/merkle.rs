@@ -11,12 +11,12 @@ pub const CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA: u64 = 86;
 /// `get_generalized_index(BeaconState, "next_sync_committee")`
 pub const NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA: u64 = 87;
 /// `get_generalized_index(BeaconBlockBody, "execution_payload")`
-pub const EXECUTION_PAYLOAD_INDEX: u64 = 25;
+pub const EXECUTION_PAYLOAD_GINDEX: u64 = 25;
 
 // Branch depths for different merkle trees related to ethereum consensus
 
 /// The depth of the merkle tree for execution payloads.
-pub const EXECUTION_BRANCH_DEPTH: usize = floorlog2(EXECUTION_PAYLOAD_INDEX);
+pub const EXECUTION_BRANCH_DEPTH: usize = floorlog2(EXECUTION_PAYLOAD_GINDEX);
 /// The depth of the merkle tree for the current sync committee.
 pub const CURRENT_SYNC_COMMITTEE_BRANCH_DEPTH: usize =
     floorlog2(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA);

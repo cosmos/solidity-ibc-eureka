@@ -6,12 +6,8 @@ use ethereum_trie_db::trie_db::verify_account_storage_root;
 use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
-    light_client_header::{LightClientHeader, LightClientUpdate},
-    merkle::{
-        get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
-        FINALIZED_ROOT_GINDEX_ELECTRA, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-        NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
-    },
+    light_client_header::LightClientUpdate,
+    merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
     sync_committee::compute_sync_committee_period_at_slot,
@@ -23,6 +19,10 @@ use crate::{
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
     header::Header,
+    sync_protocol_helpers::{
+        finalized_root_gindex_at_slot, is_valid_light_client_header,
+        next_sync_committee_gindex_at_slot,
+    },
     trie::validate_merkle_branch,
 };
 
@@ -41,6 +41,11 @@ pub trait BlsVerify {
         msg: B256,
         signature: BlsSignature,
     ) -> Result<(), Self::Error>;
+
+    /// Aggregate public keys.
+    /// # Errors
+    /// Returns an error if the public keys cannot be aggregated.
+    fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, Self::Error>;
 }
 
 /// Verifies the header of the light client.
@@ -54,10 +59,11 @@ pub fn verify_header<V: BlsVerify>(
     header: &Header,
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
-    let trusted_consensus_state = TrustedConsensusState {
-        state: consensus_state.clone(),
-        sync_committee: header.trusted_sync_committee.sync_committee.clone(),
-    };
+    let trusted_consensus_state = TrustedConsensusState::new(
+        consensus_state.clone(),
+        header.trusted_sync_committee.sync_committee.clone(),
+        &bls_verifier,
+    )?;
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
     let current_slot = compute_slot_at_timestamp(
@@ -249,7 +255,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
         finalized_root,
         update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
-        get_subtree_index(FINALIZED_ROOT_GINDEX_ELECTRA),
+        get_subtree_index(finalized_root_gindex_at_slot(
+            client_state,
+            update.finalized_header.beacon.slot,
+        )?),
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -274,7 +283,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
             next_sync_committee.tree_hash_root(),
             update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
+            get_subtree_index(next_sync_committee_gindex_at_slot(
+                client_state,
+                update.finalized_header.beacon.slot,
+            )?),
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
@@ -324,58 +336,9 @@ pub fn validate_light_client_update<V: BlsVerify>(
             signing_root,
             update.sync_aggregate.sync_committee_signature,
         )
-        .map_err(|err| EthereumIBCError::FastAggregateVerify(err.to_string()))?;
+        .map_err(|err| EthereumIBCError::FastAggregateVerifyError(err.to_string()))?;
 
     Ok(())
-}
-
-/// Validates a light client header.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header)
-/// # Errors
-/// Returns an error if the header cannot be validated.
-pub fn is_valid_light_client_header(
-    client_state: &ClientState,
-    header: &LightClientHeader,
-) -> Result<(), EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
-
-    if epoch < client_state.fork_parameters.deneb.epoch {
-        ensure!(
-            header.execution.blob_gas_used == 0 && header.execution.excess_blob_gas == 0,
-            EthereumIBCError::MustBeDeneb
-        );
-    }
-
-    ensure!(
-        epoch >= client_state.fork_parameters.capella.epoch,
-        EthereumIBCError::InvalidChainVersion
-    );
-
-    validate_merkle_branch(
-        get_lc_execution_root(client_state, header)?,
-        header.execution_branch.into(),
-        EXECUTION_BRANCH_DEPTH,
-        get_subtree_index(EXECUTION_PAYLOAD_INDEX),
-        header.beacon.body_root,
-    )
-}
-
-/// Returns the execution root of the light client header.
-/// # Errors
-/// Returns an error if the epoch is less than the Deneb epoch.
-pub fn get_lc_execution_root(
-    client_state: &ClientState,
-    header: &LightClientHeader,
-) -> Result<B256, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
-
-    ensure!(
-        epoch >= client_state.fork_parameters.deneb.epoch,
-        EthereumIBCError::MustBeDeneb
-    );
-
-    Ok(header.execution.tree_hash_root())
 }
 
 #[cfg(test)]
@@ -384,7 +347,7 @@ mod test {
     use prost::Message;
 
     use crate::test_utils::{
-        bls_verifier::{fast_aggregate_verify, BlsError},
+        bls_verifier::{aggreagate, fast_aggregate_verify, BlsError},
         fixtures::{self, InitialState, RelayerMessages},
     };
 
@@ -402,6 +365,10 @@ mod test {
             signature: BlsSignature,
         ) -> Result<(), BlsError> {
             fast_aggregate_verify(public_keys, msg, signature)
+        }
+
+        fn aggregate(&self, public_keys: &[BlsPublicKey]) -> Result<BlsPublicKey, BlsError> {
+            aggreagate(public_keys)
         }
     }
 
