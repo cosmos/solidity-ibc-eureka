@@ -27,11 +27,13 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee participants ({0})")]
     InsufficientSyncCommitteeParticipants(u64),
 
-    #[error("update header contains deneb specific information")]
-    MustBeDeneb,
+    #[error("unsupported fork version, we only support electra")]
+    MustBeElectra,
 
-    #[error("invalid chain version")]
-    InvalidChainVersion,
+    #[error(
+        "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
+    )]
+    MissingBlobGas,
 
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size
@@ -102,6 +104,20 @@ pub enum EthereumIBCError {
     },
 
     #[error(
+        "current sync committee ({found}) does not match with the one in the current state ({expected})"
+    )]
+    CurrenttSyncCommitteeMismatch {
+        expected: BlsPublicKey,
+        found: BlsPublicKey,
+    },
+
+    #[error("aggregate public key mismatch: expected {expected} but found {found}")]
+    AggregatePubkeyMismatch {
+        expected: BlsPublicKey,
+        found: BlsPublicKey,
+    },
+
+    #[error(
         "expected current sync committee to be provided since `update_period == current_period`"
     )]
     ExpectedCurrentSyncCommittee,
@@ -109,8 +125,14 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be provided since `update_period > current_period`")]
     ExpectedNextSyncCommittee,
 
+    #[error("expected next sync committee to be known and stored in state")]
+    NextSyncCommitteeUnknown,
+
     #[error("fast aggregate verify error: {0}")]
-    FastAggregateVerify(String),
+    FastAggregateVerifyError(String),
+
+    #[error("bls aggregate error: {0}")]
+    BlsAggregateError(String),
 
     #[error("not enough signatures")]
     NotEnoughSignatures,

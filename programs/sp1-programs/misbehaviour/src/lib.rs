@@ -55,7 +55,7 @@ pub fn check_for_misbehaviour(
     let options = Options {
         trust_threshold: client_state.trustLevel.clone().into(),
         trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
-        clock_drift: Duration::default(),
+        clock_drift: Duration::from_secs(15),
     };
 
     // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states
@@ -81,8 +81,8 @@ pub fn check_for_misbehaviour(
     // states stored in its own internal state before it can accept the misbehaviour proof as valid.
     MisbehaviourOutput {
         clientState: client_state,
-        trustedHeight1: misbehaviour.header1().trusted_height.try_into().unwrap(),
-        trustedHeight2: misbehaviour.header2().trusted_height.try_into().unwrap(),
+        trustedHeight1: misbehaviour.header1().trusted_height.into(),
+        trustedHeight2: misbehaviour.header2().trusted_height.into(),
         trustedConsensusState1: trusted_consensus_state_1.into(),
         trustedConsensusState2: trusted_consensus_state_2.into(),
         time,
