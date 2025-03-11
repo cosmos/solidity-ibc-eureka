@@ -65,7 +65,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(0), address(0))
+                (address(routerProxy), escrowLogic, ibcERC20Logic, new address[](0), new address[](0), address(0))
             )
         );
 

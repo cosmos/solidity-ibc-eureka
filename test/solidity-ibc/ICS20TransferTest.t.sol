@@ -50,7 +50,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(this), escrowLogic, ibcERC20Logic, address(0), address(0), address(permit2))
+                (address(this), escrowLogic, ibcERC20Logic, new address[](0), new address[](0), address(permit2))
             )
         );
 

@@ -102,7 +102,7 @@ contract ICS26RouterTest is Test {
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(ics26Router), escrowLogic, ibcERC20Logic, address(0), address(0), address(0))
+                (address(ics26Router), escrowLogic, ibcERC20Logic, new address[](0), new address[](0), address(0))
             )
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));

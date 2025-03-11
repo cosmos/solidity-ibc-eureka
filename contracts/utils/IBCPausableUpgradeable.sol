@@ -20,18 +20,18 @@ abstract contract IBCPausableUpgradeable is
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
-    /// @param pauser The address that is granted the `PAUSER_ROLE`
-    /// @param unpauser The address that is granted the `UNPAUSER_ROLE`
-    function __IBCPausable_init(address pauser, address unpauser) internal onlyInitializing {
+    /// @param pausers The addresses that are granted the `PAUSER_ROLE`
+    /// @param unpausers The addresses that are granted the `UNPAUSER_ROLE`
+    function __IBCPausable_init(address[] memory pausers, address[] memory unpausers) internal onlyInitializing {
         __Pausable_init();
         __AccessControl_init();
 
-        if (pauser != address(0)) {
-            _grantRole(PAUSER_ROLE, pauser);
+        for (uint256 i = 0; i < pausers.length; i++) {
+            _grantRole(PAUSER_ROLE, pausers[i]);
         }
 
-        if (unpauser != address(0)) {
-            _grantRole(UNPAUSER_ROLE, unpauser);
+        for (uint256 i = 0; i < unpausers.length; i++) {
+            _grantRole(UNPAUSER_ROLE, unpausers[i]);
         }
     }
 
