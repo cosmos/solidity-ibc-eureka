@@ -6,11 +6,8 @@ use ethereum_trie_db::trie_db::verify_account_storage_root;
 use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
-    light_client_header::{LightClientHeader, LightClientUpdate},
-    merkle::{
-        get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX, FINALITY_BRANCH_DEPTH,
-        FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_INDEX,
-    },
+    light_client_header::LightClientUpdate,
+    merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
     slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
     sync_committee::compute_sync_committee_period_at_slot,
@@ -22,6 +19,10 @@ use crate::{
     consensus_state::{ConsensusState, TrustedConsensusState},
     error::EthereumIBCError,
     header::Header,
+    sync_protocol_helpers::{
+        finalized_root_gindex_at_slot, is_valid_light_client_header,
+        next_sync_committee_gindex_at_slot,
+    },
     trie::validate_merkle_branch,
 };
 
@@ -249,7 +250,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
         finalized_root,
         update.finality_branch.into(),
         FINALITY_BRANCH_DEPTH,
-        get_subtree_index(FINALIZED_ROOT_INDEX),
+        get_subtree_index(finalized_root_gindex_at_slot(
+            client_state,
+            update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+        )?),
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -274,7 +278,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
             next_sync_committee.tree_hash_root(),
             update.next_sync_committee_branch.unwrap_or_default().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
+            get_subtree_index(next_sync_committee_gindex_at_slot(
+                client_state,
+                update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+            )?),
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
@@ -329,60 +336,14 @@ pub fn validate_light_client_update<V: BlsVerify>(
     Ok(())
 }
 
-/// Validates a light client header.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header)
-/// # Errors
-/// Returns an error if the header cannot be validated.
-pub fn is_valid_light_client_header(
-    client_state: &ClientState,
-    header: &LightClientHeader,
-) -> Result<(), EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
-
-    if epoch < client_state.fork_parameters.deneb.epoch {
-        ensure!(
-            header.execution.blob_gas_used == 0 && header.execution.excess_blob_gas == 0,
-            EthereumIBCError::MustBeDeneb
-        );
-    }
-
-    ensure!(
-        epoch >= client_state.fork_parameters.capella.epoch,
-        EthereumIBCError::InvalidChainVersion
-    );
-
-    validate_merkle_branch(
-        get_lc_execution_root(client_state, header)?,
-        header.execution_branch.into(),
-        EXECUTION_BRANCH_DEPTH,
-        get_subtree_index(EXECUTION_PAYLOAD_INDEX),
-        header.beacon.body_root,
-    )
-}
-
-/// Returns the execution root of the light client header.
-/// # Errors
-/// Returns an error if the epoch is less than the Deneb epoch.
-pub fn get_lc_execution_root(
-    client_state: &ClientState,
-    header: &LightClientHeader,
-) -> Result<B256, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
-
-    ensure!(
-        epoch >= client_state.fork_parameters.deneb.epoch,
-        EthereumIBCError::MustBeDeneb
-    );
-
-    Ok(header.execution.tree_hash_root())
-}
-
 #[cfg(test)]
 mod test {
+    use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
+
     use crate::test_utils::{
         bls_verifier::{aggreagate, fast_aggregate_verify, BlsError},
-        fixtures::{self, InitialState, UpdateClient},
+        fixtures::{self, InitialState, RelayerMessages},
     };
 
     use super::*;
@@ -411,16 +372,28 @@ mod test {
         let bls_verifier = TestBlsVerifier;
 
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
         let client_state = initial_state.client_state;
         let consensus_state = initial_state.consensus_state;
 
-        let update_state: UpdateClient = fixture.get_data_at_step(1);
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
 
-        let header = update_state.updates[0].clone();
+        let header = headers[0].clone();
+
         verify_header(
             &consensus_state,
             &client_state,

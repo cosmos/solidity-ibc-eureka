@@ -27,11 +27,13 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee participants ({0})")]
     InsufficientSyncCommitteeParticipants(u64),
 
-    #[error("update header contains deneb specific information")]
-    MustBeDeneb,
+    #[error("unsupported fork version, we only support electra")]
+    MustBeElectra,
 
-    #[error("invalid chain version")]
-    InvalidChainVersion,
+    #[error(
+        "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
+    )]
+    MissingBlobGas,
 
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size

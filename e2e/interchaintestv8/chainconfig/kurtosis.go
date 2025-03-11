@@ -22,7 +22,7 @@ import (
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.4.0"
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.5.0"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
@@ -32,14 +32,15 @@ var (
 		Participants: []kurtosisParticipant{
 			{
 				CLType:     "lodestar",
-				CLImage:    "chainsafe/lodestar:v1.24.0",
+				CLImage:    "ethpandaops/lodestar:devnet-5-1c2b5ed",
 				ELType:     "geth",
-				ELImage:    "ethereum/client-go:v1.14.6",
+				ELImage:    "ethpandaops/geth:prague-devnet-5-a193537",
 				ELLogLevel: "info",
 			},
 		},
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset: "minimal",
+			Preset:           "minimal",
+			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 	}
@@ -72,7 +73,8 @@ type kurtosisParticipant struct {
 }
 
 type kurtosisNetworkConfigParams struct {
-	Preset string `json:"preset"`
+	Preset           string `json:"preset"`
+	ElectraForkEpoch uint64 `json:"electra_fork_epoch"`
 }
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
@@ -136,7 +138,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 
 	// Wait for the chain to finalize
 	beaconAPIClient := ethereum.NewBeaconAPIClient(beaconRPC)
-	err = testutil.WaitForCondition(10*time.Minute, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
 		fmt.Printf("Waiting for chain to finalize, finalizedBlockResp: %+v, err: %s\n", finalizedBlocksResp, err)
 		if err != nil {
