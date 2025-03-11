@@ -456,8 +456,10 @@ where
                 .collect::<Vec<_>>();
 
             tracing::info!(
-                "Participant pubkeys for finality update header: {:?}",
-                participant_pubkeys
+                "number participants: {}, number pubkeys: {}, num sync aggregate pubkeys: {}",
+                participant_pubkeys.len(),
+                finality_update_sync_committee.pubkeys.len(),
+                finality_update.sync_aggregate.sync_committee_bits.len()
             );
 
             let header = self
