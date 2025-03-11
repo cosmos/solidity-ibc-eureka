@@ -327,12 +327,37 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantPauserRole(newPauser);
-        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newPauser));
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newPauser));
 
         // Revoke the pauser role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokePauserRole(ics20Pauser);
+    }
+
+    function test_success_setUnpauser() public {
+        address newUnpauser = makeAddr("newUnpauser");
+
+        ics20Transfer.grantUnpauserRole(newUnpauser);
+        assertTrue(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newUnpauser));
+
+        ics20Transfer.revokeUnpauserRole(newUnpauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newUnpauser));
+    }
+
+    function test_failure_setUnpauser() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newUnpauser = makeAddr("newUnpauser");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.grantUnpauserRole(newUnpauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newUnpauser));
+
+        // Revoke the pauser role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokeUnpauserRole(ics20Unpauser);
     }
 
     function test_success_setDelegateSender() public {
