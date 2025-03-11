@@ -64,7 +64,7 @@ func (s *TestSuite) createEthereumLightClient(
 	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
 	s.Require().NoError(err)
 
-	currentSlot := bootstrap.Data.Header.Beacon.Slot
+	latestSlot := bootstrap.Data.Header.Beacon.Slot
 
 	ethClientState := ethereumtypes.ClientState{
 		ChainID:                      eth.ChainID.Uint64(),
@@ -76,7 +76,7 @@ func (s *TestSuite) createEthereumLightClient(
 		SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
-		LatestSlot:                   currentSlot,
+		LatestSlot:                   latestSlot,
 		IsFrozen:                     false,
 		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
 		IbcContractAddress:           ibcContractAddress,
@@ -103,7 +103,7 @@ func (s *TestSuite) createEthereumLightClient(
 
 	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
 
-	currentPeriod := currentSlot / spec.Period()
+	currentPeriod := latestSlot / spec.Period()
 	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 	s.Require().NoError(err)
 	s.Require().Len(clientUpdates, 1)

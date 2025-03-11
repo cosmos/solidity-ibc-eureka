@@ -118,13 +118,22 @@ func main() {
 
 	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
 
+	currentPeriod := latestSlot / spec.Period()
+	clientUpdates, err := beaconAPI.GetLightClientUpdates(currentPeriod, 1)
+	if err != nil {
+		panic(err)
+	}
+	if len(clientUpdates) == 0 {
+		panic("no client updates")
+	}
+
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
 		Timestamp:            unixTimestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
-		NextSyncCommittee:    "",
+		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}
 
 	ethConsensusStateBz, err := json.Marshal(&ethConsensusState)
