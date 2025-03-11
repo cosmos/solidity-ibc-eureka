@@ -646,7 +646,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
+func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 	ctx := context.Background()
 	proofType := operator.ProofTypeGroth16
 
@@ -996,7 +996,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
+func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 	ctx := context.Background()
 	proofType := operator.ProofTypeGroth16
 
