@@ -343,6 +343,11 @@ where
         tracing::info!("light client updates: #{}", light_client_updates.len());
 
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
+        let mut latest_period = compute_sync_committee_period_at_slot(
+            ethereum_client_state.slots_per_epoch,
+            ethereum_client_state.epochs_per_sync_committee_period,
+            latest_trusted_slot,
+        );
 
         let mut current_next_sync_committee_agg_pubkey =
             ethereum_consensus_state.next_sync_committee;
@@ -374,6 +379,20 @@ where
                 );
                 continue;
             }
+
+            let update_period = compute_sync_committee_period_at_slot(
+                ethereum_client_state.slots_per_epoch,
+                ethereum_client_state.epochs_per_sync_committee_period,
+                update.finalized_header.beacon.slot,
+            );
+            if update_period == latest_period {
+                tracing::info!(
+                    "Skipping header with same period for slot {}",
+                    update.finalized_header.beacon.slot
+                );
+                continue;
+            }
+            latest_period = update_period;
 
             let previous_next_sync_committee = self
                 .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
