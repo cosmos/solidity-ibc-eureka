@@ -436,7 +436,7 @@ where
             //
             tracing::info!(
                 "current sync committee used in finality update header: {:?}",
-                finality_update_sync_committee
+                finality_update_sync_committee.aggregate_pubkey
             );
 
             let trusted_sync_committee = TrustedSyncCommittee {
