@@ -21,7 +21,7 @@ const (
 	BeaconAPIURL           = ""
 	IbcContractAddress     = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
 	ChainID                = 11155111
-	EtheruemClientChecksum = "77fce8d9f164b75551106879704aa25b90018946719d4925656e1a32f8dd5fb2"
+	EtheruemClientChecksum = "57b867b959c9cdc7343ddbf17593361e00b9c97b5629a2c69df4fcfedb585663"
 )
 
 func main() {
@@ -124,7 +124,7 @@ func main() {
 		StorageRoot:          proofOfIBCContract.StorageHash,
 		Timestamp:            unixTimestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
-		NextSyncCommittee:    nil,
+		NextSyncCommittee:    "",
 	}
 
 	ethConsensusStateBz, err := json.Marshal(&ethConsensusState)
