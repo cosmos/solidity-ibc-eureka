@@ -441,8 +441,24 @@ where
 
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
-                sync_committee: ActiveSyncCommittee::Current(finality_update_sync_committee),
+                sync_committee: ActiveSyncCommittee::Current(
+                    finality_update_sync_committee.clone(),
+                ),
             };
+
+            let participant_pubkeys = finality_update
+                .sync_aggregate
+                .sync_committee_bits
+                .iter()
+                .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
+                .zip(finality_update_sync_committee.pubkeys.iter())
+                .filter_map(|(included, pubkey)| included.then_some(*pubkey))
+                .collect::<Vec<_>>();
+
+            tracing::info!(
+                "Participant pubkeys for finality update header: {:?}",
+                participant_pubkeys
+            );
 
             let header = self
                 .light_client_update_to_header(
