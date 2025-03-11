@@ -271,12 +271,7 @@ where
         let latest_block_from_events = src_events
             .iter()
             .chain(dest_events.iter())
-            .filter_map(|event| match event {
-                EurekaEvent::SendPacket(_, block_number)
-                | EurekaEvent::WriteAcknowledgement(_, _, block_number) => {
-                    block_number.as_ref().map(|block_number| *block_number)
-                }
-            })
+            .filter_map(|e| e.block_number)
             .max();
 
         let minimum_block_number = match latest_block_from_events {

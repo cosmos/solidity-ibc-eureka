@@ -3,4 +3,4 @@
 pub mod cosmos_sdk;
 mod eureka;
 
-pub use eureka::EurekaEvent;
+pub use eureka::{EurekaEvent, EurekaEventType};

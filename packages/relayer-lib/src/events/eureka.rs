@@ -15,15 +15,24 @@ use tendermint::abci::Event as TmEvent;
 
 use super::cosmos_sdk;
 
-// TODO: Change this to a struct to get the height as not part of the event
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
-pub enum EurekaEvent {
+pub struct EurekaEvent {
+    /// The type of the event.
+    pub event: EurekaEventType,
+    /// The block number at which the event was emitted.
+    pub block_number: Option<u64>,
+}
+
+/// The event type
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::module_name_repetitions)]
+pub enum EurekaEventType {
     /// A packet was sent.
-    SendPacket(SolPacket, Option<u64>),
+    SendPacket(SolPacket),
     /// An acknowledgement was written.
-    WriteAcknowledgement(SolPacket, Vec<Bytes>, Option<u64>),
+    WriteAcknowledgement(SolPacket, Vec<Bytes>),
 }
 
 impl EurekaEvent {
@@ -46,12 +55,14 @@ impl TryFrom<&Log> for EurekaEvent {
             )
         })?;
         match sol_event.data {
-            routerEvents::SendPacket(event) => Ok(Self::SendPacket(event.packet, log.block_number)),
-            routerEvents::WriteAcknowledgement(event) => Ok(Self::WriteAcknowledgement(
-                event.packet,
-                event.acknowledgements,
-                log.block_number,
-            )),
+            routerEvents::SendPacket(event) => Ok(Self {
+                event: EurekaEventType::SendPacket(event.packet),
+                block_number: log.block_number,
+            }),
+            routerEvents::WriteAcknowledgement(event) => Ok(Self {
+                event: EurekaEventType::WriteAcknowledgement(event.packet, event.acknowledgements),
+                block_number: log.block_number,
+            }),
             routerEvents::AckPacket(_) => Err(anyhow::anyhow!("AckPacket event is not used")),
             routerEvents::TimeoutPacket(_) => {
                 Err(anyhow::anyhow!("TimeoutPacket event is not used"))
@@ -91,7 +102,10 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                     let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                     let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self::SendPacket(packet.into(), None))
+                    Some(Self {
+                        event: EurekaEventType::SendPacket(packet.into()),
+                        block_number: None, // TODO: Get block number from events, maybe?
+                    })
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
@@ -115,17 +129,19 @@ impl TryFrom<TmEvent> for EurekaEvent {
                         (ack.or(ack_acc), packet.or(packet_acc))
                     });
 
-                Ok(Self::WriteAcknowledgement(
-                    packet
-                        .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
-                        .into(),
-                    ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
-                        .app_acknowledgements
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                    None,
-                ))
+                Ok(Self {
+                    event: EurekaEventType::WriteAcknowledgement(
+                        packet
+                            .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
+                            .into(),
+                        ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
+                            .app_acknowledgements
+                            .into_iter()
+                            .map(Into::into)
+                            .collect(),
+                    ),
+                    block_number: None,
+                })
             }
             cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET
             | cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET
