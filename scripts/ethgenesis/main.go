@@ -20,7 +20,7 @@ const (
 	BeaconAPIURL           = ""
 	IbcContractAddress     = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
 	ChainID                = 11155111
-	EtheruemClientChecksum = "57b867b959c9cdc7343ddbf17593361e00b9c97b5629a2c69df4fcfedb585663"
+	EtheruemClientChecksum = "61abe68a1703ffc6d86a2a353790ad45b9a5c6fec82dc19a7ed8b4d65c23871c"
 )
 
 func main() {
