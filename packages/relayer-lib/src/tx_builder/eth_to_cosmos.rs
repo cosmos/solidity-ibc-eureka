@@ -9,11 +9,14 @@ use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;
 use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee, TrustedSyncCommittee};
+use ethereum_light_client::test_utils::bls_verifier::fast_aggregate_verify;
 use ethereum_light_client::{client_state::ClientState, header::Header};
+use ethereum_types::consensus::domain::{compute_domain, DomainType};
 use ethereum_types::consensus::light_client_header::{
     LightClientFinalityUpdate, LightClientUpdate,
 };
-use ethereum_types::consensus::slot::compute_slot_at_timestamp;
+use ethereum_types::consensus::signing_data::compute_signing_root;
+use ethereum_types::consensus::slot::{compute_epoch_at_slot, compute_slot_at_timestamp};
 use ethereum_types::consensus::sync_committee::SyncCommittee;
 use ethereum_types::{
     consensus::sync_committee::compute_sync_committee_period_at_slot,
@@ -454,6 +457,35 @@ where
                 .zip(finality_update_sync_committee.pubkeys.iter())
                 .filter_map(|(included, pubkey)| included.then_some(*pubkey))
                 .collect::<Vec<_>>();
+
+            let fork_version_slot = std::cmp::max(finality_update.signature_slot, 1) - 1;
+            let fork_version =
+                ethereum_client_state
+                    .fork_parameters
+                    .compute_fork_version(compute_epoch_at_slot(
+                        ethereum_client_state.slots_per_epoch,
+                        fork_version_slot,
+                    ));
+
+            let domain = compute_domain(
+                DomainType::SYNC_COMMITTEE,
+                Some(fork_version),
+                Some(ethereum_client_state.genesis_validators_root),
+                ethereum_client_state.fork_parameters.genesis_fork_version,
+            );
+            tracing::info!("Domain: {:?}", domain);
+            let signing_root =
+                compute_signing_root(&finality_update.attested_header.beacon, domain);
+            tracing::info!("Signing root: {:?}", signing_root);
+
+            let res = fast_aggregate_verify(
+                &participant_pubkeys,
+                signing_root,
+                finality_update.sync_aggregate.sync_committee_signature,
+            );
+            if res.is_err() {
+                tracing::error!("Failed to verify sync committee signature: {:?}", res);
+            }
 
             tracing::info!(
                 "number participants: {}, number pubkeys: {}, num sync aggregate pubkeys: {}",
