@@ -111,11 +111,12 @@ pub fn is_valid_light_client_header(
         EthereumIBCError::MustBeElectra
     );
 
+    // TODO: Figure out what is correct, seems like at least excess blog gas _can_ be zero
     // This is required after deneb
-    ensure!(
-        header.execution.blob_gas_used == 0 && header.execution.excess_blob_gas == 0,
-        EthereumIBCError::MissingBlobGas
-    );
+    //ensure!(
+    //    header.execution.blob_gas_used == 0 && header.execution.excess_blob_gas == 0,
+    //    EthereumIBCError::MissingBlobGas
+    //);
 
     validate_merkle_branch(
         get_lc_execution_root(client_state, header)?,

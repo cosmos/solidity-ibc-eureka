@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 
@@ -55,14 +54,18 @@ func (s *TestSuite) createEthereumLightClient(
 	spec, err := eth.BeaconAPIClient.GetSpec()
 	s.Require().NoError(err)
 
-	executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
+	beaconBlock, err := eth.BeaconAPIClient.GetBeaconBlocks("finalized")
 	s.Require().NoError(err)
+
+	executionHeight := beaconBlock.Data.Message.Body.ExecutionPayload.BlockNumber
 	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
-	header, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
+	header, err := eth.BeaconAPIClient.GetHeader(beaconBlock.Data.Message.Slot)
 	s.Require().NoError(err)
+
 	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
 	s.Require().NoError(err)
+	s.Require().Equal(executionHeight, bootstrap.Data.Header.Execution.BlockNumber)
 
 	latestSlot := bootstrap.Data.Header.Beacon.Slot
 
@@ -192,4 +195,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cos
 	ethereumLightClientID, err := ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
+}
+
+func CreateEthereumClientAndConsensusState() {
 }

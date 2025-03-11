@@ -19,8 +19,8 @@ pub enum ContractError {
     #[error("client and consensus state mismatch")]
     ClientAndConsensusStateMismatch,
 
-    #[error("unsupported fork version")]
-    UnsupportedForkVersion,
+    #[error("unsupported fork version, must be electra")]
+    MustBeElectra,
 
     #[error("serializing client state failed: {0}")]
     SerializeClientStateFailed(#[source] serde_json::Error),

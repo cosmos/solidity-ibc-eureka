@@ -192,7 +192,7 @@ impl<P: Provider + Clone> TxBuilder<P> {
                     if finality_update.finalized_header.execution.block_number < target_block_number
                     {
                         tracing::info!(
-                            "Finality not found: current finality block number: {}, Target block number: {}",
+                            "Finality not found: current finality execution block number: {}, Target execution block number: {}",
                             finality_update.finalized_header.execution.block_number,
                             target_block_number
                         );

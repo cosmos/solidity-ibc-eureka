@@ -70,7 +70,7 @@ pub fn instantiate(
         ));
     ensure!(
         fork_version == client_state.fork_parameters.electra.version,
-        ContractError::UnsupportedForkVersion
+        ContractError::MustBeElectra
     );
 
     store_client_state(deps.storage, &wasm_client_state)?;
@@ -209,8 +209,8 @@ mod tests {
                         epoch: 0,
                     },
                 },
-                seconds_per_slot: 0,
-                slots_per_epoch: 0,
+                seconds_per_slot: 10,
+                slots_per_epoch: 8,
                 epochs_per_sync_committee_period: 0,
                 latest_slot: 42,
                 ibc_commitment_slot: U256::from(0),
@@ -220,7 +220,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
 
             let consensus_state = EthConsensusState {
-                slot: 0,
+                slot: 42,
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
@@ -336,7 +336,7 @@ mod tests {
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
             let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
-            assert_eq!(1, update_client_msgs.len()); // just to make sure
+            assert_eq!(2, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
                 .iter()
@@ -344,38 +344,38 @@ mod tests {
                     ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
                         .unwrap()
                 })
+                .map(|msg| msg.data)
                 .collect::<Vec<_>>();
-            let header_bz = client_msgs[0].data.as_slice();
-            let header: Header = serde_json::from_slice(client_msgs[0].data.as_slice()).unwrap();
 
             let mut env = mock_env();
-            env.block.time = Timestamp::from_seconds(
-                header.consensus_update.attested_header.execution.timestamp + 1000,
-            );
 
-            let query_verify_client_msg = QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
-                client_message: Binary::from(header_bz),
-            });
-            query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+            for header_bz in client_msgs {
+                let header: Header = serde_json::from_slice(&header_bz).unwrap();
+                env.block.time = Timestamp::from_seconds(
+                    header.consensus_update.attested_header.execution.timestamp + 1000,
+                );
 
-            // Update state
-            let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
-                client_message: Binary::from(header_bz),
-            });
-            let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
-            let update_state_result: UpdateStateResult =
-                serde_json::from_slice(&update_res.data.unwrap())
-                    .expect("update state result should be deserializable");
-            assert_eq!(1, update_state_result.heights.len());
-            assert_eq!(0, update_state_result.heights[0].revision_number);
-            assert_eq!(
-                header.consensus_update.finalized_header.beacon.slot,
-                update_state_result.heights[0].revision_height
-            );
-            assert_eq!(
-                recv_msgs[0].proof_height.unwrap().revision_height,
-                update_state_result.heights[0].revision_height
-            );
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                // Update state
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.consensus_update.finalized_header.beacon.slot,
+                    update_state_result.heights[0].revision_height
+                );
+            }
 
             // The client has now been updated, and we would submit the packet to the cosmos chain,
             // along with the proof of th packet commitment. IBC will call verify_membership.

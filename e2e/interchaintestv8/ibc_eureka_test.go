@@ -451,8 +451,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	time.Sleep(time.Minute * 2)
-
 	var (
 		sendPacket    ics26router.IICS26RouterMsgsPacket
 		ethSendTxHash []byte
