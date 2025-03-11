@@ -380,6 +380,7 @@ where
                 continue;
             }
 
+            // TODO: Not sure
             let update_period = compute_sync_committee_period_at_slot(
                 ethereum_client_state.slots_per_epoch,
                 ethereum_client_state.epochs_per_sync_committee_period,
@@ -426,7 +427,7 @@ where
                 < finality_update.finalized_header.beacon.slot
         }) {
             let finality_update_sync_committee = self
-                .get_sync_commitee_for_finalized_slot(finality_update.finalized_header.beacon.slot)
+                .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
 
             let trusted_sync_committee = TrustedSyncCommittee {
