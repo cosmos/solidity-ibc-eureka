@@ -31,11 +31,12 @@ var (
 	kurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
-				CLType:     "lodestar",
-				CLImage:    "ethpandaops/lodestar:unstable",
-				ELType:     "geth",
-				ELImage:    "ethpandaops/geth:prague-devnet-6",
-				ELLogLevel: "info",
+				CLType:         "lodestar",
+				CLImage:        "ethpandaops/lodestar:unstable",
+				ELType:         "geth",
+				ELImage:        "ethpandaops/geth:prague-devnet-6",
+				ELLogLevel:     "info",
+				ValidatorCount: 64,
 			},
 		},
 		NetworkParams: kurtosisNetworkConfigParams{
@@ -65,11 +66,12 @@ type kurtosisNetworkParams struct {
 }
 
 type kurtosisParticipant struct {
-	CLType     string `json:"cl_type"`
-	CLImage    string `json:"cl_image"`
-	ELType     string `json:"el_type"`
-	ELImage    string `json:"el_image"`
-	ELLogLevel string `json:"el_log_level"`
+	CLType         string `json:"cl_type"`
+	CLImage        string `json:"cl_image"`
+	ELType         string `json:"el_type"`
+	ELImage        string `json:"el_image"`
+	ELLogLevel     string `json:"el_log_level"`
+	ValidatorCount uint64 `json:"validator_count"`
 }
 
 type kurtosisNetworkConfigParams struct {

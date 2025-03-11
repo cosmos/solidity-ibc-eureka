@@ -184,6 +184,7 @@ mod tests {
                 genesis_validators_root: B256::from([0; 32]),
                 min_sync_committee_participants: 0,
                 genesis_time: 0,
+                genesis_slot: 0,
                 fork_parameters: ForkParameters {
                     genesis_fork_version: FixedBytes([0; 4]),
                     genesis_slot: 0,

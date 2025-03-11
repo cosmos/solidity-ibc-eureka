@@ -281,12 +281,6 @@ where
             _ => self.eth_client.get_block_number().await?,
         };
 
-        tracing::info!(
-            "Relaying events from Ethereum to Cosmos for client {}",
-            target_client_id
-        );
-        tracing::debug!("Target block number: {}", minimum_block_number);
-
         let target_height = Height {
             revision_number: 0,
             revision_height: minimum_block_number,
@@ -321,6 +315,17 @@ where
             .ethereum_consensus_state(target_client_id.clone(), 0)
             .await?;
 
+        tracing::info!(
+            "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}, consensus state slot: {}, current sync committee: {:?}, next sync committee: {:?}",
+            target_client_id,
+            minimum_block_number,
+            ethereum_consensus_state.slot,
+            ethereum_consensus_state.slot,
+            ethereum_consensus_state.current_sync_committee,
+            ethereum_consensus_state.next_sync_committee,
+        );
+        tracing::debug!("Target block number: {}", minimum_block_number);
+
         let finality_update = self
             .wait_for_light_client_readiness(minimum_block_number)
             .await?;
@@ -338,9 +343,6 @@ where
         tracing::info!("light client updates: #{}", light_client_updates.len());
 
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
-        let mut current_next_sync_committee = self
-            .get_sync_commitee_for_finalized_slot(ethereum_consensus_state.slot)
-            .await?;
 
         let mut current_next_sync_committee_agg_pubkey =
             ethereum_consensus_state.next_sync_committee;
@@ -373,9 +375,13 @@ where
                 continue;
             }
 
+            let previous_next_sync_committee = self
+                .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
+                .await?;
+
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
-                sync_committee: ActiveSyncCommittee::Next(current_next_sync_committee),
+                sync_committee: ActiveSyncCommittee::Next(previous_next_sync_committee),
             };
             let header = self
                 .light_client_update_to_header(
@@ -392,7 +398,6 @@ where
             );
             tracing::debug!("Header: added {:?}", header);
             latest_trusted_slot = update.finalized_header.beacon.slot;
-            current_next_sync_committee = update.next_sync_committee.clone().unwrap();
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
@@ -484,10 +489,10 @@ where
             Duration::from_secs(10),
             || async {
                 let latests_tm_block = self.tm_client.latest_block().await?;
-                let latest_onchain_timestamp =
-                    latests_tm_block.block.header.time.unix_timestamp() + 120; // TODO: remove
+                let latest_onchain_timestamp = latests_tm_block.block.header.time.unix_timestamp();
                 let calculated_slot = compute_slot_at_timestamp(
                     ethereum_client_state.genesis_time,
+                    ethereum_client_state.genesis_slot,
                     ethereum_client_state.seconds_per_slot,
                     latest_onchain_timestamp.try_into().unwrap(),
                 )
@@ -496,7 +501,7 @@ where
                     "Waiting for target chain to catch up to slot {}",
                     latest_trusted_slot
                 );
-                Ok(calculated_slot >= latest_trusted_slot)
+                Ok(calculated_slot > finality_update.signature_slot)
             },
         )
         .await?;

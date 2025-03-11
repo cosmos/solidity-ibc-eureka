@@ -17,6 +17,8 @@ pub struct ClientState {
     pub min_sync_committee_participants: u64,
     /// The time of genesis (unix timestamp)
     pub genesis_time: u64,
+    /// The genesis slot
+    pub genesis_slot: u64,
     /// The fork parameters
     pub fork_parameters: ForkParameters,
     /// The slot duration in seconds

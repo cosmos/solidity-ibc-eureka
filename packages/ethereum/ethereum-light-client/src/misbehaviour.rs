@@ -1,8 +1,7 @@
 //! This module provides [`verify_misbehavior`] function to check for misbehaviour
 
 use ethereum_types::consensus::{
-    light_client_header::LightClientUpdate,
-    slot::{compute_slot_at_timestamp, GENESIS_SLOT},
+    light_client_header::LightClientUpdate, slot::compute_slot_at_timestamp,
 };
 
 use crate::{
@@ -62,6 +61,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
 
     let current_slot = compute_slot_at_timestamp(
         client_state.genesis_time,
+        client_state.genesis_slot,
         client_state.seconds_per_slot,
         current_timestamp,
     )
@@ -69,7 +69,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
         timestamp: current_timestamp,
         genesis: client_state.genesis_time,
         seconds_per_slot: client_state.seconds_per_slot,
-        genesis_slot: GENESIS_SLOT,
+        genesis_slot: client_state.genesis_slot,
     })?;
 
     validate_light_client_update::<V>(

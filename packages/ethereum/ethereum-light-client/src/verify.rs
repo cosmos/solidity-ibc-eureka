@@ -9,7 +9,7 @@ use ethereum_types::consensus::{
     light_client_header::LightClientUpdate,
     merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
-    slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
+    slot::{compute_epoch_at_slot, compute_slot_at_timestamp},
     sync_committee::compute_sync_committee_period_at_slot,
 };
 use tree_hash::TreeHash;
@@ -68,6 +68,7 @@ pub fn verify_header<V: BlsVerify>(
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
     let current_slot = compute_slot_at_timestamp(
         client_state.genesis_time,
+        client_state.genesis_slot,
         client_state.seconds_per_slot,
         current_timestamp,
     )
@@ -75,7 +76,7 @@ pub fn verify_header<V: BlsVerify>(
         timestamp: current_timestamp,
         genesis: client_state.genesis_time,
         seconds_per_slot: client_state.seconds_per_slot,
-        genesis_slot: GENESIS_SLOT,
+        genesis_slot: client_state.genesis_slot,
     })?;
 
     validate_light_client_update::<V>(
@@ -159,7 +160,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let update_finalized_slot = update.finalized_header.beacon.slot;
 
     ensure!(
-        update_finalized_slot != GENESIS_SLOT,
+        update_finalized_slot != client_state.genesis_slot,
         EthereumIBCError::FinalizedSlotIsGenesis
     );
 

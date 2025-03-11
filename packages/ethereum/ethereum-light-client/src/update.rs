@@ -70,8 +70,9 @@ pub fn update_consensus_state(
         new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
 
         new_consensus_state.timestamp = compute_timestamp_at_slot(
-            current_client_state.seconds_per_slot,
             current_client_state.genesis_time,
+            current_client_state.genesis_slot,
+            current_client_state.seconds_per_slot,
             consensus_update.finalized_header.beacon.slot,
         );
 
