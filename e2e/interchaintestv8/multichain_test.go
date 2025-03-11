@@ -859,6 +859,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		}))
 	}))
 
+	// Transfer back (unwind)
 	s.Require().True(s.Run("Transfer tokens from SimdB to Ethereum", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferPayload := transfertypes.FungibleTokenPacketData{
@@ -1184,6 +1185,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 	}))
 
+    // Transfer back (unwind)
 	var simdBTransferTxHash []byte
 	s.Require().True(s.Run("Transfer tokens from SimdB to SimdA", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
