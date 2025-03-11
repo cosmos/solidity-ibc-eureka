@@ -162,14 +162,12 @@ impl TryFrom<TendermintTrustThreshold> for IICS07TendermintMsgs::TrustThreshold 
     }
 }
 
-impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
-    type Error = <u64 as TryInto<u32>>::Error;
-
-    fn try_from(height: ibc_core_client_types::Height) -> Result<Self, Self::Error> {
-        Ok(Self {
-            revisionNumber: height.revision_number().try_into()?,
-            revisionHeight: height.revision_height().try_into()?,
-        })
+impl From<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
+    fn from(height: ibc_core_client_types::Height) -> Self {
+        Self {
+            revisionNumber: height.revision_number(),
+            revisionHeight: height.revision_height(),
+        }
     }
 }
 
