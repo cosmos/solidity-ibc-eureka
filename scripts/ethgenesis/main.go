@@ -42,13 +42,14 @@ func main() {
 		panic(err)
 	}
 
-	executionHeight, err := beaconAPI.GetExecutionHeight("finalized")
+	beaconBlock, err := beaconAPI.GetBeaconBlocks("finalized")
 	if err != nil {
 		panic(err)
 	}
+	executionHeight := beaconBlock.Data.Message.Body.ExecutionPayload.BlockNumber
 	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
-	header, err := beaconAPI.GetHeader(strconv.Itoa(int(executionHeight)))
+	header, err := beaconAPI.GetHeader(beaconBlock.Data.Message.Slot)
 	if err != nil {
 		panic(err)
 	}
