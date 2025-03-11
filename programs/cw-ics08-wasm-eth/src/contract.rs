@@ -1,10 +1,11 @@
 //! This module contains the `CosmWasm` entrypoints for the 08-wasm smart contract
 
-use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{ensure, entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 use ethereum_light_client::{
     client_state::ClientState as EthClientState,
     consensus_state::ConsensusState as EthConsensusState,
 };
+use ethereum_types::consensus::slot::compute_epoch_at_slot;
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::{
@@ -22,6 +23,8 @@ use crate::{sudo, ContractError};
 /// The instantiate entry point for the CosmWasm contract.
 /// # Errors
 /// Will return an error if the client state or consensus state cannot be deserialized.
+/// # Panics
+/// Will panic if the client state latest height cannot be unwrapped
 #[entry_point]
 #[allow(clippy::needless_pass_by_value)]
 pub fn instantiate(
@@ -41,7 +44,6 @@ pub fn instantiate(
             revision_height: client_state.latest_slot,
         }),
     };
-    store_client_state(deps.storage, &wasm_client_state)?;
 
     let consensus_state_bz: Vec<u8> = msg.consensus_state.into();
     let consensus_state: EthConsensusState = serde_json::from_slice(&consensus_state_bz)
@@ -49,6 +51,29 @@ pub fn instantiate(
     let wasm_consensus_state = WasmConsensusState {
         data: consensus_state_bz,
     };
+
+    ensure!(
+        wasm_client_state.latest_height.unwrap().revision_height == client_state.latest_slot,
+        ContractError::ClientStateSlotMismatch
+    );
+
+    ensure!(
+        client_state.latest_slot == consensus_state.slot,
+        ContractError::ClientAndConsensusStateMismatch
+    );
+
+    let fork_version = client_state
+        .fork_parameters
+        .compute_fork_version(compute_epoch_at_slot(
+            client_state.slots_per_epoch,
+            client_state.latest_slot,
+        ));
+    ensure!(
+        fork_version == client_state.fork_parameters.electra.version,
+        ContractError::UnsupportedForkVersion
+    );
+
+    store_client_state(deps.storage, &wasm_client_state)?;
     store_consensus_state(deps.storage, &wasm_consensus_state, consensus_state.slot)?;
 
     Ok(Response::default())

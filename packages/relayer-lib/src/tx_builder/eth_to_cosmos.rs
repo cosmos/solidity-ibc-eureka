@@ -191,8 +191,8 @@ impl<P: Provider + Clone> TxBuilder<P> {
                     let finality_update = self.beacon_api_client.finality_update().await?.data;
                     if finality_update.finalized_header.execution.block_number < target_block_number
                     {
-                        tracing::debug!(
-                            "Finality block number: {}, Target block number: {}",
+                        tracing::info!(
+                            "Finality not found: current finality block number: {}, Target block number: {}",
                             finality_update.finalized_header.execution.block_number,
                             target_block_number
                         );
@@ -335,13 +335,12 @@ where
             )
             .await?;
 
-        tracing::debug!("light client updates: #{}", light_client_updates.len());
-
-        let current_sync_committee = self
-            .get_sync_commitee_for_finalized_slot(finality_update.finalized_header.beacon.slot)
-            .await?;
+        tracing::info!("light client updates: #{}", light_client_updates.len());
 
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
+        let mut current_next_sync_committee = self
+            .get_sync_commitee_for_finalized_slot(ethereum_consensus_state.slot)
+            .await?;
 
         let mut current_next_sync_committee_agg_pubkey =
             ethereum_consensus_state.next_sync_committee;
@@ -353,7 +352,7 @@ where
             );
 
             if update.finalized_header.beacon.slot <= latest_trusted_slot {
-                tracing::debug!(
+                tracing::info!(
                     "Skipping update for slot {}",
                     update.finalized_header.beacon.slot
                 );
@@ -367,38 +366,33 @@ where
 
             // They are both options, so we can just compare them directly.
             if update_next_sync_committee_agg_pubkey == current_next_sync_committee_agg_pubkey {
-                tracing::debug!("Skipping header with same aggregate pubkey");
+                tracing::info!(
+                    "Skipping header with same aggregate pubkey for slow {}",
+                    update.finalized_header.beacon.slot
+                );
                 continue;
             }
 
-            let trusted_sync_committee;
-            if let Some(next_sync_committee) = &update.next_sync_committee {
-                trusted_sync_committee = TrustedSyncCommittee {
-                    trusted_slot: latest_trusted_slot,
-                    sync_committee: ActiveSyncCommittee::Next(next_sync_committee.clone()),
-                };
-            } else {
-                trusted_sync_committee = TrustedSyncCommittee {
-                    trusted_slot: latest_trusted_slot,
-                    sync_committee: ActiveSyncCommittee::Current(current_sync_committee.clone()),
-                };
-            }
+            let trusted_sync_committee = TrustedSyncCommittee {
+                trusted_slot: latest_trusted_slot,
+                sync_committee: ActiveSyncCommittee::Next(current_next_sync_committee),
+            };
             let header = self
                 .light_client_update_to_header(
                     ethereum_client_state.clone(),
-                    trusted_sync_committee.clone(), // TODO: What should this actually be?
+                    trusted_sync_committee.clone(),
                     update.clone(),
                 )
                 .await?;
             headers.push(header.clone());
 
-            tracing::debug!(
-                "Added header for slot from light client updates {}: {}",
-                update.attested_header.beacon.slot,
-                serde_json::to_string(&header)?
+            tracing::info!(
+                "Added header for slot from light client updates {}",
+                update.finalized_header.beacon.slot,
             );
+            tracing::debug!("Header: added {:?}", header);
             latest_trusted_slot = update.finalized_header.beacon.slot;
-            // TODO: Is this correct?
+            current_next_sync_committee = update.next_sync_committee.clone().unwrap();
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
@@ -407,9 +401,13 @@ where
             last_header.consensus_update.finalized_header.beacon.slot
                 < finality_update.finalized_header.beacon.slot
         }) {
+            let finality_update_sync_committee = self
+                .get_sync_commitee_for_finalized_slot(finality_update.finalized_header.beacon.slot)
+                .await?;
+
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
-                sync_committee: ActiveSyncCommittee::Current(current_sync_committee),
+                sync_committee: ActiveSyncCommittee::Current(finality_update_sync_committee),
             };
 
             let header = self
@@ -421,14 +419,14 @@ where
                 .await?;
             headers.push(header.clone());
             latest_trusted_slot = finality_update.finalized_header.beacon.slot;
-            tracing::debug!(
+            tracing::info!(
                 "Added header for slot from finality update {}: {}",
                 finality_update.finalized_header.beacon.slot,
                 serde_json::to_string(&header)?
             );
         }
 
-        tracing::debug!("Headers assembled: #{}", headers.len());
+        tracing::info!("Headers assembled: #{}", headers.len());
 
         let proof_block_number = headers
             .last()
@@ -487,7 +485,7 @@ where
             || async {
                 let latests_tm_block = self.tm_client.latest_block().await?;
                 let latest_onchain_timestamp =
-                    latests_tm_block.block.header.time.unix_timestamp() + 30;
+                    latests_tm_block.block.header.time.unix_timestamp() + 120; // TODO: remove
                 let calculated_slot = compute_slot_at_timestamp(
                     ethereum_client_state.genesis_time,
                     ethereum_client_state.seconds_per_slot,
