@@ -25,6 +25,53 @@ pub struct Account {
     pub code_hash: H256,
 }
 
+/// Verifies against `root`, if the `expected_value` is stored at `key` by using `proof`.
+///
+/// * `root`: Storage root of a contract.
+/// * `key`: Padded slot number that the `expected_value` should be stored at.
+/// * `expected_value`: Expected stored value.
+/// * `proof`: Proof that is generated to prove the storage.
+///
+/// NOTE: You must not trust the `root` unless you verified it by calling [`verify_account_storage_root`].
+///
+/// # Errors
+/// Returns an error if the verification fails.
+pub fn verify_storage_inclusion_proof(
+    root: H256,
+    key: U256,
+    expected_value: &[u8],
+    proof: impl IntoIterator<Item = impl AsRef<[u8]>>,
+) -> Result<(), TrieDBError> {
+    match get_node(root, key.to_big_endian(), proof)? {
+        Some(value) if value == expected_value => Ok(()),
+        Some(value) => Err(TrieDBError::ValueMismatch {
+            expected: expected_value.into(),
+            actual: value,
+        })?,
+        None => Err(TrieDBError::ValueMissing {
+            value: expected_value.into(),
+        })?,
+    }
+}
+
+/// Verifies against `root`, that no value is stored at `key` by using `proof`.
+///
+/// * `root`: Storage root of a contract.
+/// * `key`: Padded slot number that the `expected_value` should be stored at.
+/// * `proof`: Proof that is generated to prove the storage.
+///
+/// NOTE: You must not trust the `root` unless you verified it by calling [`verify_account_storage_root`].
+///
+/// # Errors
+/// Returns an error if the verification fails.
+pub fn verify_storage_exclusion_proof(
+    root: H256,
+    key: U256,
+    proof: impl IntoIterator<Item = impl AsRef<[u8]>>,
+) -> Result<bool, TrieDBError> {
+    Ok(get_node(root, key.to_big_endian(), proof)?.is_none())
+}
+
 /// Verifies if the `storage_root` of a contract can be verified against the state `root`.
 ///
 /// * `root`: Light client update's (attested/finalized) execution block's state root.
@@ -44,7 +91,7 @@ pub fn verify_account_storage_root(
     let storage_root: H256 = H256(storage_root.into());
     let address: H160 = H160(address.into());
 
-    match get_node(root, address.as_ref(), proof)? {
+    match get_node(H256(root.into()), address.as_ref(), proof)? {
         Some(account) => {
             let account =
                 rlp::decode::<Account>(account.as_ref()).map_err(TrieDBError::RlpDecode)?;
@@ -63,7 +110,7 @@ pub fn verify_account_storage_root(
 }
 
 fn get_node(
-    root: B256,
+    root: H256,
     key: impl AsRef<[u8]>,
     proof: impl IntoIterator<Item = impl AsRef<[u8]>>,
 ) -> Result<Option<Vec<u8>>, TrieDBError> {
@@ -72,10 +119,7 @@ fn get_node(
         db.insert(hash_db::EMPTY_PREFIX, n.as_ref());
     });
 
-    let root: H256 = H256(root.into());
-
     let trie = TrieDBBuilder::<EthLayout>::new(&db, &root).build();
-
     trie.get(&keccak_256(key.as_ref()))
         .map_err(|e| TrieDBError::GetTrieNodeFailed(e.to_string()))
 }
