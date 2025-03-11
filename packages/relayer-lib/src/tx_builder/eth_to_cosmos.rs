@@ -348,6 +348,7 @@ where
             ethereum_client_state.epochs_per_sync_committee_period,
             latest_trusted_slot,
         );
+        tracing::info!("Latest period: {}", latest_period);
 
         let mut current_next_sync_committee_agg_pubkey =
             ethereum_consensus_state.next_sync_committee;
@@ -421,6 +422,8 @@ where
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
+        tracing::info!("Light client updates added to headers: #{}", headers.len());
+
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
         if headers.last().map_or(true, |last_header| {
             last_header.consensus_update.finalized_header.beacon.slot
@@ -429,6 +432,12 @@ where
             let finality_update_sync_committee = self
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
+            // TODO: Add asserts to make sure they are in the correct period
+            //
+            tracing::info!(
+                "current sync committee used in finality update header: {:?}",
+                finality_update_sync_committee
+            );
 
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
@@ -452,6 +461,24 @@ where
         }
 
         tracing::info!("Headers assembled: #{}", headers.len());
+
+        let initial_period = compute_sync_committee_period_at_slot(
+            ethereum_client_state.slots_per_epoch,
+            ethereum_client_state.epochs_per_sync_committee_period,
+            ethereum_consensus_state.slot,
+        );
+        let latest_period = compute_sync_committee_period_at_slot(
+            ethereum_client_state.slots_per_epoch,
+            ethereum_client_state.epochs_per_sync_committee_period,
+            latest_trusted_slot,
+        );
+        tracing::info!(
+            "Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}",
+            ethereum_consensus_state.slot,
+            latest_trusted_slot,
+            initial_period,
+            latest_period
+        );
 
         let proof_block_number = headers
             .last()
