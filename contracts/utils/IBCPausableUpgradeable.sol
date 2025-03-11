@@ -16,10 +16,12 @@ abstract contract IBCPausableUpgradeable is
 {
     /// @inheritdoc IIBCPausable
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @inheritdoc IIBCPausable
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     /// @dev Initializes the contract in unpaused state.
-    /// @param pauser The address that can pause and unpause the contract
+    /// @param pauser The address that is granted the `PAUSER_ROLE`
+    /// @param unpauser The address that is granted the `UNPAUSER_ROLE`
     function __IBCPausable_init(address pauser, address unpauser) internal onlyInitializing {
         __Pausable_init();
         __AccessControl_init();
@@ -39,7 +41,7 @@ abstract contract IBCPausableUpgradeable is
     }
 
     /// @inheritdoc IIBCPausable
-    function unpause() external virtual onlyRole(UNPAUSER_ROLE) {
+    function unpause() external onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
