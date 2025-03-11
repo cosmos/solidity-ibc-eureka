@@ -80,6 +80,8 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
 
+# Generate the fixtures for the wasm tests using the e2e tests
+generate-fixtures-wasm: clean
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 60m
@@ -88,8 +90,6 @@ generate-abi: build-contracts
 	@echo "Generating timeoutPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_RUST_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 60m
 
-generate-fixtures-wasm: clean
-# Generate the fixtures for the wasm tests using the e2e tests
 # Generate go types for the e2e tests from the etheruem light client code
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
