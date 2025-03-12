@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use futures::future;
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
 
-use crate::{chain::EthEureka, events::EurekaEvent};
+use crate::{chain::EthEureka, events::EurekaEventWithHeight};
 
 use super::ChainListenerService;
 
@@ -50,7 +50,7 @@ impl<P> ChainListenerService<EthEureka> for ChainListener<P>
 where
     P: Provider,
 {
-    async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
                 let block_hash = self
@@ -63,7 +63,7 @@ where
                     .ok_or_else(|| anyhow!("Transaction {} has not been mined", tx_id))?;
 
                 let event_filter = Filter::new()
-                    .events(EurekaEvent::evm_signatures())
+                    .events(EurekaEventWithHeight::evm_signatures())
                     .address(*self.ics26_router.address())
                     .at_block_hash(block_hash);
 
@@ -74,7 +74,7 @@ where
                         .await?
                         .iter()
                         .filter(|log| log.transaction_hash.unwrap_or_default() == tx_id)
-                        .filter_map(|log| EurekaEvent::try_from(log).ok())
+                        .filter_map(|log| EurekaEventWithHeight::try_from(log).ok())
                         .collect::<Vec<_>>(),
                 )
             }))
@@ -85,9 +85,13 @@ where
         )
     }
 
-    async fn fetch_events(&self, start_height: u64, end_height: u64) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_events(
+        &self,
+        start_height: u64,
+        end_height: u64,
+    ) -> Result<Vec<EurekaEventWithHeight>> {
         let event_filter = Filter::new()
-            .events(EurekaEvent::evm_signatures())
+            .events(EurekaEventWithHeight::evm_signatures())
             .address(*self.ics26_router.address())
             .from_block(start_height)
             .to_block(end_height);
@@ -98,7 +102,7 @@ where
             .get_logs(&event_filter)
             .await?
             .iter()
-            .filter_map(|log| EurekaEvent::try_from(log).ok())
+            .filter_map(|log| EurekaEventWithHeight::try_from(log).ok())
             .collect())
     }
 }

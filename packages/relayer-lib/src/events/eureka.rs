@@ -18,9 +18,9 @@ use super::cosmos_sdk;
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
-pub struct EurekaEvent {
+pub struct EurekaEventWithHeight {
     /// The type of the event.
-    pub event: EurekaEventType,
+    pub event: EurekaEvent,
     /// The block number at which the event was emitted.
     pub block_number: Option<u64>,
 }
@@ -28,14 +28,14 @@ pub struct EurekaEvent {
 /// The event type
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
-pub enum EurekaEventType {
+pub enum EurekaEvent {
     /// A packet was sent.
     SendPacket(SolPacket),
     /// An acknowledgement was written.
     WriteAcknowledgement(SolPacket, Vec<Bytes>),
 }
 
-impl EurekaEvent {
+impl EurekaEventWithHeight {
     /// Get the signature of the events for EVM.
     /// This is used to filter the logs.
     #[must_use]
@@ -44,7 +44,7 @@ impl EurekaEvent {
     }
 }
 
-impl TryFrom<&Log> for EurekaEvent {
+impl TryFrom<&Log> for EurekaEventWithHeight {
     type Error = anyhow::Error;
 
     fn try_from(log: &Log) -> anyhow::Result<Self> {
@@ -54,15 +54,12 @@ impl TryFrom<&Log> for EurekaEvent {
                 e.to_string()
             )
         })?;
-        match sol_event.data {
-            routerEvents::SendPacket(event) => Ok(Self {
-                event: EurekaEventType::SendPacket(event.packet),
-                block_number: log.block_number,
-            }),
-            routerEvents::WriteAcknowledgement(event) => Ok(Self {
-                event: EurekaEventType::WriteAcknowledgement(event.packet, event.acknowledgements),
-                block_number: log.block_number,
-            }),
+        let event_type = match sol_event.data {
+            routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
+            routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(
+                event.packet,
+                event.acknowledgements,
+            )),
             routerEvents::AckPacket(_) => Err(anyhow::anyhow!("AckPacket event is not used")),
             routerEvents::TimeoutPacket(_) => {
                 Err(anyhow::anyhow!("TimeoutPacket event is not used"))
@@ -84,11 +81,16 @@ impl TryFrom<&Log> for EurekaEvent {
             routerEvents::ICS02MisbehaviourSubmitted(_) => {
                 Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
             }
-        }
+        }?;
+
+        Ok(Self {
+            event: event_type,
+            block_number: log.block_number,
+        })
     }
 }
 
-impl TryFrom<TmEvent> for EurekaEventType {
+impl TryFrom<TmEvent> for EurekaEvent {
     type Error = anyhow::Error;
 
     fn try_from(event: TmEvent) -> anyhow::Result<Self> {

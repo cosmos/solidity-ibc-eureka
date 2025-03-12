@@ -37,7 +37,7 @@ use tendermint_rpc::{Client, HttpClient};
 use crate::utils::{cosmos, wait_for_condition};
 use crate::{
     chain::{CosmosSdk, EthEureka},
-    events::EurekaEvent,
+    events::EurekaEventWithHeight,
 };
 
 use super::r#trait::TxBuilderService;
@@ -260,8 +260,8 @@ where
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        dest_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
         for event in &src_events {
@@ -621,8 +621,8 @@ where
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        dest_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;

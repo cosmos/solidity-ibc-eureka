@@ -129,13 +129,10 @@ pub enum EthereumIBCError {
     NextSyncCommitteeUnknown,
 
     #[error("aggregate verify error: {0}")]
-    AggregateVerifyError(String),
+    BlsAggregateError(String),
 
     #[error("fast aggregate verify error: {0}")]
     FastAggregateVerifyError(String),
-
-    #[error("bls aggregate error: {0}")]
-    BlsAggregateError(String),
 
     #[error("not enough signatures")]
     NotEnoughSignatures,

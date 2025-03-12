@@ -4,7 +4,7 @@ use alloy::primitives::TxHash;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
 
-use crate::events::EurekaEvent;
+use crate::events::EurekaEventWithHeight;
 
 /// The `Chain` trait defines the interface for a chain.
 pub trait Chain {
@@ -23,7 +23,7 @@ pub trait Chain {
 pub struct CosmosSdk;
 
 impl Chain for CosmosSdk {
-    type Event = EurekaEvent;
+    type Event = EurekaEventWithHeight;
     type TxId = tendermint::Hash;
     type Height = u32;
 }
@@ -32,7 +32,7 @@ impl Chain for CosmosSdk {
 pub struct EthEureka;
 
 impl Chain for EthEureka {
-    type Event = EurekaEvent;
+    type Event = EurekaEventWithHeight;
     type TxId = TxHash;
     type Height = u64;
 }

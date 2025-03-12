@@ -144,10 +144,6 @@ install-operator:
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked
 
-run-relayer:
-	@echo "Running the relayer..."
-	cargo run --bin relayer --release -- start --config config.json
-
 # Generate the `genesis.json` file using $TENDERMINT_RPC_URL in the `.env` file
 # Note that the `scripts/genesis.json` file is ignored in the `.gitignore` file
 genesis-sp1-ics07: build-sp1-programs

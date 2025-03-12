@@ -17,11 +17,11 @@ use ibc_proto_eureka::{
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
-use crate::events::{EurekaEvent, EurekaEventType};
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
+    target_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     signer_address: &str,
@@ -30,7 +30,7 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e.event {
-            EurekaEventType::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(MsgTimeout {
                         packet: Some(packet.into()),
@@ -42,7 +42,7 @@ pub fn target_events_to_timeout_msgs(
                     None
                 }
             }
-            EurekaEventType::WriteAcknowledgement(..) => None,
+            EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
 }
@@ -50,7 +50,7 @@ pub fn target_events_to_timeout_msgs(
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
+    src_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     signer_address: &str,
@@ -59,35 +59,33 @@ pub fn src_events_to_recv_and_ack_msgs(
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
         .filter(|e| match &e.event {
-            EurekaEventType::SendPacket(packet) => {
+            EurekaEvent::SendPacket(packet) => {
                 packet.timeoutTimestamp > now && packet.destClient == target_client_id
             }
-            EurekaEventType::WriteAcknowledgement(packet, _) => {
-                packet.sourceClient == target_client_id
-            }
+            EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == target_client_id,
         })
         .partition(|e| match e.event {
-            EurekaEventType::SendPacket(_) => true,
-            EurekaEventType::WriteAcknowledgement(..) => false,
+            EurekaEvent::SendPacket(_) => true,
+            EurekaEvent::WriteAcknowledgement(..) => false,
         });
 
     let recv_msgs = src_send_events
         .into_iter()
         .map(|e| match e.event {
-            EurekaEventType::SendPacket(packet) => MsgRecvPacket {
+            EurekaEvent::SendPacket(packet) => MsgRecvPacket {
                 packet: Some(packet.into()),
                 proof_height: Some(*target_height),
                 proof_commitment: vec![],
                 signer: signer_address.to_string(),
             },
-            EurekaEventType::WriteAcknowledgement(..) => unreachable!(),
+            EurekaEvent::WriteAcknowledgement(..) => unreachable!(),
         })
         .collect::<Vec<MsgRecvPacket>>();
 
     let ack_msgs = src_ack_events
         .into_iter()
         .map(|e| match e.event {
-            EurekaEventType::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
+            EurekaEvent::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
                 packet: Some(packet.into()),
                 acknowledgement: Some(Acknowledgement {
                     app_acknowledgements: acks.into_iter().map(Into::into).collect(),
@@ -96,7 +94,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                 proof_acked: vec![],
                 signer: signer_address.to_string(),
             },
-            EurekaEventType::SendPacket(_) => unreachable!(),
+            EurekaEvent::SendPacket(_) => unreachable!(),
         })
         .collect::<Vec<MsgAcknowledgement>>();
 

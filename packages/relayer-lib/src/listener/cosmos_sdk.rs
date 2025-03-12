@@ -8,7 +8,7 @@ use anyhow::Result;
 
 use crate::{
     chain::CosmosSdk,
-    events::{EurekaEvent, EurekaEventType},
+    events::{EurekaEvent, EurekaEventWithHeight},
 };
 
 use super::ChainListenerService;
@@ -47,7 +47,7 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<CosmosSdk> for ChainListener {
-    async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
                 let tx_response = self.client().tx(tx_id, false).await?;
@@ -55,8 +55,8 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
 
                 Ok::<_, tendermint_rpc::Error>(tx_response.tx_result.events.into_iter().filter_map(
                     move |e| {
-                        let event_type = EurekaEventType::try_from(e).ok()?;
-                        Some(EurekaEvent {
+                        let event_type = EurekaEvent::try_from(e).ok()?;
+                        Some(EurekaEventWithHeight {
                             event: event_type,
                             block_number: Some(height as u64),
                         })
@@ -70,7 +70,11 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         )
     }
 
-    async fn fetch_events(&self, start_height: u32, end_height: u32) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_events(
+        &self,
+        start_height: u32,
+        end_height: u32,
+    ) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all((start_height..=end_height).map(|h| async move {
                 let resp = self.client().block_results(h).await?;
@@ -84,8 +88,8 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
                         .chain(resp.end_block_events.unwrap_or_default())
                         .chain(resp.finalize_block_events)
                         .filter_map(move |e| {
-                            let event_type = EurekaEventType::try_from(e).ok()?;
-                            Some(EurekaEvent {
+                            let event_type = EurekaEvent::try_from(e).ok()?;
+                            Some(EurekaEventWithHeight {
                                 event: event_type,
                                 block_number: Some(u64::from(h)), // Set block number from height
                             })
