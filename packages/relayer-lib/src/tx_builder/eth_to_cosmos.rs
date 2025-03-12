@@ -7,7 +7,7 @@ use alloy::{primitives::Address, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;
-use ethereum_light_client::header::{AccountUpdate, TrustedSyncCommittee};
+use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee};
 use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::bls::BlsPublicKey;
 use ethereum_types::consensus::light_client_header::LightClientUpdate;
@@ -324,12 +324,9 @@ where
             }
 
             let header = Header {
-                trusted_sync_committee: TrustedSyncCommittee {
-                    trusted_slot,
-                    sync_committee: ethereum_light_client::header::ActiveSyncCommittee::Next(
-                        previous_next_sync_committee.clone(),
-                    ),
-                },
+                active_sync_committee: ethereum_light_client::header::ActiveSyncCommittee::Next(
+                    previous_next_sync_committee.clone(),
+                ),
                 account_update,
                 consensus_update: update.clone(),
             };

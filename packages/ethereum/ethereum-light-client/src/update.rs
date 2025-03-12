@@ -19,9 +19,6 @@ pub fn update_consensus_state(
     current_client_state: ClientState,
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), EthereumIBCError> {
-    let trusted_sync_committee = header.trusted_sync_committee;
-    let trusted_slot = trusted_sync_committee.trusted_slot;
-
     let consensus_update = header.consensus_update;
 
     let store_period = compute_sync_committee_period_at_slot(
@@ -58,10 +55,7 @@ pub fn update_consensus_state(
             .map(|c| c.aggregate_pubkey);
     }
 
-    // Some updates can be only for updating the sync committee, therefore the slot number can be
-    // smaller. We don't want to save a new state if this is the case.
-    // TODO: we might to remove this functionality if we don't use it as it complicates the light client
-    let updated_slot = core::cmp::max(trusted_slot, consensus_update.attested_header.beacon.slot);
+    let updated_slot = consensus_update.attested_header.beacon.slot;
 
     if consensus_update.attested_header.beacon.slot > current_consensus_state.slot {
         new_consensus_state.slot = consensus_update.attested_header.beacon.slot;

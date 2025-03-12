@@ -100,10 +100,10 @@ type ConsensusState struct {
 type Header struct {
 	// The account update
 	AccountUpdate AccountUpdate `json:"account_update"`
+	// The trusted sync committee
+	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
-	// The trusted sync committee
-	TrustedSyncCommittee TrustedSyncCommittee `json:"trusted_sync_committee"`
 }
 
 // The account update
@@ -118,6 +118,26 @@ type AccountProof struct {
 	Proof []string `json:"proof"`
 	// The account storage root
 	StorageRoot string `json:"storage_root"`
+}
+
+// The trusted sync committee
+//
+// # The active sync committee
+//
+// # The current sync committee
+//
+// The next sync committee
+type ActiveSyncCommittee struct {
+	Current *SyncCommittee `json:"Current,omitempty"`
+	Next    *SyncCommittee `json:"Next,omitempty"`
+}
+
+// The sync committee data
+type SyncCommittee struct {
+	// The aggregate public key of the sync committee
+	AggregatePubkey string `json:"aggregate_pubkey"`
+	// The public keys of the sync committee
+	Pubkeys []string `json:"pubkeys"`
 }
 
 // The consensus update
@@ -208,14 +228,6 @@ type ExecutionPayloadHeader struct {
 	WithdrawalsRoot string `json:"withdrawals_root"`
 }
 
-// The sync committee data
-type SyncCommittee struct {
-	// The aggregate public key of the sync committee
-	AggregatePubkey string `json:"aggregate_pubkey"`
-	// The public keys of the sync committee
-	Pubkeys []string `json:"pubkeys"`
-}
-
 // Sync committee aggregate signature
 //
 // The sync committee aggregate
@@ -224,24 +236,6 @@ type SyncAggregate struct {
 	SyncCommitteeBits string `json:"sync_committee_bits"`
 	// The aggregated signature of the sync committee.
 	SyncCommitteeSignature string `json:"sync_committee_signature"`
-}
-
-// The trusted sync committee
-type TrustedSyncCommittee struct {
-	// The current sync committee
-	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
-	// The trusted slot
-	TrustedSlot uint64 `json:"trusted_slot"`
-}
-
-// The current sync committee
-//
-// # The active sync committee
-//
-// The next sync committee
-type ActiveSyncCommittee struct {
-	Current *SyncCommittee `json:"Current,omitempty"`
-	Next    *SyncCommittee `json:"Next,omitempty"`
 }
 
 // The key-value storage proof for a smart contract account
