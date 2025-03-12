@@ -63,7 +63,7 @@ pub enum SP1Config {
     /// - `NETWORK_PRIVATE_KEY`: The private key for the network prover. (only network)
     /// - `NETWORK_RPC_URL`: The RPC URL for prover network. (only network, default exists if empty)
     Env,
-    /// The network prover on the public cluster.
+    /// The network prover.
     Network {
         /// The optional private key for the network prover.
         /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
