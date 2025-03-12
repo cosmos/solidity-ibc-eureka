@@ -30,19 +30,19 @@ pub fn verify_membership(
     )?;
 
     if let Some(unwrapped_raw_value) = raw_value {
-        let proof_value = storage_proof.value.to_be_bytes_vec();
         ensure!(
-            proof_value == unwrapped_raw_value,
+            storage_proof.value.to_be_bytes_vec() == unwrapped_raw_value,
             EthereumIBCError::StoredValueMistmatch {
                 expected: unwrapped_raw_value,
-                actual: proof_value,
+                actual: storage_proof.value.to_be_bytes_vec(),
             }
         );
 
+        let rlp_value = alloy_rlp::encode_fixed_size(&storage_proof.value);
         verify_storage_inclusion_proof(
             &trusted_consensus_state.storage_root,
             &storage_proof.key,
-            &proof_value,
+            &rlp_value,
             storage_proof.proof.iter(),
         )
         .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
