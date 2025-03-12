@@ -101,7 +101,8 @@ contract ICS26RouterTest is Test {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(ics26Router), escrowLogic, ibcERC20Logic, address(0), address(0))
+                ICS20Transfer.initialize,
+                (address(ics26Router), escrowLogic, ibcERC20Logic, address(0), address(0), address(0))
             )
         );
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
