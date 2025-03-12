@@ -47,8 +47,8 @@ test-benchmark testname=".\\*":
 	forge test -vvv --show-progress --gas-report --match-path test/solidity-ibc/BenchmarkTest.t.sol --match-test {{testname}}
 
 # Run the cargo tests
-test-cargo:
-	cargo test --all --locked
+test-cargo testname="--all":
+	cargo test {{testname}} --locked --no-fail-fast -- --nocapture
 
 # Run the tests in abigen
 test-abigen:
@@ -154,6 +154,10 @@ genesis-sp1-ics07: build-sp1-programs
   @echo "Generating the genesis file..."
   RUST_LOG=info cargo run --bin operator --release -- genesis -o scripts/genesis.json
 
+# Deploy scripts. If these fail to land due to gas price fluctuations, try again with a higher gas price:
+# adding something like `--legacy --with-gas-price 100gwei` -- depending on the current gas prices.
+
+
 # Deploy the SP1ICS07Tendermint contract to the Eth Sepolia testnet if the `.env` file is present
 deploy-sp1-ics07: genesis-sp1-ics07
   @echo "Deploying the SP1ICS07Tendermint contract"
@@ -173,8 +177,7 @@ deploy-ics20: build-contracts
 # Deploy the SP1ICS07Tendermint contract using environment variables
 deploy-light-client: build-contracts
 	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast --legacy --with-gas-price 2gwei
-
+	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer

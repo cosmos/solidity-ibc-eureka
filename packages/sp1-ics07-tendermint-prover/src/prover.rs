@@ -17,7 +17,8 @@ use ibc_proto::{
 use prost::Message;
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::{
-    Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
+    network::FulfillmentStrategy, NetworkProver, Prover, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1ProvingKey, SP1Stdin, SP1VerificationError, SP1VerifyingKey,
 };
 
 // Re-export the supported zk algorithms.
@@ -31,7 +32,7 @@ where
     C: SP1ProverComponents,
 {
     /// [`sp1_sdk::ProverClient`] for generating proofs.
-    pub prover_client: &'a dyn Prover<C>,
+    pub prover_client: &'a Sp1Prover<C>,
     /// The proving key.
     pub pkey: SP1ProvingKey,
     /// The verifying key.
@@ -39,6 +40,56 @@ where
     /// The proof type.
     pub proof_type: SupportedZkAlgorithm,
     _phantom: std::marker::PhantomData<T>,
+}
+
+/// The SP1 prover used by the [`TxBuilder`].
+#[allow(clippy::module_name_repetitions)]
+pub enum Sp1Prover<C>
+where
+    C: SP1ProverComponents,
+{
+    /// All default public cluster provers.
+    PublicCluster(Box<dyn Prover<C>>),
+    /// Private clusters can only be a [`NetworkProver`].
+    PrivateCluster(NetworkProver),
+}
+
+impl<C: SP1ProverComponents> Sp1Prover<C> {
+    /// Create a new [`Sp1Prover::PublicCluster`] from any type that implements [`Prover`].
+    pub fn new_public_cluster<T>(prover: T) -> Self
+    where
+        T: Prover<C> + 'static,
+    {
+        Self::PublicCluster(Box::new(prover))
+    }
+
+    /// Create a new [`Sp1Prover::PrivateCluster`] from a [`NetworkProver`].
+    pub const fn new_private_cluster(prover: NetworkProver) -> Self {
+        Self::PrivateCluster(prover)
+    }
+
+    /// Calls the underlying prover's `setup` method.
+    #[must_use]
+    pub fn setup(&self, elf: &[u8]) -> (SP1ProvingKey, SP1VerifyingKey) {
+        match self {
+            Self::PublicCluster(prover) => prover.setup(elf),
+            Self::PrivateCluster(prover) => prover.setup(elf),
+        }
+    }
+
+    /// Calls the underlying prover's `prove` method.
+    /// # Errors
+    /// If the underlying prover errors.
+    pub fn verify(
+        &self,
+        bundle: &SP1ProofWithPublicValues,
+        vkey: &SP1VerifyingKey,
+    ) -> Result<(), SP1VerificationError> {
+        match self {
+            Self::PublicCluster(prover) => prover.verify(bundle, vkey),
+            Self::PrivateCluster(prover) => prover.verify(bundle, vkey),
+        }
+    }
 }
 
 impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
@@ -49,7 +100,7 @@ where
     /// Create a new prover.
     #[must_use]
     #[tracing::instrument(skip_all)]
-    pub fn new(proof_type: SupportedZkAlgorithm, prover_client: &'a dyn Prover<C>) -> Self {
+    pub fn new(proof_type: SupportedZkAlgorithm, prover_client: &'a Sp1Prover<C>) -> Self {
         tracing::info!("Initializing SP1 ProverClient...");
         let (pkey, vkey) = prover_client.setup(T::ELF);
         tracing::info!("SP1 ProverClient initialized");
@@ -68,19 +119,27 @@ where
     #[must_use]
     pub fn prove(&self, stdin: &SP1Stdin) -> SP1ProofWithPublicValues {
         // Generate the proof. Depending on SP1_PROVER env variable, this may be a mock, local or
-        // network proof.
-        let proof = self
-            .prover_client
-            .prove(
-                &self.pkey,
-                stdin,
-                match self.proof_type {
-                    SupportedZkAlgorithm::Groth16 => SP1ProofMode::Groth16,
-                    SupportedZkAlgorithm::Plonk => SP1ProofMode::Plonk,
-                    SupportedZkAlgorithm::__Invalid => panic!("unsupported zk algorithm"),
-                },
-            )
-            .expect("proving failed");
+        let proof = match self.prover_client {
+            Sp1Prover::PublicCluster(ref prover) => prover
+                .prove(
+                    &self.pkey,
+                    stdin,
+                    match self.proof_type {
+                        SupportedZkAlgorithm::Groth16 => SP1ProofMode::Groth16,
+                        SupportedZkAlgorithm::Plonk => SP1ProofMode::Plonk,
+                        SupportedZkAlgorithm::__Invalid => panic!("unsupported zk algorithm"),
+                    },
+                )
+                .expect("proving failed"),
+            Sp1Prover::PrivateCluster(ref prover) => match self.proof_type {
+                SupportedZkAlgorithm::Groth16 => prover.prove(&self.pkey, stdin).groth16(),
+                SupportedZkAlgorithm::Plonk => prover.prove(&self.pkey, stdin).plonk(),
+                SupportedZkAlgorithm::__Invalid => panic!("unsupported zk algorithm"),
+            }
+            .strategy(FulfillmentStrategy::Reserved)
+            .run()
+            .expect("proving failed"),
+        };
 
         self.prover_client
             .verify(&proof, &self.vkey)
@@ -228,5 +287,17 @@ where
         stdin.write_vec(encoded_5);
 
         self.prove(&stdin)
+    }
+}
+
+impl<C: SP1ProverComponents> From<Box<dyn Prover<C>>> for Sp1Prover<C> {
+    fn from(prover: Box<dyn Prover<C>>) -> Self {
+        Self::PublicCluster(prover)
+    }
+}
+
+impl<C: SP1ProverComponents> From<NetworkProver> for Sp1Prover<C> {
+    fn from(prover: NetworkProver) -> Self {
+        Self::PrivateCluster(prover)
     }
 }
