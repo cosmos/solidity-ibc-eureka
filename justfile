@@ -47,8 +47,8 @@ test-benchmark testname=".\\*":
 	forge test -vvv --show-progress --gas-report --match-path test/solidity-ibc/BenchmarkTest.t.sol --match-test {{testname}}
 
 # Run the cargo tests
-test-cargo:
-	cargo test --all --locked
+test-cargo testname="--all":
+	cargo test {{testname}} --locked -- --nocapture
 
 # Run the tests in abigen
 test-abigen:
