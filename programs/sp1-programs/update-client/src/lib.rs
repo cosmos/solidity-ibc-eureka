@@ -31,7 +31,7 @@ pub fn update_client(
     let options = Options {
         trust_threshold: client_state.trustLevel.clone().into(),
         trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
-        clock_drift: Duration::default(),
+        clock_drift: Duration::from_secs(15),
     };
 
     let mut ctx = types::validation::ClientValidationCtx::new(time);
@@ -52,8 +52,8 @@ pub fn update_client(
     )
     .unwrap();
 
-    let trusted_height = proposed_header.trusted_height.try_into().unwrap();
-    let new_height = proposed_header.height().try_into().unwrap();
+    let trusted_height = proposed_header.trusted_height.into();
+    let new_height = proposed_header.height().into();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     UpdateClientOutput {
