@@ -31,6 +31,7 @@ contract IBCAdminTest is Test {
     address public clientCreator = makeAddr("clientCreator");
     address public customizer = makeAddr("customizer");
     address public ics20Pauser = makeAddr("ics20Pauser");
+    address public ics20Unpauser = makeAddr("ics20Unpauser");
 
     string public clientId;
     string public counterpartyId = "42-dummy-01";
@@ -52,7 +53,8 @@ contract IBCAdminTest is Test {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, address(0))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, ics20Unpauser, address(0))
             )
         );
 
@@ -272,7 +274,7 @@ contract IBCAdminTest is Test {
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         ics20Transfer.sendTransfer(sendMsg);
 
-        vm.prank(ics20Pauser);
+        vm.prank(ics20Unpauser);
         ics20Transfer.unpause();
         assert(!ics20Transfer.paused());
     }
@@ -292,9 +294,18 @@ contract IBCAdminTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.PAUSER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ics20Transfer.UNPAUSER_ROLE()
             )
         );
+        ics20Transfer.unpause();
+        assert(ics20Transfer.paused());
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, ics20Pauser, ics20Transfer.UNPAUSER_ROLE()
+            )
+        );
+        vm.prank(ics20Pauser);
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
     }
@@ -316,12 +327,37 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantPauserRole(newPauser);
-        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newPauser));
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newPauser));
 
         // Revoke the pauser role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokePauserRole(ics20Pauser);
+    }
+
+    function test_success_setUnpauser() public {
+        address newUnpauser = makeAddr("newUnpauser");
+
+        ics20Transfer.grantUnpauserRole(newUnpauser);
+        assertTrue(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newUnpauser));
+
+        ics20Transfer.revokeUnpauserRole(newUnpauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newUnpauser));
+    }
+
+    function test_failure_setUnpauser() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newUnpauser = makeAddr("newUnpauser");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.grantUnpauserRole(newUnpauser);
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newUnpauser));
+
+        // Revoke the pauser role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokeUnpauserRole(ics20Unpauser);
     }
 
     function test_success_setDelegateSender() public {
