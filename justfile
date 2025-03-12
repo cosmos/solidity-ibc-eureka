@@ -48,7 +48,7 @@ test-benchmark testname=".\\*":
 
 # Run the cargo tests
 test-cargo testname="--all":
-	cargo test {{testname}} --locked -- --nocapture
+	cargo test {{testname}} --locked --no-fail-fast -- --nocapture
 
 # Run the tests in abigen
 test-abigen:
