@@ -88,7 +88,7 @@ impl TryFrom<&Log> for EurekaEvent {
     }
 }
 
-impl TryFrom<TmEvent> for EurekaEvent {
+impl TryFrom<TmEvent> for EurekaEventType {
     type Error = anyhow::Error;
 
     fn try_from(event: TmEvent) -> anyhow::Result<Self> {
@@ -102,10 +102,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                     let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                     let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self {
-                        event: EurekaEventType::SendPacket(packet.into()),
-                        block_number: None, // TODO: Get block number from events, maybe?
-                    })
+                    Some(Self::SendPacket(packet.into()))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
@@ -129,19 +126,16 @@ impl TryFrom<TmEvent> for EurekaEvent {
                         (ack.or(ack_acc), packet.or(packet_acc))
                     });
 
-                Ok(Self {
-                    event: EurekaEventType::WriteAcknowledgement(
-                        packet
-                            .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
-                            .into(),
-                        ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
-                            .app_acknowledgements
-                            .into_iter()
-                            .map(Into::into)
-                            .collect(),
-                    ),
-                    block_number: None,
-                })
+                Ok(Self::WriteAcknowledgement(
+                    packet
+                        .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
+                        .into(),
+                    ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
+                        .app_acknowledgements
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                ))
             }
             cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET
             | cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET

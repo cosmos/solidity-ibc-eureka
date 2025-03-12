@@ -6,7 +6,10 @@ use tendermint_rpc::{Client, HttpClient};
 
 use anyhow::Result;
 
-use crate::{chain::CosmosSdk, events::EurekaEvent};
+use crate::{
+    chain::CosmosSdk,
+    events::{EurekaEvent, EurekaEventType},
+};
 
 use super::ChainListenerService;
 
@@ -47,15 +50,18 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
     async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEvent>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
-                Ok::<_, tendermint_rpc::Error>(
-                    self.client()
-                        .tx(tx_id, false)
-                        .await?
-                        .tx_result
-                        .events
-                        .into_iter()
-                        .filter_map(|e| EurekaEvent::try_from(e).ok()),
-                )
+                let tx_response = self.client().tx(tx_id, false).await?;
+                let height = tx_response.height.value();
+
+                Ok::<_, tendermint_rpc::Error>(tx_response.tx_result.events.into_iter().filter_map(
+                    move |e| {
+                        let event_type = EurekaEventType::try_from(e).ok()?;
+                        Some(EurekaEvent {
+                            event: event_type,
+                            block_number: Some(height as u64),
+                        })
+                    },
+                ))
             }))
             .await?
             .into_iter()
@@ -68,6 +74,7 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         Ok(
             future::try_join_all((start_height..=end_height).map(|h| async move {
                 let resp = self.client().block_results(h).await?;
+
                 Ok::<_, tendermint_rpc::Error>(
                     resp.txs_results
                         .unwrap_or_default()
@@ -76,7 +83,13 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
                         .chain(resp.begin_block_events.unwrap_or_default())
                         .chain(resp.end_block_events.unwrap_or_default())
                         .chain(resp.finalize_block_events)
-                        .filter_map(|e| EurekaEvent::try_from(e).ok()),
+                        .filter_map(move |e| {
+                            let event_type = EurekaEventType::try_from(e).ok()?;
+                            Some(EurekaEvent {
+                                event: event_type,
+                                block_number: Some(u64::from(h)), // Set block number from height
+                            })
+                        }),
                 )
             }))
             .await?
