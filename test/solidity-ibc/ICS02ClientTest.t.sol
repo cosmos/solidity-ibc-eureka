@@ -11,6 +11,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.sol";
+import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.sol";
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -54,6 +55,28 @@ contract ICS02ClientTest is Test {
 
         bool hasRole = ics02Client.hasRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         assertTrue(hasRole, "client owner not set correctly");
+    }
+
+    function test_success_customClientId() public {
+        string memory customClientId = "custom-client-id";
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(customClientId, merklePrefix);
+        string memory newId = ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        assertEq(customClientId, newId, "custom client id not set correctly");
+    }
+
+    function test_failure_customClientId() public {
+        // client id is not custom (starts with "client-")
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(clientIdentifier, merklePrefix);
+        vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCInvalidClientId.selector, clientIdentifier));
+        ics02Client.addClient(clientIdentifier, counterpartyInfo, address(lightClient));
+
+        // reuse of client id
+        string memory customClientId = "custom-client-id";
+        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCClientAlreadyExists.selector, customClientId));
+        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
     }
 
     function test_UpdateClient() public {

@@ -20,15 +20,16 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet, ibcContractAddress string) {
+func (s *TestSuite) CreateEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet, ibcContractAddress string, wasmFixtureGenerator *types.WasmFixtureGenerator) {
 	switch s.ethTestnetType {
 	case testvalues.EthTestnetTypePoW:
 		s.createDummyLightClient(ctx, cosmosChain, simdRelayerUser)
 	case testvalues.EthTestnetTypePoS:
-		s.createEthereumLightClient(ctx, cosmosChain, simdRelayerUser, ibcContractAddress)
+		s.createEthereumLightClient(ctx, cosmosChain, simdRelayerUser, ibcContractAddress, wasmFixtureGenerator)
 	default:
 		panic(fmt.Sprintf("Unrecognized Ethereum testnet type: %v", s.ethTestnetType))
 	}
@@ -39,6 +40,7 @@ func (s *TestSuite) createEthereumLightClient(
 	cosmosChain *cosmos.CosmosChain,
 	simdRelayerUser ibc.Wallet,
 	ibcContractAddress string,
+	wasmFixtureGenerator *types.WasmFixtureGenerator,
 ) {
 	eth := s.EthChain
 
@@ -134,6 +136,13 @@ func (s *TestSuite) createEthereumLightClient(
 	ethereumLightClientID, err := ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
+
+	if wasmFixtureGenerator != nil {
+		wasmFixtureGenerator.AddFixtureStep("initial_state", ethereumtypes.InitialState{
+			ClientState:    ethClientState,
+			ConsensusState: ethConsensusState,
+		})
+	}
 }
 
 func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) {

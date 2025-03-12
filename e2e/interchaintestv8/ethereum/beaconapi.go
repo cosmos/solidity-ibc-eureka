@@ -55,6 +55,10 @@ func (s Spec) ToForkParameters() ethereumtypes.ForkParameters {
 			Version: ethcommon.Bytes2Hex(s.DenebForkVersion[:]),
 			Epoch:   s.DenebForkEpoch,
 		},
+		Electra: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.ElectraForkVersion[:]),
+			Epoch:   s.ElectraForkEpoch,
+		},
 	}
 }
 
