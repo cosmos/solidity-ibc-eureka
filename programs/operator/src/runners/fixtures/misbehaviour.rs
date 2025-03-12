@@ -13,7 +13,8 @@ use ibc_eureka_solidity_types::msgs::{
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::MisbehaviourProgram, prover::SP1ICS07TendermintProver,
+    programs::MisbehaviourProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
@@ -43,7 +44,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
 
     // get light block for trusted height of header 1
     #[allow(clippy::cast_possible_truncation)]
