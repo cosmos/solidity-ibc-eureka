@@ -32,7 +32,7 @@ use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use tendermint_rpc::{Client, HttpClient};
+use tendermint_rpc::Client;
 
 use crate::utils::{cosmos, wait_for_condition};
 use crate::{
@@ -43,7 +43,11 @@ use crate::{
 use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
-pub struct TxBuilder<P: Provider + Clone> {
+pub struct TxBuilder<P, C> 
+where
+    P: Provider + Clone,
+    C: Client + TendermintRpcExt + Sync,
+{
     /// The ETH API client.
     pub eth_client: EthApiClient<P>,
     /// The Beacon API client.
@@ -51,7 +55,7 @@ pub struct TxBuilder<P: Provider + Clone> {
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<(), P>,
     /// The HTTP client for the Cosmos SDK.
-    pub tm_client: HttpClient,
+    pub tm_client: C,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
 }
@@ -67,13 +71,17 @@ pub struct MockTxBuilder<P: Provider + Clone> {
     pub signer_address: String,
 }
 
-impl<P: Provider + Clone> TxBuilder<P> {
+impl<P, C> TxBuilder<P, C> 
+where
+    P: Provider + Clone,
+    C: Client + TendermintRpcExt + Sync,
+{
     /// Create a new [`TxBuilder`] instance.
     pub fn new(
         ics26_address: Address,
         provider: P,
         beacon_api_url: String,
-        tm_client: HttpClient,
+        tm_client: C,
         signer_address: String,
     ) -> Self {
         Self {
@@ -102,14 +110,12 @@ impl<P: Provider + Clone> TxBuilder<P> {
         client_id: String,
         revision_height: u64,
     ) -> Result<ConsensusState> {
-        // this was needed by the compiler to disambiguate the trait method call
-        let wasm_consensus_state_any =
-            sp1_ics07_tendermint_utils::rpc::TendermintRpcExt::consensus_state(
-                &self.tm_client,
-                client_id,
-                revision_height,
-            )
-            .await?;
+        let wasm_consensus_state_any = TendermintRpcExt::consensus_state(
+            &self.tm_client,
+            client_id,
+            revision_height,
+        )
+        .await?;
         let wasm_consensus_state =
             WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())
                 .map_err(|e| anyhow::anyhow!("Failed to decode consensus state: {:?}", e))?;
@@ -253,9 +259,10 @@ impl<P: Provider + Clone> TxBuilder<P> {
 }
 
 #[async_trait::async_trait]
-impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
+impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
 where
     P: Provider + Clone,
+    C: Client + TendermintRpcExt + Send + Sync,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
