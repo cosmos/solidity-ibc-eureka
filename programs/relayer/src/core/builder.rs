@@ -70,6 +70,7 @@ impl RelayerBuilder {
         }
 
         // Start the gRPC server
+        tracing::info!(%socket_addr, "gRPC server ready and listening for connections");
         Server::builder()
             .add_service(RelayerServiceServer::new(relayer))
             .serve(socket_addr)

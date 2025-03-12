@@ -6,8 +6,8 @@ use ethereum_types::consensus::bls::BlsPublicKey;
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
 #[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum EthereumIBCError {
-    #[error("IBC path is empty")]
-    EmptyPath,
+    #[error("invalid path length, expected {expected} but found {found}")]
+    InvalidPathLength { expected: usize, found: usize },
 
     #[error("unable to decode storage proof")]
     StorageProofDecode,

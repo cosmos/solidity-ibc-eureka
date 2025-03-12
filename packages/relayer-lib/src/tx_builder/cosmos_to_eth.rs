@@ -15,8 +15,8 @@ use ibc_eureka_solidity_types::{
     sp1_ics07::sp1_ics07_tendermint,
 };
 
+use sp1_ics07_tendermint_prover::prover::Sp1Prover;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::Prover;
 use tendermint_rpc::HttpClient;
 
 use sp1_prover::components::SP1ProverComponents;
@@ -41,7 +41,7 @@ where
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// SP1 prover for generating proofs.
-    pub sp1_prover: Box<dyn Prover<C>>,
+    pub sp1_prover: Sp1Prover<C>,
 }
 
 impl<P, C> TxBuilder<P, C>
@@ -50,16 +50,16 @@ where
     C: SP1ProverComponents,
 {
     /// Create a new [`TxBuilder`] instance.
-    pub const fn new(
+    pub fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
-        sp1_prover: Box<dyn Prover<C>>,
+        sp1_prover: impl Into<Sp1Prover<C>>,
     ) -> Self {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
-            sp1_prover,
+            sp1_prover: sp1_prover.into(),
         }
     }
 
@@ -131,7 +131,7 @@ where
         let client_state = self.client_state(target_client_id).await?;
 
         inject_sp1_proof(
-            self.sp1_prover.as_ref(),
+            &self.sp1_prover,
             &mut all_msgs,
             &self.tm_client,
             latest_light_block,

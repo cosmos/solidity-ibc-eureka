@@ -18,4 +18,7 @@ pub enum TrieDBError {
 
     #[error("proof is invalid due to missing value: {v}", v = hex::encode(value))]
     ValueMissing { value: Vec<u8> },
+
+    #[error("proof is invalid due to unexpected value: {v}", v = hex::encode(value))]
+    ValueShouldBeMissing { value: Vec<u8> },
 }

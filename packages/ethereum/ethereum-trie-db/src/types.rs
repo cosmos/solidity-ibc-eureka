@@ -20,7 +20,7 @@ use std::{borrow::Borrow, marker::PhantomData, ops::Range};
 
 use hash_db::Hasher;
 use primitive_types::H256;
-use rlp::{DecoderError, Prototype, Rlp, RlpStream};
+use rlp::{DecoderError, Prototype, Rlp};
 use sha3::{Digest, Keccak256};
 use trie_db::{
     node::{NibbleSlicePlan, NodeHandlePlan, NodePlan, Value, ValuePlan},
@@ -72,32 +72,6 @@ const HASHED_NULL_NODE_BYTES: [u8; 32] = [
     0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
 ];
 const HASHED_NULL_NODE: H256 = H256(HASHED_NULL_NODE_BYTES);
-
-/// Encode a partial value with an iterator as input.
-fn encode_partial_from_iterator_iter<'a>(
-    mut partial: impl Iterator<Item = u8> + 'a,
-    odd: bool,
-    is_leaf: bool,
-) -> impl Iterator<Item = u8> + 'a {
-    let first = if odd { partial.next().unwrap_or(0) } else { 0 };
-    encode_partial_inner_iter(first, partial, odd, is_leaf)
-}
-
-/// Encode a partial value with an iterator as input.
-fn encode_partial_inner_iter<'a>(
-    first_byte: u8,
-    partial_remaining: impl Iterator<Item = u8> + 'a,
-    odd: bool,
-    is_leaf: bool,
-) -> impl Iterator<Item = u8> + 'a {
-    let encoded_type = if is_leaf { 0x20 } else { 0 };
-    let first = if odd {
-        0x10 + encoded_type + first_byte
-    } else {
-        encoded_type
-    };
-    std::iter::once(first).chain(partial_remaining)
-}
 
 #[allow(clippy::needless_pass_by_value)]
 fn decode_value_range(rlp: Rlp, mut offset: usize) -> Result<Range<usize>, DecoderError> {
@@ -157,8 +131,10 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
                     // Check the header bit to see if we're dealing with an odd partial (only a nibble of header info)
                     // or an even partial (skip a full byte).
                     let (start, byte_offset) = if partial_header & 16 == 16 {
+                        // odd
                         (0, 1)
                     } else {
+                        // even
                         (1, 0)
                     };
                     let range =
@@ -219,63 +195,23 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
         &[0x80]
     }
 
-    fn leaf_node(partial: impl Iterator<Item = u8>, _: usize, value: Value) -> Vec<u8> {
-        let mut stream = RlpStream::new_list(2);
-        stream.append_iter(partial);
-        stream.append(&match value {
-            Value::Inline(v) | Value::Node(v) => v,
-        });
-        stream.out().into()
+    fn leaf_node(_: impl Iterator<Item = u8>, _: usize, _: Value) -> Vec<u8> {
+        unreachable!("Encoding leaf nodes is not needed for proof verification.");
     }
 
     fn extension_node(
-        partial: impl Iterator<Item = u8>,
-        number_nibble: usize,
-        child_ref: ChildReference<<KeccakHasher as Hasher>::Out>,
+        _: impl Iterator<Item = u8>,
+        _: usize,
+        _: ChildReference<<KeccakHasher as Hasher>::Out>,
     ) -> Vec<u8> {
-        let mut stream = RlpStream::new_list(2);
-        stream.append_iter(encode_partial_from_iterator_iter(
-            partial,
-            number_nibble % 2 > 0,
-            false,
-        ));
-        match child_ref {
-            ChildReference::Hash(hash) => stream.append(&hash.as_ref()),
-            ChildReference::Inline(inline_data, length) => {
-                let bytes = &AsRef::<[u8]>::as_ref(&inline_data)[..length];
-                stream.append_raw(bytes, 1)
-            }
-        };
-        stream.out().into()
+        unreachable!("Encoding extension nodes is not needed for proof verification.");
     }
 
     fn branch_node(
-        children: impl Iterator<
-            Item = impl Borrow<Option<ChildReference<<KeccakHasher as Hasher>::Out>>>,
-        >,
-        value: Option<Value>,
+        _: impl Iterator<Item = impl Borrow<Option<ChildReference<<KeccakHasher as Hasher>::Out>>>>,
+        _: Option<Value>,
     ) -> Vec<u8> {
-        let mut stream = RlpStream::new_list(17);
-        for child_ref in children {
-            match child_ref.borrow() {
-                Some(c) => match c {
-                    ChildReference::Hash(h) => stream.append(&h.as_ref()),
-                    ChildReference::Inline(inline_data, length) => {
-                        let bytes = &AsRef::<[u8]>::as_ref(inline_data)[..*length];
-                        stream.append_raw(bytes, 1)
-                    }
-                },
-                None => stream.append_empty_data(),
-            };
-        }
-        if let Some(value) = value {
-            stream.append(&match value {
-                Value::Inline(v) | Value::Node(v) => v,
-            });
-        } else {
-            stream.append_empty_data();
-        }
-        stream.out().into()
+        unreachable!("Encoding branch nodes is not needed for proof verification.");
     }
 
     fn branch_node_nibbled(
@@ -286,6 +222,8 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
         >,
         _maybe_value: Option<Value>,
     ) -> Vec<u8> {
-        unreachable!("This codec is only used with a trie Layout that uses extension node.")
+        unreachable!(
+            "This codec is only used with a trie Layout that does not use extension nodes."
+        )
     }
 }

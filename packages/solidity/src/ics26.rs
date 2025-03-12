@@ -32,7 +32,7 @@ impl IICS26RouterMsgs::Packet {
 
     /// Returns the packet commitment
     #[must_use]
-    pub fn commit_packet(&self) -> Vec<u8> {
+    pub fn commitment(&self) -> Vec<u8> {
         let mut buf = Vec::new();
 
         // Hash the destination_client field
