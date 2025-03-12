@@ -68,12 +68,7 @@ pub fn update_consensus_state(
 
         new_consensus_state.state_root = consensus_update.attested_header.execution.state_root;
         new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
-
-        new_consensus_state.timestamp = compute_timestamp_at_slot(
-            current_client_state.seconds_per_slot,
-            current_client_state.genesis_time,
-            consensus_update.attested_header.beacon.slot,
-        );
+        new_consensus_state.timestamp = consensus_update.finalized_header.execution.timestamp;
 
         if current_client_state.latest_slot < consensus_update.attested_header.beacon.slot {
             new_client_state = Some(ClientState {
