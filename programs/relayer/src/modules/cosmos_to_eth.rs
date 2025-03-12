@@ -57,18 +57,25 @@ pub enum SP1Config {
     /// Mock prover.
     Mock,
     /// Prover from environment variables. (Usually a network prover)
+    ///
     /// `sp1-sdk` expects the following environment variables:
     /// - `SP1_PROVER`: The prover type. (mock, network, cpu, cuda)
     /// - `NETWORK_PRIVATE_KEY`: The private key for the network prover. (only network)
     /// - `NETWORK_RPC_URL`: The RPC URL for prover network. (only network, default exists if empty)
     Env,
-    /// The network prover with explicit private key.
+    /// The network prover on the public cluster.
     Network {
-        /// The private key for the network prover.
-        network_private_key: String,
+        /// The optional private key for the network prover.
+        /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
+        #[serde(default)]
+        network_private_key: Option<String>,
         /// The optional RPC URL for the network prover.
+        /// `NETWORK_RPC_URL` environment variable is used if not provided.
         #[serde(default)]
         network_rpc_url: Option<String>,
+        /// Whether to use a private cluster.
+        #[serde(default)]
+        private_cluster: bool,
     },
     /// The local CPU prover.
     Cpu,
@@ -93,32 +100,53 @@ impl CosmosToEthRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let sp1_prover: Box<dyn Prover<CpuProverComponents>> = match config.sp1_config {
-            SP1Config::Mock => Box::new(ProverClient::builder().mock().build()),
-            SP1Config::Env => Box::new(ProverClient::from_env()),
+        let tx_builder = match config.sp1_config {
+            SP1Config::Mock => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().mock().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Env => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::from_env());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Cpu => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().cpu().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Cuda => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().cuda().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
             SP1Config::Network {
                 network_private_key,
                 network_rpc_url,
-            } => Box::new(network_rpc_url.map_or_else(
-                || {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .build()
-                },
-                |rpc_url| {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .rpc_url(&rpc_url)
-                        .build()
-                },
-            )),
-            SP1Config::Cpu => Box::new(ProverClient::builder().cpu().build()),
-            SP1Config::Cuda => Box::new(ProverClient::builder().cuda().build()),
+                private_cluster,
+            } => {
+                let mut prover_builder = ProverClient::builder().network();
+                if let Some(private_key) = network_private_key {
+                    prover_builder = prover_builder.private_key(&private_key);
+                }
+                if let Some(rpc_url) = network_rpc_url {
+                    prover_builder = prover_builder.rpc_url(&rpc_url);
+                }
+                if private_cluster {
+                    TxBuilder::new(
+                        config.ics26_address,
+                        provider,
+                        tm_client,
+                        prover_builder.build(),
+                    )
+                } else {
+                    let prover: Box<dyn Prover<CpuProverComponents>> =
+                        Box::new(prover_builder.build());
+                    TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                }
+            }
         };
-
-        let tx_builder = TxBuilder::new(config.ics26_address, provider, tm_client, sp1_prover);
 
         Self {
             tm_listener,
