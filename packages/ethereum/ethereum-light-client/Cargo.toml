@@ -15,7 +15,7 @@ path = "src/bin/generate_json_schema.rs"
 ethereum-trie-db = { workspace = true }
 ethereum-types = { workspace = true }
 
-alloy-primitives = { workspace = true, features = ["serde", "hex-compat"] }
+alloy-primitives = { workspace = true, features = ["serde", "hex-compat", "rlp"] }
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
 tree_hash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
