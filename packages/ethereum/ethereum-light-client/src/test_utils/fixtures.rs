@@ -98,7 +98,7 @@ impl RelayerMessages {
 #[must_use]
 pub fn get_packet_proof(packet: Packet) -> (Vec<u8>, Vec<u8>) {
     let ics26_packet: IICS26RouterMsgs::Packet = packet.into();
-    (ics26_packet.commitment_path(), ics26_packet.commit_packet())
+    (ics26_packet.commitment_path(), ics26_packet.commitment())
 }
 
 impl StepsFixture {

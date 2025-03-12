@@ -18,13 +18,19 @@ pub fn verify_membership(
     path: Vec<Vec<u8>>,
     raw_value: Option<Vec<u8>>,
 ) -> Result<(), EthereumIBCError> {
-    let path = path.first().ok_or(EthereumIBCError::EmptyPath)?;
+    ensure!(
+        path.len() == 1,
+        EthereumIBCError::InvalidPathLength {
+            expected: 1,
+            found: path.len()
+        }
+    );
 
     let storage_proof: StorageProof = serde_json::from_slice(proof.as_slice())
         .map_err(|_| EthereumIBCError::StorageProofDecode)?;
 
-    check_commitment_key(
-        path.clone(),
+    check_commitment_path(
+        &path[0],
         client_state.ibc_commitment_slot,
         storage_proof.key.into(),
     )?;
@@ -64,29 +70,28 @@ pub fn verify_membership(
     }
 }
 
-fn check_commitment_key(
-    path: Vec<u8>,
+fn check_commitment_path(
+    path: &[u8],
     ibc_commitment_slot: U256,
     key: U256,
 ) -> Result<(), EthereumIBCError> {
-    let expected_commitment_key = ibc_commitment_key_v2(path, ibc_commitment_slot);
-
-    // Data MUST be stored to the commitment path that is defined in ICS23.
-    if expected_commitment_key == key {
-        Ok(())
-    } else {
-        Err(EthereumIBCError::InvalidCommitmentKey(
-            format!("0x{expected_commitment_key:x}"),
+    let expected_commitment_path = evm_ics26_commitment_path(path, ibc_commitment_slot);
+    ensure!(
+        expected_commitment_path == key,
+        EthereumIBCError::InvalidCommitmentKey(
+            format!("0x{expected_commitment_path:x}"),
             format!("0x{key:x}"),
-        ))
-    }
+        )
+    );
+
+    Ok(())
 }
 
 // TODO: Unit test
 /// Computes the commitment key for a given path and slot.
-#[must_use = "calculating the commitment key has no effect"]
-pub fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
-    let path_hash = keccak256(path);
+#[must_use = "calculating the commitment path has no effect"]
+pub fn evm_ics26_commitment_path(ibc_path: &[u8], slot: U256) -> U256 {
+    let path_hash = keccak256(ibc_path);
 
     let mut hasher = Keccak256::new();
     hasher.update(path_hash);
