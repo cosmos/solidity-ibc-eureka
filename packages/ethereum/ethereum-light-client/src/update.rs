@@ -1,8 +1,6 @@
 //! This module provides [`update_consensus_state`] function to update the consensus state
 
-use ethereum_types::consensus::{
-    slot::compute_timestamp_at_slot, sync_committee::compute_sync_committee_period_at_slot,
-};
+use ethereum_types::consensus::sync_committee::compute_sync_committee_period_at_slot;
 
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError,
