@@ -78,14 +78,15 @@ contract ICS20Transfer is
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic Is the address of the Escrow logic contract
     /// @param ibcERC20Logic Is the address of the IBCERC20 logic contract
-    /// @param pauser The address that can pause and unpause the contract
+    /// @param pausers The addresses that can pause the contract
+    /// @param unpausers The addresses that can unpause the contract
     /// @inheritdoc IICS20Transfer
     function initialize(
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
-        address pauser,
-        address unpauser,
+        address[] memory pausers,
+        address[] memory unpausers,
         address permit2
     )
         public
@@ -93,7 +94,7 @@ contract ICS20Transfer is
     {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __IBCPausable_init(pauser, unpauser);
+        __IBCPausable_init(pausers, unpausers);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 

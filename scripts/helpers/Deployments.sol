@@ -102,8 +102,8 @@ abstract contract Deployments {
         address ibcERC20Implementation;
 
         // admin control
-        address pauser;
-        address unpauser;
+        address[] pausers;
+        address[] unpausers;
         address permit2;
         address proxy;
     }
@@ -122,8 +122,8 @@ abstract contract Deployments {
             ibcERC20Implementation: vm.parseJsonAddress(json, ".ics20Transfer.ibcERC20Implementation"),
             ics26Router: vm.parseJsonAddress(json, ".ics20Transfer.ics26Router"),
             implementation: vm.parseJsonAddress(json, ".ics20Transfer.implementation"),
-            pauser: vm.parseJsonAddress(json, ".ics20Transfer.pauser"),
-            unpauser: vm.parseJsonAddress(json, ".ics20Transfer.unpauser"),
+            pausers: vm.parseJsonAddressArray(json, ".ics20Transfer.pausers"),
+            unpausers: vm.parseJsonAddressArray(json, ".ics20Transfer.unpausers"),
             permit2: vm.parseJsonAddress(json, ".ics20Transfer.permit2"),
             proxy: vm.parseJsonAddress(json, ".ics20Transfer.proxy")
         });

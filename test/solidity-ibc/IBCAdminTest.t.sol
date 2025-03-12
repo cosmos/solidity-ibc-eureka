@@ -33,11 +33,17 @@ contract IBCAdminTest is Test {
     address public ics20Pauser = makeAddr("ics20Pauser");
     address public ics20Unpauser = makeAddr("ics20Unpauser");
 
+    address[] public ics20Pausers = new address[](1);
+    address[] public ics20Unpausers = new address[](1);
+
     string public clientId;
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
+        ics20Pausers[0] = ics20Pauser;
+        ics20Unpausers[0] = ics20Unpauser;
+
         // ============ Step 1: Deploy the logic contracts ==============
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         address escrowLogic = address(new Escrow());
@@ -54,7 +60,7 @@ contract IBCAdminTest is Test {
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, ics20Unpauser, address(0))
+                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pausers, ics20Unpausers, address(0))
             )
         );
 
@@ -352,9 +358,9 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantUnpauserRole(newUnpauser);
-        assertFalse(ics20Transfer.hasRole(ics20Transfer.PAUSER_ROLE(), newUnpauser));
+        assertFalse(ics20Transfer.hasRole(ics20Transfer.UNPAUSER_ROLE(), newUnpauser));
 
-        // Revoke the pauser role from an unauthorized account
+        // Revoke the unpauser role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokeUnpauserRole(ics20Unpauser);

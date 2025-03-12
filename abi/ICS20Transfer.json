@@ -298,14 +298,14 @@
         "internalType": "address"
       },
       {
-        "name": "pauser",
-        "type": "address",
-        "internalType": "address"
+        "name": "pausers",
+        "type": "address[]",
+        "internalType": "address[]"
       },
       {
-        "name": "unpauser",
-        "type": "address",
-        "internalType": "address"
+        "name": "unpausers",
+        "type": "address[]",
+        "internalType": "address[]"
       },
       {
         "name": "permit2",

@@ -28,8 +28,8 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
                 deployment.ics26Router,
                 deployment.escrowImplementation,
                 deployment.ibcERC20Implementation,
-                deployment.pauser,
-                deployment.unpauser,
+                deployment.pausers,
+                deployment.unpausers,
                 deployment.permit2
             )
         );
@@ -86,22 +86,30 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
             "transfer app address doesn't match with the one in ics26Router"
         );
 
-        if (deployment.pauser != address(0)) {
-            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+        if (deployment.pausers.length != 0) {
+            for (uint32 i = 0; i < deployment.pausers.length; i++) {
+                address pauser = deployment.pausers[i];
 
-            vm.assertTrue(
-                ipu.hasRole(ipu.PAUSER_ROLE(), deployment.pauser),
-                "pauser address doesn't have pauser role"
-            );
+                IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+
+                vm.assertTrue(
+                    ipu.hasRole(ipu.PAUSER_ROLE(), pauser),
+                    string.concat("pauser address (", Strings.toHexString(pauser), ") doesn't have pauser role")
+                );
+            }
         }
 
-        if (deployment.unpauser != address(0)) {
-            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+        if (deployment.unpausers.length != 0) {
+            for (uint32 i = 0; i < deployment.unpausers.length; i++) {
+                address unpauser = deployment.unpausers[i];
 
-            vm.assertTrue(
-                ipu.hasRole(ipu.UNPAUSER_ROLE(), deployment.unpauser),
-                "unpauser address doesn't have unpauser role"
-            );
+                IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+
+                vm.assertTrue(
+                    ipu.hasRole(ipu.UNPAUSER_ROLE(), unpauser),
+                    string.concat("unpauser address (", Strings.toHexString(unpauser), ") doesn't have unpauser role")
+                );
+            }
         }
     }
 
@@ -152,8 +160,8 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
         vm.serializeAddress("ics20Transfer", "implementation", deployment.implementation);
         vm.serializeAddress("ics20Transfer", "escrowImplementation", deployment.escrowImplementation);
         vm.serializeAddress("ics20Transfer", "ibcERC20Implementation", deployment.ibcERC20Implementation);
-        vm.serializeAddress("ics20Transfer", "pauser", deployment.pauser);
-        vm.serializeAddress("ics20Transfer", "unpauser", deployment.unpauser);
+        vm.serializeAddress("ics20Transfer", "pausers", deployment.pausers);
+        vm.serializeAddress("ics20Transfer", "unpausers", deployment.unpausers);
         vm.serializeAddress("ics20Transfer", "ics26Router", deployment.ics26Router);
         string memory output = vm.serializeAddress("ics20Transfer", "permit2", deployment.permit2);
 
