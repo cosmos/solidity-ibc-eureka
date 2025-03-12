@@ -43,7 +43,7 @@ use crate::{
 use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
-pub struct TxBuilder<P, C> 
+pub struct TxBuilder<P, C>
 where
     P: Provider + Clone,
     C: Client + TendermintRpcExt + Sync,
@@ -71,7 +71,7 @@ pub struct MockTxBuilder<P: Provider + Clone> {
     pub signer_address: String,
 }
 
-impl<P, C> TxBuilder<P, C> 
+impl<P, C> TxBuilder<P, C>
 where
     P: Provider + Clone,
     C: Client + TendermintRpcExt + Sync,
@@ -110,12 +110,8 @@ where
         client_id: String,
         revision_height: u64,
     ) -> Result<ConsensusState> {
-        let wasm_consensus_state_any = TendermintRpcExt::consensus_state(
-            &self.tm_client,
-            client_id,
-            revision_height,
-        )
-        .await?;
+        let wasm_consensus_state_any =
+            TendermintRpcExt::consensus_state(&self.tm_client, client_id, revision_height).await?;
         let wasm_consensus_state =
             WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())
                 .map_err(|e| anyhow::anyhow!("Failed to decode consensus state: {:?}", e))?;
@@ -138,11 +134,15 @@ where
             .await?
             .data;
 
-        let sync_committee = light_client_bootstrap.current_sync_committee;
-
-        Ok(sync_committee)
+        Ok(light_client_bootstrap.current_sync_committee)
     }
 
+    /// Fetches light client updates from the Beacon API for synchronizing between the trusted and target periods.
+    ///
+    /// This function calculates the sync committee periods for both the trusted state and the finality update,
+    /// then retrieves all light client updates needed to advance the light client from the trusted period
+    /// to the target period. These updates contain validator signatures and sync committee data needed
+    /// to verify the consensus transition.
     async fn get_light_client_updates(
         &self,
         client_state: &ClientState,
@@ -253,7 +253,7 @@ where
         Ok(Header {
             trusted_sync_committee,
             account_update,
-            consensus_update: update.clone(),
+            consensus_update: update,
         })
     }
 }
