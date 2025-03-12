@@ -423,7 +423,7 @@ where
         tracing::info!("Light client updates added to headers: #{}", headers.len());
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
-        if headers.last().map_or(true, |last_header| {
+        if headers.last().is_none_or(|last_header| {
             last_header.consensus_update.finalized_header.beacon.slot
                 < finality_update.finalized_header.beacon.slot
         }) {
