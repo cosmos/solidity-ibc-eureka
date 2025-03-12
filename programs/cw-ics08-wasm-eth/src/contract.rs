@@ -178,6 +178,10 @@ mod tests {
                         version: FixedBytes([0; 4]),
                         epoch: 0,
                     },
+                    electra: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
                 },
                 seconds_per_slot: 0,
                 slots_per_epoch: 0,
@@ -252,9 +256,14 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Timestamp,
         };
-        use ethereum_light_client::test_utils::fixtures::{
-            self, CommitmentProof, InitialState, StepsFixture, UpdateClient,
+        use ethereum_light_client::{
+            header::Header,
+            test_utils::fixtures::{
+                self, get_packet_proof, InitialState, RelayerMessages, StepsFixture,
+            },
         };
+        use ibc_proto::ibc::lightclients::wasm::v1::ClientMessage;
+        use prost::Message;
 
         use crate::{
             contract::{instantiate, query, sudo},
@@ -279,18 +288,19 @@ mod tests {
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
             let client_state = initial_state.client_state;
+
             let consensus_state = initial_state.consensus_state;
 
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let instantiate_msg = crate::msg::InstantiateMsg {
+            let msg = crate::msg::InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
             };
 
-            instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             // At this point, the light clients are initialized and the client state is stored
             // In the flow, an ICS20 transfer has been initiated from Ethereum to Cosmos
@@ -298,24 +308,31 @@ mod tests {
             // light client (which is two steps: verify client message and update state)
 
             // Verify client message
-            let update_client: UpdateClient = fixture.get_data_at_step(1);
-            assert_eq!(1, update_client.updates.len()); // just to make sure
-            let header = update_client.updates[0].clone();
-            let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
+            let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            assert_eq!(1, update_client_msgs.len()); // just to make sure
+            assert_eq!(1, recv_msgs.len()); // just to make sure
+            let client_msgs = update_client_msgs
+                .iter()
+                .map(|msg| {
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap()
+                })
+                .collect::<Vec<_>>();
+            let header_bz = client_msgs[0].data.as_slice();
+            let header: Header = serde_json::from_slice(client_msgs[0].data.as_slice()).unwrap();
 
-            // We update the enviornment to be after finalized execution timestamp
             let mut env = mock_env();
             env.block.time = Timestamp::from_seconds(
                 header.consensus_update.attested_header.execution.timestamp + 1000,
             );
 
             let query_verify_client_msg = QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
-                client_message: Binary::from(header_bz.clone()),
+                client_message: Binary::from(header_bz),
             });
             query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
 
             // Update state
-
             let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
                 client_message: Binary::from(header_bz),
             });
@@ -334,26 +351,22 @@ mod tests {
             // along with the proof of th packet commitment. IBC will call verify_membership.
 
             // Verify memebership
-            let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
-
-            let proof = commitment_proof_fixture.storage_proof;
-            let proof_bz = serde_json::to_vec(&proof).unwrap();
-            let path = commitment_proof_fixture.path;
-            let value = proof.value;
-            let value_bz = value.to_be_bytes_vec();
+            let packet = recv_msgs[0].packet.clone().unwrap();
+            let storage_proof = recv_msgs[0].proof_commitment.clone();
+            let (path, value) = get_packet_proof(packet);
 
             let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
                     revision_number: 0,
-                    revision_height: commitment_proof_fixture.proof_slot,
+                    revision_height: recv_msgs[0].proof_height.unwrap().revision_height,
                 },
                 delay_time_period: 0,
                 delay_block_period: 0,
-                proof: Binary::from(proof_bz),
+                proof: Binary::from(storage_proof),
                 merkle_path: MerklePath {
-                    key_path: vec![Binary::from(path.to_vec())],
+                    key_path: vec![Binary::from(path)],
                 },
-                value: Binary::from(value_bz),
+                value: Binary::from(value),
             });
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
         }
