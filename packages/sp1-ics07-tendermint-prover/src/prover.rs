@@ -132,16 +132,11 @@ where
                 )
                 .expect("proving failed"),
             Sp1Prover::PrivateCluster(ref prover) => match self.proof_type {
-                SupportedZkAlgorithm::Groth16 => prover
-                    .prove(&self.pkey, stdin)
-                    .strategy(FulfillmentStrategy::Reserved)
-                    .groth16(),
-                SupportedZkAlgorithm::Plonk => prover
-                    .prove(&self.pkey, stdin)
-                    .strategy(FulfillmentStrategy::Reserved)
-                    .plonk(),
+                SupportedZkAlgorithm::Groth16 => prover.prove(&self.pkey, stdin).groth16(),
+                SupportedZkAlgorithm::Plonk => prover.prove(&self.pkey, stdin).plonk(),
                 SupportedZkAlgorithm::__Invalid => panic!("unsupported zk algorithm"),
             }
+            .strategy(FulfillmentStrategy::Reserved)
             .run()
             .expect("proving failed"),
         };
