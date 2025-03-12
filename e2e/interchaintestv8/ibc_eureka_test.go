@@ -46,6 +46,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -56,6 +57,7 @@ type IbcEurekaTestSuite struct {
 
 	// Whether to generate fixtures for tests or not
 	generateSolidityFixtures bool
+	wasmFixtureGenerator     *types.WasmFixtureGenerator
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -88,6 +90,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	var prover string
+	shouldGenerateWasmFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -127,7 +130,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
-		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		if os.Getenv(testvalues.EnvKeyRustLog) == "" {
+			os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
+		}
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
@@ -135,7 +140,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
 			s.generateSolidityFixtures = true
 		}
+		shouldGenerateWasmFixtures = os.Getenv(testvalues.EnvKeyGenerateWasmFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
+
+	// Needs to be added here so the cleanup is called after the test suite is done
+	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite, shouldGenerateWasmFixtures)
 
 	s.Require().True(s.Run("Deploy ethereum contracts", func() {
 		args := append([]string{
@@ -188,7 +197,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router)
+		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router, s.wasmFixtureGenerator)
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {
@@ -250,6 +259,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			SP1Config:      sp1Config,
 			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
 			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			LogLevel:       os.Getenv(testvalues.EnvKeyRustLog),
 		}
 
 		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
@@ -308,8 +318,8 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
@@ -521,6 +531,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -832,6 +846,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().Empty(resp.Address)
 
 			ackRelayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("ack_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(ackRelayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -1025,6 +1043,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Empty(resp.Address)
 
 			ackRelayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("ack_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(ackRelayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -1118,6 +1140,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
@@ -1307,6 +1333,10 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().Equal(resp.Address, ics26Address.String())
 
 			timeoutRelayTx = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("timeout_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(timeoutRelayTx),
+			})
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {

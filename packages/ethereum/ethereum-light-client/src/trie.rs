@@ -46,11 +46,12 @@ mod test {
     use ethereum_types::consensus::{
         fork::{Fork, ForkParameters},
         light_client_header::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-        merkle::{get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_INDEX},
+        merkle::{get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_GINDEX},
     };
 
     use crate::{
-        client_state::ClientState, trie::validate_merkle_branch, verify::get_lc_execution_root,
+        client_state::ClientState, sync_protocol_helpers::get_lc_execution_root,
+        trie::validate_merkle_branch,
     };
 
     #[test]
@@ -123,9 +124,12 @@ mod test {
                 version: FixedBytes([3, 0, 0, 1]),
                 epoch: 0,
             },
-
             deneb: Fork {
                 version: FixedBytes([4, 0, 0, 1]),
+                epoch: 0,
+            },
+            electra: Fork {
+                version: FixedBytes([5, 0, 0, 1]),
                 epoch: 0,
             },
         };
@@ -141,7 +145,7 @@ mod test {
         )
         .unwrap();
         let depth = EXECUTION_BRANCH_DEPTH;
-        let index = get_subtree_index(EXECUTION_PAYLOAD_INDEX);
+        let index = get_subtree_index(EXECUTION_PAYLOAD_GINDEX);
         let root = header.beacon.body_root;
 
         validate_merkle_branch(leaf, header.execution_branch.into(), depth, index, root).unwrap();
