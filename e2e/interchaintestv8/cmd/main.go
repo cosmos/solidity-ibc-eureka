@@ -20,10 +20,10 @@ const (
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://cosmos-testnet-rpc.polkachu.com:443"
+	DefaultCosmosRPC = "https://rpc.testcosmos.directory:443/cosmosicsprovidertestnet"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "cosmos-testnet-grpc.polkachu.com:14990"
+	DefaultCosmosGRPC = "grpc.provider-sentry-01.ics-testnet.polypore.xyz:443"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "provider"
@@ -36,8 +36,8 @@ const (
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
 	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "hub-testnet-sp1-0"
-	MockEthClientID        = "08-wasm-249"
+	MockTendermintClientID = "hub-testnet-sp1-4"
+	MockEthClientID        = "08-wasm-255"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"

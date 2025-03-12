@@ -106,7 +106,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 
 	cosmosAddress := sdk.AccAddress(cosmosRelayerPrivateKey.PubKey().Address())
 
-	grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
+	grpcConn, err := utils.GetGRPC(cosmosGrpcAddress)
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 
 // GetGRPCClient returns a gRPC client for the relayer.
 func GetRelayerClient(grpcAddr string) (relayertypes.RelayerServiceClient, error) {
-	conn, err := utils.GetTLSGRPC(grpcAddr)
+	conn, err := utils.GetGRPC(grpcAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to gRPC server for relayer: %w", err)
 	}

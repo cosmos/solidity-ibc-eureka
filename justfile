@@ -161,6 +161,9 @@ deploy-light-client: build-contracts
 	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
 	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast --legacy --with-gas-price 2gwei
 
+deploy-grant-role:
+	@echo "Deploying the grant role contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/GrantRole.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast --legacy --with-gas-price 750gwei
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer

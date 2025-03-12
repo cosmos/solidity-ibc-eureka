@@ -96,7 +96,7 @@ func TransferFromEth() *cobra.Command {
 
 			fmt.Printf("Approved ICS20 contract (%s) to spend ERC20 (%s) from %s\n", ics20Address.Hex(), erc20Address.Hex(), ethereumUserAddress.Hex())
 
-			timeout := uint64(time.Now().Add(1 * time.Hour).Unix())
+			timeout := uint64(time.Now().Add(6 * time.Hour).Unix())
 			sendTransferMsg := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 				Denom:            erc20Address,
 				Amount:           transferAmount,

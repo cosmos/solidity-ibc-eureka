@@ -106,7 +106,7 @@ func printCosmosBalance(cmd *cobra.Command, address string, args []string) error
 		return fmt.Errorf("cosmos-grpc flag not set")
 	}
 
-	grpcConn, err := utils.GetTLSGRPC(cosmosGrpcAddress)
+	grpcConn, err := utils.GetGRPC(cosmosGrpcAddress)
 	if err != nil {
 		return err
 	}

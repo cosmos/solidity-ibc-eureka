@@ -19,10 +19,10 @@ import (
 
 const (
 	EthAPIURL              = "https://ethereum-sepolia-rpc.publicnode.com"
-	BeaconAPIURL           = "http://sepolia-geth.orb.local:9596"
+	BeaconAPIURL           = ""
 	IbcContractAddress     = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
 	ChainID                = 11155111
-	EtheruemClientChecksum = ""
+	EtheruemClientChecksum = "77fce8d9f164b75551106879704aa25b90018946719d4925656e1a32f8dd5fb2"
 )
 
 func main() {
