@@ -1185,7 +1185,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 	}))
 
-    // Transfer back (unwind)
+	// Transfer back (unwind)
 	var simdBTransferTxHash []byte
 	s.Require().True(s.Run("Transfer tokens from SimdB to SimdA", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
