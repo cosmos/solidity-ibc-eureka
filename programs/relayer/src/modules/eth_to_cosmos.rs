@@ -7,7 +7,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
-    events::EurekaEvent,
+    events::{EurekaEvent, EurekaEventWithHeight},
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{eth_to_cosmos, TxBuilderService},
 };
@@ -36,7 +36,7 @@ struct EthToCosmosRelayerModuleService {
 }
 
 enum EthToCosmosTxBuilder {
-    Real(eth_to_cosmos::TxBuilder<RootProvider>),
+    Real(eth_to_cosmos::TxBuilder<RootProvider, HttpClient>),
     Mock(eth_to_cosmos::MockTxBuilder<RootProvider>),
 }
 
@@ -178,9 +178,17 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             cosmos_events.len()
         );
 
+        // Extract the inner events from the EurekaEventWithHeight, as our relay_events takes Vec<EurekaEvent>
+        let eth_events_inner = eth_events.into_iter().map(|e| e.event).collect();
+        let cosmos_events_inner = cosmos_events.into_iter().map(|e| e.event).collect();
+
         let tx = self
             .tx_builder
-            .relay_events(eth_events, cosmos_events, inner_req.target_client_id)
+            .relay_events(
+                eth_events_inner,
+                cosmos_events_inner,
+                inner_req.target_client_id,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
@@ -219,14 +227,39 @@ impl EthToCosmosTxBuilder {
         target_events: Vec<EurekaEvent>,
         target_client_id: String,
     ) -> anyhow::Result<Vec<u8>> {
+        // Convert EurekaEvent to EurekaEventWithHeight
+        let src_events_with_height = src_events
+            .into_iter()
+            .map(|event| EurekaEventWithHeight {
+                event,
+                block_number: None,
+            })
+            .collect();
+
+        let target_events_with_height = target_events
+            .into_iter()
+            .map(|event| EurekaEventWithHeight {
+                event,
+                block_number: None,
+            })
+            .collect();
+
         match self {
             Self::Real(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events_with_height,
+                    target_events_with_height,
+                    target_client_id,
+                )
+                .await
             }
             Self::Mock(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events_with_height,
+                    target_events_with_height,
+                    target_client_id,
+                )
+                .await
             }
         }
     }

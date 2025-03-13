@@ -1,7 +1,6 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Ethereum.
 
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use alloy::{primitives::Address, providers::Provider};
@@ -34,7 +33,7 @@ use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::Client;
 
-use crate::utils::{cosmos, wait_for_condition};
+use crate::utils::{cosmos, wait_for_condition, wait_for_condition_with_capture};
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
@@ -179,48 +178,32 @@ where
         &self,
         target_block_number: u64,
     ) -> Result<LightClientFinalityUpdate> {
-        // Shared mutable variable to store the latest update.
-        let latest_update: Arc<Mutex<Option<LightClientFinalityUpdate>>> =
-            Arc::new(Mutex::new(None));
-
-        // Clone the Arc so the closure can access it.
-        let latest_update_clone = latest_update.clone();
-        wait_for_condition(
+        // Wait until we find a finality update that meets our criteria and capture it
+        // This way we avoid making an extra call at the end
+        wait_for_condition_with_capture(
             Duration::from_secs(45 * 60),
             Duration::from_secs(10),
-            || {
-                // Clone again for the async move closure.
-                let latest_update_inner = latest_update_clone.clone();
-                async move {
-                    tracing::debug!(
-                        "Waiting for finality beyond target block number: {}",
+            || async {
+                tracing::debug!(
+                    "Waiting for finality beyond target block number: {}",
+                    target_block_number
+                );
+
+                let finality_update = self.beacon_api_client.finality_update().await?.data;
+                if finality_update.finalized_header.execution.block_number < target_block_number {
+                    tracing::info!(
+                        "Finality not found: current finality execution block number: {}, Target execution block number: {}",
+                        finality_update.finalized_header.execution.block_number,
                         target_block_number
                     );
-
-                    let finality_update = self.beacon_api_client.finality_update().await?.data;
-                    if finality_update.finalized_header.execution.block_number < target_block_number
-                    {
-                        tracing::info!(
-                            "Finality not found: current finality execution block number: {}, Target execution block number: {}",
-                            finality_update.finalized_header.execution.block_number,
-                            target_block_number
-                        );
-                        return Ok(false);
-                    }
-
-                    // Store the current update.
-                    *latest_update_inner.lock().unwrap() = Some(finality_update);
-                    Ok(true)
+                    return Ok(None);
                 }
+
+                // Return the update itself when the condition is met
+                Ok(Some(finality_update))
             },
         )
-        .await?;
-
-        // Retrieve the stored update.
-        let stored_update = latest_update.lock().unwrap().take().ok_or_else(|| {
-            anyhow::anyhow!("Finality update was not stored even though condition was met")
-        })?;
-        Ok(stored_update)
+        .await
     }
 
     async fn light_client_update_to_header(
