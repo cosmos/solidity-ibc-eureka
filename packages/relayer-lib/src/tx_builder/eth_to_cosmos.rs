@@ -254,19 +254,15 @@ where
         dest_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
-        for event in &src_events {
-            tracing::debug!("Source event: {:?}", event);
-        }
-
-        let latest_block_from_events = src_events
-            .iter()
-            .chain(dest_events.iter())
-            .filter_map(|e| e.block_number)
-            .max();
-
-        let minimum_block_number = match latest_block_from_events {
-            Some(latest_block) => latest_block,
-            _ => self.eth_client.get_block_number().await?,
+        let latest_block_number = self.eth_client.get_block_number().await?;
+        let minimum_block_number = if dest_events.is_empty() {
+            let latest_block_from_events = src_events.iter().filter_map(|e| e.block_number).max();
+            latest_block_from_events.map_or(latest_block_number, |latest_block| {
+                std::cmp::min(latest_block, latest_block_number)
+            })
+        } else {
+            // If we have destination events (e.g. timeout), use the latest block number
+            latest_block_number
         };
 
         let target_height = Height {
