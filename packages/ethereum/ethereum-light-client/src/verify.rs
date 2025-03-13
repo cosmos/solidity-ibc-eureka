@@ -9,8 +9,6 @@ use ethereum_types::consensus::{
     light_client_header::LightClientUpdate,
     merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
-    slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
-    sync_committee::compute_sync_committee_period_at_slot,
 };
 use tree_hash::TreeHash;
 
@@ -66,17 +64,14 @@ pub fn verify_header<V: BlsVerify>(
     )?;
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
-    let current_slot = compute_slot_at_timestamp(
-        client_state.genesis_time,
-        client_state.seconds_per_slot,
-        current_timestamp,
-    )
-    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
-        timestamp: current_timestamp,
-        genesis: client_state.genesis_time,
-        seconds_per_slot: client_state.seconds_per_slot,
-        genesis_slot: GENESIS_SLOT,
-    })?;
+    let current_slot = client_state
+        .compute_slot_at_timestamp(current_timestamp)
+        .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+            timestamp: current_timestamp,
+            genesis: client_state.genesis_time,
+            seconds_per_slot: client_state.seconds_per_slot,
+            genesis_slot: client_state.genesis_slot,
+        })?;
 
     validate_light_client_update::<V>(
         client_state,
@@ -96,9 +91,14 @@ pub fn verify_header<V: BlsVerify>(
     );
 
     let proof_data = header.account_update.account_proof.clone();
+    print!("{proof_data:?}");
 
     verify_account_storage_root(
-        header.consensus_update.attested_header.execution.state_root,
+        header
+            .consensus_update
+            .finalized_header
+            .execution
+            .state_root,
         client_state.ibc_contract_address,
         &proof_data.proof,
         proof_data.storage_root,
@@ -154,7 +154,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let update_finalized_slot = update.finalized_header.beacon.slot;
 
     ensure!(
-        update_finalized_slot != GENESIS_SLOT,
+        update_finalized_slot != client_state.genesis_slot,
         EthereumIBCError::FinalizedSlotIsGenesis
     );
 
@@ -182,16 +182,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
     //     - the light client must have the `current_sync_committee` and use it to verify the new header.
     // 2. stored_period = N, signature_period = N + 1:
     //     - the light client must have the `next_sync_committee` and use it to verify the new header.
-    let stored_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        trusted_consensus_state.finalized_slot(),
-    );
-    let signature_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        update.signature_slot,
-    );
+    let stored_period = client_state
+        .compute_sync_committee_period_at_slot(trusted_consensus_state.finalized_slot());
+    let signature_period =
+        client_state.compute_sync_committee_period_at_slot(update.signature_slot);
 
     if trusted_consensus_state.next_sync_committee().is_some() {
         ensure!(
@@ -212,11 +206,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
     }
 
     // Verify update is relevant
-    let update_attested_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        update_attested_slot,
-    );
+    let update_attested_period =
+        client_state.compute_sync_committee_period_at_slot(update_attested_slot);
 
     // There are two options to do a light client update:
     // 1. We are updating the header with a newer one.
@@ -252,7 +243,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(finalized_root_gindex_at_slot(
             client_state,
-            update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+            update.finalized_header.beacon.slot,
         )?),
         update.attested_header.beacon.state_root,
     )
@@ -280,7 +271,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
             get_subtree_index(next_sync_committee_gindex_at_slot(
                 client_state,
-                update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+                update.finalized_header.beacon.slot,
             )?),
             update.attested_header.beacon.state_root,
         )
@@ -304,7 +295,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .sync_aggregate
         .sync_committee_bits
         .iter()
-        .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
+        .flat_map(|byte| (0..8).map(move |i| (byte & (1 << i)) != 0))
         .zip(sync_committee.pubkeys.iter())
         .filter_map(|(included, pubkey)| included.then_some(*pubkey))
         .collect::<Vec<_>>();
@@ -312,10 +303,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let fork_version_slot = std::cmp::max(update.signature_slot, 1) - 1;
     let fork_version = client_state
         .fork_parameters
-        .compute_fork_version(compute_epoch_at_slot(
-            client_state.slots_per_epoch,
-            fork_version_slot,
-        ));
+        .compute_fork_version(client_state.compute_epoch_at_slot(fork_version_slot));
 
     let domain = compute_domain(
         DomainType::SYNC_COMMITTEE,

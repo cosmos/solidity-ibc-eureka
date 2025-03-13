@@ -1,6 +1,7 @@
 //! This module implements the `BeaconApiClient` to interact with the Ethereum Beacon API.
 
 use ethereum_types::consensus::{
+    bootstrap::LightClientBootstrap,
     light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
     spec::Spec,
 };
@@ -10,11 +11,13 @@ use tracing::debug;
 
 use super::{
     error::{BeaconApiClientError, InternalServerError, NotFoundError},
-    response::{Response, Version},
+    response::{BeaconBlockRoot, Response, Version},
 };
 
 const SPEC_PATH: &str = "/eth/v1/config/spec";
-const FINALITY_UPDATE_PATH: &str = "/eth/v1/beacon/light_client/finality_update";
+const BEACON_BLOCKS_PATH: &str = "/eth/v1/beacon/blocks";
+const LIGHT_CLIENT_BOOTSTRAP_PATH: &str = "/eth/v1/beacon/light_client/bootstrap";
+const LIGHT_CLIENT_FINALITY_UPDATE_PATH: &str = "/eth/v1/beacon/light_client/finality_update";
 const LIGHT_CLIENT_UPDATES_PATH: &str = "/eth/v1/beacon/light_client/updates";
 
 /// The api client for interacting with the Beacon API
@@ -41,13 +44,37 @@ impl BeaconApiClient {
         self.get_json(SPEC_PATH).await
     }
 
+    /// Fetches the `LigthClientBootstrap` for a given beacon block root
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
+    pub async fn light_client_bootstrap(
+        &self,
+        beacon_block_root: &str,
+    ) -> Result<Response<LightClientBootstrap>, BeaconApiClientError> {
+        self.get_json(&format!(
+            "{LIGHT_CLIENT_BOOTSTRAP_PATH}/{beacon_block_root}"
+        ))
+        .await
+    }
+
+    /// Fetches the Beacon block root for a given block id
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
+    pub async fn beacon_block_root(&self, block_id: &str) -> Result<String, BeaconApiClientError> {
+        let resp: Response<BeaconBlockRoot> = self
+            .get_json(&format!("{BEACON_BLOCKS_PATH}/{block_id}/root"))
+            .await?;
+
+        Ok(resp.data.root)
+    }
+
     /// Fetches the latest Beacon light client finality update
     /// # Errors
     /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn finality_update(
         &self,
     ) -> Result<Response<LightClientFinalityUpdate, Version>, BeaconApiClientError> {
-        self.get_json(FINALITY_UPDATE_PATH).await
+        self.get_json(LIGHT_CLIENT_FINALITY_UPDATE_PATH).await
     }
 
     /// Fetches Beacon light client updates starting from a given period
