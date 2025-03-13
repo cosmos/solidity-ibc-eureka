@@ -242,9 +242,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		var sp1Config string
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = testvalues.EnvValueSp1Prover_Mock
+			sp1Config = fmt.Sprintf(`"%s"`, testvalues.EnvValueSp1Prover_Mock)
 		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = "env"
+			sp1Config = testvalues.EnvValueSp1Prover_PrivateClusterConfig
 		default:
 			s.Require().Fail("Unsupported prover type: %s", prover)
 		}

@@ -1,0 +1,114 @@
+name: e2e-smoke
+on:
+  schedule:
+    - cron: "0 0 * * 0"  # Run weekly on Sundays
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'Ethereum network preset'
+        required: false
+        default: 'minimal'
+        type: choice
+        options:
+        - minimal
+        - mainnet
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**.go'
+      - '**.toml'
+      - '**.lock'
+      - '**.mod'
+      - '**.sum'
+      - '**.sol'
+      - '.github/workflows/e2e-smoke.yml'
+      - 'bun.lockb'
+
+# Cancel the workflow if a new commit is pushed to the branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_PROFILE: ci
+  ETH_TESTNET_TYPE: pos  # Always run in POS mode
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16
+          - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
+    name: ${{ matrix.test }}
+    runs-on: depot-ubuntu-22.04
+    env:
+      ETHEREUM_POS_NETWORK_PRESET: ${{ github.event.inputs.preset || (github.event_name == 'schedule' && 'mainnet') || 'minimal' }}
+      SP1_PROVER: network
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: "Set up environment"
+        uses: ./.github/setup
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache-dependency-path: e2e/interchaintestv8/go.sum
+
+      - name: "Cache Relayer and Operator"
+        id: cache-relayer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/relayer
+            ~/.cargo/bin/operator
+          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'programs/**', 'abi/**') }}
+
+      - name: Install SP1 toolchain
+        if: (steps.cache-relayer.outputs.cache-hit != 'true')
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/cargo-prove prove --version
+
+      - name: Install operator
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --bin operator --path programs/operator --locked
+
+      - name: Install relayer
+        if: steps.cache-relayer.outputs.cache-hit != 'true'
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --bin relayer --path programs/relayer --locked
+
+      - name: Setup Kurtosis
+        run: |
+          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt update
+          sudo apt install kurtosis-cli=1.5.0 # Must match the kurtosis library version we use in the e2e tests
+          kurtosis engine start
+          kurtosis analytics disable
+          echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+        shell: bash
+
+      - name: Run Tests
+        env:
+          NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+        run: |
+          cd e2e/interchaintestv8
+          go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 40m
