@@ -17,11 +17,11 @@ use ibc_proto_eureka::{
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
-use crate::events::EurekaEvent;
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
+    target_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     signer_address: &str,
@@ -29,7 +29,7 @@ pub fn target_events_to_timeout_msgs(
 ) -> Vec<MsgTimeout> {
     target_events
         .into_iter()
-        .filter_map(|e| match e {
+        .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(MsgTimeout {
@@ -50,7 +50,7 @@ pub fn target_events_to_timeout_msgs(
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
+    src_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     signer_address: &str,
@@ -58,20 +58,20 @@ pub fn src_events_to_recv_and_ack_msgs(
 ) -> (Vec<MsgRecvPacket>, Vec<MsgAcknowledgement>) {
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
-        .filter(|e| match e {
+        .filter(|e| match &e.event {
             EurekaEvent::SendPacket(packet) => {
                 packet.timeoutTimestamp > now && packet.destClient == target_client_id
             }
             EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == target_client_id,
         })
-        .partition(|e| match e {
+        .partition(|e| match e.event {
             EurekaEvent::SendPacket(_) => true,
             EurekaEvent::WriteAcknowledgement(..) => false,
         });
 
     let recv_msgs = src_send_events
         .into_iter()
-        .map(|e| match e {
+        .map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => MsgRecvPacket {
                 packet: Some(packet.into()),
                 proof_height: Some(*target_height),
@@ -84,7 +84,7 @@ pub fn src_events_to_recv_and_ack_msgs(
 
     let ack_msgs = src_ack_events
         .into_iter()
-        .map(|e| match e {
+        .map(|e| match e.event {
             EurekaEvent::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
                 packet: Some(packet.into()),
                 acknowledgement: Some(Acknowledgement {
@@ -176,12 +176,12 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     eth_client: &EthApiClient<P>,
     ibc_contrct_address: &str,
     ibc_contract_slot: U256,
-    target_block_number: u64,
-    target_slot: u64,
+    proof_block_number: u64,
+    proof_slot: u64,
 ) -> Result<()> {
-    let target_height = Height {
+    let proof_slot_height = Height {
         revision_number: 0,
-        revision_height: target_slot,
+        revision_height: proof_slot,
     };
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
@@ -190,7 +190,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             commitment_path,
             ibc_contract_slot,
         )
@@ -200,7 +200,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_commitment = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
@@ -212,7 +212,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             ack_path,
             ibc_contract_slot,
         )
@@ -222,7 +222,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_acked = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
@@ -234,7 +234,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             receipt_path,
             ibc_contract_slot,
         )
@@ -243,7 +243,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
             anyhow::bail!("Non-Membership value is empty")
         }
         msg.proof_unreceived = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;

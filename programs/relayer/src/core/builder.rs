@@ -70,6 +70,7 @@ impl RelayerBuilder {
         }
 
         // Start the gRPC server
+        tracing::info!("Started gRPC server on {}", socket_addr);
         Server::builder()
             .add_service(RelayerServiceServer::new(relayer))
             .serve(socket_addr)
@@ -124,8 +125,15 @@ impl RelayerService for Relayer {
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
         let inner_request = request.get_ref();
-        self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+        let res = self
+            .get_module(&inner_request.src_chain, &inner_request.dst_chain)?
             .relay_by_tx(request)
-            .await
+            .await;
+
+        match &res {
+            Ok(_) => tracing::info!("Relay by tx request handled successfully."),
+            Err(e) => tracing::error!("Relay by tx request failed: {:?}", e),
+        }
+        res
     }
 }

@@ -128,11 +128,11 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be known and stored in state")]
     NextSyncCommitteeUnknown,
 
-    #[error("fast aggregate verify error: {0}")]
-    FastAggregateVerifyError(String),
-
     #[error("bls aggregate error: {0}")]
     BlsAggregateError(String),
+
+    #[error("fast aggregate verify error: {0}")]
+    FastAggregateVerifyError(String),
 
     #[error("not enough signatures")]
     NotEnoughSignatures,

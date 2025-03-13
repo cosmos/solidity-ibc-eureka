@@ -23,7 +23,7 @@ use sp1_prover::components::SP1ProverComponents;
 
 use crate::{
     chain::{CosmosSdk, EthEureka},
-    events::EurekaEvent,
+    events::EurekaEventWithHeight,
     utils::eth_eureka::{self, inject_sp1_proof},
 };
 
@@ -87,8 +87,8 @@ where
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        dest_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        dest_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
         let now = std::time::SystemTime::now()

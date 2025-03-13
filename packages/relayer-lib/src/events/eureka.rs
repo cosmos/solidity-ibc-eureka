@@ -2,7 +2,8 @@
 
 use alloy::{
     primitives::{hex, Bytes},
-    sol_types::SolEvent,
+    rpc::types::Log,
+    sol_types::{SolEvent, SolEventInterface},
 };
 use ibc_eureka_solidity_types::ics26::{
     router::{routerEvents, SendPacket, WriteAcknowledgement},
@@ -17,6 +18,16 @@ use super::cosmos_sdk;
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
+pub struct EurekaEventWithHeight {
+    /// The type of the event.
+    pub event: EurekaEvent,
+    /// The block number at which the event was emitted.
+    pub block_number: Option<u64>,
+}
+
+/// The event type
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::module_name_repetitions)]
 pub enum EurekaEvent {
     /// A packet was sent.
     SendPacket(SolPacket),
@@ -24,7 +35,7 @@ pub enum EurekaEvent {
     WriteAcknowledgement(SolPacket, Vec<Bytes>),
 }
 
-impl EurekaEvent {
+impl EurekaEventWithHeight {
     /// Get the signature of the events for EVM.
     /// This is used to filter the logs.
     #[must_use]
@@ -33,13 +44,19 @@ impl EurekaEvent {
     }
 }
 
-impl TryFrom<routerEvents> for EurekaEvent {
+impl TryFrom<&Log> for EurekaEventWithHeight {
     type Error = anyhow::Error;
 
-    fn try_from(event: routerEvents) -> anyhow::Result<Self> {
-        match event {
-            routerEvents::SendPacket(event) => Ok(Self::SendPacket(event.packet)),
-            routerEvents::WriteAcknowledgement(event) => Ok(Self::WriteAcknowledgement(
+    fn try_from(log: &Log) -> anyhow::Result<Self> {
+        let sol_event = routerEvents::decode_log(&log.inner, true).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to decode log into ICS26Router event: {}",
+                e.to_string()
+            )
+        })?;
+        let event_type = match sol_event.data {
+            routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
+            routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(
                 event.packet,
                 event.acknowledgements,
             )),
@@ -64,7 +81,12 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::ICS02MisbehaviourSubmitted(_) => {
                 Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
             }
-        }
+        }?;
+
+        Ok(Self {
+            event: event_type,
+            block_number: log.block_number,
+        })
     }
 }
 
