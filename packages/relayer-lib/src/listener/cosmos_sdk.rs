@@ -52,13 +52,12 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
                 let tx_response = self.client().tx(tx_id, false).await?;
                 let height = tx_response.height.value();
-
                 Ok::<_, tendermint_rpc::Error>(tx_response.tx_result.events.into_iter().filter_map(
                     move |e| {
                         let event_type = EurekaEvent::try_from(e).ok()?;
                         Some(EurekaEventWithHeight {
                             event: event_type,
-                            block_number: Some(height as u64),
+                            block_number: Some(height),
                         })
                     },
                 ))
@@ -78,7 +77,6 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         Ok(
             future::try_join_all((start_height..=end_height).map(|h| async move {
                 let resp = self.client().block_results(h).await?;
-
                 Ok::<_, tendermint_rpc::Error>(
                     resp.txs_results
                         .unwrap_or_default()
