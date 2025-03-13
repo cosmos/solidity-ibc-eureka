@@ -338,8 +338,8 @@ where
             );
 
             if update.finalized_header.beacon.slot <= latest_trusted_slot {
-                tracing::info!(
-                    "Skipping update for slot {}",
+                tracing::debug!(
+                    "Skipping unnecessary update for slot {}",
                     update.finalized_header.beacon.slot
                 );
                 continue;
@@ -353,7 +353,7 @@ where
             // They are both options, so we can just compare them directly.
             if update_next_sync_committee_agg_pubkey == current_next_sync_committee_agg_pubkey {
                 tracing::warn!(
-                    "Skipping header with same aggregate pubkey for slow {}",
+                    "Skipping header with the same aggregate pubkey {}",
                     update.finalized_header.beacon.slot
                 );
                 continue;
@@ -366,13 +366,12 @@ where
                 update.finalized_header.beacon.slot,
             );
             if update_period == latest_period {
-                tracing::info!(
-                    "Skipping header with same period for slot {}",
+                tracing::debug!(
+                    "Skipping header with same sync committee period for slot {}",
                     update.finalized_header.beacon.slot
                 );
                 continue;
             }
-            latest_period = update_period;
 
             let previous_next_sync_committee = self
                 .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
@@ -389,13 +388,14 @@ where
                     update.clone(),
                 )
                 .await?;
-            headers.push(header.clone());
-
             tracing::debug!(
-                "Added header for slot from light client updates {}",
+                "Added header {:?} for slot {} from light client updates",
+                header,
                 update.finalized_header.beacon.slot,
             );
-            tracing::debug!("Header: added {:?}", header);
+
+            headers.push(header);
+            latest_period = update_period;
             latest_trusted_slot = update.finalized_header.beacon.slot;
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
@@ -567,7 +567,6 @@ where
             "Relaying events from Ethereum to Cosmos for client {}",
             target_client_id
         );
-        tracing::debug!("Target block number: {}", target_block_number);
 
         let target_height = Height {
             revision_number: 0,
