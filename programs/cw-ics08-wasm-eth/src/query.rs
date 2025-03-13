@@ -1,7 +1,6 @@
 //! This module contains the query message handlers
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
-use ethereum_light_client::consensus_state::TrustedConsensusState;
 
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
@@ -54,10 +53,8 @@ pub fn verify_client_message(
 
         ethereum_light_client::misbehaviour::verify_misbehaviour(
             &eth_client_state,
-            &TrustedConsensusState {
-                state: eth_consensus_state,
-                sync_committee: misbehaviour.sync_committee,
-            },
+            &eth_consensus_state,
+            &misbehaviour.sync_committee,
             &misbehaviour.update_1,
             &misbehaviour.update_2,
             env.block.time.seconds(),
@@ -97,10 +94,8 @@ pub fn check_for_misbehaviour(
 
     ethereum_light_client::misbehaviour::verify_misbehaviour(
         &eth_client_state,
-        &TrustedConsensusState {
-            state: eth_consensus_state,
-            sync_committee: misbehaviour.sync_committee,
-        },
+        &eth_consensus_state,
+        &misbehaviour.sync_committee,
         &misbehaviour.update_1,
         &misbehaviour.update_2,
         env.block.time.seconds(),
@@ -159,9 +154,12 @@ mod tests {
         testing::{message_info, mock_env},
         Binary, Timestamp,
     };
-    use ethereum_light_client::test_utils::fixtures::{
-        self, InitialState, StepsFixture, UpdateClient,
+    use ethereum_light_client::{
+        header::Header,
+        test_utils::fixtures::{self, InitialState, RelayerMessages, StepsFixture},
     };
+    use ibc_proto::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
 
     use crate::{
         contract::{instantiate, query},
@@ -201,8 +199,21 @@ mod tests {
 
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let update_client: UpdateClient = fixture.get_data_at_step(1);
-        let header = update_client.updates[0].clone();
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let header = headers[0].clone();
+
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
         let mut env = mock_env();

@@ -12,7 +12,8 @@ use ibc_eureka_solidity_types::msgs::{
 };
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{HashableKey, ProverClient};
@@ -31,7 +32,7 @@ struct SP1ICS07UpdateClientFixture {
     #[serde_as(as = "serde_with::hex::Hex")]
     target_consensus_state: Vec<u8>,
     /// Target height.
-    target_height: u32,
+    target_height: u64,
     /// The encoded update client message.
     #[serde_as(as = "serde_with::hex::Hex")]
     update_msg: Vec<u8>,
@@ -46,7 +47,7 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
     let uc_prover =
         SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.proof_type, &sp1_prover);
 

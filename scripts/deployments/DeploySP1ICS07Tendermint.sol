@@ -82,6 +82,14 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
 
         (bool success, address verifierAddr) = Strings.tryParseAddress(deployment.verifier);
 
+        IICS02Client router = IICS02Client(ics26RouterDeployment.proxy);
+
+        vm.assertEq(
+            address(router.getClient(deployment.clientId)),
+            deployment.implementation,
+            "address of clientId in ics26Router doesn't match implementation address"
+        );
+
         vm.assertTrue(
             success,
             string.concat(
@@ -94,7 +102,7 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
         );
 
         vm.assertEq(
-            address(ics07Tendermint.VERIFIER()),
+            actualVerifierAddress,
             verifierAddr,
             "verifier address doesn't match"
         );
@@ -122,13 +130,6 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
             "ucAndMembershipVkey doesn't match"
         );
 
-        IICS02Client router = IICS02Client(ics26RouterDeployment.proxy);
-
-        vm.assertEq(
-            address(router.getClient(deployment.clientId)),
-            deployment.implementation,
-            "address of clientId in ics26Router doesn't match implementation address"
-        );
 
         IICS02ClientMsgs.CounterpartyInfo memory counterparty = router.getCounterparty(deployment.clientId);
 

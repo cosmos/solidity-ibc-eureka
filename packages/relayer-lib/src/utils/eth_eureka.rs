@@ -16,11 +16,12 @@ use ibc_eureka_solidity_types::{
     },
 };
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientAndMembershipProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_prover::components::SP1ProverComponents;
-use sp1_sdk::{HashableKey, Prover};
+use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
 
@@ -103,14 +104,14 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// # Errors
 /// Returns an error if the sp1 proof cannot be generated.
 pub async fn inject_sp1_proof<C: SP1ProverComponents>(
-    sp1_prover: &dyn Prover<C>,
+    sp1_prover: &Sp1Prover<C>,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
     target_light_block: LightBlock,
     client_state: ClientState,
     now: u64,
 ) -> Result<()> {
-    let target_height = u32::try_from(target_light_block.height().value())?;
+    let target_height = target_light_block.height().value();
 
     let ibc_paths = msgs
         .iter()

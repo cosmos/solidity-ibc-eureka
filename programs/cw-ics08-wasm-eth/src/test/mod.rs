@@ -36,7 +36,7 @@ pub fn custom_query_handler(query: &EthereumCustomQuery) -> MockQuerierCustomHan
             let public_keys = public_keys
                 .iter()
                 .map(|pk| pk.as_ref().try_into().unwrap())
-                .collect::<Vec<&BlsPublicKey>>();
+                .collect::<Vec<BlsPublicKey>>();
 
             let aggregate_pubkey = aggreagate(&public_keys).unwrap();
 

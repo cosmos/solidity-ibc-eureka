@@ -304,7 +304,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
     struct MockInvalidMembershipTestCase {
         string name;
         SP1Proof sp1Proof;
-        uint32 proofHeight;
+        uint64 proofHeight;
         bytes[] path;
         bytes value;
         bool expPass;

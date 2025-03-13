@@ -3,7 +3,7 @@
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::eth_api::client::EthApiClient;
-use ethereum_light_client::membership::ibc_commitment_key_v2;
+use ethereum_light_client::membership::evm_ics26_commitment_path;
 use ethereum_types::execution::storage_proof::StorageProof;
 use futures::future;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
@@ -117,7 +117,7 @@ pub async fn inject_tendermint_proofs(
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), commitment_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
         if value.is_empty() {
@@ -134,10 +134,7 @@ pub async fn inject_tendermint_proofs(
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let (value, proof) = source_tm_client
-            .prove_path(
-                &[b"ibc".to_vec(), ack_path],
-                target_height.revision_height.try_into().unwrap(),
-            )
+            .prove_path(&[b"ibc".to_vec(), ack_path], target_height.revision_height)
             .await?;
         if value.is_empty() {
             anyhow::bail!("Membership value is empty")
@@ -155,7 +152,7 @@ pub async fn inject_tendermint_proofs(
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), receipt_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
 
@@ -261,7 +258,7 @@ async fn get_commitment_proof<P: Provider + Clone>(
     path: Vec<u8>,
     slot: U256,
 ) -> Result<StorageProof> {
-    let storage_key = ibc_commitment_key_v2(path, slot);
+    let storage_key = evm_ics26_commitment_path(&path, slot);
     let storage_key_be_bytes = storage_key.to_be_bytes_vec();
     let storage_key_hex = hex::encode(storage_key_be_bytes);
     let block_hex = format!("0x{block_number:x}");

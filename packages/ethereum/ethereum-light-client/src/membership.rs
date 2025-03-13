@@ -1,9 +1,8 @@
 //! This module provides [`verify_membership`] function to verify the membership of a key in the
 //! storage trie.
 
-use alloy_primitives::{keccak256, Bytes, Keccak256, U256};
-use alloy_rlp::encode_fixed_size;
-use alloy_trie::{proof::verify_proof, Nibbles};
+use alloy_primitives::{keccak256, Keccak256, U256};
+use ethereum_trie_db::trie_db::{verify_storage_exclusion_proof, verify_storage_inclusion_proof};
 use ethereum_types::execution::storage_proof::StorageProof;
 
 use crate::{client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError};
@@ -17,67 +16,100 @@ pub fn verify_membership(
     client_state: ClientState,
     proof: Vec<u8>,
     path: Vec<Vec<u8>>,
-    raw_value: Option<Vec<u8>>,
+    raw_value: Vec<u8>,
 ) -> Result<(), EthereumIBCError> {
-    let path = path.first().ok_or(EthereumIBCError::EmptyPath)?;
-
     let storage_proof: StorageProof = serde_json::from_slice(proof.as_slice())
         .map_err(|_| EthereumIBCError::StorageProofDecode)?;
 
-    check_commitment_key(
-        path.clone(),
+    check_commitment_path(
+        &path,
         client_state.ibc_commitment_slot,
         storage_proof.key.into(),
     )?;
 
-    let value = match raw_value {
-        Some(unwrapped_raw_value) => {
-            let proof_value = storage_proof.value.to_be_bytes_vec();
-            if proof_value != unwrapped_raw_value {
-                return Err(EthereumIBCError::StoredValueMistmatch {
-                    expected: unwrapped_raw_value,
-                    actual: proof_value,
-                });
-            }
-            Some(encode_fixed_size(&storage_proof.value).to_vec())
+    ensure!(
+        storage_proof.value.to_be_bytes_vec() == raw_value,
+        EthereumIBCError::StoredValueMistmatch {
+            expected: raw_value,
+            actual: storage_proof.value.to_be_bytes_vec(),
         }
-        None => None,
-    };
+    );
 
-    let proof: Vec<&Bytes> = storage_proof.proof.iter().collect();
-
-    verify_proof::<Vec<&Bytes>>(
-        trusted_consensus_state.storage_root,
-        Nibbles::unpack(keccak256(storage_proof.key)),
-        value,
-        proof,
+    let rlp_value = alloy_rlp::encode_fixed_size(&storage_proof.value);
+    verify_storage_inclusion_proof(
+        &trusted_consensus_state.storage_root,
+        &storage_proof.key,
+        &rlp_value,
+        storage_proof.proof.iter(),
     )
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
 
-fn check_commitment_key(
-    path: Vec<u8>,
+/// Verifies the non-membership of a key in the storage trie.
+/// # Errors
+/// Returns an error if the proof cannot be verified.
+#[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
+pub fn verify_non_membership(
+    trusted_consensus_state: ConsensusState,
+    client_state: ClientState,
+    proof: Vec<u8>,
+    path: Vec<Vec<u8>>,
+) -> Result<(), EthereumIBCError> {
+    let storage_proof: StorageProof = serde_json::from_slice(proof.as_slice())
+        .map_err(|_| EthereumIBCError::StorageProofDecode)?;
+
+    check_commitment_path(
+        &path,
+        client_state.ibc_commitment_slot,
+        storage_proof.key.into(),
+    )?;
+
+    ensure!(
+        storage_proof.value.is_zero(),
+        EthereumIBCError::StoredValueMistmatch {
+            expected: vec![0],
+            actual: storage_proof.value.to_be_bytes_vec(),
+        }
+    );
+
+    verify_storage_exclusion_proof(
+        &trusted_consensus_state.storage_root,
+        &storage_proof.key,
+        storage_proof.proof.iter(),
+    )
+    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
+}
+
+fn check_commitment_path(
+    path: &[Vec<u8>],
     ibc_commitment_slot: U256,
     key: U256,
 ) -> Result<(), EthereumIBCError> {
-    let expected_commitment_key = ibc_commitment_key_v2(path, ibc_commitment_slot);
+    ensure!(
+        path.len() == 1,
+        EthereumIBCError::InvalidPathLength {
+            expected: 1,
+            found: path.len()
+        }
+    );
 
-    // Data MUST be stored to the commitment path that is defined in ICS23.
-    if expected_commitment_key == key {
-        Ok(())
-    } else {
-        Err(EthereumIBCError::InvalidCommitmentKey(
-            format!("0x{expected_commitment_key:x}"),
+    let expected_commitment_path = evm_ics26_commitment_path(&path[0], ibc_commitment_slot);
+    ensure!(
+        expected_commitment_path == key,
+        EthereumIBCError::InvalidCommitmentKey(
+            format!("0x{expected_commitment_path:x}"),
             format!("0x{key:x}"),
-        ))
-    }
+        )
+    );
+
+    Ok(())
 }
 
 // TODO: Unit test
 /// Computes the commitment key for a given path and slot.
-#[must_use = "calculating the commitment key has no effect"]
-pub fn ibc_commitment_key_v2(path: Vec<u8>, slot: U256) -> U256 {
-    let path_hash = keccak256(path);
+#[must_use = "calculating the commitment path has no effect"]
+pub fn evm_ics26_commitment_path(ibc_path: &[u8], slot: U256) -> U256 {
+    let path_hash = keccak256(ibc_path);
 
     let mut hasher = Keccak256::new();
     hasher.update(path_hash);
@@ -91,7 +123,9 @@ mod test {
     use crate::{
         client_state::ClientState,
         consensus_state::ConsensusState,
-        test_utils::fixtures::{self, CommitmentProof},
+        header::Header,
+        test_utils::fixtures::{self, get_packet_proof, InitialState, RelayerMessages},
+        update::update_consensus_state,
     };
 
     use alloy_primitives::{
@@ -99,28 +133,54 @@ mod test {
         Bytes, FixedBytes, B256, U256,
     };
     use ethereum_types::execution::storage_proof::StorageProof;
+    use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
 
-    use super::verify_membership;
+    use prost::Message;
+
+    use super::{verify_membership, verify_non_membership};
 
     #[test]
     fn test_with_fixture() {
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
 
-        let commitment_proof_fixture: CommitmentProof = fixture.get_data_at_step(2);
+        let initial_state: InitialState = fixture.get_data_at_step(0);
 
-        let trusted_consensus_state = commitment_proof_fixture.consensus_state;
-        let client_state = commitment_proof_fixture.client_state;
-        let storage_proof = commitment_proof_fixture.storage_proof;
-        let path = commitment_proof_fixture.path;
-        let value = storage_proof.value.to_be_bytes_vec();
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        assert!(!recv_msgs.is_empty());
+
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let (_, updated_consensus_state, updated_client_state) = update_consensus_state(
+            initial_state.consensus_state,
+            initial_state.client_state,
+            headers[0].clone(),
+        )
+        .unwrap();
+
+        let trusted_consensus_state = updated_consensus_state;
+        let client_state = updated_client_state.unwrap();
+
+        let packet = recv_msgs[0].packet.clone().unwrap();
+        let storage_proof = recv_msgs[0].proof_commitment.clone();
+        let (path, value) = get_packet_proof(packet);
 
         verify_membership(
             trusted_consensus_state,
             client_state,
-            serde_json::to_vec(&storage_proof).unwrap(),
-            vec![path.to_vec()],
-            Some(value),
+            storage_proof,
+            vec![path],
+            value,
         )
         .unwrap();
     }
@@ -171,7 +231,7 @@ mod test {
             client_state.clone(),
             storage_proof_bz,
             path.clone(),
-            Some(value.to_be_bytes_vec()),
+            value.to_be_bytes_vec(),
         )
         .unwrap();
 
@@ -180,7 +240,7 @@ mod test {
         let storage_proof = StorageProof { key, value, proof };
         let storage_proof_bz = serde_json::to_vec(&storage_proof).unwrap();
 
-        verify_membership(consensus_state, client_state, storage_proof_bz, path, None).unwrap_err();
+        verify_non_membership(consensus_state, client_state, storage_proof_bz, path).unwrap_err();
     }
 
     #[test]
@@ -218,12 +278,11 @@ mod test {
         let proof = StorageProof { key, value, proof };
         let proof_bz = serde_json::to_vec(&proof).unwrap();
 
-        verify_membership(
+        verify_non_membership(
             consensus_state.clone(),
             client_state.clone(),
             proof_bz.clone(),
             path.clone(),
-            None,
         )
         .unwrap();
 
@@ -233,7 +292,7 @@ mod test {
             client_state,
             proof_bz,
             path,
-            Some(value.to_be_bytes_vec()),
+            value.to_be_bytes_vec(),
         )
         .unwrap_err();
     }

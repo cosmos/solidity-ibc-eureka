@@ -224,7 +224,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.Ics26Router)
+		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.Ics26Router, nil)
 	}))
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
@@ -246,7 +246,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.Ics26Router)
+		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.Ics26Router, nil)
 	}))
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
@@ -466,8 +466,8 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 
 	s.Require().True(s.Run("Verify SimdB SP1 Client", func() {
@@ -483,8 +483,8 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(2), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(2), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
