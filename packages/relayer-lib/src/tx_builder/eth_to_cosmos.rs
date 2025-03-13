@@ -378,7 +378,6 @@ where
         }
 
         let number_of_period_updates = headers.len();
-        let mut number_of_finality_updates = 0;
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
         if headers.last().is_none_or(|last_header| {
@@ -410,9 +409,9 @@ where
             );
             headers.push(header);
             latest_trusted_slot = finality_update.finalized_header.beacon.slot;
-            number_of_finality_updates += 1;
         }
 
+        let number_of_finality_updates = headers.len() - number_of_period_updates;
         let initial_period = ethereum_client_state
             .compute_sync_committee_period_at_slot(ethereum_consensus_state.slot);
         let latest_period =
