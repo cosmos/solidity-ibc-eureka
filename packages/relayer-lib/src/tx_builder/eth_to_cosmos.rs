@@ -123,13 +123,11 @@ where
             .beacon_api_client
             .beacon_block_root(&format!("{finalized_slot}"))
             .await?;
-
         let light_client_bootstrap = self
             .beacon_api_client
             .light_client_bootstrap(&block_root)
             .await?
             .data;
-
         Ok(light_client_bootstrap.current_sync_committee)
     }
 
