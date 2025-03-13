@@ -1,0 +1,37 @@
+{
+  "rpc_url": "https://sepolia.drpc.org",
+  "ics26Router": {
+    "implementation": "0x7A3d2a47072CA1F6e50D4d67e30EA507D44C5e70",
+    "proxy": "0x15cB0fC94d072B367a1A2D7f0c8fF9792aB9f546",
+    "timeLockAdmin": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
+    "portCustomizer": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3"
+  },
+  "ics20Transfer": {
+    "escrowImplementation": "0x5734E6d2F2472E978D2d8064Af936925565f375b",
+    "ibcERC20Implementation": "0x50B244F8F3cAC4444f44cfD8B4ddc1805823E017",
+    "ics26Router": "0x15cB0fC94d072B367a1A2D7f0c8fF9792aB9f546",
+    "implementation": "0x23A45521Dda9ed9C47F4C8cf44282544FdAdF6D9",
+    "pauser": "0x0000000000000000000000000000000000000000",
+    "unpauser": "0x0000000000000000000000000000000000000000",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "proxy": "0xbb87C1ACc6306ad2233a4c7BBE75a1230409b358"
+  },
+  "light_clients": {
+    "0": {
+      "clientId": "client-7",
+      "implementation": "0x914849a4C30F0Ac1Ac5F899cc66f0843cf7ed31d",
+      "verifier": "0x76181902bdd0432A99f6a872f5BaB7f35CBbb8Cd",
+      "counterpartyClientId": "08-wasm-0",
+      "merklePrefix": [
+        "ibc",
+        ""
+      ],
+      "trustedClientState": "00",
+      "trustedConsensusState": "00",
+      "updateClientVkey": "0x009d35d7a6f92811ff0dbab4261e81fd715b0340fd21aec7203f9f07c0b8d462",
+      "membershipVkey": "0x009d0955429f1b92e88c7ac83da9a4f2042ea731c29342e901dd278e6c1d7068",
+      "ucAndMembershipVkey": "0x005cb9e018117b499d4ce48cc5a7d0f2429a7e146a931bdbe0b12a2de780a321",
+      "misbehaviourVkey": "0x006148f483660a624bb96f3e6a6d1c555c0c776cf50848c6e56c0369a165235f"
+    }
+  }
+}

@@ -2,13 +2,20 @@
 
 use std::path::PathBuf;
 
-use alloy_primitives::Bytes;
-use ethereum_types::execution::storage_proof::StorageProof;
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs;
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    ibc::core::{
+        channel::v2::{MsgAcknowledgement, MsgRecvPacket, Packet},
+        client::v1::MsgUpdateClient,
+    },
+};
+use prost::Message;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{client_state::ClientState, consensus_state::ConsensusState, header::Header};
+use crate::{client_state::ClientState, consensus_state::ConsensusState};
 
 /// A test fixture with an ordered list of light client operations from the e2e test
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
@@ -35,31 +42,70 @@ pub struct InitialState {
     pub consensus_state: ConsensusState,
 }
 
-/// The proof used to verify membership
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct CommitmentProof {
-    /// The IBC path sent to verify membership
-    #[schemars(with = "String")]
-    pub path: Bytes,
-    /// The storage proof used to verify membership
-    pub storage_proof: StorageProof,
-    /// The slot of the proof (ibc height)
-    pub proof_slot: u64,
-    /// The client state at the time of the proof
-    pub client_state: ClientState,
-    /// The consensus state at the time of the proof
-    pub consensus_state: ConsensusState,
-}
-
 /// Operation to update the light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct UpdateClient {
-    /// The client state after the update
-    pub client_state: ClientState,
-    /// The consensus state after the update
-    pub consensus_state: ConsensusState,
-    /// The headers used to update the light client, in order
-    pub updates: Vec<Header>,
+pub struct RelayerMessages {
+    /// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
+    pub relayer_tx_body: String,
+}
+
+impl RelayerMessages {
+    /// Get the SDK messages from the relayer tx
+    /// # Panics
+    /// Panics if the relayer tx or any of the messages cannot be decoded
+    /// # Returns
+    /// A tuple with the SDK messages contained in the SDK tx
+    #[must_use]
+    pub fn get_sdk_msgs(
+        &self,
+    ) -> (
+        Vec<MsgUpdateClient>,
+        Vec<MsgRecvPacket>,
+        Vec<MsgAcknowledgement>,
+    ) {
+        let tx_body_bz = hex::decode(self.relayer_tx_body.clone()).unwrap();
+        let tx_body = TxBody::decode(tx_body_bz.as_slice()).unwrap();
+
+        tx_body.messages.iter().fold(
+            (Vec::new(), Vec::new(), Vec::new()),
+            |(mut update_clients, mut recv_msgs, mut ack_msgs), msg| {
+                match msg.type_url.as_str() {
+                    "/ibc.core.client.v1.MsgUpdateClient" => {
+                        // Decode as MsgUpdateClient
+                        update_clients.push(MsgUpdateClient::decode(msg.value.as_slice()).unwrap());
+                    }
+                    "/ibc.core.channel.v2.MsgRecvPacket" => {
+                        // Decode as MsgRecvPacket
+                        recv_msgs.push(MsgRecvPacket::decode(msg.value.as_slice()).unwrap());
+                    }
+                    "/ibc.core.channel.v2.MsgAcknowledgement" => {
+                        // Decode as MsgAcknowledgement
+                        ack_msgs.push(MsgAcknowledgement::decode(msg.value.as_slice()).unwrap());
+                    }
+                    _ => panic!("Unknown message type: {}", msg.type_url),
+                }
+                (update_clients, recv_msgs, ack_msgs)
+            },
+        )
+    }
+}
+
+/// Get the commitment path and value for the given packet
+/// # Panics
+/// Panics if the packet is missing or the path cannot be constructed
+/// # Returns
+/// A tuple with the commitment path and value
+#[must_use]
+pub fn get_packet_proof(packet: Packet) -> (Vec<u8>, Vec<u8>) {
+    let mut path = Vec::new();
+    path.extend_from_slice(packet.source_client.as_bytes());
+    path.push(1_u8);
+    path.extend_from_slice(&packet.sequence.to_be_bytes());
+
+    let ics26_packet: IICS26RouterMsgs::Packet = packet.into();
+    let value = ics26_packet.commit_packet();
+
+    (path, value)
 }
 
 impl StepsFixture {

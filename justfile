@@ -80,6 +80,16 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
 
+# Generate the fixtures for the wasm tests using the e2e tests
+generate-fixtures-wasm: clean
+	@echo "Generating fixtures... This may take a while."
+	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	@echo "Generating timeoutPacket groth16 fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 40m
+
 # Generate go types for the e2e tests from the etheruem light client code
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
@@ -140,11 +150,30 @@ genesis-sp1-ics07: build-sp1-programs
   @echo "Generating the genesis file..."
   RUST_LOG=info cargo run --bin operator --release -- genesis -o scripts/genesis.json
 
+# Deploy scripts. If these fail to land due to gas price fluctuations, try again with a higher gas price:
+# adding something like `--legacy --with-gas-price 100gwei` -- depending on the current gas prices.
+
+
 # Deploy the SP1ICS07Tendermint contract to the Eth Sepolia testnet if the `.env` file is present
 deploy-sp1-ics07: genesis-sp1-ics07
   @echo "Deploying the SP1ICS07Tendermint contract"
   forge install
   forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+
+# Deploy the ICS26Router contract using environment variables
+deploy-ics26: build-contracts
+	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
+# Deploy the ICS20Transfer contract using environment variables
+deploy-ics20: build-contracts
+	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
+# Deploy the SP1ICS07Tendermint contract using environment variables
+deploy-light-client: build-contracts
+	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
