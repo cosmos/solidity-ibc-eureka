@@ -187,7 +187,7 @@ where
                 let finality_update = self.beacon_api_client.finality_update().await?.data;
                 if finality_update.finalized_header.execution.block_number < target_block_number {
                     tracing::info!(
-                        "Finality not found: current finality execution block number: {}, Target execution block number: {}",
+                        "Waiting for finality: current finality execution block number: {}, Target execution block number: {}",
                         finality_update.finalized_header.execution.block_number,
                         target_block_number
                     );
@@ -195,6 +195,10 @@ where
                 }
 
                 // Return the update itself when the condition is met
+                tracing::info!(
+                    "Finality update found at execution block number: {}",
+                    finality_update.finalized_header.execution.block_number
+                );
                 Ok(Some(finality_update))
             },
         )
@@ -318,15 +322,16 @@ where
             )
             .await?;
 
-        tracing::debug!("light client updates: #{}", light_client_updates.len());
-
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
-        let mut latest_period = compute_sync_committee_period_at_slot(
+        let mut latest_trusted_period = compute_sync_committee_period_at_slot(
             ethereum_client_state.slots_per_epoch,
             ethereum_client_state.epochs_per_sync_committee_period,
             latest_trusted_slot,
         );
-        tracing::info!("Latest period: {}", latest_period);
+        tracing::debug!(
+            "Latest trusted sync committee period: {}",
+            latest_trusted_period
+        );
 
         let mut current_next_sync_committee_agg_pubkey =
             ethereum_consensus_state.next_sync_committee;
@@ -347,7 +352,7 @@ where
 
             let update_next_sync_committee_agg_pubkey = update
                 .next_sync_committee
-                .clone()
+                .as_ref()
                 .map(|sc| sc.aggregate_pubkey);
 
             // They are both options, so we can just compare them directly.
@@ -365,7 +370,7 @@ where
                 ethereum_client_state.epochs_per_sync_committee_period,
                 update.finalized_header.beacon.slot,
             );
-            if update_period == latest_period {
+            if update_period == latest_trusted_period {
                 tracing::debug!(
                     "Skipping header with same sync committee period for slot {}",
                     update.finalized_header.beacon.slot
@@ -395,12 +400,12 @@ where
             );
 
             headers.push(header);
-            latest_period = update_period;
+            latest_trusted_period = update_period;
             latest_trusted_slot = update.finalized_header.beacon.slot;
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
-        tracing::info!("Light client updates added to headers: #{}", headers.len());
+        let num_light_client_updates = headers.len();
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
         if headers.last().is_none_or(|last_header| {
@@ -411,11 +416,6 @@ where
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
             // TODO: Add asserts to make sure they are in the correct period
-            //
-            tracing::info!(
-                "current sync committee used in finality update header: {:?}",
-                finality_update_sync_committee.aggregate_pubkey
-            );
 
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
@@ -431,13 +431,13 @@ where
                     finality_update.clone().into(),
                 )
                 .await?;
-            headers.push(header.clone());
-            latest_trusted_slot = finality_update.finalized_header.beacon.slot;
             tracing::debug!(
                 "Added header for slot from finality update {}: {}",
                 finality_update.finalized_header.beacon.slot,
                 serde_json::to_string(&header)?
             );
+            headers.push(header);
+            latest_trusted_slot = finality_update.finalized_header.beacon.slot;
         }
 
         let initial_period = compute_sync_committee_period_at_slot(
@@ -526,12 +526,13 @@ where
         .await?;
 
         tracing::info!(
-            "Update client summary: Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}, headers: #{}",
+            "Update client summary: Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}, finality updates: #{}, light client updates: #{}",
             ethereum_consensus_state.slot,
             latest_trusted_slot,
             initial_period,
             latest_period,
-            headers.len()
+            headers.len() - num_light_client_updates,
+            num_light_client_updates
         );
 
         Ok(tx_body.encode_to_vec())
