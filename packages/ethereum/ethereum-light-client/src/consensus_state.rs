@@ -82,7 +82,7 @@ impl TrustedConsensusState {
 
         let aggregate_pubkey = bls_verifier
             .aggregate(&full_committee.pubkeys)
-            .map_err(|e| EthereumIBCError::FastAggregateVerifyError(e.to_string()))?;
+            .map_err(|e| EthereumIBCError::BlsAggregateError(e.to_string()))?;
         ensure!(
             aggregate_pubkey == full_committee.aggregate_pubkey,
             EthereumIBCError::AggregatePubkeyMismatch {

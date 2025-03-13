@@ -1,9 +1,5 @@
 //! This module provides [`update_consensus_state`] function to update the consensus state
 
-use ethereum_types::consensus::{
-    slot::compute_timestamp_at_slot, sync_committee::compute_sync_committee_period_at_slot,
-};
-
 use crate::{
     client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError,
     header::Header,
@@ -24,17 +20,11 @@ pub fn update_consensus_state(
 
     let consensus_update = header.consensus_update;
 
-    let store_period = compute_sync_committee_period_at_slot(
-        current_client_state.slots_per_epoch,
-        current_client_state.epochs_per_sync_committee_period,
-        current_consensus_state.slot,
-    );
+    let store_period =
+        current_client_state.compute_sync_committee_period_at_slot(current_consensus_state.slot);
 
-    let update_finalized_period = compute_sync_committee_period_at_slot(
-        current_client_state.slots_per_epoch,
-        current_client_state.epochs_per_sync_committee_period,
-        consensus_update.attested_header.beacon.slot,
-    );
+    let update_finalized_period = current_client_state
+        .compute_sync_committee_period_at_slot(consensus_update.finalized_header.beacon.slot);
 
     let mut new_consensus_state = current_consensus_state.clone();
     let mut new_client_state: Option<ClientState> = None;
@@ -61,23 +51,20 @@ pub fn update_consensus_state(
     // Some updates can be only for updating the sync committee, therefore the slot number can be
     // smaller. We don't want to save a new state if this is the case.
     // TODO: we might to remove this functionality if we don't use it as it complicates the light client
-    let updated_slot = core::cmp::max(trusted_slot, consensus_update.attested_header.beacon.slot);
+    let updated_slot = core::cmp::max(trusted_slot, consensus_update.finalized_header.beacon.slot);
 
-    if consensus_update.attested_header.beacon.slot > current_consensus_state.slot {
-        new_consensus_state.slot = consensus_update.attested_header.beacon.slot;
+    if consensus_update.finalized_header.beacon.slot > current_consensus_state.slot {
+        new_consensus_state.slot = consensus_update.finalized_header.beacon.slot;
 
-        new_consensus_state.state_root = consensus_update.attested_header.execution.state_root;
+        new_consensus_state.state_root = consensus_update.finalized_header.execution.state_root;
         new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
 
-        new_consensus_state.timestamp = compute_timestamp_at_slot(
-            current_client_state.seconds_per_slot,
-            current_client_state.genesis_time,
-            consensus_update.attested_header.beacon.slot,
-        );
+        new_consensus_state.timestamp = current_client_state
+            .compute_timestamp_at_slot(consensus_update.finalized_header.beacon.slot);
 
-        if current_client_state.latest_slot < consensus_update.attested_header.beacon.slot {
+        if current_client_state.latest_slot < consensus_update.finalized_header.beacon.slot {
             new_client_state = Some(ClientState {
-                latest_slot: consensus_update.attested_header.beacon.slot,
+                latest_slot: consensus_update.finalized_header.beacon.slot,
                 ..current_client_state
             });
         }

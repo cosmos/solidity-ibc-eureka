@@ -7,7 +7,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
-    events::EurekaEvent,
+    events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{eth_to_cosmos, TxBuilderService},
 };
@@ -63,7 +63,7 @@ pub struct EthToCosmosConfig {
 impl EthToCosmosRelayerModuleService {
     async fn new(config: EthToCosmosConfig) -> Self {
         let provider = RootProvider::builder()
-            .on_builtin(&config.eth_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
@@ -212,8 +212,8 @@ impl RelayerModule for EthToCosmosRelayerModule {
 impl EthToCosmosTxBuilder {
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        target_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        target_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
