@@ -8,7 +8,6 @@ use ethereum_types::consensus::{
         EXECUTION_PAYLOAD_GINDEX, FINALIZED_ROOT_GINDEX_ELECTRA,
         NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA,
     },
-    slot::compute_epoch_at_slot,
 };
 use tree_hash::TreeHash;
 
@@ -23,7 +22,7 @@ pub const fn finalized_root_gindex_at_slot(
     client_state: &ClientState,
     slot: u64,
 ) -> Result<u64, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, slot);
+    let epoch = client_state.compute_epoch_at_slot(slot);
 
     // We only support electra fork
     ensure!(
@@ -43,7 +42,7 @@ pub const fn current_sync_committee_gindex_at_slot(
     client_state: &ClientState,
     slot: u64,
 ) -> Result<u64, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, slot);
+    let epoch = client_state.compute_epoch_at_slot(slot);
 
     // We only support electra fork
     ensure!(
@@ -63,7 +62,7 @@ pub const fn next_sync_committee_gindex_at_slot(
     client_state: &ClientState,
     slot: u64,
 ) -> Result<u64, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, slot);
+    let epoch = client_state.compute_epoch_at_slot(slot);
 
     // We only support electra fork
     ensure!(
@@ -83,7 +82,7 @@ pub fn get_lc_execution_root(
     client_state: &ClientState,
     header: &LightClientHeader,
 ) -> Result<B256, EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
+    let epoch = client_state.compute_epoch_at_slot(header.beacon.slot);
 
     // We only support electra fork
     ensure!(
@@ -103,7 +102,7 @@ pub fn is_valid_light_client_header(
     client_state: &ClientState,
     header: &LightClientHeader,
 ) -> Result<(), EthereumIBCError> {
-    let epoch = compute_epoch_at_slot(client_state.slots_per_epoch, header.beacon.slot);
+    let epoch = client_state.compute_epoch_at_slot(header.beacon.slot);
 
     // We only support electra fork
     ensure!(

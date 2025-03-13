@@ -12,12 +12,8 @@ use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::light_client_header::{
     LightClientFinalityUpdate, LightClientUpdate,
 };
-use ethereum_types::consensus::slot::compute_slot_at_timestamp;
 use ethereum_types::consensus::sync_committee::SyncCommittee;
-use ethereum_types::{
-    consensus::sync_committee::compute_sync_committee_period_at_slot,
-    execution::account_proof::AccountProof,
-};
+use ethereum_types::execution::account_proof::AccountProof;
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
@@ -143,17 +139,11 @@ where
         consensus_state: &ConsensusState,
         finality_update: LightClientFinalityUpdate,
     ) -> Result<Vec<LightClientUpdate>> {
-        let trusted_period = compute_sync_committee_period_at_slot(
-            client_state.slots_per_epoch,
-            client_state.epochs_per_sync_committee_period,
-            consensus_state.slot,
-        );
+        let trusted_period =
+            client_state.compute_sync_committee_period_at_slot(consensus_state.slot);
 
-        let target_period = compute_sync_committee_period_at_slot(
-            client_state.slots_per_epoch,
-            client_state.epochs_per_sync_committee_period,
-            finality_update.finalized_header.beacon.slot,
-        );
+        let target_period = client_state
+            .compute_sync_committee_period_at_slot(finality_update.finalized_header.beacon.slot);
 
         tracing::debug!(
             "Getting light client updates from period {} to {}",
@@ -314,11 +304,8 @@ where
         tracing::debug!("light client updates: #{}", light_client_updates.len());
 
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
-        let mut latest_period = compute_sync_committee_period_at_slot(
-            ethereum_client_state.slots_per_epoch,
-            ethereum_client_state.epochs_per_sync_committee_period,
-            latest_trusted_slot,
-        );
+        let mut latest_period =
+            ethereum_client_state.compute_sync_committee_period_at_slot(latest_trusted_slot);
         tracing::info!("Latest period: {}", latest_period);
 
         let mut current_next_sync_committee_agg_pubkey =
@@ -353,11 +340,8 @@ where
             }
 
             // TODO: Not sure
-            let update_period = compute_sync_committee_period_at_slot(
-                ethereum_client_state.slots_per_epoch,
-                ethereum_client_state.epochs_per_sync_committee_period,
-                update.finalized_header.beacon.slot,
-            );
+            let update_period = ethereum_client_state
+                .compute_sync_committee_period_at_slot(update.finalized_header.beacon.slot);
             if update_period == latest_period {
                 tracing::info!(
                     "Skipping header with same period for slot {}",
@@ -365,7 +349,6 @@ where
                 );
                 continue;
             }
-            latest_period = update_period;
 
             let previous_next_sync_committee = self
                 .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
@@ -390,6 +373,7 @@ where
                 update.finalized_header.beacon.slot,
                 header
             );
+            latest_period = update_period;
             latest_trusted_slot = update.finalized_header.beacon.slot;
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
@@ -430,16 +414,10 @@ where
             );
         }
 
-        let initial_period = compute_sync_committee_period_at_slot(
-            ethereum_client_state.slots_per_epoch,
-            ethereum_client_state.epochs_per_sync_committee_period,
-            ethereum_consensus_state.slot,
-        );
-        let latest_period = compute_sync_committee_period_at_slot(
-            ethereum_client_state.slots_per_epoch,
-            ethereum_client_state.epochs_per_sync_committee_period,
-            latest_trusted_slot,
-        );
+        let initial_period = ethereum_client_state
+            .compute_sync_committee_period_at_slot(ethereum_consensus_state.slot);
+        let latest_period =
+            ethereum_client_state.compute_sync_committee_period_at_slot(latest_trusted_slot);
 
         let proof_block_number = headers
             .last()
@@ -498,13 +476,9 @@ where
             || async {
                 let latests_tm_block = self.tm_client.latest_block().await?;
                 let latest_onchain_timestamp = latests_tm_block.block.header.time.unix_timestamp();
-                let calculated_slot = compute_slot_at_timestamp(
-                    ethereum_client_state.genesis_time,
-                    ethereum_client_state.genesis_slot,
-                    ethereum_client_state.seconds_per_slot,
-                    latest_onchain_timestamp.try_into().unwrap(),
-                )
-                .unwrap();
+                let calculated_slot = ethereum_client_state
+                    .compute_slot_at_timestamp(latest_onchain_timestamp.try_into().unwrap())
+                    .unwrap();
                 tracing::debug!(
                     "Waiting for target chain to catch up to slot {}",
                     latest_trusted_slot

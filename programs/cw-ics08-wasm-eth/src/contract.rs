@@ -5,7 +5,6 @@ use ethereum_light_client::{
     client_state::ClientState as EthClientState,
     consensus_state::ConsensusState as EthConsensusState,
 };
-use ethereum_types::consensus::slot::compute_epoch_at_slot;
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::{
@@ -64,10 +63,7 @@ pub fn instantiate(
 
     let fork_version = client_state
         .fork_parameters
-        .compute_fork_version(compute_epoch_at_slot(
-            client_state.slots_per_epoch,
-            client_state.latest_slot,
-        ));
+        .compute_fork_version(client_state.compute_epoch_at_slot(client_state.latest_slot));
     ensure!(
         fork_version == client_state.fork_parameters.electra.version,
         ContractError::MustBeElectra
