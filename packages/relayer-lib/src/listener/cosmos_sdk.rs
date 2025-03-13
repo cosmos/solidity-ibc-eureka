@@ -1,10 +1,10 @@
 //! This module defines the chain listener for 'ibc-go-eureka'.
 
 use futures::future;
-use tendermint::Hash;
+use tendermint::{block::Height, Hash};
 use tendermint_rpc::{Client, HttpClient};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::{
     chain::CosmosSdk,
@@ -77,8 +77,9 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
     ) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all((start_height..=end_height).map(|h| async move {
-                let resp = self.client().block_results(h).await?;
-                Ok::<_, tendermint_rpc::Error>(
+                let height: Height = h.try_into()?;
+                let resp = self.client().block_results(height).await?;
+                Ok::<_, anyhow::Error>(
                     resp.txs_results
                         .unwrap_or_default()
                         .into_iter()
@@ -90,7 +91,7 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
                             let event_type = EurekaEvent::try_from(e).ok()?;
                             Some(EurekaEventWithHeight {
                                 event: event_type,
-                                block_number: Some(h), // Set block number from height
+                                block_number: Some(h),
                             })
                         }),
                 )
