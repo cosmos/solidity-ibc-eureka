@@ -89,7 +89,7 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
                             let event_type = EurekaEvent::try_from(e).ok()?;
                             Some(EurekaEventWithHeight {
                                 event: event_type,
-                                block_number: Some(u64::from(h)), // Set block number from height
+                                block_number: Some(h.into()),
                             })
                         }),
                 )
