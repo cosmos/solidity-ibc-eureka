@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -26,6 +25,8 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
@@ -541,19 +542,23 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 	}))
 
 	s.Require().True(s.Run("Wait for period to change on Eth before relaying", func() {
-		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.CustomClientID)
+		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
 		clientPeriod := ethClientState.LatestSlot / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
-		testutil.WaitForCondition(time.Minute*15, time.Second*30, func() (bool, error) {
+		err := testutil.WaitForCondition(time.Minute*15, time.Second*30, func() (bool, error) {
 			finalityUpdate, err := eth.BeaconAPIClient.GetFinalityUpdate()
 			if err != nil {
 				return false, err
 			}
 
 			finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+			if err != nil {
+				return false, err
+			}
 			finalityPeriod := uint64(finalitySlot) / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
 
 			return finalityPeriod > clientPeriod, nil
 		})
+		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
@@ -574,7 +579,6 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
 				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
 			})
-
 		}))
 
 		var ackTxHash []byte
@@ -601,7 +605,6 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
-
 }
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
