@@ -94,7 +94,7 @@ impl CosmosToEthRelayerModuleService {
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
-            .on_builtin(&config.eth_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
@@ -261,7 +261,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
         let config = serde_json::from_value::<CosmosToEthConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starteing Cosmos to Ethereum relayer server.");
+        tracing::info!("Starting Cosmos to Ethereum relayer server.");
         Ok(Box::new(CosmosToEthRelayerModuleService::new(config).await))
     }
 }

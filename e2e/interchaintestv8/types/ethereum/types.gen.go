@@ -21,6 +21,8 @@ type ClientState struct {
 	EpochsPerSyncCommitteePeriod uint64 `json:"epochs_per_sync_committee_period"`
 	// The fork parameters
 	ForkParameters ForkParameters `json:"fork_parameters"`
+	// The genesis slot
+	GenesisSlot uint64 `json:"genesis_slot"`
 	// The time of genesis (unix timestamp)
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root

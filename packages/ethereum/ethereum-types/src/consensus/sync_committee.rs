@@ -5,10 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tree_hash_derive::TreeHash;
 
-use super::{
-    bls::{BlsPublicKey, BlsSignature, BLS_PUBLIC_KEY_BYTES_LEN},
-    slot::compute_epoch_at_slot,
-};
+use super::bls::{BlsPublicKey, BlsSignature, BLS_PUBLIC_KEY_BYTES_LEN};
 
 /// The sync committee data
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
@@ -58,32 +55,6 @@ impl SyncAggregate {
     pub fn has_sufficient_participants(&self, min_sync_committee_participants: u64) -> bool {
         self.num_sync_committe_participants() >= min_sync_committee_participants
     }
-}
-
-/// Returns the sync committee period at a given `epoch`.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee)
-#[must_use]
-pub const fn compute_sync_committee_period(
-    epochs_per_sync_committee_period: u64,
-    epoch: u64,
-) -> u64 {
-    epoch / epochs_per_sync_committee_period
-}
-
-/// Returns the sync committee period at a given `slot`.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#compute_sync_committee_period_at_slot)
-#[must_use]
-pub const fn compute_sync_committee_period_at_slot(
-    slots_per_epoch: u64,
-    epochs_per_sync_committee_period: u64,
-    slot: u64,
-) -> u64 {
-    compute_sync_committee_period(
-        epochs_per_sync_committee_period,
-        compute_epoch_at_slot(slots_per_epoch, slot),
-    )
 }
 
 #[cfg(test)]
