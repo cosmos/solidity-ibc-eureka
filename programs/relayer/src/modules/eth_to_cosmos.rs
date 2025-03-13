@@ -62,9 +62,6 @@ pub struct EthToCosmosConfig {
 
 impl EthToCosmosRelayerModuleService {
     async fn new(config: EthToCosmosConfig) -> Self {
-        tracing::debug!(
-            "Creating Ethereum to Cosmos relayer module service with config: {config:?}"
-        );
         let provider = RootProvider::builder()
             .connect(&config.eth_rpc_url)
             .await

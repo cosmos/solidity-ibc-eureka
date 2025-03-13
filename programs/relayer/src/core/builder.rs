@@ -70,6 +70,7 @@ impl RelayerBuilder {
         }
 
         // Start the gRPC server
+        tracing::info!("Started gRPC server on {}", socket_addr);
         Server::builder()
             .add_service(RelayerServiceServer::new(relayer))
             .serve(socket_addr)
@@ -127,12 +128,12 @@ impl RelayerService for Relayer {
         let res = self
             .get_module(&inner_request.src_chain, &inner_request.dst_chain)?
             .relay_by_tx(request)
-            .await
-            .map_err(|e| {
-                tracing::error!("Error handling relay by tx request: {:?}", e);
-                e
-            });
-        tracing::info!("Relay by tx request handled.");
+            .await;
+
+        match &res {
+            Ok(_) => tracing::info!("Relay by tx request handled successfully."),
+            Err(e) => tracing::error!("Relay by tx request failed: {:?}", e),
+        }
         res
     }
 }

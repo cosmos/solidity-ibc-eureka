@@ -8,14 +8,11 @@ use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;
 use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee, TrustedSyncCommittee};
-use ethereum_light_client::test_utils::bls_verifier::fast_aggregate_verify;
 use ethereum_light_client::{client_state::ClientState, header::Header};
-use ethereum_types::consensus::domain::{compute_domain, DomainType};
 use ethereum_types::consensus::light_client_header::{
     LightClientFinalityUpdate, LightClientUpdate,
 };
-use ethereum_types::consensus::signing_data::compute_signing_root;
-use ethereum_types::consensus::slot::{compute_epoch_at_slot, compute_slot_at_timestamp};
+use ethereum_types::consensus::slot::compute_slot_at_timestamp;
 use ethereum_types::consensus::sync_committee::SyncCommittee;
 use ethereum_types::{
     consensus::sync_committee::compute_sync_committee_period_at_slot,
@@ -308,7 +305,6 @@ where
             ethereum_consensus_state.current_sync_committee,
             ethereum_consensus_state.next_sync_committee,
         );
-        tracing::debug!("Target block number: {}", minimum_block_number);
 
         let finality_update = self
             .wait_for_light_client_readiness(minimum_block_number)
@@ -324,7 +320,7 @@ where
             )
             .await?;
 
-        tracing::info!("light client updates: #{}", light_client_updates.len());
+        tracing::debug!("light client updates: #{}", light_client_updates.len());
 
         let mut latest_trusted_slot = ethereum_consensus_state.slot;
         let mut latest_period = compute_sync_committee_period_at_slot(
@@ -358,7 +354,7 @@ where
 
             // They are both options, so we can just compare them directly.
             if update_next_sync_committee_agg_pubkey == current_next_sync_committee_agg_pubkey {
-                tracing::info!(
+                tracing::warn!(
                     "Skipping header with same aggregate pubkey for slow {}",
                     update.finalized_header.beacon.slot
                 );
@@ -397,7 +393,7 @@ where
                 .await?;
             headers.push(header.clone());
 
-            tracing::info!(
+            tracing::debug!(
                 "Added header for slot from light client updates {}",
                 update.finalized_header.beacon.slot,
             );
@@ -430,51 +426,6 @@ where
                 ),
             };
 
-            let participant_pubkeys = finality_update
-                .sync_aggregate
-                .sync_committee_bits
-                .iter()
-                .flat_map(|byte| (0..8).map(move |i| (byte & (1 << i)) != 0))
-                .zip(finality_update_sync_committee.pubkeys.iter())
-                .filter_map(|(included, pubkey)| included.then_some(*pubkey))
-                .collect::<Vec<_>>();
-
-            let fork_version_slot = std::cmp::max(finality_update.signature_slot, 1) - 1;
-            let fork_version =
-                ethereum_client_state
-                    .fork_parameters
-                    .compute_fork_version(compute_epoch_at_slot(
-                        ethereum_client_state.slots_per_epoch,
-                        fork_version_slot,
-                    ));
-
-            let domain = compute_domain(
-                DomainType::SYNC_COMMITTEE,
-                Some(fork_version),
-                Some(ethereum_client_state.genesis_validators_root),
-                ethereum_client_state.fork_parameters.genesis_fork_version,
-            );
-            tracing::info!("Domain: {:?}", domain);
-            let signing_root =
-                compute_signing_root(&finality_update.attested_header.beacon, domain);
-            tracing::info!("Signing root: {:?}", signing_root);
-
-            let res = fast_aggregate_verify(
-                &participant_pubkeys,
-                signing_root,
-                finality_update.sync_aggregate.sync_committee_signature,
-            );
-            if res.is_err() {
-                tracing::error!("Failed to verify sync committee signature: {:?}", res);
-            }
-
-            tracing::info!(
-                "number participants: {}, number pubkeys: {}, num sync aggregate pubkeys: {}",
-                participant_pubkeys.len(),
-                finality_update_sync_committee.pubkeys.len(),
-                finality_update.sync_aggregate.sync_committee_bits.len()
-            );
-
             let header = self
                 .light_client_update_to_header(
                     ethereum_client_state.clone(),
@@ -484,14 +435,12 @@ where
                 .await?;
             headers.push(header.clone());
             latest_trusted_slot = finality_update.finalized_header.beacon.slot;
-            tracing::info!(
+            tracing::debug!(
                 "Added header for slot from finality update {}: {}",
                 finality_update.finalized_header.beacon.slot,
                 serde_json::to_string(&header)?
             );
         }
-
-        tracing::info!("Headers assembled: #{}", headers.len());
 
         let initial_period = compute_sync_committee_period_at_slot(
             ethereum_client_state.slots_per_epoch,
@@ -503,13 +452,6 @@ where
             ethereum_client_state.epochs_per_sync_committee_period,
             latest_trusted_slot,
         );
-        tracing::info!(
-            "Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}",
-            ethereum_consensus_state.slot,
-            latest_trusted_slot,
-            initial_period,
-            latest_period
-        );
 
         let proof_block_number = headers
             .last()
@@ -520,7 +462,7 @@ where
                     .execution
                     .block_number
             })
-            .unwrap();
+            .ok_or_else(|| anyhow::anyhow!("No headers found"))?;
 
         cosmos::inject_ethereum_proofs(
             &mut recv_msgs,
@@ -535,6 +477,7 @@ where
         .await?;
 
         let update_msgs = headers
+            .clone()
             .into_iter()
             .map(|header| -> Result<MsgUpdateClient> {
                 let header_bz = serde_json::to_vec(&header)?;
@@ -583,6 +526,15 @@ where
             },
         )
         .await?;
+
+        tracing::info!(
+            "Update client summary: Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}, headers: #{}",
+            ethereum_consensus_state.slot,
+            latest_trusted_slot,
+            initial_period,
+            latest_period,
+            headers.len()
+        );
 
         Ok(tx_body.encode_to_vec())
     }
