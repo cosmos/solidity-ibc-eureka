@@ -12,12 +12,15 @@ use ibc_proto::ibc::{
     },
 };
 
-use crate::{custom_query::EthereumCustomQuery, query, state::store_client_state};
+use crate::{custom_query::EthereumCustomQuery, msg::MigrateMsg, query, state::store_client_state};
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
     state::store_consensus_state,
 };
 use crate::{sudo, ContractError};
+
+const STATE_VERSION: &str = "1.0.0";
+const CONTRACT_NAME: &str = "cw-ics08-wasm-eth";
 
 /// The instantiate entry point for the CosmWasm contract.
 /// # Errors
@@ -32,6 +35,8 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    cw2::set_contract_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
+
     let client_state_bz: Vec<u8> = msg.client_state.into();
     let client_state: EthClientState = serde_json::from_slice(&client_state_bz)
         .map_err(ContractError::DeserializeClientStateFailed)?;
@@ -138,6 +143,27 @@ pub fn query(
         }
         QueryMsg::Status(_) => query::status(deps),
     }
+}
+
+/// The migrate entry point for the CosmWasm contract.
+/// # Errors
+/// Will return an errror if the state version is not newer than the current one.
+#[entry_point]
+#[allow(clippy::needless_pass_by_value)]
+pub fn migrate(
+    deps: DepsMut<EthereumCustomQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> Result<Response, ContractError> {
+    // TODO: REMOVE
+    if cw2::CONTRACT.may_load(deps.storage)?.is_none() {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
+    }
+
+    // Check if the state version is older than the current one and update it
+    cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
+
+    Ok(Response::default())
 }
 
 #[cfg(test)]
@@ -288,7 +314,7 @@ mod tests {
         use prost::Message;
 
         use crate::{
-            contract::{instantiate, query, sudo},
+            contract::{instantiate, migrate, query, sudo},
             msg::{
                 Height, MerklePath, QueryMsg, SudoMsg, UpdateStateMsg, UpdateStateResult,
                 VerifyClientMessageMsg, VerifyMembershipMsg,
@@ -470,6 +496,36 @@ mod tests {
                     update_state_result.heights[0].revision_height
                 );
             }
+        }
+
+        #[test]
+        fn test_migrate_with_same_state_version() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let fixture: StepsFixture =
+                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let consensus_state = initial_state.consensus_state;
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = crate::msg::InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            // Migrate without any changes (i.e. same state version)
+            migrate(deps.as_mut(), mock_env(), crate::msg::MigrateMsg {}).unwrap();
         }
     }
 }
