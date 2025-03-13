@@ -456,9 +456,9 @@ where
         let all_msgs = update_msgs
             .into_iter()
             .map(|m| Any::from_msg(&m))
-            .chain(timeout_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
-            .chain(recv_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
-            .chain(ack_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
+            .chain(timeout_msgs.iter().map(Any::from_msg))
+            .chain(recv_msgs.iter().map(Any::from_msg))
+            .chain(ack_msgs.iter().map(Any::from_msg))
             .collect::<Result<Vec<_>, _>>()?;
 
         let tx_body = TxBody {
