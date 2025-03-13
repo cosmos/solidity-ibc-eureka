@@ -826,9 +826,9 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	s.Require().True(s.Run("Prefetch relay tx", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:       simd.Config().ChainID,
-			DstChain:       s.EthChain.ChainID.String(),
+			DstChain:       eth.ChainID.String(),
 			SourceTxIds:    sendTxHashes,
-			TargetClientId: testvalues.FirstUniversalClientID,
+			TargetClientId: testvalues.CustomClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -871,24 +871,19 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		}))
 	}))
 
-	// s.Require().True(s.Run("Verify no balance on Ethereum", func() {
-	// 	denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstUniversalClientID))
+	s.Require().True(s.Run("Verify no balance on Ethereum", func() {
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
 
-	// 	ibcERC20Addr, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
-	// 	s.Require().NoError(err)
-
-	// 	ibcERC20, err := ibcerc20.NewContract(ethcommon.HexToAddress(ibcERC20Addr.Hex()), s.EthChain.RPCClient)
-	// 	s.Require().NoError(err)
-
-	// 	userBalance, err := ibcERC20.BalanceOf(nil, ethereumUserAddress)
-	// 	s.Require().NoError(err)
-	// 	s.Require().Equal(0, userBalance)
-	// }))
+		_, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
+		// Ethereum side did not received the packet, ERC20 contract corresponding to the denom does not exist
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "execution reverted: custom error 0xe1275e2f")
+	}))
 
 	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
 		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, txBodyBz)
-		s.Require().Error(err) // XXX: fails here, no error is returned
-		s.Require().Nil(receipt)
+		s.Require().NoError(err)
+		s.Require().NotNil(receipt)
 	}))
 }
