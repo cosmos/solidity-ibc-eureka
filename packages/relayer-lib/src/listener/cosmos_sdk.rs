@@ -4,7 +4,7 @@ use futures::future;
 use tendermint::{block::Height, Hash};
 use tendermint_rpc::{Client, HttpClient};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use crate::{
     chain::CosmosSdk,

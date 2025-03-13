@@ -28,7 +28,7 @@ use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
 };
 use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use tendermint_rpc::Client;
+use tendermint_rpc::{Client, HttpClient};
 
 use crate::utils::{cosmos, wait_for_condition, wait_for_condition_with_capture};
 use crate::{
@@ -39,10 +39,9 @@ use crate::{
 use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
-pub struct TxBuilder<P, C>
+pub struct TxBuilder<P>
 where
     P: Provider + Clone,
-    C: Client + TendermintRpcExt + Sync,
 {
     /// The ETH API client.
     pub eth_client: EthApiClient<P>,
@@ -51,7 +50,7 @@ where
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<(), P>,
     /// The HTTP client for the Cosmos SDK.
-    pub tm_client: C,
+    pub tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
 }
@@ -67,17 +66,16 @@ pub struct MockTxBuilder<P: Provider + Clone> {
     pub signer_address: String,
 }
 
-impl<P, C> TxBuilder<P, C>
+impl<P> TxBuilder<P>
 where
     P: Provider + Clone,
-    C: Client + TendermintRpcExt + Sync,
 {
     /// Create a new [`TxBuilder`] instance.
     pub fn new(
         ics26_address: Address,
         provider: P,
         beacon_api_url: String,
-        tm_client: C,
+        tm_client: HttpClient,
         signer_address: String,
     ) -> Self {
         Self {
@@ -164,7 +162,7 @@ where
         );
         Ok(self
             .beacon_api_client
-            .light_client_updates(trusted_period, target_period - trusted_period + 1) // + 1?
+            .light_client_updates(trusted_period, target_period - trusted_period + 1)
             .await?
             .into_iter()
             .map(|resp| resp.data)
@@ -239,10 +237,9 @@ where
 }
 
 #[async_trait::async_trait]
-impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
-    C: Client + TendermintRpcExt + Send + Sync,
 {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
@@ -254,9 +251,7 @@ where
         let latest_block_number = self.eth_client.get_block_number().await?;
         let minimum_block_number = if dest_events.is_empty() {
             let latest_block_from_events = src_events.iter().filter_map(|e| e.block_number).max();
-            latest_block_from_events.map_or(latest_block_number, |latest_block| {
-                std::cmp::min(latest_block, latest_block_number)
-            })
+            latest_block_from_events.unwrap_or(latest_block_number)
         } else {
             // If we have destination events (e.g. timeout), use the latest block number
             latest_block_number
@@ -286,10 +281,6 @@ where
             &self.signer_address,
             now,
         );
-
-        tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
-        tracing::debug!("Recv messages: #{}", recv_msgs.len());
-        tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
         let ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
         let ethereum_consensus_state = self
@@ -394,15 +385,17 @@ where
             headers.push(header.clone());
 
             tracing::debug!(
-                "Added header for slot from light client updates {}",
+                "Added header for slot from light client updates {}
+                Header: {:?}",
                 update.finalized_header.beacon.slot,
+                header
             );
-            tracing::debug!("Header: added {:?}", header);
             latest_trusted_slot = update.finalized_header.beacon.slot;
             current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
-        tracing::info!("Light client updates added to headers: #{}", headers.len());
+        let number_of_period_updates = headers.len();
+        let mut number_of_finality_updates = 0;
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
         if headers.last().is_none_or(|last_header| {
@@ -413,12 +406,6 @@ where
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
             // TODO: Add asserts to make sure they are in the correct period
-            //
-            tracing::info!(
-                "current sync committee used in finality update header: {:?}",
-                finality_update_sync_committee.aggregate_pubkey
-            );
-
             let trusted_sync_committee = TrustedSyncCommittee {
                 trusted_slot: latest_trusted_slot,
                 sync_committee: ActiveSyncCommittee::Current(
@@ -435,6 +422,7 @@ where
                 .await?;
             headers.push(header.clone());
             latest_trusted_slot = finality_update.finalized_header.beacon.slot;
+            number_of_finality_updates += 1;
             tracing::debug!(
                 "Added header for slot from finality update {}: {}",
                 finality_update.finalized_header.beacon.slot,
@@ -477,7 +465,6 @@ where
         .await?;
 
         let update_msgs = headers
-            .clone()
             .into_iter()
             .map(|header| -> Result<MsgUpdateClient> {
                 let header_bz = serde_json::to_vec(&header)?;
@@ -493,9 +480,9 @@ where
         let all_msgs = update_msgs
             .into_iter()
             .map(|m| Any::from_msg(&m))
-            .chain(timeout_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain(recv_msgs.into_iter().map(|m| Any::from_msg(&m)))
-            .chain(ack_msgs.into_iter().map(|m| Any::from_msg(&m)))
+            .chain(timeout_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
+            .chain(recv_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
+            .chain(ack_msgs.clone().into_iter().map(|m| Any::from_msg(&m)))
             .collect::<Result<Vec<_>, _>>()?;
 
         let tx_body = TxBody {
@@ -528,12 +515,25 @@ where
         .await?;
 
         tracing::info!(
-            "Update client summary: Initial slot: {}, latest trusted slot: {}, initial period: {}, latest period: {}, headers: #{}",
+            "Update client summary: 
+                recv events processed: #{}, 
+                ack events processed: #{}, 
+                timeout events processed: #{}, 
+                initial slot: {}, 
+                latest trusted slot: {}, 
+                initial period: {}, 
+                latest period: {}, 
+                period updates: #{}, 
+                finality updates: #{}",
+            recv_msgs.len(),
+            ack_msgs.len(),
+            timeout_msgs.len(),
             ethereum_consensus_state.slot,
             latest_trusted_slot,
             initial_period,
             latest_period,
-            headers.len()
+            number_of_period_updates,
+            number_of_finality_updates
         );
 
         Ok(tx_body.encode_to_vec())
