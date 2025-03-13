@@ -38,3 +38,49 @@ pub struct ClientState {
     #[schemars(with = "String")]
     pub ibc_commitment_slot: U256,
 }
+
+impl ClientState {
+    /// Returns the computed slot at a given `timestamp_seconds`.
+    #[must_use]
+    pub fn compute_slot_at_timestamp(&self, timestamp_seconds: u64) -> Option<u64> {
+        timestamp_seconds
+            .checked_sub(self.genesis_time)?
+            .checked_div(self.seconds_per_slot)?
+            .checked_add(self.genesis_slot)
+    }
+
+    /// Returns the epoch at a given `slot`.
+    ///
+    /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_epoch_at_slot)
+    #[allow(clippy::module_name_repetitions)]
+    #[must_use]
+    pub const fn compute_epoch_at_slot(&self, slot: u64) -> u64 {
+        slot / self.slots_per_epoch
+    }
+
+    /// Returns the timestamp at a `slot`, respect to `genesis_time`.
+    ///
+    /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot)
+    #[allow(clippy::module_name_repetitions)]
+    #[must_use]
+    pub const fn compute_timestamp_at_slot(&self, slot: u64) -> u64 {
+        let slots_since_genesis = slot - self.genesis_slot;
+        self.genesis_time + (slots_since_genesis * self.seconds_per_slot)
+    }
+
+    /// Returns the sync committee period at a given `epoch`.
+    ///
+    /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee)
+    #[must_use]
+    pub const fn compute_sync_committee_period(&self, epoch: u64) -> u64 {
+        epoch / self.epochs_per_sync_committee_period
+    }
+
+    /// Returns the sync committee period at a given `slot`.
+    ///
+    /// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#compute_sync_committee_period_at_slot)
+    #[must_use]
+    pub const fn compute_sync_committee_period_at_slot(&self, slot: u64) -> u64 {
+        self.compute_sync_committee_period(self.compute_epoch_at_slot(slot))
+    }
+}

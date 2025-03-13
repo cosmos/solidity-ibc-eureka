@@ -1,8 +1,6 @@
 //! This module provides [`verify_misbehavior`] function to check for misbehaviour
 
-use ethereum_types::consensus::{
-    light_client_header::LightClientUpdate, slot::compute_slot_at_timestamp,
-};
+use ethereum_types::consensus::light_client_header::LightClientUpdate;
 
 use crate::{
     client_state::ClientState,
@@ -59,18 +57,14 @@ pub fn verify_misbehaviour<V: BlsVerify>(
         EthereumIBCError::MisbehaviourStorageRootsMatch(state_root_1)
     );
 
-    let current_slot = compute_slot_at_timestamp(
-        client_state.genesis_time,
-        client_state.genesis_slot,
-        client_state.seconds_per_slot,
-        current_timestamp,
-    )
-    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
-        timestamp: current_timestamp,
-        genesis: client_state.genesis_time,
-        seconds_per_slot: client_state.seconds_per_slot,
-        genesis_slot: client_state.genesis_slot,
-    })?;
+    let current_slot = client_state
+        .compute_slot_at_timestamp(current_timestamp)
+        .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+            timestamp: current_timestamp,
+            genesis: client_state.genesis_time,
+            seconds_per_slot: client_state.seconds_per_slot,
+            genesis_slot: client_state.genesis_slot,
+        })?;
 
     validate_light_client_update::<V>(
         client_state,

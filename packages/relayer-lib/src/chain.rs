@@ -25,7 +25,7 @@ pub struct CosmosSdk;
 impl Chain for CosmosSdk {
     type Event = EurekaEventWithHeight;
     type TxId = tendermint::Hash;
-    type Height = u32;
+    type Height = u64;
 }
 
 /// The `EthEureka` is an implementation of the `Chain` trait for `solidity-ibc-eureka` contracts.
