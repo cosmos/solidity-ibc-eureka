@@ -332,7 +332,7 @@ mod tests {
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
             let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
-            assert_eq!(2, update_client_msgs.len()); // just to make sure
+            assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
                 .iter()
@@ -395,6 +395,81 @@ mod tests {
                 value: Binary::from(value),
             });
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
+        }
+
+        #[test]
+        fn test_update_with_period_change() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let fixture: StepsFixture = fixtures::load("TestMultiPeriodClientUpdateToCosmos");
+
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let consensus_state = initial_state.consensus_state;
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = crate::msg::InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            // At this point, the light clients are initialized and the client state is stored
+            // In the flow, an ICS20 transfer has been initiated from Ethereum to Cosmos
+            // Next up we want to prove the packet on the Cosmos chain, so we start by updating the
+            // light client (which is two steps: verify client message and update state)
+
+            // Verify client message
+            let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            assert!(update_client_msgs.len() >= 2); // just to make sure
+            assert_eq!(1, recv_msgs.len()); // just to make sure
+            let client_msgs = update_client_msgs
+                .iter()
+                .map(|msg| {
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap()
+                })
+                .map(|msg| msg.data)
+                .collect::<Vec<_>>();
+
+            let mut env = mock_env();
+
+            for header_bz in client_msgs {
+                let header: Header = serde_json::from_slice(&header_bz).unwrap();
+                env.block.time = Timestamp::from_seconds(
+                    header.consensus_update.attested_header.execution.timestamp + 1000,
+                );
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_bz.clone()),
+                    });
+                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
+
+                // Update state
+                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
+                    client_message: Binary::from(header_bz),
+                });
+                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
+                let update_state_result: UpdateStateResult =
+                    serde_json::from_slice(&update_res.data.unwrap())
+                        .expect("update state result should be deserializable");
+                assert_eq!(1, update_state_result.heights.len());
+                assert_eq!(0, update_state_result.heights[0].revision_number);
+                assert_eq!(
+                    header.consensus_update.finalized_header.beacon.slot,
+                    update_state_result.heights[0].revision_height
+                );
+            }
         }
     }
 }

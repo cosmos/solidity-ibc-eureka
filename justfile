@@ -89,6 +89,8 @@ generate-fixtures-wasm: clean
 	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 60m
 	@echo "Generating timeoutPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 60m
+	@echo "Generating multi-period client update fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos$' -timeout 60m
 
 # Generate go types for the e2e tests from the etheruem light client code
 generate-ethereum-types:

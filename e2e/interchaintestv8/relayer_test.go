@@ -498,6 +498,26 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
 
+	s.Require().True(s.Run("Wait for period to change twice on Eth before relaying", func() {
+		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
+		clientPeriod := ethClientState.LatestSlot / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
+		err := testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
+			finalityUpdate, err := eth.BeaconAPIClient.GetFinalityUpdate()
+			if err != nil {
+				return false, err
+			}
+
+			finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+			if err != nil {
+				return false, err
+			}
+			finalityPeriod := uint64(finalitySlot) / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
+
+			return finalityPeriod == clientPeriod+2, nil
+		})
+		s.Require().NoError(err)
+	}))
+
 	var (
 		sendTxHash    []byte
 		escrowAddress ethcommon.Address
@@ -539,26 +559,6 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 			s.Require().NoError(err)
 			s.Require().Equal(transferAmount, escrowBalance)
 		}))
-	}))
-
-	s.Require().True(s.Run("Wait for period to change on Eth before relaying", func() {
-		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
-		clientPeriod := ethClientState.LatestSlot / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
-		err := testutil.WaitForCondition(time.Minute*15, time.Second*30, func() (bool, error) {
-			finalityUpdate, err := eth.BeaconAPIClient.GetFinalityUpdate()
-			if err != nil {
-				return false, err
-			}
-
-			finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
-			if err != nil {
-				return false, err
-			}
-			finalityPeriod := uint64(finalitySlot) / (ethClientState.EpochsPerSyncCommitteePeriod * ethClientState.SlotsPerEpoch)
-
-			return finalityPeriod > clientPeriod, nil
-		})
-		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
