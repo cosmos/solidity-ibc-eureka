@@ -1,5 +1,10 @@
 name: E2E setup
 
+inputs:
+  github_token:
+    description: 'A Github PAT'
+    required: true
+
 runs:
   using: composite
   steps:
@@ -27,7 +32,7 @@ runs:
       shell: bash
       run: |
         curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+        ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
         ~/.sp1/bin/cargo-prove prove --version
 
     - name: Install operator
