@@ -79,22 +79,21 @@ type Fork struct {
 	Version string `json:"version"`
 }
 
-// The consensus state of the Ethereum light client
+// The consensus state of the Ethereum light client corresponding to a finalized header
 //
 // The consensus state at the initial state
 type ConsensusState struct {
-	// aggregate public key of current sync committee
+	// aggregate public key of current sync committee at the finalized header
 	CurrentSyncCommittee string `json:"current_sync_committee"`
-	// aggregate public key of next sync committee
+	// aggregate public key of next sync committee at the finalized header if known
 	NextSyncCommittee string `json:"next_sync_committee"`
-	// The slot number
+	// The slot number of the finalized header
 	Slot uint64 `json:"slot"`
-	// The state merkle root
+	// The state merkle root of the finalized header
 	StateRoot string `json:"state_root"`
-	// The storage merkle root
+	// The storage merkle root of the tracked contract at the finalized header
 	StorageRoot string `json:"storage_root"`
-	// The unix timestamp at the time of the slot. It is calculated from the genesis time and
-	// slots per.
+	// The execution timestamp of the finalized header
 	Timestamp uint64 `json:"timestamp"`
 }
 
