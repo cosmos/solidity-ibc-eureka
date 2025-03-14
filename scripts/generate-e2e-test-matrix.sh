@@ -18,4 +18,4 @@ if [ -n "$SKIP_TESTS" ]; then
 fi
 
 # Create and output the matrix object
-jq -n --argjson arr "$JSON_ARRAY" '{ test: $arr }'
+jq -nc --argjson arr "$JSON_ARRAY" '{ test: $arr }'
