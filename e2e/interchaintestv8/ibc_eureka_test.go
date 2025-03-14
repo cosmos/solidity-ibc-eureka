@@ -932,7 +932,6 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackF
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
-				s.Require().Empty(resp.Tx)
 
 				ackRelayTxBodyBz = resp.Tx
 			}))
