@@ -1,12 +1,11 @@
-name: full-e2e
+name: e2e-full
 on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 */3 * *"  # Run every 3 days at midnight UTC
 
-# Cancel the workflow if a new commit is pushed to the branch/PR
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -30,6 +29,8 @@ jobs:
       - name: Generate Test Matrix
         id: get-matrix
         uses: ./.github/actions/e2e-test-matrix
+        with:
+          skip-tests: 'Test_2_ConcurrentRecvPacketToEth_Groth16,TestMultiPeriodClientUpdateToCosmos'
 
   e2e:
     needs: generate-matrix

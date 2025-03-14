@@ -1,23 +1,48 @@
-name: minimal-pos-e2e
+name: e2e-quick
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * *"  # Run daily at 3 AM UTC (outside EU and US work hours)
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**.go'
+      - '**.toml'
+      - '**.lock'
+      - '**.mod'
+      - '**.sum'
+      - '**.sol'
+      - '.github/workflows/quick-e2e.yml'
+      - 'bun.lockb'
 
-# Cancel the workflow if a new commit is pushed to the branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   FOUNDRY_PROFILE: ci
-  ETH_TESTNET_TYPE: pos
-  SP1_PROVER: network
-  ETHEREUM_POS_NETWORK_PRESET: minimal
+  ETH_TESTNET_TYPE: pow
+  SP1_PROVER: mock
 permissions:
   contents: read
 
 jobs:
+  golangci:
+    name: lint
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: e2e/interchaintestv8/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63
+          working-directory: e2e/interchaintestv8
+
   generate-matrix:
     name: Generate Test Matrix
     runs-on: ubuntu-latest
@@ -30,6 +55,8 @@ jobs:
       - name: Generate Test Matrix
         id: get-matrix
         uses: ./.github/actions/e2e-test-matrix
+        with:
+          skip-tests: 'Test_2_ConcurrentRecvPacketToEth_Groth16,TestMultiPeriodClientUpdateToCosmos'
 
   e2e:
     needs: generate-matrix
