@@ -128,6 +128,9 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be known and stored in state")]
     NextSyncCommitteeUnknown,
 
+    #[error("unexpected next sync committee in the update")]
+    UnexpectedNextSyncCommittee,
+
     #[error("bls aggregate error: {0}")]
     BlsAggregateError(String),
 
