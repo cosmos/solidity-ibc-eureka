@@ -187,7 +187,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let signature_period =
         client_state.compute_sync_committee_period_at_slot(update.signature_slot);
 
-    if trusted_consensus_state.next_sync_committee().is_some() {
+    let is_next_sync_committee_known = trusted_consensus_state.next_sync_committee().is_some();
+    if is_next_sync_committee_known {
         ensure!(
             signature_period == stored_period || signature_period == stored_period + 1,
             EthereumIBCError::InvalidSignaturePeriodWhenNextSyncCommitteeExists {
@@ -209,6 +210,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let update_attested_period =
         client_state.compute_sync_committee_period_at_slot(update_attested_slot);
 
+    let is_next_sync_committee_update = update.next_sync_committee_branch.is_some();
+    let update_has_next_sync_committee = !is_next_sync_committee_known
+        && is_next_sync_committee_update
+        && update_attested_period == stored_period;
     // There are two options to do a light client update:
     // 1. We are updating the header with a newer one.
     // 2. We haven't set the next sync committee yet and we can use any attested header within the same
@@ -216,9 +221,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     // The light client implementation needs to take care of it.
     ensure!(
         update_attested_slot > trusted_consensus_state.finalized_slot()
-            || (update_attested_period == stored_period
-                && update.next_sync_committee.is_some()
-                && trusted_consensus_state.next_sync_committee().is_none()),
+            || update_has_next_sync_committee,
         EthereumIBCError::IrrelevantUpdate {
             update_attested_slot,
             trusted_finalized_slot: trusted_consensus_state.finalized_slot(),
