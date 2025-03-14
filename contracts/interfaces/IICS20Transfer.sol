@@ -76,13 +76,15 @@ interface IICS20Transfer {
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
-    /// @param pauser The address that can pause and unpause the contract
+    /// @param pauser The address that can pause the contract
+    /// @param unpauser The address that can unpause the contract
     /// @param permit2 The address of the permit2 contract
     function initialize(
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
         address pauser,
+        address unpauser,
         address permit2
     )
         external;

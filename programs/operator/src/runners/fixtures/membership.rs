@@ -15,7 +15,10 @@ use ibc_eureka_solidity_types::msgs::{
     ISP1Msgs::SP1Proof,
 };
 use serde::{Deserialize, Serialize};
-use sp1_ics07_tendermint_prover::{programs::MembershipProgram, prover::SP1ICS07TendermintProver};
+use sp1_ics07_tendermint_prover::{
+    programs::MembershipProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
+};
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
@@ -103,7 +106,7 @@ pub async fn run_sp1_membership(
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedZkAlgorithm,
 ) -> anyhow::Result<MembershipProof> {
-    let sp1_prover = ProverClient::from_env();
+    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
     let verify_mem_prover =
         SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, &sp1_prover);
 
