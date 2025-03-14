@@ -104,8 +104,6 @@ func (s *TestSuite) createEthereumLightClient(
 	proofOfIBCContract, err := eth.EthAPI.GetProof(ibcContractAddress, []string{ics26router.IbcStoreStorageSlot}, executionNumberHex)
 	s.Require().NoError(err)
 
-	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
-
 	currentPeriod := latestSlot / spec.Period()
 	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 	s.Require().NoError(err)
@@ -117,7 +115,7 @@ func (s *TestSuite) createEthereumLightClient(
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
-		Timestamp:            unixTimestamp,
+		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}
