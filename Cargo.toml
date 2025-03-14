@@ -104,6 +104,7 @@ sp1-helper = { version = "4.1", default-features = false }
 
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
+cw2             = { version = "2.0", default-features = false }
 
 # The dependencies below are maintained by Sigma Prime (for use in Lighthouse (and the broader Ethereum ecosystem))
 ethereum_ssz        = { version = "0.8", default-features = false }

@@ -38,6 +38,31 @@ pub enum SudoMsg {
     MigrateClientStore(MigrateClientStoreMsg),
 }
 
+/// The query messages called by `ibc-go`
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    /// The message to verify the client message
+    #[returns[()]]
+    VerifyClientMessage(VerifyClientMessageMsg),
+
+    /// The message to check for misbehaviour
+    #[returns[CheckForMisbehaviourResult]]
+    CheckForMisbehaviour(CheckForMisbehaviourMsg),
+
+    /// The message to get the timestamp at height
+    #[returns[TimestampAtHeightResult]]
+    TimestampAtHeight(TimestampAtHeightMsg),
+
+    /// The message to get the status
+    #[returns[StatusResult]]
+    Status(StatusMsg),
+}
+
+/// The message to migrate the contract
+#[cw_serde]
+pub struct MigrateMsg {}
+
 /// Verify membership message
 #[cw_serde]
 pub struct VerifyMembershipMsg {
@@ -112,27 +137,6 @@ pub struct EthereumMisbehaviourMsg {
     pub update_1: LightClientUpdate,
     /// The second conflicting light client update
     pub update_2: LightClientUpdate,
-}
-
-/// The query messages called by `ibc-go`
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    /// The message to verify the client message
-    #[returns[()]]
-    VerifyClientMessage(VerifyClientMessageMsg),
-
-    /// The message to check for misbehaviour
-    #[returns[CheckForMisbehaviourResult]]
-    CheckForMisbehaviour(CheckForMisbehaviourMsg),
-
-    /// The message to get the timestamp at height
-    #[returns[TimestampAtHeightResult]]
-    TimestampAtHeight(TimestampAtHeightMsg),
-
-    /// The message to get the status
-    #[returns[StatusResult]]
-    Status(StatusMsg),
 }
 
 /// The message to verify the client message
