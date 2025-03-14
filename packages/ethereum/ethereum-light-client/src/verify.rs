@@ -257,8 +257,8 @@ pub fn validate_light_client_update<V: BlsVerify>(
     if is_next_sync_committee_update {
         if update_attested_period == stored_period && is_next_sync_committee_known {
             ensure!(
-                update.next_sync_committee
-                    == trusted_consensus_state.next_sync_committee().cloned(),
+                update.next_sync_committee.as_ref().unwrap()
+                    == trusted_consensus_state.next_sync_committee().unwrap(),
                 EthereumIBCError::NextSyncCommitteeMismatch {
                     expected: trusted_consensus_state
                         .next_sync_committee()
