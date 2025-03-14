@@ -129,60 +129,45 @@ mod test {
 
     use alloy_primitives::{
         hex::{self, FromHex},
-        keccak256, Keccak256, Bytes, FixedBytes, B256, U256,
+        keccak256, Bytes, FixedBytes, Keccak256, B256, U256,
     };
     use ethereum_types::execution::storage_proof::StorageProof;
-    use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
+    use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs;
+    use ibc_proto_eureka::ibc::{
+        core::channel::v2::{Packet, Payload},
+        lightclients::wasm::v1::ClientMessage,
+    };
     use prost::Message;
-    
-    // Helper function used by all tests
+
+    // Parses a hex string to U256 in big-endian order, handles 0x prefix
     fn from_be_hex(hex_str: &str) -> U256 {
         let hex_str = hex_str.trim_start_matches("0x");
         let data = hex::decode(hex_str).unwrap();
-        U256::from_be_slice(data.as_slice())
+        U256::from_be_slice(&data)
     }
-    
-    // Helper function to create a test packet with the specified parameters
-    fn create_test_packet(source_chain: &str, dest_chain: &str, sequence: u64) -> TestPacket {
-        TestPacket {
-            source_chain: source_chain.to_string(),
-            dest_chain: dest_chain.to_string(),
-            sequence,
-        }
-    }
-    
-    // Simple struct to simulate IBC packet functionality
-    #[allow(dead_code)]
-    struct TestPacket {
-        source_chain: String,
-        dest_chain: String,
+
+    fn create_test_packet(
+        source_chain: &str,
+        dest_chain: &str,
         sequence: u64,
+    ) -> IICS26RouterMsgs::Packet {
+        let proto_packet = Packet {
+            sequence,
+            source_client: source_chain.to_string(),
+            destination_client: dest_chain.to_string(),
+            timeout_timestamp: 0, // default timeout
+            payloads: vec![Payload {
+                source_port: "transfer".to_string(),
+                destination_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "proto3".to_string(),
+                value: Vec::new(), // empty payload for test
+            }],
+        };
+
+        proto_packet.into()
     }
-    
-    impl TestPacket {
-        fn commitment_path(&self) -> Vec<u8> {
-            let mut path = self.source_chain.as_bytes().to_vec();
-            path.push(0x01); // type 1 for packet commitment
-            path.extend_from_slice(&self.sequence.to_be_bytes());
-            path
-        }
-        
-        fn receipt_commitment_path(&self) -> Vec<u8> {
-            let mut path = self.source_chain.as_bytes().to_vec();
-            path.push(0x02); // type 2 for receipt
-            path.extend_from_slice(&self.sequence.to_be_bytes());
-            path
-        }
-        
-        fn ack_commitment_path(&self) -> Vec<u8> {
-            let mut path = self.source_chain.as_bytes().to_vec();
-            path.push(0x03); // type 3 for acknowledgment
-            path.extend_from_slice(&self.sequence.to_be_bytes());
-            path
-        }
-    }
-    
-    /// Tests for `verify_membership` and `verify_non_membership` functions
+
     mod verify_membership_tests {
         use super::*;
         use crate::membership::{verify_membership, verify_non_membership};
@@ -212,9 +197,12 @@ mod test {
             let mut latest_consensus_state = initial_state.consensus_state;
             let mut latest_client_state = initial_state.client_state;
             for header in headers {
-                let (_, updated_consensus_state, updated_client_state) =
-                    update_consensus_state(latest_consensus_state, latest_client_state, header.clone())
-                        .unwrap();
+                let (_, updated_consensus_state, updated_client_state) = update_consensus_state(
+                    latest_consensus_state,
+                    latest_client_state,
+                    header.clone(),
+                )
+                .unwrap();
 
                 latest_consensus_state = updated_consensus_state;
                 latest_client_state = updated_client_state.unwrap();
@@ -258,9 +246,10 @@ mod test {
                 next_sync_committee: None,
             };
 
-            let key =
-                B256::from_hex("0x75d7411cb01daad167713b5a9b7219670f0e500653cbbcd45cfe1bfe04222459")
-                    .unwrap();
+            let key = B256::from_hex(
+                "0x75d7411cb01daad167713b5a9b7219670f0e500653cbbcd45cfe1bfe04222459",
+            )
+            .unwrap();
             let value =
                 from_be_hex("0xb2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db");
 
@@ -269,7 +258,8 @@ mod test {
                 Bytes::from_hex("0xf843a03d3c3bcf030006afea2a677a6ff5bf3f7f111e87461c8848cf062a5756d1a888a1a0b2ae8ab0be3bda2f81dc166497902a1832fea11b886bc7a0980dec7a219582db").unwrap(),
             ];
 
-            let path = vec![hex::decode("0x30372d74656e6465726d696e742d30010000000000000001").unwrap()];
+            let path =
+                vec![hex::decode("0x30372d74656e6465726d696e742d30010000000000000001").unwrap()];
 
             let storage_proof = StorageProof {
                 key,
@@ -292,7 +282,8 @@ mod test {
             let storage_proof = StorageProof { key, value, proof };
             let storage_proof_bz = serde_json::to_vec(&storage_proof).unwrap();
 
-            verify_non_membership(consensus_state, client_state, storage_proof_bz, path).unwrap_err();
+            verify_non_membership(consensus_state, client_state, storage_proof_bz, path)
+                .unwrap_err();
         }
 
         #[test]
@@ -316,15 +307,17 @@ mod test {
                 next_sync_committee: None,
             };
 
-            let key =
-                B256::from_hex("0x7a0c5ed5d5cb00ab03f4363e63deb3b05017026890db9f2110e931630567bf93")
-                    .unwrap();
+            let key = B256::from_hex(
+                "0x7a0c5ed5d5cb00ab03f4363e63deb3b05017026890db9f2110e931630567bf93",
+            )
+            .unwrap();
 
             let proof = vec![
                 Bytes::from_hex("0xf838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594eb9407e2a087056b69d43d21df69b82e31533c8a").unwrap(),
             ];
 
-            let path = vec![hex::decode("0x30372d74656e6465726d696e742d30020000000000000001").unwrap()];
+            let path =
+                vec![hex::decode("0x30372d74656e6465726d696e742d30020000000000000001").unwrap()];
 
             let value = U256::from(0);
             let proof = StorageProof { key, value, proof };
@@ -350,156 +343,142 @@ mod test {
         }
     }
 
-    /// Tests for `evm_ics26_commitment_path` function
     mod evm_ics26_commitment_path_tests {
         use super::*;
         use crate::membership::evm_ics26_commitment_path;
 
         #[test]
         fn test_evm_ics26_commitment_path_basic_hash() {
-            // Test the basic hash calculation logic
             let ibc_path = b"test-path";
             let slot = U256::from(0x123);
-            
-            // Manually calculate the hash
+
             let path_hash = keccak256(ibc_path);
             let mut hasher = Keccak256::new();
             hasher.update(path_hash);
             hasher.update(slot.to_be_bytes_vec());
-            let manual_result: U256 = hasher.finalize().into();
-            
-            // Compare with the function result
-            let function_result = evm_ics26_commitment_path(ibc_path, slot);
+            let expected_result: U256 = hasher.finalize().into();
+
+            let actual_result = evm_ics26_commitment_path(ibc_path, slot);
+
             assert_eq!(
-                manual_result, 
-                function_result, 
-                "Manual hash calculation should match function result"
+                expected_result, actual_result,
+                "Function result should match manual double-hash calculation"
             );
         }
-        
+
         #[test]
         fn test_evm_ics26_commitment_path_real_world_fixture() {
-            // Test against real-world values from the fixture test, constructed from basic types
-            
-            // Create a real-world packet using the actual IICS26RouterMsgs::Packet implementation
-            let real_world_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
-            let path = real_world_packet.commitment_path();
-            
-            // Create the slot value directly as a U256 from a string
-            // In a real application, this would typically come from an Ethereum storage slot
-            let slot = from_be_hex("0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600");
-            
-            // Known expected hash value from the fixture
-            let expected = from_be_hex("0xa7f57d14c5ba35e518f60e2844d0c9caf5ab2be72fada3ee6533e0fc3cdef182");
-            
-            // Calculate result using our implementation
-            let result = evm_ics26_commitment_path(&path, slot);
-            
-            // Verify result matches expected hash
-            assert_eq!(
-                result, 
-                expected, 
-                "Hash should match the expected value from fixture test"
-            );
-            
-            // Verify the created path matches the expected binary format
+            let expected_key =
+                from_be_hex("0xa7f57d14c5ba35e518f60e2844d0c9caf5ab2be72fada3ee6533e0fc3cdef182");
+            let commitment_slot =
+                from_be_hex("0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600");
+
+            let packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
+            let commitment_path = packet.commitment_path();
+
             let expected_path = hex::decode("636f736d6f736875622d31010000000000000001").unwrap();
+
+            let actual_key = evm_ics26_commitment_path(&commitment_path, commitment_slot);
+
             assert_eq!(
-                path,
-                expected_path,
-                "The constructed path should match the expected binary format"
+                commitment_path, expected_path,
+                "The commitment path should match the expected binary format: \
+                'client_id + type_marker(0x01) + sequence(big-endian u64)'"
+            );
+
+            assert_eq!(
+                actual_key, expected_key,
+                "The calculated commitment key should match the expected value from fixture test"
             );
         }
-        
+
         #[test]
         fn test_evm_ics26_commitment_path_different_client_ids() {
-            // Test that different client IDs produce different hashes
-            let ethereum_slot = U256::from(0x1);
-            
-            let cosmoshub_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
-            let osmosis_packet = super::create_test_packet("osmosis-1", "ethereum-0", 1);
-            
+            let slot = U256::from(0x1);
+            let sequence = 1;
+            let dest_chain = "ethereum-0";
+
+            let cosmoshub_packet = super::create_test_packet("cosmoshub-1", dest_chain, sequence);
+            let osmosis_packet = super::create_test_packet("osmosis-1", dest_chain, sequence);
+
             let cosmoshub_path = cosmoshub_packet.commitment_path();
             let osmosis_path = osmosis_packet.commitment_path();
-            
-            let cosmoshub_result = evm_ics26_commitment_path(&cosmoshub_path, ethereum_slot);
-            let osmosis_result = evm_ics26_commitment_path(&osmosis_path, ethereum_slot);
-            
+
+            let cosmoshub_key = evm_ics26_commitment_path(&cosmoshub_path, slot);
+            let osmosis_key = evm_ics26_commitment_path(&osmosis_path, slot);
+
             assert_ne!(
-                cosmoshub_result, 
-                osmosis_result, 
-                "Different client IDs should produce different hashes"
+                cosmoshub_key, osmosis_key,
+                "Packets with different client IDs should produce different commitment keys"
             );
         }
-        
+
         #[test]
         fn test_evm_ics26_commitment_path_different_sequences() {
-            // Test that different sequence numbers produce different hashes
-            let ethereum_slot = U256::from(0x1);
-            
-            let seq1_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
-            let seq2_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 2);
-            
-            let seq1_path = seq1_packet.commitment_path();
-            let seq2_path = seq2_packet.commitment_path();
-            
-            let seq1_result = evm_ics26_commitment_path(&seq1_path, ethereum_slot);
-            let seq2_result = evm_ics26_commitment_path(&seq2_path, ethereum_slot);
-            
+            let slot = U256::from(0x1);
+            let source_chain = "cosmoshub-1";
+            let dest_chain = "ethereum-0";
+
+            let packet_seq1 = super::create_test_packet(source_chain, dest_chain, 1);
+            let packet_seq2 = super::create_test_packet(source_chain, dest_chain, 2);
+
+            let path_seq1 = packet_seq1.commitment_path();
+            let path_seq2 = packet_seq2.commitment_path();
+
+            let key_seq1 = evm_ics26_commitment_path(&path_seq1, slot);
+            let key_seq2 = evm_ics26_commitment_path(&path_seq2, slot);
+
             assert_ne!(
-                seq1_result, 
-                seq2_result, 
-                "Different sequence numbers should produce different hashes"
+                key_seq1, key_seq2,
+                "Packets with different sequence numbers should produce different commitment keys"
             );
         }
-        
+
         #[test]
         fn test_evm_ics26_commitment_path_different_types() {
-            // Test that different commitment types produce different hashes
-            let ethereum_slot = U256::from(0x1);
-            let test_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
-            
-            let packet_path = test_packet.commitment_path();
-            let receipt_path = test_packet.receipt_commitment_path();
-            let ack_path = test_packet.ack_commitment_path();
-            
-            let packet_result = evm_ics26_commitment_path(&packet_path, ethereum_slot);
-            let receipt_result = evm_ics26_commitment_path(&receipt_path, ethereum_slot);
-            let ack_result = evm_ics26_commitment_path(&ack_path, ethereum_slot);
-            
+            let slot = U256::from(0x1);
+            let packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
+
+            let packet_path = packet.commitment_path(); // type 0x01
+            let receipt_path = packet.receipt_commitment_path(); // type 0x02
+            let ack_path = packet.ack_commitment_path(); // type 0x03
+
+            let packet_key = evm_ics26_commitment_path(&packet_path, slot);
+            let receipt_key = evm_ics26_commitment_path(&receipt_path, slot);
+            let ack_key = evm_ics26_commitment_path(&ack_path, slot);
+
             assert_ne!(
-                packet_result, 
-                receipt_result, 
-                "Packet and receipt types should produce different hashes"
+                packet_key, receipt_key,
+                "Packet commitment (0x01) and receipt (0x02) types should produce different keys"
             );
+
             assert_ne!(
-                packet_result, 
-                ack_result, 
-                "Packet and ack types should produce different hashes"
+                packet_key,
+                ack_key,
+                "Packet commitment (0x01) and acknowledgment (0x03) types should produce different keys"
             );
+
             assert_ne!(
-                receipt_result, 
-                ack_result, 
-                "Receipt and ack types should produce different hashes"
+                receipt_key, ack_key,
+                "Receipt (0x02) and acknowledgment (0x03) types should produce different keys"
             );
         }
-        
+
         #[test]
         fn test_evm_ics26_commitment_path_different_slots() {
-            // Test that different slots produce different hashes
             let slot1 = U256::from(0x1);
             let slot2 = U256::from(0x2);
-            
-            let test_packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
-            let path = test_packet.commitment_path();
-            
-            let slot1_result = evm_ics26_commitment_path(&path, slot1);
-            let slot2_result = evm_ics26_commitment_path(&path, slot2);
-            
+
+            let packet = super::create_test_packet("cosmoshub-1", "ethereum-0", 1);
+            let commitment_path = packet.commitment_path();
+
+            let key_slot1 = evm_ics26_commitment_path(&commitment_path, slot1);
+            let key_slot2 = evm_ics26_commitment_path(&commitment_path, slot2);
+
             assert_ne!(
-                slot1_result, 
-                slot2_result, 
-                "Different slots should produce different hashes"
+                key_slot1,
+                key_slot2,
+                "The same commitment path with different storage slots should produce different keys"
             );
         }
     }

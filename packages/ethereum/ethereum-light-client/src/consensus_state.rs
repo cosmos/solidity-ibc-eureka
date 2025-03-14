@@ -186,7 +186,7 @@ mod tests {
         // Make sure aggregate_pubkey matches current_sync_committee in state
         let mut committee = sync_committee;
         committee.aggregate_pubkey = consensus_state.current_sync_committee;
-        
+
         // Our mock verifier returns the first pubkey as aggregate, so make sure the first pubkey
         // matches what the committee's aggregate_pubkey is set to
         committee.pubkeys[0] = committee.aggregate_pubkey;
@@ -216,7 +216,7 @@ mod tests {
         // Make sure aggregate_pubkey matches next_sync_committee in state
         let mut committee = sync_committee;
         committee.aggregate_pubkey = consensus_state.next_sync_committee.unwrap();
-        
+
         // Our mock verifier returns the first pubkey as aggregate, so make sure the first pubkey
         // matches what the committee's aggregate_pubkey is set to
         committee.pubkeys[0] = committee.aggregate_pubkey;
