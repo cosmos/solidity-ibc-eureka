@@ -50,7 +50,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
             setUpTestWithFixture(testCases[i].fileName);
 
             // set a correct timestamp
-            vm.warp(output.time + 300);
+            vm.warp(_nanosToSeconds(output.time) + 300);
 
             // run verify
             UpdateResult res = ics07Tendermint.updateClient(fixture.updateMsg);
@@ -74,7 +74,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         // Doesn't matter which fixture we use since this is a no-op
         setUpTestWithFixture("update_client_fixture-plonk.json");
         // set a correct timestamp
-        vm.warp(output.time + 300);
+        vm.warp(_nanosToSeconds(output.time) + 300);
 
         // run verify
         UpdateResult res = ics07Tendermint.updateClient(fixture.updateMsg);
@@ -100,7 +100,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         // Doesn't matter which fixture we use since this is a mock contract
         setUpTestWithFixture("update_client_fixture-plonk.json");
         // set a correct timestamp
-        vm.warp(output.time + 300);
+        vm.warp(_nanosToSeconds(output.time) + 300);
 
         // update mock client
         MsgUpdateClient memory updateMsg = abi.decode(fixture.updateMsg, (MsgUpdateClient));
@@ -126,7 +126,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
         // Doesn't matter which fixture we use since this is not implemented
         setUpTestWithFixture("update_client_fixture-plonk.json");
         // set a correct timestamp
-        vm.warp(output.time + 300);
+        vm.warp(_nanosToSeconds(output.time) + 300);
 
         // upgrade client
         vm.expectRevert(abi.encodeWithSelector(FeatureNotSupported.selector));
