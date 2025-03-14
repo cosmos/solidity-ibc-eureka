@@ -6,8 +6,8 @@ use ethereum_types::consensus::bls::BlsPublicKey;
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
 #[allow(missing_docs, clippy::module_name_repetitions)]
 pub enum EthereumIBCError {
-    #[error("IBC path is empty")]
-    EmptyPath,
+    #[error("invalid path length, expected {expected} but found {found}")]
+    InvalidPathLength { expected: usize, found: usize },
 
     #[error("unable to decode storage proof")]
     StorageProofDecode,
@@ -128,11 +128,14 @@ pub enum EthereumIBCError {
     #[error("expected next sync committee to be known and stored in state")]
     NextSyncCommitteeUnknown,
 
-    #[error("fast aggregate verify error: {0}")]
-    FastAggregateVerifyError(String),
+    #[error("unexpected next sync committee in the update")]
+    UnexpectedNextSyncCommittee,
 
     #[error("bls aggregate error: {0}")]
     BlsAggregateError(String),
+
+    #[error("fast aggregate verify error: {0}")]
+    FastAggregateVerifyError(String),
 
     #[error("not enough signatures")]
     NotEnoughSignatures,

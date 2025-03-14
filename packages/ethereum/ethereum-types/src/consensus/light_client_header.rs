@@ -56,6 +56,21 @@ pub struct LightClientFinalityUpdate {
     pub signature_slot: u64,
 }
 
+// Light Client Finality Update to Light Client Update conversion
+impl From<LightClientFinalityUpdate> for LightClientUpdate {
+    fn from(finality_update: LightClientFinalityUpdate) -> Self {
+        Self {
+            attested_header: finality_update.attested_header,
+            next_sync_committee: None,
+            next_sync_committee_branch: None,
+            finalized_header: finality_update.finalized_header,
+            finality_branch: finality_update.finality_branch,
+            sync_aggregate: finality_update.sync_aggregate,
+            signature_slot: finality_update.signature_slot,
+        }
+    }
+}
+
 /// The header of a light client
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 #[allow(clippy::module_name_repetitions)]

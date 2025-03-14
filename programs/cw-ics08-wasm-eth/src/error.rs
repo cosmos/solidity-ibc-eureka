@@ -13,6 +13,15 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized,
 
+    #[error("client state latest height and slot are not equal")]
+    ClientStateSlotMismatch,
+
+    #[error("client and consensus state mismatch")]
+    ClientAndConsensusStateMismatch,
+
+    #[error("unsupported fork version, must be electra")]
+    MustBeElectra,
+
     #[error("serializing client state failed: {0}")]
     SerializeClientStateFailed(#[source] serde_json::Error),
 
