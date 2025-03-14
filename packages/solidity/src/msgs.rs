@@ -71,9 +71,10 @@ impl From<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusStat
 #[allow(clippy::fallible_impl_from)]
 impl From<IICS07TendermintMsgs::ConsensusState> for ICS07TendermintConsensusState {
     fn from(consensus_state: IICS07TendermintMsgs::ConsensusState) -> Self {
-        let time =
-            OffsetDateTime::from_unix_timestamp(consensus_state.timestamp.try_into().unwrap())
-                .unwrap();
+        let time = OffsetDateTime::from_unix_timestamp_nanos(
+            consensus_state.timestamp.try_into().unwrap(),
+        )
+        .unwrap();
         let seconds = time.unix_timestamp();
         let nanos = time.nanosecond();
         Self {
