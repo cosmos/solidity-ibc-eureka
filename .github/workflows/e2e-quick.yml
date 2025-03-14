@@ -66,14 +66,8 @@ jobs:
     name: ${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: "Set up environment"
-        uses: ./.github/setup
-
       - name: "Set up E2E environment"
-        uses: ./.github/setup/e2e-action.yml
+        uses: ./.github/actions/setup-e2e
 
       - name: Run Tests
         env:

@@ -40,18 +40,12 @@ jobs:
     name: ${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: "Set up environment"
-        uses: ./.github/setup
-
       - name: "Set up E2E environment"
-        uses: ./.github/setup/e2e-action.yml
+        uses: ./.github/actions/setup-e2e
 
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 40m
+          go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 120m

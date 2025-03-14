@@ -20,11 +20,8 @@ jobs:
     name: "Check for abigen changes"
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
       - name: "Set up environment"
-        uses: ./.github/setup
+        uses: ./.github/actions/setup
 
       - uses: actions/setup-go@v4
         with:

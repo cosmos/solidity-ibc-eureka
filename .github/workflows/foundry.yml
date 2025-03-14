@@ -16,9 +16,8 @@ jobs:
     name: "lint"
     runs-on: "depot-ubuntu-22.04-4"
     steps:
-      - uses: actions/checkout@v4
       - name: "Set up environment"
-        uses: ./.github/setup
+        uses: ./.github/actions/setup
 
       - name: "Lint the code"
         run: "bun run lint:sol"
@@ -32,9 +31,8 @@ jobs:
     name: "build"
     runs-on: "depot-ubuntu-22.04-4"
     steps:
-      - uses: actions/checkout@v4
       - name: "Set up environment"
-        uses: ./.github/setup
+        uses: ./.github/actions/setup
 
       - name: "Build the contracts and print their size"
         run: "forge build --sizes"
@@ -49,9 +47,8 @@ jobs:
     needs: ["lint", "build"]
     runs-on: "depot-ubuntu-22.04-4"
     steps:
-      - uses: actions/checkout@v4
       - name: "Set up environment"
-        uses: ./.github/setup
+        uses: ./.github/actions/setup
 
       - name: "Show the Foundry config"
         run: "forge config"
@@ -75,9 +72,8 @@ jobs:
     needs: ["test"]
     runs-on: "depot-ubuntu-22.04-4"
     steps:
-      - uses: actions/checkout@v4
       - name: "Set up environment"
-        uses: ./.github/setup
+        uses: ./.github/actions/setup
 
       - name: Install lcov
         run: |

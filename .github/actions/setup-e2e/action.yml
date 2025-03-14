@@ -3,6 +3,9 @@ name: E2E setup
 runs:
   using: composite
   steps:
+    - name: "Set up environment"
+      uses: ./.github/actions/setup
+
     - name: Setup Go
       uses: actions/setup-go@v4
       with:
