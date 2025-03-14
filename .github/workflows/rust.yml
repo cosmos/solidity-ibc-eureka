@@ -17,6 +17,7 @@ jobs:
     name: fmt-and-clippy
     runs-on: depot-ubuntu-22.04-4
     steps:
+      - uses: "actions/checkout@v4"
       - name: "Set up environment"
         uses: ./.github/actions/setup
 
@@ -46,16 +47,16 @@ jobs:
     name: unit-tests
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+      - uses: "actions/checkout@v4"
+      - name: "Set up environment"
+        uses: ./.github/actions/setup
+
       - name: Install SP1 toolchain
         shell: bash
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
-      - name: "Set up environment"
-        uses: ./.github/actions/setup
       - name: Install just
         uses: extractions/setup-just@v2
       - name: Run unit tests
@@ -87,6 +88,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
+      - uses: "actions/checkout@v4"
       - name: "Set up environment"
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
@@ -106,8 +108,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - name: "Check out the repo"
-        uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v4"
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:

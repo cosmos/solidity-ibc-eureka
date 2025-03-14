@@ -20,6 +20,7 @@ jobs:
     name: "Check for abigen changes"
     runs-on: depot-ubuntu-22.04-4
     steps:
+      - uses: "actions/checkout@v4"
       - name: "Set up environment"
         uses: ./.github/actions/setup
 
@@ -41,9 +42,7 @@ jobs:
     name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
+      - uses: "actions/checkout@v4"
       - uses: actions/setup-go@v4
         with:
           go-version: "1.23"
@@ -58,9 +57,7 @@ jobs:
   test:
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
+      - uses: "actions/checkout@v4"
       - uses: actions/setup-go@v4
         with:
           go-version: "1.23"

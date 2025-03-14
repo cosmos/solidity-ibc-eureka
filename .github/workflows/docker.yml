@@ -29,9 +29,8 @@ jobs:
     env:
       registry_url: ghcr.io/cosmos/eureka-relayer
     steps:
-      - name: Check out the repo
+      - uses: "actions/checkout@v4"
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
       - name: Check out the PR commit head
         uses: actions/checkout@v4
         if: github.event_name == 'pull_request'

@@ -23,9 +23,7 @@ jobs:
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      
+      - uses: "actions/checkout@v4"
       - name: Generate Test Matrix
         id: get-matrix
         uses: ./.github/actions/e2e-test-matrix
@@ -40,6 +38,7 @@ jobs:
     name: ${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:
+      - uses: "actions/checkout@v4"
       - name: "Set up E2E environment"
         uses: ./.github/actions/setup-e2e
 
