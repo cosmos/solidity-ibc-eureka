@@ -161,15 +161,19 @@ mod test {
             })
             .collect::<Vec<Header>>();
 
-        let (_, updated_consensus_state, updated_client_state) = update_consensus_state(
-            initial_state.consensus_state,
-            initial_state.client_state,
-            headers[0].clone(),
-        )
-        .unwrap();
+        let mut latest_consensus_state = initial_state.consensus_state;
+        let mut latest_client_state = initial_state.client_state;
+        for header in headers {
+            let (_, updated_consensus_state, updated_client_state) =
+                update_consensus_state(latest_consensus_state, latest_client_state, header.clone())
+                    .unwrap();
 
-        let trusted_consensus_state = updated_consensus_state;
-        let client_state = updated_client_state.unwrap();
+            latest_consensus_state = updated_consensus_state;
+            latest_client_state = updated_client_state.unwrap();
+        }
+
+        let trusted_consensus_state = latest_consensus_state;
+        let client_state = latest_client_state;
 
         let packet = recv_msgs[0].packet.clone().unwrap();
         let storage_proof = recv_msgs[0].proof_commitment.clone();

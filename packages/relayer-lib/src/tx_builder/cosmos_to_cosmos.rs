@@ -16,7 +16,7 @@ use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::CosmosSdk,
-    events::EurekaEvent,
+    events::EurekaEventWithHeight,
     utils::cosmos::{self},
 };
 
@@ -54,8 +54,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        target_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        target_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
         let client_state = ClientState::decode(

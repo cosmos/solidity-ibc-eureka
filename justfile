@@ -84,11 +84,13 @@ generate-abi: build-contracts
 generate-fixtures-wasm: clean
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 60m
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16$' -timeout 60m
 	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 60m
+	@echo "Generating multi-period client update fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos$' -timeout 60m
 
 # Generate go types for the e2e tests from the etheruem light client code
 generate-ethereum-types:
@@ -104,7 +106,7 @@ generate-ethereum-types:
 # For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
 test-e2e testname: clean
 	@echo "Running {{testname}} test..."
-	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 40m
+	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
 # Run any e2e test in the IbcEurekaTestSuite using the test's name
 # For example, `just test-e2e-eureka TestDeploy_Groth16`

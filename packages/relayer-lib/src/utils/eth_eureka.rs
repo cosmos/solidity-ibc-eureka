@@ -25,19 +25,19 @@ use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
 
-use crate::events::EurekaEvent;
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::timeoutPacket`]s with empty
 /// proofs.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
+    target_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     target_events
         .into_iter()
-        .filter_map(|e| match e {
+        .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(routerCalls::timeoutPacket(
@@ -61,14 +61,14 @@ pub fn target_events_to_timeout_msgs(
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::recvPacket`]s and
 /// [`routerCalls::ackPacket`]s with empty proofs.
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
+    src_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     src_events
         .into_iter()
-        .filter_map(|e| match e {
+        .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
                 if packet.timeoutTimestamp > now && packet.destClient == target_client_id {
                     Some(routerCalls::recvPacket(recvPacketCall {

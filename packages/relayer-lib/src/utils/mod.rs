@@ -5,6 +5,8 @@ use std::future::Future;
 use std::time::{Duration, Instant};
 
 /// Retries an operation until the condition is met or a timeout occurs.
+///
+/// The basic version just checks for a boolean condition.
 pub async fn wait_for_condition<F, Fut>(
     timeout: Duration,
     interval: Duration,
@@ -18,6 +20,33 @@ where
     while start.elapsed() < timeout {
         if condition().await? {
             return Ok(());
+        }
+
+        tracing::debug!(
+            "Condition not met. Waiting for {} seconds before retrying",
+            interval.as_secs()
+        );
+        Delay::new(interval).await;
+    }
+    anyhow::bail!("Timeout exceeded")
+}
+
+/// Retries an operation until the condition is met or a timeout occurs, with a value capture.
+/// Returns the value that was captured when the condition was met.
+pub async fn wait_for_condition_with_capture<F, Fut, T>(
+    timeout: Duration,
+    interval: Duration,
+    mut condition: F,
+) -> anyhow::Result<T>
+where
+    F: FnMut() -> Fut + Send,
+    Fut: Future<Output = anyhow::Result<Option<T>>> + Send,
+    T: Send + 'static,
+{
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        if let Some(value) = condition().await? {
+            return Ok(value);
         }
 
         tracing::debug!(
