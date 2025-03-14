@@ -116,8 +116,6 @@ func main() {
 	}
 	fmt.Printf("Proof of IBC contract: %+v\n", proofOfIBCContract)
 
-	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
-
 	currentPeriod := latestSlot / spec.Period()
 	clientUpdates, err := beaconAPI.GetLightClientUpdates(currentPeriod, 1)
 	if err != nil {
@@ -131,7 +129,7 @@ func main() {
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
-		Timestamp:            unixTimestamp,
+		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}
