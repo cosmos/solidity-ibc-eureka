@@ -36,7 +36,7 @@ interface IICS07TendermintMsgs {
 
     /// @notice Defines the Tendermint light client's consensus state at some height.
     /// @param timestamp timestamp that corresponds to the counterparty block height
-    /// in which the ConsensusState was generated. (in nanoseconds)
+    /// in which the ConsensusState was generated. (in unix nanoseconds)
     /// @param root commitment root (i.e app hash)
     /// @param nextValidatorsHash next validators hash
     struct ConsensusState {

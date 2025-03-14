@@ -19,7 +19,7 @@ interface IUpdateClientMsgs {
     /// @param clientState The client state that was used to verify the header.
     /// @param trustedConsensusState The trusted consensus state.
     /// @param newConsensusState The new consensus state with the verified header.
-    /// @param time The time which the header was verified in nanoseconds.
+    /// @param time The time which the header was verified in unix nanoseconds.
     /// @param trustedHeight The trusted height.
     /// @param newHeight The new height.
     struct UpdateClientOutput {

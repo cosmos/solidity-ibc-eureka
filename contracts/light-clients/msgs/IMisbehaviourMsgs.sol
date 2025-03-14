@@ -17,7 +17,7 @@ interface IMisbehaviourMsgs {
 
     /// @notice The public value output for the sp1 misbehaviour program.
     /// @param clientState The client state that was used to verify the misbehaviour.
-    /// @param time The time which the misbehaviour was verified in nanoseconds.
+    /// @param time The time which the misbehaviour was verified in unix nanoseconds.
     /// @param trustedHeight1 The trusted height of header 1
     /// @param trustedHeight2 The trusted height of header 2
     /// @param trustedConsensusState1 The trusted consensus state of header 1
