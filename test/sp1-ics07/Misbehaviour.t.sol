@@ -110,7 +110,9 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
 
         // proof is in the future
         vm.warp(_nanosToSeconds(output.time) - 300);
-        vm.expectRevert(abi.encodeWithSelector(ProofIsInTheFuture.selector, block.timestamp, _nanosToSeconds(output.time)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ProofIsInTheFuture.selector, block.timestamp, _nanosToSeconds(output.time))
+        );
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // proof is too old

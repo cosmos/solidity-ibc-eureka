@@ -437,7 +437,10 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         view
     {
         require(_nanosToSeconds(time) <= block.timestamp, ProofIsInTheFuture(block.timestamp, _nanosToSeconds(time)));
-        require(block.timestamp - _nanosToSeconds(time) <= ALLOWED_SP1_CLOCK_DRIFT, ProofIsTooOld(block.timestamp, _nanosToSeconds(time)));
+        require(
+            block.timestamp - _nanosToSeconds(time) <= ALLOWED_SP1_CLOCK_DRIFT,
+            ProofIsTooOld(block.timestamp, _nanosToSeconds(time))
+        );
 
         // Check client state equality
         // NOTE: We do not check the equality of latest height and isFrozen, this is because:
@@ -538,7 +541,11 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Returns the timestamp of the trusted consensus state in unix seconds.
     /// @param consensusState The consensus state.
-    function _getTimestampInSeconds(IICS07TendermintMsgs.ConsensusState memory consensusState) private pure returns (uint256) {
+    function _getTimestampInSeconds(IICS07TendermintMsgs.ConsensusState memory consensusState)
+        private
+        pure
+        returns (uint256)
+    {
         return _nanosToSeconds(consensusState.timestamp);
     }
 
