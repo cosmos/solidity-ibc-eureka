@@ -23,7 +23,7 @@ pub fn check_for_misbehaviour(
     misbehaviour: &Misbehaviour,
     trusted_consensus_state_1: ConsensusState,
     trusted_consensus_state_2: ConsensusState,
-    time: u64,
+    time: u128,
 ) -> MisbehaviourOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     assert_eq!(

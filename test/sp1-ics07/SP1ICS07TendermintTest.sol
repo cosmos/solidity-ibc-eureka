@@ -119,6 +119,10 @@ abstract contract SP1ICS07TendermintTest is
         return fix;
     }
 
+    function _nanosToSeconds(uint256 nanos) internal pure returns (uint256) {
+        return nanos / 1e9;
+    }
+
     struct FixtureTestCase {
         string name;
         string fileName;

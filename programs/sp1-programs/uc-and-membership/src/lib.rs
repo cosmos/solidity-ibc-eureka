@@ -15,7 +15,7 @@ pub fn update_client_and_membership(
     client_state: ClientState,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
-    time: u64,
+    time: u128,
     request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
 ) -> UcAndMembershipOutput {
     let app_hash: [u8; 32] = proposed_header

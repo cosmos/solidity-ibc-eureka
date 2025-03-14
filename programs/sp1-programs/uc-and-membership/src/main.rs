@@ -44,7 +44,7 @@ pub fn main() {
     // input 3: the proposed header
     let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time
-    let time = u64::from_le_bytes(encoded_4.try_into().unwrap());
+    let time = u128::from_le_bytes(encoded_4.try_into().unwrap());
 
     let request_iter = (0..request_len).map(|_| {
         // loop_encoded_1 is the key-value pair we want to verify the membership of

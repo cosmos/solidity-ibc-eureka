@@ -14,15 +14,15 @@ use ibc_primitives::Timestamp;
 
 /// The client validation context.
 pub struct ClientValidationCtx<'a> {
-    /// Current time in seconds.
-    now: u64,
+    /// Current time in nanoseconds.
+    now: u128,
     trusted_consensus_states: HashMap<ClientConsensusStatePath, &'a ConsensusState>,
 }
 
 impl<'a> ClientValidationCtx<'a> {
     /// Create a new instance of the client validation context.
     #[must_use]
-    pub fn new(now: u64) -> Self {
+    pub fn new(now: u128) -> Self {
         Self {
             now,
             trusted_consensus_states: HashMap::new(),
@@ -75,7 +75,7 @@ impl ClientValidationContext for ClientValidationCtx<'_> {
 
 impl ExtClientValidationContext for ClientValidationCtx<'_> {
     fn host_timestamp(&self) -> Result<Timestamp, HostError> {
-        Ok(Timestamp::from_nanoseconds(self.now * 1_000_000_000))
+        Ok(Timestamp::from_nanoseconds(self.now.try_into().unwrap()))
     }
 
     fn host_height(&self) -> Result<ibc_core_client::types::Height, HostError> {

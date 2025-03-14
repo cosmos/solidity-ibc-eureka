@@ -24,7 +24,7 @@ pub fn update_client(
     client_state: ClientState,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
-    time: u64,
+    time: u128,
 ) -> UpdateClientOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     let chain_id = ChainId::from_str(&client_state.chainId).unwrap();

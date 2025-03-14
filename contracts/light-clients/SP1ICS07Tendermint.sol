@@ -151,7 +151,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param proofHeight The height of the proof.
     /// @param path The path of the key-value pair.
     /// @param value The value of the key-value pair.
-    /// @return timestamp The timestamp of the trusted consensus state.
+    /// @return The timestamp of the trusted consensus state in unix seconds.
     function _membership(
         bytes calldata proof,
         IICS02ClientMsgs.Height calldata proofHeight,
@@ -159,11 +159,11 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         bytes memory value
     )
         private
-        returns (uint256 timestamp)
+        returns (uint256)
     {
         if (proof.length == 0) {
             // cached proof
-            return _getCachedKvPair(proofHeight.revisionHeight, IMembershipMsgs.KVPair(path, value));
+            return _nanosToSeconds(_getCachedKvPair(proofHeight.revisionHeight, IMembershipMsgs.KVPair(path, value)));
         }
 
         IMembershipMsgs.MembershipProof memory membershipProof = abi.decode(proof, (IMembershipMsgs.MembershipProof));
@@ -261,7 +261,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         if (output.kvPairs.length > 1) {
             _cacheKvPairs(proofHeight.revisionHeight, output.kvPairs, proof.trustedConsensusState.timestamp);
         }
-        return proof.trustedConsensusState.timestamp;
+        return _getTimestampInSeconds(proof.trustedConsensusState);
     }
 
     /// @notice The entrypoint for handling the `SP1MembershipAndUpdateClientProof` proof type.
@@ -360,7 +360,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
                 proofHeight.revisionHeight, output.kvPairs, output.updateClientOutput.newConsensusState.timestamp
             );
         }
-        return output.updateClientOutput.newConsensusState.timestamp;
+        return _getTimestampInSeconds(output.updateClientOutput.newConsensusState);
     }
 
     /// @notice Validates the MembershipOutput public values.
@@ -428,16 +428,19 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice Validates the client state and time.
     /// @dev This function does not check the equality of the latest height and isFrozen.
     /// @param publicClientState The public client state.
-    /// @param time The time.
+    /// @param time The time in unix nanoseconds.
     function _validateClientStateAndTime(
         IICS07TendermintMsgs.ClientState memory publicClientState,
-        uint64 time
+        uint128 time
     )
         private
         view
     {
-        require(time <= block.timestamp, ProofIsInTheFuture(block.timestamp, time));
-        require(block.timestamp - time <= ALLOWED_SP1_CLOCK_DRIFT, ProofIsTooOld(block.timestamp, time));
+        require(_nanosToSeconds(time) <= block.timestamp, ProofIsInTheFuture(block.timestamp, _nanosToSeconds(time)));
+        require(
+            block.timestamp - _nanosToSeconds(time) <= ALLOWED_SP1_CLOCK_DRIFT,
+            ProofIsTooOld(block.timestamp, _nanosToSeconds(time))
+        );
 
         // Check client state equality
         // NOTE: We do not check the equality of latest height and isFrozen, this is because:
@@ -508,7 +511,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice Caches the key-value pairs to the transient storage with the timestamp.
     /// @param proofHeight The height of the proof.
     /// @param kvPairs The key-value pairs.
-    /// @param timestamp The timestamp of the trusted consensus state.
+    /// @param timestamp The timestamp of the trusted consensus state in unix nanoseconds.
     /// @dev WARNING: Transient store is not reverted even if a message within a transaction reverts.
     /// @dev WARNING: This function must be called after all proof and validation checks.
     function _cacheKvPairs(uint64 proofHeight, IMembershipMsgs.KVPair[] memory kvPairs, uint256 timestamp) private {
@@ -521,7 +524,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice Gets the timestamp of the cached key-value pair from the transient storage.
     /// @param proofHeight The height of the proof.
     /// @param kvPair The key-value pair.
-    /// @return The timestamp of the cached key-value pair.
+    /// @return The timestamp of the cached key-value pair in unix nanoseconds.
     function _getCachedKvPair(
         uint64 proofHeight,
         IMembershipMsgs.KVPair memory kvPair
@@ -534,6 +537,24 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         uint256 timestamp = kvPairHash.asUint256().tload();
         require(timestamp != 0, KeyValuePairNotInCache(kvPair.path, kvPair.value));
         return timestamp;
+    }
+
+    /// @notice Returns the timestamp of the trusted consensus state in unix seconds.
+    /// @param consensusState The consensus state.
+    /// @return The timestamp of the trusted consensus state in unix seconds.
+    function _getTimestampInSeconds(IICS07TendermintMsgs.ConsensusState memory consensusState)
+        private
+        pure
+        returns (uint256)
+    {
+        return _nanosToSeconds(consensusState.timestamp);
+    }
+
+    /// @notice Converts nanoseconds to seconds.
+    /// @param nanos The nanoseconds.
+    /// @return The seconds.
+    function _nanosToSeconds(uint256 nanos) private pure returns (uint256) {
+        return nanos / 1e9;
     }
 
     /// @notice Modifier to check if the client is not frozen.
