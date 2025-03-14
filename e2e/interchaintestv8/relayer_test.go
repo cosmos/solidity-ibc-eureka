@@ -995,3 +995,105 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		}))
 	}))
 }
+
+func (s *RelayerTestSuite) TestOutOfOrderRelaying() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
+
+	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+
+	numberOfTransfers := 10
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numberOfTransfers))
+
+	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	var txHashes [][]byte
+	s.Require().True(s.Run("Send transfers on Ethereum", func() {
+		for range numberOfTransfers {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+			msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+				Denom:            erc20Address,
+				SourceClient:     testvalues.CustomClientID,
+				DestPort:         transfertypes.PortID,
+				Amount:           transferAmount,
+				Receiver:         cosmosUserAddress,
+				TimeoutTimestamp: timeout,
+				Memo:             "",
+			}
+
+			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			txHashes = append(txHashes, tx.Hash().Bytes())
+		}
+
+	}))
+
+	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
+		var relayTxsInOrder [][]byte
+		for _, txHash := range txHashes {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:       eth.ChainID.String(),
+				DstChain:       simd.Config().ChainID,
+				SourceTxIds:    [][]byte{txHash},
+				TargetClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			relayTxsInOrder = append(relayTxsInOrder, resp.Tx)
+
+			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(resp.Tx),
+			})
+		}
+
+		s.Require().True(s.Run("Broadcast relay txs out of order", func() {
+			relayTxsOutOfOrder := make([][]byte, len(relayTxsInOrder))
+			for i := range relayTxsInOrder {
+				relayTxsOutOfOrder[i] = relayTxsInOrder[len(relayTxsInOrder)-1-i]
+			}
+
+			for i, relayTx := range relayTxsOutOfOrder {
+				fmt.Printf("Broadcasting relay tx %d\n", i)
+				_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTx)
+			}
+		}))
+
+		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
+			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			// User balance on Cosmos chain
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
+			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+		}))
+	}))
+
+}
