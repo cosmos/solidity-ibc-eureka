@@ -109,7 +109,7 @@ pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     tm_client: &HttpClient,
     target_light_block: LightBlock,
     client_state: ClientState,
-    now: u64,
+    now: u128,
 ) -> Result<()> {
     let target_height = target_light_block.height().value();
 

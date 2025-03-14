@@ -91,9 +91,7 @@ where
         dest_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
         let revision_height = latest_light_block.height().value();
@@ -108,14 +106,14 @@ where
             dest_events,
             &target_client_id,
             &latest_height,
-            now,
+            now.as_secs(),
         );
 
         let recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
             src_events,
             &target_client_id,
             &latest_height,
-            now,
+            now.as_secs(),
         );
 
         let mut all_msgs = timeout_msgs
@@ -136,7 +134,7 @@ where
             &self.tm_client,
             latest_light_block,
             client_state,
-            now,
+            now.as_nanos(),
         )
         .await?;
 

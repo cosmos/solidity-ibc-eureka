@@ -57,9 +57,6 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         SolConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?.into();
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
 
     let kv_proofs: Vec<(_, _)> =
         futures::future::try_join_all(args.membership.key_paths.into_iter().map(|path| async {
@@ -83,6 +80,9 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         .await?;
 
     let kv_len = kv_proofs.len();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_nanos();
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_mem_prover.generate_proof(
         &trusted_client_state,

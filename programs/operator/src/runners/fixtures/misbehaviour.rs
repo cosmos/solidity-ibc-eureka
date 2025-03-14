@@ -104,7 +104,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
+        .as_nanos();
 
     let proof_data = verify_misbehaviour_prover.generate_proof(
         &trusted_client_state_2,

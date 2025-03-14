@@ -73,7 +73,7 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let proposed_header = target_light_block.into_header(&trusted_light_block);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
+        .as_nanos();
 
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_prover.generate_proof(

@@ -69,7 +69,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+            .as_nanos();
 
         // Generate a proof of the transition from the trusted block to the target block.
         let proof_data = prover.generate_proof(
