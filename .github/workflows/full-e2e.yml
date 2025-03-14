@@ -18,75 +18,24 @@ permissions:
   contents: read
 
 jobs:
-  golangci:
-    name: lint
-    runs-on: depot-ubuntu-22.04-4
+  generate-matrix:
+    name: Generate Test Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      
+      - name: Generate Test Matrix
+        id: get-matrix
+        uses: ./.github/actions/e2e-test-matrix
 
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.23"
-          cache-dependency-path: e2e/interchaintestv8/go.sum
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.63
-          working-directory: e2e/interchaintestv8
   e2e:
+    needs: generate-matrix
     strategy:
       fail-fast: false
-      matrix:
-        test:
-          # List your tests here
-          - TestWithIbcEurekaTestSuite/TestDeploy_Groth16
-          - TestWithIbcEurekaTestSuite/TestDeploy_Plonk
-          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
-          - TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
-          - TestWithIbcEurekaTestSuite/Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
-          - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
-          - TestWithIbcEurekaTestSuite/Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk
-          - TestWithIbcEurekaTestSuite/TestICS20TransferUint256TokenfromEthereumToCosmosAndBack_Groth16
-          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16
-          - TestWithIbcEurekaTestSuite/TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk
-          - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16
-          - TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Plonk
-          - TestWithIbcEurekaTestSuite/Test_10_TimeoutPacketFromEth_Groth16
-          - TestWithIbcEurekaTestSuite/Test_5_TimeoutPacketFromEth_Plonk
-          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Groth16
-          - TestWithIbcEurekaTestSuite/TestErrorAckToEthereum_Plonk
-          - TestWithRelayerTestSuite/Test_10_RecvPacketToEth_Groth16
-          - TestWithRelayerTestSuite/Test_5_RecvPacketToEth_Plonk
-          - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToEth_Groth16
-          - TestWithRelayerTestSuite/Test_5_BatchedAckPacketToEth_Plonk
-          - TestWithRelayerTestSuite/Test_10_RecvPacketToCosmos
-          - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToCosmos
-          - TestWithRelayerTestSuite/TestTimeoutPacketFromCosmos
-          - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromCosmos
-          - TestWithCosmosRelayerTestSuite/TestRelayerInfo
-          - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
-          - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket
-          - TestWithCosmosRelayerTestSuite/TestICS20TimeoutPacket
-          - TestWithCosmosRelayerTestSuite/Test_10_ICS20TimeoutPacket
-          - TestWithMultichainTestSuite/TestDeploy_Groth16
-          - TestWithMultichainTestSuite/TestTransferCosmosToEthToCosmosAndBack_Groth16
-          - TestWithMultichainTestSuite/TestTransferEthToCosmosToCosmosAndBack_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestDeploy_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClient_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/TestMembership_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestMembership_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClientAndMembership_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestUpdateClientAndMembership_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestDoubleSignMisbehaviour_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/TestBreakingTimeMonotonicityMisbehaviour_Plonk
-          - TestWithSP1ICS07TendermintTestSuite/Test100Membership_Groth16
-          - TestWithSP1ICS07TendermintTestSuite/Test25Membership_Plonk
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     name: ${{ matrix.test }}
     runs-on: depot-ubuntu-22.04
     steps:

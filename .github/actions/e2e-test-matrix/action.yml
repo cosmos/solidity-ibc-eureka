@@ -1,0 +1,15 @@
+name: 'E2E Test Matrix Generator'
+description: 'Dynamically discovers and generates a test matrix for e2e tests'
+
+outputs:
+  matrix:
+    description: 'JSON string containing the test matrix'
+    value: ${{ steps.generate-matrix.outputs.matrix }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Generate Test Matrix
+      id: generate-matrix
+      shell: bash
+      run: echo "matrix=$(${{ github.workspace }}/scripts/generate-e2e-test-matrix.sh)" >> $GITHUB_OUTPUT
