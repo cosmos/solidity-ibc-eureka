@@ -96,52 +96,8 @@ jobs:
       - name: "Set up environment"
         uses: ./.github/setup
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.23"
-          check-latest: true
-          cache-dependency-path: e2e/interchaintestv8/go.sum
-
-      - name: "Cache Relayer and Operator"
-        id: cache-relayer
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/relayer
-            ~/.cargo/bin/operator
-          key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'packages/**', 'programs/**', 'abi/**') }}
-
-      - name: Install SP1 toolchain
-        if: (steps.cache-relayer.outputs.cache-hit != 'true')
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
-
-      - name: Install operator
-        if: steps.cache-relayer.outputs.cache-hit != 'true'
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --bin operator --path programs/operator --locked
-
-      - name: Install relayer
-        if: steps.cache-relayer.outputs.cache-hit != 'true'
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --bin relayer --path programs/relayer --locked
-
-      - name: Setup Kurtosis
-        run: |
-          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
-          sudo apt update
-          sudo apt install kurtosis-cli=1.5.0 # Must match the kurtosis library version we use in the e2e tests
-          kurtosis engine start
-          kurtosis analytics disable
-          echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
-        shell: bash
+      - name: "Set up E2E environment"
+        uses: ./.github/setup/e2e-action.yml
 
       - name: Run Tests
         env:
