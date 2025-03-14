@@ -298,7 +298,7 @@ mod tests {
 
         #[test]
         // This test runs throught the e2e test scenario defined in the interchaintest:
-        // TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
+        // estICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16
         fn test_ics20_transfer_from_ethereum_to_cosmos_flow() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");

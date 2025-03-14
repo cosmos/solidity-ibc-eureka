@@ -385,9 +385,8 @@ where
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
             // TODO: Add asserts to make sure they are in the correct period
-            let active_sync_committee = ActiveSyncCommittee::Current(
-                finality_update_sync_committee.clone(),
-            );
+            let active_sync_committee =
+                ActiveSyncCommittee::Current(finality_update_sync_committee.clone());
 
             let header = self
                 .light_client_update_to_header(
