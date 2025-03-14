@@ -19,8 +19,11 @@ use crate::{
 };
 use crate::{sudo, ContractError};
 
+/// The version of the contracts state.
+/// This is not necessarily the same as the contract version, and only refers to the state version.
+/// It is used to determine if the state needs to be migrated in the migrate entry point.
 const STATE_VERSION: &str = "1.0.0";
-const CONTRACT_NAME: &str = "cw-ics08-wasm-eth";
+const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// The instantiate entry point for the CosmWasm contract.
 /// # Errors
@@ -155,11 +158,6 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> Result<Response, ContractError> {
-    // TODO: REMOVE
-    if cw2::CONTRACT.may_load(deps.storage)?.is_none() {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
-    }
-
     // Check if the state version is older than the current one and update it
     cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
 
