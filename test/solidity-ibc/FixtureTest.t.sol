@@ -102,7 +102,9 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             trustedConsensusHash
         );
 
-        ics26Router.addClient(customClientId, IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint));
+        ics26Router.addClient(
+            customClientId, IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(ics07Tendermint)
+        );
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         // Deploy ERC20 to the expected address from the fixture
