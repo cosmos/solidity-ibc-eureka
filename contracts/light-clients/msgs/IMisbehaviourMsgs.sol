@@ -17,14 +17,14 @@ interface IMisbehaviourMsgs {
 
     /// @notice The public value output for the sp1 misbehaviour program.
     /// @param clientState The client state that was used to verify the misbehaviour.
-    /// @param time The time which the misbehaviour was verified in seconds.
+    /// @param time The time which the misbehaviour was verified in nanoseconds.
     /// @param trustedHeight1 The trusted height of header 1
     /// @param trustedHeight2 The trusted height of header 2
     /// @param trustedConsensusState1 The trusted consensus state of header 1
     /// @param trustedConsensusState2 The trusted consensus state of header 2
     struct MisbehaviourOutput {
         IICS07TendermintMsgs.ClientState clientState;
-        uint64 time;
+        uint128 time;
         IICS02ClientMsgs.Height trustedHeight1;
         IICS02ClientMsgs.Height trustedHeight2;
         IICS07TendermintMsgs.ConsensusState trustedConsensusState1;
