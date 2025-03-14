@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -751,6 +752,10 @@ func (s *RelayerTestSuite) Test_10_TimeoutPacketFromCosmos() {
 func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Skipping timeout packet test on non-PoS chain")
+	}
+
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -883,7 +888,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
 		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, txBodyBz)
-		s.Require().NoError(err)
-		s.Require().NotNil(receipt)
+		s.Require().Error(err)
+		s.Require().Nil(receipt)
 	}))
 }
