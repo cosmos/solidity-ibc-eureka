@@ -59,7 +59,9 @@ impl From<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusStat
             .unwrap();
         Self {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            timestamp: ics07_tendermint_consensus_state.timestamp.unix_timestamp() as u64,
+            timestamp: ics07_tendermint_consensus_state
+                .timestamp
+                .unix_timestamp_nanos() as u128,
             root: root.into(),
             nextValidatorsHash: next_validators_hash.into(),
         }
