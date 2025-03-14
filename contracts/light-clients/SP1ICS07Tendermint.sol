@@ -541,6 +541,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Returns the timestamp of the trusted consensus state in unix seconds.
     /// @param consensusState The consensus state.
+    /// @return The timestamp of the trusted consensus state in unix seconds.
     function _getTimestampInSeconds(IICS07TendermintMsgs.ConsensusState memory consensusState)
         private
         pure
@@ -551,6 +552,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @notice Converts nanoseconds to seconds.
     /// @param nanos The nanoseconds.
+    /// @return The seconds.
     function _nanosToSeconds(uint256 nanos) private pure returns (uint256) {
         return nanos / 1e9;
     }
