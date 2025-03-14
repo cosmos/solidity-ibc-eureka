@@ -60,7 +60,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
             assert(res == UpdateResult.Update);
 
             ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
-            assert(keccak256(bytes(clientState.chainId)) == keccak256(bytes("mocha-4")));
+            assert(keccak256(bytes(clientState.chainId)) == keccak256(bytes("cosmoshub-4")));
             assert(clientState.latestHeight.revisionHeight == output.newHeight.revisionHeight);
             assert(clientState.isFrozen == false);
 
