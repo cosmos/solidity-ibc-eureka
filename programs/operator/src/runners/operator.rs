@@ -67,16 +67,13 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         // Get the proposed header from the target light block.
         let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos();
-
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
         // Generate a proof of the transition from the trusted block to the target block.
         let proof_data = prover.generate_proof(
             &contract_client_state.into(),
             &trusted_consensus_state,
             &proposed_header,
-            now,
+            now_since_unix.as_nanos(),
         );
 
         let update_msg = MsgUpdateClient {

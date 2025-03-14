@@ -102,16 +102,13 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let verify_misbehaviour_prover =
         SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.proof_type, &sp1_prover);
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_nanos();
-
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     let proof_data = verify_misbehaviour_prover.generate_proof(
         &trusted_client_state_2,
         &misbehaviour,
         &trusted_consensus_state_1,
         &trusted_consensus_state_2,
-        now,
+        now_since_unix.as_nanos(),
     );
 
     let submit_msg = MsgSubmitMisbehaviour {

@@ -71,16 +71,13 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_nanos();
-
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state,
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
     );
 
     let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice(), false)?;

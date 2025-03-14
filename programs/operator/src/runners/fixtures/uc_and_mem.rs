@@ -80,15 +80,13 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         .await?;
 
     let kv_len = kv_proofs.len();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_nanos();
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_mem_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state.into(),
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
         kv_proofs,
     );
 
