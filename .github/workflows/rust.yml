@@ -69,6 +69,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
+      - uses: "actions/checkout@v4"
       - name: "Set up environment"
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
