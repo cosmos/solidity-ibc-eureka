@@ -182,6 +182,9 @@ func (c *Config) GenerateConfigFile(filePath string) error {
 	}
 
 	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
 	defer f.Close()
 
 	return tmpl.Execute(f, c)

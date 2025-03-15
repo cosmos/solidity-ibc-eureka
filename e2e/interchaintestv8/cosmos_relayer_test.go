@@ -66,9 +66,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	s.SimdASubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdA)
 	s.SimdBSubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdB)
 
-	var (
-		relayerProcess *os.Process
-	)
+	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)

@@ -1419,4 +1419,3 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		}))
 	}))
 }
-
