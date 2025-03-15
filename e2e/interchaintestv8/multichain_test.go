@@ -385,7 +385,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	var relayerProcess *os.Process
-	var configInfo relayer.MultichainConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
 		// The BeaconAPIClient is nil when the testnet is `pow`
@@ -393,32 +392,59 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config string
+		var sp1Config relayer.SP1Config
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = fmt.Sprintf(`"%s"`, testvalues.EnvValueSp1Prover_Mock)
+			sp1Config = relayer.SP1Config{
+				ProverType: testvalues.EnvValueSp1Prover_Mock,
+			}
 		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = testvalues.EnvValueSp1Prover_PrivateClusterConfig
+			sp1Config = relayer.SP1Config{
+				ProverType:     relayer.SP1ProverNetwork,
+				PrivateCluster: true,
+			}
 		default:
 			s.Require().Fail("Unsupported prover type: %s", prover)
 		}
 
-		configInfo = relayer.MultichainConfigInfo{
-			ChainAID:            simdA.Config().ChainID,
-			ChainBID:            simdB.Config().ChainID,
-			EthChainID:          eth.ChainID.String(),
-			ChainATmRPC:         simdA.GetHostRPCAddress(),
-			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
-			ChainBTmRPC:         simdB.GetHostRPCAddress(),
-			ChainBSignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
-			ICS26Address:        s.contractAddresses.Ics26Router,
-			EthRPC:              eth.RPC,
-			BeaconAPI:           beaconAPI,
-			SP1Config:           sp1Config,
-			MockWasmClient:      os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-		}
+		var modules []relayer.ModuleConfig
 
-		err := configInfo.GenerateMultichainConfigFile(testvalues.RelayerConfigFilePath)
+		modules = append(modules, relayer.CreateEthCosmosModules(
+			eth.ChainID.String(),
+			simdA.Config().ChainID,
+			simdA.GetHostRPCAddress(),
+			os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			s.SimdARelayerSubmitter.FormattedAddress(),
+			eth.RPC,
+			beaconAPI,
+			s.contractAddresses.Ics26Router,
+			sp1Config,
+		)...)
+
+		modules = append(modules, relayer.CreateEthCosmosModules(
+			eth.ChainID.String(),
+			simdB.Config().ChainID,
+			simdB.GetHostRPCAddress(),
+			os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			s.SimdBRelayerSubmitter.FormattedAddress(),
+			eth.RPC,
+			beaconAPI,
+			s.contractAddresses.Ics26Router,
+			sp1Config,
+		)...)
+
+		modules = append(modules, relayer.CreateCosmosCosmosModules(
+			simdA.Config().ChainID,
+			simdB.Config().ChainID,
+			simdA.GetHostRPCAddress(),
+			simdB.GetHostRPCAddress(),
+			s.SimdARelayerSubmitter.FormattedAddress(),
+			s.SimdBRelayerSubmitter.FormattedAddress(),
+		)...)
+
+		config := relayer.NewConfig(modules)
+
+		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)

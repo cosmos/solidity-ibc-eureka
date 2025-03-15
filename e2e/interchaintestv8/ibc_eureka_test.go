@@ -231,7 +231,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	var relayerProcess *os.Process
-	var configInfo relayer.EthCosmosConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
 		// The BeaconAPIClient is nil when the testnet is `pow`
@@ -239,30 +238,37 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config string
+		var sp1Config relayer.SP1Config
 		switch prover {
 		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = fmt.Sprintf(`"%s"`, testvalues.EnvValueSp1Prover_Mock)
+			sp1Config = relayer.SP1Config{
+				ProverType: relayer.SP1ProverMock,
+			}
 		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = testvalues.EnvValueSp1Prover_PrivateClusterConfig
+			sp1Config = relayer.SP1Config{
+				ProverType:     relayer.SP1ProverNetwork,
+				PrivateCluster: true,
+			}
 		default:
 			s.Require().Fail("Unsupported prover type: %s", prover)
 		}
 
-		configInfo = relayer.EthCosmosConfigInfo{
-			EthChainID:     eth.ChainID.String(),
-			CosmosChainID:  simd.Config().ChainID,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26Address:   s.contractAddresses.Ics26Router,
-			EthRPC:         eth.RPC,
-			BeaconAPI:      beaconAPI,
-			SP1Config:      sp1Config,
-			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
-			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			LogLevel:       os.Getenv(testvalues.EnvKeyRustLog),
-		}
+		var modules []relayer.ModuleConfig
+		modules = append(modules, relayer.CreateEthCosmosModules(
+			eth.ChainID.String(),
+			simd.Config().ChainID,
+			simd.GetHostRPCAddress(),
+			os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			s.SimdRelayerSubmitter.FormattedAddress(),
+			eth.RPC,
+			beaconAPI,
+			s.contractAddresses.Ics26Router,
+			sp1Config,
+		)...)
 
-		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		config := relayer.NewConfig(modules)
+
+		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
@@ -1413,3 +1419,4 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		}))
 	}))
 }
+
