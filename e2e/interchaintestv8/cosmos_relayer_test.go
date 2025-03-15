@@ -68,22 +68,35 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 
 	var (
 		relayerProcess *os.Process
-		configInfo     relayer.CosmosToCosmosConfigInfo
 	)
 	s.Require().True(s.Run("Start Relayer", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		configInfo = relayer.CosmosToCosmosConfigInfo{
-			ChainAID:    s.SimdA.Config().ChainID,
-			ChainBID:    s.SimdB.Config().ChainID,
-			ChainATmRPC: s.SimdA.GetHostRPCAddress(),
-			ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
-			ChainAUser:  s.SimdASubmitter.FormattedAddress(),
-			ChainBUser:  s.SimdBSubmitter.FormattedAddress(),
-		}
+		config := relayer.NewConfig([]relayer.ModuleConfig{
+			{
+				Name:     relayer.ModuleCosmosToCosmos,
+				SrcChain: s.SimdA.Config().ChainID,
+				DstChain: s.SimdB.Config().ChainID,
+				Config: relayer.CosmosToCosmosConfig{
+					SrcRpcUrl:     s.SimdA.GetHostRPCAddress(),
+					TargetRpcUrl:  s.SimdB.GetHostRPCAddress(),
+					SignerAddress: s.SimdBSubmitter.FormattedAddress(),
+				},
+			},
+			{
+				Name:     relayer.ModuleCosmosToCosmos,
+				SrcChain: s.SimdB.Config().ChainID,
+				DstChain: s.SimdA.Config().ChainID,
+				Config: relayer.CosmosToCosmosConfig{
+					SrcRpcUrl:     s.SimdB.GetHostRPCAddress(),
+					TargetRpcUrl:  s.SimdA.GetHostRPCAddress(),
+					SignerAddress: s.SimdASubmitter.FormattedAddress(),
+				},
+			},
+		})
 
-		err = configInfo.GenerateCosmosToCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
