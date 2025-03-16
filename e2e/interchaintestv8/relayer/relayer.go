@@ -34,6 +34,7 @@ func StartRelayer(configPath string) (*os.Process, error) {
 	cmd := exec.Command(binaryPath(), "start", "--config", configPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = append(cmd.Env, "RUST_BACKTRACE=1")
 
 	// run this command in the background
 	err = cmd.Start()

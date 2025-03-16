@@ -181,7 +181,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .eth_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
@@ -190,7 +190,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .tm_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -212,7 +212,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .into_iter()
             .map(Hash::try_from)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         let eth_txs = inner_req
             .timeout_tx_ids
@@ -226,7 +226,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .tm_listener
             .fetch_tx_events(cosmos_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
         tracing::info!(
@@ -238,7 +238,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .eth_listener
             .fetch_tx_events(eth_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
@@ -247,7 +247,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .tx_builder
             .relay_events(cosmos_events, eth_events, inner_req.target_client_id)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
