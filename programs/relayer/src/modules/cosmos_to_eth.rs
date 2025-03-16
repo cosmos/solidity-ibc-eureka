@@ -247,7 +247,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .tx_builder
             .relay_events(cosmos_events, eth_events, inner_req.target_client_id)
             .await
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
