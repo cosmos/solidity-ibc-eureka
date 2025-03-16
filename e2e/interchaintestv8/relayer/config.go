@@ -9,9 +9,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
-// SP1ProverType represents the type of SP1 prover
-type SP1ProverType string
-
 const (
 	ModuleCosmosToCosmos = "cosmos_to_cosmos"
 	ModuleCosmosToEth    = "cosmos_to_eth"
