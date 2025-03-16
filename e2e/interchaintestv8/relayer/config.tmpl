@@ -5,7 +5,6 @@
     "port": {{ .Port }}
   },
   "modules": [
-  lkj
     {{- range $index, $module := .Modules }}
     {{- if $index }},{{ end }}
     {{ $module.ToJSON }}
