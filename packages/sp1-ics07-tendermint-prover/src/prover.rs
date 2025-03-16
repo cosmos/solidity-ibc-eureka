@@ -164,7 +164,7 @@ where
         client_state: &SolClientState,
         trusted_consensus_state: &SolConsensusState,
         proposed_header: &Header,
-        time: u64,
+        time: u128,
     ) -> SP1ProofWithPublicValues {
         // Encode the inputs into our program.
         let encoded_1 = client_state.abi_encode();
@@ -229,7 +229,7 @@ where
         client_state: &SolClientState,
         trusted_consensus_state: &SolConsensusState,
         proposed_header: &Header,
-        time: u64,
+        time: u128,
         kv_proofs: Vec<(KVPair, MerkleProof)>,
     ) -> SP1ProofWithPublicValues {
         assert!(!kv_proofs.is_empty(), "No key-value pairs to prove");
@@ -271,7 +271,7 @@ where
         misbehaviour: &Misbehaviour,
         trusted_consensus_state_1: &SolConsensusState,
         trusted_consensus_state_2: &SolConsensusState,
-        time: u64,
+        time: u128,
     ) -> SP1ProofWithPublicValues {
         let encoded_1 = client_state.abi_encode();
         let encoded_2 = misbehaviour.encode_to_vec();

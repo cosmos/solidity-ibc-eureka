@@ -39,7 +39,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
             UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
             // set a correct timestamp
-            vm.warp(output.updateClientOutput.time + 300);
+            vm.warp(_nanosToSeconds(output.updateClientOutput.time) + 300);
 
             MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
                 proof: abi.encode(fixture.membershipProof),
@@ -74,7 +74,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
             UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
             // set a correct timestamp
-            vm.warp(output.updateClientOutput.time + 300);
+            vm.warp(_nanosToSeconds(output.updateClientOutput.time) + 300);
 
             MsgVerifyNonMembership memory nonMembershipMsg = MsgVerifyNonMembership({
                 proof: abi.encode(fixture.membershipProof),
@@ -106,7 +106,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
         // set a correct timestamp
-        vm.warp(output.updateClientOutput.time + 300);
+        vm.warp(_nanosToSeconds(output.updateClientOutput.time) + 300);
 
         MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
             proof: abi.encode(fixture.membershipProof),
@@ -156,7 +156,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
         // set a correct timestamp
-        vm.warp(output.updateClientOutput.time + 300);
+        vm.warp(_nanosToSeconds(output.updateClientOutput.time) + 300);
 
         SP1MembershipAndUpdateClientProof memory ucAndMemProof = proof;
         ucAndMemProof.sp1Proof.proof = bytes("invalid");
@@ -182,7 +182,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         UcAndMembershipOutput memory output = abi.decode(proof.sp1Proof.publicValues, (UcAndMembershipOutput));
         // set a correct timestamp
-        vm.warp(output.updateClientOutput.time + 300);
+        vm.warp(_nanosToSeconds(output.updateClientOutput.time) + 300);
 
         SP1MembershipAndUpdateClientProof memory ucAndMemProof = proof;
         ucAndMemProof.sp1Proof.proof = bytes("");
