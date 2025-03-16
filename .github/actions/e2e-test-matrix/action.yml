@@ -3,7 +3,7 @@ description: 'Dynamically discovers and generates a test matrix for e2e tests'
 
 inputs:
   skip-tests:
-    description: 'Comma-separated list of test patterns to skip'
+    description: 'Comma-separated list of tests to skip'
     required: false
     default: ''
 

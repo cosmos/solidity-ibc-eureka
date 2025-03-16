@@ -124,6 +124,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 				os.Getenv(testvalues.EnvKeyVerifier),
 				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
 			)
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
@@ -144,23 +146,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
-		var (
-			stdout []byte
-			err    error
-		)
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
-			s.Require().NoError(err)
-		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the NETWORK_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
-
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
-			s.Require().NoError(err)
-		default:
-			s.Require().Fail("invalid prover type: %s", prover)
-		}
+		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
+		s.Require().NoError(err)
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
@@ -188,23 +175,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			_ = os.Remove(testvalues.Sp1GenesisFilePath)
 		})
 
-		var (
-			stdout []byte
-			err    error
-		)
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
-			s.Require().NoError(err)
-		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the NETWORK_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
-
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
-			s.Require().NoError(err)
-		default:
-			s.Require().Fail("invalid prover type: %s", prover)
-		}
+		stdout, err := eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
+		s.Require().NoError(err)
 
 		s.chainBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
 		s.Require().NoError(err)
@@ -392,57 +364,27 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config relayer.SP1Config
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = relayer.SP1Config{
-				ProverType: testvalues.EnvValueSp1Prover_Mock,
-			}
-		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = relayer.SP1Config{
-				ProverType:     relayer.SP1ProverNetwork,
-				PrivateCluster: true,
-			}
-		default:
-			s.Require().Fail("Unsupported prover type: %s", prover)
+		sp1Config := relayer.SP1Config{
+			ProverType: prover,
+		}
+		if prover == testvalues.EnvValueSp1Prover_Network {
+			sp1Config.PrivateCluster = true
 		}
 
-		var modules []relayer.ModuleConfig
-
-		modules = append(modules, relayer.CreateEthCosmosModules(
-			eth.ChainID.String(),
-			simdA.Config().ChainID,
-			simdA.GetHostRPCAddress(),
-			os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			s.SimdARelayerSubmitter.FormattedAddress(),
-			eth.RPC,
-			beaconAPI,
-			s.contractAddresses.Ics26Router,
-			sp1Config,
-		)...)
-
-		modules = append(modules, relayer.CreateEthCosmosModules(
-			eth.ChainID.String(),
-			simdB.Config().ChainID,
-			simdB.GetHostRPCAddress(),
-			os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			s.SimdBRelayerSubmitter.FormattedAddress(),
-			eth.RPC,
-			beaconAPI,
-			s.contractAddresses.Ics26Router,
-			sp1Config,
-		)...)
-
-		modules = append(modules, relayer.CreateCosmosCosmosModules(
-			simdA.Config().ChainID,
-			simdB.Config().ChainID,
-			simdA.GetHostRPCAddress(),
-			simdB.GetHostRPCAddress(),
-			s.SimdARelayerSubmitter.FormattedAddress(),
-			s.SimdBRelayerSubmitter.FormattedAddress(),
-		)...)
-
-		config := relayer.NewConfig(modules)
+		config := relayer.NewConfig(relayer.CreateMultichainModules(relayer.MultichainConfigInfo{
+			ChainAID:            simdA.Config().ChainID,
+			ChainBID:            simdB.Config().ChainID,
+			EthChainID:          eth.ChainID.String(),
+			ChainATmRPC:         simdA.GetHostRPCAddress(),
+			ChainBTmRPC:         simdB.GetHostRPCAddress(),
+			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
+			ChainBSignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
+			ICS26Address:        s.contractAddresses.Ics26Router,
+			EthRPC:              eth.RPC,
+			BeaconAPI:           beaconAPI,
+			SP1Config:           sp1Config,
+			MockWasmClient:      false,
+		}))
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -454,7 +396,6 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			os.Remove(testvalues.RelayerConfigFilePath)
 		})
 	}))
-
 	s.T().Cleanup(func() {
 		if relayerProcess != nil {
 			err := relayerProcess.Kill()
