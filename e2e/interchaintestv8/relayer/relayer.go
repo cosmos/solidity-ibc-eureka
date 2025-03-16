@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 
 	grpc "google.golang.org/grpc"
@@ -43,12 +42,6 @@ func StartRelayer(configPath string) (*os.Process, error) {
 
 	// wait for the relayer to start
 	time.Sleep(5 * time.Second)
-
-	if err := cmd.Process.Signal(syscall.Signal(0)); err == nil {
-		fmt.Println("Process is still running")
-	} else {
-		fmt.Println("Process is not running:", err)
-	}
 
 	return cmd.Process, nil
 }

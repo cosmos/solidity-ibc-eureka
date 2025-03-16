@@ -51,8 +51,6 @@ const (
 	EnvValueRustLog_Info = "info"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
-	// EnvValueSp1Prover_PrivateClusterConfig is the config string needed to use the network prover with private cluster.
-	EnvValueSp1Prover_PrivateClusterConfig = "{\"network\": { \"private_cluster\": true}}"
 	// EnvValueSp1Prover_Mock is the prover type for the mock prover.
 	EnvValueSp1Prover_Mock = "mock"
 	// EnvValueVerifier_Mock is the verifier type for the mock verifier.
