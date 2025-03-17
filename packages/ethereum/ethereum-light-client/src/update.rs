@@ -46,16 +46,15 @@ pub fn update_consensus_state(
     }
 
     let updated_slot = consensus_update.finalized_header.beacon.slot;
-
-    if consensus_update.finalized_header.beacon.slot > current_consensus_state.slot {
+    if updated_slot > current_consensus_state.slot {
         new_consensus_state.slot = consensus_update.finalized_header.beacon.slot;
         new_consensus_state.state_root = consensus_update.finalized_header.execution.state_root;
         new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
         new_consensus_state.timestamp = consensus_update.finalized_header.execution.timestamp;
 
-        if current_client_state.latest_slot < consensus_update.finalized_header.beacon.slot {
+        if updated_slot > current_client_state.latest_slot {
             new_client_state = Some(ClientState {
-                latest_slot: consensus_update.finalized_header.beacon.slot,
+                latest_slot: updated_slot,
                 ..current_client_state
             });
         }

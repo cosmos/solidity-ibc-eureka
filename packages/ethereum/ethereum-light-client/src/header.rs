@@ -11,7 +11,7 @@ use ethereum_types::{
 /// The header of a light client update
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct Header {
-    /// The trusted sync committee
+    /// The active sync committee (untrusted)
     pub active_sync_committee: ActiveSyncCommittee,
     /// The consensus update
     pub consensus_update: LightClientUpdate,
