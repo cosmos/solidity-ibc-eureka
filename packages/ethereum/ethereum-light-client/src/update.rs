@@ -45,7 +45,7 @@ pub fn update_consensus_state(
             .map(|c| c.aggregate_pubkey);
     }
 
-    let updated_slot = consensus_update.attested_header.beacon.slot;
+    let updated_slot = consensus_update.finalized_header.beacon.slot;
 
     if consensus_update.finalized_header.beacon.slot > current_consensus_state.slot {
         new_consensus_state.slot = consensus_update.finalized_header.beacon.slot;
