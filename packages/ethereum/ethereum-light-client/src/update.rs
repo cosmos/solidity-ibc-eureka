@@ -32,9 +32,9 @@ pub fn update_consensus_state(
     let store_slot = current_consensus_state.slot;
     let store_period = current_client_state.compute_sync_committee_period_at_slot(store_slot);
 
-    let update_finalized_period = current_client_state.compute_sync_committee_period_at_slot(
-        header.consensus_update.finalized_header.beacon.slot,
-    );
+    let update_finalized_slot = header.consensus_update.finalized_header.beacon.slot;
+    let update_finalized_period =
+        current_client_state.compute_sync_committee_period_at_slot(update_finalized_slot);
 
     let mut new_consensus_state = current_consensus_state.clone();
 
@@ -59,16 +59,15 @@ pub fn update_consensus_state(
             .map(|c| c.aggregate_pubkey);
     }
 
-    let updated_slot = header.consensus_update.finalized_header.beacon.slot;
     ensure!(
-        updated_slot > store_slot,
+        update_finalized_slot > store_slot,
         EthereumIBCError::HistoricalUpdateNotAllowed {
             consensus_state_slot: store_slot,
-            update_finalized_slot: updated_slot
+            update_finalized_slot,
         }
     );
 
-    new_consensus_state.slot = updated_slot;
+    new_consensus_state.slot = update_finalized_slot;
     new_consensus_state.state_root = header
         .consensus_update
         .finalized_header
@@ -78,9 +77,8 @@ pub fn update_consensus_state(
     new_consensus_state.timestamp = header.consensus_update.finalized_header.execution.timestamp;
 
     let new_client_state = Some(ClientState {
-        latest_slot: updated_slot,
+        latest_slot: update_finalized_slot,
         ..current_client_state
     });
-
-    Ok((updated_slot, new_consensus_state, new_client_state))
+    Ok((update_finalized_slot, new_consensus_state, new_client_state))
 }
