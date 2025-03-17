@@ -13,7 +13,7 @@ jobs:
       FOUNDRY_ETH_RPC_URL: http://localhost:8545
       DEPLOYMENT_ENV: local
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
 
@@ -35,7 +35,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: Set deployment matrix
         id: matrix
         run: |
@@ -49,7 +49,7 @@ jobs:
     env:
       DEPLOYMENT_ENV: "${{ matrix.env }}"
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
       - name: Export the RPC URL

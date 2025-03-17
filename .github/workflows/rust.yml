@@ -17,7 +17,7 @@ jobs:
     name: fmt-and-clippy
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
 
@@ -47,7 +47,7 @@ jobs:
     name: unit-tests
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
 
@@ -69,7 +69,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
@@ -89,7 +89,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: "Set up environment"
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
@@ -109,7 +109,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
