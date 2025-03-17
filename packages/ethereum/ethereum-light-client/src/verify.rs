@@ -100,10 +100,11 @@ pub fn verify_header<V: BlsVerify>(
     );
 
     // check that if the period changes, then the next sync committee is provided
-    if client_state
-        .compute_sync_committee_period_at_slot(header.consensus_update.finalized_header.beacon.slot)
-        > client_state.compute_sync_committee_period_at_slot(consensus_state.slot)
-    {
+    let update_finalized_period = client_state.compute_sync_committee_period_at_slot(
+        header.consensus_update.finalized_header.beacon.slot,
+    );
+    let store_period = client_state.compute_sync_committee_period_at_slot(consensus_state.slot);
+    if update_finalized_period > store_period {
         ensure!(
             header.consensus_update.next_sync_committee_branch.is_some(),
             EthereumIBCError::ExpectedNextSyncCommitteeUpdate
