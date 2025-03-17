@@ -59,29 +59,24 @@ pub struct SP1Config {
     /// The optional private key for the network prover.
     /// Only used when `prover_type` is "network".
     /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub network_private_key: Option<String>,
     /// The optional RPC URL for the network prover.
     /// Only used when `prover_type` is "network".
     /// `NETWORK_RPC_URL` environment variable is used if not provided.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub network_rpc_url: Option<String>,
     /// Whether to use a private cluster.
     /// Only used when `prover_type` is "network".
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(default)]
     pub private_cluster: bool,
 }
 
-fn is_default<T: Default + PartialEq>(t: &T) -> bool {
-    t == &T::default()
-}
-
 /// The SP1 prover type.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SP1ProverType {
     /// Mock prover.
-    #[default]
     Mock,
     /// Prover from environment variables. (Usually a network prover)
     ///

@@ -42,7 +42,6 @@ jobs:
           working-directory: e2e/interchaintestv8
 
   generate-matrix:
-    name: Generate Test Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}

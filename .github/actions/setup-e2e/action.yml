@@ -1,4 +1,4 @@
-name: E2E setup
+name: setup-e2e
 
 inputs:
   github_token:

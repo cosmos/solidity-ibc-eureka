@@ -1,4 +1,4 @@
-name: 'E2E Test Matrix Generator'
+name: e2e-test-matrix
 description: 'Dynamically discovers and generates a test matrix for e2e tests'
 
 inputs:
