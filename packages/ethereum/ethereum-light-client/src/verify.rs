@@ -263,7 +263,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(finalized_root_gindex_at_slot(
             client_state,
-            update.finalized_header.beacon.slot,
+            update.attested_header.beacon.slot,
         )?),
         update.attested_header.beacon.state_root,
     )
