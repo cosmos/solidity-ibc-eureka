@@ -7,6 +7,12 @@ use crate::{
 
 /// Takes in the current client and consensus state and a new header and returns the updated
 /// consensus state and optionally the updated client state (if it needs to be updated)
+///
+/// # Returns
+/// Returns the updated slot, the updated consensus state and optionally the updated client state.
+///
+/// Current implementation requires the client and consensus states to be updated since historical updates are not allowed.
+///
 /// # Errors
 /// Returns an error if the store period is not equal to the finalized period
 #[allow(clippy::module_name_repetitions, clippy::needless_pass_by_value)]
@@ -15,15 +21,22 @@ pub fn update_consensus_state(
     current_client_state: ClientState,
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), EthereumIBCError> {
-    let store_period =
-        current_client_state.compute_sync_committee_period_at_slot(current_consensus_state.slot);
+    ensure!(
+        current_client_state.latest_slot == current_consensus_state.slot,
+        EthereumIBCError::ClientAndConsensusSlotMismatch {
+            client_state_slot: current_client_state.latest_slot,
+            consensus_state_slot: current_consensus_state.slot
+        }
+    );
+
+    let store_slot = current_consensus_state.slot;
+    let store_period = current_client_state.compute_sync_committee_period_at_slot(store_slot);
 
     let update_finalized_period = current_client_state.compute_sync_committee_period_at_slot(
         header.consensus_update.finalized_header.beacon.slot,
     );
 
     let mut new_consensus_state = current_consensus_state.clone();
-    let mut new_client_state: Option<ClientState> = None;
 
     if let Some(next_sync_committee) = current_consensus_state.next_sync_committee {
         // sync committee only changes when the period change
@@ -47,24 +60,27 @@ pub fn update_consensus_state(
     }
 
     let updated_slot = header.consensus_update.finalized_header.beacon.slot;
-    if updated_slot > current_consensus_state.slot {
-        new_consensus_state.slot = updated_slot;
-        new_consensus_state.state_root = header
-            .consensus_update
-            .finalized_header
-            .execution
-            .state_root;
-        new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
-        new_consensus_state.timestamp =
-            header.consensus_update.finalized_header.execution.timestamp;
-
-        if updated_slot > current_client_state.latest_slot {
-            new_client_state = Some(ClientState {
-                latest_slot: updated_slot,
-                ..current_client_state
-            });
+    ensure!(
+        updated_slot > store_slot,
+        EthereumIBCError::HistoricalUpdateNotAllowed {
+            consensus_state_slot: store_slot,
+            update_finalized_slot: updated_slot
         }
-    }
+    );
+
+    new_consensus_state.slot = updated_slot;
+    new_consensus_state.state_root = header
+        .consensus_update
+        .finalized_header
+        .execution
+        .state_root;
+    new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
+    new_consensus_state.timestamp = header.consensus_update.finalized_header.execution.timestamp;
+
+    let new_client_state = Some(ClientState {
+        latest_slot: updated_slot,
+        ..current_client_state
+    });
 
     Ok((updated_slot, new_consensus_state, new_client_state))
 }
