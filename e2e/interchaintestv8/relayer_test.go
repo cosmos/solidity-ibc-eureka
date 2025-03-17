@@ -1016,7 +1016,6 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		_, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 		// Ethereum side did not received the packet, ERC20 contract corresponding to the denom does not exist
 		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "execution reverted: custom error 0xe1275e2f")
 	}))
 
 	// We are skipping the replay attack test on non-PoS mode

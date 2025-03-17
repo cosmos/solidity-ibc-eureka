@@ -540,9 +540,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
 		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
-		s.Require().Error(err)
-		// The pakcet receiving failed because of the timeout
-		s.Require().Contains(err.Error(), "timeout elapsed")
+		s.Require().ErrorContains(err, "timeout elapsed")
 		s.Require().Nil(resp)
 	}))
 }
