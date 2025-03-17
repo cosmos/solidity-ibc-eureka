@@ -48,7 +48,7 @@ func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.Request
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		retryConfig(path),
+		retryConfig(),
 	)
 	if err != nil {
 		return &abci.ResponseQuery{}, err
@@ -76,7 +76,7 @@ func GRPCQuery[T any](ctx context.Context, chain *cosmos.CosmosChain, req proto.
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		retryConfig(path),
+		retryConfig(),
 	)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) (*refl
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		retryConfig(reflectionv1.ReflectionService_ServiceDesc.ServiceName),
+		retryConfig(),
 	)
 	if err != nil {
 		return nil, err
@@ -118,22 +118,35 @@ func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) (*refl
 	return resp, nil
 }
 
-func retryConfig(path string) grpc.DialOption {
-	policy := fmt.Sprintf(`{
+func retryConfig() grpc.DialOption {
+	policy := `{
             "methodConfig": [{
-                // config per method or all methods under service
-                "name": [{"service": "%s"}],
-
+                "name": [{}],
                 "retryPolicy": {
                     "MaxAttempts": 4,
                     "InitialBackoff": ".01s",
                     "MaxBackoff": ".01s",
                     "BackoffMultiplier": 1.0,
-                    // this value is grpc code
-                    "RetryableStatusCodes": [ "UNAVAILABLE" ]
+                    "RetryableStatusCodes": [
+						"CANCELLED",
+						"UNKNOWN",
+						"DEADLINE_EXCEEDED",
+						"NOT_FOUND",
+						"ALREADY_EXISTS",
+						"PERMISSION_DENIED",
+						"RESOURCE_EXHAUSTED",
+						"FAILED_PRECONDITION",
+						"ABORTED",
+						"OUT_OF_RANGE",
+						"UNIMPLEMENTED",
+						"INTERNAL",
+						"UNAVAILABLE",
+						"DATA_LOSS",
+						"UNAUTHENTICATED"
+				    ]
                 }
             }]
-        }`, path)
+        }`
 
 	return grpc.WithDefaultServiceConfig(policy)
 }
