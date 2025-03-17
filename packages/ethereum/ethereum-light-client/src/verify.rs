@@ -90,8 +90,26 @@ pub fn verify_header<V: BlsVerify>(
         EthereumIBCError::NotEnoughSignatures
     );
 
-    let proof_data = header.account_update.account_proof.clone();
-    print!("{proof_data:?}");
+    // check whether the update is for a newer height
+    ensure!(
+        header.consensus_update.finalized_header.beacon.slot > consensus_state.slot,
+        EthereumIBCError::HistoricalUpdateNotAllowed {
+            consensus_state_slot: consensus_state.slot,
+            update_finalized_slot: header.consensus_update.finalized_header.beacon.slot
+        }
+    );
+
+    // check that if the period changes, then the next sync committee is provided
+    let update_finalized_period = client_state.compute_sync_committee_period_at_slot(
+        header.consensus_update.finalized_header.beacon.slot,
+    );
+    let store_period = client_state.compute_sync_committee_period_at_slot(consensus_state.slot);
+    if update_finalized_period > store_period {
+        ensure!(
+            header.consensus_update.next_sync_committee_branch.is_some(),
+            EthereumIBCError::ExpectedNextSyncCommitteeUpdate
+        );
+    }
 
     verify_account_storage_root(
         header
@@ -100,8 +118,8 @@ pub fn verify_header<V: BlsVerify>(
             .execution
             .state_root,
         client_state.ibc_contract_address,
-        &proof_data.proof,
-        proof_data.storage_root,
+        &header.account_update.account_proof.proof,
+        header.account_update.account_proof.storage_root,
     )
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
@@ -246,7 +264,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(finalized_root_gindex_at_slot(
             client_state,
-            update.finalized_header.beacon.slot,
+            update.attested_header.beacon.slot,
         )?),
         update.attested_header.beacon.state_root,
     )
