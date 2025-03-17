@@ -15,13 +15,12 @@ pub fn update_consensus_state(
     current_client_state: ClientState,
     header: Header,
 ) -> Result<(u64, ConsensusState, Option<ClientState>), EthereumIBCError> {
-    let consensus_update = header.consensus_update;
-
     let store_period =
         current_client_state.compute_sync_committee_period_at_slot(current_consensus_state.slot);
 
-    let update_finalized_period = current_client_state
-        .compute_sync_committee_period_at_slot(consensus_update.finalized_header.beacon.slot);
+    let update_finalized_period = current_client_state.compute_sync_committee_period_at_slot(
+        header.consensus_update.finalized_header.beacon.slot,
+    );
 
     let mut new_consensus_state = current_consensus_state.clone();
     let mut new_client_state: Option<ClientState> = None;
@@ -30,7 +29,8 @@ pub fn update_consensus_state(
         // sync committee only changes when the period change
         if update_finalized_period == store_period + 1 {
             new_consensus_state.current_sync_committee = next_sync_committee;
-            new_consensus_state.next_sync_committee = consensus_update
+            new_consensus_state.next_sync_committee = header
+                .consensus_update
                 .next_sync_committee
                 .map(|c| c.aggregate_pubkey);
         }
@@ -40,17 +40,23 @@ pub fn update_consensus_state(
             update_finalized_period == store_period,
             EthereumIBCError::StorePeriodMustBeEqualToFinalizedPeriod
         );
-        new_consensus_state.next_sync_committee = consensus_update
+        new_consensus_state.next_sync_committee = header
+            .consensus_update
             .next_sync_committee
             .map(|c| c.aggregate_pubkey);
     }
 
-    let updated_slot = consensus_update.finalized_header.beacon.slot;
+    let updated_slot = header.consensus_update.finalized_header.beacon.slot;
     if updated_slot > current_consensus_state.slot {
-        new_consensus_state.slot = consensus_update.finalized_header.beacon.slot;
-        new_consensus_state.state_root = consensus_update.finalized_header.execution.state_root;
+        new_consensus_state.slot = updated_slot;
+        new_consensus_state.state_root = header
+            .consensus_update
+            .finalized_header
+            .execution
+            .state_root;
         new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
-        new_consensus_state.timestamp = consensus_update.finalized_header.execution.timestamp;
+        new_consensus_state.timestamp =
+            header.consensus_update.finalized_header.execution.timestamp;
 
         if updated_slot > current_client_state.latest_slot {
             new_client_state = Some(ClientState {
