@@ -254,16 +254,14 @@ where
             revision_height: minimum_block_number,
         };
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
@@ -271,7 +269,7 @@ where
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         let ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
@@ -540,16 +538,14 @@ where
             revision_height: target_block_number,
         };
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
@@ -557,7 +553,7 @@ where
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         tracing::debug!("Timeout messages: #{}", timeout_msgs.len());
