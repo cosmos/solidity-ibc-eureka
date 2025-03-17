@@ -752,10 +752,6 @@ func (s *RelayerTestSuite) Test_10_TimeoutPacketFromCosmos() {
 func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
 ) {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
-		s.T().Skip("Skipping timeout packet test on non-PoS chain")
-	}
-
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -884,6 +880,12 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		s.Require().Error(err)
 		s.Require().Contains(err.Error(), "execution reverted: custom error 0xe1275e2f")
 	}))
+
+	// We are skipping the replay attack test on non-PoS mode
+	// In PoW mode, the test below will NOT fail as the mock light client accepts all proofs without verification.
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Skipping replay attack test on non-PoS mode")
+	}
 
 	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
 		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
