@@ -56,7 +56,7 @@ pub struct Body {
     // - execution_requests
 }
 
-/// Header to track the execution block
+/// Execution payload for a beacon block
 #[serde_as]
 #[derive(Default, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct ExecutionPayload {

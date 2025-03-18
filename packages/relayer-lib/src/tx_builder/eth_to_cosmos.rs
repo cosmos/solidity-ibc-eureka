@@ -423,7 +423,7 @@ where
             ethereum_consensus_state.next_sync_committee,
         );
 
-        // get update if necessary
+        // get updates if necessary
         let current_beacon_block = self
             .beacon_api_client
             .beacon_block(&format!("{:?}", ethereum_consensus_state.slot))
@@ -452,14 +452,6 @@ where
                 vec![],
             )
         };
-
-        //let (proof_block_number, proof_slot, headers) = self
-        //    .get_update_headers(
-        //        minimum_block_number,
-        //        &ethereum_client_state,
-        //        &ethereum_consensus_state,
-        //    )
-        //    .await?;
 
         cosmos::inject_ethereum_proofs(
             &mut recv_msgs,
