@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
@@ -32,6 +33,7 @@ contract IBCAdminTest is Test {
     address public customizer = makeAddr("customizer");
     address public ics20Pauser = makeAddr("ics20Pauser");
     address public ics20Unpauser = makeAddr("ics20Unpauser");
+    address public relayer = makeAddr("relayer");
 
     string public clientId;
     string public counterpartyId = "42-dummy-01";
@@ -67,6 +69,8 @@ contract IBCAdminTest is Test {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+
+        ics26Router.grantRelayerRole(relayer);
     }
 
     function test_success_ics20_upgrade() public {
@@ -225,6 +229,45 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         ics26Router.addIBCApp("newPort", address(ics20Transfer));
     }
+
+    function test_success_setRelayer() public {
+        address newRelayer = makeAddr("newRelayer");
+
+        ics26Router.grantRelayerRole(newRelayer);
+        assert(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+
+        ics26Router.revokeRelayerRole(newRelayer);
+        assertFalse(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+    }
+
+    function test_failure_setRelayer() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newRelayer = makeAddr("newRelayer");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.grantRelayerRole(newRelayer);
+        assertFalse(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+
+        // Revoke the port customizer role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
+        ics26Router.revokePortCustomizerRole(relayer);
+        assert(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), relayer));
+
+        // Check that an unauthorized account cannot call recvPacket
+        IICS26RouterMsgs.MsgRecvPacket memory recvMsg;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics26Router.RELAYER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics26Router.recvPacket(recvMsg);
+    }
+
 
     function test_success_setClientMigrator() public {
         address newLightClientMigrator = makeAddr("newLightClientMigrator");
