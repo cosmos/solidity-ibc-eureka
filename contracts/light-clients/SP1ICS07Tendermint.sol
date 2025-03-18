@@ -63,7 +63,7 @@ contract SP1ICS07Tendermint is
     /// @param sp1Verifier The address of the SP1 verifier contract.
     /// @param _clientState The encoded initial client state.
     /// @param _consensusState The encoded initial consensus state.
-    /// @param roleManager Manages the roles via `DEFAULT_ADMIN_ROLE`. If zero, anyone can submit proofs.
+    /// @param roleManager Manages the proof submitters and can submit proofs. Should be the ICS26Router if used in IBC.
     constructor(
         bytes32 updateClientProgramVkey,
         bytes32 membershipProgramVkey,
