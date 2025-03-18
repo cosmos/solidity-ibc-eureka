@@ -22,3 +22,6 @@ tendermint-rpc                   = { workspace = true }
 tendermint                       = { workspace = true }
 alloy-signer-local               = { workspace = true }
 alloy-network                    = { workspace = true }
+# We need to use 0.11 until tendermint-rpc is updated to use 0.12
+reqwest            = { version = "0.11", default-features = true }
+

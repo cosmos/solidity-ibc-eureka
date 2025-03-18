@@ -1,7 +1,7 @@
 //! RPC client for interacting with a Tendermint node.
 
 use core::str::FromStr;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, time::Duration};
 
 use anyhow::Result;
 
@@ -29,6 +29,9 @@ use crate::merkle::convert_tm_to_ics_merkle_proof;
 /// obtaining light blocks.
 #[async_trait::async_trait]
 pub trait TendermintRpcExt {
+    /// Creates a new instance of the Tendermint RPC client from the given URL.
+    fn from_rpc_url(rpc_url: &str) -> Self;
+
     /// Creates a new instance of the Tendermint RPC client from the environment variables.
     ///
     /// # Panics
@@ -56,12 +59,27 @@ pub trait TendermintRpcExt {
 
 #[async_trait::async_trait]
 impl TendermintRpcExt for HttpClient {
-    fn from_env() -> Self {
-        Self::new(
-            Url::from_str(&env::var("TENDERMINT_RPC_URL").expect("TENDERMINT_RPC_URL not set"))
-                .expect("Failed to parse URL"),
+    fn from_rpc_url(rpc_url: &str) -> Self {
+        Self::builder(
+            Url::from_str(rpc_url)
+                .expect("Failed to parse tendermint RPC URL")
+                .try_into()
+                .expect("Failed to convert tendermint RPC URL"),
         )
-        .expect("Failed to create HTTP client")
+        .client(
+            reqwest::ClientBuilder::new()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(30))
+                .pool_idle_timeout(Duration::from_secs(10))
+                .build()
+                .expect("Failed to create reqwest client"),
+        )
+        .build()
+        .expect("Failed to create tendermint HTTP client")
+    }
+
+    fn from_env() -> Self {
+        Self::from_rpc_url(&env::var("TENDERMINT_RPC_URL").expect("TENDERMINT_RPC_URL not set"))
     }
 
     async fn get_light_block(&self, block_height: Option<u64>) -> Result<LightBlock> {

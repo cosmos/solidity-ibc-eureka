@@ -1,13 +1,12 @@
 //! Defines Cosmos to Cosmos relayer module.
 
-use std::str::FromStr;
-
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
     tx_builder::{cosmos_to_cosmos, TxBuilderService},
 };
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint::Hash;
-use tendermint_rpc::{HttpClient, Url};
+use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use crate::{
@@ -46,20 +45,10 @@ pub struct CosmosToCosmosConfig {
 
 impl CosmosToCosmosRelayerModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
-        let src_client = HttpClient::new(
-            Url::from_str(&config.src_rpc_url)
-                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.src_rpc_url)),
-        )
-        .expect("Failed to create tendermint HTTP client");
-
+        let src_client = HttpClient::from_rpc_url(&config.src_rpc_url);
         let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
 
-        let target_client =
-            HttpClient::new(Url::from_str(&config.target_rpc_url).unwrap_or_else(|_| {
-                panic!("invalid tendermint RPC URL: {}", config.target_rpc_url)
-            }))
-            .expect("Failed to create tendermint HTTP client");
-
+        let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
         let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
         let tx_builder =

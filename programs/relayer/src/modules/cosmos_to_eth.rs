@@ -1,7 +1,5 @@
 //! Defines Cosmos to Ethereum relayer module.
 
-use std::str::FromStr;
-
 use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
@@ -10,10 +8,11 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
+use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
-use tendermint_rpc::{HttpClient, Url};
+use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use crate::{
@@ -85,12 +84,7 @@ pub enum SP1Config {
 
 impl CosmosToEthRelayerModuleService {
     async fn new(config: CosmosToEthConfig) -> Self {
-        let tm_client = HttpClient::new(
-            Url::from_str(&config.tm_rpc_url)
-                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
-        )
-        .expect("Failed to create tendermint HTTP client");
-
+        let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
