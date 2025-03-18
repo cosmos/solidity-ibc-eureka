@@ -22,7 +22,6 @@ import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-/// @custom:poc This is a proof of concept implementation.
 contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall {
     using TransientSlot for *;
 
