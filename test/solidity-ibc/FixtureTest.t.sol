@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,gas-custom-errors
@@ -73,6 +73,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
+
+        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length
@@ -37,6 +37,8 @@ contract ICS26RouterTest is Test {
         );
 
         ics26Router = ICS26Router(address(routerProxy));
+
+        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
     }
 
     function test_success_addIBCAppUsingAddress() public {

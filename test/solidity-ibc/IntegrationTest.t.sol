@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,max-states-count
@@ -95,6 +95,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         clientIdentifier =
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
+
+        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
