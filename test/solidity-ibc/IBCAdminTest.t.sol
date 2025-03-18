@@ -259,15 +259,32 @@ contract IBCAdminTest is Test {
         IICS26RouterMsgs.MsgRecvPacket memory recvMsg;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                ics26Router.RELAYER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
             )
         );
         vm.prank(unauthorized);
         ics26Router.recvPacket(recvMsg);
-    }
 
+        // Check that an unauthorized account cannot call timeoutPacket
+        IICS26RouterMsgs.MsgTimeoutPacket memory timeoutMsg;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics26Router.timeoutPacket(timeoutMsg);
+
+        // Check that an unauthorized account cannot call ackPacket
+        IICS26RouterMsgs.MsgAckPacket memory ackMsg;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics26Router.ackPacket(ackMsg);
+    }
 
     function test_success_setClientMigrator() public {
         address newLightClientMigrator = makeAddr("newLightClientMigrator");
