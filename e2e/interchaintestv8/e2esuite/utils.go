@@ -237,7 +237,7 @@ func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cos
 
 	var ethClientState ethereumtypes.ClientState
 	err = json.Unmarshal(wasmClientState.Data, &ethClientState)
-	s.Require().NoError(err)
+	s.Require().NoError(err, "failed to unmarshal ethereum client state: %s", string(wasmClientState.Data))
 
 	return wasmClientState, ethClientState
 }

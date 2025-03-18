@@ -7,7 +7,7 @@ use alloy::{primitives::Address, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::consensus_state::ConsensusState;
-use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee, TrustedSyncCommittee};
+use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee};
 use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::light_client_header::{
     LightClientFinalityUpdate, LightClientUpdate,
@@ -196,7 +196,7 @@ where
     async fn light_client_update_to_header(
         &self,
         ethereum_client_state: ClientState,
-        trusted_sync_committee: TrustedSyncCommittee,
+        active_sync_committee: ActiveSyncCommittee,
         update: LightClientUpdate,
     ) -> Result<Header> {
         tracing::debug!(
@@ -221,7 +221,7 @@ where
         };
 
         Ok(Header {
-            trusted_sync_committee,
+            active_sync_committee,
             account_update,
             consensus_update: update,
         })
@@ -352,14 +352,11 @@ where
                 .get_sync_commitee_for_finalized_slot(update.finalized_header.beacon.slot)
                 .await?;
 
-            let trusted_sync_committee = TrustedSyncCommittee {
-                trusted_slot: latest_trusted_slot,
-                sync_committee: ActiveSyncCommittee::Next(previous_next_sync_committee),
-            };
+            let active_sync_committee = ActiveSyncCommittee::Next(previous_next_sync_committee);
             let header = self
                 .light_client_update_to_header(
                     ethereum_client_state.clone(),
-                    trusted_sync_committee.clone(),
+                    active_sync_committee.clone(),
                     update.clone(),
                 )
                 .await?;
@@ -386,17 +383,13 @@ where
                 .get_sync_commitee_for_finalized_slot(finality_update.attested_header.beacon.slot)
                 .await?;
             // TODO: Add asserts to make sure they are in the correct period
-            let trusted_sync_committee = TrustedSyncCommittee {
-                trusted_slot: latest_trusted_slot,
-                sync_committee: ActiveSyncCommittee::Current(
-                    finality_update_sync_committee.clone(),
-                ),
-            };
+            let active_sync_committee =
+                ActiveSyncCommittee::Current(finality_update_sync_committee.clone());
 
             let header = self
                 .light_client_update_to_header(
                     ethereum_client_state.clone(),
-                    trusted_sync_committee.clone(),
+                    active_sync_committee.clone(),
                     finality_update.clone().into(),
                 )
                 .await?;
