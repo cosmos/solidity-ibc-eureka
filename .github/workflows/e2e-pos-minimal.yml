@@ -1,6 +1,9 @@
 name: e2e-pos-minimal
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "0 3 * * *"  # Run daily at 3 AM UTC (outside EU and US work hours)
 
