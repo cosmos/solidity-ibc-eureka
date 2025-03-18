@@ -59,7 +59,7 @@ pub fn verify_header<V: BlsVerify>(
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState::new(
         consensus_state.clone(),
-        header.trusted_sync_committee.sync_committee.clone(),
+        header.active_sync_committee.clone(),
         &bls_verifier,
     )?;
 

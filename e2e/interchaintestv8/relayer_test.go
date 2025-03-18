@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -960,6 +961,20 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		}))
 	}))
 
+	var txBodyBz []byte
+	s.Require().True(s.Run("Prefetch relay tx", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       simd.Config().ChainID,
+			DstChain:       eth.ChainID.String(),
+			SourceTxIds:    sendTxHashes,
+			TargetClientId: testvalues.CustomClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		txBodyBz = resp.Tx
+	}))
+
 	// sleep for 45 seconds to let the packet timeout
 	time.Sleep(45 * time.Second)
 
@@ -993,5 +1008,26 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
+	}))
+
+	s.Require().True(s.Run("Verify no balance on Ethereum", func() {
+		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
+
+		_, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
+		// Ethereum side did not received the packet, ERC20 contract corresponding to the denom does not exist
+		s.Require().Error(err)
+	}))
+
+	// We are skipping the replay attack test on non-PoS mode
+	// In PoW mode, the test below will NOT fail as the mock light client accepts all proofs without verification.
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Skipping replay attack test on non-PoS mode")
+	}
+
+	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
+		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, txBodyBz)
+		s.Require().Error(err)
+		s.Require().Nil(receipt)
 	}))
 }
