@@ -1331,6 +1331,8 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 	simdBUser := s.CosmosUsers[1]
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
+	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
+
 	var simdASendTxHash []byte
 	s.Require().True(s.Run("Send from SimdA to SimdB", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -1468,5 +1470,81 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 		}))
+	}))
+
+	var ethReturnSendTxHash []byte
+	s.Require().True(s.Run("Transfer tokens from Ethereum to SimdB", func() {
+		s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
+			tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+			allowance, err := s.erc20Contract.Allowance(nil, ethereumUserAddress, ics20Address)
+			s.Require().NoError(err)
+			s.Require().Equal(transferAmount, allowance)
+		}))
+
+		s.Require().True(s.Run("Send packet on Ethereum", func() {
+			denomOnEthereum := transfertypes.NewDenom(
+				transferCoin.Denom,
+				transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID),
+				transfertypes.NewHop(transfertypes.PortID, testvalues.FirstUniversalClientID),
+			)
+			ibcERC20Address, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
+			s.Require().NoError(err)
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+				Denom:         	  ibcERC20Address, 
+				Amount:           transferAmount,
+				Receiver:         simdBUser.FormattedAddress(),
+				TimeoutTimestamp: timeout,
+				SourceClient:     testvalues.FirstUniversalClientID,
+				Memo:             "testmemo",
+			}
+
+			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			
+			ethReturnSendTxHash = tx.Hash().Bytes()
+		}))
+
+		s.Require().True(s.Run("Receive packet on SimdB", func() {
+			var returnRelayTxBodyBz []byte
+			s.Require().True(s.Run("Retrieve relay tx", func() {
+				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+					SrcChain:       eth.ChainID.String(),
+					DstChain:       simdB.Config().ChainID,
+					SourceTxIds:    [][]byte{ethReturnSendTxHash},
+					TargetClientId: testvalues.FirstWasmClientID,
+				})
+				s.Require().NoError(err)
+				s.Require().NotEmpty(resp.Tx)
+				s.Require().Empty(resp.Address)
+
+				returnRelayTxBodyBz = resp.Tx
+			}))
+
+			s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
+				_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
+			}))
+
+			s.Require().True(s.Run("Verify balances on SimdB", func() {
+				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simdB, &banktypes.QueryBalanceRequest{
+					Address: simdBUser.FormattedAddress(),
+					Denom:   denomOnSimdB.IBCDenom(),
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(resp.Balance)
+				s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
+				s.Require().Equal(denomOnSimdB.IBCDenom(), resp.Balance.Denom)
+			}))
+		}))	
 	}))
 }
