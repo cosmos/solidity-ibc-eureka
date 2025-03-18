@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable-next-line no-global-import
@@ -35,7 +35,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
             submitMsg: submitMsgBz
         });
 
-        setUpTest(fileName);
+        setUpTest(fileName, address(0));
 
         submitMsg = abi.decode(fixture.submitMsg, (IMisbehaviourMsgs.MsgSubmitMisbehaviour));
         output = abi.decode(submitMsg.sp1Proof.publicValues, (IMisbehaviourMsgs.MisbehaviourOutput));

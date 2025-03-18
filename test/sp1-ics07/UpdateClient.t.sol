@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable-next-line no-global-import
@@ -22,7 +22,7 @@ contract SP1ICS07UpdateClientTest is SP1ICS07TendermintTest {
     function setUpTestWithFixture(string memory fileName) public {
         fixture = loadFixture(fileName);
 
-        setUpTest(fileName);
+        setUpTest(fileName, address(0));
 
         MsgUpdateClient memory updateMsg = abi.decode(fixture.updateMsg, (MsgUpdateClient));
         output = abi.decode(updateMsg.sp1Proof.publicValues, (UpdateClientOutput));
