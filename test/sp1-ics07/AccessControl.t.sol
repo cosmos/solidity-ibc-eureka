@@ -153,4 +153,78 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
         vm.prank(unauthorized);
         ics07Tendermint.updateClient(updateMsg);
     }
+
+    function test_success_verifyMembership() public {
+        bytes32 proofSubmitterRole = ics07Tendermint.PROOF_SUBMITTER_ROLE();
+
+        // role manager is the submitter
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg = newMembershipMsg(1);
+        vm.prank(roleManager);
+        ics07Tendermint.verifyMembership(membershipMsg);
+
+        // submitter is not the role manager
+        vm.prank(proofSubmitter);
+        ics07Tendermint.verifyMembership(membershipMsg);
+
+        // role manager allows anyone to verify membership
+        vm.prank(roleManager);
+        ics07Tendermint.grantRole(proofSubmitterRole, address(0));
+
+        // anyone can verify membership
+        address anyAddr = makeAddr("anyAddr");
+        vm.prank(anyAddr);
+        ics07Tendermint.verifyMembership(membershipMsg);
+    }
+
+    function test_failure_verifyMembership() public {
+        // unauthorized account
+        address unauthorized = makeAddr("unauthorized");
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg = newMembershipMsg(1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics07Tendermint.PROOF_SUBMITTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics07Tendermint.verifyMembership(membershipMsg);
+    }
+
+    function test_success_verifyNonMembership() public {
+        bytes32 proofSubmitterRole = ics07Tendermint.PROOF_SUBMITTER_ROLE();
+
+        // role manager is the submitter
+        ILightClientMsgs.MsgVerifyNonMembership memory membershipMsg = newNonMembershipMsg(1);
+        vm.prank(roleManager);
+        ics07Tendermint.verifyNonMembership(membershipMsg);
+
+        // submitter is not the role manager
+        vm.prank(proofSubmitter);
+        ics07Tendermint.verifyNonMembership(membershipMsg);
+
+        // role manager allows anyone to verify membership
+        vm.prank(roleManager);
+        ics07Tendermint.grantRole(proofSubmitterRole, address(0));
+
+        // anyone can verify membership
+        address anyAddr = makeAddr("anyAddr");
+        vm.prank(anyAddr);
+        ics07Tendermint.verifyNonMembership(membershipMsg);
+    }
+
+    function test_failure_verifyNonMembership() public {
+        // unauthorized account
+        address unauthorized = makeAddr("unauthorized");
+        ILightClientMsgs.MsgVerifyNonMembership memory membershipMsg = newNonMembershipMsg(1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics07Tendermint.PROOF_SUBMITTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics07Tendermint.verifyNonMembership(membershipMsg);
+    }
 }
