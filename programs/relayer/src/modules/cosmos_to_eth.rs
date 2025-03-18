@@ -53,29 +53,7 @@ pub struct CosmosToEthConfig {
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case", tag = "prover_type")]
-pub struct SP1Config {
-    /// The prover type: "mock", "env", "network", "cpu", or "cuda".
-    pub prover_type: SP1ProverType,
-    /// The optional private key for the network prover.
-    /// Only used when `prover_type` is "network".
-    /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
-    #[serde(default)]
-    pub network_private_key: Option<String>,
-    /// The optional RPC URL for the network prover.
-    /// Only used when `prover_type` is "network".
-    /// `NETWORK_RPC_URL` environment variable is used if not provided.
-    #[serde(default)]
-    pub network_rpc_url: Option<String>,
-    /// Whether to use a private cluster.
-    /// Only used when `prover_type` is "network".
-    #[serde(default)]
-    pub private_cluster: bool,
-}
-
-/// The SP1 prover type.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SP1ProverType {
+pub enum SP1Config {
     /// Mock prover.
     Mock,
     /// Prover from environment variables. (Usually a network prover)
@@ -86,7 +64,22 @@ pub enum SP1ProverType {
     /// - `NETWORK_RPC_URL`: The RPC URL for prover network. (only network, default exists if empty)
     Env,
     /// The network prover.
-    Network,
+    Network {
+        /// The optional private key for the network prover.
+        /// Only used when `prover_type` is "network".
+        /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
+        #[serde(default)]
+        network_private_key: Option<String>,
+        /// The optional RPC URL for the network prover.
+        /// Only used when `prover_type` is "network".
+        /// `NETWORK_RPC_URL` environment variable is used if not provided.
+        #[serde(default)]
+        network_rpc_url: Option<String>,
+        /// Whether to use a private cluster.
+        /// Only used when `prover_type` is "network".
+        #[serde(default)]
+        private_cluster: bool,
+    },
     /// The local CPU prover.
     Cpu,
     /// The local CUDA prover.
@@ -110,36 +103,40 @@ impl CosmosToEthRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let tx_builder = match config.sp1_config.prover_type {
-            SP1ProverType::Mock => {
+        let tx_builder = match config.sp1_config {
+            SP1Config::Mock => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().mock().build());
                 TxBuilder::new(config.ics26_address, provider, tm_client, prover)
             }
-            SP1ProverType::Env => {
+            SP1Config::Env => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::from_env());
                 TxBuilder::new(config.ics26_address, provider, tm_client, prover)
             }
-            SP1ProverType::Cpu => {
+            SP1Config::Cpu => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cpu().build());
                 TxBuilder::new(config.ics26_address, provider, tm_client, prover)
             }
-            SP1ProverType::Cuda => {
+            SP1Config::Cuda => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cuda().build());
                 TxBuilder::new(config.ics26_address, provider, tm_client, prover)
             }
-            SP1ProverType::Network => {
+            SP1Config::Network {
+                network_private_key,
+                network_rpc_url,
+                private_cluster,
+            } => {
                 let mut prover_builder = ProverClient::builder().network();
-                if let Some(private_key) = &config.sp1_config.network_private_key {
-                    prover_builder = prover_builder.private_key(private_key);
+                if let Some(private_key) = network_private_key {
+                    prover_builder = prover_builder.private_key(&private_key);
                 }
-                if let Some(rpc_url) = &config.sp1_config.network_rpc_url {
-                    prover_builder = prover_builder.rpc_url(rpc_url);
+                if let Some(rpc_url) = network_rpc_url {
+                    prover_builder = prover_builder.rpc_url(&rpc_url);
                 }
-                if config.sp1_config.private_cluster {
+                if private_cluster {
                     TxBuilder::new(
                         config.ics26_address,
                         provider,
