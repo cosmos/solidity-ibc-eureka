@@ -57,6 +57,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param sp1Verifier The address of the SP1 verifier contract.
     /// @param _clientState The encoded initial client state.
     /// @param _consensusState The encoded initial consensus state.
+    /// @param roleManager The address that manages the roles via `DEFAULT_ADMIN_ROLE`. If zero, anyone can submit proofs.
     constructor(
         bytes32 updateClientProgramVkey,
         bytes32 membershipProgramVkey,
@@ -64,7 +65,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         bytes32 misbehaviourProgramVkey,
         address sp1Verifier,
         bytes memory _clientState,
-        bytes32 _consensusState
+        bytes32 _consensusState,
+        address roleManager
     ) {
         UPDATE_CLIENT_PROGRAM_VKEY = updateClientProgramVkey;
         MEMBERSHIP_PROGRAM_VKEY = membershipProgramVkey;
@@ -80,6 +82,12 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
             clientState.trustingPeriod + ALLOWED_SP1_CLOCK_DRIFT <= clientState.unbondingPeriod,
             TrustingPeriodTooLong(clientState.trustingPeriod, clientState.unbondingPeriod)
         );
+
+        if (roleManager == address(0)) {
+            _grantRole(PROOF_SUBMITTER_ROLE, address(0)); // Allow anyone to submit proofs
+        } else {
+            _grantRole(DEFAULT_ADMIN_ROLE, roleManager); // Allow the role manager to manage roles
+        }
     }
 
     /// @inheritdoc ILightClient
@@ -96,7 +104,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @dev This function verifies the public values and forwards the proof to the SP1 verifier.
     /// @inheritdoc ILightClient
-    function updateClient(bytes calldata updateMsg) external notFrozen returns (ILightClientMsgs.UpdateResult) {
+    function updateClient(bytes calldata updateMsg) external notFrozen onlyProofSubmitter returns (ILightClientMsgs.UpdateResult) {
         IUpdateClientMsgs.MsgUpdateClient memory msgUpdateClient =
             abi.decode(updateMsg, (IUpdateClientMsgs.MsgUpdateClient));
         require(
@@ -131,6 +139,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_)
         external
         notFrozen
+        onlyProofSubmitter
         returns (uint256)
     {
         require(msg_.value.length > 0, EmptyValue());
@@ -141,6 +150,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_)
         external
         notFrozen
+        onlyProofSubmitter
         returns (uint256)
     {
         return _membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
@@ -183,7 +193,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev The misbehavior is verfied in the sp1 program. Here we only check the public values which contain the
     /// trusted headers.
     /// @inheritdoc ILightClient
-    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
+    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen onlyProofSubmitter {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
             abi.decode(misbehaviourMsg, (IMisbehaviourMsgs.MsgSubmitMisbehaviour));
         require(
@@ -203,8 +213,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     }
 
     /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) external view notFrozen {
-        // TODO: Not yet implemented. (#78)
+    function upgradeClient(bytes calldata) external view notFrozen onlyProofSubmitter {
+        // NOTE: This feature will not be supported. (#130)
         revert FeatureNotSupported();
     }
 
@@ -563,6 +573,13 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice Modifier to check if the client is not frozen.
     modifier notFrozen() {
         require(!clientState.isFrozen, FrozenClientState());
+        _;
+    }
+
+    modifier onlyProofSubmitter() {
+        if (!hasRole(PROOF_SUBMITTER_ROLE, address(0))) {
+            _checkRole(PROOF_SUBMITTER_ROLE);
+        }
         _;
     }
 }
