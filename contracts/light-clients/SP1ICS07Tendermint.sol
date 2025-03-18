@@ -18,11 +18,12 @@ import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import { Paths } from "./utils/Paths.sol";
 import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
 import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
+import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall {
+contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall, AccessControl {
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -44,6 +45,9 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @inheritdoc ISP1ICS07Tendermint
     uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 30 minutes;
+
+    /// @inheritdoc ISP1ICS07Tendermint
+    bytes32 public constant PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
 
     /// @notice The constructor sets the program verification key and the initial client and consensus states.
     /// @param updateClientProgramVkey The verification key for the update client program.

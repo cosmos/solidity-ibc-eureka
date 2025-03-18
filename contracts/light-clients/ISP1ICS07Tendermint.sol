@@ -30,6 +30,12 @@ interface ISP1ICS07Tendermint {
     /// @return The allowed prover clock drift in seconds.
     function ALLOWED_SP1_CLOCK_DRIFT() external view returns (uint16);
 
+    /// @notice The role identifier for the proof submitter role
+    /// @dev The proof submitter role is used to whitelist addresses that can submit proofs
+    /// @dev If `address(0)` is used, anyone can submit proofs
+    /// @return The role identifier
+    function PROOF_SUBMITTER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the consensus state keccak256 hash at the given revision height.
     /// @param revisionHeight The revision height.
     /// @return The consensus state at the given revision height.
