@@ -19,7 +19,7 @@ abstract contract DeployProxiedICS26Router is Deployments {
     function deployProxiedICS26Router(Deployments.ProxiedICS26RouterDeployment memory deployment) public returns (ERC1967Proxy) {
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             deployment.implementation,
-            abi.encodeWithSelector(ICS26Router.initialize.selector, deployment.timeLockAdmin, deployment.timeLockAdmin)
+            abi.encodeCall(ICS26Router.initialize, (deployment.timeLockAdmin, deployment.timeLockAdmin))
         );
 
         return routerProxy;
