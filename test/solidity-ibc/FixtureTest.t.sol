@@ -102,7 +102,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             verifier,
             fixture.genesisFixture.trustedClientState,
             trustedConsensusHash,
-            address(0)
+            address(ics26Router)
         );
 
         ics26Router.addClient(

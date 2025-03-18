@@ -24,6 +24,7 @@ abstract contract Deployments {
         bytes32 membershipVkey;
         bytes32 ucAndMembershipVkey;
         bytes32 misbehaviourVkey;
+        address proofSubmitter;
     }
 
     function loadSP1ICS07TendermintDeployment(
@@ -44,7 +45,8 @@ abstract contract Deployments {
             updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
             membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
             ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
-            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey"))
+            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
+            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), address(0))
         });
     }
 

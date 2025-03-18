@@ -62,7 +62,7 @@ abstract contract DeploySP1ICS07Tendermint is Deployments {
             verifier,
             deployment.trustedClientState,
             keccak256(abi.encode(trustedConsensusState)),
-            address(0)
+            deployment.proofSubmitter
         );
 
         return (ics07Tendermint, trustedConsensusState, trustedClientState);
