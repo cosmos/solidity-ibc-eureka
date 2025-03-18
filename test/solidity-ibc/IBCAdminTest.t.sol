@@ -73,9 +73,7 @@ contract IBCAdminTest is Test {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        ics20Transfer.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics20Transfer.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
     function test_failure_ics20_upgrade() public {
@@ -83,9 +81,7 @@ contract IBCAdminTest is Test {
         ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        ics20Transfer.upgradeToAndCall(
-            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics20Transfer.upgradeToAndCall(address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
 
         // Case 2: Revert on unauthorized upgrade
         DummyInitializable newLogic = new DummyInitializable();
@@ -93,18 +89,14 @@ contract IBCAdminTest is Test {
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
-        ics20Transfer.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics20Transfer.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
     function test_success_ics26_upgrade() public {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();
 
-        ics26Router.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
     function test_failure_ics26_upgrade() public {
@@ -112,9 +104,7 @@ contract IBCAdminTest is Test {
         ErroneousInitializable erroneousLogic = new ErroneousInitializable();
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        ics26Router.upgradeToAndCall(
-            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics26Router.upgradeToAndCall(address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
 
         // Case 2: Revert on unauthorized upgrade
         DummyInitializable newLogic = new DummyInitializable();
@@ -122,9 +112,7 @@ contract IBCAdminTest is Test {
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
-        );
+        ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
     function test_success_setGovAdmin() public {

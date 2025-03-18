@@ -403,6 +403,17 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
 
+	var originalBalance *sdk.Coin
+	s.Require().True(s.Run("Retrieve original balance on Chain B", func() {
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+			Address: simdBUser.FormattedAddress(),
+			Denom:   s.SimdB.Config().Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		originalBalance = resp.Balance
+	}))
+
 	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
 		for i := 0; i < numOfTransfers; i++ {
@@ -455,6 +466,22 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		}))
 	}))
 
+	// Prefetching the relay tx before the timeout
+	var txBodyBz []byte
+	s.Require().True(s.Run("Retrieve relay tx", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       s.SimdA.Config().ChainID,
+			DstChain:       s.SimdB.Config().ChainID,
+			SourceTxIds:    txHashes,
+			TargetClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		txBodyBz = resp.Tx
+	}))
+
 	// Wait until timeout
 	time.Sleep(30 * time.Second)
 
@@ -487,5 +514,32 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 		}))
+
+		s.Require().True(s.Run("Verify balances on Chain B", func() {
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdB, &banktypes.QueryBalanceRequest{
+				Address: simdBUser.FormattedAddress(),
+				Denom:   s.SimdB.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(originalBalance, resp.Balance)
+		}))
+	}))
+
+	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       s.SimdA.Config().ChainID,
+			DstChain:       s.SimdB.Config().ChainID,
+			TimeoutTxIds:   txHashes,
+			TargetClientId: ibctesting.FirstClientID,
+		})
+		s.Require().Error(err)
+		s.Require().Nil(resp)
+	}))
+
+	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
+		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+		s.Require().ErrorContains(err, "timeout elapsed")
+		s.Require().Nil(resp)
 	}))
 }
