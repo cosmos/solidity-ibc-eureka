@@ -113,6 +113,8 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
     }
 
     function test_success_updateClient() public {
+        bytes32 proofSubmitterRole = ics07Tendermint.PROOF_SUBMITTER_ROLE();
+
         // role manager is the submitter
         bytes memory updateMsg = newUpdateClientMsg();
         vm.prank(roleManager);
@@ -122,6 +124,17 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
         // submitter is not the role manager
         updateMsg = newUpdateClientMsg();
         vm.prank(proofSubmitter);
+        res = ics07Tendermint.updateClient(updateMsg);
+        assert(res == ILightClientMsgs.UpdateResult.Update);
+
+        // role manager allows anyone to update the client
+        vm.prank(roleManager);
+        ics07Tendermint.grantRole(proofSubmitterRole, address(0));
+
+        // anyone can update the client
+        address anyAddr = makeAddr("anyAddr");
+        updateMsg = newUpdateClientMsg();
+        vm.prank(anyAddr);
         res = ics07Tendermint.updateClient(updateMsg);
         assert(res == ILightClientMsgs.UpdateResult.Update);
     }
