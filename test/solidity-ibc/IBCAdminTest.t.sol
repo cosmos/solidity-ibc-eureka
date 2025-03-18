@@ -74,7 +74,7 @@ contract IBCAdminTest is Test {
         DummyInitializable newLogic = new DummyInitializable();
 
         ics20Transfer.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
     }
 
@@ -84,7 +84,7 @@ contract IBCAdminTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
         ics20Transfer.upgradeToAndCall(
-            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
 
         // Case 2: Revert on unauthorized upgrade
@@ -94,7 +94,7 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
     }
 
@@ -103,7 +103,7 @@ contract IBCAdminTest is Test {
         DummyInitializable newLogic = new DummyInitializable();
 
         ics26Router.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
     }
 
@@ -113,7 +113,7 @@ contract IBCAdminTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
         ics26Router.upgradeToAndCall(
-            address(erroneousLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
 
         // Case 2: Revert on unauthorized upgrade
@@ -123,7 +123,7 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
         ics26Router.upgradeToAndCall(
-            address(newLogic), abi.encodeWithSelector(DummyInitializable.initializeV2.selector)
+            address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ())
         );
     }
 

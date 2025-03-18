@@ -459,7 +459,7 @@ contract ICS20Transfer is
                 address(
                     new BeaconProxy(
                         address($._escrowBeacon),
-                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($._ics26))
+                        abi.encodeCall(IEscrow.initialize, (address(this), address($._ics26)))
                     )
                 )
             );
