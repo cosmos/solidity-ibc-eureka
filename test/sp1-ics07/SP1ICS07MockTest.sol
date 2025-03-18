@@ -15,7 +15,7 @@ abstract contract SP1ICS07MockTest is Test {
     bytes32 public constant MOCK_VKEY = keccak256("MOCK_VKEY");
     bytes32 public constant MOCK_ROOT = keccak256("MOCK_ROOT");
     bytes32 public constant MOCK_VAL_HASH = keccak256("MOCK_VAL_HASH");
-    
+
     address roleManager = makeAddr("roleManager");
 
     SP1ICS07Tendermint public ics07Tendermint;
