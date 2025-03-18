@@ -72,6 +72,7 @@ abstract contract Deployments {
         address proxy;
         address timeLockAdmin;
         address portCustomizer;
+        address relayer;
     }
 
     function loadProxiedICS26RouterDeployment(
@@ -86,7 +87,8 @@ abstract contract Deployments {
             implementation: vm.parseJsonAddress(json, ".ics26Router.implementation"),
             proxy: vm.parseJsonAddress(json, ".ics26Router.proxy"),
             timeLockAdmin: vm.parseJsonAddress(json, ".ics26Router.timeLockAdmin"),
-            portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer")
+            portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer"),
+            relayer: vm.parseJsonAddress(json, ".ics26Router.relayer")
         });
 
         return fixture;
