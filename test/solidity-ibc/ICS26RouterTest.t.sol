@@ -27,7 +27,7 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
 
-    address relayer = makeAddr("relayer");
+    address public relayer = makeAddr("relayer");
 
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 

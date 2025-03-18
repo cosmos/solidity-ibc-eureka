@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
-import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
-import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
-import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateClientMsgs.sol";
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 

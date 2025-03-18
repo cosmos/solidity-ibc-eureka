@@ -17,7 +17,7 @@ abstract contract DeployProxiedICS26Router is Deployments {
     using stdJson for string;
 
     function deployProxiedICS26Router(Deployments.ProxiedICS26RouterDeployment memory deployment) public returns (ERC1967Proxy) {
-        require(msg.sender == deployment.timeLockAdmin, "DeployProxiedICS26Router: sender must be timeLockAdmin");
+        require(msg.sender == deployment.timeLockAdmin, "sender must be timeLockAdmin");
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             deployment.implementation,
