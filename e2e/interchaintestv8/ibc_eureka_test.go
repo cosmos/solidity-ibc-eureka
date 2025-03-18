@@ -1142,6 +1142,19 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
+	var originalBalance *sdk.Coin
+	s.Require().True(s.Run("Retrieve original balance", func() {
+		denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   denomOnCosmos.IBCDenom(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		originalBalance = resp.Balance
+	}))
+
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
@@ -1207,6 +1220,21 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		}))
 	}))
 
+	var txBodyBz []byte
+	s.Require().True(s.Run("Prefetch relay tx", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       eth.ChainID.String(),
+			DstChain:       simd.Config().ChainID,
+			SourceTxIds:    ethSendTxHashes,
+			TargetClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.Require().Empty(resp.Address)
+
+		txBodyBz = resp.Tx
+	}))
+
 	// sleep for 45 seconds to let the packet timeout
 	time.Sleep(45 * time.Second)
 
@@ -1251,6 +1279,36 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 			s.Require().Zero(escrowBalance.Int64())
 		}))
+
+		s.Require().True(s.Run("Verify no balance on Cosmos chain", func() {
+			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: cosmosUserAddress,
+				Denom:   denomOnCosmos.IBCDenom(),
+			})
+			s.Require().NoError(err)
+			s.Require().Equal(originalBalance, resp.Balance)
+		}))
+	}))
+
+	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:       eth.ChainID.String(),
+			DstChain:       simd.Config().ChainID,
+			SourceTxIds:    ethSendTxHashes,
+			TargetClientId: testvalues.FirstWasmClientID,
+		})
+		// TODO: https://github.com/cosmos/solidity-ibc-eureka/issues/363
+		// The following assertions should be Error and Nil, but the relayer returns a valid response currently.
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+	}))
+
+	s.Require().True(s.Run("Receive packets on Cosmos chain after timeout", func() {
+		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+		s.Require().Error(err)
+		s.Require().Nil(resp)
 	}))
 }
 

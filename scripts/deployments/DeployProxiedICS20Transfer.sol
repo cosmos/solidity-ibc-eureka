@@ -23,14 +23,16 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
     function deployProxiedICS20Transfer(ProxiedICS20TransferDeployment memory deployment) public returns (ERC1967Proxy) {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             deployment.implementation,
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                deployment.ics26Router,
-                deployment.escrowImplementation,
-                deployment.ibcERC20Implementation,
-                deployment.pauser,
-                deployment.unpauser,
-                deployment.permit2
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (
+                    deployment.ics26Router,
+                    deployment.escrowImplementation,
+                    deployment.ibcERC20Implementation,
+                    deployment.pauser,
+                    deployment.unpauser,
+                    deployment.permit2
+                )
             )
         );
 

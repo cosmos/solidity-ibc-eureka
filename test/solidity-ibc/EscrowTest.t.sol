@@ -30,7 +30,7 @@ contract EscrowTest is Test {
         escrow = Escrow(address(escrowProxy));
 
         // Have admin approval for next call
-        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(true));
+        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
         // Set rate limiter role
         escrow.grantRateLimiterRole(rateLimiter);
         assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), rateLimiter));
@@ -39,11 +39,11 @@ contract EscrowTest is Test {
     function test_success_setRateLimiterRole() public {
         address newRateLimiter = makeAddr("newRateLimiter");
 
-        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(true));
+        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
         escrow.grantRateLimiterRole(newRateLimiter);
         assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
 
-        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(true));
+        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
         escrow.revokeRateLimiterRole(newRateLimiter);
         assertFalse(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
     }
@@ -51,11 +51,11 @@ contract EscrowTest is Test {
     function test_failure_setRateLimiterRole() public {
         address newRateLimiter = makeAddr("newRateLimiter");
 
-        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(false));
+        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
         escrow.grantRateLimiterRole(newRateLimiter);
 
-        vm.mockCall(mockICS26, abi.encodeWithSelector(IIBCUUPSUpgradeable.isAdmin.selector), abi.encode(false));
+        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
         escrow.revokeRateLimiterRole(rateLimiter);
     }
@@ -86,7 +86,7 @@ contract EscrowTest is Test {
         address mockToken = makeAddr("mockToken");
 
         // Daily usage should not be updated if rate limit is 0
-        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 10_000);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 
@@ -98,7 +98,7 @@ contract EscrowTest is Test {
         escrow.setRateLimit(mockToken, 100_000);
         assertEq(escrow.getRateLimit(mockToken), 100_000);
 
-        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 1020);
         assertEq(escrow.getDailyUsage(mockToken), 1020);
 
@@ -109,7 +109,7 @@ contract EscrowTest is Test {
         vm.warp(block.timestamp + 1 days);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 
-        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 100_000);
         assertEq(escrow.getDailyUsage(mockToken), 100_000);
 
@@ -123,7 +123,7 @@ contract EscrowTest is Test {
         escrow.recvCallback(mockToken, address(this), 100_000);
         assertEq(escrow.getDailyUsage(mockToken), 0);
 
-        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
         escrow.send(IERC20(mockToken), address(this), 100_000);
         assertEq(escrow.getDailyUsage(mockToken), 100_000);
 
@@ -143,12 +143,12 @@ contract EscrowTest is Test {
         escrow.setRateLimit(mockToken, rateLimit);
 
         for (uint256 i = 0; i < n - 1; i++) {
-            vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+            vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
             escrow.send(IERC20(mockToken), address(this), sendAmount);
             assertEq(escrow.getDailyUsage(mockToken), sendAmount * (i + 1));
         }
 
-        vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+        vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
         vm.expectRevert(abi.encodeWithSelector(IRateLimitErrors.RateLimitExceeded.selector, rateLimit, sendAmount * n));
         escrow.send(IERC20(mockToken), address(this), sendAmount);
     }
@@ -165,7 +165,7 @@ contract EscrowTest is Test {
         escrow.setRateLimit(mockToken, rateLimit);
 
         for (uint256 i = 0; i < n; i++) {
-            vm.mockCall(mockToken, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+            vm.mockCall(mockToken, IERC20.transferFrom.selector, abi.encode(true));
             escrow.send(IERC20(mockToken), address(this), sendAmount);
             assertEq(escrow.getDailyUsage(mockToken), sendAmount);
 
