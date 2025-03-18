@@ -27,6 +27,8 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
 
+    address relayer = makeAddr("relayer");
+
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
 
     function setUp() public {
@@ -38,7 +40,7 @@ contract ICS26RouterTest is Test {
 
         ics26Router = ICS26Router(address(routerProxy));
 
-        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
+        ics26Router.grantRelayerRole(relayer); // anyone can relay packets
     }
 
     function test_success_addIBCAppUsingAddress() public {
@@ -133,6 +135,7 @@ contract ICS26RouterTest is Test {
          });
 
         vm.expectRevert(abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector));
+        vm.prank(relayer);
         ics26Router.recvPacket(msgRecvPacket);
     }
 
@@ -173,6 +176,7 @@ contract ICS26RouterTest is Test {
 
         vm.expectEmit();
         emit IICS26Router.WriteAcknowledgement(packet.destClient, packet.sequence, packet, expAcks);
+        vm.prank(relayer);
         ics26Router.recvPacket(msgRecvPacket);
     }
 
@@ -209,6 +213,7 @@ contract ICS26RouterTest is Test {
          });
 
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCFailedCallback.selector));
+        vm.prank(relayer);
         ics26Router.recvPacket{ gas: 900_000 }(msgRecvPacket);
     }
 }
