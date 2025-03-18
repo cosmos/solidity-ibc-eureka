@@ -45,6 +45,19 @@
   },
   {
     "type": "function",
+    "name": "RELAYER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -464,6 +477,19 @@
   {
     "type": "function",
     "name": "grantPortCustomizerRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantRelayerRole",
     "inputs": [
       {
         "name": "account",
@@ -969,6 +995,19 @@
   {
     "type": "function",
     "name": "revokePortCustomizerRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRelayerRole",
     "inputs": [
       {
         "name": "account",
