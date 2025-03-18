@@ -35,6 +35,7 @@ var (
 				CLImage:        "ethpandaops/lodestar:unstable",
 				ELType:         "geth",
 				ELImage:        "ethpandaops/geth:prague-devnet-6",
+				ELExtraParams:  "--gcmode=archive",
 				ELLogLevel:     "info",
 				ValidatorCount: 64,
 			},
@@ -70,6 +71,7 @@ type kurtosisParticipant struct {
 	CLImage        string `json:"cl_image"`
 	ELType         string `json:"el_type"`
 	ELImage        string `json:"el_image"`
+	ELExtraParams  string `json:"el_extra_params"`
 	ELLogLevel     string `json:"el_log_level"`
 	ValidatorCount uint64 `json:"validator_count"`
 }
