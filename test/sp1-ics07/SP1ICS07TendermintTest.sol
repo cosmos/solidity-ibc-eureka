@@ -76,7 +76,8 @@ abstract contract SP1ICS07TendermintTest is
             genesisFixture.misbehaviourVkey,
             verifier,
             genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            address(0)
         );
 
         mockIcs07Tendermint = new SP1ICS07Tendermint(
@@ -86,7 +87,8 @@ abstract contract SP1ICS07TendermintTest is
             genesisFixture.misbehaviourVkey,
             address(new SP1MockVerifier()),
             genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            address(0)
         );
 
         ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));

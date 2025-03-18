@@ -99,7 +99,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             fixture.genesisFixture.misbehaviourVkey,
             verifier,
             fixture.genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            address(0)
         );
 
         ics26Router.addClient(

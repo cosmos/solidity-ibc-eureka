@@ -86,7 +86,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         if (roleManager == address(0)) {
             _grantRole(PROOF_SUBMITTER_ROLE, address(0)); // Allow anyone to submit proofs
         } else {
-            _grantRole(DEFAULT_ADMIN_ROLE, roleManager); // Allow the role manager to manage roles
+            _grantRole(DEFAULT_ADMIN_ROLE, roleManager);   // Allow the role manager to manage roles
+            _grantRole(PROOF_SUBMITTER_ROLE, roleManager); // Allow the role manager to submit proofs
         }
     }
 
