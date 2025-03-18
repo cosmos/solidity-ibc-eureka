@@ -63,7 +63,11 @@ abstract contract SP1ICS07MockTest is Test {
     /// @notice Create a new mock consensus state
     /// @param timestamp The timestamp of the consensus state in unix nanoseconds
     /// @return The new consensus state
-    function newMockConsensusState(uint128 timestamp) public pure returns (IICS07TendermintMsgs.ConsensusState memory) {
+    function newMockConsensusState(uint128 timestamp)
+        public
+        pure
+        returns (IICS07TendermintMsgs.ConsensusState memory)
+    {
         return IICS07TendermintMsgs.ConsensusState({
             timestamp: timestamp,
             root: MOCK_ROOT,
@@ -72,11 +76,10 @@ abstract contract SP1ICS07MockTest is Test {
     }
 
     function newUpdateClientMsg() public view returns (bytes memory) {
-        IICS07TendermintMsgs.ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (IICS07TendermintMsgs.ClientState));
-        IICS02ClientMsgs.Height memory trustedHeight = IICS02ClientMsgs.Height({
-            revisionNumber: 0,
-            revisionHeight: clientState.latestHeight.revisionHeight
-        });
+        IICS07TendermintMsgs.ClientState memory clientState =
+            abi.decode(ics07Tendermint.getClientState(), (IICS07TendermintMsgs.ClientState));
+        IICS02ClientMsgs.Height memory trustedHeight =
+            IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: clientState.latestHeight.revisionHeight });
         clientState.latestHeight.revisionHeight++;
 
         IUpdateClientMsgs.UpdateClientOutput memory output = IUpdateClientMsgs.UpdateClientOutput({
@@ -88,31 +91,20 @@ abstract contract SP1ICS07MockTest is Test {
             newHeight: clientState.latestHeight
         });
 
-        return abi.encode(IUpdateClientMsgs.MsgUpdateClient({
-            sp1Proof: ISP1Msgs.SP1Proof({
-                vKey: MOCK_VKEY,
-                publicValues: abi.encode(output),
-                proof: bytes("")
+        return abi.encode(
+            IUpdateClientMsgs.MsgUpdateClient({
+                sp1Proof: ISP1Msgs.SP1Proof({ vKey: MOCK_VKEY, publicValues: abi.encode(output), proof: bytes("") })
             })
-        }));
+        );
     }
 
     function newMembershipMsg(uint64 height) public view returns (ILightClientMsgs.MsgVerifyMembership memory) {
-        IMembershipMsgs.MembershipOutput memory output = IMembershipMsgs.MembershipOutput({
-            commitmentRoot: MOCK_ROOT,
-            kvPairs: new IMembershipMsgs.KVPair[](1)
-        });
-        output.kvPairs[0] = IMembershipMsgs.KVPair({
-            path: membershipPath,
-            value: membershipValue
-        });
+        IMembershipMsgs.MembershipOutput memory output =
+            IMembershipMsgs.MembershipOutput({ commitmentRoot: MOCK_ROOT, kvPairs: new IMembershipMsgs.KVPair[](1) });
+        output.kvPairs[0] = IMembershipMsgs.KVPair({ path: membershipPath, value: membershipValue });
 
         IMembershipMsgs.SP1MembershipProof memory sp1Proof = IMembershipMsgs.SP1MembershipProof({
-            sp1Proof: ISP1Msgs.SP1Proof({
-                vKey: MOCK_VKEY,
-                publicValues: abi.encode(output),
-                proof: bytes("")
-            }),
+            sp1Proof: ISP1Msgs.SP1Proof({ vKey: MOCK_VKEY, publicValues: abi.encode(output), proof: bytes("") }),
             trustedConsensusState: newMockConsensusState(height)
         });
 
@@ -130,21 +122,12 @@ abstract contract SP1ICS07MockTest is Test {
     }
 
     function newNonMembershipMsg(uint64 height) public view returns (ILightClientMsgs.MsgVerifyNonMembership memory) {
-        IMembershipMsgs.MembershipOutput memory output = IMembershipMsgs.MembershipOutput({
-            commitmentRoot: MOCK_ROOT,
-            kvPairs: new IMembershipMsgs.KVPair[](1)
-        });
-        output.kvPairs[0] = IMembershipMsgs.KVPair({
-            path: membershipPath,
-            value: bytes("")
-        });
+        IMembershipMsgs.MembershipOutput memory output =
+            IMembershipMsgs.MembershipOutput({ commitmentRoot: MOCK_ROOT, kvPairs: new IMembershipMsgs.KVPair[](1) });
+        output.kvPairs[0] = IMembershipMsgs.KVPair({ path: membershipPath, value: bytes("") });
 
         IMembershipMsgs.SP1MembershipProof memory sp1Proof = IMembershipMsgs.SP1MembershipProof({
-            sp1Proof: ISP1Msgs.SP1Proof({
-                vKey: MOCK_VKEY,
-                publicValues: abi.encode(output),
-                proof: bytes("")
-            }),
+            sp1Proof: ISP1Msgs.SP1Proof({ vKey: MOCK_VKEY, publicValues: abi.encode(output), proof: bytes("") }),
             trustedConsensusState: newMockConsensusState(height)
         });
 
@@ -170,12 +153,10 @@ abstract contract SP1ICS07MockTest is Test {
             trustedConsensusState2: newMockConsensusState(1)
         });
 
-        return abi.encode(IMisbehaviourMsgs.MsgSubmitMisbehaviour({
-            sp1Proof: ISP1Msgs.SP1Proof({
-                vKey: MOCK_VKEY,
-                publicValues: abi.encode(output),
-                proof: bytes("")
+        return abi.encode(
+            IMisbehaviourMsgs.MsgSubmitMisbehaviour({
+                sp1Proof: ISP1Msgs.SP1Proof({ vKey: MOCK_VKEY, publicValues: abi.encode(output), proof: bytes("") })
             })
-        }));
+        );
     }
 }

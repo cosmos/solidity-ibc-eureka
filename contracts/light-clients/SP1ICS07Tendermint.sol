@@ -23,7 +23,13 @@ import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol"
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall, AccessControl {
+contract SP1ICS07Tendermint is
+    ISP1ICS07TendermintErrors,
+    ISP1ICS07Tendermint,
+    ILightClient,
+    Multicall,
+    AccessControl
+{
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -57,7 +63,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param sp1Verifier The address of the SP1 verifier contract.
     /// @param _clientState The encoded initial client state.
     /// @param _consensusState The encoded initial consensus state.
-    /// @param roleManager The address that manages the roles via `DEFAULT_ADMIN_ROLE`. If zero, anyone can submit proofs.
+    /// @param roleManager Manages the roles via `DEFAULT_ADMIN_ROLE`. If zero, anyone can submit proofs.
     constructor(
         bytes32 updateClientProgramVkey,
         bytes32 membershipProgramVkey,
@@ -86,7 +92,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         if (roleManager == address(0)) {
             _grantRole(PROOF_SUBMITTER_ROLE, address(0)); // Allow anyone to submit proofs
         } else {
-            _grantRole(DEFAULT_ADMIN_ROLE, roleManager);   // Allow the role manager to manage roles
+            _grantRole(DEFAULT_ADMIN_ROLE, roleManager); // Allow the role manager to manage roles
             _grantRole(PROOF_SUBMITTER_ROLE, roleManager); // Allow the role manager to submit proofs
         }
     }
@@ -105,7 +111,12 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @dev This function verifies the public values and forwards the proof to the SP1 verifier.
     /// @inheritdoc ILightClient
-    function updateClient(bytes calldata updateMsg) external notFrozen onlyProofSubmitter returns (ILightClientMsgs.UpdateResult) {
+    function updateClient(bytes calldata updateMsg)
+        external
+        notFrozen
+        onlyProofSubmitter
+        returns (ILightClientMsgs.UpdateResult)
+    {
         IUpdateClientMsgs.MsgUpdateClient memory msgUpdateClient =
             abi.decode(updateMsg, (IUpdateClientMsgs.MsgUpdateClient));
         require(

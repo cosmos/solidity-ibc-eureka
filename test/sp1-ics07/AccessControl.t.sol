@@ -12,7 +12,6 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { SP1ICS07MockTest } from "./SP1ICS07MockTest.sol";
 
 contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
-
     function test_success_setProofSubmitter() public {
         bytes32 defaultAdminRole = ics07Tendermint.DEFAULT_ADMIN_ROLE();
         bytes32 proofSubmitterRole = ics07Tendermint.PROOF_SUBMITTER_ROLE();
@@ -39,9 +38,7 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
         address newSubmitter = makeAddr("newSubmitter");
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                defaultAdminRole
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
             )
         );
         vm.prank(unauthorized);
@@ -50,9 +47,7 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                defaultAdminRole
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
             )
         );
         vm.prank(unauthorized);
@@ -93,21 +88,13 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
         assert(ics07Tendermint.hasRole(proofSubmitterRole, newSubmitter));
 
         // fail to renounce the submitter role
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlBadConfirmation.selector
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlBadConfirmation.selector));
         vm.prank(unauthorized);
         ics07Tendermint.renounceRole(proofSubmitterRole, newSubmitter);
         assert(ics07Tendermint.hasRole(proofSubmitterRole, newSubmitter));
 
         // fail to renounce the admin role
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlBadConfirmation.selector
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlBadConfirmation.selector));
         vm.prank(unauthorized);
         ics07Tendermint.renounceRole(defaultAdminRole, roleManager);
         assert(ics07Tendermint.hasRole(defaultAdminRole, roleManager));
