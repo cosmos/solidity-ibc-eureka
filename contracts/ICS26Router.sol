@@ -51,6 +51,9 @@ contract ICS26Router is
     /// @inheritdoc IICS26Router
     bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
+    /// @inheritdoc IICS26Router
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -156,7 +159,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
+    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets (#93)
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -216,7 +219,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant {
+    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -265,7 +268,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant {
+    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -320,6 +323,16 @@ contract ICS26Router is
         _revokeRole(PORT_CUSTOMIZER_ROLE, account);
     }
 
+    /// @inheritdoc IICS26Router
+    function grantRelayerRole(address account) external onlyAdmin {
+        _grantRole(RELAYER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS26Router
+    function revokeRelayerRole(address account) external onlyAdmin {
+        _revokeRole(RELAYER_ROLE, account);
+    }
+
     /// @inheritdoc ICS02ClientUpgradeable
     function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
@@ -334,5 +347,12 @@ contract ICS26Router is
         assembly {
             $.slot := ICS26ROUTER_STORAGE_SLOT
         }
+    }
+
+    modifier onlyRelayer() {
+        if (!hasRole(RELAYER_ROLE, address(0))) {
+            _checkRole(RELAYER_ROLE);
+        }
+        _;
     }
 }

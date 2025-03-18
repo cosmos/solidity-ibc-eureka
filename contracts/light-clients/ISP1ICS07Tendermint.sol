@@ -9,6 +9,7 @@ interface ISP1ICS07Tendermint {
     /// @notice The role identifier for the proof submitter role
     /// @dev The proof submitter role is used to whitelist addresses that can submit proofs
     /// @dev If `address(0)` has this role, then anyone can submit proofs
+    /// @dev If this client is hooked up to ICS26Router, the router must be given this role
     /// @return The role identifier
     function PROOF_SUBMITTER_ROLE() external view returns (bytes32);
 

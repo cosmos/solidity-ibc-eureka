@@ -12,6 +12,12 @@ interface IICS26Router {
     /// @return The role identifier
     function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
 
+    /// @notice The role identifier for the relayer role
+    /// @dev The relayer role is used to whitelist addresses that can relay packets
+    /// @dev If `address(0)` has this role, then anyone can relay packets
+    /// @return The role identifier
+    function RELAYER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
@@ -64,6 +70,17 @@ interface IICS26Router {
     /// @dev Can only be called by an admin
     /// @param account The account to revoke the role from
     function revokePortCustomizerRole(address account) external;
+
+    /// @notice Grants the relayer role to an account
+    /// @dev Can only be called by an admin
+    /// @dev If `address(0)` has this role, then anyone can relay packets
+    /// @param account The account to grant the role to
+    function grantRelayerRole(address account) external;
+
+    /// @notice Revokes the relayer role from an account
+    /// @dev Can only be called by an admin
+    /// @param account The account to revoke the role from
+    function revokeRelayerRole(address account) external;
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
