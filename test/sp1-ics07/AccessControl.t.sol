@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateClientMsgs.sol";
@@ -226,5 +227,48 @@ contract SP1ICS07AccessControlTest is SP1ICS07MockTest {
         );
         vm.prank(unauthorized);
         ics07Tendermint.verifyNonMembership(membershipMsg);
+    }
+
+    function test_success_misbehaviour() public {
+        bytes32 proofSubmitterRole = ics07Tendermint.PROOF_SUBMITTER_ROLE();
+
+        // role manager is the submitter
+        bytes memory misbehaviourMsg = newMisbehaviourMsg();
+        vm.prank(roleManager);
+        ics07Tendermint.misbehaviour(misbehaviourMsg);
+
+        // restart the test since client is frozen
+        setUp();
+
+        // submitter is not the role manager
+        vm.prank(proofSubmitter);
+        ics07Tendermint.misbehaviour(misbehaviourMsg);
+
+        // restart the test since client is frozen
+        setUp();
+
+        // role manager allows anyone to submit misbehaviour
+        vm.prank(roleManager);
+        ics07Tendermint.grantRole(proofSubmitterRole, address(0));
+
+        // anyone can submit misbehaviour
+        address anyAddr = makeAddr("anyAddr");
+        vm.prank(anyAddr);
+        ics07Tendermint.misbehaviour(misbehaviourMsg);
+    }
+
+    function test_failure_misbehaviour() public {
+        // unauthorized account
+        address unauthorized = makeAddr("unauthorized");
+        bytes memory misbehaviourMsg = newMisbehaviourMsg();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                ics07Tendermint.PROOF_SUBMITTER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics07Tendermint.misbehaviour(misbehaviourMsg);
     }
 }

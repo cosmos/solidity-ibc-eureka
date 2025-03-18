@@ -8,6 +8,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { IUpdateClientMsgs } from "../../contracts/light-clients/msgs/IUpdateClientMsgs.sol";
 import { IMembershipMsgs } from "../../contracts/light-clients/msgs/IMembershipMsgs.sol";
+import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
 import { ISP1Msgs } from "../../contracts/light-clients/msgs/ISP1Msgs.sol";
 
 import { SP1ICS07Tendermint } from "../../contracts/light-clients/SP1ICS07Tendermint.sol";
@@ -157,5 +158,24 @@ abstract contract SP1ICS07MockTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: height }),
             path: membershipPath
         });
+    }
+
+    function newMisbehaviourMsg() public view returns (bytes memory) {
+        IMisbehaviourMsgs.MisbehaviourOutput memory output = IMisbehaviourMsgs.MisbehaviourOutput({
+            clientState: abi.decode(ics07Tendermint.getClientState(), (IICS07TendermintMsgs.ClientState)),
+            time: uint128(block.timestamp * 1e9),
+            trustedHeight1: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 1 }),
+            trustedHeight2: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 1 }),
+            trustedConsensusState1: newMockConsensusState(1),
+            trustedConsensusState2: newMockConsensusState(1)
+        });
+
+        return abi.encode(IMisbehaviourMsgs.MsgSubmitMisbehaviour({
+            sp1Proof: ISP1Msgs.SP1Proof({
+                vKey: MOCK_VKEY,
+                publicValues: abi.encode(output),
+                proof: bytes("")
+            })
+        }));
     }
 }
