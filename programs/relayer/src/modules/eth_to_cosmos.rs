@@ -1,6 +1,6 @@
 //! Defines Ethereum to Cosmos relayer module.
 
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 
 use alloy::{
     primitives::{Address, TxHash},
@@ -68,29 +68,11 @@ impl EthToCosmosRelayerModuleService {
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let tm_client = HttpClient::builder(
+        let tm_client = HttpClient::new(
             Url::from_str(&config.tm_rpc_url)
-                .expect("Failed to parse tendermint RPC URL")
-                .try_into()
-                .expect("Failed to convert tendermint RPC URL"),
+                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
         )
-        .client(
-            reqwest::ClientBuilder::new()
-                .connect_timeout(Duration::from_secs(10))
-                .timeout(Duration::from_secs(30))
-                .pool_idle_timeout(Duration::from_secs(10))
-                // Uncomment the following line if you suspect persistent connections are problematic:
-                // .no_keep_alive()
-                .build()
-                .expect("Failed to create reqwest client"),
-        )
-        .build()
         .expect("Failed to create tendermint HTTP client");
-        //let tm_client = HttpClient::new(
-        //    Url::from_str(&config.tm_rpc_url)
-        //        .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
-        //)
-        //.expect("Failed to create tendermint HTTP client");
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let tx_builder = if config.mock {
