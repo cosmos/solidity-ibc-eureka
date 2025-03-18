@@ -84,6 +84,7 @@ jobs:
           - TestWithRelayerTestSuite/Test_10_BatchedAckPacketToCosmos
           - TestWithRelayerTestSuite/TestTimeoutPacketFromCosmos
           - TestWithRelayerTestSuite/Test_10_TimeoutPacketFromCosmos
+          - TestWithRelayerTestSuite/Test_50_concurrent_RecvPacketToCosmosTest
           - TestWithCosmosRelayerTestSuite/TestRelayerInfo
           - TestWithCosmosRelayerTestSuite/TestICS20RecvAndAckPacket
           - TestWithCosmosRelayerTestSuite/Test_10_ICS20RecvAndAckPacket

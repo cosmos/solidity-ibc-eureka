@@ -1,6 +1,7 @@
 //! This module implements the `BeaconApiClient` to interact with the Ethereum Beacon API.
 
 use ethereum_types::consensus::{
+    beacon_block::BeaconBlock,
     bootstrap::LightClientBootstrap,
     light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
     spec::Spec,
@@ -15,7 +16,8 @@ use super::{
 };
 
 const SPEC_PATH: &str = "/eth/v1/config/spec";
-const BEACON_BLOCKS_PATH: &str = "/eth/v1/beacon/blocks";
+const BEACON_BLOCKS_V1_PATH: &str = "/eth/v1/beacon/blocks";
+const BEACON_BLOCKS_V2_PATH: &str = "/eth/v2/beacon/blocks";
 const LIGHT_CLIENT_BOOTSTRAP_PATH: &str = "/eth/v1/beacon/light_client/bootstrap";
 const LIGHT_CLIENT_FINALITY_UPDATE_PATH: &str = "/eth/v1/beacon/light_client/finality_update";
 const LIGHT_CLIENT_UPDATES_PATH: &str = "/eth/v1/beacon/light_client/updates";
@@ -57,12 +59,23 @@ impl BeaconApiClient {
         .await
     }
 
+    /// Fetches the Beacon block for a given block id
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
+    pub async fn beacon_block(&self, block_id: &str) -> Result<BeaconBlock, BeaconApiClientError> {
+        let resp: Response<BeaconBlock> = self
+            .get_json(&format!("{BEACON_BLOCKS_V2_PATH}/{block_id}"))
+            .await?;
+
+        Ok(resp.data)
+    }
+
     /// Fetches the Beacon block root for a given block id
     /// # Errors
     /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn beacon_block_root(&self, block_id: &str) -> Result<String, BeaconApiClientError> {
         let resp: Response<BeaconBlockRoot> = self
-            .get_json(&format!("{BEACON_BLOCKS_PATH}/{block_id}/root"))
+            .get_json(&format!("{BEACON_BLOCKS_V1_PATH}/{block_id}/root"))
             .await?;
 
         Ok(resp.data.root)
@@ -99,6 +112,8 @@ impl BeaconApiClient {
         debug!(%url, "get_json");
 
         let res = self.client.get(url).send().await?;
+
+        debug!(status = %res.status(), "get_json");
 
         match res.status() {
             StatusCode::OK => {
