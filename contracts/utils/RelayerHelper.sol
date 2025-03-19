@@ -9,7 +9,8 @@ import { IRelayerHelper } from "../interfaces/IRelayerHelper.sol";
 import { ICS24Host } from "./ICS24Host.sol";
 
 /// @title Relayer Helper
-/// @notice RelayerHelper is a helper contract for relayers, providing utility queries and multicall functions
+/// @notice RelayerHelper is a helper contract for relayers, providing utility queries.
+/// @dev Upcoming features are tracked in #424
 contract RelayerHelper is IRelayerHelper {
     /// @inheritdoc IRelayerHelper
     address public immutable ICS26_ROUTER;
