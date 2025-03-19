@@ -83,7 +83,7 @@ abstract contract IBCUUPSUpgradeable is
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view virtual override onlyAdmin { }
+    function _authorizeUpgrade(address) internal view virtual override(UUPSUpgradeable) onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the IBCUUPSUpgradeable contract

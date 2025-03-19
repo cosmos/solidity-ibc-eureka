@@ -19,6 +19,7 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { IBCUUPSUpgradeable } from "./utils/IBCUUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
@@ -288,6 +289,13 @@ contract ICS26Router is
         );
 
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
+    }
+
+    /// @dev See {AccessControlUpgradeable-grantRole}. Reverts for `DEFAULT_ADMIN_ROLE`.
+    /// @inheritdoc AccessControlUpgradeable
+    function grantRole(bytes32 role, address account) public override(AccessControlUpgradeable) {
+        require(role != DEFAULT_ADMIN_ROLE, DefaultAdminRoleCannotBeGranted());
+        super.grantRole(role, account);
     }
 
     /// @notice Returns the storage of the ICS26Router contract

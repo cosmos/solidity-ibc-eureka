@@ -125,11 +125,14 @@ contract IBCAdminTest is Test {
 
         ics26Router.setGovAdmin(govAdmin);
         assertEq(ics26Router.getGovAdmin(), govAdmin);
+        assert(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), govAdmin));
 
         // Have the govAdmin change the govAdmin
         address newGovAdmin = makeAddr("newGovAdmin");
         ics26Router.setGovAdmin(newGovAdmin);
         assertEq(ics26Router.getGovAdmin(), newGovAdmin);
+        assertFalse(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), govAdmin));
+        assert(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), newGovAdmin));
     }
 
     function test_failure_setGovAdmin() public {
@@ -139,22 +142,39 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
         ics26Router.setGovAdmin(govAdmin);
+        assertFalse(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), govAdmin));
     }
 
     function test_success_setTimelockedAdmin() public {
-        address newTimelockedAdmin = makeAddr("timelockedAdmin");
+        assert(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), address(this)));
+        address newTimelockedAdmin = makeAddr("newTimelockedAdmin");
 
         ics26Router.setTimelockedAdmin(newTimelockedAdmin);
         assertEq(ics26Router.getTimelockedAdmin(), newTimelockedAdmin);
+        assertFalse(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), address(this)));
+        assert(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), newTimelockedAdmin));
     }
 
     function test_failure_setTimelockedAdmin() public {
         address unauthorized = makeAddr("unauthorized");
-        address newTimelockedAdmin = makeAddr("timelockedAdmin");
+        address newTimelockedAdmin = makeAddr("newTimelockedAdmin");
 
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
         ics26Router.setTimelockedAdmin(newTimelockedAdmin);
+        assertFalse(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), newTimelockedAdmin));
+        assert(ics26Router.hasRole(ics26Router.DEFAULT_ADMIN_ROLE(), address(this)));
+    }
+
+    function test_failure_grantDefaultAdminRole() public {
+        bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
+        address anyAddress = makeAddr("anyAddress");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.DefaultAdminRoleCannotBeGranted.selector)
+        );
+        ics26Router.grantRole(defaultAdminRole, anyAddress);
+        assertFalse(ics26Router.hasRole(defaultAdminRole, anyAddress));
     }
 
     function test_success_setPortCustomizer() public {
