@@ -66,24 +66,23 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	s.SimdASubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdA)
 	s.SimdBSubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdB)
 
-	var (
-		relayerProcess *os.Process
-		configInfo     relayer.CosmosToCosmosConfigInfo
-	)
+	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		configInfo = relayer.CosmosToCosmosConfigInfo{
-			ChainAID:    s.SimdA.Config().ChainID,
-			ChainBID:    s.SimdB.Config().ChainID,
-			ChainATmRPC: s.SimdA.GetHostRPCAddress(),
-			ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
-			ChainAUser:  s.SimdASubmitter.FormattedAddress(),
-			ChainBUser:  s.SimdBSubmitter.FormattedAddress(),
-		}
+		config := relayer.NewConfig(
+			relayer.CreateCosmosCosmosModules(relayer.CosmosToCosmosConfigInfo{
+				ChainAID:    s.SimdA.Config().ChainID,
+				ChainBID:    s.SimdB.Config().ChainID,
+				ChainATmRPC: s.SimdA.GetHostRPCAddress(),
+				ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
+				ChainAUser:  s.SimdASubmitter.FormattedAddress(),
+				ChainBUser:  s.SimdBSubmitter.FormattedAddress(),
+			}),
+		)
 
-		err = configInfo.GenerateCosmosToCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)

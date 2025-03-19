@@ -126,6 +126,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 				os.Getenv(testvalues.EnvKeyVerifier),
 				fmt.Sprintf("%s should not be set when using the network prover in e2e tests.", testvalues.EnvKeyVerifier),
 			)
+			// make sure that the NETWORK_PRIVATE_KEY is set.
+			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 		default:
 			s.Require().Fail("invalid prover type: %s", prover)
 		}
@@ -154,23 +156,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		}, proofType.ToOperatorArgs()...)
 		s.Require().NoError(operator.RunGenesis(args...))
 
-		var (
-			stdout []byte
-			err    error
-		)
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
-			s.Require().NoError(err)
-		case testvalues.EnvValueSp1Prover_Network:
-			// make sure that the NETWORK_PRIVATE_KEY is set.
-			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
-
-			stdout, err = eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
-			s.Require().NoError(err)
-		default:
-			s.Require().Fail("invalid prover type: %s", prover)
-		}
+		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
+		s.Require().NoError(err)
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
@@ -231,7 +218,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 
 	var relayerProcess *os.Process
-	var configInfo relayer.EthCosmosConfigInfo
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
 		// The BeaconAPIClient is nil when the testnet is `pow`
@@ -239,30 +225,26 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		var sp1Config string
-		switch prover {
-		case testvalues.EnvValueSp1Prover_Mock:
-			sp1Config = testvalues.EnvValueSp1Prover_Mock
-		case testvalues.EnvValueSp1Prover_Network:
-			sp1Config = "env"
-		default:
-			s.Require().Fail("Unsupported prover type: %s", prover)
+		sp1Config := relayer.SP1Config{
+			ProverType:     prover,
+			PrivateCluster: prover == testvalues.EnvValueSp1Prover_Network,
 		}
 
-		configInfo = relayer.EthCosmosConfigInfo{
-			EthChainID:     eth.ChainID.String(),
-			CosmosChainID:  simd.Config().ChainID,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26Address:   s.contractAddresses.Ics26Router,
-			EthRPC:         eth.RPC,
-			BeaconAPI:      beaconAPI,
-			SP1Config:      sp1Config,
-			SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
-			MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			LogLevel:       os.Getenv(testvalues.EnvKeyRustLog),
-		}
+		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
+			relayer.EthCosmosConfigInfo{
+				EthChainID:     eth.ChainID.String(),
+				CosmosChainID:  simd.Config().ChainID,
+				TmRPC:          simd.GetHostRPCAddress(),
+				ICS26Address:   s.contractAddresses.Ics26Router,
+				EthRPC:         eth.RPC,
+				BeaconAPI:      beaconAPI,
+				SP1Config:      sp1Config,
+				SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
+				MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			}),
+		)
 
-		err := configInfo.GenerateEthCosmosConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
