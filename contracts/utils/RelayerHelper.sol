@@ -8,31 +8,15 @@ import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IRelayerHelper } from "../interfaces/IRelayerHelper.sol";
 
 import { ICS24Host } from "./ICS24Host.sol";
-import { Multicall } from "@openzeppelin/contracts/utils/Multicall.sol";
 
 /// @title Relayer Helper
 /// @notice RelayerHelper is a helper contract for relayers, providing utility queries and multicall functions
-contract RelayerHelper is IRelayerHelper, Multicall {
+contract RelayerHelper is IRelayerHelper {
     /// @notice The ICS26 router
     address public immutable ics26Router;
 
     constructor(address _ics26Router) {
         ics26Router = _ics26Router;
-    }
-
-    /// @inheritdoc IRelayerHelper
-    function recvPacketWithGasLimit(IICS26RouterMsgs.MsgRecvPacket calldata msg_, uint256 gasLimit) external {
-        IICS26Router(ics26Router).recvPacket{gas: gasLimit}(msg_);
-    }
-
-    /// @inheritdoc IRelayerHelper
-    function ackPacketWithGasLimit(IICS26RouterMsgs.MsgAckPacket calldata msg_, uint256 gasLimit) external {
-        IICS26Router(ics26Router).ackPacket{gas: gasLimit}(msg_);
-    }
-
-    /// @inheritdoc IRelayerHelper
-    function timeoutPacketWithGasLimit(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_, uint256 gasLimit) external {
-        IICS26Router(ics26Router).timeoutPacket{gas: gasLimit}(msg_);
     }
 
     /// @inheritdoc IRelayerHelper
