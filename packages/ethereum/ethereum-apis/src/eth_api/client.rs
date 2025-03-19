@@ -5,10 +5,10 @@ use std::str::FromStr;
 use alloy::{
     primitives::{Address, StorageKey},
     providers::Provider,
-    rpc::types::EIP1186AccountProofResponse,
+    rpc::types::{Block, EIP1186AccountProofResponse},
 };
 
-use super::error::EthGetProofError;
+use super::error::EthClientError;
 
 const RPC_METHOD_GET_PROOF: &str = "eth_getProof";
 
@@ -32,14 +32,14 @@ impl<P: Provider + Clone> EthApiClient<P> {
         address: &str,
         storage_keys: Vec<String>,
         block_hex: String,
-    ) -> Result<EIP1186AccountProofResponse, EthGetProofError> {
+    ) -> Result<EIP1186AccountProofResponse, EthClientError> {
         let address: Address = Address::from_str(address)
-            .map_err(|e| EthGetProofError::ParseError(address.to_string(), e.to_string()))?;
+            .map_err(|e| EthClientError::ParseError(address.to_string(), e.to_string()))?;
         let storage_keys: Vec<StorageKey> = storage_keys
             .into_iter()
             .map(|key| {
                 StorageKey::from_str(&key)
-                    .map_err(|e| EthGetProofError::ParseError(key, e.to_string()))
+                    .map_err(|e| EthClientError::ParseError(key, e.to_string()))
             })
             .collect::<Result<_, _>>()?;
         Ok(self
@@ -52,7 +52,18 @@ impl<P: Provider + Clone> EthApiClient<P> {
     /// Fetches the current block number.
     /// # Errors
     /// Returns an error if the request fails
-    pub async fn get_block_number(&self) -> Result<u64, EthGetProofError> {
+    pub async fn get_block_number(&self) -> Result<u64, EthClientError> {
         Ok(self.provider.get_block_number().await?)
+    }
+
+    /// Fetches a block
+    /// # Errors
+    /// Returns an error if the request fails
+    pub async fn get_block(&self, block_number: u64) -> Result<Block, EthClientError> {
+        let block_resp = self.provider.get_block(block_number.into()).await?;
+
+        let block = block_resp.ok_or_else(|| EthClientError::BlockNotFound(block_number))?;
+
+        Ok(block)
     }
 }

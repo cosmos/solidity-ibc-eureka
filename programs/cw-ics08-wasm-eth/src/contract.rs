@@ -240,6 +240,7 @@ mod tests {
 
             let consensus_state = EthConsensusState {
                 slot: 42,
+                execution_block_number: 38,
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,

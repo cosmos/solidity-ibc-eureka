@@ -113,6 +113,7 @@ func (s *TestSuite) createEthereumLightClient(
 
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
+		ExecutionBlockNumber: bootstrap.Data.Header.Execution.BlockNumber,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
 		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,

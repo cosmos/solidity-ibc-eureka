@@ -85,6 +85,8 @@ type Fork struct {
 type ConsensusState struct {
 	// aggregate public key of current sync committee at the finalized header
 	CurrentSyncCommittee string `json:"current_sync_committee"`
+	// The execution block number
+	ExecutionBlockNumber uint64 `json:"execution_block_number"`
 	// aggregate public key of next sync committee at the finalized header if known
 	NextSyncCommittee string `json:"next_sync_committee"`
 	// The slot number of the finalized header
@@ -101,7 +103,7 @@ type ConsensusState struct {
 type Header struct {
 	// The account update
 	AccountUpdate AccountUpdate `json:"account_update"`
-	// The trusted sync committee
+	// The active sync committee (untrusted)
 	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
@@ -121,7 +123,7 @@ type AccountProof struct {
 	StorageRoot string `json:"storage_root"`
 }
 
-// The trusted sync committee
+// The active sync committee (untrusted)
 //
 // # The active sync committee
 //

@@ -13,6 +13,8 @@ use crate::{error::EthereumIBCError, header::ActiveSyncCommittee, verify::BlsVer
 pub struct ConsensusState {
     /// The slot number of the finalized header
     pub slot: u64,
+    /// The execution block number
+    pub execution_block_number: u64,
     /// The state merkle root of the finalized header
     #[schemars(with = "String")]
     pub state_root: B256,

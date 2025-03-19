@@ -68,6 +68,11 @@ pub fn update_consensus_state(
     );
 
     new_consensus_state.slot = update_finalized_slot;
+    new_consensus_state.execution_block_number = header
+        .consensus_update
+        .finalized_header
+        .execution
+        .block_number;
     new_consensus_state.state_root = header
         .consensus_update
         .finalized_header

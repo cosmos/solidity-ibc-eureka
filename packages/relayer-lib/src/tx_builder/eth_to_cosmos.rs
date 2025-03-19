@@ -233,7 +233,7 @@ where
         minimum_block_number: u64,
         ethereum_client_state: &ClientState,
         ethereum_consensus_state: &ConsensusState,
-    ) -> Result<(u64, u64, Vec<Header>)> {
+    ) -> Result<Vec<Header>> {
         let finality_update = self
             .wait_for_light_client_readiness(minimum_block_number)
             .await?;
@@ -346,21 +346,7 @@ where
             headers.push(header);
         }
 
-        let (proof_block_number, proof_slot) = headers
-            .last()
-            .map(|header| {
-                (
-                    header
-                        .consensus_update
-                        .finalized_header
-                        .execution
-                        .block_number,
-                    header.consensus_update.finalized_header.beacon.slot,
-                )
-            })
-            .ok_or_else(|| anyhow::anyhow!("No headers found"))?;
-
-        Ok((proof_block_number, proof_slot, headers))
+        Ok(headers)
     }
 }
 
@@ -424,17 +410,7 @@ where
         );
 
         // get updates if necessary
-        let current_beacon_block = self
-            .beacon_api_client
-            .beacon_block(&format!("{:?}", ethereum_consensus_state.slot))
-            .await?;
-        let (proof_block_number, proof_slot, headers) = if minimum_block_number
-            > current_beacon_block
-                .message
-                .body
-                .execution_payload
-                .block_number
-        {
+        let headers = if minimum_block_number > ethereum_consensus_state.execution_block_number {
             self.get_update_headers(
                 minimum_block_number,
                 &ethereum_client_state,
@@ -442,25 +418,21 @@ where
             )
             .await?
         } else {
-            (
-                current_beacon_block
-                    .message
-                    .body
-                    .execution_payload
-                    .block_number,
-                ethereum_consensus_state.slot,
-                vec![],
-            )
+            vec![]
         };
+
+        let proof_slot = headers.last().map_or(ethereum_consensus_state.slot, |h| {
+            h.consensus_update.finalized_header.beacon.slot
+        });
 
         cosmos::inject_ethereum_proofs(
             &mut recv_msgs,
             &mut ack_msgs,
             &mut timeout_msgs,
             &self.eth_client,
+            &self.beacon_api_client,
             &ethereum_client_state.ibc_contract_address.to_string(),
             ethereum_client_state.ibc_commitment_slot,
-            proof_block_number,
             proof_slot,
         )
         .await?;

@@ -113,8 +113,6 @@ impl BeaconApiClient {
 
         let res = self.client.get(url).send().await?;
 
-        debug!(status = %res.status(), "get_json");
-
         match res.status() {
             StatusCode::OK => {
                 let bytes = res.bytes().await?;

@@ -1181,6 +1181,9 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 				s.Require().NoError(err)
 
 				for _, msg := range txBody.Messages {
+					// Make sure there are no update client messages
+					s.Require().NotEqual("ibc.core.client.v1.MsgUpdateClient", msg.TypeUrl)
+
 					var sdkMsg sdk.Msg
 					err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
 					s.Require().NoError(err)
