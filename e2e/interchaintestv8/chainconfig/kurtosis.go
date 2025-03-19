@@ -44,6 +44,7 @@ var (
 			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
+		AdditionalServices:  []string{},
 	}
 	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
 	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
@@ -63,6 +64,7 @@ type kurtosisNetworkParams struct {
 	Participants        []kurtosisParticipant       `json:"participants"`
 	NetworkParams       kurtosisNetworkConfigParams `json:"network_params"`
 	WaitForFinalization bool                        `json:"wait_for_finalization"`
+	AdditionalServices  []string                    `json:"additional_services"`
 }
 
 type kurtosisParticipant struct {
