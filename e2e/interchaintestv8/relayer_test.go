@@ -1026,13 +1026,8 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 
 	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
 		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
-		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, txBodyBz)
-		// The transaction itself can succeed to broadcast, but in that case, the receipt should show a failed transaction
-		if receipt == nil {
-			s.Require().Error(err)
-		} else {
-			s.Require().Equal(ethtypes.ReceiptStatusFailed, receipt.Status)
-		}
+		_, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, txBodyBz)
+		s.Require().Error(err)
 
 		// Prove that the erc20 was not created (and by extension, the packet was not received)
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
