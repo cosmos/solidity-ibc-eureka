@@ -66,7 +66,7 @@ contract ICS26Router is
         __Multicall_init();
         __ICS02Client_init(customizer);
         __IBCStoreUpgradeable_init();
-        __IBCUUPSUpgradeable_init(timelockedAdmin);
+        __IBCUUPSUpgradeable_init_unchained(timelockedAdmin);
 
         if (customizer != address(0)) {
             _grantRole(PORT_CUSTOMIZER_ROLE, customizer);
@@ -293,34 +293,6 @@ contract ICS26Router is
 
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }
-
-    /// @inheritdoc IICS26Router
-    function grantPortCustomizerRole(address account) external onlyAdmin {
-        _grantRole(PORT_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS26Router
-    function revokePortCustomizerRole(address account) external onlyAdmin {
-        _revokeRole(PORT_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS26Router
-    function grantRelayerRole(address account) external onlyAdmin {
-        _grantRole(RELAYER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS26Router
-    function revokeRelayerRole(address account) external onlyAdmin {
-        _revokeRole(RELAYER_ROLE, account);
-    }
-
-    /// @inheritdoc ICS02ClientUpgradeable
-    function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc ICS02ClientUpgradeable
-    function _authorizeSetClientIdCustomizerRole(address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {

@@ -40,7 +40,7 @@ contract ICS26RouterTest is Test {
 
         ics26Router = ICS26Router(address(routerProxy));
 
-        ics26Router.grantRelayerRole(relayer); // anyone can relay packets
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
     }
 
     function test_success_addIBCAppUsingAddress() public {

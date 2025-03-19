@@ -74,7 +74,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
-        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {

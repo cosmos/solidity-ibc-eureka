@@ -99,7 +99,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
-        ics26Router.grantRelayerRole(address(0)); // anyone can relay packets
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));

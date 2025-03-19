@@ -70,7 +70,7 @@ contract IBCAdminTest is Test {
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
-        ics26Router.grantRelayerRole(relayer);
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
     }
 
     function test_success_ics20_upgrade() public {
@@ -157,36 +157,45 @@ contract IBCAdminTest is Test {
     }
 
     function test_success_setPortCustomizer() public {
+        bytes32 portCustomizerRole = ics26Router.PORT_CUSTOMIZER_ROLE();
         address newPortCustomizer = makeAddr("newPortCustomizer");
 
-        ics26Router.grantPortCustomizerRole(newPortCustomizer);
-        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), newPortCustomizer));
+        ics26Router.grantRole(portCustomizerRole, newPortCustomizer);
+        assert(ics26Router.hasRole(portCustomizerRole, newPortCustomizer));
 
-        ics26Router.revokePortCustomizerRole(customizer);
-        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), customizer));
+        ics26Router.revokeRole(portCustomizerRole, customizer);
+        assertFalse(ics26Router.hasRole(portCustomizerRole, customizer));
     }
 
     function test_failure_setPortCustomizer() public {
+        bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
+        bytes32 portCustomizerRole = ics26Router.PORT_CUSTOMIZER_ROLE();
         address unauthorized = makeAddr("unauthorized");
         address newPortCustomizer = makeAddr("newPortCustomizer");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.grantPortCustomizerRole(newPortCustomizer);
-        assertFalse(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), newPortCustomizer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.grantRole(portCustomizerRole, newPortCustomizer);
+        assertFalse(ics26Router.hasRole(portCustomizerRole, newPortCustomizer));
 
         // Revoke the port customizer role from an unauthorized account
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.revokePortCustomizerRole(customizer);
-        assert(ics26Router.hasRole(ics26Router.PORT_CUSTOMIZER_ROLE(), customizer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.revokeRole(portCustomizerRole, customizer);
+        assert(ics26Router.hasRole(portCustomizerRole, customizer));
 
         // Check that an unauthorized account cannot set the port
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                ics26Router.PORT_CUSTOMIZER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, portCustomizerRole
             )
         );
         vm.prank(unauthorized);
@@ -194,73 +203,91 @@ contract IBCAdminTest is Test {
     }
 
     function test_success_setClientIdCustomizer() public {
+        bytes32 clientIdCustomizerRole = ics26Router.CLIENT_ID_CUSTOMIZER_ROLE();
         address newCustomizer = makeAddr("newCustomizer");
 
-        ics26Router.grantClientIdCustomizerRole(newCustomizer);
-        assert(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), newCustomizer));
+        ics26Router.grantRole(clientIdCustomizerRole, newCustomizer);
+        assert(ics26Router.hasRole(clientIdCustomizerRole, newCustomizer));
 
-        ics26Router.revokeClientIdCustomizerRole(customizer);
-        assertFalse(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), customizer));
+        ics26Router.revokeRole(clientIdCustomizerRole, customizer);
+        assertFalse(ics26Router.hasRole(clientIdCustomizerRole, customizer));
     }
 
     function test_failure_setClientIdCustomizer() public {
+        bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
+        bytes32 clientIdCustomizerRole = ics26Router.CLIENT_ID_CUSTOMIZER_ROLE();
         address unauthorized = makeAddr("unauthorized");
         address newCustomizer = makeAddr("newCustomizer");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.grantClientIdCustomizerRole(newCustomizer);
-        assertFalse(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), newCustomizer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.grantRole(clientIdCustomizerRole, newCustomizer);
+        assertFalse(ics26Router.hasRole(clientIdCustomizerRole, newCustomizer));
 
         // Revoke the port customizer role from an unauthorized account
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.revokeClientIdCustomizerRole(customizer);
-        assert(ics26Router.hasRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), customizer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.revokeRole(clientIdCustomizerRole, customizer);
+        assert(ics26Router.hasRole(clientIdCustomizerRole, customizer));
 
         // Check that an unauthorized account cannot set the port
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                ics26Router.PORT_CUSTOMIZER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, clientIdCustomizerRole
             )
         );
         vm.prank(unauthorized);
-        ics26Router.addIBCApp("newPort", address(ics20Transfer));
+        ics26Router.addClient("newClient", IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(0));
     }
 
     function test_success_setRelayer() public {
+        bytes32 relayerRole = ics26Router.RELAYER_ROLE();
         address newRelayer = makeAddr("newRelayer");
 
-        ics26Router.grantRelayerRole(newRelayer);
-        assert(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+        ics26Router.grantRole(relayerRole, newRelayer);
+        assert(ics26Router.hasRole(relayerRole, newRelayer));
 
-        ics26Router.revokeRelayerRole(newRelayer);
-        assertFalse(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+        ics26Router.revokeRole(relayerRole, newRelayer);
+        assertFalse(ics26Router.hasRole(relayerRole, newRelayer));
     }
 
     function test_failure_setRelayer() public {
+        bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
+        bytes32 relayerRole = ics26Router.RELAYER_ROLE();
         address unauthorized = makeAddr("unauthorized");
         address newRelayer = makeAddr("newRelayer");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.grantRelayerRole(newRelayer);
-        assertFalse(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), newRelayer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.grantRole(relayerRole, newRelayer);
+        assertFalse(ics26Router.hasRole(relayerRole, newRelayer));
 
         // Revoke the port customizer role from an unauthorized account
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.revokePortCustomizerRole(relayer);
-        assert(ics26Router.hasRole(ics26Router.RELAYER_ROLE(), relayer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.revokeRole(relayerRole, relayer);
+        assert(ics26Router.hasRole(relayerRole, relayer));
 
         // Check that an unauthorized account cannot call recvPacket
         IICS26RouterMsgs.MsgRecvPacket memory recvMsg;
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, relayerRole)
         );
         vm.prank(unauthorized);
         ics26Router.recvPacket(recvMsg);
@@ -268,9 +295,7 @@ contract IBCAdminTest is Test {
         // Check that an unauthorized account cannot call timeoutPacket
         IICS26RouterMsgs.MsgTimeoutPacket memory timeoutMsg;
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, relayerRole)
         );
         vm.prank(unauthorized);
         ics26Router.timeoutPacket(timeoutMsg);
@@ -278,38 +303,47 @@ contract IBCAdminTest is Test {
         // Check that an unauthorized account cannot call ackPacket
         IICS26RouterMsgs.MsgAckPacket memory ackMsg;
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics26Router.RELAYER_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, relayerRole)
         );
         vm.prank(unauthorized);
         ics26Router.ackPacket(ackMsg);
     }
 
     function test_success_setClientMigrator() public {
+        bytes32 clientMigratorRole = ics26Router.getLightClientMigratorRole(clientId);
         address newLightClientMigrator = makeAddr("newLightClientMigrator");
 
-        ics26Router.grantLightClientMigratorRole(clientId, newLightClientMigrator);
-        assert(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), newLightClientMigrator));
+        ics26Router.grantRole(clientMigratorRole, newLightClientMigrator);
+        assert(ics26Router.hasRole(clientMigratorRole, newLightClientMigrator));
 
-        ics26Router.revokeLightClientMigratorRole(clientId, clientCreator);
-        assertFalse(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), clientCreator));
+        ics26Router.revokeRole(clientMigratorRole, clientCreator);
+        assertFalse(ics26Router.hasRole(clientMigratorRole, clientCreator));
     }
 
     function test_failure_setClientMigrator() public {
+        bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
+        bytes32 clientMigratorRole = ics26Router.getLightClientMigratorRole(clientId);
         address unauthorized = makeAddr("unauthorized");
         address newLightClientMigrator = makeAddr("newLightClientMigrator");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.grantLightClientMigratorRole(clientId, newLightClientMigrator);
-        assertFalse(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), newLightClientMigrator));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.grantRole(clientMigratorRole, newLightClientMigrator);
+        assertFalse(ics26Router.hasRole(clientMigratorRole, newLightClientMigrator));
 
         // Revoke the light client migrator role from an unauthorized account
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.Unauthorized.selector));
-        ics26Router.revokeLightClientMigratorRole(clientId, clientCreator);
-        assert(ics26Router.hasRole(ics26Router.getLightClientMigratorRole(clientId), clientCreator));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics26Router.revokeRole(clientMigratorRole, clientCreator);
+        assert(ics26Router.hasRole(clientMigratorRole, clientCreator));
     }
 
     function test_success_pauseAndUnpause() public {
