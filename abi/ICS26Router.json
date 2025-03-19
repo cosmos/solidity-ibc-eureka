@@ -1551,6 +1551,11 @@
   },
   {
     "type": "error",
+    "name": "DefaultAdminRoleCannotBeGranted",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
