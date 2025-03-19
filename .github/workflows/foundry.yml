@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Lint the code
         run: bun run lint:sol
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Build the contracts and print their size
         run: forge build --sizes
@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Show the Foundry config
         run: forge config
@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Install lcov
         run: |

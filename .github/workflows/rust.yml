@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Install SP1 toolchain
         shell: bash
@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Install SP1 toolchain
         shell: bash
@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
       - name: Install SP1 toolchain
         shell: bash
         run: |
@@ -91,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
       - name: Install SP1 toolchain
         shell: bash
         run: |

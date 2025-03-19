@@ -13,7 +13,25 @@
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "sp1_config": "env"
+        "sp1_config": {
+          "prover_type": "network",
+          "network_private_key": "0x4242424242424242424242424242424242424242424242424242424242424242",
+          "network_rpc_url": "https://prover-url.com",
+          "private_cluster": true
+        }
+      }
+    },
+    {
+      "name": "cosmos_to_eth",
+      "src_chain": "testnet-1",
+      "dst_chain": "0x2",
+      "config": {
+        "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "sp1_config": {
+          "prover_type": "mock"
+        }
       }
     },
     {

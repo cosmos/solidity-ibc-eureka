@@ -1,4 +1,4 @@
-name: setup-e2e
+name: e2e-setup
 
 inputs:
   github_token:
@@ -8,8 +8,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up environment
-      uses: ./.github/actions/setup
+    - name: Set up foundry tooling
+      uses: ./.github/actions/foundry-setup
 
     - name: Setup Go
       uses: actions/setup-go@v4

@@ -1,4 +1,4 @@
-name: setup
+name: foundry-setup
 
 runs:
   using: composite

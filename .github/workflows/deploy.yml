@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
 
       - name: Deploy Anvil
         run: |
@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up environment
-        uses: ./.github/actions/setup
+        uses: ./.github/actions/foundry-setup
       - name: Export the RPC URL
         run: |
           cat deployments/${{ matrix.env }}/${{ matrix.file }} | jq -r ". | \"FOUNDRY_ETH_RPC_URL=\(.rpc_url)\"" >> $GITHUB_ENV
