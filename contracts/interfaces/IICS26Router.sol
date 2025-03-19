@@ -54,8 +54,7 @@ interface IICS26Router {
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    /// @param customizer The address of the port and client id customizer
-    function initialize(address timelockedAdmin, address customizer) external;
+    function initialize(address timelockedAdmin) external;
 
     // --------------------- Events --------------------- //
 

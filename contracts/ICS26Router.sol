@@ -60,17 +60,13 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function initialize(address timelockedAdmin, address customizer) external initializer {
+    function initialize(address timelockedAdmin) external initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __ICS02Client_init(customizer);
+        __ICS02Client_init_unchained();
         __IBCStoreUpgradeable_init();
         __IBCUUPSUpgradeable_init_unchained(timelockedAdmin);
-
-        if (customizer != address(0)) {
-            _grantRole(PORT_CUSTOMIZER_ROLE, customizer);
-        }
     }
 
     /// @inheritdoc IICS26Router
