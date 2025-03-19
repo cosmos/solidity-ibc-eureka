@@ -8,11 +8,11 @@ on:
   workflow_dispatch: # this will kick off a dev deployment
   pull_request:
     paths:
-      - **.rs
-      - **.toml
-      - **.lock
-      - **.proto
-      - abi/**
+      - "**.rs"
+      - "**.toml"
+      - "**.lock"
+      - "**.proto"
+      - "abi/**"
 
 # Cancel the workflow if a new commit is pushed to the branch/PR
 concurrency:

@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - abi/**
-      - abigen/**
-      - **.sol
-      - bun.lockb
+      - "abi/**"
+      - "abigen/**"
+      - "**.sol"
+      - "bun.lockb"
   push:
     branches:
       - main
     paths:
-      - abi/**
-      - abigen/**
+      - "abi/**"
+      - "abigen/**"
 
 jobs:
   gen-check:
