@@ -66,17 +66,14 @@ pub enum SP1Config {
     /// The network prover.
     Network {
         /// The optional private key for the network prover.
-        /// Only used when `prover_type` is "network".
         /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
         #[serde(default)]
         network_private_key: Option<String>,
         /// The optional RPC URL for the network prover.
-        /// Only used when `prover_type` is "network".
         /// `NETWORK_RPC_URL` environment variable is used if not provided.
         #[serde(default)]
         network_rpc_url: Option<String>,
         /// Whether to use a private cluster.
-        /// Only used when `prover_type` is "network".
         #[serde(default)]
         private_cluster: bool,
     },
