@@ -5,7 +5,7 @@ inputs:
   skip-tests:
     description: Comma-separated list of tests to skip
     required: false
-    default: ""
+    default: ''
 
 outputs:
   matrix:

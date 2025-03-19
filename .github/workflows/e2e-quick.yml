@@ -3,15 +3,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "**.rs"
-      - "**.go"
-      - "**.toml"
-      - "**.lock"
-      - "**.mod"
-      - "**.sum"
-      - "**.sol"
-      - ".github/workflows/quick-e2e.yml"
-      - "bun.lockb"
+      - '**.rs'
+      - '**.go'
+      - '**.toml'
+      - '**.lock'
+      - '**.mod'
+      - '**.sum'
+      - '**.sol'
+      - '.github/workflows/quick-e2e.yml'
+      - 'bun.lockb'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

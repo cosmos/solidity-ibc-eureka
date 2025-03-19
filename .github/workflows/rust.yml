@@ -6,11 +6,11 @@ on:
     branches: [main]
   pull_request:
     paths:
-      - "**.rs"
-      - "**.toml"
-      - "**.lock"
-      - "**.proto"
-      - "abi/**"
+      - '**.rs'
+      - '**.toml'
+      - '**.lock'
+      - '**.proto'
+      - 'abi/**'
 
 jobs:
   lints:
