@@ -12,20 +12,16 @@ interface IICS26Router {
     /// @return The role identifier
     function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
 
+    /// @notice The role identifier for the relayer role
+    /// @dev The relayer role is used to whitelist addresses that can relay packets
+    /// @dev If `address(0)` has this role, then anyone can relay packets
+    /// @return The role identifier
+    function RELAYER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
     function getIBCApp(string calldata portId) external view returns (IIBCApp);
-
-    /// @notice Returns whether or not a packet was received
-    /// @param packet The packet to check
-    /// @return True if the packet was received, false otherwise
-    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) external view returns (bool);
-
-    /// @notice Returns whether or not a packet was received successfully
-    /// @param packet The packet to check
-    /// @return True if the packet was received and the application callback was successful, false otherwise
-    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool);
 
     /// @notice Adds an IBC application to the router
     /// @dev The port identifier is the address of the IBC application contract.
@@ -55,21 +51,10 @@ interface IICS26Router {
     /// @param msg The message for timing out packets
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
 
-    /// @notice Grants the port customizer role to an account
-    /// @dev Can only be called by an admin
-    /// @param account The account to grant the role to
-    function grantPortCustomizerRole(address account) external;
-
-    /// @notice Revokes the port customizer role from an account
-    /// @dev Can only be called by an admin
-    /// @param account The account to revoke the role from
-    function revokePortCustomizerRole(address account) external;
-
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
     /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    /// @param customizer The address of the port and client id customizer
-    function initialize(address timelockedAdmin, address customizer) external;
+    function initialize(address timelockedAdmin) external;
 
     // --------------------- Events --------------------- //
 

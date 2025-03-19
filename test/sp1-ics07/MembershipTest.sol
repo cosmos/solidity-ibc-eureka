@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable-next-line no-global-import
@@ -26,7 +26,7 @@ abstract contract MembershipTest is SP1ICS07TendermintTest {
     function setUpTestWithFixtures(string memory fileName) public {
         fixture = loadFixture(fileName);
 
-        setUpTest(fileName);
+        setUpTest(fileName, address(0));
     }
 
     function loadFixture(string memory fileName) public view returns (SP1ICS07MembershipFixtureJson memory) {
