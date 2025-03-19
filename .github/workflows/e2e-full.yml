@@ -2,7 +2,7 @@ name: e2e-full
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 */3 * *"  # Run every 3 days at midnight UTC
+    - cron: 0 0 */3 * *  # Run every 3 days at midnight UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,7 +27,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-test-matrix
         with:
-          skip-tests: 'TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16,TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos'
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16,TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos
 
   e2e:
     needs: generate-matrix
@@ -38,7 +38,7 @@ jobs:
     runs-on: depot-ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up E2E environment"
+      - name: Set up E2E environment
         uses: ./.github/actions/setup-e2e
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -48,4 +48,4 @@ jobs:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run '^${{ matrix.test }}$' -timeout 120m
+          go test -v -mod=readonly . -run "^${{ matrix.test }}$" -timeout 120m

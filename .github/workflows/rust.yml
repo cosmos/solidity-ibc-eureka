@@ -6,11 +6,11 @@ on:
     branches: [main]
   pull_request:
     paths:
-      - '**.rs'
-      - '**.toml'
-      - '**.lock'
-      - '**.proto'
-      - 'abi/**'
+      - **.rs
+      - **.toml
+      - **.lock
+      - **.proto
+      - abi/**
 
 jobs:
   lints:
@@ -18,7 +18,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
 
       - name: Install SP1 toolchain
@@ -48,7 +48,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
 
       - name: Install SP1 toolchain
@@ -70,7 +70,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
         shell: bash
@@ -90,7 +90,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
       - name: Install SP1 toolchain
         shell: bash

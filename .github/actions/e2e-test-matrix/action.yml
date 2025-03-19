@@ -1,15 +1,15 @@
 name: e2e-test-matrix
-description: 'Dynamically discovers and generates a test matrix for e2e tests'
+description: Dynamically discovers and generates a test matrix for e2e tests
 
 inputs:
   skip-tests:
-    description: 'Comma-separated list of tests to skip'
+    description: Comma-separated list of tests to skip
     required: false
-    default: ''
+    default: ""
 
 outputs:
   matrix:
-    description: 'JSON string containing the test matrix'
+    description: JSON string containing the test matrix
     value: ${{ steps.generate-matrix.outputs.matrix }}
 
 runs:

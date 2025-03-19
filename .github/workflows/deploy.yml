@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - "main"
+      - main
 
 jobs:
   test-deploy:
@@ -14,7 +14,7 @@ jobs:
       DEPLOYMENT_ENV: local
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
 
       - name: Deploy Anvil
@@ -47,10 +47,10 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.gather-deploys.outputs.matrix) }}
     env:
-      DEPLOYMENT_ENV: "${{ matrix.env }}"
+      DEPLOYMENT_ENV: ${{ matrix.env }}
     steps:
       - uses: actions/checkout@v4
-      - name: "Set up environment"
+      - name: Set up environment
         uses: ./.github/actions/setup
       - name: Export the RPC URL
         run: |
