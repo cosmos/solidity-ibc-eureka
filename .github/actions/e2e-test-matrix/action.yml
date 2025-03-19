@@ -13,7 +13,7 @@ outputs:
     value: ${{ steps.generate-matrix.outputs.matrix }}
 
 runs:
-  using: "composite"
+  using: composite
   steps:
     - name: Generate Test Matrix
       id: generate-matrix

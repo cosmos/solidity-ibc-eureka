@@ -30,10 +30,10 @@ jobs:
       registry_url: ghcr.io/cosmos/eureka-relayer
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != "pull_request"
+        if: github.event_name != 'pull_request'
       - name: Check out the PR commit head
         uses: actions/checkout@v4
-        if: github.event_name == "pull_request"
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Login to GitHub Container Registry
