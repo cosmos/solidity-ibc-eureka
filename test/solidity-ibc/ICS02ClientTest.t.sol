@@ -34,9 +34,11 @@ contract ICS02ClientTest is Test {
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this)))
         );
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
+
+        ics02Client.grantRole(ics02Client.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
 
         vm.startPrank(clientOwner);
         string memory counterpartyId = "42-dummy-01";

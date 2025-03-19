@@ -49,7 +49,7 @@ contract IBCAdminTest is Test {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), customizer))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this)))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
@@ -64,13 +64,15 @@ contract IBCAdminTest is Test {
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), customizer);
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), customizer);
+
         vm.prank(clientCreator);
         clientId =
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
     }
 
     function test_success_ics20_upgrade() public {

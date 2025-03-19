@@ -35,12 +35,14 @@ contract ICS26RouterTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this)))
         );
 
         ics26Router = ICS26Router(address(routerProxy));
 
         ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
     }
 
     function test_success_addIBCAppUsingAddress() public {
