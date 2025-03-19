@@ -4,6 +4,10 @@ pragma solidity ^0.8.28;
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
 interface IRelayerHelper {
+    /// @notice Returns the underlying ICS26Router contract address
+    /// @return ICS26Router contract address
+    function ICS26_ROUTER() external view returns (address);
+
     /// @notice Returns whether or not a packet was received
     /// @param packet The packet to check
     /// @return True if the packet was received, false otherwise

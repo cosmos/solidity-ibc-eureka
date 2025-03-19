@@ -12,11 +12,11 @@ import { ICS24Host } from "./ICS24Host.sol";
 /// @title Relayer Helper
 /// @notice RelayerHelper is a helper contract for relayers, providing utility queries and multicall functions
 contract RelayerHelper is IRelayerHelper {
-    /// @notice The ICS26 router
-    address public immutable ics26Router;
+    /// @inheritdoc IRelayerHelper
+    address public immutable ICS26_ROUTER;
 
     constructor(address _ics26Router) {
-        ics26Router = _ics26Router;
+        ICS26_ROUTER = _ics26Router;
     }
 
     /// @inheritdoc IRelayerHelper
@@ -41,18 +41,18 @@ contract RelayerHelper is IRelayerHelper {
     /// @inheritdoc IRelayerHelper
     function queryPacketReceipt(string calldata clientId, uint64 sequence) public view returns (bytes32) {
         bytes32 path = ICS24Host.packetReceiptCommitmentKeyCalldata(clientId, sequence);
-        return IIBCStore(ics26Router).getCommitment(path);
+        return IIBCStore(ICS26_ROUTER).getCommitment(path);
     }
 
     /// @inheritdoc IRelayerHelper
     function queryPacketCommitment(string calldata clientId, uint64 sequence) public view returns (bytes32) {
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(clientId, sequence);
-        return IIBCStore(ics26Router).getCommitment(path);
+        return IIBCStore(ICS26_ROUTER).getCommitment(path);
     }
 
     /// @inheritdoc IRelayerHelper
     function queryAckCommitment(string calldata clientId, uint64 sequence) public view returns (bytes32) {
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(clientId, sequence);
-        return IIBCStore(ics26Router).getCommitment(path);
+        return IIBCStore(ICS26_ROUTER).getCommitment(path);
     }
 }
