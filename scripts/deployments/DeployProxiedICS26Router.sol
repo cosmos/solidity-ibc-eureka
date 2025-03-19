@@ -21,11 +21,13 @@ abstract contract DeployProxiedICS26Router is Deployments {
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             deployment.implementation,
-            abi.encodeCall(ICS26Router.initialize, (deployment.timeLockAdmin, deployment.timeLockAdmin))
+            abi.encodeCall(ICS26Router.initialize, (deployment.timeLockAdmin))
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
-        ics26Router.grantRelayerRole(deployment.relayer);
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayer);
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
 
         return routerProxy;
     }
