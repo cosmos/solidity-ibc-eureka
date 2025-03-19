@@ -1143,7 +1143,6 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 		time.Sleep(10 * time.Second) // Just to make sure we are up to date
 
 		var relayTxHashes [][]byte
-
 		// loop over the txHashes and send them concurrently
 		for _, txHash := range sendTxHashes {
 			txHash := txHash
