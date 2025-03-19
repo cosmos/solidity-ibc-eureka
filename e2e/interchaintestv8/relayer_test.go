@@ -208,7 +208,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 	var sendTxHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
-		for i := 0; i < numConcurrentTransfers; i++ {
+		for range numConcurrentTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 			transferPayload := transfertypes.FungibleTokenPacketData{
@@ -367,7 +367,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 		encodedMsg, err := ics20transferAbi.Pack("sendTransfer", msgSendPacket)
 		s.Require().NoError(err)
-		for i := 0; i < numOfTransfers; i++ {
+		for i := range numOfTransfers {
 			transferMulticall[i] = encodedMsg
 		}
 
@@ -659,7 +659,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			Memo:             "",
 		}
 
-		for i := 0; i < numOfTransfers; i++ {
+		for range numOfTransfers {
 			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
 			s.Require().NoError(err)
 
@@ -759,7 +759,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		sendTxHashes [][]byte
 	)
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -839,7 +839,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 
 	s.Require().True(s.Run("Acknowledge packets on Cosmos", func() {
 		s.Require().True(s.Run("Verify commitments exists", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: testvalues.FirstWasmClientID,
 					Sequence: uint64(i) + 1,
@@ -869,7 +869,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: testvalues.FirstWasmClientID,
 					Sequence: uint64(i) + 1,
@@ -912,7 +912,7 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		sendTxHashes [][]byte
 	)
 	s.Require().True(s.Run("Send transfers on Cosmos chain", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for range numOfTransfers {
 			timeout := uint64(time.Now().Add(45 * time.Second).Unix())
 			transferCoin = sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 

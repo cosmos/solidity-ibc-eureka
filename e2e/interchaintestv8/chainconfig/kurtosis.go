@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -18,6 +19,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const (
@@ -40,7 +42,7 @@ var (
 			},
 		},
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           "minimal",
+			Preset:           getKurtosisPreset(),
 			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
@@ -49,6 +51,16 @@ var (
 	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
 	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
 )
+
+// getKurtosisPreset returns the Kurtosis preset to use.
+// It retrieves the preset from the environment variable or falls back to the default.
+func getKurtosisPreset() string {
+	preset := os.Getenv(testvalues.EnvKeyEthereumPosNetworkPreset)
+	if preset == "" {
+		return testvalues.EnvValueEthereumPosPreset_Minimal
+	}
+	return preset
+}
 
 type EthKurtosisChain struct {
 	RPC             string
