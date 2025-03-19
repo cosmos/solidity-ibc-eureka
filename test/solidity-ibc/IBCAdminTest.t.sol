@@ -12,6 +12,7 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCUUPSUpgradeableErrors } from "../../contracts/errors/IIBCUUPSUpgradeableErrors.sol";
+import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
@@ -171,7 +172,7 @@ contract IBCAdminTest is Test {
         address anyAddress = makeAddr("anyAddress");
 
         vm.expectRevert(
-            abi.encodeWithSelector(IIBCUUPSUpgradeableErrors.DefaultAdminRoleCannotBeGranted.selector)
+            abi.encodeWithSelector(IICS26RouterErrors.DefaultAdminRoleCannotBeGranted.selector)
         );
         ics26Router.grantRole(defaultAdminRole, anyAddress);
         assertFalse(ics26Router.hasRole(defaultAdminRole, anyAddress));
