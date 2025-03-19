@@ -20,6 +20,21 @@ contract RelayerHelper is IRelayerHelper {
     }
 
     /// @inheritdoc IRelayerHelper
+    function recvPacketWithGasLimit(IICS26RouterMsgs.MsgRecvPacket calldata msg_, uint256 gasLimit) external {
+        IICS26Router(ics26Router).recvPacket{gas: gasLimit}(msg_);
+    }
+
+    /// @inheritdoc IRelayerHelper
+    function ackPacketWithGasLimit(IICS26RouterMsgs.MsgAckPacket calldata msg_, uint256 gasLimit) external {
+        IICS26Router(ics26Router).ackPacket{gas: gasLimit}(msg_);
+    }
+
+    /// @inheritdoc IRelayerHelper
+    function timeoutPacketWithGasLimit(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_, uint256 gasLimit) external {
+        IICS26Router(ics26Router).timeoutPacket{gas: gasLimit}(msg_);
+    }
+
+    /// @inheritdoc IRelayerHelper
     function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
         bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
         return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
