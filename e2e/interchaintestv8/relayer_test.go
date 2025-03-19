@@ -1184,7 +1184,6 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 					msgs = append(msgs, sdkMsg)
 				}
 			}
-
 			s.Require().NotZero(len(msgs))
 
 			_, err := s.BroadcastMessages(ctx, simd, s.SimdRelayerSubmitter, 5_000_000, msgs...)
