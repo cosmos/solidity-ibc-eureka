@@ -2,9 +2,9 @@
 pragma solidity ^0.8.28;
 
 import { IIBCUUPSUpgradeableErrors } from "../errors/IIBCUUPSUpgradeableErrors.sol";
-import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC UUPSUpgradeable contract
 /// @notice This contract is an abstract contract for managing upgradability of IBC contracts.
@@ -22,7 +22,7 @@ abstract contract IBCUUPSUpgradeable is
     IIBCUUPSUpgradeableErrors,
     IIBCUUPSUpgradeable,
     UUPSUpgradeable,
-    ContextUpgradeable
+    AccessControlUpgradeable
 {
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -43,8 +43,9 @@ abstract contract IBCUUPSUpgradeable is
     /// the timelockedAdmin later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
-    function __IBCUUPSUpgradeable_init(address timelockedAdmin) internal onlyInitializing {
+    function __IBCUUPSUpgradeable_init_unchained(address timelockedAdmin) internal onlyInitializing {
         _getIBCUUPSUpgradeableStorage().timelockedAdmin = timelockedAdmin;
+        _grantRole(DEFAULT_ADMIN_ROLE, timelockedAdmin);
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
@@ -59,12 +60,20 @@ abstract contract IBCUUPSUpgradeable is
 
     /// @inheritdoc IIBCUUPSUpgradeable
     function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
-        _getIBCUUPSUpgradeableStorage().timelockedAdmin = newTimelockedAdmin;
+        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
+        _revokeRole(DEFAULT_ADMIN_ROLE, $.timelockedAdmin);
+
+        $.timelockedAdmin = newTimelockedAdmin;
+        _grantRole(DEFAULT_ADMIN_ROLE, newTimelockedAdmin);
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
-        _getIBCUUPSUpgradeableStorage().govAdmin = newGovAdmin;
+        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
+        _revokeRole(DEFAULT_ADMIN_ROLE, $.govAdmin);
+
+        $.govAdmin = newGovAdmin;
+        _grantRole(DEFAULT_ADMIN_ROLE, newGovAdmin);
     }
 
     /// @inheritdoc IIBCUUPSUpgradeable
@@ -74,7 +83,7 @@ abstract contract IBCUUPSUpgradeable is
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view virtual override onlyAdmin { }
+    function _authorizeUpgrade(address) internal view virtual override(UUPSUpgradeable) onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the IBCUUPSUpgradeable contract

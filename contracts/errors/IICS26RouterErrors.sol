@@ -42,4 +42,7 @@ interface IICS26RouterErrors {
     /// @notice IBC callback failed due to unknown reason
     /// @dev Usually OOG
     error IBCFailedCallback();
+
+    /// @notice Default admin role cannot be granted non-programmatically
+    error DefaultAdminRoleCannotBeGranted();
 }

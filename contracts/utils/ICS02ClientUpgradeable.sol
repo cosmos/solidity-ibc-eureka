@@ -44,11 +44,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
 
-    function __ICS02Client_init(address customizer) internal onlyInitializing {
-        if (customizer != address(0)) {
-            _grantRole(CLIENT_ID_CUSTOMIZER_ROLE, customizer);
-        }
-    }
+    function __ICS02Client_init_unchained() internal onlyInitializing { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IICS02Client
     function getNextClientSeq() external view returns (uint256) {
@@ -175,39 +172,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
         getClient(clientId).upgradeClient(upgradeMsg);
     }
-
-    /// @inheritdoc IICS02Client
-    function grantLightClientMigratorRole(string calldata clientId, address account) external {
-        _authorizeSetLightClientMigratorRole(clientId, account);
-        _grantRole(getLightClientMigratorRole(clientId), account);
-    }
-
-    /// @inheritdoc IICS02Client
-    function revokeLightClientMigratorRole(string calldata clientId, address account) external {
-        _authorizeSetLightClientMigratorRole(clientId, account);
-        _revokeRole(getLightClientMigratorRole(clientId), account);
-    }
-
-    /// @inheritdoc IICS02Client
-    function grantClientIdCustomizerRole(address account) external {
-        _authorizeSetClientIdCustomizerRole(account);
-        _grantRole(CLIENT_ID_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS02Client
-    function revokeClientIdCustomizerRole(address account) external {
-        _authorizeSetClientIdCustomizerRole(account);
-        _revokeRole(CLIENT_ID_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @notice Authorizes the granting or revoking of the light client migrator role
-    /// @param clientId The client identifier
-    /// @param account The account to authorize
-    function _authorizeSetLightClientMigratorRole(string calldata clientId, address account) internal virtual;
-
-    /// @notice Authorizes the granting of the client id customizer role
-    /// @param account The account to authorize
-    function _authorizeSetClientIdCustomizerRole(address account) internal virtual;
 
     /// @notice Returns the storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
