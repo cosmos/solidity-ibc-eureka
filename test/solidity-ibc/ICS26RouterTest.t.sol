@@ -34,9 +34,8 @@ contract ICS26RouterTest is Test {
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this)))
-        );
+        ERC1967Proxy routerProxy =
+            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
 
         ics26Router = ICS26Router(address(routerProxy));
 
