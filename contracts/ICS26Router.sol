@@ -81,25 +81,6 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
-        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
-        return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
-    }
-
-    /// @inheritdoc IICS26Router
-    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool) {
-        if (!isPacketReceived(packet)) {
-            return false;
-        }
-
-        bytes[] memory errorAck = new bytes[](1);
-        errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
-        bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
-        bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
-        return storedAckCommitment != 0 && storedAckCommitment != errorAckCommitment;
-    }
-
-    /// @inheritdoc IICS26Router
     function addIBCApp(address app) external nonReentrant {
         string memory portId = Strings.toHexString(app);
         _addIBCApp(portId, app);
