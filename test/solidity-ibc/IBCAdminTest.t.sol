@@ -171,9 +171,7 @@ contract IBCAdminTest is Test {
         bytes32 defaultAdminRole = ics26Router.DEFAULT_ADMIN_ROLE();
         address anyAddress = makeAddr("anyAddress");
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IICS26RouterErrors.DefaultAdminRoleCannotBeGranted.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.DefaultAdminRoleCannotBeGranted.selector));
         ics26Router.grantRole(defaultAdminRole, anyAddress);
         assertFalse(ics26Router.hasRole(defaultAdminRole, anyAddress));
     }
