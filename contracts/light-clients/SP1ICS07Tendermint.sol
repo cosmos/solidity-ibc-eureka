@@ -18,12 +18,18 @@ import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import { Paths } from "./utils/Paths.sol";
 import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
 import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
+import { AccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
 /// @notice This contract implements an ICS07 IBC tendermint light client using SP1.
-/// @custom:poc This is a proof of concept implementation.
-contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, ILightClient, Multicall {
+contract SP1ICS07Tendermint is
+    ISP1ICS07TendermintErrors,
+    ISP1ICS07Tendermint,
+    ILightClient,
+    Multicall,
+    AccessControl
+{
     using TransientSlot for *;
 
     /// @inheritdoc ISP1ICS07Tendermint
@@ -46,6 +52,9 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @inheritdoc ISP1ICS07Tendermint
     uint16 public constant ALLOWED_SP1_CLOCK_DRIFT = 30 minutes;
 
+    /// @inheritdoc ISP1ICS07Tendermint
+    bytes32 public constant PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
+
     /// @notice The constructor sets the program verification key and the initial client and consensus states.
     /// @param updateClientProgramVkey The verification key for the update client program.
     /// @param membershipProgramVkey The verification key for the verify (non)membership program.
@@ -54,6 +63,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @param sp1Verifier The address of the SP1 verifier contract.
     /// @param _clientState The encoded initial client state.
     /// @param _consensusState The encoded initial consensus state.
+    /// @param roleManager Manages the proof submitters and can submit proofs. Should be the ICS26Router if used in IBC.
     constructor(
         bytes32 updateClientProgramVkey,
         bytes32 membershipProgramVkey,
@@ -61,7 +71,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
         bytes32 misbehaviourProgramVkey,
         address sp1Verifier,
         bytes memory _clientState,
-        bytes32 _consensusState
+        bytes32 _consensusState,
+        address roleManager
     ) {
         UPDATE_CLIENT_PROGRAM_VKEY = updateClientProgramVkey;
         MEMBERSHIP_PROGRAM_VKEY = membershipProgramVkey;
@@ -77,6 +88,13 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
             clientState.trustingPeriod + ALLOWED_SP1_CLOCK_DRIFT <= clientState.unbondingPeriod,
             TrustingPeriodTooLong(clientState.trustingPeriod, clientState.unbondingPeriod)
         );
+
+        if (roleManager == address(0)) {
+            _grantRole(PROOF_SUBMITTER_ROLE, address(0)); // Allow anyone to submit proofs
+        } else {
+            _grantRole(DEFAULT_ADMIN_ROLE, roleManager); // Allow the role manager to manage roles
+            _grantRole(PROOF_SUBMITTER_ROLE, roleManager); // Allow the role manager to submit proofs
+        }
     }
 
     /// @inheritdoc ILightClient
@@ -93,7 +111,12 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
 
     /// @dev This function verifies the public values and forwards the proof to the SP1 verifier.
     /// @inheritdoc ILightClient
-    function updateClient(bytes calldata updateMsg) external notFrozen returns (ILightClientMsgs.UpdateResult) {
+    function updateClient(bytes calldata updateMsg)
+        external
+        notFrozen
+        onlyProofSubmitter
+        returns (ILightClientMsgs.UpdateResult)
+    {
         IUpdateClientMsgs.MsgUpdateClient memory msgUpdateClient =
             abi.decode(updateMsg, (IUpdateClientMsgs.MsgUpdateClient));
         require(
@@ -128,6 +151,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_)
         external
         notFrozen
+        onlyProofSubmitter
         returns (uint256)
     {
         require(msg_.value.length > 0, EmptyValue());
@@ -138,6 +162,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_)
         external
         notFrozen
+        onlyProofSubmitter
         returns (uint256)
     {
         return _membership(msg_.proof, msg_.proofHeight, msg_.path, bytes(""));
@@ -180,7 +205,7 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @dev The misbehavior is verfied in the sp1 program. Here we only check the public values which contain the
     /// trusted headers.
     /// @inheritdoc ILightClient
-    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen {
+    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen onlyProofSubmitter {
         IMisbehaviourMsgs.MsgSubmitMisbehaviour memory msgSubmitMisbehaviour =
             abi.decode(misbehaviourMsg, (IMisbehaviourMsgs.MsgSubmitMisbehaviour));
         require(
@@ -200,8 +225,8 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     }
 
     /// @inheritdoc ILightClient
-    function upgradeClient(bytes calldata) external view notFrozen {
-        // TODO: Not yet implemented. (#78)
+    function upgradeClient(bytes calldata) external view notFrozen onlyProofSubmitter {
+        // NOTE: This feature will not be supported. (#130)
         revert FeatureNotSupported();
     }
 
@@ -560,6 +585,13 @@ contract SP1ICS07Tendermint is ISP1ICS07TendermintErrors, ISP1ICS07Tendermint, I
     /// @notice Modifier to check if the client is not frozen.
     modifier notFrozen() {
         require(!clientState.isFrozen, FrozenClientState());
+        _;
+    }
+
+    modifier onlyProofSubmitter() {
+        if (!hasRole(PROOF_SUBMITTER_ROLE, address(0))) {
+            _checkRole(PROOF_SUBMITTER_ROLE);
+        }
         _;
     }
 }
