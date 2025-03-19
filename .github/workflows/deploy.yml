@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - "main"
+      - main
 
 jobs:
   test-deploy:
@@ -13,10 +13,10 @@ jobs:
       FOUNDRY_ETH_RPC_URL: http://localhost:8545
       DEPLOYMENT_ENV: local
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-      - name: "Set up environment"
-        uses: ./.github/setup
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
+
       - name: Deploy Anvil
         run: |
           anvil &
@@ -35,8 +35,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Set deployment matrix
         id: matrix
         run: |
@@ -48,12 +47,11 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.gather-deploys.outputs.matrix) }}
     env:
-      DEPLOYMENT_ENV: "${{ matrix.env }}"
+      DEPLOYMENT_ENV: ${{ matrix.env }}
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-      - name: "Set up environment"
-        uses: ./.github/setup
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
       - name: Export the RPC URL
         run: |
           cat deployments/${{ matrix.env }}/${{ matrix.file }} | jq -r ". | \"FOUNDRY_ETH_RPC_URL=\(.rpc_url)\"" >> $GITHUB_ENV
