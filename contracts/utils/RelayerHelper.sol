@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
-import { IICS26Router } from "../interfaces/IICS26Router.sol";
 import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IRelayerHelper } from "../interfaces/IRelayerHelper.sol";
 
