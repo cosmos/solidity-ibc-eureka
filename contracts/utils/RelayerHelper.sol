@@ -8,10 +8,11 @@ import { IIBCStore } from "../interfaces/IIBCStore.sol";
 import { IRelayerHelper } from "../interfaces/IRelayerHelper.sol";
 
 import { ICS24Host } from "./ICS24Host.sol";
+import { Multicall } from "@openzeppelin/contracts/utils/Multicall.sol";
 
 /// @title Relayer Helper
 /// @notice RelayerHelper is a helper contract for relayers, providing utility queries and multicall functions
-contract RelayerHelper is IRelayerHelper {
+contract RelayerHelper is IRelayerHelper, Multicall {
     /// @notice The ICS26 router
     address public immutable ics26Router;
 
