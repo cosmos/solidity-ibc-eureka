@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,gas-custom-errors
@@ -58,9 +58,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
-        );
+        ERC1967Proxy routerProxy =
+            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
@@ -73,6 +72,10 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
+
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
@@ -99,7 +102,8 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             fixture.genesisFixture.misbehaviourVkey,
             verifier,
             fixture.genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            address(ics26Router)
         );
 
         ics26Router.addClient(

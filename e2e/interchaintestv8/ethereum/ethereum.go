@@ -93,6 +93,10 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 		return nil, err
 	}
 
+	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("eth transaction was broadcasted, but failed on-chain with status %d", receipt.Status)
+	}
+
 	return receipt, nil
 }
 

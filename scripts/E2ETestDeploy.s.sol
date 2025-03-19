@@ -61,16 +61,15 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ProxiedICS26RouterDeployment memory ics26RouterDeployment = ProxiedICS26RouterDeployment({
+        ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
             implementation: ics26RouterLogic,
             timeLockAdmin: msg.sender,
-            portCustomizer: msg.sender
-        });
+            portCustomizer: msg.sender,
+            relayer: address(0)
+        }));
 
-        ERC1967Proxy routerProxy = deployProxiedICS26Router(ics26RouterDeployment);
-
-        ProxiedICS20TransferDeployment memory ics20TransferDeployment = ProxiedICS20TransferDeployment({
+        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ProxiedICS20TransferDeployment({
             proxy: payable(address(0)),
             implementation: ics20TransferLogic,
             ics26Router: address(routerProxy),
@@ -79,9 +78,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             pauser: address(0),
             unpauser: address(0),
             permit2: address(0)
-        });
-
-        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ics20TransferDeployment);
+        }));
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));

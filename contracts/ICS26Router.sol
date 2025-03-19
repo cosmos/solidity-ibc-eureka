@@ -19,6 +19,7 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { IBCUUPSUpgradeable } from "./utils/IBCUUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
@@ -51,23 +52,22 @@ contract ICS26Router is
     /// @inheritdoc IICS26Router
     bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
+    /// @inheritdoc IICS26Router
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
     }
 
     /// @inheritdoc IICS26Router
-    function initialize(address timelockedAdmin, address customizer) external initializer {
+    function initialize(address timelockedAdmin) external initializer {
         __AccessControl_init();
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __ICS02Client_init(customizer);
+        __ICS02Client_init_unchained();
         __IBCStoreUpgradeable_init();
-        __IBCUUPSUpgradeable_init(timelockedAdmin);
-
-        if (customizer != address(0)) {
-            _grantRole(PORT_CUSTOMIZER_ROLE, customizer);
-        }
+        __IBCUUPSUpgradeable_init_unchained(timelockedAdmin);
     }
 
     /// @inheritdoc IICS26Router
@@ -75,25 +75,6 @@ contract ICS26Router is
         IIBCApp app = _getICS26RouterStorage()._apps[portId];
         require(address(app) != address(0), IBCAppNotFound(portId));
         return app;
-    }
-
-    /// @inheritdoc IICS26Router
-    function isPacketReceived(IICS26RouterMsgs.Packet calldata packet) public view returns (bool) {
-        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(packet);
-        return expReceipt == queryPacketReceipt(packet.destClient, packet.sequence);
-    }
-
-    /// @inheritdoc IICS26Router
-    function isPacketReceiveSuccessful(IICS26RouterMsgs.Packet calldata packet) external view returns (bool) {
-        if (!isPacketReceived(packet)) {
-            return false;
-        }
-
-        bytes[] memory errorAck = new bytes[](1);
-        errorAck[0] = ICS24Host.UNIVERSAL_ERROR_ACK;
-        bytes32 errorAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(errorAck);
-        bytes32 storedAckCommitment = queryAckCommitment(packet.destClient, packet.sequence);
-        return storedAckCommitment != 0 && storedAckCommitment != errorAckCommitment;
     }
 
     /// @inheritdoc IICS26Router
@@ -156,7 +137,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant {
+    function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets (#93)
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -216,7 +197,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant {
+    function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -265,7 +246,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant {
+    function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant onlyRelayer {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
         IICS26RouterMsgs.Payload calldata payload = msg_.packet.payloads[0];
@@ -310,23 +291,12 @@ contract ICS26Router is
         emit TimeoutPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet);
     }
 
-    /// @inheritdoc IICS26Router
-    function grantPortCustomizerRole(address account) external onlyAdmin {
-        _grantRole(PORT_CUSTOMIZER_ROLE, account);
+    /// @dev See {AccessControlUpgradeable-grantRole}. Reverts for `DEFAULT_ADMIN_ROLE`.
+    /// @inheritdoc AccessControlUpgradeable
+    function grantRole(bytes32 role, address account) public override(AccessControlUpgradeable) {
+        require(role != DEFAULT_ADMIN_ROLE, DefaultAdminRoleCannotBeGranted());
+        super.grantRole(role, account);
     }
-
-    /// @inheritdoc IICS26Router
-    function revokePortCustomizerRole(address account) external onlyAdmin {
-        _revokeRole(PORT_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @inheritdoc ICS02ClientUpgradeable
-    function _authorizeSetLightClientMigratorRole(string calldata, address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc ICS02ClientUpgradeable
-    function _authorizeSetClientIdCustomizerRole(address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {
@@ -334,5 +304,12 @@ contract ICS26Router is
         assembly {
             $.slot := ICS26ROUTER_STORAGE_SLOT
         }
+    }
+
+    modifier onlyRelayer() {
+        if (!hasRole(RELAYER_ROLE, address(0))) {
+            _checkRole(RELAYER_ROLE);
+        }
+        _;
     }
 }
