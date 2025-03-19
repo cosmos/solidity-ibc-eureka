@@ -1039,6 +1039,5 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		_, err = s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
 		// Ethereum side did not received the packet, ERC20 contract corresponding to the denom does not exist
 		s.Require().Error(err)
-
 	}))
 }
