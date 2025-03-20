@@ -26,7 +26,7 @@ use prost::Message;
 use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::utils::{cosmos, wait_for_condition, wait_for_condition_with_capture};
+use crate::utils::{cosmos, wait_for_condition};
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
@@ -157,13 +157,10 @@ where
             .collect::<Vec<_>>())
     }
 
-    async fn wait_for_light_client_readiness(
-        &self,
-        target_block_number: u64,
-    ) -> Result<LightClientFinalityUpdate> {
+    async fn wait_for_light_client_readiness(&self, target_block_number: u64) -> Result<()> {
         // Wait until we find a finality update that meets our criteria and capture it
         // This way we avoid making an extra call at the end
-        wait_for_condition_with_capture(
+        wait_for_condition(
             Duration::from_secs(45 * 60),
             Duration::from_secs(10),
             || async {
@@ -179,7 +176,7 @@ where
                         finality_update.finalized_header.execution.block_number,
                         target_block_number
                     );
-                    return Ok(None);
+                    return Ok(false);
                 }
 
                 // Return the update itself when the condition is met
@@ -187,10 +184,12 @@ where
                     "Finality update found at execution block number: {}",
                     finality_update.finalized_header.execution.block_number
                 );
-                Ok(Some(finality_update))
+                Ok(true)
             },
         )
-        .await
+        .await?;
+
+        Ok(())
     }
 
     async fn light_client_update_to_header(
@@ -230,13 +229,10 @@ where
     #[tracing::instrument(skip_all)]
     async fn get_update_headers(
         &self,
-        minimum_block_number: u64,
         ethereum_client_state: &ClientState,
         ethereum_consensus_state: &ConsensusState,
     ) -> Result<Vec<Header>> {
-        let finality_update = self
-            .wait_for_light_client_readiness(minimum_block_number)
-            .await?;
+        let finality_update = self.beacon_api_client.finality_update().await?.data;
 
         let mut headers = vec![];
 
@@ -394,8 +390,9 @@ where
             now_since_unix.as_secs(),
         );
 
-        let ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
-        let ethereum_consensus_state = self
+        let mut ethereum_client_state =
+            self.ethereum_client_state(target_client_id.clone()).await?;
+        let mut ethereum_consensus_state = self
             .ethereum_consensus_state(target_client_id.clone(), 0)
             .await?;
 
@@ -411,12 +408,15 @@ where
 
         // get updates if necessary
         let headers = if minimum_block_number > ethereum_consensus_state.execution_block_number {
-            self.get_update_headers(
-                minimum_block_number,
-                &ethereum_client_state,
-                &ethereum_consensus_state,
-            )
-            .await?
+            self.wait_for_light_client_readiness(minimum_block_number)
+                .await?;
+            // Update the client state and consensus state, in case they have changed while we were waiting
+            ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
+            ethereum_consensus_state = self
+                .ethereum_consensus_state(target_client_id.clone(), 0)
+                .await?;
+            self.get_update_headers(&ethereum_client_state, &ethereum_consensus_state)
+                .await?
         } else {
             vec![]
         };
