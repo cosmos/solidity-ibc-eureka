@@ -1310,18 +1310,6 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
-// Error:      	Not equal:
-				// expected: 1000000000
-				// actual  : 1000000000000
-
-				// Diff:
-				// --- Expected
-				// +++ Actual
-				// @@ -3,3 +3,3 @@
-				//   abs: (big.nat) (len=1) {
-				// -  (big.Word) 1000000000
-				// +  (big.Word) 1000000000000
-				//   }
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
@@ -1455,7 +1443,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20Balance, userBalance.Int64())
+			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
