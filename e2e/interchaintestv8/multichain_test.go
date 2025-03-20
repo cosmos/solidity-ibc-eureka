@@ -1622,20 +1622,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(resp.Balance)
-
-				// Error:      	Not equal:
-				// expected: 1000000000
-				// actual  : 1000000000000
-
-				// Diff:
-				// --- Expected
-				// +++ Actual
-				// @@ -3,3 +3,3 @@
-				//   abs: (big.nat) (len=1) {
-				// -  (big.Word) 1000000000
-				// +  (big.Word) 1000000000000
-				//   }
-				// s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
+				s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.BigInt())
 			}))
 		}))
 	}))
