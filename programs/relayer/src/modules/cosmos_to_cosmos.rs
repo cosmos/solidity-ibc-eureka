@@ -4,7 +4,7 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
     tx_builder::{cosmos_to_cosmos, TxBuilderService},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint::Hash;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};

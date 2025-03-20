@@ -1,5 +1,5 @@
 [package]
-name       = "sp1-ics07-tendermint-utils"
+name       = "ibc-eureka-utils"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }

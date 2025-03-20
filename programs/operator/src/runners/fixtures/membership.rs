@@ -14,12 +14,12 @@ use ibc_eureka_solidity_types::msgs::{
     IMembershipMsgs::{KVPair, MembershipOutput, MembershipProof, SP1MembershipProof},
     ISP1Msgs::SP1Proof,
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
     programs::MembershipProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;

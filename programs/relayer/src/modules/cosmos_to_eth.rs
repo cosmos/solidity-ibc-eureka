@@ -8,7 +8,7 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
