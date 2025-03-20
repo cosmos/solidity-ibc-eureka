@@ -8,11 +8,11 @@ use ibc_eureka_solidity_types::{
     msgs::{ISP1Msgs::SP1Proof, IUpdateClientMsgs::MsgUpdateClient},
     sp1_ics07::sp1_ics07_tendermint,
 };
+use ibc_eureka_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
 use tendermint_rpc::HttpClient;
 

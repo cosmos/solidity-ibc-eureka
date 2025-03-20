@@ -14,11 +14,11 @@ use ibc_eureka_solidity_types::msgs::{
     ISP1Msgs::SP1Proof,
     IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
