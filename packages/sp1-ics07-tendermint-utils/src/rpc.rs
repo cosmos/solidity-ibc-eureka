@@ -67,7 +67,7 @@ impl TendermintRpcExt for HttpClient {
                 .expect("Failed to convert tendermint RPC URL"),
         )
         .client(
-            reqwest::ClientBuilder::new()
+            reqwest_0_11::ClientBuilder::new()
                 .connect_timeout(Duration::from_secs(10))
                 .timeout(Duration::from_secs(30))
                 .pool_idle_timeout(Duration::from_secs(10))
