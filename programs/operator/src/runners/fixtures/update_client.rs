@@ -12,7 +12,8 @@ use ibc_eureka_solidity_types::msgs::{
 };
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{HashableKey, ProverClient};
@@ -46,7 +47,7 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
     let uc_prover =
         SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.proof_type, &sp1_prover);
 
@@ -70,16 +71,13 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state,
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
     );
 
     let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice(), false)?;

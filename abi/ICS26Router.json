@@ -45,6 +45,19 @@
   },
   {
     "type": "function",
+    "name": "RELAYER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -432,50 +445,6 @@
   },
   {
     "type": "function",
-    "name": "grantClientIdCustomizerRole",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "grantLightClientMigratorRole",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "grantPortCustomizerRole",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "grantRole",
     "inputs": [
       {
@@ -524,11 +493,6 @@
         "name": "timelockedAdmin",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "customizer",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -542,152 +506,6 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isPacketReceiveSuccessful",
-    "inputs": [
-      {
-        "name": "packet",
-        "type": "tuple",
-        "internalType": "struct IICS26RouterMsgs.Packet",
-        "components": [
-          {
-            "name": "sequence",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "sourceClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "destClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "payloads",
-            "type": "tuple[]",
-            "internalType": "struct IICS26RouterMsgs.Payload[]",
-            "components": [
-              {
-                "name": "sourcePort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "destPort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "version",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "encoding",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "value",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isPacketReceived",
-    "inputs": [
-      {
-        "name": "packet",
-        "type": "tuple",
-        "internalType": "struct IICS26RouterMsgs.Packet",
-        "components": [
-          {
-            "name": "sequence",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "sourceClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "destClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "payloads",
-            "type": "tuple[]",
-            "internalType": "struct IICS26RouterMsgs.Payload[]",
-            "components": [
-              {
-                "name": "sourcePort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "destPort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "version",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "encoding",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "value",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
       }
     ],
     "outputs": [
@@ -740,78 +558,6 @@
     "type": "function",
     "name": "proxiableUUID",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queryAckCommitment",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queryPacketCommitment",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "queryPacketReceipt",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "sequence",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
     "outputs": [
       {
         "name": "",
@@ -928,50 +674,6 @@
       },
       {
         "name": "callerConfirmation",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "revokeClientIdCustomizerRole",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "revokeLightClientMigratorRole",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "revokePortCustomizerRole",
-    "inputs": [
-      {
-        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -1846,6 +1548,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "DefaultAdminRoleCannotBeGranted",
+    "inputs": []
   },
   {
     "type": "error",

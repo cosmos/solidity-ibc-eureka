@@ -16,7 +16,7 @@ use tendermint_rpc::HttpClient;
 
 use crate::{
     chain::CosmosSdk,
-    events::EurekaEvent,
+    events::EurekaEventWithHeight,
     utils::cosmos::{self},
 };
 
@@ -54,8 +54,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
-        src_events: Vec<EurekaEvent>,
-        target_events: Vec<EurekaEvent>,
+        src_events: Vec<EurekaEventWithHeight>,
+        target_events: Vec<EurekaEventWithHeight>,
         target_client_id: String,
     ) -> Result<Vec<u8>> {
         let client_state = ClientState::decode(
@@ -78,16 +78,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_height,
         };
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             target_events,
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
@@ -95,7 +93,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             &target_client_id,
             &target_height,
             &self.signer_address,
-            now,
+            now_since_unix.as_secs(),
         );
 
         cosmos::inject_tendermint_proofs(

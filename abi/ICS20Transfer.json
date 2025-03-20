@@ -45,6 +45,19 @@
   },
   {
     "type": "function",
+    "name": "UNPAUSER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -179,6 +192,19 @@
   },
   {
     "type": "function",
+    "name": "grantUnpauserRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "hasRole",
     "inputs": [
       {
@@ -273,6 +299,11 @@
       },
       {
         "name": "pauser",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unpauser",
         "type": "address",
         "internalType": "address"
       },
@@ -602,6 +633,19 @@
         "type": "bytes32",
         "internalType": "bytes32"
       },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeUnpauserRole",
+    "inputs": [
       {
         "name": "account",
         "type": "address",

@@ -11,8 +11,8 @@ use ethereum_types::{
 /// The header of a light client update
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
 pub struct Header {
-    /// The trusted sync committee
-    pub trusted_sync_committee: TrustedSyncCommittee,
+    /// The active sync committee (untrusted)
+    pub active_sync_committee: ActiveSyncCommittee,
     /// The consensus update
     pub consensus_update: LightClientUpdate,
     /// The account update
@@ -24,15 +24,6 @@ pub struct Header {
 pub struct AccountUpdate {
     /// The account proof
     pub account_proof: AccountProof,
-}
-
-/// The trusted sync committee
-#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug)]
-pub struct TrustedSyncCommittee {
-    /// The trusted slot
-    pub trusted_slot: u64,
-    /// The current sync committee
-    pub sync_committee: ActiveSyncCommittee,
 }
 
 /// The active sync committee

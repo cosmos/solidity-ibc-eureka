@@ -41,7 +41,7 @@ pub fn main() {
         .unwrap()
         .into();
     // input 5: time
-    let time = u64::from_le_bytes(encoded_5.try_into().unwrap());
+    let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 
     let output = check_for_misbehaviour(
         client_state,

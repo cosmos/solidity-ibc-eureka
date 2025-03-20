@@ -24,6 +24,7 @@ abstract contract Deployments {
         bytes32 membershipVkey;
         bytes32 ucAndMembershipVkey;
         bytes32 misbehaviourVkey;
+        address proofSubmitter;
     }
 
     function loadSP1ICS07TendermintDeployment(
@@ -44,7 +45,8 @@ abstract contract Deployments {
             updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
             membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
             ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
-            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey"))
+            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
+            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), address(0))
         });
     }
 
@@ -72,6 +74,7 @@ abstract contract Deployments {
         address proxy;
         address timeLockAdmin;
         address portCustomizer;
+        address relayer;
     }
 
     function loadProxiedICS26RouterDeployment(
@@ -86,7 +89,8 @@ abstract contract Deployments {
             implementation: vm.parseJsonAddress(json, ".ics26Router.implementation"),
             proxy: vm.parseJsonAddress(json, ".ics26Router.proxy"),
             timeLockAdmin: vm.parseJsonAddress(json, ".ics26Router.timeLockAdmin"),
-            portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer")
+            portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer"),
+            relayer: vm.parseJsonAddress(json, ".ics26Router.relayer")
         });
 
         return fixture;
@@ -103,6 +107,7 @@ abstract contract Deployments {
 
         // admin control
         address pauser;
+        address unpauser;
         address permit2;
         address proxy;
     }
@@ -122,6 +127,7 @@ abstract contract Deployments {
             ics26Router: vm.parseJsonAddress(json, ".ics20Transfer.ics26Router"),
             implementation: vm.parseJsonAddress(json, ".ics20Transfer.implementation"),
             pauser: vm.parseJsonAddress(json, ".ics20Transfer.pauser"),
+            unpauser: vm.parseJsonAddress(json, ".ics20Transfer.unpauser"),
             permit2: vm.parseJsonAddress(json, ".ics20Transfer.permit2"),
             proxy: vm.parseJsonAddress(json, ".ics20Transfer.proxy")
         });

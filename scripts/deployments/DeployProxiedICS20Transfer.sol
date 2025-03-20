@@ -23,13 +23,16 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
     function deployProxiedICS20Transfer(ProxiedICS20TransferDeployment memory deployment) public returns (ERC1967Proxy) {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             deployment.implementation,
-            abi.encodeWithSelector(
-                ICS20Transfer.initialize.selector,
-                deployment.ics26Router,
-                deployment.escrowImplementation,
-                deployment.ibcERC20Implementation,
-                deployment.pauser,
-                deployment.permit2
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (
+                    deployment.ics26Router,
+                    deployment.escrowImplementation,
+                    deployment.ibcERC20Implementation,
+                    deployment.pauser,
+                    deployment.unpauser,
+                    deployment.permit2
+                )
             )
         );
 
@@ -93,6 +96,15 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
                 "pauser address doesn't have pauser role"
             );
         }
+
+        if (deployment.unpauser != address(0)) {
+            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
+
+            vm.assertTrue(
+                ipu.hasRole(ipu.UNPAUSER_ROLE(), deployment.unpauser),
+                "unpauser address doesn't have unpauser role"
+            );
+        }
     }
 
     function run() public returns (address){
@@ -143,6 +155,7 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
         vm.serializeAddress("ics20Transfer", "escrowImplementation", deployment.escrowImplementation);
         vm.serializeAddress("ics20Transfer", "ibcERC20Implementation", deployment.ibcERC20Implementation);
         vm.serializeAddress("ics20Transfer", "pauser", deployment.pauser);
+        vm.serializeAddress("ics20Transfer", "unpauser", deployment.unpauser);
         vm.serializeAddress("ics20Transfer", "ics26Router", deployment.ics26Router);
         string memory output = vm.serializeAddress("ics20Transfer", "permit2", deployment.permit2);
 
