@@ -85,6 +85,7 @@ contract ICS20Transfer is
         address escrowLogic,
         address ibcERC20Logic,
         address pauser,
+        address unpauser,
         address permit2
     )
         public
@@ -92,7 +93,7 @@ contract ICS20Transfer is
     {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __IBCPausable_init(pauser);
+        __IBCPausable_init(pauser, unpauser);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
 
@@ -457,8 +458,7 @@ contract ICS20Transfer is
             escrow = IEscrow(
                 address(
                     new BeaconProxy(
-                        address($._escrowBeacon),
-                        abi.encodeWithSelector(IEscrow.initialize.selector, address(this), address($._ics26))
+                        address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this), address($._ics26)))
                     )
                 )
             );
@@ -482,6 +482,10 @@ contract ICS20Transfer is
 
     /// @inheritdoc IBCPausableUpgradeable
     function _authorizeSetPauser(address) internal view override onlyAdmin { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @inheritdoc IBCPausableUpgradeable
+    function _authorizeSetUnpauser(address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IICS20Transfer

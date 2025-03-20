@@ -15,7 +15,8 @@ use ibc_eureka_solidity_types::msgs::{
     IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
 };
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientAndMembershipProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{HashableKey, ProverClient};
@@ -31,7 +32,7 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = ProverClient::from_env();
+    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
     let uc_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
         args.proof_type,
         &sp1_prover,
@@ -56,9 +57,6 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         SolConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?.into();
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
 
     let kv_proofs: Vec<(_, _)> =
         futures::future::try_join_all(args.membership.key_paths.into_iter().map(|path| async {
@@ -82,12 +80,13 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         .await?;
 
     let kv_len = kv_proofs.len();
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_mem_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state.into(),
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
         kv_proofs,
     );
 

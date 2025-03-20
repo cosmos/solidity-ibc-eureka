@@ -9,8 +9,6 @@ use ethereum_types::consensus::{
     light_client_header::LightClientUpdate,
     merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
-    slot::{compute_epoch_at_slot, compute_slot_at_timestamp, GENESIS_SLOT},
-    sync_committee::compute_sync_committee_period_at_slot,
 };
 use tree_hash::TreeHash;
 
@@ -61,22 +59,19 @@ pub fn verify_header<V: BlsVerify>(
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState::new(
         consensus_state.clone(),
-        header.trusted_sync_committee.sync_committee.clone(),
+        header.active_sync_committee.clone(),
         &bls_verifier,
     )?;
 
     // Ethereum consensus-spec says that we should use the slot at the current timestamp.
-    let current_slot = compute_slot_at_timestamp(
-        client_state.genesis_time,
-        client_state.seconds_per_slot,
-        current_timestamp,
-    )
-    .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
-        timestamp: current_timestamp,
-        genesis: client_state.genesis_time,
-        seconds_per_slot: client_state.seconds_per_slot,
-        genesis_slot: GENESIS_SLOT,
-    })?;
+    let current_slot = client_state
+        .compute_slot_at_timestamp(current_timestamp)
+        .ok_or(EthereumIBCError::FailedToComputeSlotAtTimestamp {
+            timestamp: current_timestamp,
+            genesis: client_state.genesis_time,
+            seconds_per_slot: client_state.seconds_per_slot,
+            genesis_slot: client_state.genesis_slot,
+        })?;
 
     validate_light_client_update::<V>(
         client_state,
@@ -95,13 +90,36 @@ pub fn verify_header<V: BlsVerify>(
         EthereumIBCError::NotEnoughSignatures
     );
 
-    let proof_data = header.account_update.account_proof.clone();
+    // check whether the update is for a newer height
+    ensure!(
+        header.consensus_update.finalized_header.beacon.slot > consensus_state.slot,
+        EthereumIBCError::HistoricalUpdateNotAllowed {
+            consensus_state_slot: consensus_state.slot,
+            update_finalized_slot: header.consensus_update.finalized_header.beacon.slot
+        }
+    );
+
+    // check that if the period changes, then the next sync committee is provided
+    let update_finalized_period = client_state.compute_sync_committee_period_at_slot(
+        header.consensus_update.finalized_header.beacon.slot,
+    );
+    let store_period = client_state.compute_sync_committee_period_at_slot(consensus_state.slot);
+    if update_finalized_period > store_period {
+        ensure!(
+            header.consensus_update.next_sync_committee_branch.is_some(),
+            EthereumIBCError::ExpectedNextSyncCommitteeUpdate
+        );
+    }
 
     verify_account_storage_root(
-        header.consensus_update.attested_header.execution.state_root,
+        header
+            .consensus_update
+            .finalized_header
+            .execution
+            .state_root,
         client_state.ibc_contract_address,
-        &proof_data.proof,
-        proof_data.storage_root,
+        &header.account_update.account_proof.proof,
+        header.account_update.account_proof.storage_root,
     )
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
@@ -154,7 +172,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let update_finalized_slot = update.finalized_header.beacon.slot;
 
     ensure!(
-        update_finalized_slot != GENESIS_SLOT,
+        update_finalized_slot != client_state.genesis_slot,
         EthereumIBCError::FinalizedSlotIsGenesis
     );
 
@@ -182,18 +200,13 @@ pub fn validate_light_client_update<V: BlsVerify>(
     //     - the light client must have the `current_sync_committee` and use it to verify the new header.
     // 2. stored_period = N, signature_period = N + 1:
     //     - the light client must have the `next_sync_committee` and use it to verify the new header.
-    let stored_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        trusted_consensus_state.finalized_slot(),
-    );
-    let signature_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        update.signature_slot,
-    );
+    let stored_period = client_state
+        .compute_sync_committee_period_at_slot(trusted_consensus_state.finalized_slot());
+    let signature_period =
+        client_state.compute_sync_committee_period_at_slot(update.signature_slot);
 
-    if trusted_consensus_state.next_sync_committee().is_some() {
+    let is_next_sync_committee_known = trusted_consensus_state.next_sync_committee().is_some();
+    if is_next_sync_committee_known {
         ensure!(
             signature_period == stored_period || signature_period == stored_period + 1,
             EthereumIBCError::InvalidSignaturePeriodWhenNextSyncCommitteeExists {
@@ -212,12 +225,13 @@ pub fn validate_light_client_update<V: BlsVerify>(
     }
 
     // Verify update is relevant
-    let update_attested_period = compute_sync_committee_period_at_slot(
-        client_state.slots_per_epoch,
-        client_state.epochs_per_sync_committee_period,
-        update_attested_slot,
-    );
+    let update_attested_period =
+        client_state.compute_sync_committee_period_at_slot(update_attested_slot);
 
+    let is_next_sync_committee_update = update.next_sync_committee_branch.is_some();
+    let update_has_next_sync_committee = !is_next_sync_committee_known
+        && is_next_sync_committee_update
+        && update_attested_period == stored_period;
     // There are two options to do a light client update:
     // 1. We are updating the header with a newer one.
     // 2. We haven't set the next sync committee yet and we can use any attested header within the same
@@ -225,9 +239,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     // The light client implementation needs to take care of it.
     ensure!(
         update_attested_slot > trusted_consensus_state.finalized_slot()
-            || (update_attested_period == stored_period
-                && update.next_sync_committee.is_some()
-                && trusted_consensus_state.next_sync_committee().is_none()),
+            || update_has_next_sync_committee,
         EthereumIBCError::IrrelevantUpdate {
             update_attested_slot,
             trusted_finalized_slot: trusted_consensus_state.finalized_slot(),
@@ -252,7 +264,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         FINALITY_BRANCH_DEPTH,
         get_subtree_index(finalized_root_gindex_at_slot(
             client_state,
-            update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+            update.attested_header.beacon.slot,
         )?),
         update.attested_header.beacon.state_root,
     )
@@ -260,31 +272,46 @@ pub fn validate_light_client_update<V: BlsVerify>(
 
     // Verify that if the update contains the next sync committee, and the signature periods do match,
     // next sync committees match too.
-    if let (Some(next_sync_committee), Some(stored_next_sync_committee)) = (
-        &update.next_sync_committee,
-        trusted_consensus_state.next_sync_committee(),
-    ) {
-        if update_attested_period == stored_period {
+    if is_next_sync_committee_update {
+        if update_attested_period == stored_period && is_next_sync_committee_known {
             ensure!(
-                next_sync_committee == stored_next_sync_committee,
+                update.next_sync_committee.as_ref().unwrap()
+                    == trusted_consensus_state.next_sync_committee().unwrap(),
                 EthereumIBCError::NextSyncCommitteeMismatch {
-                    expected: stored_next_sync_committee.aggregate_pubkey,
-                    found: next_sync_committee.aggregate_pubkey,
+                    expected: trusted_consensus_state
+                        .next_sync_committee()
+                        .unwrap()
+                        .aggregate_pubkey,
+                    found: update
+                        .next_sync_committee
+                        .as_ref()
+                        .unwrap()
+                        .aggregate_pubkey,
                 }
             );
         }
+
         // This validates the given next sync committee against the attested header's state root.
         validate_merkle_branch(
-            next_sync_committee.tree_hash_root(),
-            update.next_sync_committee_branch.unwrap_or_default().into(),
+            update
+                .next_sync_committee
+                .as_ref()
+                .unwrap()
+                .tree_hash_root(),
+            update.next_sync_committee_branch.unwrap().into(),
             NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
             get_subtree_index(next_sync_committee_gindex_at_slot(
                 client_state,
-                update.attested_header.beacon.slot, // TODO: This should be the slot of the `finalized_header`, but is fixed separately.
+                update.attested_header.beacon.slot,
             )?),
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;
+    } else {
+        ensure!(
+            update.next_sync_committee.is_none(),
+            EthereumIBCError::UnexpectedNextSyncCommittee
+        );
     }
 
     // Verify sync committee aggregate signature
@@ -304,7 +331,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         .sync_aggregate
         .sync_committee_bits
         .iter()
-        .flat_map(|byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0))
+        .flat_map(|byte| (0..8).map(move |i| (byte & (1 << i)) != 0))
         .zip(sync_committee.pubkeys.iter())
         .filter_map(|(included, pubkey)| included.then_some(*pubkey))
         .collect::<Vec<_>>();
@@ -312,10 +339,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let fork_version_slot = std::cmp::max(update.signature_slot, 1) - 1;
     let fork_version = client_state
         .fork_parameters
-        .compute_fork_version(compute_epoch_at_slot(
-            client_state.slots_per_epoch,
-            fork_version_slot,
-        ));
+        .compute_fork_version(client_state.compute_epoch_at_slot(fork_version_slot));
 
     let domain = compute_domain(
         DomainType::SYNC_COMMITTEE,

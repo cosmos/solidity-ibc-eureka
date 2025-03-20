@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable gas-custom-errors
@@ -52,7 +52,7 @@ abstract contract SP1ICS07TendermintTest is
 
     string internal constant FIXTURE_DIR = "/test/sp1-ics07/fixtures/";
 
-    function setUpTest(string memory fileName) public {
+    function setUpTest(string memory fileName, address roleManager) public {
         genesisFixture = loadGenesisFixture(fileName);
 
         ConsensusState memory trustedConsensusState = abi.decode(genesisFixture.trustedConsensusState, (ConsensusState));
@@ -76,7 +76,8 @@ abstract contract SP1ICS07TendermintTest is
             genesisFixture.misbehaviourVkey,
             verifier,
             genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            roleManager
         );
 
         mockIcs07Tendermint = new SP1ICS07Tendermint(
@@ -86,7 +87,8 @@ abstract contract SP1ICS07TendermintTest is
             genesisFixture.misbehaviourVkey,
             address(new SP1MockVerifier()),
             genesisFixture.trustedClientState,
-            trustedConsensusHash
+            trustedConsensusHash,
+            roleManager
         );
 
         ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));
@@ -117,6 +119,10 @@ abstract contract SP1ICS07TendermintTest is
         });
 
         return fix;
+    }
+
+    function _nanosToSeconds(uint256 nanos) internal pure returns (uint256) {
+        return nanos / 1e9;
     }
 
     struct FixtureTestCase {

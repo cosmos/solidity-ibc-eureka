@@ -21,6 +21,8 @@ type ClientState struct {
 	EpochsPerSyncCommitteePeriod uint64 `json:"epochs_per_sync_committee_period"`
 	// The fork parameters
 	ForkParameters ForkParameters `json:"fork_parameters"`
+	// The genesis slot
+	GenesisSlot uint64 `json:"genesis_slot"`
 	// The time of genesis (unix timestamp)
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root
@@ -77,22 +79,21 @@ type Fork struct {
 	Version string `json:"version"`
 }
 
-// The consensus state of the Ethereum light client
+// The consensus state of the Ethereum light client corresponding to a finalized header
 //
 // The consensus state at the initial state
 type ConsensusState struct {
-	// aggregate public key of current sync committee
+	// aggregate public key of current sync committee at the finalized header
 	CurrentSyncCommittee string `json:"current_sync_committee"`
-	// aggregate public key of next sync committee
+	// aggregate public key of next sync committee at the finalized header if known
 	NextSyncCommittee string `json:"next_sync_committee"`
-	// The slot number
+	// The slot number of the finalized header
 	Slot uint64 `json:"slot"`
-	// The state merkle root
+	// The state merkle root of the finalized header
 	StateRoot string `json:"state_root"`
-	// The storage merkle root
+	// The storage merkle root of the tracked contract at the finalized header
 	StorageRoot string `json:"storage_root"`
-	// The unix timestamp at the time of the slot. It is calculated from the genesis time and
-	// slots per.
+	// The execution timestamp of the finalized header
 	Timestamp uint64 `json:"timestamp"`
 }
 
@@ -100,10 +101,10 @@ type ConsensusState struct {
 type Header struct {
 	// The account update
 	AccountUpdate AccountUpdate `json:"account_update"`
+	// The trusted sync committee
+	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
-	// The trusted sync committee
-	TrustedSyncCommittee TrustedSyncCommittee `json:"trusted_sync_committee"`
 }
 
 // The account update
@@ -118,6 +119,26 @@ type AccountProof struct {
 	Proof []string `json:"proof"`
 	// The account storage root
 	StorageRoot string `json:"storage_root"`
+}
+
+// The trusted sync committee
+//
+// # The active sync committee
+//
+// # The current sync committee
+//
+// The next sync committee
+type ActiveSyncCommittee struct {
+	Current *SyncCommittee `json:"Current,omitempty"`
+	Next    *SyncCommittee `json:"Next,omitempty"`
+}
+
+// The sync committee data
+type SyncCommittee struct {
+	// The aggregate public key of the sync committee
+	AggregatePubkey string `json:"aggregate_pubkey"`
+	// The public keys of the sync committee
+	Pubkeys []string `json:"pubkeys"`
 }
 
 // The consensus update
@@ -208,14 +229,6 @@ type ExecutionPayloadHeader struct {
 	WithdrawalsRoot string `json:"withdrawals_root"`
 }
 
-// The sync committee data
-type SyncCommittee struct {
-	// The aggregate public key of the sync committee
-	AggregatePubkey string `json:"aggregate_pubkey"`
-	// The public keys of the sync committee
-	Pubkeys []string `json:"pubkeys"`
-}
-
 // Sync committee aggregate signature
 //
 // The sync committee aggregate
@@ -224,24 +237,6 @@ type SyncAggregate struct {
 	SyncCommitteeBits string `json:"sync_committee_bits"`
 	// The aggregated signature of the sync committee.
 	SyncCommitteeSignature string `json:"sync_committee_signature"`
-}
-
-// The trusted sync committee
-type TrustedSyncCommittee struct {
-	// The current sync committee
-	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
-	// The trusted slot
-	TrustedSlot uint64 `json:"trusted_slot"`
-}
-
-// The current sync committee
-//
-// # The active sync committee
-//
-// The next sync committee
-type ActiveSyncCommittee struct {
-	Current *SyncCommittee `json:"Current,omitempty"`
-	Next    *SyncCommittee `json:"Next,omitempty"`
 }
 
 // The key-value storage proof for a smart contract account

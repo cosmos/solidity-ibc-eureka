@@ -43,7 +43,7 @@ pub fn verify_membership(
             .into_iter()
             .map(Into::into)
             .collect(),
-        Some(verify_membership_msg.value.into()),
+        verify_membership_msg.value.into(),
     )
     .map_err(ContractError::VerifyMembershipFailed)?;
 
@@ -65,7 +65,7 @@ pub fn verify_non_membership(
         verify_non_membership_msg.height.revision_height,
     )?;
 
-    ethereum_light_client::membership::verify_membership(
+    ethereum_light_client::membership::verify_non_membership(
         eth_consensus_state,
         eth_client_state,
         verify_non_membership_msg.proof.into(),
@@ -75,7 +75,6 @@ pub fn verify_non_membership(
             .into_iter()
             .map(Into::into)
             .collect(),
-        None,
     )
     .map_err(ContractError::VerifyNonMembershipFailed)?;
 

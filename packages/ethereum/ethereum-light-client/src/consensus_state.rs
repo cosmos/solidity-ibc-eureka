@@ -8,24 +8,23 @@ use ethereum_types::consensus::sync_committee::SyncCommittee;
 
 use crate::{error::EthereumIBCError, header::ActiveSyncCommittee, verify::BlsVerify};
 
-/// The consensus state of the Ethereum light client
+/// The consensus state of the Ethereum light client corresponding to a finalized header
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
 pub struct ConsensusState {
-    /// The slot number
+    /// The slot number of the finalized header
     pub slot: u64,
-    /// The state merkle root
+    /// The state merkle root of the finalized header
     #[schemars(with = "String")]
     pub state_root: B256,
-    /// The storage merkle root
+    /// The storage merkle root of the tracked contract at the finalized header
     #[schemars(with = "String")]
     pub storage_root: B256,
-    /// The unix timestamp at the time of the slot.
-    /// It is calculated from the genesis time and slots per.
+    /// The execution timestamp of the finalized header
     pub timestamp: u64,
-    /// aggregate public key of current sync committee
+    /// aggregate public key of current sync committee at the finalized header
     #[schemars(with = "String")]
     pub current_sync_committee: FixedBytes<48>,
-    /// aggregate public key of next sync committee
+    /// aggregate public key of next sync committee at the finalized header if known
     #[schemars(with = "String")]
     pub next_sync_committee: Option<FixedBytes<48>>,
 }
@@ -82,7 +81,7 @@ impl TrustedConsensusState {
 
         let aggregate_pubkey = bls_verifier
             .aggregate(&full_committee.pubkeys)
-            .map_err(|e| EthereumIBCError::FastAggregateVerifyError(e.to_string()))?;
+            .map_err(|e| EthereumIBCError::BlsAggregateError(e.to_string()))?;
         ensure!(
             aggregate_pubkey == full_committee.aggregate_pubkey,
             EthereumIBCError::AggregatePubkeyMismatch {
