@@ -24,7 +24,7 @@ build-sp1-programs:
 build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
-	gzip e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
+	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built

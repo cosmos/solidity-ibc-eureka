@@ -78,6 +78,11 @@ pub fn update_consensus_state(
 
     let new_client_state = Some(ClientState {
         latest_slot: update_finalized_slot,
+        latest_execution_block_number: header
+            .consensus_update
+            .finalized_header
+            .execution
+            .block_number,
         ..current_client_state
     });
     Ok((update_finalized_slot, new_consensus_state, new_client_state))

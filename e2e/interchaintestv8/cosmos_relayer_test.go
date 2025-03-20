@@ -251,7 +251,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 
 	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -343,7 +343,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 
 	s.Require().True(s.Run("Acknowledge packets on Chain A", func() {
 		s.Require().True(s.Run("Verify commitments exists", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: ibctesting.FirstClientID,
 					Sequence: uint64(i) + 1,
@@ -373,7 +373,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: ibctesting.FirstClientID,
 					Sequence: uint64(i) + 1,
@@ -416,7 +416,7 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 
 	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 

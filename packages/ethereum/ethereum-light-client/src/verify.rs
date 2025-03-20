@@ -178,7 +178,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
 
     ensure!(
         current_slot >= update.signature_slot,
-        EthereumIBCError::UpdateMoreRecentThanCurrentSlot {
+        EthereumIBCError::UpdateSignatureSlotMoreRecentThanCurrentSlot {
             current_slot,
             update_signature_slot: update.signature_slot
         }
