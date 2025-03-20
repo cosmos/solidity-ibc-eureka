@@ -106,8 +106,8 @@ abstract contract Deployments {
         address ibcERC20Implementation;
 
         // admin control
-        address[] memory pausers;
-        address[] memory unpausers;
+        address[] pausers;
+        address[] unpausers;
         address permit2;
         address proxy;
     }
@@ -120,7 +120,6 @@ abstract contract Deployments {
     pure
     returns (ProxiedICS20TransferDeployment memory)
     {
-        // abi.decode(vm.parseJson(json, ".ics20Transfer"), (ProxiedICS20TransferDeployment));
         ProxiedICS20TransferDeployment memory fixture = ProxiedICS20TransferDeployment({
             escrowImplementation: vm.parseJsonAddress(json, ".ics20Transfer.escrowImplementation"),
             ibcERC20Implementation: vm.parseJsonAddress(json, ".ics20Transfer.ibcERC20Implementation"),
