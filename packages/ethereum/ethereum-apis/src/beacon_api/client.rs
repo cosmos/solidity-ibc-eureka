@@ -66,7 +66,6 @@ impl BeaconApiClient {
         let resp: Response<BeaconBlock> = self
             .get_json(&format!("{BEACON_BLOCKS_V2_PATH}/{block_id}"))
             .await?;
-
         Ok(resp.data)
     }
 

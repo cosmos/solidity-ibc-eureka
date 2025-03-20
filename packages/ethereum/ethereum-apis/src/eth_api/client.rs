@@ -60,10 +60,6 @@ impl<P: Provider + Clone> EthApiClient<P> {
     /// # Errors
     /// Returns an error if the request fails
     pub async fn get_block(&self, block_number: u64) -> Result<Block, EthClientError> {
-        let block_resp = self.provider.get_block(block_number.into()).await?;
-
-        let block = block_resp.ok_or_else(|| EthClientError::BlockNotFound(block_number))?;
-
-        Ok(block)
+        self.provider.get_block(block_number.into()).await?.ok_or_else(|| EthClientError::BlockNotFound(block_number))
     }
 }

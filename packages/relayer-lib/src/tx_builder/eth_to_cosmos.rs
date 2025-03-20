@@ -438,8 +438,7 @@ where
         .await?;
 
         let update_msgs = headers
-            .clone()
-            .into_iter()
+            .iter()
             .map(|header| -> Result<MsgUpdateClient> {
                 let header_bz = serde_json::to_vec(&header)?;
                 let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
