@@ -227,7 +227,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 		sp1Config := relayer.SP1Config{
 			ProverType:     prover,
-			PrivateCluster: prover == testvalues.EnvValueSp1Prover_Network,
+			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 
 		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
