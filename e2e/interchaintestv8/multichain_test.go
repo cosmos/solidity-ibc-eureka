@@ -1428,7 +1428,6 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			s.Require().Equal(ics26Address.String(), resp.Address)
 
 			relayTxBodyBz = resp.Tx
-
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
@@ -1591,7 +1590,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(resp.Balance)
-				s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.BigInt())
+				s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
 			}))
 		}))
 	}))
