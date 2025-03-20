@@ -232,6 +232,7 @@ mod tests {
                 slots_per_epoch: 8,
                 epochs_per_sync_committee_period: 0,
                 latest_slot: 42,
+                latest_execution_block_number: 38,
                 ibc_commitment_slot: U256::from(0),
                 ibc_contract_address: Address::default(),
                 is_frozen: false,
@@ -240,7 +241,6 @@ mod tests {
 
             let consensus_state = EthConsensusState {
                 slot: 42,
-                execution_block_number: 38,
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
