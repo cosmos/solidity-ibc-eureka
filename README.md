@@ -1,7 +1,8 @@
-# IBC in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC in Solidity  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
-[gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
+[e2e-minimal-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-minimal.yml/badge.svg
+[e2e-full-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-full.yml/badge.svg
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://opensource.org/licenses/MIT
