@@ -155,8 +155,13 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
 	// Wait for the chain to finalize
-	beaconAPIClient := ethereum.NewBeaconAPIClient(beaconRPC)
+	var beaconAPIClient ethereum.BeaconAPIClient
 	err = testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
+		beaconAPIClient, err := ethereum.NewBeaconAPIClient(ctx, beaconRPC)
+		if err != nil {
+			return false, nil
+		}
+
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
 		fmt.Printf("Waiting for chain to finalize, finalizedBlockResp: %+v, err: %s\n", finalizedBlocksResp, err)
 		if err != nil {
