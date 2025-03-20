@@ -72,6 +72,10 @@ func StartOperator(args ...string) error {
 // MembershipProof is a function that generates a membership proof and returns the proof height and proof
 func MembershipProof(trusted_height uint64, paths string, writeFixtureName string, args ...string) (*sp1ics07tendermint.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--key-paths", paths}, args...)
+	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
+	if isPrivateCluster {
+		args = append(args, "--private-cluster")
+	}
 
 	cmd := exec.Command(binaryPath(), args...)
 	output, err := execOperatorCommand(cmd)
@@ -139,6 +143,10 @@ func MembershipProof(trusted_height uint64, paths string, writeFixtureName strin
 // UpdateClientAndMembershipProof is a function that generates an update client and membership proof
 func UpdateClientAndMembershipProof(trusted_height, target_height uint64, paths string, args ...string) (*sp1ics07tendermint.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "update-client-and-membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--target-block", strconv.FormatUint(target_height, 10), "--key-paths", paths}, args...)
+	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
+	if isPrivateCluster {
+		args = append(args, "--private-cluster")
+	}
 
 	output, err := execOperatorCommand(exec.Command(binaryPath(), args...))
 	if err != nil {
@@ -210,6 +218,10 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	defer os.Remove(misbehaviourFileName)
 
 	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-path", misbehaviourFileName}, args...)
+	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
+	if isPrivateCluster {
+		args = append(args, "--private-cluster")
+	}
 	output, err := execOperatorCommand(exec.Command(binaryPath(), args...))
 	if err != nil {
 		return nil, err
