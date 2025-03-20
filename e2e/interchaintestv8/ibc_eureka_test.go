@@ -1444,7 +1444,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(testvalues.StartingERC20Balance, userBalance)
+			s.Require().Equal(testvalues.StartingERC20Balance, userBalance.Int64())
 
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
