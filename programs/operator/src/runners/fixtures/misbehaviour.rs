@@ -10,13 +10,13 @@ use ibc_eureka_solidity_types::msgs::{
     IMisbehaviourMsgs::MsgSubmitMisbehaviour,
     ISP1Msgs::SP1Proof,
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
     programs::MisbehaviourProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;

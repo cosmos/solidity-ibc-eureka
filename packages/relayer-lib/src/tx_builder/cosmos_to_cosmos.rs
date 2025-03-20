@@ -2,6 +2,7 @@
 //! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
 use anyhow::Result;
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
@@ -11,7 +12,6 @@ use ibc_proto_eureka::{
     },
 };
 use prost::Message;
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use tendermint_rpc::HttpClient;
 
 use crate::{

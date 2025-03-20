@@ -15,6 +15,7 @@ use ethereum_types::consensus::light_client_header::{
 use ethereum_types::consensus::sync_committee::SyncCommittee;
 use ethereum_types::execution::account_proof::AccountProof;
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
 use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
@@ -23,7 +24,6 @@ use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
     ClientState as WasmClientState, ConsensusState as WasmConsensusState,
 };
 use prost::Message;
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::utils::{cosmos, wait_for_condition, wait_for_condition_with_capture};

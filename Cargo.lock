@@ -3640,12 +3640,12 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
+ "ibc-eureka-utils",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "serde",
  "serde_json",
  "sp1-ics07-tendermint-prover",
- "sp1-ics07-tendermint-utils",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -3670,6 +3670,29 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "time",
+]
+
+[[package]]
+name = "ibc-eureka-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-network 0.12.4",
+ "alloy-signer-local 0.12.4",
+ "anyhow",
+ "async-trait",
+ "cosmos-sdk-proto",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "reqwest 0.11.27",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
 ]
 
 [[package]]
@@ -6345,6 +6368,7 @@ dependencies = [
  "clap",
  "futures",
  "ibc-eureka-relayer-lib",
+ "ibc-eureka-utils",
  "prost",
  "serde",
  "serde_json",
@@ -6566,12 +6590,12 @@ dependencies = [
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
+ "ibc-eureka-utils",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "serde_with",
  "sp1-ics07-tendermint-prover",
- "sp1-ics07-tendermint-utils",
  "sp1-sdk",
  "subtle-encoding",
  "tendermint-light-client-verifier",
@@ -6624,28 +6648,6 @@ dependencies = [
  "sha2 0.10.8",
  "sp1-zkvm",
  "tendermint-light-client-verifier",
-]
-
-[[package]]
-name = "sp1-ics07-tendermint-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-network 0.12.4",
- "alloy-signer-local 0.12.4",
- "anyhow",
- "async-trait",
- "cosmos-sdk-proto",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-eureka-solidity-types",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
- "prost",
- "tendermint",
- "tendermint-light-client-verifier",
- "tendermint-rpc",
 ]
 
 [[package]]
