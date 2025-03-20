@@ -55,7 +55,7 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
 
@@ -69,8 +69,8 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         args.membership.key_paths,
         args.membership.trusted_block,
         trusted_consensus_state,
-        args.proof_type,
-        args.private_cluster,
+        args.sp1.proof_type,
+        args.sp1.private_cluster,
     )
     .await?;
 
