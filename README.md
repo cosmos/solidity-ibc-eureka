@@ -1,4 +1,4 @@
-# IBC in Solidity  [![Minimal Actions][e2e-minimal-badge]][gha] ![Full Actions][e2e-full-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC in Solidity  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
 [e2e-minimal-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-minimal.yml/badge.svg
