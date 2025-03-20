@@ -29,6 +29,8 @@ pub struct ClientState {
     pub epochs_per_sync_committee_period: u64,
     /// The latest slot of this client
     pub latest_slot: u64,
+    /// The latest execution block number
+    pub latest_execution_block_number: u64,
     /// Whether the client is frozen
     pub is_frozen: bool,
     /// The address of the IBC contract being tracked on Ethereum

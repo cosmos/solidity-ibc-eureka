@@ -33,6 +33,8 @@ type ClientState struct {
 	IbcContractAddress string `json:"ibc_contract_address"`
 	// Whether the client is frozen
 	IsFrozen bool `json:"is_frozen"`
+	// The latest execution block number
+	LatestExecutionBlockNumber uint64 `json:"latest_execution_block_number"`
 	// The latest slot of this client
 	LatestSlot uint64 `json:"latest_slot"`
 	// The minimum number of participants in the sync committee
@@ -85,8 +87,6 @@ type Fork struct {
 type ConsensusState struct {
 	// aggregate public key of current sync committee at the finalized header
 	CurrentSyncCommittee string `json:"current_sync_committee"`
-	// The execution block number
-	ExecutionBlockNumber uint64 `json:"execution_block_number"`
 	// aggregate public key of next sync committee at the finalized header if known
 	NextSyncCommittee string `json:"next_sync_committee"`
 	// The slot number of the finalized header

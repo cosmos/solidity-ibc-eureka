@@ -80,6 +80,7 @@ func (s *TestSuite) createEthereumLightClient(
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
 		LatestSlot:                   latestSlot,
+		LatestExecutionBlockNumber:   bootstrap.Data.Header.Execution.BlockNumber,
 		IsFrozen:                     false,
 		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
 		IbcContractAddress:           ibcContractAddress,
@@ -113,7 +114,6 @@ func (s *TestSuite) createEthereumLightClient(
 
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
-		ExecutionBlockNumber: bootstrap.Data.Header.Execution.BlockNumber,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
 		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,

@@ -200,7 +200,6 @@ mod test {
 
         let consensus_state: ConsensusState = ConsensusState {
             slot: 0,
-            execution_block_number: 0,
             storage_root: B256::from_hex(
                 "0xe488caae2c0464e311e4a2df82bc74885fa81778d04131db6af3a451110a5eb5",
             )
@@ -259,7 +258,6 @@ mod test {
 
         let consensus_state: ConsensusState = ConsensusState {
             slot: 0,
-            execution_block_number: 0,
             storage_root: B256::from_hex(
                 "0x8fce1302ff9ebea6343badec86e9814151872067d2dd47de08ec83e9bc7d22b3",
             )

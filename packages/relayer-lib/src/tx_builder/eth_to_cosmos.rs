@@ -134,11 +134,10 @@ where
     async fn get_light_client_updates(
         &self,
         client_state: &ClientState,
-        consensus_state: &ConsensusState,
         finality_update: LightClientFinalityUpdate,
     ) -> Result<Vec<LightClientUpdate>> {
         let trusted_period =
-            client_state.compute_sync_committee_period_at_slot(consensus_state.slot);
+            client_state.compute_sync_committee_period_at_slot(client_state.latest_slot);
 
         let target_period = client_state
             .compute_sync_committee_period_at_slot(finality_update.finalized_header.beacon.slot);
@@ -227,30 +226,20 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn get_update_headers(
-        &self,
-        ethereum_client_state: &ClientState,
-        ethereum_consensus_state: &ConsensusState,
-    ) -> Result<Vec<Header>> {
+    async fn get_update_headers(&self, ethereum_client_state: &ClientState) -> Result<Vec<Header>> {
         let finality_update = self.beacon_api_client.finality_update().await?.data;
 
         let mut headers = vec![];
 
         let light_client_updates = self
-            .get_light_client_updates(
-                ethereum_client_state,
-                ethereum_consensus_state,
-                finality_update.clone(),
-            )
+            .get_light_client_updates(ethereum_client_state, finality_update.clone())
             .await?;
 
-        let mut latest_trusted_slot = ethereum_consensus_state.slot;
+        let mut latest_trusted_slot = ethereum_client_state.latest_slot;
         let mut latest_period =
             ethereum_client_state.compute_sync_committee_period_at_slot(latest_trusted_slot);
         tracing::debug!("Latest trusted sync committee period: {}", latest_period);
 
-        let mut current_next_sync_committee_agg_pubkey =
-            ethereum_consensus_state.next_sync_committee;
         for update in &light_client_updates {
             tracing::debug!(
                 "Processing light client update for finalized slot {} with trusted slot {}",
@@ -261,20 +250,6 @@ where
             if update.finalized_header.beacon.slot <= latest_trusted_slot {
                 tracing::debug!(
                     "Skipping unnecessary update for slot {}",
-                    update.finalized_header.beacon.slot
-                );
-                continue;
-            }
-
-            let update_next_sync_committee_agg_pubkey = update
-                .next_sync_committee
-                .as_ref()
-                .map(|sc| sc.aggregate_pubkey);
-
-            // They are both options, so we can just compare them directly.
-            if update_next_sync_committee_agg_pubkey == current_next_sync_committee_agg_pubkey {
-                tracing::warn!(
-                    "Skipping header with the same aggregate pubkey {}",
                     update.finalized_header.beacon.slot
                 );
                 continue;
@@ -312,7 +287,6 @@ where
             headers.push(header);
             latest_period = update_period;
             latest_trusted_slot = update.finalized_header.beacon.slot;
-            current_next_sync_committee_agg_pubkey = update_next_sync_committee_agg_pubkey;
         }
 
         // If the latest header is earlier than the finality update, we need to add a header for the finality update.
@@ -392,38 +366,31 @@ where
 
         let mut ethereum_client_state =
             self.ethereum_client_state(target_client_id.clone()).await?;
-        let mut ethereum_consensus_state = self
-            .ethereum_consensus_state(target_client_id.clone(), 0)
-            .await?;
 
         tracing::info!(
-            "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}, consensus state slot: {}, current sync committee: {:?}, next sync committee: {:?}",
+            "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}",
             target_client_id,
             minimum_block_number,
-            ethereum_consensus_state.slot,
-            ethereum_consensus_state.slot,
-            ethereum_consensus_state.current_sync_committee,
-            ethereum_consensus_state.next_sync_committee,
+            ethereum_client_state.latest_slot,
         );
 
         // get updates if necessary
-        let headers = if minimum_block_number > ethereum_consensus_state.execution_block_number {
+        let headers = if minimum_block_number > ethereum_client_state.latest_execution_block_number
+        {
             self.wait_for_light_client_readiness(minimum_block_number)
                 .await?;
             // Update the client state and consensus state, in case they have changed while we were waiting
             ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
-            ethereum_consensus_state = self
-                .ethereum_consensus_state(target_client_id.clone(), 0)
-                .await?;
-            self.get_update_headers(&ethereum_client_state, &ethereum_consensus_state)
-                .await?
+            self.get_update_headers(&ethereum_client_state).await?
         } else {
             vec![]
         };
 
-        let proof_slot = headers.last().map_or(ethereum_consensus_state.slot, |h| {
-            h.consensus_update.finalized_header.beacon.slot
-        });
+        let proof_slot = headers
+            .last()
+            .map_or(ethereum_client_state.latest_slot, |h| {
+                h.consensus_update.finalized_header.beacon.slot
+            });
 
         cosmos::inject_ethereum_proofs(
             &mut recv_msgs,
@@ -490,7 +457,7 @@ where
         .await?;
 
         let initial_period = ethereum_client_state
-            .compute_sync_committee_period_at_slot(ethereum_consensus_state.slot);
+            .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
             "Update client summary: 
@@ -505,7 +472,7 @@ where
             recv_msgs.len(),
             ack_msgs.len(),
             timeout_msgs.len(),
-            ethereum_consensus_state.slot,
+            ethereum_client_state.latest_slot,
             proof_slot,
             initial_period,
             latest_period,
