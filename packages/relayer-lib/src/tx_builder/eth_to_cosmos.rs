@@ -6,7 +6,6 @@ use std::time::Duration;
 use alloy::{primitives::Address, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
-use ethereum_light_client::consensus_state::ConsensusState;
 use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee};
 use ethereum_light_client::{client_state::ClientState, header::Header};
 use ethereum_types::consensus::light_client_header::{
@@ -20,9 +19,7 @@ use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::google::protobuf::Any;
 use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
-use ibc_proto_eureka::ibc::lightclients::wasm::v1::{
-    ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-};
+use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState as WasmClientState;
 use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
@@ -90,23 +87,6 @@ where
         let wasm_client_state_any = self.tm_client.client_state(client_id).await?;
         let wasm_client_state = WasmClientState::decode(wasm_client_state_any.value.as_slice())?;
         Ok(serde_json::from_slice(&wasm_client_state.data)?)
-    }
-
-    /// Fetches the Ethereum consensus state from the light client on cosmos.
-    /// # Errors
-    /// Returns an error if the consensus state cannot be fetched or decoded.
-    pub async fn ethereum_consensus_state(
-        &self,
-        client_id: String,
-        revision_height: u64,
-    ) -> Result<ConsensusState> {
-        let wasm_consensus_state_any =
-            TendermintRpcExt::consensus_state(&self.tm_client, client_id, revision_height).await?;
-        let wasm_consensus_state =
-            WasmConsensusState::decode(wasm_consensus_state_any.value.as_slice())
-                .map_err(|e| anyhow::anyhow!("Failed to decode consensus state: {:?}", e))?;
-        serde_json::from_slice(&wasm_consensus_state.data)
-            .map_err(|e| anyhow::anyhow!("Failed to decode consensus state data: {:?}", e))
     }
 
     async fn get_sync_commitee_for_finalized_slot(
