@@ -7,8 +7,6 @@ runs:
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
-    - name: Set up Rust
-      uses: rustup 
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
     - name: Install Bun
