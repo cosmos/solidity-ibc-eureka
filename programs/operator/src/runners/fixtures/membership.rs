@@ -70,6 +70,7 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         args.membership.trusted_block,
         trusted_consensus_state,
         args.proof_type,
+        args.private_cluster,
     )
     .await?;
 
@@ -105,8 +106,13 @@ pub async fn run_sp1_membership(
     trusted_block: u64,
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedZkAlgorithm,
+    private_cluster: bool,
 ) -> anyhow::Result<MembershipProof> {
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
     let verify_mem_prover =
         SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, &sp1_prover);
 

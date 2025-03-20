@@ -75,6 +75,11 @@ pub mod genesis {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 }
 
@@ -141,6 +146,11 @@ pub mod fixtures {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 
     /// The arguments for the `Membership` fixture executable.
@@ -155,6 +165,11 @@ pub mod fixtures {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 
     /// The arguments for generic membership proof generation.
@@ -198,6 +213,11 @@ pub mod fixtures {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 
     /// The arguments for the `Misbehaviour` fixture executable.
@@ -220,6 +240,11 @@ pub mod fixtures {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 }
 
