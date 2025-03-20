@@ -14,9 +14,8 @@ use ibc_eureka_solidity_types::{
     msgs::IICS07TendermintMsgs::ClientState,
     sp1_ics07::sp1_ics07_tendermint,
 };
-
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_ics07_tendermint_prover::prover::Sp1Prover;
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
 use sp1_prover::components::SP1ProverComponents;

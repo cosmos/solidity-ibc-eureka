@@ -7,6 +7,7 @@ use ethereum_light_client::membership::evm_ics26_commitment_path;
 use ethereum_types::execution::storage_proof::StorageProof;
 use futures::future;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::{
     ibc::core::{
         channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
@@ -14,7 +15,6 @@ use ibc_proto_eureka::{
     },
     Protobuf,
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};

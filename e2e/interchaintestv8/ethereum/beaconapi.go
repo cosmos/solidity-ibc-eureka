@@ -70,8 +70,8 @@ func (b BeaconAPIClient) Close() {
 	b.cancel()
 }
 
-func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewBeaconAPIClient(ctx context.Context, beaconAPIAddress string) (BeaconAPIClient, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	client, err := ethttp.New(ctx,
 		// WithAddress supplies the address of the beacon node, as a URL.
 		ethttp.WithAddress(beaconAPIAddress),
@@ -79,7 +79,8 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 		ethttp.WithLogLevel(zerolog.WarnLevel),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return BeaconAPIClient{}, err
 	}
 
 	return BeaconAPIClient{
@@ -89,13 +90,13 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 		url:       beaconAPIAddress,
 		Retries:   60,
 		RetryWait: 10 * time.Second,
-	}
+	}, nil
 }
 
 func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T, error) {
 	var err error
 	var result T
-	for i := 0; i < retries; i++ {
+	for range retries {
 		result, err = fn()
 		if err == nil {
 			return result, nil

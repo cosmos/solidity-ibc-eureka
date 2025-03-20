@@ -5,11 +5,11 @@ use alloy::sol_types::SolValue;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ConsensusState as SolConsensusState, SupportedZkAlgorithm,
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::programs::{
     MembershipProgram, MisbehaviourProgram, SP1Program, UpdateClientAndMembershipProgram,
     UpdateClientProgram,
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{utils::setup_logger, HashableKey};
 use std::path::PathBuf;
 use tendermint_light_client_verifier::types::{LightBlock, TrustThreshold};

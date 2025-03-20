@@ -10,12 +10,12 @@ use ibc_eureka_solidity_types::msgs::{
     ISP1Msgs::SP1Proof,
     IUpdateClientMsgs::{MsgUpdateClient, UpdateClientOutput},
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
