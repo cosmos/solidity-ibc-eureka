@@ -39,7 +39,7 @@ const (
 	// EnvKeyNetworkPrivateKey Private key for the sp1 prover network.
 	EnvKeyNetworkPrivateKey = "NETWORK_PRIVATE_KEY"
 	// EnvKeyNetworkPrivateCluster Run the network prover in a private cluster.
-	EnvKeyNetworkPrivateCluster = "NETWORK_PRIVATE_CLUSTER"
+	EnvKeyNetworkPrivateCluster = "E2E_PRIVATE_CLUSTER"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
