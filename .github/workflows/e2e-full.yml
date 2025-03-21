@@ -13,6 +13,7 @@ env:
   ETH_TESTNET_TYPE: pos
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
+  E2E_PRIVATE_CLUSTER: true
 permissions:
   contents: read
 

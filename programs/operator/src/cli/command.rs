@@ -88,6 +88,11 @@ pub mod operator {
         /// Run update-client only once and then exit.
         #[clap(long)]
         pub only_once: bool,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 }
 
