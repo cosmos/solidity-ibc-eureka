@@ -110,13 +110,11 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: rustfmt, clippy
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
       - name: Install cargo-run-script and cosmwasm-check
         uses: actions-rs/cargo@v1
         with:

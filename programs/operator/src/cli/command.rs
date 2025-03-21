@@ -137,10 +137,9 @@ pub mod fixtures {
         #[clap(flatten)]
         pub trust_options: super::TrustOptions,
 
-        /// The proof type
-        /// Supported proof types: groth16, plonk.
-        #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedZkAlgorithm,
+        /// Sp1 configuration
+        #[clap(flatten)]
+        pub sp1: Sp1Args,
     }
 
     /// The arguments for the `Membership` fixture executable.
@@ -151,10 +150,9 @@ pub mod fixtures {
         #[clap(flatten)]
         pub membership: MembershipArgs,
 
-        /// The proof type.
-        /// Supported proof types: groth16, plonk.
-        #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedZkAlgorithm,
+        /// Sp1 configuration
+        #[clap(flatten)]
+        pub sp1: Sp1Args,
     }
 
     /// The arguments for generic membership proof generation.
@@ -194,10 +192,9 @@ pub mod fixtures {
         #[clap(flatten)]
         pub membership: MembershipArgs,
 
-        /// The proof type
-        /// Supported proof types: groth16, plonk.
-        #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedZkAlgorithm,
+        /// Sp1 configuration
+        #[clap(flatten)]
+        pub sp1: Sp1Args,
     }
 
     /// The arguments for the `Misbehaviour` fixture executable.
@@ -216,10 +213,23 @@ pub mod fixtures {
         #[clap(flatten)]
         pub trust_options: super::TrustOptions,
 
+        /// Sp1 configuration
+        #[clap(flatten)]
+        pub sp1: Sp1Args,
+    }
+
+    /// The arguments for sp1 configuration.
+    #[derive(Parser, Clone)]
+    pub struct Sp1Args {
         /// The proof type
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// Running with a private cluster or not
+        /// If true, the operator will use the private cluster configuration.
+        #[clap(long, default_value = "false")]
+        pub private_cluster: bool,
     }
 }
 

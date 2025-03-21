@@ -10,13 +10,13 @@ use ibc_eureka_solidity_types::msgs::{
     IMisbehaviourMsgs::MsgSubmitMisbehaviour,
     ISP1Msgs::SP1Proof,
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
     programs::MisbehaviourProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
@@ -44,7 +44,11 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if args.sp1.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
 
     // get light block for trusted height of header 1
     #[allow(clippy::cast_possible_truncation)]
@@ -78,7 +82,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         &trusted_light_block_1,
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
     // use trusted light block 2 to instantiate a new SP1 tendermint client with light block 2 as initial trusted consensus state
@@ -86,7 +90,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         &trusted_light_block_2,
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
 
@@ -100,7 +104,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state, false)?;
 
     let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.proof_type, &sp1_prover);
+        SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.sp1.proof_type, &sp1_prover);
 
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     let proof_data = verify_misbehaviour_prover.generate_proof(
