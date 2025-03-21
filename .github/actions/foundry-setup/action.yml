@@ -1,0 +1,18 @@
+name: foundry-setup
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+    - name: Install the Node.js dependencies
+      shell: bash
+      run: bun install
+    - name: Setup Protoc
+      uses: taiki-e/install-action@protoc

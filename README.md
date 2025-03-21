@@ -1,7 +1,8 @@
-# IBC in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC in Solidity  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
-[gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
+[e2e-minimal-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-minimal.yml/badge.svg
+[e2e-full-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-full.yml/badge.svg
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://opensource.org/licenses/MIT
@@ -309,7 +310,10 @@ The IBC contracts use `AccessControl` to manage roles and permissions and allow 
 |:---:|:---:|:---:|:---:|
 | `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause the contract. |
 | `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can unpause the contract. |
-| `RATE_LIMITER_ROLE` | `Escrow.sol` | `address(0)` | Can set withdrawal rate limits per `ERC20` token. |
+| `RATE_LIMITER_ROLE` | `Escrow.sol` | `None` | Can set withdrawal rate limits per `ERC20` token. |
+| `RELAYER_ROLE` | `ICS26Router.sol` | `None` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
+| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom port ids for applications. |
+| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom light client ids for applications. |
 | `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Can migrate the light client identified by `client_id`. |
 
 ## License

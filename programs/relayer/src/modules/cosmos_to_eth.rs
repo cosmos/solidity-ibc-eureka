@@ -1,7 +1,5 @@
 //! Defines Cosmos to Ethereum relayer module.
 
-use std::str::FromStr;
-
 use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
@@ -10,10 +8,11 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
-use tendermint_rpc::{HttpClient, Url};
+use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use crate::{
@@ -52,7 +51,7 @@ pub struct CosmosToEthConfig {
 
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "prover_type")]
 pub enum SP1Config {
     /// Mock prover.
     Mock,
@@ -85,12 +84,7 @@ pub enum SP1Config {
 
 impl CosmosToEthRelayerModuleService {
     async fn new(config: CosmosToEthConfig) -> Self {
-        let tm_client = HttpClient::new(
-            Url::from_str(&config.tm_rpc_url)
-                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
-        )
-        .expect("Failed to create tendermint HTTP client");
-
+        let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
@@ -170,7 +164,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .eth_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
@@ -179,7 +173,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .tm_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -201,7 +195,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .into_iter()
             .map(Hash::try_from)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         let eth_txs = inner_req
             .timeout_tx_ids
@@ -215,7 +209,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .tm_listener
             .fetch_tx_events(cosmos_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
         tracing::info!(
@@ -227,7 +221,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .eth_listener
             .fetch_tx_events(eth_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());

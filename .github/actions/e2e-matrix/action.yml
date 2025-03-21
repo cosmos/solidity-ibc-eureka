@@ -1,0 +1,21 @@
+name: e2e-matrix
+description: Dynamically discovers and generates a test matrix for e2e tests
+
+inputs:
+  skip-tests:
+    description: Comma-separated list of tests to skip
+    required: false
+    default: ''
+
+outputs:
+  matrix:
+    description: JSON string containing the test matrix
+    value: ${{ steps.generate-matrix.outputs.matrix }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Test Matrix
+      id: generate-matrix
+      shell: bash
+      run: echo "matrix=$(${{ github.workspace }}/scripts/generate-e2e-test-matrix.sh '${{ inputs.skip-tests }}')" >> $GITHUB_OUTPUT

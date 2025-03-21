@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length
@@ -85,7 +85,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             memo: "memo"
         });
 
-        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.mockCall(address(this), IICS26Router.sendPacket.selector, abi.encode(uint32(42)));
         vm.prank(sender);
         uint64 sequence = ics20Transfer.sendTransfer(msgSendTransfer);
         assertEq(sequence, 42);
@@ -93,7 +93,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
     function test_failure_sendTransfer() public {
         // this contract acts as the ics26Router
-        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.mockCall(address(this), IICS26Router.sendPacket.selector, abi.encode(uint32(42)));
 
         // test missing approval
         vm.expectRevert(
@@ -144,7 +144,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
 
     function test_failure_sendTransferWithPermit2() public {
         // this contract acts as the ics26Router
-        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.mockCall(address(this), IICS26Router.sendPacket.selector, abi.encode(uint32(42)));
 
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({ token: address(erc20), amount: defaultAmount }),
@@ -247,7 +247,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 })
             )
         );
-        vm.mockCall(address(this), abi.encodeWithSelector(IICS26Router.sendPacket.selector), abi.encode(uint32(42)));
+        vm.mockCall(address(this), IICS26Router.sendPacket.selector, abi.encode(uint32(42)));
         uint64 sequence = ics20Transfer.sendTransferWithSender(msgSendTransfer, customSender);
         assertEq(sequence, 42);
     }

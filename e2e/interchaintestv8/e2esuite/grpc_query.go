@@ -44,9 +44,11 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 
 func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
 	// Create a connection to the gRPC server.
+	path := "cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		retryConfig(),
 	)
 	if err != nil {
 		return &abci.ResponseQuery{}, err
@@ -55,7 +57,7 @@ func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.Request
 	defer grpcConn.Close()
 
 	resp := &abci.ResponseQuery{}
-	err = grpcConn.Invoke(ctx, "cosmos.base.tendermint.v1beta1.Service/ABCIQuery", req, resp)
+	err = grpcConn.Invoke(ctx, path, req, resp)
 	if err != nil {
 		return &abci.ResponseQuery{}, err
 	}
@@ -74,6 +76,7 @@ func GRPCQuery[T any](ctx context.Context, chain *cosmos.CosmosChain, req proto.
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		retryConfig(),
 	)
 	if err != nil {
 		return nil, err
@@ -95,6 +98,7 @@ func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) (*refl
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		retryConfig(),
 	)
 	if err != nil {
 		return nil, err
@@ -112,4 +116,37 @@ func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) (*refl
 	}
 
 	return resp, nil
+}
+
+func retryConfig() grpc.DialOption {
+	policy := `{
+            "methodConfig": [{
+                "name": [{}],
+                "retryPolicy": {
+                    "MaxAttempts": 4,
+                    "InitialBackoff": ".01s",
+                    "MaxBackoff": ".01s",
+                    "BackoffMultiplier": 1.0,
+                    "RetryableStatusCodes": [
+						"CANCELLED",
+						"UNKNOWN",
+						"DEADLINE_EXCEEDED",
+						"NOT_FOUND",
+						"ALREADY_EXISTS",
+						"PERMISSION_DENIED",
+						"RESOURCE_EXHAUSTED",
+						"FAILED_PRECONDITION",
+						"ABORTED",
+						"OUT_OF_RANGE",
+						"UNIMPLEMENTED",
+						"INTERNAL",
+						"UNAVAILABLE",
+						"DATA_LOSS",
+						"UNAUTHENTICATED"
+				    ]
+                }
+            }]
+        }`
+
+	return grpc.WithDefaultServiceConfig(policy)
 }

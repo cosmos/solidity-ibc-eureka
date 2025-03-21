@@ -42,10 +42,10 @@ pub enum EthereumIBCError {
     FinalizedSlotIsGenesis,
 
     #[error(
-        "update slot {update_signature_slot} is more recent than the \
+        "update signature slot {update_signature_slot} is more recent than the \
         calculated current slot {current_slot}"
     )]
-    UpdateMoreRecentThanCurrentSlot {
+    UpdateSignatureSlotMoreRecentThanCurrentSlot {
         current_slot: u64,
         update_signature_slot: u64,
     },
@@ -122,8 +122,11 @@ pub enum EthereumIBCError {
     )]
     ExpectedCurrentSyncCommittee,
 
-    #[error("expected next sync committee to be provided since `update_period > current_period`")]
+    #[error("expected next sync committee to be provided for signature verification`")]
     ExpectedNextSyncCommittee,
+
+    #[error("expected next sync committee to be provided in the update since `update_period > current_period`")]
+    ExpectedNextSyncCommitteeUpdate,
 
     #[error("expected next sync committee to be known and stored in state")]
     NextSyncCommitteeUnknown,
@@ -164,6 +167,26 @@ pub enum EthereumIBCError {
 
     #[error("storage roots are not conflicting: {0} == {0}")]
     MisbehaviourStorageRootsMatch(B256),
+
+    #[error(
+        "historical updates are not allowed: \
+        stored consensus state slot: {consensus_state_slot}, \
+        update finalized header slot: {update_finalized_slot}"
+    )]
+    HistoricalUpdateNotAllowed {
+        consensus_state_slot: u64,
+        update_finalized_slot: u64,
+    },
+
+    #[error(
+        "client and consensus slot mismatch: \
+        client state slot: {client_state_slot}, \
+        consensus state slot: {consensus_state_slot}"
+    )]
+    ClientAndConsensusSlotMismatch {
+        client_state_slot: u64,
+        consensus_state_slot: u64,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]

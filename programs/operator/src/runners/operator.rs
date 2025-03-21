@@ -8,11 +8,11 @@ use ibc_eureka_solidity_types::{
     msgs::{ISP1Msgs::SP1Proof, IUpdateClientMsgs::MsgUpdateClient},
     sp1_ics07::sp1_ics07_tendermint,
 };
+use ibc_eureka_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{eth, light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
 use tendermint_rpc::HttpClient;
 
@@ -38,7 +38,11 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let contract_client_state = contract.clientState().call().await?;
     let tendermint_rpc_client = HttpClient::from_env();
 
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if args.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
         contract_client_state.zkAlgorithm.try_into()?,
         &sp1_prover,
@@ -67,16 +71,13 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         // Get the proposed header from the target light block.
         let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
         // Generate a proof of the transition from the trusted block to the target block.
         let proof_data = prover.generate_proof(
             &contract_client_state.into(),
             &trusted_consensus_state,
             &proposed_header,
-            now,
+            now_since_unix.as_nanos(),
         );
 
         let update_msg = MsgUpdateClient {

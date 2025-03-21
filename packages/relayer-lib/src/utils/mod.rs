@@ -31,32 +31,5 @@ where
     anyhow::bail!("Timeout exceeded")
 }
 
-/// Retries an operation until the condition is met or a timeout occurs, with a value capture.
-/// Returns the value that was captured when the condition was met.
-pub async fn wait_for_condition_with_capture<F, Fut, T>(
-    timeout: Duration,
-    interval: Duration,
-    mut condition: F,
-) -> anyhow::Result<T>
-where
-    F: FnMut() -> Fut + Send,
-    Fut: Future<Output = anyhow::Result<Option<T>>> + Send,
-    T: Send + 'static,
-{
-    let start = Instant::now();
-    while start.elapsed() < timeout {
-        if let Some(value) = condition().await? {
-            return Ok(value);
-        }
-
-        tracing::debug!(
-            "Condition not met. Waiting for {} seconds before retrying",
-            interval.as_secs()
-        );
-        Delay::new(interval).await;
-    }
-    anyhow::bail!("Timeout exceeded")
-}
-
 pub mod cosmos;
 pub mod eth_eureka;

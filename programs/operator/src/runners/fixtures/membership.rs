@@ -14,12 +14,12 @@ use ibc_eureka_solidity_types::msgs::{
     IMembershipMsgs::{KVPair, MembershipOutput, MembershipProof, SP1MembershipProof},
     ISP1Msgs::SP1Proof,
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
     programs::MembershipProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use sp1_sdk::{HashableKey, ProverClient};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
@@ -55,7 +55,7 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
 
@@ -69,7 +69,8 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         args.membership.key_paths,
         args.membership.trusted_block,
         trusted_consensus_state,
-        args.proof_type,
+        args.sp1.proof_type,
+        args.sp1.private_cluster,
     )
     .await?;
 
@@ -105,8 +106,13 @@ pub async fn run_sp1_membership(
     trusted_block: u64,
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedZkAlgorithm,
+    private_cluster: bool,
 ) -> anyhow::Result<MembershipProof> {
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
     let verify_mem_prover =
         SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, &sp1_prover);
 

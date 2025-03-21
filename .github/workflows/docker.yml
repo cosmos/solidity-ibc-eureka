@@ -4,7 +4,7 @@ on:
     branches:
       - main
     tags:
-      - 'relayer-v[0-9]+.[0-9]+.[0-9]+'
+      - relayer-v[0-9]+.[0-9]+.[0-9]+
   workflow_dispatch: # this will kick off a dev deployment
   pull_request:
     paths:
@@ -29,9 +29,8 @@ jobs:
     env:
       registry_url: ghcr.io/cosmos/eureka-relayer
     steps:
-      - name: Check out the repo
+      - uses: actions/checkout@v4
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
       - name: Check out the PR commit head
         uses: actions/checkout@v4
         if: github.event_name == 'pull_request'
@@ -61,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: './programs/relayer/Dockerfile'
+          file: ./programs/relayer/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true

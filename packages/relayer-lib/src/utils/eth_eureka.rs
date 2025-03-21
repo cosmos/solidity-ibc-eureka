@@ -15,11 +15,11 @@ use ibc_eureka_solidity_types::{
         ISP1Msgs::SP1Proof,
     },
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
@@ -109,7 +109,7 @@ pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     tm_client: &HttpClient,
     target_light_block: LightBlock,
     client_state: ClientState,
-    now: u64,
+    now: u128,
 ) -> Result<()> {
     let target_height = target_light_block.height().value();
 

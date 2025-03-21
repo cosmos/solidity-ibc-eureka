@@ -93,12 +93,16 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 		return nil, err
 	}
 
+	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("eth transaction was broadcasted, but failed on-chain with status %d", receipt.Status)
+	}
+
 	return receipt, nil
 }
 
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
 	args = append(args, "script", "--rpc-url", e.RPC, "--private-key",
-		hex.EncodeToString(deployer.D.Bytes()), "--broadcast",
+		hex.EncodeToString(crypto.FromECDSA(deployer)), "--broadcast",
 		"--non-interactive", "-vvvv", solidityContract,
 	)
 	cmd := exec.Command(
@@ -158,7 +162,7 @@ func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress string, amount math.I
 		"send",
 		toAddress,
 		"--value", amount.String(),
-		"--private-key", fmt.Sprintf("0x%s", ethcommon.Bytes2Hex(key.D.Bytes())),
+		"--private-key", fmt.Sprintf("0x%s", hex.EncodeToString(crypto.FromECDSA(key))),
 		"--rpc-url", e.RPC,
 	)
 	cmd.Stdout = os.Stdout
