@@ -74,11 +74,13 @@ generate-abi: build-contracts
 	jq '.abi' ./out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
+	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out abigen/ics26router/contract.go
 	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
+	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out abigen/relayerhelper/contract.go
 
 # Generate the fixtures for the wasm tests using the e2e tests
 generate-fixtures-wasm: clean
