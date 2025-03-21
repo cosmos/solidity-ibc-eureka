@@ -25,9 +25,12 @@ abstract contract DeployProxiedICS26Router is Deployments {
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayer);
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
+
+        for (uint256 i = 0; i < deployment.relayers.length; i++) {
+            ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayers[i]);
+        }
+         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.portCustomizer);
+         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.clientIdCustomizer);
 
         return routerProxy;
     }
@@ -56,6 +59,8 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
             deployment.timeLockAdmin,
             "timelockAdmin addresses don't match"
         );
+
+        // TODO: Verify roles
     }
 
     function run() public returns (address){
@@ -90,10 +95,11 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
         vm.serializeAddress("ics26Router", "proxy", address(routerProxy));
         vm.serializeAddress("ics26Router", "implementation", deployment.implementation);
         vm.serializeAddress("ics26Router", "timeLockAdmin", deployment.timeLockAdmin);
-        vm.serializeAddress("ics26Router", "relayer", deployment.relayer);
-        string memory output = vm.serializeAddress("ics26Router", "portCustomizer", deployment.portCustomizer);
+        vm.serializeAddress("ics26Router", "clientIdCustomizer", deployment.clientIdCustomizer);
+        vm.serializeAddress("ics26Router", "relayers", deployment.relayers);
+        string memory ics26Json = vm.serializeAddress("ics26Router", "portCustomizer", deployment.portCustomizer);
 
-        vm.writeJson(output, path, ".ics26Router");
+        vm.writeJson(ics26Json, path, ".ics26Router");
         vm.writeJson(vm.toString(address(routerProxy)), path, ".ics20Transfer.ics26Router");
 
         return address(routerProxy);

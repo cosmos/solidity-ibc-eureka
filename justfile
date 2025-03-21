@@ -160,22 +160,26 @@ genesis-sp1-ics07: build-sp1-programs
 deploy-sp1-ics07: genesis-sp1-ics07
   @echo "Deploying the SP1ICS07Tendermint contract"
   forge install
-  forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+  forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --legacy --with-gas-price 10gwei
 
 # Deploy the ICS26Router contract using environment variables
 deploy-ics26: build-contracts
 	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
 
 # Deploy the ICS20Transfer contract using environment variables
 deploy-ics20: build-contracts
 	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
 
 # Deploy the SP1ICS07Tendermint contract using environment variables
 deploy-light-client: build-contracts
 	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
+
+deploy-migrate-light-client: build-contracts
+	@echo "Migrating Light Client with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/MigrateSP1ICS07Tendermint.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer

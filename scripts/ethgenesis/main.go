@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,19 +17,24 @@ import (
 )
 
 const (
-	EthAPIURL              = "https://ethereum-sepolia-rpc.publicnode.com"
-	BeaconAPIURL           = ""
-	IbcContractAddress     = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
+	EthAPIURL              = "https://sepolia.gateway.tenderly.co"
+	BeaconAPIURL           = "https://skip:p01kachu%3F%21@lodestar-sepolia-skip-api.polkachu.com"
+	IbcContractAddress     = "0x3fcBB8b5d85FB5F77603e11536b5E90FeE37e6c0"
 	ChainID                = 11155111
-	EtheruemClientChecksum = "42e8d2b043dfa579185e0f01dc7cfdd319e57091083b6779f9a978da39faa634"
+	EtheruemClientChecksum = "cdec30496b3f933e3882d128abb770b9666e0d77bf336e50fb35f31c350ba24a"
 )
 
 func main() {
+	ctx := context.Background()
+
 	ethClient, err := ethereum.NewEthAPI(EthAPIURL)
 	if err != nil {
 		panic(err)
 	}
-	beaconAPI := ethereum.NewBeaconAPIClient(BeaconAPIURL)
+	beaconAPI, err := ethereum.NewBeaconAPIClient(ctx, BeaconAPIURL)
+	if err != nil {
+		panic(err)
+	}
 
 	genesis, err := beaconAPI.GetGenesis()
 	if err != nil {

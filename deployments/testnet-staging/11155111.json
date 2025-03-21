@@ -5,15 +5,16 @@
     "portCustomizer": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
     "proxy": "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9",
     "timeLockAdmin": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
-    "relayer": "0x0000000000000000000000000000000000000000"
+    "relayers": [],
+    "clientIdCustomizer": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3"
   },
   "ics20Transfer": {
     "escrowImplementation": "0x4e5C504e80C215906004ACad1a27CaA6c94e9597",
     "ibcERC20Implementation": "0xbAfa1093C913d92992634a6c9b148a3229191927",
     "ics26Router": "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9",
     "implementation": "0xa453828f345b85520444C6B4b23c8bA9F6A46fe6",
-    "pauser": "0xAe3E5CCaF3216de61090E68Cf5a191f3b75CaAd3",
-    "unpauser": "0x0000000000000000000000000000000000000000",
+    "pausers": [],
+    "unpausers": [],
     "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
     "proxy": "0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4"
   },
