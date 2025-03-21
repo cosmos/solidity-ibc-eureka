@@ -1310,7 +1310,6 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
-
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
