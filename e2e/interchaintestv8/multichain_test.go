@@ -1379,7 +1379,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 		transferCoin := sdk.NewCoin(denomOnSimdB.IBCDenom(), sdkmath.NewIntFromBigInt(transferAmount))
 		transferPayload := transfertypes.FungibleTokenPacketData{
-			Denom:    denomOnSimdB.Path(), // XXX: IBCDenom()?
+			Denom:    denomOnSimdB.Path(),
 			Amount:   transferCoin.Amount.String(),
 			Sender:   simdBUser.FormattedAddress(),
 			Receiver: strings.ToLower(ethereumUserAddress.Hex()),
