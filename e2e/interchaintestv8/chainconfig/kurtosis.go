@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -42,9 +43,10 @@ var (
 				ValidatorCount: 64,
 			},
 		},
+		// We
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           getKurtosisPreset(),
-			ElectraForkEpoch: 1,
+			// We get the Preset and ElextraForkEpoch from the environment variables when starting up the network
+			// This makes it easier for a test to decide its own setup
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
@@ -61,6 +63,20 @@ func getKurtosisPreset() string {
 		return testvalues.EnvValueEthereumPosPreset_Minimal
 	}
 	return preset
+}
+
+func getElectraEpoch() uint64 {
+	epochStr := os.Getenv(testvalues.EnvKeyEthereumPosElectraEpoch)
+	fmt.Printf("Electra epoch: %s\n", epochStr)
+	if epochStr == "" {
+		return 1
+	}
+	epoch, err := strconv.Atoi(epochStr)
+	if err != nil {
+		panic("failed to parse electra epoch: " + err.Error())
+	}
+
+	return uint64(epoch)
 }
 
 type EthKurtosisChain struct {
@@ -97,6 +113,10 @@ type kurtosisNetworkConfigParams struct {
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
+	// Load dynamic configurations
+	kurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
+	kurtosisConfig.NetworkParams.ElectraForkEpoch = getElectraEpoch()
+
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
 		return EthKurtosisChain{}, err

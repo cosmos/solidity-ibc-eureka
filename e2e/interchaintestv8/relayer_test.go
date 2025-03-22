@@ -616,8 +616,24 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount))
 }
 
+func (s *RelayerTestSuite) Test_Electra_Fork() {
+	ctx := context.Background()
+
+	// TODO: Figure out a reasonable number for electra epoch to happen
+	os.Setenv(testvalues.EnvKeyEthereumPosElectraEpoch, "100000000")
+
+	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount))
+
+	// TODO: Wait for the electra epoch to happen
+
+	// TODO: Verity everything just works
+}
+
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int) {
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+
+	fmt.Println("WAITING FOR 10 MINUTES")
+	time.Sleep(10 * time.Minute)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
