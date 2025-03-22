@@ -181,6 +181,10 @@ deploy-migrate-light-client: build-contracts
 	@echo "Migrating Light Client with RPC_URL=$RPC_URL"
 	forge script scripts/deployments/MigrateSP1ICS07Tendermint.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
 
+deploy-relayer-helper: build-contracts
+	@echo "Deploying relayer helper with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployRelayerHelper.sol --rpc-url $RPC_URL -vvv --broadcast --private-key $PRIVATE_KEY --verify --with-gas-price 10gwei
+
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."
