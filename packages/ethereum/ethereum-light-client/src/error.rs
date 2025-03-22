@@ -42,10 +42,10 @@ pub enum EthereumIBCError {
     FinalizedSlotIsGenesis,
 
     #[error(
-        "update slot {update_signature_slot} is more recent than the \
+        "update signature slot {update_signature_slot} is more recent than the \
         calculated current slot {current_slot}"
     )]
-    UpdateMoreRecentThanCurrentSlot {
+    UpdateSignatureSlotMoreRecentThanCurrentSlot {
         current_slot: u64,
         update_signature_slot: u64,
     },

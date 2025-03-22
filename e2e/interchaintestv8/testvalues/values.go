@@ -38,6 +38,8 @@ const (
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeyNetworkPrivateKey Private key for the sp1 prover network.
 	EnvKeyNetworkPrivateKey = "NETWORK_PRIVATE_KEY"
+	// EnvKeyNetworkPrivateCluster Run the network prover in a private cluster.
+	EnvKeyNetworkPrivateCluster = "E2E_PRIVATE_CLUSTER"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
@@ -51,6 +53,8 @@ const (
 	EnvValueRustLog_Info = "info"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
+	// EnvValueSp1Prover_PrivateCluster is the for running the network prover in a private cluster.
+	EnvValueSp1Prover_PrivateCluster = "true"
 	// EnvValueSp1Prover_Mock is the prover type for the mock prover.
 	EnvValueSp1Prover_Mock = "mock"
 	// EnvValueVerifier_Mock is the verifier type for the mock verifier.

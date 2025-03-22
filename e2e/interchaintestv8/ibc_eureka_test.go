@@ -227,7 +227,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 		sp1Config := relayer.SP1Config{
 			ProverType:     prover,
-			PrivateCluster: prover == testvalues.EnvValueSp1Prover_Network,
+			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 
 		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
@@ -453,7 +453,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 		encodedMsg, err := ics20transferAbi.Pack("sendTransfer", msgSendPacket)
 		s.Require().NoError(err)
-		for i := 0; i < numOfTransfers; i++ {
+		for i := range numOfTransfers {
 			transferMulticall[i] = encodedMsg
 		}
 
@@ -613,7 +613,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}
 
 		transferMsgs := make([]sdk.Msg, numOfTransfers)
-		for i := 0; i < numOfTransfers; i++ {
+		for i := range numOfTransfers {
 			transferMsgs[i] = &channeltypesv2.MsgSendPacket{
 				SourceClient:     testvalues.FirstWasmClientID,
 				TimeoutTimestamp: timeout,
@@ -696,7 +696,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	s.Require().True(s.Run("Acknowledge packets on Cosmos chain", func() {
 		s.Require().True(s.Run("Verify commitments exists", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: testvalues.FirstWasmClientID,
 					Sequence: uint64(i) + 1,
@@ -734,7 +734,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
-			for i := 0; i < numOfTransfers; i++ {
+			for i := range numOfTransfers {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: testvalues.FirstWasmClientID,
 					Sequence: uint64(i) + 1,
@@ -1157,7 +1157,7 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		escrowAddress   ethcommon.Address
 	)
 	s.Require().True(s.Run("Send packets on Ethereum", func() {
-		for i := 0; i < numOfTransfers; i++ {
+		for i := range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 				Denom:            erc20Address,

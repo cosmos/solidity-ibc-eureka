@@ -80,6 +80,7 @@ func (s *TestSuite) createEthereumLightClient(
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
 		LatestSlot:                   latestSlot,
+		LatestExecutionBlockNumber:   bootstrap.Data.Header.Execution.BlockNumber,
 		IsFrozen:                     false,
 		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
 		IbcContractAddress:           ibcContractAddress,

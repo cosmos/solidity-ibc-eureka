@@ -2,7 +2,7 @@
 
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
-use ethereum_apis::eth_api::client::EthApiClient;
+use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::membership::evm_ics26_commitment_path;
 use ethereum_types::execution::storage_proof::StorageProof;
 use futures::future;
@@ -174,11 +174,21 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     ack_msgs: &mut [MsgAcknowledgement],
     timeout_msgs: &mut [MsgTimeout],
     eth_client: &EthApiClient<P>,
+    beacon_api_client: &BeaconApiClient,
     ibc_contrct_address: &str,
     ibc_contract_slot: U256,
-    proof_block_number: u64,
     proof_slot: u64,
 ) -> Result<()> {
+    let current_beacon_block = beacon_api_client
+        .beacon_block(&format!("{proof_slot:?}"))
+        .await?;
+
+    let proof_block_number = current_beacon_block
+        .message
+        .body
+        .execution_payload
+        .block_number;
+
     let proof_slot_height = Height {
         revision_number: 0,
         revision_height: proof_slot,

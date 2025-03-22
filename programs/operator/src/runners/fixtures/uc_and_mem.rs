@@ -32,9 +32,14 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if args.sp1.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
+
     let uc_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        args.proof_type,
+        args.sp1.proof_type,
         &sp1_prover,
     );
 
@@ -49,7 +54,7 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;

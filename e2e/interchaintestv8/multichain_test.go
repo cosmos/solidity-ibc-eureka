@@ -368,7 +368,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			ProverType: prover,
 		}
 		if prover == testvalues.EnvValueSp1Prover_Network {
-			sp1Config.PrivateCluster = true
+			sp1Config.PrivateCluster = os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
 		}
 
 		config := relayer.NewConfig(relayer.CreateMultichainModules(relayer.MultichainConfigInfo{

@@ -38,7 +38,11 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let contract_client_state = contract.clientState().call().await?;
     let tendermint_rpc_client = HttpClient::from_env();
 
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if args.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
     let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
         contract_client_state.zkAlgorithm.try_into()?,
         &sp1_prover,

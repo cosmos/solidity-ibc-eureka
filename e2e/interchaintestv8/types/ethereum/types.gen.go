@@ -33,6 +33,8 @@ type ClientState struct {
 	IbcContractAddress string `json:"ibc_contract_address"`
 	// Whether the client is frozen
 	IsFrozen bool `json:"is_frozen"`
+	// The latest execution block number
+	LatestExecutionBlockNumber uint64 `json:"latest_execution_block_number"`
 	// The latest slot of this client
 	LatestSlot uint64 `json:"latest_slot"`
 	// The minimum number of participants in the sync committee
@@ -101,7 +103,7 @@ type ConsensusState struct {
 type Header struct {
 	// The account update
 	AccountUpdate AccountUpdate `json:"account_update"`
-	// The trusted sync committee
+	// The active sync committee (untrusted)
 	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
@@ -121,7 +123,7 @@ type AccountProof struct {
 	StorageRoot string `json:"storage_root"`
 }
 
-// The trusted sync committee
+// The active sync committee (untrusted)
 //
 // # The active sync committee
 //

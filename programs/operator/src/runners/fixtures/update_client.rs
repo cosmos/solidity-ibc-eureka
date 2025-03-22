@@ -47,9 +47,14 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    let sp1_prover = Sp1Prover::new_public_cluster(ProverClient::from_env());
+    let sp1_prover = if args.sp1.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+    } else {
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
+    };
+
     let uc_prover =
-        SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.proof_type, &sp1_prover);
+        SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.sp1.proof_type, &sp1_prover);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.trusted_block))
@@ -62,7 +67,7 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
     )
     .await?;
 
