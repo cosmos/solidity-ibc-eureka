@@ -68,13 +68,11 @@ pub fn instantiate(
         ContractError::ClientAndConsensusStateMismatch
     );
 
-    let fork_version = client_state
-        .fork_parameters
-        .compute_fork_version(client_state.compute_epoch_at_slot(client_state.latest_slot));
-    ensure!(
-        fork_version == client_state.fork_parameters.electra.version,
-        ContractError::MustBeElectra
-    );
+    client_state
+        .verify_supported_fork_at_epoch(
+            client_state.compute_epoch_at_slot(client_state.latest_slot),
+        )
+        .map_err(ContractError::UnsupportedForkVersion)?;
 
     store_client_state(deps.storage, &wasm_client_state)?;
     store_consensus_state(deps.storage, &wasm_consensus_state, consensus_state.slot)?;

@@ -5,6 +5,8 @@ use ethereum_types::consensus::fork::ForkParameters;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::error::EthereumIBCError;
+
 /// The ethereum client state
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]
 pub struct ClientState {
@@ -42,6 +44,17 @@ pub struct ClientState {
 }
 
 impl ClientState {
+    /// Verifies that an epoch is within a supported fork for the light client.
+    /// # Errors
+    /// Returns an error if the slot is not supported.
+    pub const fn verify_supported_fork_at_epoch(&self, epoch: u64) -> Result<(), EthereumIBCError> {
+        if epoch < self.fork_parameters.deneb.epoch {
+            return Err(EthereumIBCError::MustBeDenebOrLater);
+        }
+
+        Ok(())
+    }
+
     /// Returns the computed slot at a given `timestamp_seconds`.
     #[must_use]
     pub fn compute_slot_at_timestamp(&self, timestamp_seconds: u64) -> Option<u64> {

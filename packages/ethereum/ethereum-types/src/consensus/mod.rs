@@ -6,7 +6,6 @@ pub mod bootstrap;
 pub mod domain;
 pub mod fork;
 pub mod light_client_header;
-pub mod merkle;
 pub mod signing_data;
 pub mod spec;
 pub mod sync_committee;

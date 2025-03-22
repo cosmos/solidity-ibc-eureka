@@ -7,7 +7,6 @@ use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
     light_client_header::LightClientUpdate,
-    merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
     signing_data::compute_signing_root,
 };
 use tree_hash::TreeHash;
@@ -21,7 +20,7 @@ use crate::{
         finalized_root_gindex_at_slot, is_valid_light_client_header,
         next_sync_committee_gindex_at_slot,
     },
-    trie::validate_merkle_branch,
+    trie::is_valid_normalized_merkle_branch,
 };
 
 /// The BLS verifier trait.
@@ -258,14 +257,10 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let finalized_root = update.finalized_header.beacon.tree_hash_root();
 
     // This confirms that the `finalized_header` is really finalized.
-    validate_merkle_branch(
+    is_valid_normalized_merkle_branch(
         finalized_root,
-        update.finality_branch.into(),
-        FINALITY_BRANCH_DEPTH,
-        get_subtree_index(finalized_root_gindex_at_slot(
-            client_state,
-            update.attested_header.beacon.slot,
-        )?),
+        update.finality_branch.clone(),
+        finalized_root_gindex_at_slot(client_state, update.attested_header.beacon.slot)?,
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -292,18 +287,14 @@ pub fn validate_light_client_update<V: BlsVerify>(
         }
 
         // This validates the given next sync committee against the attested header's state root.
-        validate_merkle_branch(
+        is_valid_normalized_merkle_branch(
             update
                 .next_sync_committee
                 .as_ref()
                 .unwrap()
                 .tree_hash_root(),
-            update.next_sync_committee_branch.unwrap().into(),
-            NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(next_sync_committee_gindex_at_slot(
-                client_state,
-                update.attested_header.beacon.slot,
-            )?),
+            update.next_sync_committee_branch.clone().unwrap(),
+            next_sync_committee_gindex_at_slot(client_state, update.attested_header.beacon.slot)?,
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;

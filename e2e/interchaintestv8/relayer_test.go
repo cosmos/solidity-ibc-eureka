@@ -613,27 +613,50 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *RelayerTestSuite) Test_Electra_Fork() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
 	ctx := context.Background()
 
-	// TODO: Figure out a reasonable number for electra epoch to happen
-	os.Setenv(testvalues.EnvKeyEthereumPosElectraEpoch, "100000000")
+	targetEpoch := 12
+	err := os.Setenv(testvalues.EnvKeyEthereumPosElectraEpoch, strconv.Itoa(targetEpoch))
+	s.Require().NoError(err)
+
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
 	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount))
 
-	// TODO: Wait for the electra epoch to happen
+	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
+	s.Require().NoError(err)
+	err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
+		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
+		if err != nil {
+			return false, err
+		}
 
-	// TODO: Verity everything just works
+		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
+		if err != nil {
+			return false, err
+		}
+
+		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
+
+		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", targetEpoch, latestFinalityEpoch)
+		return latestFinalityEpoch >= uint64(targetEpoch), nil
+
+	})
+	s.Require().NoError(err)
+
+	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int) {
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
-
-	fmt.Println("WAITING FOR 10 MINUTES")
-	time.Sleep(10 * time.Minute)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
@@ -644,6 +667,20 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+	escrowAddress, err := s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
+	s.Require().NoError(err)
+
+	denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
+
+	escrowStartingBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
+	startBalanceEthereum, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
+	s.Require().NoError(err)
+	startBalanceCosmosResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+		Address: cosmosUserAddress,
+		Denom:   denomOnCosmos.IBCDenom(),
+	})
+	s.Require().NoError(err)
+	startBalanceCosmos := startBalanceCosmosResp.Balance.Amount.BigInt()
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
@@ -659,8 +696,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	}))
 
 	var (
-		sendTxHashes  [][]byte
-		escrowAddress ethcommon.Address
+		sendTxHashes [][]byte
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
@@ -690,7 +726,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			// User balance on Ethereum
 			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
+			s.Require().Equal(new(big.Int).Sub(startBalanceEthereum, totalTransferAmount), userBalance)
 
 			// Get the escrow address
 			escrowAddress, err = s.ics20Contract.GetEscrow(nil, testvalues.CustomClientID)
@@ -699,7 +735,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			// ICS20 contract balance on Ethereum
 			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
 			s.Require().NoError(err)
-			s.Require().Equal(totalTransferAmount, escrowBalance)
+			s.Require().Equal(new(big.Int).Add(escrowStartingBalance, totalTransferAmount), escrowBalance)
 		}))
 	}))
 
@@ -730,7 +766,6 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 
 			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
@@ -739,7 +774,8 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
+			new(big.Int).Sub(startBalanceEthereum, totalTransferAmount)
+			s.Require().Equal(new(big.Int).Add(startBalanceCosmos, totalTransferAmount), resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))

@@ -3,7 +3,30 @@
 use alloy_primitives::B256;
 use sha2::{Digest, Sha256};
 
-use crate::error::EthereumIBCError;
+use crate::{
+    error::EthereumIBCError,
+    sync_protocol_helpers::{floorlog2, get_subtree_index, normalize_merkle_branch},
+};
+
+// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+/// Validates a merkle branch by normalizing the merkle branch first.
+/// # Errors
+/// Returns an error if the merkle branch is invalid.
+/// # Panics
+/// Panics if the depth of the merkle branch is too large.
+pub fn is_valid_normalized_merkle_branch(
+    leaf: B256,
+    branch: Vec<B256>,
+    gindex: u64,
+    root: B256,
+) -> Result<(), EthereumIBCError> {
+    let depth = floorlog2(gindex);
+    let index = get_subtree_index(gindex);
+    let normalized_branch = normalize_merkle_branch(branch, gindex);
+
+    validate_merkle_branch(leaf, normalized_branch, depth, index, root)
+}
+
 // https://github.com/ethereum/consensus-specs/blob/efb554f4c4848f8bfc260fcf3ff4b806971716f6/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 /// Validates a merkle branch.
 /// # Errors
@@ -46,11 +69,13 @@ mod test {
     use ethereum_types::consensus::{
         fork::{Fork, ForkParameters},
         light_client_header::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-        merkle::{get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_GINDEX},
     };
 
     use crate::{
-        client_state::ClientState, sync_protocol_helpers::get_lc_execution_root,
+        client_state::ClientState,
+        sync_protocol_helpers::{
+            floorlog2, get_lc_execution_root, get_subtree_index, EXECUTION_PAYLOAD_GINDEX,
+        },
         trie::validate_merkle_branch,
     };
 
@@ -94,7 +119,7 @@ mod test {
                 blob_gas_used: 0,
                 excess_blob_gas: 0,
             },
-            execution_branch: [
+            execution_branch: vec![
                 B256::from_hex("0xd320d2b395e1065b0b2e3dbb7843c6d77cb7830ef340ffc968caa0f92e26f080")
                     .unwrap(),
                 B256::from_hex("0x6c6dd63656639d153a2e86a9cab291e7a26e957ad635fec872d2836e92340c23")
@@ -144,10 +169,10 @@ mod test {
             &header,
         )
         .unwrap();
-        let depth = EXECUTION_BRANCH_DEPTH;
+        let depth = floorlog2(EXECUTION_PAYLOAD_GINDEX);
         let index = get_subtree_index(EXECUTION_PAYLOAD_GINDEX);
         let root = header.beacon.body_root;
 
-        validate_merkle_branch(leaf, header.execution_branch.into(), depth, index, root).unwrap();
+        validate_merkle_branch(leaf, header.execution_branch, depth, index, root).unwrap();
     }
 }
