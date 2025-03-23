@@ -649,7 +649,6 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", targetEpoch, latestFinalityEpoch)
 		return latestFinalityEpoch >= uint64(targetEpoch), nil
-
 	})
 	s.Require().NoError(err)
 
@@ -657,7 +656,6 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 }
 
 func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int) {
-
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -673,6 +671,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 	denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 
 	escrowStartingBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
+	s.Require().NoError(err)
 	startBalanceEthereum, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
 	s.Require().NoError(err)
 	startBalanceCosmosResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
@@ -695,9 +694,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		s.Require().Equal(totalTransferAmount, allowance)
 	}))
 
-	var (
-		sendTxHashes [][]byte
-	)
+	var sendTxHashes [][]byte
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numOfTransfers), func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -766,7 +763,6 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-
 			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
 				Address: cosmosUserAddress,
