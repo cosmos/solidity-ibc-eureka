@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
@@ -20,10 +21,11 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
+import { RelayerHelper } from "../contracts/utils/RelayerHelper.sol";
 import { Deployments } from "./helpers/Deployments.sol";
 import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
-import {DeployProxiedICS20Transfer} from "./deployments/DeployProxiedICS20Transfer.sol";
-import {DeployProxiedICS26Router} from "./deployments/DeployProxiedICS26Router.sol";
+import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
+import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, DeployProxiedICS20Transfer, DeployProxiedICS26Router {
@@ -80,6 +82,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             permit2: address(0)
         }));
 
+        RelayerHelper relayerHelper = new RelayerHelper(address(routerProxy));
+
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         TestERC20 erc20 = new TestERC20();
@@ -94,9 +98,11 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         json = "json";
         json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
+        json.serialize("relayerHelper", Strings.toHexString(address(relayerHelper)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
     }
 }
+
