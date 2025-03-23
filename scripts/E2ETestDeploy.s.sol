@@ -97,6 +97,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
         json.serialize("verifier", Strings.toHexString(address(verifier)));
+        json.serialize("routerProxy", Strings.toHexString(address(routerProxy)));
+        json.serialize("transferProxy", Strings.toHexString(address(transferProxy)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
