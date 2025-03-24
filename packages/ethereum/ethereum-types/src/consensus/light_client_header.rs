@@ -41,7 +41,7 @@ pub struct LightClientUpdate {
 impl LightClientUpdate {
     /// Validates that the branch depths are correct
     // TODO: Remove this function after type safety is added back (#440)
-    // TODO: Use is_none_or after cosmwasm supports rust 1.85
+    // TODO: Use is_none_or after cosmwasm supports rust 1.85 (https://github.com/CosmWasm/cosmwasm/issues/2292)
     #[allow(clippy::unnecessary_map_or)]
     pub fn is_valid_branch_depths(
         &self,

@@ -124,8 +124,8 @@ pub fn normalize_merkle_branch(branch: &[B256], gindex: u64) -> Vec<B256> {
     let depth = floorlog2(gindex);
     let num_extra = depth - branch.len();
 
-    vec![B256::default(); num_extra]
-        .into_iter()
+    std::iter::repeat(B256::default())
+        .take(num_extra)
         .chain(branch.to_vec())
         .collect()
 }
