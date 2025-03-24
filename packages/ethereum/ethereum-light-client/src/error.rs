@@ -47,8 +47,8 @@ pub enum EthereumIBCError {
         normalized_branch: Vec<B256>,
     },
 
-    #[error("invalid light client update branch depths for slot {0}")]
-    InvalidBranchDepths(u64),
+    #[error("invalid light client update branch depths for slot {0} (next sync committee branch depth: {1}), finality branch depth: {2}")]
+    InvalidBranchDepths(u64, usize, usize),
 
     #[error("finalized slot cannot be the genesis slot")]
     FinalizedSlotIsGenesis,

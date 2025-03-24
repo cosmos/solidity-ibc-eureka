@@ -156,18 +156,24 @@ pub fn validate_light_client_update<V: BlsVerify>(
     bls_verifier: &V,
 ) -> Result<(), EthereumIBCError> {
     // TODO: Remove this check after type safety is added back (#440)
+    let expected_next_sync_committee_branch_depth = floorlog2(next_sync_committee_gindex_at_slot(
+        client_state,
+        update.attested_header.beacon.slot,
+    )?);
+    let expected_finality_branch_depth = floorlog2(finalized_root_gindex_at_slot(
+        client_state,
+        update.attested_header.beacon.slot,
+    )?);
     ensure!(
-        update.validate_branch_depths(
-            floorlog2(next_sync_committee_gindex_at_slot(
-                client_state,
-                update.attested_header.beacon.slot,
-            )?),
-            floorlog2(finalized_root_gindex_at_slot(
-                client_state,
-                update.attested_header.beacon.slot,
-            )?),
+        update.is_valid_branch_depths(
+            expected_next_sync_committee_branch_depth,
+            expected_finality_branch_depth,
         ),
-        EthereumIBCError::InvalidBranchDepths(update.attested_header.beacon.slot)
+        EthereumIBCError::InvalidBranchDepths(
+            update.attested_header.beacon.slot,
+            expected_next_sync_committee_branch_depth,
+            expected_finality_branch_depth
+        )
     );
 
     // Verify sync committee has sufficient participants
@@ -277,7 +283,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
         finalized_root_gindex_at_slot(client_state, update.attested_header.beacon.slot)?;
     is_valid_normalized_merkle_branch(
         finalized_root,
-        &normalize_merkle_branch(update.finality_branch.clone(), finalized_root_gindex),
+        &normalize_merkle_branch(&update.finality_branch, finalized_root_gindex),
         finalized_root_gindex,
         update.attested_header.beacon.state_root,
     )
@@ -314,7 +320,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
                 .unwrap()
                 .tree_hash_root(),
             &normalize_merkle_branch(
-                update.next_sync_committee_branch.clone().unwrap(),
+                &update.next_sync_committee_branch.clone().unwrap(),
                 next_sync_committee_gindex,
             ),
             next_sync_committee_gindex,

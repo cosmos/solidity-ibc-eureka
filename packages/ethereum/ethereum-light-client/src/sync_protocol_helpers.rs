@@ -13,9 +13,8 @@ use tree_hash::TreeHash;
 
 use crate::{client_state::ClientState, error::EthereumIBCError, trie::validate_merkle_branch};
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-finalized_root_gindex_at_slot
 /// Returns the finalized root gindex at the given slot.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-finalized_root_gindex_at_slot)
 /// # Errors
 /// Returns an error if the epoch is in a non-supported fork.
 pub fn finalized_root_gindex_at_slot(
@@ -33,9 +32,8 @@ pub fn finalized_root_gindex_at_slot(
     Ok(FINALIZED_ROOT_GINDEX)
 }
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-current_sync_committee_gindex_at_slot
 /// Returns the current sync committee gindex at the given slot.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-current_sync_committee_gindex_at_slot)
 /// # Errors
 /// Returns an error if the epoch is in a non-supported fork.
 pub fn current_sync_committee_gindex_at_slot(
@@ -53,9 +51,8 @@ pub fn current_sync_committee_gindex_at_slot(
     Ok(CURRENT_SYNC_COMMITTEE_GINDEX)
 }
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-next_sync_committee_gindex_at_slot
 /// Returns the next sync committee gindex at the given slot.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-next_sync_committee_gindex_at_slot)
 /// # Errors
 /// Returns an error if the epoch is in a non-supported fork.
 pub fn next_sync_committee_gindex_at_slot(
@@ -73,9 +70,8 @@ pub fn next_sync_committee_gindex_at_slot(
     Ok(NEXT_SYNC_COMMITTEE_GINDEX)
 }
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
 /// Returns the execution root of the light client header.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root)
 /// # Errors
 /// Returns an error if the epoch is less than the Deneb epoch.
 pub fn get_lc_execution_root(
@@ -91,9 +87,8 @@ pub fn get_lc_execution_root(
     Ok(header.execution.tree_hash_root())
 }
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 /// Validates a light client header.
-///
-/// [See in consensus-spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header)
 /// # Errors
 /// Returns an error if the header cannot be validated.
 pub fn is_valid_light_client_header(
@@ -113,37 +108,61 @@ pub fn is_valid_light_client_header(
     )
 }
 
+// See spec: <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#get_subtree_index>
 /// Values that are constant across all configurations.
-/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#get_subtree_index>
 #[must_use]
 pub const fn get_subtree_index(idx: u64) -> u64 {
     idx % 2_u64.pow(idx.ilog2())
 }
 
+// See spec: <https://github.com/ethereum/consensus-specs/blob/ff99bc03d6da29d9ef6e055bdb8500e1b2942f1e/specs/electra/light-client/fork.md#L26>
 /// Normalize a merkle branch to a depth for given gindex.
-/// <https://github.com/ethereum/consensus-specs/blob/ff99bc03d6da29d9ef6e055bdb8500e1b2942f1e/specs/electra/light-client/fork.md#L26>
 /// # Panics
 /// Panics if the merkle branch is larger than the calculated depth for the given gindex.
 #[must_use]
-pub fn normalize_merkle_branch(branch: Vec<B256>, gindex: u64) -> Vec<B256> {
+pub fn normalize_merkle_branch(branch: &[B256], gindex: u64) -> Vec<B256> {
     let depth = floorlog2(gindex);
     let num_extra = depth - branch.len();
 
-    let mut normalized = vec![B256::default(); num_extra];
-    normalized.extend(branch);
-    normalized
+    vec![B256::default(); num_extra]
+        .into_iter()
+        .chain(branch.to_vec())
+        .collect()
 }
 
 #[cfg(test)]
 mod test {
     use alloy_primitives::B256;
+    use hex::FromHex;
 
     use crate::sync_protocol_helpers::normalize_merkle_branch;
+
+    #[test]
+    fn test_nomralize_merkle_branch() {
+        let branch = vec![B256::from_hex(
+            "0x75d7411cb01daad167713b5a9b7219670f0e500653cbbcd45cfe1bfe04222459",
+        )
+        .unwrap()];
+        let gindex = 4;
+        let normalized = normalize_merkle_branch(&branch, gindex);
+
+        let expected_branch = vec![B256::default(), branch[0]];
+        assert_eq!(normalized, expected_branch);
+    }
+
+    #[test]
+    fn test_normalize_merkle_branch_with_no_extra() {
+        let branch = vec![B256::default(); 3];
+        let gindex = 8;
+        let normalized = normalize_merkle_branch(&branch, gindex);
+
+        assert_eq!(normalized, branch);
+    }
 
     #[test]
     #[should_panic(expected = "attempt to subtract with overflow")]
     fn test_normalize_merkle_branch_panics_on_invalid_branch() {
         // should panic if num_extra becomes negative (depth < branch.len())
-        let _ = normalize_merkle_branch(vec![B256::default(); 3], 2);
+        let _ = normalize_merkle_branch(&[B256::default(); 3], 2);
     }
 }

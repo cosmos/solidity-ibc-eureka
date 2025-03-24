@@ -40,15 +40,19 @@ pub struct LightClientUpdate {
 
 impl LightClientUpdate {
     /// Validates that the branch depths are correct
-    // TODO: Remove this after type safety is added back (#440)
-    pub fn validate_branch_depths(
+    // TODO: Remove this function after type safety is added back (#440)
+    // TODO: Use is_none_or after cosmwasm supports rust 1.85
+    #[allow(clippy::unnecessary_map_or)]
+    pub fn is_valid_branch_depths(
         &self,
         expected_next_sync_committee_branch_depth: usize,
         expected_finality_branch_depth: usize,
     ) -> bool {
         self.next_sync_committee_branch
             .as_ref()
-            .is_none_or(|branch| branch.len() == expected_next_sync_committee_branch_depth)
+            .map_or(true, |branch| {
+                branch.len() == expected_next_sync_committee_branch_depth
+            })
             && self.finality_branch.len() == expected_finality_branch_depth
     }
 }

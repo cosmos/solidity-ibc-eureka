@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use super::fork::{compute_fork_data_root, Version};
 
+// See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
 /// The signature domain type.
 /// Defined in
-/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types>
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
 #[allow(clippy::module_name_repetitions)]
 pub struct DomainType(pub [u8; 4]);
