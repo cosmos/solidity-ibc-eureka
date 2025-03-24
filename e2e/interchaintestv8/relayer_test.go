@@ -750,6 +750,10 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		var ackTxHash []byte

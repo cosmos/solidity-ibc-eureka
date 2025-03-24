@@ -38,6 +38,18 @@ pub enum EthereumIBCError {
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size
 
+    #[error(
+        "invalid normalized merkle branch, expected {num_extra} empty bytes in {normalized_branch}",
+        normalized_branch = .normalized_branch.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ")
+    )]
+    InvalidNormalizedMerkleBranch {
+        num_extra: usize,
+        normalized_branch: Vec<B256>,
+    },
+
+    #[error("invalid light client update branch depths for slot {0}")]
+    InvalidBranchDepths(u64),
+
     #[error("finalized slot cannot be the genesis slot")]
     FinalizedSlotIsGenesis,
 

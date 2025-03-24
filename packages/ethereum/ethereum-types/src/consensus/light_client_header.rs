@@ -38,6 +38,21 @@ pub struct LightClientUpdate {
     pub signature_slot: u64,
 }
 
+impl LightClientUpdate {
+    /// Validates that the branch depths are correct
+    // TODO: Remove this after type safety is added back (#440)
+    pub fn validate_branch_depths(
+        &self,
+        expected_next_sync_committee_branch_depth: usize,
+        expected_finality_branch_depth: usize,
+    ) -> bool {
+        self.next_sync_committee_branch
+            .as_ref()
+            .is_none_or(|branch| branch.len() == expected_next_sync_committee_branch_depth)
+            && self.finality_branch.len() == expected_finality_branch_depth
+    }
+}
+
 /// A light client finality update
 #[serde_as]
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default)]

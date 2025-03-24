@@ -121,18 +121,29 @@ pub const fn get_subtree_index(idx: u64) -> u64 {
 }
 
 /// Normalize a merkle branch to a depth for given gindex.
+/// <https://github.com/ethereum/consensus-specs/blob/ff99bc03d6da29d9ef6e055bdb8500e1b2942f1e/specs/electra/light-client/fork.md#L26>
+/// # Panics
+/// Panics if the merkle branch is larger than the calculated depth for the given gindex.
 #[must_use]
 pub fn normalize_merkle_branch(branch: Vec<B256>, gindex: u64) -> Vec<B256> {
-    // Compute the “depth” from gindex.
     let depth = floorlog2(gindex);
-    // If the branch length is shorter than depth, we need to prepend extra default elements.
-    if depth > branch.len() {
-        let num_extra = depth - branch.len();
-        // Create a new vector with num_extra default values followed by the original branch.
-        let mut normalized = vec![B256::default(); num_extra];
-        normalized.extend(branch);
-        normalized
-    } else {
-        branch
+    let num_extra = depth - branch.len();
+
+    let mut normalized = vec![B256::default(); num_extra];
+    normalized.extend(branch);
+    normalized
+}
+
+#[cfg(test)]
+mod test {
+    use alloy_primitives::B256;
+
+    use crate::sync_protocol_helpers::normalize_merkle_branch;
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_normalize_merkle_branch_panics_on_invalid_branch() {
+        // should panic if num_extra becomes negative (depth < branch.len())
+        let _ = normalize_merkle_branch(vec![B256::default(); 3], 2);
     }
 }
