@@ -93,6 +93,7 @@ generate-fixtures-wasm: clean
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 60m
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos$' -timeout 60m
+	# TODO: Remove after support for Deneb is removed (#440)
 	@echo "Generating deneb to electra fork fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_Electra_Fork$' -timeout 60m
 
