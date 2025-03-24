@@ -16,5 +16,6 @@ pub struct LightClientBootstrap {
     /// The current sync committee
     pub current_sync_committee: SyncCommittee,
     /// The branch of the current sync committee
+    // TODO: Add back type safety after Deneb support is removed (#440)
     pub current_sync_committee_branch: Vec<B256>,
 }

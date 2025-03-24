@@ -76,8 +76,6 @@ const (
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
 	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
 	EnvKeyEthereumPosNetworkPreset = "ETHEREUM_POS_NETWORK_PRESET"
-	// EnvKeyEthereumPosElectraEpoch The environment variable name to configure the Electra epoch for the Ethereum PoS testnet
-	EnvKeyEthereumPosElectraEpoch = "ETHEREUM_POS_ELECTRA_EPOCH"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.

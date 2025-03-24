@@ -35,6 +35,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -624,9 +625,8 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 	ctx := context.Background()
 
-	targetEpoch := 12
-	err := os.Setenv(testvalues.EnvKeyEthereumPosElectraEpoch, strconv.Itoa(targetEpoch))
-	s.Require().NoError(err)
+	electraForkEpoch := 12
+	chainconfig.KurtosisConfig.NetworkParams.ElectraForkEpoch = uint64(electraForkEpoch)
 
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
@@ -647,8 +647,8 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
 
-		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", targetEpoch, latestFinalityEpoch)
-		return latestFinalityEpoch >= uint64(targetEpoch), nil
+		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", electraForkEpoch, latestFinalityEpoch)
+		return latestFinalityEpoch >= uint64(electraForkEpoch), nil
 	})
 	s.Require().NoError(err)
 

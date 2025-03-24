@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -31,7 +30,9 @@ const (
 )
 
 var (
-	kurtosisConfig = kurtosisNetworkParams{
+	// KurtosisConfig sets up the default values for the eth testnet
+	// It can be changed before calling SetupSuite to alter the testnet configuration
+	KurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
@@ -45,14 +46,14 @@ var (
 		},
 		// We
 		NetworkParams: kurtosisNetworkConfigParams{
-			// We get the Preset and ElextraForkEpoch from the environment variables when starting up the network
-			// This makes it easier for a test to decide its own setup
+			Preset:           "minimal",
+			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
 	}
-	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
-	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
+	executionService = fmt.Sprintf("el-1-%s-%s", KurtosisConfig.Participants[0].ELType, KurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
 )
 
 // getKurtosisPreset returns the Kurtosis preset to use.
@@ -63,20 +64,6 @@ func getKurtosisPreset() string {
 		return testvalues.EnvValueEthereumPosPreset_Minimal
 	}
 	return preset
-}
-
-func getElectraEpoch() uint64 {
-	epochStr := os.Getenv(testvalues.EnvKeyEthereumPosElectraEpoch)
-	fmt.Printf("Electra epoch: %s\n", epochStr)
-	if epochStr == "" {
-		return 1
-	}
-	epoch, err := strconv.Atoi(epochStr)
-	if err != nil {
-		panic("failed to parse electra epoch: " + err.Error())
-	}
-
-	return uint64(epoch)
 }
 
 type EthKurtosisChain struct {
@@ -114,8 +101,7 @@ type kurtosisNetworkConfigParams struct {
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	// Load dynamic configurations
-	kurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
-	kurtosisConfig.NetworkParams.ElectraForkEpoch = getElectraEpoch()
+	KurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
 
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
@@ -146,7 +132,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
-	networkParamsJson, err := json.Marshal(kurtosisConfig)
+	networkParamsJson, err := json.Marshal(KurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}

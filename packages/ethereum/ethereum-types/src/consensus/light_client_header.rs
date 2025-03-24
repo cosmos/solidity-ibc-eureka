@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use tree_hash_derive::TreeHash;
 
-use super::sync_committee::{SyncAggregate, SyncCommittee};
+use super::{
+    merkle::{floorlog2, EXECUTION_PAYLOAD_GINDEX},
+    sync_committee::{SyncAggregate, SyncCommittee},
+};
 
 /// A light client update
 #[serde_as]
@@ -18,11 +21,13 @@ pub struct LightClientUpdate {
     /// Next sync committee corresponding to `attested_header.state_root`
     pub next_sync_committee: Option<SyncCommittee>,
     /// The branch of the next sync committee
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
     pub next_sync_committee_branch: Option<Vec<B256>>,
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
     pub finality_branch: Vec<B256>,
     /// Sync committee aggregate signature
@@ -43,6 +48,7 @@ pub struct LightClientFinalityUpdate {
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
     pub finality_branch: Vec<B256>,
     /// Sync committee aggregate signature
@@ -78,7 +84,7 @@ pub struct LightClientHeader {
     pub execution: ExecutionPayloadHeader,
     /// The execution branch
     #[schemars(with = "Vec<String>")]
-    pub execution_branch: Vec<B256>,
+    pub execution_branch: [B256; floorlog2(EXECUTION_PAYLOAD_GINDEX)],
 }
 
 /// The beacon block header
