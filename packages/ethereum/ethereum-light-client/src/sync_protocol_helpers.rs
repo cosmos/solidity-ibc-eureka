@@ -124,7 +124,9 @@ pub fn normalize_merkle_branch(branch: &[B256], gindex: u64) -> Vec<B256> {
     let depth = floorlog2(gindex);
     let num_extra = depth - branch.len();
 
-    std::iter::repeat_n(B256::default(), num_extra)
+    // TODO: Switch to std::iter::repeat_n when cosmwasm supports rust 1.85 (https://github.com/CosmWasm/cosmwasm/issues/2292)
+    vec![B256::default(); num_extra]
+        .into_iter()
         .chain(branch.to_vec())
         .collect()
 }
