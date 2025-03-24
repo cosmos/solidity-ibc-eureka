@@ -770,7 +770,6 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			new(big.Int).Sub(startBalanceEthereum, totalTransferAmount)
 			s.Require().Equal(new(big.Int).Add(startBalanceCosmos, totalTransferAmount), resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
