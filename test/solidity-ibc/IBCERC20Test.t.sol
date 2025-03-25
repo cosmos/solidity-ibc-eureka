@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IIBCERC20Errors } from "../../contracts/errors/IIBCERC20Errors.sol";
+import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
@@ -36,15 +37,26 @@ contract IBCERC20Test is Test {
                 )
             )
         );
+
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
+        ibcERC20.grantMetadataSetterRole(metadataSetter);
     }
 
-    function test_ERC20Metadata() public view {
+    function test_ERC20DefaultMetadata() public view {
         assertEq(ibcERC20.ics20(), address(this));
         assertEq(ibcERC20.escrow(), address(escrow));
         assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "full/denom/path/test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
         assertEq(0, ibcERC20.totalSupply());
+    }
+
+    function test_ERC20CustomMetadata() public {
+        vm.prank(metadataSetter);
+        ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
+        assertEq(ibcERC20.decimals(), 6);
+        assertEq(ibcERC20.name(), "Cosmos Hub");
+        assertEq(ibcERC20.symbol(), "ATOM");
     }
 
     function test_EscrowSetup() public view {
