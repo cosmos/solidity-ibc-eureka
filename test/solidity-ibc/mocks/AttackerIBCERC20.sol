@@ -40,4 +40,24 @@ contract AttackerIBCERC20 is IIBCERC20, ERC20 {
     function ics20() external pure returns (address) {
         return address(0);
     }
+
+    /// @inheritdoc IIBCERC20
+    function grantMetadataSetterRole(address) external pure {
+        revert("not implemented");
+    }
+
+    /// @inheritdoc IIBCERC20
+    function revokeMetadataSetterRole(address) external pure {
+        revert("not implemented");
+    }
+
+    /// @inheritdoc IIBCERC20
+    function METADATA_SETTER_ROLE() external pure override returns (bytes32) {
+        revert("not implemented");
+    }
+
+    /// @inheritdoc IIBCERC20
+    function setMetadata(uint8, string calldata, string calldata) external pure {
+        revert("not implemented");
+    }
 }

@@ -35,6 +35,7 @@ contract IBCAdminTest is Test {
     address public ics20Pauser = makeAddr("ics20Pauser");
     address public ics20Unpauser = makeAddr("ics20Unpauser");
     address public relayer = makeAddr("relayer");
+    address public tokenOperator = makeAddr("tokenOperator");
 
     string public clientId;
     string public counterpartyId = "42-dummy-01";
@@ -73,6 +74,8 @@ contract IBCAdminTest is Test {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+
+        ics20Transfer.grantRole(ics20Transfer.TOKEN_OPERATOR_ROLE(), tokenOperator);
     }
 
     function test_success_ics20_upgrade() public {
@@ -364,6 +367,43 @@ contract IBCAdminTest is Test {
         );
         ics26Router.revokeRole(clientMigratorRole, clientCreator);
         assert(ics26Router.hasRole(clientMigratorRole, clientCreator));
+    }
+
+    function test_success_setTokenOperator() public {
+        bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
+        address newTokenOperator = makeAddr("newTokenOperator");
+
+        ics20Transfer.grantRole(tokenOperatorRole, newTokenOperator);
+        assert(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+
+        ics20Transfer.revokeRole(tokenOperatorRole, tokenOperator);
+        assertFalse(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
+    }
+
+    function test_failure_setTokenOperator() public {
+        bytes32 defaultAdminRole = ics20Transfer.DEFAULT_ADMIN_ROLE();
+        bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
+        address unauthorized = makeAddr("unauthorized");
+        address newTokenOperator = makeAddr("newTokenOperator");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics20Transfer.grantRole(tokenOperatorRole, newTokenOperator);
+        assertFalse(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+
+        // Revoke the token operator role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+            )
+        );
+        ics20Transfer.revokeRole(tokenOperatorRole, tokenOperator);
+        assert(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
     }
 
     function test_success_pauseAndUnpause() public {
