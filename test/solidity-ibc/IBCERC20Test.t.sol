@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IIBCERC20Errors } from "../../contracts/errors/IIBCERC20Errors.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
+import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
@@ -49,12 +50,21 @@ contract IBCERC20Test is Test {
         assertEq(0, ibcERC20.totalSupply());
     }
 
-    function test_ERC20CustomMetadata() public {
+    function test_success_ERC20CustomMetadata() public {
         vm.prank(metadataSetter);
         ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
         assertEq(ibcERC20.decimals(), 6);
         assertEq(ibcERC20.name(), "Cosmos Hub");
         assertEq(ibcERC20.symbol(), "ATOM");
+    }
+
+    function test_failure_ERC20CustomMetadata() public {
+        bytes32 metadataSetterRole = ibcERC20.METADATA_SETTER_ROLE();
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, metadataSetterRole));
+        ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
     }
 
     function test_EscrowSetup() public view {
