@@ -38,7 +38,7 @@ contract IBCERC20Test is Test {
         );
 
         vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
-        ibcERC20.grantMetadataSetterRole(metadataSetter);
+        ibcERC20.grantMetadataCustomizerRole(metadataSetter);
     }
 
     function test_ERC20DefaultMetadata() public view {
@@ -59,19 +59,19 @@ contract IBCERC20Test is Test {
     }
 
     function test_failure_ERC20CustomMetadata() public {
-        bytes32 metadataSetterRole = ibcERC20.METADATA_SETTER_ROLE();
+        bytes32 metadataCustomizerRole = ibcERC20.METADATA_CUSTOMIZER_ROLE();
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, metadataSetterRole
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, metadataCustomizerRole
             )
         );
         ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
     }
 
-    function test_EscrowSetup() public view {
+    function test_success_setMetadataCustomizer() public view {
         assertEq(escrow.ics20(), address(this));
     }
 

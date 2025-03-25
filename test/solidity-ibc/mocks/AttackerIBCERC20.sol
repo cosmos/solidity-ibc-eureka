@@ -42,17 +42,17 @@ contract AttackerIBCERC20 is IIBCERC20, ERC20 {
     }
 
     /// @inheritdoc IIBCERC20
-    function grantMetadataSetterRole(address) external pure {
+    function grantMetadataCustomizerRole(address) external pure {
         revert("not implemented");
     }
 
     /// @inheritdoc IIBCERC20
-    function revokeMetadataSetterRole(address) external pure {
+    function revokeMetadataCustomizerRole(address) external pure {
         revert("not implemented");
     }
 
     /// @inheritdoc IIBCERC20
-    function METADATA_SETTER_ROLE() external pure override returns (bytes32) {
+    function METADATA_CUSTOMIZER_ROLE() external pure override returns (bytes32) {
         revert("not implemented");
     }
 
