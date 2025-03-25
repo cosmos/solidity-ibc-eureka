@@ -7,7 +7,7 @@ use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
     light_client_header::LightClientUpdate,
-    merkle::{get_subtree_index, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
+    merkle::floorlog2,
     signing_data::compute_signing_root,
 };
 use tree_hash::TreeHash;
@@ -19,9 +19,9 @@ use crate::{
     header::Header,
     sync_protocol_helpers::{
         finalized_root_gindex_at_slot, is_valid_light_client_header,
-        next_sync_committee_gindex_at_slot,
+        next_sync_committee_gindex_at_slot, normalize_merkle_branch,
     },
-    trie::validate_merkle_branch,
+    trie::is_valid_normalized_merkle_branch,
 };
 
 /// The BLS verifier trait.
@@ -155,6 +155,27 @@ pub fn validate_light_client_update<V: BlsVerify>(
     current_slot: u64,
     bls_verifier: &V,
 ) -> Result<(), EthereumIBCError> {
+    // TODO: Remove this check after type safety is added back (#440)
+    let expected_next_sync_committee_branch_depth = floorlog2(next_sync_committee_gindex_at_slot(
+        client_state,
+        update.attested_header.beacon.slot,
+    )?);
+    let expected_finality_branch_depth = floorlog2(finalized_root_gindex_at_slot(
+        client_state,
+        update.attested_header.beacon.slot,
+    )?);
+    ensure!(
+        update.is_valid_branch_depths(
+            expected_next_sync_committee_branch_depth,
+            expected_finality_branch_depth,
+        ),
+        EthereumIBCError::InvalidBranchDepths(
+            update.attested_header.beacon.slot,
+            expected_next_sync_committee_branch_depth,
+            expected_finality_branch_depth
+        )
+    );
+
     // Verify sync committee has sufficient participants
     ensure!(
         update
@@ -258,14 +279,12 @@ pub fn validate_light_client_update<V: BlsVerify>(
     let finalized_root = update.finalized_header.beacon.tree_hash_root();
 
     // This confirms that the `finalized_header` is really finalized.
-    validate_merkle_branch(
+    let finalized_root_gindex =
+        finalized_root_gindex_at_slot(client_state, update.attested_header.beacon.slot)?;
+    is_valid_normalized_merkle_branch(
         finalized_root,
-        update.finality_branch.into(),
-        FINALITY_BRANCH_DEPTH,
-        get_subtree_index(finalized_root_gindex_at_slot(
-            client_state,
-            update.attested_header.beacon.slot,
-        )?),
+        &normalize_merkle_branch(&update.finality_branch, finalized_root_gindex),
+        finalized_root_gindex,
         update.attested_header.beacon.state_root,
     )
     .map_err(|e| EthereumIBCError::ValidateFinalizedHeaderFailed(Box::new(e)))?;
@@ -292,18 +311,19 @@ pub fn validate_light_client_update<V: BlsVerify>(
         }
 
         // This validates the given next sync committee against the attested header's state root.
-        validate_merkle_branch(
+        let next_sync_committee_gindex =
+            next_sync_committee_gindex_at_slot(client_state, update.attested_header.beacon.slot)?;
+        is_valid_normalized_merkle_branch(
             update
                 .next_sync_committee
                 .as_ref()
                 .unwrap()
                 .tree_hash_root(),
-            update.next_sync_committee_branch.unwrap().into(),
-            NEXT_SYNC_COMMITTEE_BRANCH_DEPTH,
-            get_subtree_index(next_sync_committee_gindex_at_slot(
-                client_state,
-                update.attested_header.beacon.slot,
-            )?),
+            &normalize_merkle_branch(
+                &update.next_sync_committee_branch.clone().unwrap(),
+                next_sync_committee_gindex,
+            ),
+            next_sync_committee_gindex,
             update.attested_header.beacon.state_root,
         )
         .map_err(|e| EthereumIBCError::ValidateNextSyncCommitteeFailed(Box::new(e)))?;

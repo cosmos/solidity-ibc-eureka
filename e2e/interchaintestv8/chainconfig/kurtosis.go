@@ -30,7 +30,9 @@ const (
 )
 
 var (
-	kurtosisConfig = kurtosisNetworkParams{
+	// KurtosisConfig sets up the default values for the eth testnet
+	// It can be changed before calling SetupSuite to alter the testnet configuration
+	KurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
 				CLType:         "lodestar",
@@ -42,15 +44,16 @@ var (
 				ValidatorCount: 64,
 			},
 		},
+		// We
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset:           getKurtosisPreset(),
+			Preset:           "minimal",
 			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
 		AdditionalServices:  []string{},
 	}
-	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
-	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
+	executionService = fmt.Sprintf("el-1-%s-%s", KurtosisConfig.Participants[0].ELType, KurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
 )
 
 // getKurtosisPreset returns the Kurtosis preset to use.
@@ -97,6 +100,9 @@ type kurtosisNetworkConfigParams struct {
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
+	// Load dynamic configurations
+	KurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
+
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
 		return EthKurtosisChain{}, err
@@ -126,7 +132,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
-	networkParamsJson, err := json.Marshal(kurtosisConfig)
+	networkParamsJson, err := json.Marshal(KurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}

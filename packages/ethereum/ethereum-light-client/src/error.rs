@@ -27,8 +27,8 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee participants ({0})")]
     InsufficientSyncCommitteeParticipants(u64),
 
-    #[error("unsupported fork version, we only support electra")]
-    MustBeElectra,
+    #[error("unsupported fork version, must be deneb or later")]
+    MustBeDenebOrLater,
 
     #[error(
         "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
@@ -37,6 +37,18 @@ pub enum EthereumIBCError {
 
     #[error(transparent)]
     InvalidMerkleBranch(#[from] Box<InvalidMerkleBranch>), // boxed to decrease enum size
+
+    #[error(
+        "invalid normalized merkle branch, expected {num_extra} empty bytes in {normalized_branch}",
+        normalized_branch = .normalized_branch.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ")
+    )]
+    InvalidNormalizedMerkleBranch {
+        num_extra: usize,
+        normalized_branch: Vec<B256>,
+    },
+
+    #[error("invalid light client update branch depths for slot {0} (next sync committee branch depth: {1}), finality branch depth: {2}")]
+    InvalidBranchDepths(u64, usize, usize),
 
     #[error("finalized slot cannot be the genesis slot")]
     FinalizedSlotIsGenesis,

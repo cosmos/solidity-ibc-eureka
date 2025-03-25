@@ -33,7 +33,7 @@ type ClientState struct {
 	IbcContractAddress string `json:"ibc_contract_address"`
 	// Whether the client is frozen
 	IsFrozen bool `json:"is_frozen"`
-	// The latest execution block number
+	// The latest execution block number, used for relayer convenience only
 	LatestExecutionBlockNumber uint64 `json:"latest_execution_block_number"`
 	// The latest slot of this client
 	LatestSlot uint64 `json:"latest_slot"`
