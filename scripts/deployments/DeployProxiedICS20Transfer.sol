@@ -16,6 +16,7 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IBCPausableUpgradeable } from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { IIBCPausable } from "../../contracts/interfaces/IIBCPausable.sol";
 
 abstract contract DeployProxiedICS20Transfer is Deployments {
     using stdJson for string;
@@ -29,12 +30,17 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
                     deployment.ics26Router,
                     deployment.escrowImplementation,
                     deployment.ibcERC20Implementation,
-                    deployment.pauser,
-                    deployment.unpauser,
                     deployment.permit2
                 )
             )
         );
+
+        if (deployment.pauser != address(0)) {
+            IIBCPausable(address(transferProxy)).grantPauserRole(deployment.pauser);
+        }
+        if (deployment.unpauser != address(0)) {
+            IIBCPausable(address(transferProxy)).grantUnpauserRole(deployment.unpauser);
+        }
 
         return transferProxy;
     }

@@ -35,6 +35,7 @@ contract IBCAdminTest is Test {
     address public ics20Pauser = makeAddr("ics20Pauser");
     address public ics20Unpauser = makeAddr("ics20Unpauser");
     address public relayer = makeAddr("relayer");
+    address public tokenOperator = makeAddr("tokenOperator");
 
     string public clientId;
     string public counterpartyId = "42-dummy-01";
@@ -54,10 +55,7 @@ contract IBCAdminTest is Test {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(
-                ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, ics20Unpauser, address(0))
-            )
+            abi.encodeCall(ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0)))
         );
 
         // ============== Step 3: Wire up the contracts ==============
@@ -73,6 +71,10 @@ contract IBCAdminTest is Test {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+
+        ics20Transfer.grantTokenOperatorRole(tokenOperator);
+        ics20Transfer.grantPauserRole(ics20Pauser);
+        ics20Transfer.grantUnpauserRole(ics20Unpauser);
     }
 
     function test_success_ics20_upgrade() public {
@@ -364,6 +366,38 @@ contract IBCAdminTest is Test {
         );
         ics26Router.revokeRole(clientMigratorRole, clientCreator);
         assert(ics26Router.hasRole(clientMigratorRole, clientCreator));
+    }
+
+    function test_success_setTokenOperator() public {
+        bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
+        address newTokenOperator = makeAddr("newTokenOperator");
+
+        ics20Transfer.grantTokenOperatorRole(newTokenOperator);
+        assert(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+        assert(ics20Transfer.isTokenOperator(newTokenOperator));
+
+        ics20Transfer.revokeTokenOperatorRole(tokenOperator);
+        assertFalse(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
+        assertFalse(ics20Transfer.isTokenOperator(tokenOperator));
+    }
+
+    function test_failure_setTokenOperator() public {
+        bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
+        address unauthorized = makeAddr("unauthorized");
+        address newTokenOperator = makeAddr("newTokenOperator");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.grantTokenOperatorRole(newTokenOperator);
+        assertFalse(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+        assertFalse(ics20Transfer.isTokenOperator(newTokenOperator));
+
+        // Revoke the token operator role from an unauthorized account
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        ics20Transfer.revokeTokenOperatorRole(tokenOperator);
+        assert(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
+        assert(ics20Transfer.isTokenOperator(tokenOperator));
     }
 
     function test_success_pauseAndUnpause() public {

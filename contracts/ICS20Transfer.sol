@@ -68,24 +68,19 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant TOKEN_OPERATOR_ROLE = keccak256("TOKEN_OPERATOR_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
     }
 
-    /// @notice Initializes the contract instead of a constructor
-    /// @dev Meant to be called only once from the proxy
-    /// @param ics26Router The ICS26Router contract address
-    /// @param escrowLogic Is the address of the Escrow logic contract
-    /// @param ibcERC20Logic Is the address of the IBCERC20 logic contract
-    /// @param pauser The address that can pause and unpause the contract
     /// @inheritdoc IICS20Transfer
     function initialize(
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
-        address pauser,
-        address unpauser,
         address permit2
     )
         public
@@ -93,10 +88,9 @@ contract ICS20Transfer is
     {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __IBCPausable_init(pauser, unpauser);
+        __IBCPausable_init();
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
-
         $._ics26 = IICS26Router(ics26Router);
         $._ibcERC20Beacon = new UpgradeableBeacon(ibcERC20Logic, address(this));
         $._escrowBeacon = new UpgradeableBeacon(escrowLogic, address(this));
@@ -138,6 +132,11 @@ contract ICS20Transfer is
         address contractAddress = address(_getICS20TransferStorage()._ibcERC20Contracts[denom]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
         return contractAddress;
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function isTokenOperator(address account) external view returns (bool) {
+        return hasRole(TOKEN_OPERATOR_ROLE, account);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -456,11 +455,7 @@ contract ICS20Transfer is
         IEscrow escrow = $._escrows[clientId];
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
-                address(
-                    new BeaconProxy(
-                        address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this), address($._ics26)))
-                    )
-                )
+                address(new BeaconProxy(address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this)))))
             );
             $._escrows[clientId] = escrow;
         }
@@ -506,6 +501,16 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function revokeDelegateSenderRole(address account) external onlyAdmin {
         _revokeRole(DELEGATE_SENDER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function grantTokenOperatorRole(address account) external onlyAdmin {
+        _grantRole(TOKEN_OPERATOR_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeTokenOperatorRole(address account) external onlyAdmin {
+        _revokeRole(TOKEN_OPERATOR_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract
