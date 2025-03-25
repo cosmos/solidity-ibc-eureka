@@ -21,5 +21,4 @@ RUN cargo build --bin relayer --release --locked
 FROM ubuntu:24.04
 WORKDIR /usr/local/bin
 COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
-ENTRYPOINT [ "/usr/local/bin/relayer", "--config", "/usr/local/relayer/relayer.json"]
-
+ENTRYPOINT [ "/usr/local/bin/relayer", "start", "--config", "/usr/local/relayer/relayer.json"]
