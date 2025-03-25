@@ -26,6 +26,7 @@ contract EscrowTest is Test {
 
         BeaconProxy escrowProxy = new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this))));
         escrow = Escrow(address(escrowProxy));
+        assert(escrow.ics20() == address(this));
 
         // Have admin approval for next call
         vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
