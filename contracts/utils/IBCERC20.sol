@@ -46,7 +46,6 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         __AccessControl_init();
 
         IBCERC20Storage storage $ = _getIBCERC20Storage();
-
         $._fullDenomPath = fullDenomPath_;
         $._escrow = escrow_;
         $._ics20 = ics20_;

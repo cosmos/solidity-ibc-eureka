@@ -39,7 +39,6 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
         __RateLimit_init();
 
         EscrowStorage storage $ = _getEscrowStorage();
-
         $._ics20 = IICS20Transfer(ics20_);
     }
 

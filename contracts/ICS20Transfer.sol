@@ -99,7 +99,6 @@ contract ICS20Transfer is
         __IBCPausable_init(pauser, unpauser);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
-
         $._ics26 = IICS26Router(ics26Router);
         $._ibcERC20Beacon = new UpgradeableBeacon(ibcERC20Logic, address(this));
         $._escrowBeacon = new UpgradeableBeacon(escrowLogic, address(this));
