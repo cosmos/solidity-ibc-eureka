@@ -375,9 +375,11 @@ contract IBCAdminTest is Test {
 
         ics20Transfer.grantTokenOperatorRole(newTokenOperator);
         assert(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+        assert(ics20Transfer.isTokenOperator(newTokenOperator));
 
         ics20Transfer.revokeTokenOperatorRole(tokenOperator);
         assertFalse(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
+        assertFalse(ics20Transfer.isTokenOperator(tokenOperator));
     }
 
     function test_failure_setTokenOperator() public {
@@ -389,12 +391,14 @@ contract IBCAdminTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantTokenOperatorRole(newTokenOperator);
         assertFalse(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
+        assertFalse(ics20Transfer.isTokenOperator(newTokenOperator));
 
         // Revoke the token operator role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokeTokenOperatorRole(tokenOperator);
         assert(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
+        assert(ics20Transfer.isTokenOperator(tokenOperator));
     }
 
     function test_success_pauseAndUnpause() public {

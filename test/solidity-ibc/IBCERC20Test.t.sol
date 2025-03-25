@@ -18,8 +18,7 @@ import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/Upgradea
 contract IBCERC20Test is Test {
     IBCERC20 public ibcERC20;
     Escrow public escrow;
-    address public mockICS26 = makeAddr("mockICS26");
-    address public metadataSetter = makeAddr("metadataSetter");
+    address public metadataCustomizer = makeAddr("metadataCustomizer");
 
     function setUp() public {
         address _escrowLogic = address(new Escrow());
@@ -38,7 +37,7 @@ contract IBCERC20Test is Test {
         );
 
         vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
-        ibcERC20.grantMetadataCustomizerRole(metadataSetter);
+        ibcERC20.grantMetadataCustomizerRole(metadataCustomizer);
     }
 
     function test_ERC20DefaultMetadata() public view {
@@ -51,7 +50,7 @@ contract IBCERC20Test is Test {
     }
 
     function test_success_ERC20CustomMetadata() public {
-        vm.prank(metadataSetter);
+        vm.prank(metadataCustomizer);
         ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
         assertEq(ibcERC20.decimals(), 6);
         assertEq(ibcERC20.name(), "Cosmos Hub");
@@ -71,8 +70,39 @@ contract IBCERC20Test is Test {
         ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
     }
 
-    function test_success_setMetadataCustomizer() public view {
-        assertEq(escrow.ics20(), address(this));
+    function test_success_setMetadataCustomizer() public {
+        bytes32 metadataCustomizerRole = ibcERC20.METADATA_CUSTOMIZER_ROLE();
+        address newMetadataCustomizer = makeAddr("newMetadataCustomizer");
+
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
+        ibcERC20.grantMetadataCustomizerRole(newMetadataCustomizer);
+        assert(ibcERC20.hasRole(metadataCustomizerRole, newMetadataCustomizer));
+
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
+        ibcERC20.revokeMetadataCustomizerRole(newMetadataCustomizer);
+        assertFalse(ibcERC20.hasRole(metadataCustomizerRole, newMetadataCustomizer));
+    }
+
+    function test_failure_setMetadataCustomizer() public {
+        address newMetadataCustomizer = makeAddr("newMetadataCustomizer");
+
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)
+            )
+        );
+        ibcERC20.grantMetadataCustomizerRole(newMetadataCustomizer);
+        assertFalse(ibcERC20.hasRole(ibcERC20.METADATA_CUSTOMIZER_ROLE(), newMetadataCustomizer));
+
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)
+            )
+        );
+        ibcERC20.revokeMetadataCustomizerRole(metadataCustomizer);
+        assert(ibcERC20.hasRole(ibcERC20.METADATA_CUSTOMIZER_ROLE(), metadataCustomizer));
     }
 
     function testFuzz_success_Mint(uint256 amount) public {
