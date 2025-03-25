@@ -115,6 +115,16 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         _burn(mintAddress, amount);
     }
 
+    /// @inheritdoc IIBCERC20
+    function grantMetadataSetterRole(address account) external onlyTokenOperator {
+        _grantRole(METADATA_SETTER_ROLE, account);
+    }
+
+    /// @inheritdoc IIBCERC20
+    function revokeMetadataSetterRole(address account) external onlyTokenOperator {
+        _revokeRole(METADATA_SETTER_ROLE, account);
+    }
+
     /// @notice Returns the storage of the IBCERC20 contract
     function _getIBCERC20Storage() private pure returns (IBCERC20Storage storage $) {
         // solhint-disable-next-line no-inline-assembly

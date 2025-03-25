@@ -39,6 +39,16 @@ interface IIBCERC20 {
     /// @return The ICS20 contract address
     function ics20() external view returns (address);
 
+    /// @notice Grant the metadata setter role to an account
+    /// @dev This function can only be called by the token operator from ICS20
+    /// @param account The account to grant the metadata setter role to
+    function grantMetadataSetterRole(address account) external;
+
+    /// @notice Revoke the metadata setter role from an account
+    /// @dev This function can only be called by the token operator from ICS20
+    /// @param account The account to revoke the metadata setter role from
+    function revokeMetadataSetterRole(address account) external;
+
     /// @notice Initializes the IBCERC20 contract
     /// @dev This function is meant to be called by a proxy
     /// @param ics20_ The ICS20 contract address
