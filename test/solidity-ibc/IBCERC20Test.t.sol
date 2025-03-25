@@ -23,7 +23,7 @@ contract IBCERC20Test is Test {
         address _escrowLogic = address(new Escrow());
         address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
         _escrow = Escrow(
-            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), mockICS26))))
+            address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this)))))
         );
 
         IBCERC20 _ibcERC20Logic = new IBCERC20();
