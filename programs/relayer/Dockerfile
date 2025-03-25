@@ -1,5 +1,5 @@
 # TODO: dynamically fetch this from cargo file
-ARG SP1_VERSION="v4.1.0"
+ARG SP1_VERSION="v4.1.3"
 FROM ghcr.io/succinctlabs/sp1:${SP1_VERSION} as BUILD
 
 RUN apt update && apt install -y just protobuf-compiler
