@@ -324,16 +324,6 @@
         "internalType": "address"
       },
       {
-        "name": "pauser",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "unpauser",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "permit2",
         "type": "address",
         "internalType": "address"
