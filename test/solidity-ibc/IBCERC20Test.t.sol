@@ -63,7 +63,11 @@ contract IBCERC20Test is Test {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, metadataSetterRole));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, metadataSetterRole
+            )
+        );
         ibcERC20.setMetadata(6, "Cosmos Hub", "ATOM");
     }
 
