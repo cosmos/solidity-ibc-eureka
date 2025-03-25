@@ -19,9 +19,6 @@ pub enum ContractError {
     #[error("client and consensus state mismatch")]
     ClientAndConsensusStateMismatch,
 
-    #[error("unsupported fork version, must be electra")]
-    MustBeElectra,
-
     #[error("serializing client state failed: {0}")]
     SerializeClientStateFailed(#[source] serde_json::Error),
 
@@ -51,6 +48,9 @@ pub enum ContractError {
 
     #[error("update client state failed: {0}")]
     UpdateClientStateFailed(#[source] EthereumIBCError),
+
+    #[error("unsupported fork version")]
+    UnsupportedForkVersion(#[source] EthereumIBCError),
 
     #[error("client state not found")]
     ClientStateNotFound,

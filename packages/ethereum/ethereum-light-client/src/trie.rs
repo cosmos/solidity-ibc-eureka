@@ -1,9 +1,44 @@
 //! This module provides [`validate_merkle_branch`] function to validate a merkle branch.
 
 use alloy_primitives::B256;
+use ethereum_types::consensus::merkle::floorlog2;
 use sha2::{Digest, Sha256};
 
-use crate::error::EthereumIBCError;
+use crate::{error::EthereumIBCError, sync_protocol_helpers::get_subtree_index};
+
+// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+/// Validates a merkle branch by normalizing the merkle branch first.
+/// # Errors
+/// Returns an error if the merkle branch is invalid.
+pub fn is_valid_normalized_merkle_branch(
+    leaf: B256,
+    normalized_branch: &[B256],
+    gindex: u64,
+    root: B256,
+) -> Result<(), EthereumIBCError> {
+    let depth = floorlog2(gindex);
+    let index = get_subtree_index(gindex);
+    let num_extra = normalized_branch.len() - depth;
+
+    (0..num_extra).try_for_each(|i| {
+        if normalized_branch[i] != B256::default() {
+            return Err(EthereumIBCError::InvalidNormalizedMerkleBranch {
+                num_extra,
+                normalized_branch: normalized_branch.to_vec(),
+            });
+        }
+        Ok(())
+    })?;
+
+    validate_merkle_branch(
+        leaf,
+        normalized_branch[num_extra..].to_vec(),
+        depth,
+        index,
+        root,
+    )
+}
+
 // https://github.com/ethereum/consensus-specs/blob/efb554f4c4848f8bfc260fcf3ff4b806971716f6/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 /// Validates a merkle branch.
 /// # Errors
@@ -46,11 +81,12 @@ mod test {
     use ethereum_types::consensus::{
         fork::{Fork, ForkParameters},
         light_client_header::{BeaconBlockHeader, ExecutionPayloadHeader, LightClientHeader},
-        merkle::{get_subtree_index, EXECUTION_BRANCH_DEPTH, EXECUTION_PAYLOAD_GINDEX},
+        merkle::{floorlog2, EXECUTION_PAYLOAD_GINDEX},
     };
 
     use crate::{
-        client_state::ClientState, sync_protocol_helpers::get_lc_execution_root,
+        client_state::ClientState,
+        sync_protocol_helpers::{get_lc_execution_root, get_subtree_index},
         trie::validate_merkle_branch,
     };
 
@@ -144,7 +180,7 @@ mod test {
             &header,
         )
         .unwrap();
-        let depth = EXECUTION_BRANCH_DEPTH;
+        let depth = floorlog2(EXECUTION_PAYLOAD_GINDEX);
         let index = get_subtree_index(EXECUTION_PAYLOAD_GINDEX);
         let root = header.beacon.body_root;
 

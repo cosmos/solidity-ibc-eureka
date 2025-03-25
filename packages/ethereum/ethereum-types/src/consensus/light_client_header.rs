@@ -7,7 +7,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use tree_hash_derive::TreeHash;
 
 use super::{
-    merkle::{EXECUTION_BRANCH_DEPTH, FINALITY_BRANCH_DEPTH, NEXT_SYNC_COMMITTEE_BRANCH_DEPTH},
+    merkle::{floorlog2, EXECUTION_PAYLOAD_GINDEX},
     sync_committee::{SyncAggregate, SyncCommittee},
 };
 
@@ -21,19 +21,40 @@ pub struct LightClientUpdate {
     /// Next sync committee corresponding to `attested_header.state_root`
     pub next_sync_committee: Option<SyncCommittee>,
     /// The branch of the next sync committee
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
-    pub next_sync_committee_branch: Option<[B256; NEXT_SYNC_COMMITTEE_BRANCH_DEPTH]>,
+    pub next_sync_committee_branch: Option<Vec<B256>>,
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
-    pub finality_branch: [B256; FINALITY_BRANCH_DEPTH],
+    pub finality_branch: Vec<B256>,
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
     #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub signature_slot: u64,
+}
+
+impl LightClientUpdate {
+    /// Validates that the branch depths are correct
+    // TODO: Remove this function after type safety is added back (#440)
+    // TODO: Use is_none_or after cosmwasm supports rust 1.85 (https://github.com/CosmWasm/cosmwasm/issues/2292)
+    #[allow(clippy::unnecessary_map_or)]
+    pub fn is_valid_branch_depths(
+        &self,
+        expected_next_sync_committee_branch_depth: usize,
+        expected_finality_branch_depth: usize,
+    ) -> bool {
+        self.next_sync_committee_branch
+            .as_ref()
+            .map_or(true, |branch| {
+                branch.len() == expected_next_sync_committee_branch_depth
+            })
+            && self.finality_branch.len() == expected_finality_branch_depth
+    }
 }
 
 /// A light client finality update
@@ -46,8 +67,9 @@ pub struct LightClientFinalityUpdate {
     /// Finalized header corresponding to `attested_header.state_root`
     pub finalized_header: LightClientHeader,
     /// Branch of the finalized header
+    // TODO: Add back type safety after Deneb support is removed (#440)
     #[schemars(with = "Vec<String>")]
-    pub finality_branch: [B256; FINALITY_BRANCH_DEPTH],
+    pub finality_branch: Vec<B256>,
     /// Sync committee aggregate signature
     pub sync_aggregate: SyncAggregate,
     /// Slot at which the aggregate signature was created (untrusted)
@@ -81,7 +103,7 @@ pub struct LightClientHeader {
     pub execution: ExecutionPayloadHeader,
     /// The execution branch
     #[schemars(with = "Vec<String>")]
-    pub execution_branch: [B256; EXECUTION_BRANCH_DEPTH],
+    pub execution_branch: [B256; floorlog2(EXECUTION_PAYLOAD_GINDEX)],
 }
 
 /// The beacon block header

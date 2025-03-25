@@ -16,6 +16,7 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IBCPausableUpgradeable } from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { IIBCPausable } from "../../contracts/interfaces/IIBCPausable.sol";
 
 import "forge-std/console.sol";
 
@@ -33,8 +34,6 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
                     deployment.ics26Router,
                     deployment.escrowImplementation,
                     deployment.ibcERC20Implementation,
-                    address(0),
-                    address(0),
                     deployment.permit2
                 )
             )
