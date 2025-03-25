@@ -75,7 +75,7 @@ contract IBCAdminTest is Test {
         vm.prank(customizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
-        ics20Transfer.grantRole(ics20Transfer.TOKEN_OPERATOR_ROLE(), tokenOperator);
+        ics20Transfer.grantTokenOperatorRole(tokenOperator);
     }
 
     function test_success_ics20_upgrade() public {
@@ -373,15 +373,14 @@ contract IBCAdminTest is Test {
         bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
         address newTokenOperator = makeAddr("newTokenOperator");
 
-        ics20Transfer.grantRole(tokenOperatorRole, newTokenOperator);
+        ics20Transfer.grantTokenOperatorRole(newTokenOperator);
         assert(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
 
-        ics20Transfer.revokeRole(tokenOperatorRole, tokenOperator);
+        ics20Transfer.revokeTokenOperatorRole(tokenOperator);
         assertFalse(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
     }
 
     function test_failure_setTokenOperator() public {
-        bytes32 defaultAdminRole = ics20Transfer.DEFAULT_ADMIN_ROLE();
         bytes32 tokenOperatorRole = ics20Transfer.TOKEN_OPERATOR_ROLE();
         address unauthorized = makeAddr("unauthorized");
         address newTokenOperator = makeAddr("newTokenOperator");
@@ -389,20 +388,20 @@ contract IBCAdminTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+                IICS20Errors.ICS20Unauthorized.selector, unauthorized
             )
         );
-        ics20Transfer.grantRole(tokenOperatorRole, newTokenOperator);
+        ics20Transfer.grantTokenOperatorRole(newTokenOperator);
         assertFalse(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
 
         // Revoke the token operator role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, defaultAdminRole
+                IICS20Errors.ICS20Unauthorized.selector, unauthorized
             )
         );
-        ics20Transfer.revokeRole(tokenOperatorRole, tokenOperator);
+        ics20Transfer.revokeTokenOperatorRole(tokenOperator);
         assert(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
     }
 
