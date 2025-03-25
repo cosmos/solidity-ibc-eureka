@@ -186,6 +186,19 @@ deploy-migrate-light-client: build-contracts
 	@echo "Migrating Light Client with RPC_URL=$RPC_URL"
 	forge script scripts/deployments/MigrateSP1ICS07Tendermint.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
 
+deploy-upgrade-ics26: build-contracts
+	@echo "Upgrade ICS26 with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/UpgradeICS26.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
+
+deploy-upgrade-ics20: build-contracts
+	@echo "Upgrade ICS20 with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/UpgradeICS20.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
+
+
+deploy-upgrade-ibcerc20: build-contracts
+	@echo "Upgrade IBCERC20 with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/UpgradeIBCERC20.sol --rpc-url $RPC_URL -vvv --broadcast --ledger --sender 0x64259f722A0868CCf58A935C61A292cEA9dF035a --verify --with-gas-price 10gwei
+
 deploy-relayer-helper: build-contracts
 	@echo "Deploying relayer helper with RPC_URL=$RPC_URL"
 	forge script scripts/deployments/DeployRelayerHelper.sol --rpc-url $RPC_URL -vvv --broadcast --private-key $PRIVATE_KEY --verify --with-gas-price 10gwei
