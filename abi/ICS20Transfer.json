@@ -45,6 +45,19 @@
   },
   {
     "type": "function",
+    "name": "TOKEN_OPERATOR_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UNPAUSER_ROLE",
     "inputs": [],
     "outputs": [
@@ -192,6 +205,19 @@
   },
   {
     "type": "function",
+    "name": "grantTokenOperatorRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "grantUnpauserRole",
     "inputs": [
       {
@@ -315,6 +341,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isTokenOperator",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -633,6 +678,19 @@
         "type": "bytes32",
         "internalType": "bytes32"
       },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeTokenOperatorRole",
+    "inputs": [
       {
         "name": "account",
         "type": "address",
