@@ -10,13 +10,13 @@ import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
 import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
 contract EscrowTest is Test {
-    address public mockICS26 = makeAddr("mockICS26");
     address public rateLimiter = makeAddr("rateLimiter");
     Escrow public escrow;
 
@@ -30,7 +30,7 @@ contract EscrowTest is Test {
         escrow = Escrow(address(escrowProxy));
 
         // Have admin approval for next call
-        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
         // Set rate limiter role
         escrow.grantRateLimiterRole(rateLimiter);
         assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), rateLimiter));
@@ -39,11 +39,11 @@ contract EscrowTest is Test {
     function test_success_setRateLimiterRole() public {
         address newRateLimiter = makeAddr("newRateLimiter");
 
-        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
         escrow.grantRateLimiterRole(newRateLimiter);
         assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
 
-        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
         escrow.revokeRateLimiterRole(newRateLimiter);
         assertFalse(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
     }
@@ -51,11 +51,11 @@ contract EscrowTest is Test {
     function test_failure_setRateLimiterRole() public {
         address newRateLimiter = makeAddr("newRateLimiter");
 
-        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(false));
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
         escrow.grantRateLimiterRole(newRateLimiter);
 
-        vm.mockCall(mockICS26, IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(false));
+        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
         escrow.revokeRateLimiterRole(rateLimiter);
     }
