@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
 import { IIBCERC20Errors } from "../errors/IIBCERC20Errors.sol";
+import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
@@ -75,6 +76,16 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     }
 
     /// @inheritdoc IIBCERC20
+    function escrow() external view returns (address) {
+        return _getIBCERC20Storage()._escrow;
+    }
+
+    /// @inheritdoc IIBCERC20
+    function ics20() external view returns (address) {
+        return _getIBCERC20Storage()._ics20;
+    }
+
+    /// @inheritdoc IIBCERC20
     function setMetadata(
         uint8 customDecimals,
         string calldata customName,
@@ -92,24 +103,16 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
 
     /// @inheritdoc IIBCERC20
     function mint(address mintAddress, uint256 amount) external onlyICS20 {
-        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        address escrow_ = _getIBCERC20Storage()._escrow;
+        require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));
         _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IIBCERC20
     function burn(address mintAddress, uint256 amount) external onlyICS20 {
-        require(mintAddress == escrow(), IBCERC20NotEscrow(escrow(), mintAddress));
+        address escrow_ = _getIBCERC20Storage()._escrow;
+        require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));
         _burn(mintAddress, amount);
-    }
-
-    /// @inheritdoc IIBCERC20
-    function escrow() public view returns (address) {
-        return _getIBCERC20Storage()._escrow;
-    }
-
-    /// @inheritdoc IIBCERC20
-    function ics20() external view returns (address) {
-        return _getIBCERC20Storage()._ics20;
     }
 
     /// @notice Returns the storage of the IBCERC20 contract
@@ -123,6 +126,12 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
         require(_msgSender() == _getIBCERC20Storage()._ics20, IBCERC20Unauthorized(_msgSender()));
+        _;
+    }
+
+    /// @notice Modifier to check if the caller is the metadata setter role
+    modifier onlyTokenOperator() {
+        require(IICS20Transfer(_getIBCERC20Storage()._ics20).isTokenOperator(_msgSender()), IBCERC20Unauthorized(_msgSender()));
         _;
     }
 }
