@@ -386,21 +386,13 @@ contract IBCAdminTest is Test {
         address newTokenOperator = makeAddr("newTokenOperator");
 
         vm.prank(unauthorized);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20Unauthorized.selector, unauthorized
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantTokenOperatorRole(newTokenOperator);
         assertFalse(ics20Transfer.hasRole(tokenOperatorRole, newTokenOperator));
 
         // Revoke the token operator role from an unauthorized account
         vm.prank(unauthorized);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS20Errors.ICS20Unauthorized.selector, unauthorized
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokeTokenOperatorRole(tokenOperator);
         assert(ics20Transfer.hasRole(tokenOperatorRole, tokenOperator));
     }

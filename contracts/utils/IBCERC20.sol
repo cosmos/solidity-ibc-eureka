@@ -141,7 +141,10 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
 
     /// @notice Modifier to check if the caller is the metadata setter role
     modifier onlyTokenOperator() {
-        require(IICS20Transfer(_getIBCERC20Storage()._ics20).isTokenOperator(_msgSender()), IBCERC20Unauthorized(_msgSender()));
+        require(
+            IICS20Transfer(_getIBCERC20Storage()._ics20).isTokenOperator(_msgSender()),
+            IBCERC20Unauthorized(_msgSender())
+        );
         _;
     }
 }

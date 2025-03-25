@@ -25,8 +25,7 @@ contract EscrowTest is Test {
         address _escrowLogic = address(new Escrow());
         address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
 
-        BeaconProxy escrowProxy =
-            new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this))));
+        BeaconProxy escrowProxy = new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this))));
         escrow = Escrow(address(escrowProxy));
 
         // Have admin approval for next call
