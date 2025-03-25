@@ -22,7 +22,6 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         string _fullDenomPath;
         address _escrow;
         address _ics20;
-
         bool _customMetadataSet;
         uint8 _customDecimals;
         string _customName;
@@ -81,7 +80,10 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         uint8 customDecimals,
         string calldata customName,
         string calldata customSymbol
-    ) external onlyRole(METADATA_SETTER_ROLE) {
+    )
+        external
+        onlyRole(METADATA_SETTER_ROLE)
+    {
         IBCERC20Storage storage $ = _getIBCERC20Storage();
         $._customMetadataSet = true;
         $._customDecimals = customDecimals;

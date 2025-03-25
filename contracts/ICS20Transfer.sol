@@ -464,11 +464,7 @@ contract ICS20Transfer is
         IEscrow escrow = $._escrows[clientId];
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
-                address(
-                    new BeaconProxy(
-                        address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this)))
-                    )
-                )
+                address(new BeaconProxy(address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this)))))
             );
             $._escrows[clientId] = escrow;
         }
