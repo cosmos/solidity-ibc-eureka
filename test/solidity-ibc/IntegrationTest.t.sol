@@ -105,8 +105,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+
+        ics20Transfer.grantTokenOperatorRole(address(this));
 
         (defaultSender, defaultSenderKey) = makeAddrAndKey("sender");
         defaultSenderStr = Strings.toHexString(defaultSender);
