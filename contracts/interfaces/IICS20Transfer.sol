@@ -7,7 +7,13 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 interface IICS20Transfer {
     /// @notice The role identifier for the delegate sender role
     /// @dev This role is required to call `sendTransferWithSender`
+    /// @return The role identifier
     function DELEGATE_SENDER_ROLE() external view returns (bytes32);
+
+    /// @notice The role identifier for the token operator role
+    /// @dev This role is required to grant and revoke rate limiter and metadata setter roles
+    /// @return The role identifier
+    function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
 
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
@@ -108,6 +114,16 @@ interface IICS20Transfer {
     /// @dev The caller must be the ICS26Router admin
     /// @param account The account to revoke the role from
     function revokeDelegateSenderRole(address account) external;
+
+    /// @notice Grants the token operator role to an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to grant the role to
+    function grantTokenOperatorRole(address account) external;
+
+    /// @notice Revokes the token operator role from an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to revoke the role from
+    function revokeTokenOperatorRole(address account) external;
 
     // --------------------- Events --------------------- //
 

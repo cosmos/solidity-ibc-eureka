@@ -68,6 +68,9 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant TOKEN_OPERATOR_ROLE = keccak256("TOKEN_OPERATOR_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -506,6 +509,16 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function revokeDelegateSenderRole(address account) external onlyAdmin {
         _revokeRole(DELEGATE_SENDER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function grantTokenOperatorRole(address account) external onlyAdmin {
+        _grantRole(TOKEN_OPERATOR_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeTokenOperatorRole(address account) external onlyAdmin {
+        _revokeRole(TOKEN_OPERATOR_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract
