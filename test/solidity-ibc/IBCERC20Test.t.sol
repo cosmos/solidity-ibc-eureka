@@ -87,20 +87,12 @@ contract IBCERC20Test is Test {
         address newMetadataCustomizer = makeAddr("newMetadataCustomizer");
 
         vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)));
         ibcERC20.grantMetadataCustomizerRole(newMetadataCustomizer);
         assertFalse(ibcERC20.hasRole(ibcERC20.METADATA_CUSTOMIZER_ROLE(), newMetadataCustomizer));
 
         vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IIBCERC20Errors.IBCERC20Unauthorized.selector, address(this)));
         ibcERC20.revokeMetadataCustomizerRole(metadataCustomizer);
         assert(ibcERC20.hasRole(ibcERC20.METADATA_CUSTOMIZER_ROLE(), metadataCustomizer));
     }
