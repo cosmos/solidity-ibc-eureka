@@ -1093,7 +1093,6 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 
 // TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 50 packets from Ethereum to Cosmos
 func (s *RelayerTestSuite) Test_50_concurrent_RecvPacketToCosmosTest() {
-	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
 	s.ConcurrentRecvPacketToCosmos(ctx, operator.ProofTypeGroth16, 50)
 }
@@ -1136,7 +1135,8 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 		escrowAddress ethcommon.Address
 	)
 	s.Require().True(s.Run(fmt.Sprintf("Send %d transfers on Ethereum", numConcurrentTransfers), func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		// Setting the timeout high to avoid timeouts on mainnet preset
+		timeout := uint64(time.Now().Add(120 * time.Minute).Unix())
 
 		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
 			SourceClient:     testvalues.CustomClientID,
