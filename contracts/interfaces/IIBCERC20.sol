@@ -2,12 +2,12 @@
 pragma solidity ^0.8.28;
 
 interface IIBCERC20 {
-    /// @notice The role identifier for the metadata setter role
+    /// @notice The role identifier for the metadata customizer role
     /// @return The role identifier
-    function METADATA_SETTER_ROLE() external view returns (bytes32);
+    function METADATA_CUSTOMIZER_ROLE() external view returns (bytes32);
 
     /// @notice Set the metadata for the token
-    /// @dev This function can only be called by the metadata setter role
+    /// @dev This function can only be called by the metadata customizer role
     /// @param decimals The decimals for the custom token metadata
     /// @param name The name for the custom token metadata
     /// @param symbol The symbol for the custom token metadata
@@ -39,15 +39,15 @@ interface IIBCERC20 {
     /// @return The ICS20 contract address
     function ics20() external view returns (address);
 
-    /// @notice Grant the metadata setter role to an account
+    /// @notice Grant the metadata customizer role to an account
     /// @dev This function can only be called by the token operator from ICS20
-    /// @param account The account to grant the metadata setter role to
-    function grantMetadataSetterRole(address account) external;
+    /// @param account The account to grant the metadata customizer role to
+    function grantMetadataCustomizerRole(address account) external;
 
-    /// @notice Revoke the metadata setter role from an account
+    /// @notice Revoke the metadata customizer role from an account
     /// @dev This function can only be called by the token operator from ICS20
-    /// @param account The account to revoke the metadata setter role from
-    function revokeMetadataSetterRole(address account) external;
+    /// @param account The account to revoke the metadata customizer role from
+    function revokeMetadataCustomizerRole(address account) external;
 
     /// @notice Initializes the IBCERC20 contract
     /// @dev This function is meant to be called by a proxy

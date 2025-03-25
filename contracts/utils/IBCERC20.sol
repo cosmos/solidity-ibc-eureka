@@ -34,7 +34,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     bytes32 private constant IBCERC20_STORAGE_SLOT = 0x1dd677b5a02f77610493322b5fdbbfdb607b541c6e6045daab3464e895dea800;
 
     /// @inheritdoc IIBCERC20
-    bytes32 public constant METADATA_SETTER_ROLE = keccak256("METADATA_SETTER_ROLE");
+    bytes32 public constant METADATA_CUSTOMIZER_ROLE = keccak256("METADATA_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
@@ -92,7 +92,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         string calldata customSymbol
     )
         external
-        onlyRole(METADATA_SETTER_ROLE)
+        onlyRole(METADATA_CUSTOMIZER_ROLE)
     {
         IBCERC20Storage storage $ = _getIBCERC20Storage();
         $._customMetadataSet = true;
@@ -116,13 +116,13 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     }
 
     /// @inheritdoc IIBCERC20
-    function grantMetadataSetterRole(address account) external onlyTokenOperator {
-        _grantRole(METADATA_SETTER_ROLE, account);
+    function grantMetadataCustomizerRole(address account) external onlyTokenOperator {
+        _grantRole(METADATA_CUSTOMIZER_ROLE, account);
     }
 
     /// @inheritdoc IIBCERC20
-    function revokeMetadataSetterRole(address account) external onlyTokenOperator {
-        _revokeRole(METADATA_SETTER_ROLE, account);
+    function revokeMetadataCustomizerRole(address account) external onlyTokenOperator {
+        _revokeRole(METADATA_CUSTOMIZER_ROLE, account);
     }
 
     /// @notice Returns the storage of the IBCERC20 contract
