@@ -55,10 +55,7 @@ contract IBCAdminTest is Test {
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(
-                ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, ics20Pauser, ics20Unpauser, address(0))
-            )
+            abi.encodeCall(ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0)))
         );
 
         // ============== Step 3: Wire up the contracts ==============
@@ -76,6 +73,8 @@ contract IBCAdminTest is Test {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
         ics20Transfer.grantTokenOperatorRole(tokenOperator);
+        ics20Transfer.grantPauserRole(ics20Pauser);
+        ics20Transfer.grantUnpauserRole(ics20Unpauser);
     }
 
     function test_success_ics20_upgrade() public {

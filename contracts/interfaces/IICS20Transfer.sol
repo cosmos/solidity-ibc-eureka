@@ -88,13 +88,7 @@ interface IICS20Transfer {
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
     /// @param permit2 The address of the permit2 contract
-    function initialize(
-        address ics26Router,
-        address escrowLogic,
-        address ibcERC20Logic,
-        address permit2
-    )
-        external;
+    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address permit2) external;
 
     /// @notice Upgrades the implementation of the escrow beacon contract
     /// @dev The caller must be the ICS26Router admin
