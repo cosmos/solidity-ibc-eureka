@@ -19,7 +19,7 @@
   },
   {
     "type": "function",
-    "name": "METADATA_SETTER_ROLE",
+    "name": "METADATA_CUSTOMIZER_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -175,7 +175,7 @@
   },
   {
     "type": "function",
-    "name": "grantMetadataSetterRole",
+    "name": "grantMetadataCustomizerRole",
     "inputs": [
       {
         "name": "account",
@@ -315,7 +315,7 @@
   },
   {
     "type": "function",
-    "name": "revokeMetadataSetterRole",
+    "name": "revokeMetadataCustomizerRole",
     "inputs": [
       {
         "name": "account",
