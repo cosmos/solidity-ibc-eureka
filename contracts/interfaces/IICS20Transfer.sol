@@ -15,6 +15,11 @@ interface IICS20Transfer {
     /// @return The role identifier
     function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
 
+    /// @notice Checks if an account has the token operator role
+    /// @param account The account to check
+    /// @return True if the account has the token operator role
+    function isTokenOperator(address account) external view returns (bool);
+
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created

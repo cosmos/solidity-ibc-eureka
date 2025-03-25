@@ -144,6 +144,11 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
+    function isTokenOperator(address account) external view returns (bool) {
+        return hasRole(TOKEN_OPERATOR_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
     function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_)
         external
         whenNotPaused
