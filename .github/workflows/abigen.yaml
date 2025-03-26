@@ -16,7 +16,7 @@ on:
       - 'packages/go-abigen/**'
 
 jobs:
-  gen-check:
+  abigen-check:
     name: Check for abigen changes
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -38,7 +38,7 @@ jobs:
         with: 
           command: just generate-abi
 
-  golangci:
+  abigen-golangci:
     name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -54,7 +54,7 @@ jobs:
           version: v1.63
           working-directory: packages/go-abigen
 
-  test:
+  abigen-test:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -65,3 +65,19 @@ jobs:
 
       - name: Unit test abigen
         run: cd packages/go-abigen && go test -v ./...
+
+  ethgenesis-golangci:
+    name: lint
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+          cache-dependency-path: scripts/ethgenesis/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63
+          working-directory: scripts/ethgenesis
