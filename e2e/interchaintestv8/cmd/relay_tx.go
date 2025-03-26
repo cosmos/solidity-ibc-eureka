@@ -78,7 +78,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 
 	targetClientID, _ := cmd.Flags().GetString(FlagEthClientIDOnCosmos)
 	if targetClientID == "" {
-		targetClientID = MockEthClientID
+		targetClientID = EthClientID
 	}
 
 	cosmosGrpcAddress, _ := cmd.Flags().GetString(FlagCosmosGRPC)
@@ -234,7 +234,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 	// get the flags we need
 	targetClientID, _ := cmd.Flags().GetString(FlagCosmosClientIDOnEth)
 	if targetClientID == "" {
-		targetClientID = MockTendermintClientID
+		targetClientID = TendermintClientID
 	}
 
 	cosmosChainID, _ := cmd.Flags().GetString(FlagCosmosChainID)

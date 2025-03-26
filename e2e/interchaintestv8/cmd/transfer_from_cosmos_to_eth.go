@@ -203,7 +203,7 @@ func TransferFromCosmos() *cobra.Command {
 	}
 
 	AddCosmosFlags(cmd)
-	cmd.Flags().String(FlagSourceClientID, MockEthClientID, "Ethereum Client ID on Cosmos")
+	cmd.Flags().String(FlagSourceClientID, EthClientID, "Ethereum Client ID on Cosmos")
 
 	return cmd
 }
