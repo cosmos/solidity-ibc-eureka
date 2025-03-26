@@ -69,7 +69,7 @@ func GetTransactOpts(ctx context.Context, ethClient *ethclient.Client, chainID *
 	return txOpts
 }
 
-func GetTxReciept(ctx context.Context, ethClient *ethclient.Client, hash ethcommon.Hash) *ethtypes.Receipt {
+func GetTxReceipt(ctx context.Context, ethClient *ethclient.Client, hash ethcommon.Hash) *ethtypes.Receipt {
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Start()
 	defer s.Stop()

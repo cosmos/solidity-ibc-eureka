@@ -6,9 +6,11 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"fmt"
 
+	"github.com/briandowns/spinner"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -32,7 +34,7 @@ import (
 func RelayTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "relay-tx [txHash]",
-		Short: "Relay a transaction (currently only from eth to cosmos)",
+		Short: "Relay a transaction from one chain to another",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -66,6 +68,10 @@ func RelayTxCmd() *cobra.Command {
 
 func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr string) error {
 	fmt.Println("Relaying from Ethereum to Cosmos")
+
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Start()
+	defer s.Stop()
 	// get the flags we need
 	cosmosRPC, _ := cmd.Flags().GetString(FlagCosmosRPC)
 	if cosmosRPC == "" {
@@ -125,7 +131,7 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 		TargetClientId: targetClientID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to relayed tx: %w", err)
+		return fmt.Errorf("failed to relay tx: %w", err)
 	}
 
 	// Extract messages from the response (cosmos specific)
@@ -226,6 +232,11 @@ func relayFromEthToCosmos(ctx context.Context, cmd *cobra.Command, txHashHexStr 
 
 func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string) error {
 	fmt.Println("Relaying from Cosmos to Ethereum")
+
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Start()
+	defer s.Stop()
+
 	txHashBz, err := hex.DecodeString(txHash)
 	if err != nil {
 		return err
@@ -288,7 +299,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		TargetClientId: targetClientID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to relayed tx: %w", err)
+		return fmt.Errorf("failed to relay tx: %w", err)
 	}
 
 	txOpts := utils.GetTransactOpts(ctx, ethClient, ethChainIDBigInt, ethPrivKey, extraGwei)
@@ -325,7 +336,7 @@ func relayFromCosmosToEth(ctx context.Context, cmd *cobra.Command, txHash string
 		return fmt.Errorf("failed to send tx: %w", err)
 	}
 
-	receipt := utils.GetTxReciept(ctx, ethClient, signedTx.Hash())
+	receipt := utils.GetTxReceipt(ctx, ethClient, signedTx.Hash())
 	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 		return fmt.Errorf("relay tx unsuccessful (%s) %+v", signedTx.Hash().String(), receipt)
 	} else if receipt == nil {
