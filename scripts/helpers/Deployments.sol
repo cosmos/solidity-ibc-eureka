@@ -74,7 +74,8 @@ abstract contract Deployments {
         address proxy;
         address timeLockAdmin;
         address portCustomizer;
-        address relayer;
+        address clientIdCustomizer;
+        address[] relayers;
     }
 
     function loadProxiedICS26RouterDeployment(
@@ -90,7 +91,8 @@ abstract contract Deployments {
             proxy: vm.parseJsonAddress(json, ".ics26Router.proxy"),
             timeLockAdmin: vm.parseJsonAddress(json, ".ics26Router.timeLockAdmin"),
             portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer"),
-            relayer: vm.parseJsonAddress(json, ".ics26Router.relayer")
+            clientIdCustomizer: vm.parseJsonAddress(json, ".ics26Router.clientIdCustomizer"),
+            relayers: vm.parseJsonAddressArray(json, ".ics26Router.relayers")
         });
 
         return fixture;
@@ -106,8 +108,9 @@ abstract contract Deployments {
         address ibcERC20Implementation;
 
         // admin control
-        address pauser;
-        address unpauser;
+        address[] pausers;
+        address[] unpausers;
+        address tokenOperator;
         address permit2;
         address proxy;
     }
@@ -126,8 +129,9 @@ abstract contract Deployments {
             ibcERC20Implementation: vm.parseJsonAddress(json, ".ics20Transfer.ibcERC20Implementation"),
             ics26Router: vm.parseJsonAddress(json, ".ics20Transfer.ics26Router"),
             implementation: vm.parseJsonAddress(json, ".ics20Transfer.implementation"),
-            pauser: vm.parseJsonAddress(json, ".ics20Transfer.pauser"),
-            unpauser: vm.parseJsonAddress(json, ".ics20Transfer.unpauser"),
+            pausers: vm.parseJsonAddressArray(json, ".ics20Transfer.pausers"),
+            unpausers: vm.parseJsonAddressArray(json, ".ics20Transfer.unpausers"),
+            tokenOperator: vm.parseJsonAddress(json, ".ics20Transfer.tokenOperator"),
             permit2: vm.parseJsonAddress(json, ".ics20Transfer.permit2"),
             proxy: vm.parseJsonAddress(json, ".ics20Transfer.proxy")
         });
