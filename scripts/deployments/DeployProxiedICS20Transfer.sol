@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,gas-custom-errors
+// solhint-disable custom-errors,gas-custom-errors,no-global-import
 
 import { Script } from "forge-std/Script.sol";
 import { Deployments } from "../helpers/Deployments.sol";
