@@ -53,7 +53,7 @@ test-cargo testname="--all":
 # Run the tests in abigen
 test-abigen:
 	@echo "Running abigen tests..."
-	cd abigen && go test -v ./...
+	cd packages/go-abigen && go test -v ./...
 
 # Run forge fmt and bun solhint
 lint:
@@ -61,7 +61,7 @@ lint:
 	forge fmt --check && bun solhint -w 0 '{scripts,contracts,test}/**/*.sol'
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run
-	cd abigen && golangci-lint run
+	cd packages/go-abigen && golangci-lint run
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings
 	@echo "Linting the Protobuf files..."
@@ -76,11 +76,11 @@ generate-abi: build-contracts
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
-	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out abigen/sp1ics07tendermint/contract.go
-	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out abigen/ics20transfer/contract.go
-	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out abigen/ics26router/contract.go
-	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out abigen/ibcerc20/contract.go
-	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out abigen/relayerhelper/contract.go
+	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
+	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
+	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
+	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out packages/go-abigen/ibcerc20/contract.go
+	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
 
 # Generate the fixtures for the wasm tests using the e2e tests
 generate-fixtures-wasm: clean

@@ -275,7 +275,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
+replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../packages/go-abigen
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 
