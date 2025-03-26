@@ -29,7 +29,8 @@ abstract contract Deployments {
 
     function loadSP1ICS07TendermintDeployment(
         string memory json,
-        string memory key
+        string memory key,
+        address defaultProofSubmitter
     )
     public
     view
@@ -46,14 +47,15 @@ abstract contract Deployments {
             membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
             ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
             misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
-            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), address(0))
+            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), defaultProofSubmitter)
         });
     }
 
     // TODO: Move these to ops repo
     function loadSP1ICS07TendermintDeployments(
         Vm vm,
-        string memory json
+        string memory json,
+        address defaultProofSubmitter
     )
     public
     view
@@ -64,7 +66,7 @@ abstract contract Deployments {
 
         for (uint256 i = 0; i < keys.length; i++) {
             string memory key = string.concat(".light_clients['", keys[i], "']");
-            deployments[i] = loadSP1ICS07TendermintDeployment(json, key);
+            deployments[i] = loadSP1ICS07TendermintDeployment(json, key, defaultProofSubmitter);
         }
 
         return deployments;
