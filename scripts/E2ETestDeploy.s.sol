@@ -66,7 +66,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             implementation: ics26RouterLogic,
             timeLockAdmin: msg.sender,
             portCustomizer: msg.sender,
-            relayer: address(0)
+            clientIdCustomizer: msg.sender,
+            relayers: new address[](0)
         }));
 
         ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ProxiedICS20TransferDeployment({
@@ -75,8 +76,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             ics26Router: address(routerProxy),
             escrowImplementation: escrowLogic,
             ibcERC20Implementation: ibcERC20Logic,
-            pauser: address(0),
-            unpauser: address(0),
+            pausers: new address[](0),
+            unpausers: new address[](0),
+            tokenOperator: address(0),
             permit2: address(0)
         }));
 

@@ -11,16 +11,14 @@ import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { stdJson } from "forge-std/StdJson.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IBCPausableUpgradeable } from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { IIBCPausable } from "../../contracts/interfaces/IIBCPausable.sol";
+
+import "forge-std/console.sol";
 
 abstract contract DeployProxiedICS20Transfer is Deployments {
-    using stdJson for string;
-
     function deployProxiedICS20Transfer(ProxiedICS20TransferDeployment memory deployment) public returns (ERC1967Proxy) {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             deployment.implementation,
@@ -35,11 +33,30 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
             )
         );
 
-        if (deployment.pauser != address(0)) {
-            IIBCPausable(address(transferProxy)).grantPauserRole(deployment.pauser);
+        console.log("Deployed ICS20Transfer at address: ", address(transferProxy));
+
+        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
+
+        if (deployment.pausers.length != 0) {
+            for (uint32 i = 0; i < deployment.pausers.length; i++) {
+                address pauser = deployment.pausers[i];
+                console.log("Granting pauser role to: ", pauser);
+                ics20Transfer.grantPauserRole(pauser);
+            }
         }
-        if (deployment.unpauser != address(0)) {
-            IIBCPausable(address(transferProxy)).grantUnpauserRole(deployment.unpauser);
+
+        if (deployment.unpausers.length != 0) {
+            for (uint32 i = 0; i < deployment.unpausers.length; i++) {
+                address unpauser = deployment.unpausers[i];
+                console.log("Granting unpauser role to: ", unpauser);
+                ics20Transfer.grantUnpauserRole(unpauser);
+            }
+        }
+
+        if (deployment.tokenOperator != address(0)) {
+            address tokenOperator = deployment.tokenOperator;
+            console.log("Granting tokenOperator role to: ", tokenOperator);
+            ics20Transfer.grantTokenOperatorRole(tokenOperator);
         }
 
         return transferProxy;
@@ -94,20 +111,20 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
             "transfer app address doesn't match with the one in ics26Router"
         );
 
-        if (deployment.pauser != address(0)) {
+        for (uint256 i = 0; i < deployment.pausers.length; i++) {
             IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
 
             vm.assertTrue(
-                ipu.hasRole(ipu.PAUSER_ROLE(), deployment.pauser),
+                ipu.hasRole(ipu.PAUSER_ROLE(), deployment.pausers[i]),
                 "pauser address doesn't have pauser role"
             );
         }
 
-        if (deployment.unpauser != address(0)) {
+        for (uint256 i = 0; i < deployment.unpausers.length; i++) {
             IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
 
             vm.assertTrue(
-                ipu.hasRole(ipu.UNPAUSER_ROLE(), deployment.unpauser),
+                ipu.hasRole(ipu.UNPAUSER_ROLE(), deployment.unpausers[i]),
                 "unpauser address doesn't have unpauser role"
             );
         }
@@ -155,17 +172,6 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
 
         deployment.proxy = payable(address(transferProxy));
         verify(deployment);
-
-        vm.serializeAddress("ics20Transfer", "proxy", address(transferProxy));
-        vm.serializeAddress("ics20Transfer", "implementation", deployment.implementation);
-        vm.serializeAddress("ics20Transfer", "escrowImplementation", deployment.escrowImplementation);
-        vm.serializeAddress("ics20Transfer", "ibcERC20Implementation", deployment.ibcERC20Implementation);
-        vm.serializeAddress("ics20Transfer", "pauser", deployment.pauser);
-        vm.serializeAddress("ics20Transfer", "unpauser", deployment.unpauser);
-        vm.serializeAddress("ics20Transfer", "ics26Router", deployment.ics26Router);
-        string memory output = vm.serializeAddress("ics20Transfer", "permit2", deployment.permit2);
-
-        vm.writeJson(output, path, ".ics20Transfer");
 
         return address(transferProxy);
     }
