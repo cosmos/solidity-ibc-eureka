@@ -22,7 +22,7 @@ use crate::events::{EurekaEvent, EurekaEventWithHeight};
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEventWithHeight>,
-    target_client_id: &str,
+    dst_client_id: &str,
     target_height: &Height,
     signer_address: &str,
     now: u64,
@@ -31,7 +31,7 @@ pub fn target_events_to_timeout_msgs(
         .into_iter()
         .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
-                if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
+                if now >= packet.timeoutTimestamp && packet.sourceClient == dst_client_id {
                     Some(MsgTimeout {
                         packet: Some(packet.into()),
                         proof_height: Some(*target_height),
@@ -51,7 +51,7 @@ pub fn target_events_to_timeout_msgs(
 /// [`MsgAcknowledgement`]s.
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEventWithHeight>,
-    target_client_id: &str,
+    dst_client_id: &str,
     target_height: &Height,
     signer_address: &str,
     now: u64,
@@ -60,9 +60,9 @@ pub fn src_events_to_recv_and_ack_msgs(
         .into_iter()
         .filter(|e| match &e.event {
             EurekaEvent::SendPacket(packet) => {
-                packet.timeoutTimestamp > now && packet.destClient == target_client_id
+                packet.timeoutTimestamp > now && packet.destClient == dst_client_id
             }
-            EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == target_client_id,
+            EurekaEvent::WriteAcknowledgement(packet, _) => packet.sourceClient == dst_client_id,
         })
         .partition(|e| match e.event {
             EurekaEvent::SendPacket(_) => true,
