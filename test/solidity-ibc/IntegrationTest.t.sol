@@ -81,8 +81,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(0), address(permit2))
+                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2))
             )
         );
 
@@ -105,8 +104,9 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
-
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
+
+        ics20Transfer.grantTokenOperatorRole(address(this));
 
         (defaultSender, defaultSenderKey) = makeAddrAndKey("sender");
         defaultSenderStr = Strings.toHexString(defaultSender);

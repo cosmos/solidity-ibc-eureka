@@ -44,9 +44,8 @@ impl SyncAggregate {
         self.sync_committee_bits.len() as u64 * 8
     }
 
+    // See spec: <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update>
     /// Returns if at least 2/3 of the sync committee signed
-    ///
-    /// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#process_light_client_update>
     pub fn validate_signature_supermajority(&self) -> bool {
         self.num_sync_committe_participants() * 3 >= self.sync_committee_size() * 2
     }
