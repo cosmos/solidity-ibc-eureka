@@ -50,6 +50,7 @@ abstract contract Deployments {
         });
     }
 
+    // TODO: Move these to ops repo
     function loadSP1ICS07TendermintDeployments(
         Vm vm,
         string memory json
@@ -115,6 +116,7 @@ abstract contract Deployments {
         address proxy;
     }
 
+    // TODO: Move these to ops repo
     function loadProxiedICS20TransferDeployment(
         Vm vm,
         string memory json
