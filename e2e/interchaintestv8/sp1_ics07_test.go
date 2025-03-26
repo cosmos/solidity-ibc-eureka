@@ -280,7 +280,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
@@ -317,7 +317,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
@@ -405,7 +405,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
@@ -516,7 +516,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
@@ -609,7 +609,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		s.T().Logf("Gas used in %s: %d", s.T().Name(), receipt.GasUsed)
@@ -705,7 +705,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 			s.Require().NoError(err)
 
 			// wait until transaction is included in a block
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		}))
