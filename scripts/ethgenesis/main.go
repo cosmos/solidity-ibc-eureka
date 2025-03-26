@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -8,7 +9,7 @@ import (
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
@@ -24,11 +25,15 @@ const (
 )
 
 func main() {
+	ctx := context.Background()
 	ethClient, err := ethereum.NewEthAPI(EthAPIURL)
 	if err != nil {
 		panic(err)
 	}
-	beaconAPI := ethereum.NewBeaconAPIClient(BeaconAPIURL)
+	beaconAPI, err := ethereum.NewBeaconAPIClient(ctx, BeaconAPIURL)
+	if err != nil {
+		panic(err)
+	}
 
 	genesis, err := beaconAPI.GetGenesis()
 	if err != nil {
