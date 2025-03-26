@@ -45,21 +45,17 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
         string memory json = vm.readFile(path);
 
-
-
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
         // ============ Step 2: Deploy the contracts ==============
 
         vm.startBroadcast();
 
-
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
-
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
