@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,gas-custom-errors,no-global-import
+// solhint-disable custom-errors,gas-custom-errors
+
+// solhint-disable-next-line no-global-import
+import "forge-std/console.sol";
 
 import { Script } from "forge-std/Script.sol";
 import { Deployments } from "../helpers/Deployments.sol";
@@ -16,7 +19,6 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { IBCPausableUpgradeable } from "../../contracts/utils/IBCPausableUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
-import "forge-std/console.sol";
 
 abstract contract DeployProxiedICS20Transfer is Deployments {
     function deployProxiedICS20Transfer(ProxiedICS20TransferDeployment memory deployment) public returns (ERC1967Proxy) {
