@@ -24,8 +24,6 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
     using stdJson for string;
 
     function deployProxiedICS20Transfer(ProxiedICS20TransferDeployment memory deployment) public returns (ERC1967Proxy) {
-
-
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             deployment.implementation,
             abi.encodeCall(
@@ -41,16 +39,28 @@ abstract contract DeployProxiedICS20Transfer is Deployments {
 
         console.log("Deployed ICS20Transfer at address: ", address(transferProxy));
 
-        for (uint256 i = 0; i < deployment.pausers.length; i++) {
-            console.log("Granting pauser role to: ", deployment.pausers[i]);
-            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
-            ipu.grantPauserRole(deployment.pausers[i]);
+        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
+
+        if (deployment.pausers.length != 0) {
+            for (uint32 i = 0; i < deployment.pausers.length; i++) {
+                address pauser = deployment.pausers[i];
+                console.log("Granting pauser role to: ", pauser);
+                ics20Transfer.grantPauserRole(pauser);
+            }
         }
 
-        for (uint256 i = 0; i < deployment.unpausers.length; i++) {
-            console.log("Granting unpauser role to: ", deployment.unpausers[i]);
-            IBCPausableUpgradeable ipu = IBCPausableUpgradeable(address(transferProxy));
-            ipu.grantUnpauserRole(deployment.unpausers[i]);
+        if (deployment.unpausers.length != 0) {
+            for (uint32 i = 0; i < deployment.unpausers.length; i++) {
+                address unpauser = deployment.unpausers[i];
+                console.log("Granting unpauser role to: ", unpauser);
+                ics20Transfer.grantUnpauserRole(unpauser);
+            }
+        }
+
+        if (deployment.tokenOperator != address(0)) {
+            address tokenOperator = deployment.tokenOperator;
+            console.log("Granting tokenOperator role to: ", tokenOperator);
+            ics20Transfer.grantTokenOperatorRole(tokenOperator);
         }
 
         return transferProxy;
@@ -173,6 +183,7 @@ contract DeployProxiedICS20TransferScript is DeployProxiedICS20Transfer, Script 
         vm.serializeAddress("ics20Transfer", "ibcERC20Implementation", deployment.ibcERC20Implementation);
         vm.serializeAddress("ics20Transfer", "pausers", deployment.pausers);
         vm.serializeAddress("ics20Transfer", "unpausers", deployment.unpausers);
+        vm.serializeAddress("ics20Transfer", "tokenOperator", deployment.tokenOperator);
         vm.serializeAddress("ics20Transfer", "ics26Router", deployment.ics26Router);
         string memory output = vm.serializeAddress("ics20Transfer", "permit2", deployment.permit2);
 

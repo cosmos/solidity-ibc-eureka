@@ -20,6 +20,8 @@ contract UpgradeICS20 is Script {
 
         vm.stopBroadcast();
 
+        // TODO: Update deployment JSON
+
         console.log("Upgraded ICS26Router");
     }
 }
