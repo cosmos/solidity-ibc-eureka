@@ -219,7 +219,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
 		s.Require().NoError(err)
 
-		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
+		_, err = eth.GetTxReceipt(ctx, tx.Hash()) // wait for the tx to be mined
 		s.Require().NoError(err)
 	}))
 
@@ -236,7 +236,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
@@ -258,7 +258,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 
 		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
@@ -776,7 +776,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		tx, err := ibcERC20.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -801,7 +801,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmos_Groth16() {
 		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -878,7 +878,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -906,7 +906,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmos_Groth16() {
 
 		tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendPacket)
 		s.Require().NoError(err)
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 

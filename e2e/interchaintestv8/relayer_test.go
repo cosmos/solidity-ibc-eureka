@@ -331,7 +331,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -366,7 +366,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		tx, err := s.ics20Contract.Multicall(s.GetTransactOpts(s.key, eth), transferMulticall)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Multicall send %d transfers gas used: %d", numOfTransfers, receipt.GasUsed)
@@ -491,7 +491,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, totalTransferAmount)
 		s.Require().NoError(err)
 
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -521,7 +521,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
 			s.Require().NoError(err)
 
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			receipt, err := eth.GetTxReceipt(ctx, tx.Hash())
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 

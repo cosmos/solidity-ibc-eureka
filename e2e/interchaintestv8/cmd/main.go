@@ -11,19 +11,19 @@ const (
 	DefaultEthRPC = "https://ethereum-sepolia-rpc.publicnode.com"
 
 	FlagIcs26Address    = "ics26-address"
-	DefaultIcs26Address = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
+	DefaultIcs26Address = "0x3fcBB8b5d85FB5F77603e11536b5E90FeE37e6c0"
 
 	FlagIcs20Address    = "ics20-address"
-	DefaultIcs20Address = "0xE80DC519EE86146057B9dBEfBa900Edd7a2385e4"
+	DefaultIcs20Address = "0x3a4e076D1c5EBfC813993c497Bb284598121b515"
 
 	FlagErc20Address    = "erc20-address"
 	DefaultErc20Address = "0xA4ff49eb6E2Ea77d7D8091f1501385078642603f"
 
 	FlagCosmosRPC    = "cosmos-rpc"
-	DefaultCosmosRPC = "https://rpc.testcosmos.directory:443/cosmosicsprovidertestnet"
+	DefaultCosmosRPC = "https://cosmos-testnet-rpc.polkachu.com/"
 
 	FlagCosmosGRPC    = "cosmos-grpc"
-	DefaultCosmosGRPC = "grpc.provider-sentry-01.ics-testnet.polypore.xyz:443"
+	DefaultCosmosGRPC = "provider-skip-grpc.polkachu.com:14990"
 
 	FlagCosmosChainID    = "cosmos-chain-id"
 	DefaultCosmosChainID = "provider"
@@ -35,9 +35,12 @@ const (
 	FlagCosmosClientIDOnEth = "client-id-on-eth"
 	FlagEthClientIDOnCosmos = "client-id-on-cosmos"
 
-	// TODO: Add the non-mock versions of these
-	MockTendermintClientID = "hub-testnet-sp1-4"
-	MockEthClientID        = "08-wasm-255"
+	TendermintClientID = "hub-testnet-0"
+	EthClientID        = "08-wasm-262"
+
+	// old mocks:
+	// MockTendermintClientID = "hub-testnet-sp1-4"
+	// MockEthClientID        = "08-wasm-255"
 
 	EnvEthPrivateKey    = "ETH_PRIVATE_KEY"
 	EnvCosmosPrivateKey = "COSMOS_PRIVATE_KEY"

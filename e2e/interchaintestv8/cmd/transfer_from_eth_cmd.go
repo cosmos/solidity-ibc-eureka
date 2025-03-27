@@ -87,7 +87,7 @@ func TransferFromEth() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("approve tx call failed: %w", err)
 			}
-			receipt := utils.GetTxReciept(ctx, ethClient, tx.Hash())
+			receipt := utils.GetTxReceipt(ctx, ethClient, tx.Hash())
 			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("approve tx unsuccessful (%s) %+v", tx.Hash().String(), receipt)
 			} else if receipt == nil {
@@ -119,7 +119,7 @@ func TransferFromEth() *cobra.Command {
 				fmt.Printf("tx %+v\n", tx)
 				return fmt.Errorf("send transfer tx unsuccessful\nmsg %+v\nerr: %w", sendTransferMsg, err)
 			}
-			receipt = utils.GetTxReciept(ctx, ethClient, tx.Hash())
+			receipt = utils.GetTxReceipt(ctx, ethClient, tx.Hash())
 			if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
 				return fmt.Errorf("send transfer tx (%s) unsuccessful %+v", tx.Hash().String(), receipt)
 			} else if receipt == nil {
@@ -134,7 +134,7 @@ func TransferFromEth() *cobra.Command {
 	}
 
 	AddEthFlags(cmd)
-	cmd.Flags().String(FlagSourceClientID, MockTendermintClientID, "Tendermint Client ID on Ethereum")
+	cmd.Flags().String(FlagSourceClientID, TendermintClientID, "Tendermint Client ID on Ethereum")
 	cmd.Flags().Bool(FlagTransferWithCallbacksMemo, false, "Transfer with callbacks forwarding memo")
 
 	return cmd

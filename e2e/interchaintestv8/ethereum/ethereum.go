@@ -88,7 +88,7 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 		return nil, err
 	}
 
-	receipt, err := e.GetTxReciept(ctx, signedTx.Hash())
+	receipt, err := e.GetTxReceipt(ctx, signedTx.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (e *Ethereum) Height() (int64, error) {
 	return strconv.ParseInt(strings.TrimSpace(string(stdout)), 10, 64)
 }
 
-func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*ethtypes.Receipt, error) {
+func (e *Ethereum) GetTxReceipt(ctx context.Context, hash ethcommon.Hash) (*ethtypes.Receipt, error) {
 	var receipt *ethtypes.Receipt
 	err := testutil.WaitForCondition(time.Second*40, time.Second, func() (bool, error) {
 		var err error

@@ -9,6 +9,7 @@ import (
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	"github.com/briandowns/spinner"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
@@ -169,6 +170,12 @@ func TransferFromCosmos() *cobra.Command {
 			}
 
 			txClient := txtypes.NewServiceClient(grpcConn)
+
+			// Start the spinner animation
+			s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+			s.Start()
+			defer s.Stop()
+
 			// We then call the BroadcastTx method on this client.
 			grpcRes, err := txClient.BroadcastTx(
 				ctx,
@@ -203,7 +210,7 @@ func TransferFromCosmos() *cobra.Command {
 	}
 
 	AddCosmosFlags(cmd)
-	cmd.Flags().String(FlagSourceClientID, MockEthClientID, "Ethereum Client ID on Cosmos")
+	cmd.Flags().String(FlagSourceClientID, EthClientID, "Ethereum Client ID on Cosmos")
 
 	return cmd
 }
