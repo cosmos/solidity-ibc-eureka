@@ -402,20 +402,20 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 
 func (s *CosmosRelayerTestSuite) TestICS20TimeoutPacket() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketTest(ctx, 1, nil)
+	s.FilteredICS20TimeoutPacketTest(ctx, 1, nil)
 }
 
 func (s *CosmosRelayerTestSuite) Test_10_ICS20TimeoutPacket() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketTest(ctx, 10, nil)
+	s.FilteredICS20TimeoutPacketTest(ctx, 10, nil)
 }
 
 func (s *CosmosRelayerTestSuite) Test_10_FilteredICS20TimeoutPacket() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketTest(ctx, 10, []uint64{1})
+	s.FilteredICS20TimeoutPacketTest(ctx, 10, []uint64{1})
 }
 
-func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, numOfTransfers int, timeoutFilter []uint64) {
+func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Context, numOfTransfers int, timeoutFilter []uint64) {
 	s.Require().Greater(numOfTransfers, len(timeoutFilter))
 
 	s.SetupSuite(ctx)
