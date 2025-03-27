@@ -1,0 +1,65 @@
+{
+  "server": {
+    "log_level": "info",
+    "address": "0.0.0.0",
+    "port": 3000
+  },
+  "modules": [
+    {
+      "name": "cosmos_to_eth",
+      "src_chain": "provider",
+      "dst_chain": "11155111",
+      "config": {
+        "mock": false,
+        "tm_rpc_url": "https://cosmos-testnet-rpc.polkachu.com:443",
+        "ics26_address": "0x3fcBB8b5d85FB5F77603e11536b5E90FeE37e6c0",
+        "eth_rpc_url": "https://eth-sepolia.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B",
+        "sp1_config": {
+           "prover_type": "network",
+           "private_cluster": true
+        }
+      }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "src_chain": "11155111",
+      "dst_chain": "provider",
+      "config": {
+        "mock": false,
+        "tm_rpc_url": "https://cosmos-testnet-rpc.polkachu.com:443",
+        "ics26_address": "0x3fcBB8b5d85FB5F77603e11536b5E90FeE37e6c0",
+        "eth_rpc_url": "https://eth-sepolia.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B",
+        "eth_beacon_api_url": "https://interchain:123cosmohub987@lodestar-sepolia-skip-api.polkachu.com",
+        "signer_address": "cosmos127tlxptdqt0pe25mq5cf8ju68lsa9yxy885vqm"
+      }
+    },
+    {
+      "name": "cosmos_to_eth",
+      "src_chain": "provider",
+      "dst_chain": "1",
+      "config": {
+        "mock": false,
+        "tm_rpc_url": "https://cosmos-testnet-rpc.polkachu.com:443",
+        "ics26_address": "0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7",
+        "eth_rpc_url": "https://eth-mainnet.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B",
+        "sp1_config": {
+          "prover_type": "network",
+          "private_cluster": true
+        }
+      }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "src_chain": "1",
+      "dst_chain": "provider",
+      "config": {
+        "mock": false,
+        "tm_rpc_url": "https://cosmos-testnet-rpc.polkachu.com:443",
+        "ics26_address": "0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7",
+        "eth_rpc_url": "https://eth-mainnet.g.alchemy.com/v2/iR-o8s0PPaLM7yCqrmna9ANzqvx7mF8B",
+        "eth_beacon_api_url": "https://interchain:123cosmohub987@lodestar-skip-api.polkachu.com",
+        "signer_address": "cosmos127tlxptdqt0pe25mq5cf8ju68lsa9yxy885vqm"
+      }
+    }
+  ]
+}
