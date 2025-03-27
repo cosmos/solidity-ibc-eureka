@@ -53,8 +53,8 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `operator/`: Contains the operator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
-    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `packages/`: Contains the Rust packages for the project.
+    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 
 ### Contracts
 
