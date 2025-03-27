@@ -58,20 +58,20 @@ func TestWithRelayerTestSuite(t *testing.T) {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, nil)
 }
 
 func (s *RelayerTestSuite) Test_5_RecvPacketToEth_Plonk() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
+	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 6})
+	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 6})
 }
 
-func (s *RelayerTestSuite) RecvPacketToEthTest(
+func (s *RelayerTestSuite) FilteredRecvPacketToEthTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, recvFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(recvFilter))
@@ -667,7 +667,7 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
-	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 
 	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
 	s.Require().NoError(err)
@@ -689,22 +689,22 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 	})
 	s.Require().NoError(err)
 
-	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
+	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
-	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), nil)
+	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
-	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
+	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
 
-func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int, recvFilter []uint64) {
+func (s *RelayerTestSuite) FilteredRecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int, recvFilter []uint64) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(recvFilter))
 	s.Require().Greater(numOfTransfers, 0)
 
