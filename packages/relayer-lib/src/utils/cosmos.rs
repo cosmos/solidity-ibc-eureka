@@ -31,21 +31,15 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e.event {
-            EurekaEvent::SendPacket(packet) => {
-                if now >= packet.timeoutTimestamp
-                    && packet.sourceClient == dst_client_id
-                    && packet.destClient == src_client_id
-                {
-                    Some(MsgTimeout {
-                        packet: Some(packet.into()),
-                        proof_height: Some(*target_height),
-                        proof_unreceived: vec![],
-                        signer: signer_address.to_string(),
-                    })
-                } else {
-                    None
-                }
-            }
+            EurekaEvent::SendPacket(packet) => (now >= packet.timeoutTimestamp
+                && packet.sourceClient == dst_client_id
+                && packet.destClient == src_client_id)
+                .then_some(MsgTimeout {
+                    packet: Some(packet.into()),
+                    proof_height: Some(*target_height),
+                    proof_unreceived: vec![],
+                    signer: signer_address.to_string(),
+                }),
             EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
