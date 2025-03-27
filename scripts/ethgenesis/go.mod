@@ -10,19 +10,9 @@ replace (
 )
 
 require (
-<<<<<<< Updated upstream
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
 	github.com/cosmos/ibc-go/v10 v10.1.0
 	github.com/cosmos/solidity-ibc-eureka/go-abigen v0.0.0
-||||||| Stash base
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-rc.3
-	github.com/cosmos/ibc-go/v10 v10.0.0-rc.3
-	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
-=======
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
-	github.com/cosmos/ibc-go/v10 v10.1.0
-	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
->>>>>>> Stashed changes
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 v8.0.0
 )
