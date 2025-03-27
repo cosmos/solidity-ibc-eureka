@@ -73,7 +73,8 @@ func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth_Groth16() {
 func (s *RelayerTestSuite) RecvPacketToEthTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, recvFilter []uint64,
 ) {
-	s.Require().Greater(numOfTransfers, len(recvFilter))
+	s.Require().GreaterOrEqual(numOfTransfers, len(recvFilter))
+	s.Require().Greater(numOfTransfers, 0)
 
 	s.SetupSuite(ctx, proofType)
 
@@ -85,13 +86,12 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 	if totalTransferAmount.Int64() > testvalues.InitialBalance {
 		s.FailNow("Total transfer amount exceeds the initial balance")
 	}
-	var numOfRecvs int64
+	var totalRecvAmount *big.Int
 	if len(recvFilter) == 0 {
-		numOfRecvs = int64(numOfTransfers)
+		totalRecvAmount = totalTransferAmount
 	} else {
-		numOfRecvs = int64(len(recvFilter))
+		totalRecvAmount = big.NewInt(testvalues.TransferAmount * int64(len(recvFilter)))
 	}
-	totalRecvAmount := big.NewInt(testvalues.TransferAmount * numOfRecvs)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
@@ -632,12 +632,6 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 	}))
 }
 
-func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
-	ctx := context.Background()
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
-	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount))
-}
-
 func (s *RelayerTestSuite) Test_Electra_Fork() {
 	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
 		s.T().Skip("Test is only relevant for PoS networks")
@@ -650,7 +644,7 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
 
-	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount))
+	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 
 	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
 	s.Require().NoError(err)
@@ -672,16 +666,37 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 	})
 	s.Require().NoError(err)
 
-	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount))
+	s.RecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }
 
-func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int) {
+func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
+	ctx := context.Background()
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), nil)
+}
+
+func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToCosmos() {
+	ctx := context.Background()
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	s.RecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
+}
+
+func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTransfers int, transferAmount *big.Int, recvFilter []uint64) {
+	s.Require().GreaterOrEqual(numOfTransfers, len(recvFilter))
+	s.Require().Greater(numOfTransfers, 0)
+
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
+	var relayedAmount *big.Int
+	if len(recvFilter) == 0 {
+		relayedAmount = totalTransferAmount
+	} else {
+		relayedAmount = new(big.Int).Mul(transferAmount, big.NewInt(int64(len(recvFilter))))
+	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
@@ -760,11 +775,12 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    eth.ChainID.String(),
-				DstChain:    simd.Config().ChainID,
-				SourceTxIds: sendTxHashes,
-				SrcClientId: testvalues.CustomClientID,
-				DstClientId: testvalues.FirstWasmClientID,
+				SrcChain:           eth.ChainID.String(),
+				DstChain:           simd.Config().ChainID,
+				SourceTxIds:        sendTxHashes,
+				SrcClientId:        testvalues.CustomClientID,
+				DstClientId:        testvalues.FirstWasmClientID,
+				SrcPacketSequences: recvFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -795,7 +811,7 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(new(big.Int).Add(startBalanceCosmos, totalTransferAmount), resp.Balance.Amount.BigInt())
+			s.Require().Equal(new(big.Int).Add(startBalanceCosmos, relayedAmount), resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
 		}))
 	}))
@@ -817,7 +833,8 @@ func (s *RelayerTestSuite) Test_10_BatchedFilteredAckPacketToCosmos() {
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(
 	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, ackFilter []uint64,
 ) {
-	s.Require().Greater(numOfTransfers, len(ackFilter))
+	s.Require().GreaterOrEqual(numOfTransfers, len(ackFilter))
+	s.Require().Greater(numOfTransfers, 0)
 
 	s.SetupSuite(ctx, proofType)
 
