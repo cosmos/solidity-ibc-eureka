@@ -9,4 +9,5 @@ pub mod api {
 
 pub mod cli;
 pub mod core;
+pub mod metrics;
 pub mod modules;

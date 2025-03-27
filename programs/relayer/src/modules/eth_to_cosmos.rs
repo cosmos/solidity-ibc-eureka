@@ -172,7 +172,14 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .relay_events(eth_events, cosmos_events, inner_req.target_client_id)
+            .relay_events(
+                eth_events,
+                cosmos_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -209,16 +216,33 @@ impl EthToCosmosTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
             }
             Self::Mock(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
             }
         }
     }

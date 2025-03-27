@@ -310,7 +310,10 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let latest_block_number = self.eth_client.get_block_number().await?;
         let minimum_block_number = if dest_events.is_empty() {
@@ -330,7 +333,9 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -338,18 +343,20 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
 
-        let mut ethereum_client_state =
-            self.ethereum_client_state(target_client_id.clone()).await?;
+        let mut ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}",
-            target_client_id,
+            dst_client_id,
             minimum_block_number,
             ethereum_client_state.latest_slot,
         );
@@ -360,7 +367,7 @@ where
             self.wait_for_light_client_readiness(minimum_block_number)
                 .await?;
             // Update the client state and consensus state, in case they have changed while we were waiting
-            ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
+            ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
             self.get_update_headers(&ethereum_client_state).await?
         } else {
             vec![]
@@ -390,7 +397,7 @@ where
                 let header_bz = serde_json::to_vec(&header)?;
                 let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
                 Ok(MsgUpdateClient {
-                    client_id: target_client_id.clone(),
+                    client_id: dst_client_id.clone(),
                     client_message: Some(client_msg),
                     signer: self.signer_address.clone(),
                 })
@@ -484,13 +491,16 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}",
-            target_client_id
+            dst_client_id
         );
 
         let target_height = Height {
@@ -502,7 +512,9 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -510,7 +522,10 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),

@@ -36,10 +36,10 @@ import (
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -685,10 +685,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simdA.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{simdASendTxHash},
-				TargetClientId: testvalues.FirstUniversalClientID,
+				SrcChain:    simdA.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{simdASendTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.FirstUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -791,10 +792,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simdB.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simdB.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.SecondUniversalClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -866,10 +868,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 			var relayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       simdB.Config().ChainID,
-					DstChain:       eth.ChainID.String(),
-					SourceTxIds:    [][]byte{simdBSendTxHash},
-					TargetClientId: testvalues.SecondUniversalClientID,
+					SrcChain:    simdB.Config().ChainID,
+					DstChain:    eth.ChainID.String(),
+					SourceTxIds: [][]byte{simdBSendTxHash},
+					SrcClientId: testvalues.FirstWasmClientID,
+					DstClientId: testvalues.SecondUniversalClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -936,10 +939,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simdA.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simdA.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.FirstUniversalClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1038,10 +1042,11 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simdA.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simdA.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.FirstUniversalClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1116,10 +1121,11 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simdA.Config().ChainID,
-				DstChain:       simdB.Config().ChainID,
-				SourceTxIds:    [][]byte{simdASendTxHash},
-				TargetClientId: ibctesting.SecondClientID,
+				SrcChain:    simdA.Config().ChainID,
+				DstChain:    simdB.Config().ChainID,
+				SourceTxIds: [][]byte{simdASendTxHash},
+				SrcClientId: ibctesting.SecondClientID,
+				DstClientId: ibctesting.SecondClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1191,10 +1197,11 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simdB.Config().ChainID,
-				DstChain:       simdA.Config().ChainID,
-				SourceTxIds:    [][]byte{simdBTransferTxHash},
-				TargetClientId: ibctesting.SecondClientID,
+				SrcChain:    simdB.Config().ChainID,
+				DstChain:    simdA.Config().ChainID,
+				SourceTxIds: [][]byte{simdBTransferTxHash},
+				SrcClientId: ibctesting.SecondClientID,
+				DstClientId: ibctesting.SecondClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1259,10 +1266,11 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 			var relayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       simdA.Config().ChainID,
-					DstChain:       eth.ChainID.String(),
-					SourceTxIds:    [][]byte{simdASendTxHash},
-					TargetClientId: testvalues.FirstUniversalClientID,
+					SrcChain:    simdA.Config().ChainID,
+					DstChain:    eth.ChainID.String(),
+					SourceTxIds: [][]byte{simdASendTxHash},
+					SrcClientId: testvalues.FirstWasmClientID,
+					DstClientId: testvalues.FirstUniversalClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -1346,10 +1354,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simdA.Config().ChainID,
-				DstChain:       simdB.Config().ChainID,
-				SourceTxIds:    [][]byte{simdASendTxHash},
-				TargetClientId: ibctesting.SecondClientID,
+				SrcChain:    simdA.Config().ChainID,
+				DstChain:    simdB.Config().ChainID,
+				SourceTxIds: [][]byte{simdASendTxHash},
+				SrcClientId: ibctesting.SecondClientID,
+				DstClientId: ibctesting.SecondClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1418,10 +1427,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simdB.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{simdBTransferTxHash},
-				TargetClientId: testvalues.SecondUniversalClientID,
+				SrcChain:    simdB.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{simdBTransferTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.SecondUniversalClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1497,10 +1507,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			var returnRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       eth.ChainID.String(),
-					DstChain:       simdB.Config().ChainID,
-					SourceTxIds:    [][]byte{ethReturnSendTxHash},
-					TargetClientId: testvalues.FirstWasmClientID,
+					SrcChain:    eth.ChainID.String(),
+					DstChain:    simdB.Config().ChainID,
+					SourceTxIds: [][]byte{ethReturnSendTxHash},
+					SrcClientId: testvalues.SecondUniversalClientID,
+					DstClientId: testvalues.FirstWasmClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -1567,10 +1578,11 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			var returnRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       simdB.Config().ChainID,
-					DstChain:       simdA.Config().ChainID,
-					SourceTxIds:    [][]byte{simdBTransferTxHash},
-					TargetClientId: ibctesting.SecondClientID,
+					SrcChain:    simdB.Config().ChainID,
+					DstChain:    simdA.Config().ChainID,
+					SourceTxIds: [][]byte{simdBTransferTxHash},
+					SrcClientId: ibctesting.SecondClientID,
+					DstClientId: ibctesting.SecondClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
