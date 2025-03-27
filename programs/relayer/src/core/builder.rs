@@ -117,20 +117,16 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        crate::metrics::track_metrics(
-            "info",
-            &format!("{src_chain}-{dst_chain}"),
-            request,
-            |req| async move {
-                self.get_module(&src_chain, &dst_chain)?
-                    .info(req)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Info request failed: {:?}", e);
-                        tonic::Status::internal("Failed to get info. See logs for more details.")
-                    })
-            },
-        )
+        crate::metrics::track_metrics("info", &src_chain, &dst_chain, || async move {
+            let inner_request = request.get_ref();
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .info(request)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Info request failed: {:?}", e);
+                    tonic::Status::internal("Failed to get info. See logs for more details.")
+                })
+        })
         .await
     }
 
@@ -143,20 +139,16 @@ impl RelayerService for Relayer {
         let src_chain = inner_request.src_chain.clone();
         let dst_chain = inner_request.dst_chain.clone();
 
-        crate::metrics::track_metrics(
-            "relay_by_tx",
-            &format!("{src_chain}-{dst_chain}"),
-            request,
-            |req| async move {
-                self.get_module(&src_chain, &dst_chain)?
-                    .relay_by_tx(req)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Relay by tx request failed: {:?}", e);
-                        tonic::Status::internal("Failed to relay by tx. See logs for more details.")
-                    })
-            },
-        )
+        crate::metrics::track_metrics("relay_by_tx", &src_chain, &dst_chain, || async move {
+            let inner_request = request.get_ref();
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .relay_by_tx(request)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Relay by tx request failed: {:?}", e);
+                    tonic::Status::internal("Failed to relay by tx. See logs for more details.")
+                })
+        })
         .await
     }
 }

@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
                     String::from_utf8(buffer).unwrap()
                 });
 
-                println!("Metrics available at http://0.0.0.0:9000/metrics");
+                tracing::info!("Metrics available at http://0.0.0.0:9000/metrics");
                 warp::serve(metrics_route).run(([0, 0, 0, 0], 9000)).await;
             });
 
