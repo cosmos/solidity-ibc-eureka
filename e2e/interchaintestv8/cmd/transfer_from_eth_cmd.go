@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"

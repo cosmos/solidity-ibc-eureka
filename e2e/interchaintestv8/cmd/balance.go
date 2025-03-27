@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
