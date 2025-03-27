@@ -88,7 +88,10 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -103,14 +106,19 @@ where
 
         let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             dest_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
             &latest_height,
             now_since_unix.as_secs(),
         );
 
         let recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_client_id,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &latest_height,
             now_since_unix.as_secs(),
         );
@@ -125,7 +133,7 @@ where
 
         tracing::debug!("Messages to be relayed to Ethereum: {:?}", all_msgs);
 
-        let client_state = self.client_state(target_client_id).await?;
+        let client_state = self.client_state(dst_client_id).await?;
 
         inject_sp1_proof(
             &self.sp1_prover,
