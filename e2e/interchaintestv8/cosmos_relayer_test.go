@@ -232,15 +232,21 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 
 func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
 	ctx := context.Background()
-	s.ICS20RecvAndAckPacketTest(ctx, 1)
+	s.FilteredICS20RecvAndAckPacketTest(ctx, 1, nil)
 }
 
 func (s *CosmosRelayerTestSuite) Test_10_ICS20RecvAndAckPacket() {
 	ctx := context.Background()
-	s.ICS20RecvAndAckPacketTest(ctx, 10)
+	s.FilteredICS20RecvAndAckPacketTest(ctx, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 }
 
-func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, numOfTransfers int) {
+func (s *CosmosRelayerTestSuite) Test_10_FilteredICS20RecvAndAckPacket() {
+	ctx := context.Background()
+	s.FilteredICS20RecvAndAckPacketTest(ctx, 10, []uint64{1, 5, 6, 7})
+}
+
+func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.Context, numOfTransfers int, recvAndAckFilter []uint64) {
+	s.Require().GreaterOrEqual(numOfTransfers, len(recvAndAckFilter))
 	s.Require().Greater(numOfTransfers, 0)
 
 	s.SetupSuite(ctx)
@@ -248,6 +254,12 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
+	var relayedAmount int64
+	if len(recvAndAckFilter) == 0 {
+		relayedAmount = totalTransferAmount
+	} else {
+		relayedAmount = testvalues.TransferAmount * int64(len(recvAndAckFilter))
+	}
 
 	var txHashes [][]byte
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
@@ -306,11 +318,12 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    s.SimdA.Config().ChainID,
-				DstChain:    s.SimdB.Config().ChainID,
-				SourceTxIds: txHashes,
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcChain:           s.SimdA.Config().ChainID,
+				DstChain:           s.SimdB.Config().ChainID,
+				SourceTxIds:        txHashes,
+				SrcClientId:        ibctesting.FirstClientID,
+				DstClientId:        ibctesting.FirstClientID,
+				SrcPacketSequences: recvAndAckFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -336,7 +349,7 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(resp.Balance)
-				s.Require().Equal(totalTransferAmount, resp.Balance.Amount.Int64())
+				s.Require().Equal(relayedAmount, resp.Balance.Amount.Int64())
 				s.Require().Equal(ibcDenom, resp.Balance.Denom)
 			}))
 		}))
@@ -344,10 +357,10 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 
 	s.Require().True(s.Run("Acknowledge packets on Chain A", func() {
 		s.Require().True(s.Run("Verify commitments exists", func() {
-			for i := range numOfTransfers {
+			for _, seq := range recvAndAckFilter {
 				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: ibctesting.FirstClientID,
-					Sequence: uint64(i) + 1,
+					Sequence: seq,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Commitment)
@@ -357,11 +370,12 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    s.SimdB.Config().ChainID,
-				DstChain:    s.SimdA.Config().ChainID,
-				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcChain:           s.SimdB.Config().ChainID,
+				DstChain:           s.SimdA.Config().ChainID,
+				SourceTxIds:        [][]byte{ackTxHash},
+				SrcClientId:        ibctesting.FirstClientID,
+				DstClientId:        ibctesting.FirstClientID,
+				DstPacketSequences: recvAndAckFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -375,10 +389,10 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
-			for i := range numOfTransfers {
+			for _, seq := range recvAndAckFilter {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: ibctesting.FirstClientID,
-					Sequence: uint64(i) + 1,
+					Sequence: seq,
 				})
 				s.Require().ErrorContains(err, "packet commitment hash not found")
 			}
