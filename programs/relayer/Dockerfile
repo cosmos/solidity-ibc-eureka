@@ -20,5 +20,6 @@ RUN cargo build --bin relayer --release --locked
 
 FROM ubuntu:24.04
 WORKDIR /usr/local/bin
+RUN apt-get update && apt-get install -y ca-certificates
 COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
 ENTRYPOINT [ "/usr/local/bin/relayer", "start", "--config", "/usr/local/relayer/relayer.json"]
