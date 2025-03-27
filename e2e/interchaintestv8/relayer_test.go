@@ -32,8 +32,8 @@ import (
 
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"

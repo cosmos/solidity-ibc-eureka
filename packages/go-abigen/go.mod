@@ -1,4 +1,4 @@
-module github.com/cosmos/solidity-ibc-eureka/go-abigen
+module github.com/cosmos/solidity-ibc-eureka/packages/go-abigen
 
 go 1.23.6
 
