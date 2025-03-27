@@ -1,7 +1,5 @@
 //! Defines Cosmos to Ethereum relayer module.
 
-use std::str::FromStr;
-
 use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
@@ -10,10 +8,11 @@ use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
-use tendermint_rpc::{HttpClient, Url};
+use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use crate::{
@@ -52,23 +51,30 @@ pub struct CosmosToEthConfig {
 
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "prover_type")]
 pub enum SP1Config {
     /// Mock prover.
     Mock,
     /// Prover from environment variables. (Usually a network prover)
+    ///
     /// `sp1-sdk` expects the following environment variables:
     /// - `SP1_PROVER`: The prover type. (mock, network, cpu, cuda)
     /// - `NETWORK_PRIVATE_KEY`: The private key for the network prover. (only network)
     /// - `NETWORK_RPC_URL`: The RPC URL for prover network. (only network, default exists if empty)
     Env,
-    /// The network prover with explicit private key.
+    /// The network prover.
     Network {
-        /// The private key for the network prover.
-        network_private_key: String,
+        /// The optional private key for the network prover.
+        /// `NETWORK_PRIVATE_KEY` environment variable is used if not provided.
+        #[serde(default)]
+        network_private_key: Option<String>,
         /// The optional RPC URL for the network prover.
+        /// `NETWORK_RPC_URL` environment variable is used if not provided.
         #[serde(default)]
         network_rpc_url: Option<String>,
+        /// Whether to use a private cluster.
+        #[serde(default)]
+        private_cluster: bool,
     },
     /// The local CPU prover.
     Cpu,
@@ -78,47 +84,63 @@ pub enum SP1Config {
 
 impl CosmosToEthRelayerModuleService {
     async fn new(config: CosmosToEthConfig) -> Self {
-        let tm_client = HttpClient::new(
-            Url::from_str(&config.tm_rpc_url)
-                .unwrap_or_else(|_| panic!("invalid tendermint RPC URL: {}", config.tm_rpc_url)),
-        )
-        .expect("Failed to create tendermint HTTP client");
-
+        let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let provider = RootProvider::builder()
-            .on_builtin(&config.eth_rpc_url)
+            .connect(&config.eth_rpc_url)
             .await
             .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let sp1_prover: Box<dyn Prover<CpuProverComponents>> = match config.sp1_config {
-            SP1Config::Mock => Box::new(ProverClient::builder().mock().build()),
-            SP1Config::Env => Box::new(ProverClient::from_env()),
+        let tx_builder = match config.sp1_config {
+            SP1Config::Mock => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().mock().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Env => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::from_env());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Cpu => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().cpu().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
+            SP1Config::Cuda => {
+                let prover: Box<dyn Prover<CpuProverComponents>> =
+                    Box::new(ProverClient::builder().cuda().build());
+                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+            }
             SP1Config::Network {
                 network_private_key,
                 network_rpc_url,
-            } => Box::new(network_rpc_url.map_or_else(
-                || {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .build()
-                },
-                |rpc_url| {
-                    ProverClient::builder()
-                        .network()
-                        .private_key(&network_private_key)
-                        .rpc_url(&rpc_url)
-                        .build()
-                },
-            )),
-            SP1Config::Cpu => Box::new(ProverClient::builder().cpu().build()),
-            SP1Config::Cuda => Box::new(ProverClient::builder().cuda().build()),
+                private_cluster,
+            } => {
+                let mut prover_builder = ProverClient::builder().network();
+                if let Some(private_key) = network_private_key {
+                    prover_builder = prover_builder.private_key(&private_key);
+                }
+                if let Some(rpc_url) = network_rpc_url {
+                    prover_builder = prover_builder.rpc_url(&rpc_url);
+                }
+                if private_cluster {
+                    TxBuilder::new(
+                        config.ics26_address,
+                        provider,
+                        tm_client,
+                        prover_builder.build(),
+                    )
+                } else {
+                    let prover: Box<dyn Prover<CpuProverComponents>> =
+                        Box::new(prover_builder.build());
+                    TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                }
+            }
         };
-
-        let tx_builder = TxBuilder::new(config.ics26_address, provider, tm_client, sp1_prover);
 
         Self {
             tm_listener,
@@ -142,7 +164,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .eth_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router.address().to_string(),
             }),
@@ -151,7 +173,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                     .tm_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.to_string().into()))?,
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -173,7 +195,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .into_iter()
             .map(Hash::try_from)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         let eth_txs = inner_req
             .timeout_tx_ids
@@ -187,7 +209,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .tm_listener
             .fetch_tx_events(cosmos_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
         tracing::info!(
@@ -199,7 +221,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .eth_listener
             .fetch_tx_events(eth_txs)
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
@@ -233,7 +255,7 @@ impl RelayerModule for CosmosToEthRelayerModule {
         let config = serde_json::from_value::<CosmosToEthConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starteing Cosmos to Ethereum relayer server.");
+        tracing::info!("Starting Cosmos to Ethereum relayer server.");
         Ok(Box::new(CosmosToEthRelayerModuleService::new(config).await))
     }
 }

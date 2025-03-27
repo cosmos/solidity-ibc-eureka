@@ -14,7 +14,7 @@ import (
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/ethereum"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
 )
 
 const (
@@ -38,6 +38,8 @@ const (
 	EnvKeySp1Prover = "SP1_PROVER"
 	// EnvKeyNetworkPrivateKey Private key for the sp1 prover network.
 	EnvKeyNetworkPrivateKey = "NETWORK_PRIVATE_KEY"
+	// EnvKeyNetworkPrivateCluster Run the network prover in a private cluster.
+	EnvKeyNetworkPrivateCluster = "E2E_PRIVATE_CLUSTER"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
 	EnvKeyGenerateSolidityFixtures = "GENERATE_SOLIDITY_FIXTURES"
 	// EnvKeyGenerateSolidityFixtures Generate fixtures for the solidity tests if set to true.
@@ -51,12 +53,16 @@ const (
 	EnvValueRustLog_Info = "info"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
+	// EnvValueSp1Prover_PrivateCluster is the for running the network prover in a private cluster.
+	EnvValueSp1Prover_PrivateCluster = "true"
 	// EnvValueSp1Prover_Mock is the prover type for the mock prover.
 	EnvValueSp1Prover_Mock = "mock"
 	// EnvValueVerifier_Mock is the verifier type for the mock verifier.
 	EnvValueVerifier_Mock = "mock"
 	// EnvValueGenerateFixtures_True is the value to set to generate fixtures for the solidity tests.
 	EnvValueGenerateFixtures_True = "true"
+	// EnvValueEthereumPosPreset_Minimal is the default preset for Ethereum PoS testnet.
+	EnvValueEthereumPosPreset_Minimal = "minimal"
 
 	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
 	EthTestnetTypePoW = "pow"
@@ -68,6 +74,8 @@ const (
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
+	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
+	EnvKeyEthereumPosNetworkPreset = "ETHEREUM_POS_NETWORK_PRESET"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
@@ -77,7 +85,7 @@ const (
 	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
 	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
 	// WasmFixturesDir is the directory where the Rust fixtures are stored.
-	WasmFixturesDir = "packages/ethereum/ethereum-light-client/src/test_utils/fixtures"
+	WasmFixturesDir = "packages/ethereum/light-client/src/test_utils/fixtures"
 	// RelayerConfigFilePath is the path to generate the relayer config file.
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.

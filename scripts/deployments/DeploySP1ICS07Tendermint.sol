@@ -61,7 +61,8 @@ abstract contract DeploySP1ICS07Tendermint is Deployments {
             deployment.misbehaviourVkey,
             verifier,
             deployment.trustedClientState,
-            keccak256(abi.encode(trustedConsensusState))
+            keccak256(abi.encode(trustedConsensusState)),
+            deployment.proofSubmitter
         );
 
         return (ics07Tendermint, trustedConsensusState, trustedClientState);
@@ -156,7 +157,7 @@ contract DeploySP1ICS07TendermintScript is DeploySP1ICS07Tendermint, Script {
 
         bool verifyOnly = vm.envOr("VERIFY_ONLY", false);
 
-        SP1ICS07TendermintDeployment[] memory deployments = loadSP1ICS07TendermintDeployments(vm, json);
+        SP1ICS07TendermintDeployment[] memory deployments = loadSP1ICS07TendermintDeployments(vm, json, address(0));
         ProxiedICS26RouterDeployment memory ics26RouterDeployment = loadProxiedICS26RouterDeployment(vm, json);
 
         IICS02Client ics26Router = IICS02Client(ics26RouterDeployment.proxy);

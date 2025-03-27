@@ -4,70 +4,80 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "abi/**"
-      - "abigen/**"
-      - "**.sol"
-      - "bun.lockb"
+      - 'abi/**'
+      - 'packages/go-abigen/**'
+      - '**.sol'
+      - 'bun.lockb'
   push:
     branches:
-      - "main"
+      - main
     paths:
-      - "abi/**"
-      - "abigen/**"
+      - 'abi/**'
+      - 'packages/go-abigen/**'
 
 jobs:
-  gen-check:
-    name: "Check for abigen changes"
+  abigen-check:
+    name: Check for abigen changes
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: "Set up environment"
-        uses: ./.github/setup
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
 
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.23"
+          go-version: 1.23
 
       - uses: extractions/setup-just@v2
 
-      - name: "Install abigen"
+      - name: Install abigen
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
 
-      - name: "Check that generating files from go does not create any changes" 
+      - name: Check that generating files from go does not create any changes
         uses: nickcharlton/diff-check@main
         with: 
           command: just generate-abi
 
-  golangci:
+  abigen-golangci:
     name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.23"
-          cache-dependency-path: abigen/go.sum
+          go-version: 1.23
+          cache-dependency-path: packages/go-abigen/go.sum
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.63
-          working-directory: abigen
+          working-directory: packages/go-abigen
 
-  test:
+  abigen-test:
     runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.23"
-          cache-dependency-path: abigen/go.sum
+          go-version: 1.23
+          cache-dependency-path: packages/go-abigen/go.sum
 
-      - name: "Unit test abigen"  
-        run: cd abigen && go test -v ./...
+      - name: Unit test abigen
+        run: cd packages/go-abigen && go test -v ./...
+
+  ethgenesis-golangci:
+    name: lint
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+          cache-dependency-path: scripts/ethgenesis/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63
+          working-directory: scripts/ethgenesis

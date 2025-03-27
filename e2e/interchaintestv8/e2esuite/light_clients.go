@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 
@@ -17,7 +16,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
@@ -55,20 +54,33 @@ func (s *TestSuite) createEthereumLightClient(
 	spec, err := eth.BeaconAPIClient.GetSpec()
 	s.Require().NoError(err)
 
-	executionHeight, err := eth.BeaconAPIClient.GetExecutionHeight("finalized")
+	beaconBlock, err := eth.BeaconAPIClient.GetBeaconBlocks("finalized")
 	s.Require().NoError(err)
+
+	executionHeight := beaconBlock.Data.Message.Body.ExecutionPayload.BlockNumber
 	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
+
+	header, err := eth.BeaconAPIClient.GetHeader(beaconBlock.Data.Message.Slot)
+	s.Require().NoError(err)
+
+	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
+	s.Require().NoError(err)
+	s.Require().Equal(executionHeight, bootstrap.Data.Header.Execution.BlockNumber)
+
+	latestSlot := bootstrap.Data.Header.Beacon.Slot
 
 	ethClientState := ethereumtypes.ClientState{
 		ChainID:                      eth.ChainID.Uint64(),
 		GenesisValidatorsRoot:        ethcommon.Bytes2Hex(genesis.GenesisValidatorsRoot[:]),
 		MinSyncCommitteeParticipants: 32,
 		GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
+		GenesisSlot:                  spec.GenesisSlot,
 		ForkParameters:               spec.ToForkParameters(),
 		SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
-		LatestSlot:                   executionHeight,
+		LatestSlot:                   latestSlot,
+		LatestExecutionBlockNumber:   bootstrap.Data.Header.Execution.BlockNumber,
 		IsFrozen:                     false,
 		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
 		IbcContractAddress:           ibcContractAddress,
@@ -93,33 +105,27 @@ func (s *TestSuite) createEthereumLightClient(
 	proofOfIBCContract, err := eth.EthAPI.GetProof(ibcContractAddress, []string{ics26router.IbcStoreStorageSlot}, executionNumberHex)
 	s.Require().NoError(err)
 
-	header, err := eth.BeaconAPIClient.GetHeader(strconv.Itoa(int(executionHeight)))
-	s.Require().NoError(err)
-	bootstrap, err := eth.BeaconAPIClient.GetBootstrap(header.Root)
-	s.Require().NoError(err)
-
-	if bootstrap.Data.Header.Beacon.Slot != executionHeight {
-		s.Require().Fail(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap slot %d", executionHeight, bootstrap.Data.Header.Beacon.Slot))
-	}
-
-	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
-
-	currentPeriod := executionHeight / spec.Period()
+	currentPeriod := latestSlot / spec.Period()
 	clientUpdates, err := eth.BeaconAPIClient.GetLightClientUpdates(currentPeriod, 1)
 	s.Require().NoError(err)
-	s.Require().NotEmpty(clientUpdates)
+	s.Require().Len(clientUpdates, 1)
+
+	fmt.Println("Current period:", currentPeriod)
 
 	ethConsensusState := ethereumtypes.ConsensusState{
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
-		Timestamp:            unixTimestamp,
+		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}
 
 	ethConsensusStateBz, err := json.Marshal(&ethConsensusState)
 	s.Require().NoError(err)
+
+	fmt.Printf("Eth consensus state: %+v\n", ethConsensusState)
+
 	consensusState := ibcwasmtypes.ConsensusState{
 		Data: ethConsensusStateBz,
 	}
@@ -188,4 +194,7 @@ func (s *TestSuite) createDummyLightClient(ctx context.Context, cosmosChain *cos
 	ethereumLightClientID, err := ibctesting.ParseClientIDFromEvents(res.Events)
 	s.Require().NoError(err)
 	s.Require().Equal(testvalues.FirstWasmClientID, ethereumLightClientID)
+}
+
+func CreateEthereumClientAndConsensusState() {
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable-next-line no-global-import
@@ -35,7 +35,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
             submitMsg: submitMsgBz
         });
 
-        setUpTest(fileName);
+        setUpTest(fileName, address(0));
 
         submitMsg = abi.decode(fixture.submitMsg, (IMisbehaviourMsgs.MsgSubmitMisbehaviour));
         output = abi.decode(submitMsg.sp1Proof.publicValues, (IMisbehaviourMsgs.MisbehaviourOutput));
@@ -45,7 +45,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         setUpMisbehaviour("misbehaviour_double_sign-plonk_fixture.json");
 
         // set a correct timestamp
-        vm.warp(output.time);
+        vm.warp(_nanosToSeconds(output.time));
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // to console
@@ -60,7 +60,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         setUpMisbehaviour("misbehaviour_breaking_time_monotonicity-groth16_fixture.json");
 
         // set a correct timestamp
-        vm.warp(output.time);
+        vm.warp(_nanosToSeconds(output.time));
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // to console
@@ -75,7 +75,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         setUpMisbehaviour("misbehaviour_double_sign-plonk_fixture.json");
 
         // set a correct timestamp
-        vm.warp(output.time);
+        vm.warp(_nanosToSeconds(output.time));
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // verify that the client is frozen
@@ -109,17 +109,19 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         setUpMisbehaviour("misbehaviour_double_sign-plonk_fixture.json");
 
         // proof is in the future
-        vm.warp(output.time - 300);
-        vm.expectRevert(abi.encodeWithSelector(ProofIsInTheFuture.selector, block.timestamp, output.time));
+        vm.warp(_nanosToSeconds(output.time) - 300);
+        vm.expectRevert(
+            abi.encodeWithSelector(ProofIsInTheFuture.selector, block.timestamp, _nanosToSeconds(output.time))
+        );
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // proof is too old
         vm.warp(output.time + ics07Tendermint.ALLOWED_SP1_CLOCK_DRIFT() + 300);
-        vm.expectRevert(abi.encodeWithSelector(ProofIsTooOld.selector, block.timestamp, output.time));
+        vm.expectRevert(abi.encodeWithSelector(ProofIsTooOld.selector, block.timestamp, _nanosToSeconds(output.time)));
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // set a correct timestamp
-        vm.warp(output.time + 300);
+        vm.warp(_nanosToSeconds(output.time) + 300);
 
         // wrong vkey
         MsgSubmitMisbehaviour memory badSubmitMsg = cloneSubmitMsg();

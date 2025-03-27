@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 interface IRateLimit {
     /// @notice The role identifier for the rate limiter role
+    /// @return The role identifier
     function RATE_LIMITER_ROLE() external view returns (bytes32);
 
     /// @notice Sets the rate limit for a token

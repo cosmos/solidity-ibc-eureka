@@ -7,7 +7,18 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 interface IICS20Transfer {
     /// @notice The role identifier for the delegate sender role
     /// @dev This role is required to call `sendTransferWithSender`
+    /// @return The role identifier
     function DELEGATE_SENDER_ROLE() external view returns (bytes32);
+
+    /// @notice The role identifier for the token operator role
+    /// @dev This role is required to grant and revoke rate limiter and metadata setter roles
+    /// @return The role identifier
+    function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
+
+    /// @notice Checks if an account has the token operator role
+    /// @param account The account to check
+    /// @return True if the account has the token operator role
+    function isTokenOperator(address account) external view returns (bool);
 
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
@@ -76,16 +87,8 @@ interface IICS20Transfer {
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
-    /// @param pauser The address that can pause and unpause the contract
     /// @param permit2 The address of the permit2 contract
-    function initialize(
-        address ics26Router,
-        address escrowLogic,
-        address ibcERC20Logic,
-        address pauser,
-        address permit2
-    )
-        external;
+    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address permit2) external;
 
     /// @notice Upgrades the implementation of the escrow beacon contract
     /// @dev The caller must be the ICS26Router admin
@@ -106,6 +109,16 @@ interface IICS20Transfer {
     /// @dev The caller must be the ICS26Router admin
     /// @param account The account to revoke the role from
     function revokeDelegateSenderRole(address account) external;
+
+    /// @notice Grants the token operator role to an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to grant the role to
+    function grantTokenOperatorRole(address account) external;
+
+    /// @notice Revokes the token operator role from an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to revoke the role from
+    function revokeTokenOperatorRole(address account) external;
 
     // --------------------- Events --------------------- //
 

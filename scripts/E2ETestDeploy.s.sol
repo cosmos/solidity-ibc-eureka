@@ -33,6 +33,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
 
     address public verifier;
 
+    address[] public publicRelayers = [address(0)];
+
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         ConsensusState memory trustedConsensusState;
@@ -43,17 +45,11 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
         string memory json = vm.readFile(path);
 
-        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(json, "");
-
-        genesis.verifier = vm.envOr("VERIFIER", string(""));
-
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
         // ============ Step 2: Deploy the contracts ==============
 
         vm.startBroadcast();
-
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = deploySP1ICS07Tendermint(genesis);
 
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());
@@ -61,26 +57,30 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ProxiedICS26RouterDeployment memory ics26RouterDeployment = ProxiedICS26RouterDeployment({
+        ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
             implementation: ics26RouterLogic,
             timeLockAdmin: msg.sender,
-            portCustomizer: msg.sender
-        });
+            portCustomizer: msg.sender,
+            clientIdCustomizer: msg.sender,
+            relayers: publicRelayers
+        }));
 
-        ERC1967Proxy routerProxy = deployProxiedICS26Router(ics26RouterDeployment);
+        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(json, "", address(routerProxy));
+        genesis.verifier = vm.envOr("VERIFIER", string(""));
+        (ics07Tendermint, trustedConsensusState, trustedClientState) = deploySP1ICS07Tendermint(genesis);
 
-        ProxiedICS20TransferDeployment memory ics20TransferDeployment = ProxiedICS20TransferDeployment({
+        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ProxiedICS20TransferDeployment({
             proxy: payable(address(0)),
             implementation: ics20TransferLogic,
             ics26Router: address(routerProxy),
             escrowImplementation: escrowLogic,
             ibcERC20Implementation: ibcERC20Logic,
-            pauser: address(0),
+            pausers: new address[](0),
+            unpausers: new address[](0),
+            tokenOperator: address(0),
             permit2: address(0)
-        });
-
-        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ics20TransferDeployment);
+        }));
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));

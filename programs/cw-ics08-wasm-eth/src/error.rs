@@ -13,6 +13,12 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized,
 
+    #[error("client state latest height and slot are not equal")]
+    ClientStateSlotMismatch,
+
+    #[error("client and consensus state mismatch")]
+    ClientAndConsensusStateMismatch,
+
     #[error("serializing client state failed: {0}")]
     SerializeClientStateFailed(#[source] serde_json::Error),
 
@@ -42,6 +48,9 @@ pub enum ContractError {
 
     #[error("update client state failed: {0}")]
     UpdateClientStateFailed(#[source] EthereumIBCError),
+
+    #[error("unsupported fork version")]
+    UnsupportedForkVersion(#[source] EthereumIBCError),
 
     #[error("client state not found")]
     ClientStateNotFound,

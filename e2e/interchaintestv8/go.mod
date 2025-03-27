@@ -10,11 +10,11 @@ require (
 	cosmossdk.io/x/upgrade v0.1.4
 	github.com/attestantio/go-eth2-client v0.24.0
 	github.com/cometbft/cometbft v0.38.15
-	github.com/cosmos/cosmos-sdk v0.50.12
+	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/cosmos/gogoproto v1.7.0
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-rc.3
-	github.com/cosmos/ibc-go/v10 v10.0.0-rc.3
-	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
+	github.com/cosmos/ibc-go/v10 v10.1.0
+	github.com/cosmos/solidity-ibc-eureka/go-abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/holiman/uint256 v1.3.2
@@ -59,7 +59,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.2.2 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.2.3 // indirect
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
@@ -286,7 +286,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
+replace github.com/cosmos/solidity-ibc-eureka/go-abigen => ../../packages/go-abigen
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 

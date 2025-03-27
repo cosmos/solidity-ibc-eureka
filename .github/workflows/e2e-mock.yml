@@ -1,0 +1,75 @@
+name: e2e-mock
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**.go'
+      - '**.toml'
+      - '**.lock'
+      - '**.mod'
+      - '**.sum'
+      - '**.sol'
+      - '.github/workflows/quick-e2e.yml'
+      - 'bun.lockb'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_PROFILE: ci
+  ETH_TESTNET_TYPE: pow
+  SP1_PROVER: mock
+permissions:
+  contents: read
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+          cache-dependency-path: e2e/interchaintestv8/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63
+          working-directory: e2e/interchaintestv8
+
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Test Matrix
+        id: get-matrix
+        uses: ./.github/actions/e2e-matrix
+        with:
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16,TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos
+
+  e2e:
+    needs: generate-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    name: ${{ matrix.test }}
+    runs-on: depot-ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up E2E environment
+        uses: ./.github/actions/e2e-setup
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Tests
+        env:
+          NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+        run: |
+          cd e2e/interchaintestv8
+          go test -v -mod=readonly . -run "^${{ matrix.test }}$" -timeout 40m

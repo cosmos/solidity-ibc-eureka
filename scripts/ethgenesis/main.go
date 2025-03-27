@@ -1,19 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	"github.com/cosmos/solidity-ibc-eureka/abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
@@ -22,15 +21,19 @@ const (
 	BeaconAPIURL           = ""
 	IbcContractAddress     = "0x718AbdD2f29A6aC1a34A3e20Dae378B5d3d2B0E9"
 	ChainID                = 11155111
-	EtheruemClientChecksum = "77fce8d9f164b75551106879704aa25b90018946719d4925656e1a32f8dd5fb2"
+	EtheruemClientChecksum = "42e8d2b043dfa579185e0f01dc7cfdd319e57091083b6779f9a978da39faa634"
 )
 
 func main() {
+	ctx := context.Background()
 	ethClient, err := ethereum.NewEthAPI(EthAPIURL)
 	if err != nil {
 		panic(err)
 	}
-	beaconAPI := ethereum.NewBeaconAPIClient(BeaconAPIURL)
+	beaconAPI, err := ethereum.NewBeaconAPIClient(ctx, BeaconAPIURL)
+	if err != nil {
+		panic(err)
+	}
 
 	genesis, err := beaconAPI.GetGenesis()
 	if err != nil {
@@ -43,32 +46,41 @@ func main() {
 		panic(err)
 	}
 
-	finalizedBlock, err := beaconAPI.GetFinalizedBlocks()
+	beaconBlock, err := beaconAPI.GetBeaconBlocks("finalized")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Finalized block: %+v\n", finalizedBlock)
+	executionHeight := beaconBlock.Data.Message.Body.ExecutionPayload.BlockNumber
+	executionNumberHex := fmt.Sprintf("0x%x", executionHeight)
 
-	finalizedSlotInt, err := strconv.Atoi(finalizedBlock.Data.Message.Slot)
+	header, err := beaconAPI.GetHeader(beaconBlock.Data.Message.Slot)
 	if err != nil {
 		panic(err)
 	}
-	finalizedSlot := uint64(finalizedSlotInt)
-	fmt.Printf("Execution height: %d\n", finalizedSlot)
-	// finalizedSlotHex := fmt.Sprintf("0x%x", finalizedSlot)
+	bootstrap, err := beaconAPI.GetBootstrap(header.Root)
+	if err != nil {
+		panic(err)
+	}
+	if bootstrap.Data.Header.Execution.BlockNumber != executionHeight {
+		panic(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap block number %d", executionHeight, bootstrap.Data.Header.Execution.BlockNumber))
+	}
+
+	latestSlot := bootstrap.Data.Header.Beacon.Slot
+	fmt.Printf("Latest slot: %+v\n", latestSlot)
 
 	ethClientState := ethereumtypes.ClientState{
 		ChainID:                      ChainID,
 		GenesisValidatorsRoot:        ethcommon.Bytes2Hex(genesis.GenesisValidatorsRoot[:]),
 		MinSyncCommitteeParticipants: 1,
 		GenesisTime:                  uint64(genesis.GenesisTime.Unix()),
+		GenesisSlot:                  spec.GenesisSlot,
 		ForkParameters:               spec.ToForkParameters(),
 		SecondsPerSlot:               uint64(spec.SecondsPerSlot.Seconds()),
 		SlotsPerEpoch:                spec.SlotsPerEpoch,
 		EpochsPerSyncCommitteePeriod: spec.EpochsPerSyncCommitteePeriod,
-		LatestSlot:                   finalizedSlot,
+		LatestSlot:                   latestSlot,
 		IsFrozen:                     false,
-		IbcCommitmentSlot:            testvalues.IbcCommitmentSlotHex,
+		IbcCommitmentSlot:            ics26router.IbcStoreStorageSlot,
 		IbcContractAddress:           IbcContractAddress,
 	}
 
@@ -85,7 +97,7 @@ func main() {
 
 	latestHeightSlot := clienttypes.Height{
 		RevisionNumber: 0,
-		RevisionHeight: finalizedSlot,
+		RevisionHeight: latestSlot,
 	}
 	clientState := ibcwasmtypes.ClientState{
 		Data:         ethClientStateBz,
@@ -103,32 +115,13 @@ func main() {
 
 	fmt.Printf("Wasm Client state: %s\n", clientJSON)
 
-	executionHeight := finalizedBlock.Data.Message.Body.ExecutionPayload.BlockHash
-	proofOfIBCContract, err := ethClient.GetProof(IbcContractAddress, []string{ics26router.IbcStoreStorageSlot}, executionHeight)
+	proofOfIBCContract, err := ethClient.GetProof(IbcContractAddress, []string{ics26router.IbcStoreStorageSlot}, executionNumberHex)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Proof of IBC contract: %+v\n", proofOfIBCContract)
 
-	header, err := beaconAPI.GetHeader(strconv.Itoa(int(finalizedSlot)))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Header: %+v\n", header)
-
-	bootstrap, err := beaconAPI.GetBootstrap(header.Root)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Bootstrap: %+v\n", bootstrap)
-
-	if bootstrap.Data.Header.Beacon.Slot != finalizedSlot {
-		panic(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap slot %d", finalizedSlot, bootstrap.Data.Header.Beacon.Slot))
-	}
-
-	unixTimestamp := bootstrap.Data.Header.Execution.Timestamp
-
-	currentPeriod := finalizedSlot / spec.Period()
+	currentPeriod := latestSlot / spec.Period()
 	clientUpdates, err := beaconAPI.GetLightClientUpdates(currentPeriod, 1)
 	if err != nil {
 		panic(err)
@@ -141,7 +134,7 @@ func main() {
 		Slot:                 bootstrap.Data.Header.Beacon.Slot,
 		StateRoot:            bootstrap.Data.Header.Execution.StateRoot,
 		StorageRoot:          proofOfIBCContract.StorageHash,
-		Timestamp:            unixTimestamp,
+		Timestamp:            bootstrap.Data.Header.Execution.Timestamp,
 		CurrentSyncCommittee: bootstrap.Data.CurrentSyncCommittee.AggregatePubkey,
 		NextSyncCommittee:    clientUpdates[0].Data.NextSyncCommittee.AggregatePubkey,
 	}

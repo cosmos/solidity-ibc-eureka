@@ -237,7 +237,7 @@ func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cos
 
 	var ethClientState ethereumtypes.ClientState
 	err = json.Unmarshal(wasmClientState.Data, &ethClientState)
-	s.Require().NoError(err)
+	s.Require().NoError(err, "failed to unmarshal ethereum client state: %s", string(wasmClientState.Data))
 
 	return wasmClientState, ethClientState
 }
@@ -385,6 +385,13 @@ func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosC
 }
 
 func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	resp, err := s.BroadcastSdkTxBodyGetResult(ctx, chain, user, gas, txBodyBz)
+	s.Require().NoError(err)
+
+	return resp
+}
+
+func (s *TestSuite) BroadcastSdkTxBodyGetResult(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
 	var txBody txtypes.TxBody
 	err := proto.Unmarshal(txBodyBz, &txBody)
 	s.Require().NoError(err)
@@ -400,8 +407,5 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 
 	s.Require().NotZero(len(msgs))
 
-	resp, err := s.BroadcastMessages(ctx, chain, user, gas, msgs...)
-	s.Require().NoError(err)
-
-	return resp
+	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
 }

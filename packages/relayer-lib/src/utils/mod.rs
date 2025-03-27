@@ -5,6 +5,8 @@ use std::future::Future;
 use std::time::{Duration, Instant};
 
 /// Retries an operation until the condition is met or a timeout occurs.
+///
+/// The basic version just checks for a boolean condition.
 pub async fn wait_for_condition<F, Fut>(
     timeout: Duration,
     interval: Duration,

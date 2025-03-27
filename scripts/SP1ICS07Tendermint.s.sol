@@ -26,7 +26,7 @@ contract SP1TendermintScript is Script, IICS07TendermintMsgs, DeploySP1ICS07Tend
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
         string memory json = vm.readFile(path);
-        SP1ICS07TendermintDeployment memory genesis = loadSP1ICS07TendermintDeployment(json, "");
+        SP1ICS07TendermintDeployment memory genesis = loadSP1ICS07TendermintDeployment(json, "", address(0));
         genesis.verifier = vm.envOr("VERIFIER", string(""));
 
         vm.startBroadcast();

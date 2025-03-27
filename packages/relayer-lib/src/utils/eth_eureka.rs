@@ -15,28 +15,29 @@ use ibc_eureka_solidity_types::{
         ISP1Msgs::SP1Proof,
     },
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientAndMembershipProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_prover::components::SP1ProverComponents;
-use sp1_sdk::{HashableKey, Prover};
+use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
 
-use crate::events::EurekaEvent;
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::timeoutPacket`]s with empty
 /// proofs.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
+    target_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     target_events
         .into_iter()
-        .filter_map(|e| match e {
+        .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
                 if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
                     Some(routerCalls::timeoutPacket(
@@ -60,14 +61,14 @@ pub fn target_events_to_timeout_msgs(
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::recvPacket`]s and
 /// [`routerCalls::ackPacket`]s with empty proofs.
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
+    src_events: Vec<EurekaEventWithHeight>,
     target_client_id: &str,
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     src_events
         .into_iter()
-        .filter_map(|e| match e {
+        .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => {
                 if packet.timeoutTimestamp > now && packet.destClient == target_client_id {
                     Some(routerCalls::recvPacket(recvPacketCall {
@@ -103,12 +104,12 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// # Errors
 /// Returns an error if the sp1 proof cannot be generated.
 pub async fn inject_sp1_proof<C: SP1ProverComponents>(
-    sp1_prover: &dyn Prover<C>,
+    sp1_prover: &Sp1Prover<C>,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
     target_light_block: LightBlock,
     client_state: ClientState,
-    now: u64,
+    now: u128,
 ) -> Result<()> {
     let target_height = target_light_block.height().value();
 
