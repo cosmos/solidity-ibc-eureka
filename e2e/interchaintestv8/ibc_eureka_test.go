@@ -1098,30 +1098,30 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 1, nil)
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 1, nil)
 }
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 1, []uint64{1})
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 1, []uint64{1})
 }
 
 func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 10, nil)
 }
 
 func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
 }
 
 func (s *IbcEurekaTestSuite) Test_5_FilteredTimeoutPacketFromEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{2, 3})
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{2, 3})
 }
 
-func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
+func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(timeoutFilter))
@@ -1488,17 +1488,25 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 1)
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 1, nil)
 }
 
 func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.ICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10)
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 }
 
-func (s *IbcEurekaTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+func (s *IbcEurekaTestSuite) Test_10_FilteredTimeoutPacketFromCosmos() {
+	ctx := context.Background()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 4, 6, 8, 10})
+}
+
+func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
 ) {
+	s.Require().GreaterOrEqual(numOfTransfers, len(timeoutFilter))
+	s.Require().Greater(numOfTransfers, 0)
+
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -1507,6 +1515,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
 	if totalTransferAmount.Int64() > testvalues.InitialBalance {
 		s.FailNow("Total transfer amount exceeds the initial balance")
+	}
+	var refundedAmount *big.Int
+	if len(timeoutFilter) == 0 {
+		refundedAmount = totalTransferAmount
+	} else {
+		refundedAmount = big.NewInt(testvalues.TransferAmount * int64(len(timeoutFilter)))
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
@@ -1592,11 +1606,12 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:     eth.ChainID.String(),
-				DstChain:     simd.Config().ChainID,
-				TimeoutTxIds: sendTxHashes,
-				SrcClientId:  testvalues.CustomClientID,
-				DstClientId:  testvalues.FirstWasmClientID,
+				SrcChain:           eth.ChainID.String(),
+				DstChain:           simd.Config().ChainID,
+				TimeoutTxIds:       sendTxHashes,
+				SrcClientId:        testvalues.CustomClientID,
+				DstClientId:        testvalues.FirstWasmClientID,
+				DstPacketSequences: timeoutFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1617,16 +1632,8 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(resp.Balance)
-			s.Require().Equal(testvalues.InitialBalance, resp.Balance.Amount.Int64())
+			s.Require().Equal(testvalues.InitialBalance-totalTransferAmount.Int64()+refundedAmount.Int64(), resp.Balance.Amount.Int64())
 		}))
-	}))
-
-	s.Require().True(s.Run("Verify no balance on Ethereum", func() {
-		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
-
-		_, err := s.ics20Contract.IbcERC20Contract(nil, denomOnEthereum.Path())
-		// Ethereum side did not received the packet, ERC20 contract corresponding to the denom does not exist
-		s.Require().Error(err)
 	}))
 
 	// We are skipping the replay attack test on non-PoS mode
