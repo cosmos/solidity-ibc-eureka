@@ -32,10 +32,10 @@ message RelayByTxRequest {
     // Used for event filtering
     string dst_client_id = 6;
     // The optional source chain send packet sequences for recv packets
-    // Used for event filtering
+    // Used for event filtering, no filtering if empty
     repeated uint64 src_packet_sequences = 7;
     // The optional destination chain send packet sequences for acks and timeouts
-    // Used for event filtering
+    // Used for event filtering, no filtering if empty
     repeated uint64 dst_packet_sequences = 8;
 }
 
