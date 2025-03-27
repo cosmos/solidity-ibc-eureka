@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -789,13 +790,19 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToCosmos() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToCosmosTest(ctx, operator.ProofTypeGroth16, 10)
+	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, operator.ProofTypeGroth16, 10, nil)
+}
+
+func (s *RelayerTestSuite) Test_10_BatchedFilteredAckPacketToCosmos() {
+	ctx := context.Background()
+	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, operator.ProofTypeGroth16, 10, []uint64{1, 2, 8})
 }
 
 // Note that the relayer still only relays one tx, the batching is done
 // on the cosmos transaction itself. So that it emits multiple IBC events.
-func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int,
+// This test also tests the filtering of the acks by packet sequence
+func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, ackFilter []uint64,
 ) {
 	s.SetupSuite(ctx, proofType)
 
@@ -911,11 +918,12 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    s.EthChain.ChainID.String(),
-				DstChain:    simd.Config().ChainID,
-				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: testvalues.CustomClientID,
-				DstClientId: testvalues.FirstWasmClientID,
+				SrcChain:           s.EthChain.ChainID.String(),
+				DstChain:           simd.Config().ChainID,
+				SourceTxIds:        [][]byte{ackTxHash},
+				SrcClientId:        testvalues.CustomClientID,
+				DstClientId:        testvalues.FirstWasmClientID,
+				DstPacketSequences: ackFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -930,11 +938,20 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for i := range numOfTransfers {
-				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+				seq := uint64(i) + 1
+				resp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
 					ClientId: testvalues.FirstWasmClientID,
-					Sequence: uint64(i) + 1,
+					Sequence: seq,
 				})
-				s.Require().ErrorContains(err, "packet commitment hash not found")
+				if len(ackFilter) == 0 || slices.Contains(ackFilter, seq) {
+					// If the sequence is in the filter, we expect the commitment to be removed
+					s.Require().ErrorContains(err, "packet commitment hash not found")
+				} else {
+					// Otherwise, we expect the commitment to still exist
+					s.Require().NoError(err)
+					s.Require().NotEmpty(resp.Commitment)
+				}
+
 			}
 		}))
 	}))
