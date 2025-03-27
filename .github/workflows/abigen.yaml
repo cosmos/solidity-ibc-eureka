@@ -5,7 +5,7 @@ on:
   pull_request:
     paths:
       - 'abi/**'
-      - 'abigen/**'
+      - 'packages/go-abigen/**'
       - '**.sol'
       - 'bun.lockb'
   push:
@@ -13,10 +13,10 @@ on:
       - main
     paths:
       - 'abi/**'
-      - 'abigen/**'
+      - 'packages/go-abigen/**'
 
 jobs:
-  gen-check:
+  abigen-check:
     name: Check for abigen changes
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -38,7 +38,7 @@ jobs:
         with: 
           command: just generate-abi
 
-  golangci:
+  abigen-golangci:
     name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -46,22 +46,38 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.23
-          cache-dependency-path: abigen/go.sum
+          cache-dependency-path: packages/go-abigen/go.sum
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.63
-          working-directory: abigen
+          working-directory: packages/go-abigen
 
-  test:
+  abigen-test:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
         with:
           go-version: 1.23
-          cache-dependency-path: abigen/go.sum
+          cache-dependency-path: packages/go-abigen/go.sum
 
       - name: Unit test abigen
-        run: cd abigen && go test -v ./...
+        run: cd packages/go-abigen && go test -v ./...
+
+  ethgenesis-golangci:
+    name: lint
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+          cache-dependency-path: scripts/ethgenesis/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63
+          working-directory: scripts/ethgenesis

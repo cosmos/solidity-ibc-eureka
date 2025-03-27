@@ -47,13 +47,13 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
-- `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `relayer/`: Contains the relayer implementation.
     - `operator/`: Contains the operator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
+    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `packages/`: Contains the Rust packages for the project.
 
 ### Contracts

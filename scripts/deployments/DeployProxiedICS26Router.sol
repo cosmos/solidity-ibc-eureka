@@ -12,10 +12,7 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { Script } from "forge-std/Script.sol";
 
-
 abstract contract DeployProxiedICS26Router is Deployments {
-    using stdJson for string;
-
     function deployProxiedICS26Router(Deployments.ProxiedICS26RouterDeployment memory deployment) public returns (ERC1967Proxy) {
         require(msg.sender == deployment.timeLockAdmin, "sender must be timeLockAdmin");
 
@@ -25,9 +22,12 @@ abstract contract DeployProxiedICS26Router is Deployments {
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayer);
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.timeLockAdmin);
+
+        for (uint256 i = 0; i < deployment.relayers.length; i++) {
+            ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayers[i]);
+        }
+         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.portCustomizer);
+         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.clientIdCustomizer);
 
         return routerProxy;
     }
@@ -56,6 +56,8 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
             deployment.timeLockAdmin,
             "timelockAdmin addresses don't match"
         );
+
+        // TODO: Verify roles
     }
 
     function run() public returns (address){
@@ -86,15 +88,6 @@ contract DeployProxiedICS26RouterScript is Script, DeployProxiedICS26Router {
         vm.stopBroadcast();
 
         verify(deployment);
-
-        vm.serializeAddress("ics26Router", "proxy", address(routerProxy));
-        vm.serializeAddress("ics26Router", "implementation", deployment.implementation);
-        vm.serializeAddress("ics26Router", "timeLockAdmin", deployment.timeLockAdmin);
-        vm.serializeAddress("ics26Router", "relayer", deployment.relayer);
-        string memory output = vm.serializeAddress("ics26Router", "portCustomizer", deployment.portCustomizer);
-
-        vm.writeJson(output, path, ".ics26Router");
-        vm.writeJson(vm.toString(address(routerProxy)), path, ".ics20Transfer.ics26Router");
 
         return address(routerProxy);
     }
