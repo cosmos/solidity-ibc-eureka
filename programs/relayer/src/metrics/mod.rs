@@ -1,6 +1,7 @@
 //! Metrics module for the relayer.
 
 #![allow(missing_docs)]
+
 use lazy_static::lazy_static;
 use prometheus::{
     register_counter, register_histogram_vec, register_int_counter_vec, register_int_gauge,
