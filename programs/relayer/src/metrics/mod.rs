@@ -51,7 +51,6 @@ where
     REQUEST_COUNTER.inc();
 
     let result = f().await;
-
     let status_code: isize = match &result {
         Ok(_) => 0,
         Err(status) => status.code() as isize,
