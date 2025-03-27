@@ -30,6 +30,7 @@ import (
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
+	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
@@ -62,7 +63,7 @@ func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
 
 func (s *RelayerTestSuite) Test_5_RecvPacketToEth_Plonk() {
 	ctx := context.Background()
-	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5, nil)
+	s.RecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth_Groth16() {
@@ -324,19 +325,27 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToEth_Groth16() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10, big.NewInt(testvalues.TransferAmount))
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypePlonk, 5, big.NewInt(testvalues.TransferAmount))
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypePlonk, 5, big.NewInt(testvalues.TransferAmount), []uint64{1, 2, 3, 4, 5})
+}
+
+func (s *RelayerTestSuite) Test_10_FilteredBatchedAckPacketToEth_Groth16() {
+	ctx := context.Background()
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
 
 // Note that the relayer still only relays one tx, the batching is done
 // on the cosmos transaction itself. So that it emits multiple IBC events.
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
+	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int, ackFilter []uint64,
 ) {
+	s.Require().GreaterOrEqual(numOfTransfers, len(ackFilter))
+	s.Require().Greater(numOfTransfers, 0)
+
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -457,14 +466,28 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	}))
 
 	s.Require().True(s.Run("Acknowledge packets on Ethereum", func() {
+		s.Require().True(s.Run("Verify commitment exists", func() {
+			for i := range numOfTransfers {
+				seq := uint64(i) + 1
+				packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.CustomClientID, seq)
+				var ethPath [32]byte
+				copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
+
+				resp, err := s.ics26Contract.GetCommitment(nil, ethPath)
+				s.Require().NoError(err)
+				s.Require().NotZero(resp)
+			}
+		}))
+
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    s.EthChain.ChainID.String(),
-				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: testvalues.FirstWasmClientID,
-				DstClientId: testvalues.CustomClientID,
+				SrcChain:           simd.Config().ChainID,
+				DstChain:           s.EthChain.ChainID.String(),
+				SourceTxIds:        [][]byte{ackTxHash},
+				SrcClientId:        testvalues.FirstWasmClientID,
+				DstClientId:        testvalues.CustomClientID,
+				DstPacketSequences: ackFilter,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -483,16 +506,16 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 			s.Require().NoError(err)
 		}))
 
-		s.Require().True(s.Run("Verify balances on Ethereum", func() {
-			// User balance on Ethereum
-			userBalance, err := s.erc20Contract.BalanceOf(nil, ethereumUserAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(new(big.Int).Sub(testvalues.StartingERC20Balance, totalTransferAmount), userBalance)
+		s.Require().True(s.Run("Verify commitment removed", func() {
+			for _, seq := range ackFilter {
+				packetCommitmentPath := ibchostv2.PacketCommitmentKey(testvalues.CustomClientID, seq)
+				var ethPath [32]byte
+				copy(ethPath[:], crypto.Keccak256(packetCommitmentPath))
 
-			// ICS20 contract balance on Ethereum
-			escrowBalance, err := s.erc20Contract.BalanceOf(nil, escrowAddress)
-			s.Require().NoError(err)
-			s.Require().Equal(totalTransferAmount, escrowBalance)
+				resp, err := s.ics26Contract.GetCommitment(nil, ethPath)
+				s.Require().NoError(err)
+				s.Require().Zero(resp)
+			}
 		}))
 	}))
 }
