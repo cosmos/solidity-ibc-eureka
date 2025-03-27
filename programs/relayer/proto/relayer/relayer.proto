@@ -31,12 +31,12 @@ message RelayByTxRequest {
     // The identifier for the destination client
     // Used for event filtering
     string dst_client_id = 6;
-    // The optional source packet sequences
+    // The optional source chain send packet sequences for recv packets
     // Used for event filtering
-    repeated uint64 source_packet_sequences = 7;
-    // The optional timeout packet sequences
+    repeated uint64 src_packet_sequences = 7;
+    // The optional destination chain send packet sequences for acks and timeouts
     // Used for event filtering
-    repeated uint64 timeout_packet_sequences = 8;
+    repeated uint64 dst_packet_sequences = 8;
 }
 
 // The response message

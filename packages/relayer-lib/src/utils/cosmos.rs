@@ -20,10 +20,20 @@ use tendermint_rpc::HttpClient;
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
+///
+/// # Arguments
+/// - `target_events` - The list of target events.
+/// - `src_client_id` - The source client ID.
+/// - `dst_client_id` - The destination client ID.
+/// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
+/// - `target_height` - The target height.
+/// - `signer_address` - The signer address.
+/// - `now` - The current time.
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,
     dst_client_id: &str,
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     signer_address: &str,
     now: u64,
@@ -33,13 +43,14 @@ pub fn target_events_to_timeout_msgs(
         .filter_map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => (now >= packet.timeoutTimestamp
                 && packet.sourceClient == dst_client_id
-                && packet.destClient == src_client_id)
-                .then_some(MsgTimeout {
-                    packet: Some(packet.into()),
-                    proof_height: Some(*target_height),
-                    proof_unreceived: vec![],
-                    signer: signer_address.to_string(),
-                }),
+                && packet.destClient == src_client_id
+                && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+            .then_some(MsgTimeout {
+                packet: Some(packet.into()),
+                proof_height: Some(*target_height),
+                proof_unreceived: vec![],
+                signer: signer_address.to_string(),
+            }),
             EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
@@ -47,10 +58,23 @@ pub fn target_events_to_timeout_msgs(
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
+///
+/// # Arguments
+/// - `src_events` - The list of source events.
+/// - `src_client_id` - The source client ID.
+/// - `dst_client_id` - The destination client ID.
+/// - `src_packet_seqs` - The list of source packet sequences to filter. If empty, no filtering.
+/// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
+/// - `target_height` - The target height.
+/// - `signer_address` - The signer address.
+/// - `now` - The current time.
+#[allow(clippy::too_many_arguments)]
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,
     dst_client_id: &str,
+    src_packet_seqs: &[u64],
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     signer_address: &str,
     now: u64,
@@ -62,9 +86,12 @@ pub fn src_events_to_recv_and_ack_msgs(
                 packet.timeoutTimestamp > now
                     && packet.sourceClient == src_client_id
                     && packet.destClient == dst_client_id
+                    && (src_packet_seqs.is_empty() || src_packet_seqs.contains(&packet.sequence))
             }
             EurekaEvent::WriteAcknowledgement(packet, _) => {
-                packet.sourceClient == dst_client_id && packet.destClient == src_client_id
+                packet.sourceClient == dst_client_id
+                    && packet.destClient == src_client_id
+                    && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence))
             }
         })
         .partition(|e| match e.event {

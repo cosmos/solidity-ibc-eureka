@@ -233,6 +233,8 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                 eth_events,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
             )
             .await
             .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;

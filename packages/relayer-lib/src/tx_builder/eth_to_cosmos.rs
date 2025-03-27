@@ -312,6 +312,8 @@ where
         dest_events: Vec<EurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let latest_block_number = self.eth_client.get_block_number().await?;
         let minimum_block_number = if dest_events.is_empty() {
@@ -333,6 +335,7 @@ where
             dest_events,
             &src_client_id,
             &dst_client_id,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -342,6 +345,8 @@ where
             src_events,
             &src_client_id,
             &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -488,6 +493,8 @@ where
         dest_events: Vec<EurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
 
@@ -507,6 +514,7 @@ where
             dest_events,
             &src_client_id,
             &dst_client_id,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -516,6 +524,8 @@ where
             src_events,
             &src_client_id,
             &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),

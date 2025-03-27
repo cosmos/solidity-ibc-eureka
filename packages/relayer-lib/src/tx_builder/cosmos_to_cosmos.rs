@@ -58,6 +58,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         target_events: Vec<EurekaEventWithHeight>,
         src_client_id: String,
         dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
         let client_state = ClientState::decode(
             self.target_tm_client
@@ -85,6 +87,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             target_events,
             &src_client_id,
             &dst_client_id,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
@@ -94,6 +97,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             src_events,
             &src_client_id,
             &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
