@@ -25,9 +25,18 @@ message RelayByTxRequest {
     repeated bytes source_tx_ids = 3;
     // The identifiers for the IBC transactions on the target chain to be timed out
     repeated bytes timeout_tx_ids = 4;
-    // The identifier for the target client
+    // The identifier for the source client
     // Used for event filtering
-    string target_client_id = 5;
+    string src_client_id = 5;
+    // The identifier for the destination client
+    // Used for event filtering
+    string dst_client_id = 6;
+    // The optional source chain send packet sequences for recv packets
+    // Used for event filtering, no filtering if empty
+    repeated uint64 src_packet_sequences = 7;
+    // The optional destination chain send packet sequences for acks and timeouts
+    // Used for event filtering, no filtering if empty
+    repeated uint64 dst_packet_sequences = 8;
 }
 
 // The response message

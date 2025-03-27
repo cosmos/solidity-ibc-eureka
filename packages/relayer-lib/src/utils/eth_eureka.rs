@@ -29,30 +29,38 @@ use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::timeoutPacket`]s with empty
 /// proofs.
+///
+/// # Arguments
+/// - `target_events`: The list of target events to convert.
+/// - `src_client_id`: The source client ID.
+/// - `dst_client_id`: The destination client ID.
+/// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
+/// - `target_height`: The target height for the proofs.
+/// - `now`: The current time.
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEventWithHeight>,
-    target_client_id: &str,
+    src_client_id: &str,
+    dst_client_id: &str,
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     target_events
         .into_iter()
         .filter_map(|e| match e.event {
-            EurekaEvent::SendPacket(packet) => {
-                if now >= packet.timeoutTimestamp && packet.sourceClient == target_client_id {
-                    Some(routerCalls::timeoutPacket(
-                        ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
-                            msg_: MsgTimeoutPacket {
-                                packet,
-                                proofHeight: target_height.clone(),
-                                proofTimeout: Bytes::default(),
-                            },
-                        },
-                    ))
-                } else {
-                    None
-                }
-            }
+            EurekaEvent::SendPacket(packet) => (now >= packet.timeoutTimestamp
+                && packet.sourceClient == dst_client_id
+                && packet.destClient == src_client_id
+                && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+            .then_some(routerCalls::timeoutPacket(
+                ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
+                    msg_: MsgTimeoutPacket {
+                        packet,
+                        proofHeight: target_height.clone(),
+                        proofTimeout: Bytes::default(),
+                    },
+                },
+            )),
             EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
@@ -60,41 +68,50 @@ pub fn target_events_to_timeout_msgs(
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::recvPacket`]s and
 /// [`routerCalls::ackPacket`]s with empty proofs.
+///
+/// # Arguments
+/// - `src_events`: The list of source events to convert.
+/// - `src_client_id`: The source client ID.
+/// - `dst_client_id`: The destination client ID.
+/// - `src_packet_seqs`: The list of source packet sequences to filter by. If empty, no filtering.
+/// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
+/// - `target_height`: The target height for the proofs.
+/// - `now`: The current time.
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEventWithHeight>,
-    target_client_id: &str,
+    src_client_id: &str,
+    dst_client_id: &str,
+    src_packet_seqs: &[u64],
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     src_events
         .into_iter()
         .filter_map(|e| match e.event {
-            EurekaEvent::SendPacket(packet) => {
-                if packet.timeoutTimestamp > now && packet.destClient == target_client_id {
-                    Some(routerCalls::recvPacket(recvPacketCall {
-                        msg_: MsgRecvPacket {
-                            packet,
-                            proofHeight: target_height.clone(),
-                            proofCommitment: Bytes::default(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
+            EurekaEvent::SendPacket(packet) => (packet.timeoutTimestamp > now
+                && packet.sourceClient == src_client_id
+                && packet.destClient == dst_client_id
+                && (src_packet_seqs.is_empty() || src_packet_seqs.contains(&packet.sequence)))
+            .then_some(routerCalls::recvPacket(recvPacketCall {
+                msg_: MsgRecvPacket {
+                    packet,
+                    proofHeight: target_height.clone(),
+                    proofCommitment: Bytes::default(),
+                },
+            })),
             EurekaEvent::WriteAcknowledgement(packet, acks) => {
-                if packet.sourceClient == target_client_id {
-                    Some(routerCalls::ackPacket(ackPacketCall {
-                        msg_: MsgAckPacket {
-                            packet,
-                            acknowledgement: acks[0].clone(), // TODO: handle multiple acks (#93)
-                            proofHeight: target_height.clone(),
-                            proofAcked: Bytes::default(),
-                        },
-                    }))
-                } else {
-                    None
-                }
+                (packet.sourceClient == dst_client_id
+                    && packet.destClient == src_client_id
+                    && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+                .then_some(routerCalls::ackPacket(ackPacketCall {
+                    msg_: MsgAckPacket {
+                        packet,
+                        acknowledgement: acks[0].clone(), // TODO: handle multiple acks (#93)
+                        proofHeight: target_height.clone(),
+                        proofAcked: Bytes::default(),
+                    },
+                }))
             }
         })
         .collect()
