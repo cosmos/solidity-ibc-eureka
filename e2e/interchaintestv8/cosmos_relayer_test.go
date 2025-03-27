@@ -306,10 +306,11 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       s.SimdA.Config().ChainID,
-				DstChain:       s.SimdB.Config().ChainID,
-				SourceTxIds:    txHashes,
-				TargetClientId: ibctesting.FirstClientID,
+				SrcChain:    s.SimdA.Config().ChainID,
+				DstChain:    s.SimdB.Config().ChainID,
+				SourceTxIds: txHashes,
+				SrcClientId: ibctesting.FirstClientID,
+				DstClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -356,10 +357,11 @@ func (s *CosmosRelayerTestSuite) ICS20RecvAndAckPacketTest(ctx context.Context, 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       s.SimdB.Config().ChainID,
-				DstChain:       s.SimdA.Config().ChainID,
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: ibctesting.FirstClientID,
+				SrcChain:    s.SimdB.Config().ChainID,
+				DstChain:    s.SimdA.Config().ChainID,
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: ibctesting.FirstClientID,
+				DstClientId: ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -470,10 +472,11 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       s.SimdA.Config().ChainID,
-			DstChain:       s.SimdB.Config().ChainID,
-			SourceTxIds:    txHashes,
-			TargetClientId: ibctesting.FirstClientID,
+			SrcChain:    s.SimdA.Config().ChainID,
+			DstChain:    s.SimdB.Config().ChainID,
+			SourceTxIds: txHashes,
+			SrcClientId: ibctesting.FirstClientID,
+			DstClientId: ibctesting.FirstClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -489,10 +492,11 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       s.SimdB.Config().ChainID,
-				DstChain:       s.SimdA.Config().ChainID,
-				TimeoutTxIds:   txHashes,
-				TargetClientId: ibctesting.FirstClientID,
+				SrcChain:     s.SimdB.Config().ChainID,
+				DstChain:     s.SimdA.Config().ChainID,
+				TimeoutTxIds: txHashes,
+				SrcClientId:  ibctesting.FirstClientID,
+				DstClientId:  ibctesting.FirstClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -528,10 +532,11 @@ func (s *CosmosRelayerTestSuite) ICS20TimeoutPacketTest(ctx context.Context, num
 
 	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       s.SimdA.Config().ChainID,
-			DstChain:       s.SimdB.Config().ChainID,
-			TimeoutTxIds:   txHashes,
-			TargetClientId: ibctesting.FirstClientID,
+			SrcChain:     s.SimdA.Config().ChainID,
+			DstChain:     s.SimdB.Config().ChainID,
+			TimeoutTxIds: txHashes,
+			SrcClientId:  ibctesting.FirstClientID,
+			DstClientId:  ibctesting.FirstClientID,
 		})
 		s.Require().Error(err)
 		s.Require().Nil(resp)

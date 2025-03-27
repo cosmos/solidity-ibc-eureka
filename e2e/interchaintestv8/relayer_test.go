@@ -144,10 +144,11 @@ func (s *RelayerTestSuite) RecvPacketToEthTest(
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: sendTxHashes,
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -266,10 +267,11 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
 
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       simd.Config().ChainID,
-			DstChain:       s.EthChain.ChainID.String(),
-			SourceTxIds:    sendTxHashes,
-			TargetClientId: testvalues.CustomClientID,
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    s.EthChain.ChainID.String(),
+			SourceTxIds: sendTxHashes,
+			SrcClientId: testvalues.FirstWasmClientID,
+			DstClientId: testvalues.CustomClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -286,10 +288,11 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 			go func() {
 				defer wg.Done() // decrement the counter when the request completes
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       simd.Config().ChainID,
-					DstChain:       s.EthChain.ChainID.String(),
-					SourceTxIds:    [][]byte{txHash},
-					TargetClientId: testvalues.CustomClientID,
+					SrcChain:    simd.Config().ChainID,
+					DstChain:    s.EthChain.ChainID.String(),
+					SourceTxIds: [][]byte{txHash},
+					SrcClientId: testvalues.FirstWasmClientID,
+					DstClientId: testvalues.CustomClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
@@ -403,10 +406,11 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: sendTxHashes,
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -442,10 +446,11 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       s.EthChain.ChainID.String(),
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    s.EthChain.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -570,10 +575,11 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{sendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -740,10 +746,11 @@ func (s *RelayerTestSuite) RecvPacketToCosmosTest(ctx context.Context, numOfTran
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: sendTxHashes,
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -867,10 +874,11 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       s.EthChain.ChainID.String(),
-				SourceTxIds:    sendTxHashes,
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    s.EthChain.ChainID.String(),
+				SourceTxIds: sendTxHashes,
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -903,10 +911,11 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToCosmosTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       s.EthChain.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    s.EthChain.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1018,10 +1027,11 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 	var txBodyBz []byte
 	s.Require().True(s.Run("Prefetch relay tx", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       simd.Config().ChainID,
-			DstChain:       eth.ChainID.String(),
-			SourceTxIds:    sendTxHashes,
-			TargetClientId: testvalues.CustomClientID,
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    eth.ChainID.String(),
+			SourceTxIds: sendTxHashes,
+			SrcClientId: testvalues.FirstWasmClientID,
+			DstClientId: testvalues.CustomClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -1036,10 +1046,11 @@ func (s *RelayerTestSuite) ICS20TimeoutFromCosmosTimeoutTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to Cosmos chain", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				TimeoutTxIds:   sendTxHashes,
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:     eth.ChainID.String(),
+				DstChain:     simd.Config().ChainID,
+				TimeoutTxIds: sendTxHashes,
+				SrcClientId:  testvalues.CustomClientID,
+				DstClientId:  testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1176,10 +1187,11 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 
 	s.Require().True(s.Run("Relay the last packet", func() {
 		relayResp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       eth.ChainID.String(),
-			DstChain:       simd.Config().ChainID,
-			SourceTxIds:    [][]byte{sendTxHashes[len(sendTxHashes)-1]},
-			TargetClientId: testvalues.FirstWasmClientID,
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: [][]byte{sendTxHashes[len(sendTxHashes)-1]},
+			SrcClientId: testvalues.CustomClientID,
+			DstClientId: testvalues.FirstWasmClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(relayResp.Tx)
@@ -1204,10 +1216,11 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 			txHash := txHash
 			eg.Go(func() error {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:       eth.ChainID.String(),
-					DstChain:       simd.Config().ChainID,
-					SourceTxIds:    [][]byte{txHash},
-					TargetClientId: testvalues.FirstWasmClientID,
+					SrcChain:    eth.ChainID.String(),
+					DstChain:    simd.Config().ChainID,
+					SourceTxIds: [][]byte{txHash},
+					SrcClientId: testvalues.CustomClientID,
+					DstClientId: testvalues.FirstWasmClientID,
 				})
 				if err != nil {
 					return err

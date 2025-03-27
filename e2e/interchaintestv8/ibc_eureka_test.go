@@ -503,10 +503,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -546,10 +547,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -649,10 +651,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{returnSendTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{returnSendTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -709,10 +712,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{returnAckTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{returnAckTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -829,10 +833,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{cosmosSendTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{cosmosSendTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -906,10 +911,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1003,10 +1009,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1054,10 +1061,11 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{returnAckTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{returnAckTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1205,10 +1213,11 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 	var txBodyBz []byte
 	s.Require().True(s.Run("Prefetch relay tx", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       eth.ChainID.String(),
-			DstChain:       simd.Config().ChainID,
-			SourceTxIds:    ethSendTxHashes,
-			TargetClientId: testvalues.FirstWasmClientID,
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: ethSendTxHashes,
+			SrcClientId: testvalues.CustomClientID,
+			DstClientId: testvalues.FirstWasmClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -1224,10 +1233,11 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 		var timeoutRelayTx []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				TimeoutTxIds:   ethSendTxHashes,
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:     simd.Config().ChainID,
+				DstChain:     eth.ChainID.String(),
+				TimeoutTxIds: ethSendTxHashes,
+				SrcClientId:  testvalues.FirstWasmClientID,
+				DstClientId:  testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1276,10 +1286,11 @@ func (s *IbcEurekaTestSuite) ICS20TimeoutPacketFromEthereumTest(
 
 	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:       eth.ChainID.String(),
-			DstChain:       simd.Config().ChainID,
-			SourceTxIds:    ethSendTxHashes,
-			TargetClientId: testvalues.FirstWasmClientID,
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: ethSendTxHashes,
+			SrcClientId: testvalues.CustomClientID,
+			DstClientId: testvalues.FirstWasmClientID,
 		})
 		// TODO: https://github.com/cosmos/solidity-ibc-eureka/issues/363
 		// The following assertions should be Error and Nil, but the relayer returns a valid response currently.
@@ -1381,10 +1392,11 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       eth.ChainID.String(),
-				DstChain:       simd.Config().ChainID,
-				SourceTxIds:    [][]byte{ethSendTxHash},
-				TargetClientId: testvalues.FirstWasmClientID,
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -1417,10 +1429,11 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:       simd.Config().ChainID,
-				DstChain:       eth.ChainID.String(),
-				SourceTxIds:    [][]byte{ackTxHash},
-				TargetClientId: testvalues.CustomClientID,
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
