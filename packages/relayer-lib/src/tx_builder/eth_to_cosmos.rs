@@ -310,6 +310,7 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
         dst_client_id: String,
     ) -> Result<Vec<u8>> {
         let latest_block_number = self.eth_client.get_block_number().await?;
@@ -330,6 +331,7 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,
@@ -338,6 +340,7 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,
@@ -483,6 +486,7 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
         dst_client_id: String,
     ) -> Result<Vec<u8>> {
         let target_block_number = self.eth_client.get_block_number().await?;
@@ -501,6 +505,7 @@ where
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,
@@ -509,6 +514,7 @@ where
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,

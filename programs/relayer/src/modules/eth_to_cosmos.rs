@@ -172,7 +172,12 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .relay_events(eth_events, cosmos_events, inner_req.dst_client_id)
+            .relay_events(
+                eth_events,
+                cosmos_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -209,15 +214,16 @@ impl EthToCosmosTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
         dst_client_id: String,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real(tb) => {
-                tb.relay_events(src_events, target_events, dst_client_id)
+                tb.relay_events(src_events, target_events, src_client_id, dst_client_id)
                     .await
             }
             Self::Mock(tb) => {
-                tb.relay_events(src_events, target_events, dst_client_id)
+                tb.relay_events(src_events, target_events, src_client_id, dst_client_id)
                     .await
             }
         }

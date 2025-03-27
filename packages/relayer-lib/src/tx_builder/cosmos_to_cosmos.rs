@@ -56,6 +56,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
         dst_client_id: String,
     ) -> Result<Vec<u8>> {
         let client_state = ClientState::decode(
@@ -82,6 +83,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             target_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,
@@ -90,6 +92,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
+            &src_client_id,
             &dst_client_id,
             &target_height,
             &self.signer_address,

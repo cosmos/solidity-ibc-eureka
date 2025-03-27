@@ -88,6 +88,7 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
+        src_client_id: String,
         dst_client_id: String,
     ) -> Result<Vec<u8>> {
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
@@ -103,6 +104,7 @@ where
 
         let timeout_msgs = eth_eureka::target_events_to_timeout_msgs(
             dest_events,
+            &src_client_id,
             &dst_client_id,
             &latest_height,
             now_since_unix.as_secs(),
@@ -110,6 +112,7 @@ where
 
         let recv_and_ack_msgs = eth_eureka::src_events_to_recv_and_ack_msgs(
             src_events,
+            &src_client_id,
             &dst_client_id,
             &latest_height,
             now_since_unix.as_secs(),
