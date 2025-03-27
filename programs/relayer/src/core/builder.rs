@@ -8,6 +8,7 @@ use crate::{
         relayer_service_server::{RelayerService, RelayerServiceServer},
     },
     cli::config::RelayerConfig,
+    metrics::{CONNECTED_CLIENTS, REQUEST_COUNTER},
 };
 use tonic::{transport::Server, Request, Response};
 
@@ -132,6 +133,8 @@ impl RelayerService for Relayer {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        CONNECTED_CLIENTS.inc();
+        REQUEST_COUNTER.inc();
         let inner_request = request.get_ref();
         let res = self
             .get_module(&inner_request.src_chain, &inner_request.dst_chain)?
@@ -143,6 +146,7 @@ impl RelayerService for Relayer {
             })?;
 
         tracing::info!("Relay by tx request handled successfully.");
+        CONNECTED_CLIENTS.dec();
         Ok(res)
     }
 }

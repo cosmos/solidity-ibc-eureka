@@ -55,7 +55,10 @@ rand = { version = "0.9", default-features = false }
 tokio       = { version = "1.0", default-features = false }
 tonic       = { version = "0.12", default-features = false }
 tonic-build = { version = "0.12", default-features = false }
+lazy_static = { version = "1.5", default-features = false }
+warp        = { version = "0.3", default-features = false }
 
+prometheus         = { version = "0.13", features = ["process"] }
 tracing            = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 anyhow             = { version = "1.0", default-features = false }

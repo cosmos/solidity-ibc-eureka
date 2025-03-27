@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use prometheus::{Encoder, TextEncoder};
 use solidity_ibc_eureka_relayer::{
     cli::{
         cmd::{Commands, RelayerCli},
@@ -12,6 +13,7 @@ use solidity_ibc_eureka_relayer::{
         eth_to_cosmos::EthToCosmosRelayerModule,
     },
 };
+use warp::Filter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,6 +34,20 @@ async fn main() -> anyhow::Result<()> {
             relayer_builder.add_module(CosmosToEthRelayerModule);
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosRelayerModule);
+
+            // Start the metrics server.
+            tokio::spawn(async {
+                let metrics_route = warp::path("metrics").map(|| {
+                    let encoder = TextEncoder::new();
+                    let metric_families = prometheus::gather();
+                    let mut buffer = Vec::new();
+                    encoder.encode(&metric_families, &mut buffer).unwrap();
+                    String::from_utf8(buffer).unwrap()
+                });
+
+                println!("Metrics available at http://127.0.0.1:9000/metrics");
+                warp::serve(metrics_route).run(([127, 0, 0, 1], 9000)).await;
+            });
 
             // Start the relayer server.
             relayer_builder.start(config).await?;
