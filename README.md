@@ -306,15 +306,18 @@ Once the **govAdmin** is set, the Security Council must **apply a timelock** to 
 
 The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
 
-| **Role Name** | **Contract** | **Default** | **Description** |
-|:---:|:---:|:---:|:---:|
-| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause the contract. |
-| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can unpause the contract. |
-| `RATE_LIMITER_ROLE` | `Escrow.sol` | `None` | Can set withdrawal rate limits per `ERC20` token. |
-| `RELAYER_ROLE` | `ICS26Router.sol` | `None` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
-| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom port ids for applications. |
-| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom light client ids for applications. |
-| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Can migrate the light client identified by `client_id`. |
+| **Role Name** | **Contract** | **Description** |
+|:---:|:---:|:---:|
+| `PAUSER_ROLE` | `ICS20Transfer.sol` | Can pause the contract. |
+| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
+| `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
+| `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
+| `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
+| `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
+| `RELAYER_ROLE` | `ICS26Router.sol` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
+| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom port ids for applications. |
+| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom light client ids for applications. |
+| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Can migrate the light client identified by `client_id`. Creator of the light client has this role by default. |
 
 ## License
 
