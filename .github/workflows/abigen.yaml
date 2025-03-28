@@ -39,7 +39,7 @@ jobs:
           command: just generate-abi
 
   abigen-golangci:
-    name: lint
+    name: lint abigen
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
         run: cd packages/go-abigen && go test -v ./...
 
   ethgenesis-golangci:
-    name: lint
+    name: lint ethgenesis
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -80,4 +80,5 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.63
+          args: --timeout=5m
           working-directory: scripts/ethgenesis

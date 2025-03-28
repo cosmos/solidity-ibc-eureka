@@ -3,7 +3,7 @@ module github.com/cosmos/solidity-ibc-eureka/ethgenesis
 go 1.23.6
 
 replace (
-	github.com/cosmos/solidity-ibc-eureka/go-abigen => ../../packages/go-abigen
+	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen => ../../packages/go-abigen
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 => ../../e2e/interchaintestv8
 	github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
@@ -12,7 +12,7 @@ replace (
 require (
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
 	github.com/cosmos/ibc-go/v10 v10.1.0
-	github.com/cosmos/solidity-ibc-eureka/go-abigen v0.0.0
+	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/srdtrk/solidity-ibc-eureka/e2e/v8 v8.0.0
 )

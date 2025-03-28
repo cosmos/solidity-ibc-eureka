@@ -34,10 +34,10 @@ import (
 
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ibcerc20"
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/sp1ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
