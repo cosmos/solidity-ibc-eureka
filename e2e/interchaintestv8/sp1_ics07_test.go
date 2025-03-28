@@ -33,7 +33,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/sp1ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"

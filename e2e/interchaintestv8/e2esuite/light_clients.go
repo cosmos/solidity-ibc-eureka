@@ -16,7 +16,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"

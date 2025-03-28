@@ -9,7 +9,7 @@ import (
 
 	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"

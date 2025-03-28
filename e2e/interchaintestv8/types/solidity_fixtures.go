@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
