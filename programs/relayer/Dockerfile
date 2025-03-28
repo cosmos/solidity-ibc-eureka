@@ -17,9 +17,11 @@ COPY contracts contracts
 COPY abi abi
 
 RUN cargo build --bin relayer --release --locked
+RUN cargo build --bin operator --release --locked
 
 FROM ubuntu:24.04
 WORKDIR /usr/local/bin
 RUN apt-get update && apt-get install -y ca-certificates
 COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
+COPY --from=build /solidity-ibc-eureka/target/release/operator /usr/local/bin/operator
 ENTRYPOINT [ "/usr/local/bin/relayer", "start", "--config", "/usr/local/relayer/relayer.json"]
