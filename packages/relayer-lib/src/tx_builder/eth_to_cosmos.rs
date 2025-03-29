@@ -1,6 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Ethereum.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use alloy::{primitives::Address, providers::Provider};
@@ -21,6 +22,11 @@ use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState as WasmClientState;
 use prost::Message;
+use sp1_ics07_tendermint_prover::programs::{
+    MembershipProgram, MisbehaviourProgram, SP1Program, UpdateClientAndMembershipProgram,
+    UpdateClientProgram,
+};
+use sp1_sdk::HashableKey;
 use tendermint_rpc::{Client, HttpClient};
 
 use crate::utils::{cosmos, wait_for_condition};
@@ -305,6 +311,29 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
 {
+    /// Return relevant metadata for the relayer module.
+    fn metadata(&self) -> HashMap<String, String> {
+        let mut metadata = HashMap::new();
+
+        let update_client_prover_vkey = UpdateClientProgram::get_vkey().bytes32();
+        let membership_prover_vkey = MembershipProgram::get_vkey().bytes32();
+        let uc_and_mem_prover_vkey = UpdateClientAndMembershipProgram::get_vkey().bytes32();
+        let misbehaviour_prover_vkey = MisbehaviourProgram::get_vkey().bytes32();
+
+        metadata.insert(
+            "update_client_prover_vkey".to_string(),
+            update_client_prover_vkey,
+        );
+        metadata.insert("membership_prover_vkey".to_string(), membership_prover_vkey);
+        metadata.insert("uc_and_mem_prover_vkey".to_string(), uc_and_mem_prover_vkey);
+        metadata.insert(
+            "misbehaviour_prover_vkey".to_string(),
+            misbehaviour_prover_vkey,
+        );
+        println!("metadata: {metadata:?}");
+        metadata
+    }
+
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,
@@ -486,6 +515,10 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<P>
 where
     P: Provider + Clone,
 {
+    fn metadata(&self) -> HashMap<String, String> {
+        HashMap::default()
+    }
+
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,

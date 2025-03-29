@@ -13,24 +13,24 @@ use std::time::Instant;
 lazy_static! {
     // Total number of requests
     pub static ref REQUEST_COUNTER: Counter =
-        register_counter!("request_total", "Total number of requests").unwrap();
+        register_counter!("eureka_relayer_request_total", "Total number of requests").unwrap();
     // Response time in seconds, distinguished by method, src_chain, and dst_chain
     pub static ref RESPONSE_TIME: HistogramVec = register_histogram_vec!(
-        "response_time_seconds",
+        "eureka_relayer_response_time_seconds",
         "Response time in seconds",
         &["method", "src_chain", "dst_chain"]
     )
     .unwrap();
     // Response Codes, distinguished by method, src_chain, dst_chain, and status_code
     pub static ref RESPONSE_CODE: IntCounterVec = register_int_counter_vec!(
-        "response_code",
+        "eureka_relayer_response_codes",
         "Response Codes",
         &["method", "src_chain", "dst_chain", "status_code"]
     )
     .unwrap();
     // Number of connected clients, or concurrent requests
     pub static ref CONNECTED_CLIENTS: IntGauge =
-        register_int_gauge!("connected_clients", "Connected clients").unwrap();
+        register_int_gauge!("eureka_relayer_connected_clients", "Connected clients").unwrap();
 }
 
 /// Generic metrics tracking middleware for service calls

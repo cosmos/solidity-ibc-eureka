@@ -47,7 +47,6 @@ impl CosmosToCosmosRelayerModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::from_rpc_url(&config.src_rpc_url);
         let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
-
         let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
         let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
@@ -69,7 +68,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for cosmos to cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -89,6 +88,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
+            metadata: self.tx_builder.metadata(),
         }))
     }
 

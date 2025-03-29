@@ -1,6 +1,8 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use ibc_proto_eureka::{
@@ -51,6 +53,10 @@ impl TxBuilder {
 
 #[async_trait::async_trait]
 impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
+    fn metadata(&self) -> HashMap<String, String> {
+        HashMap::default()
+    }
+
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,

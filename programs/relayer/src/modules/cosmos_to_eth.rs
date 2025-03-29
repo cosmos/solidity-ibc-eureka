@@ -157,7 +157,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for cosmos to eth...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -177,6 +177,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
+            metadata: self.tx_builder.metadata(),
         }))
     }
 

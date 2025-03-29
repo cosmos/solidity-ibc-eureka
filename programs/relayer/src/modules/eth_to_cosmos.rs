@@ -1,5 +1,7 @@
 //! Defines Ethereum to Cosmos relayer module.
 
+use std::collections::HashMap;
+
 use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
@@ -101,7 +103,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for eth to cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -121,6 +123,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router_address().to_string(),
             }),
+            metadata: self.tx_builder.metadata(),
         }))
     }
 
@@ -212,6 +215,13 @@ impl RelayerModule for EthToCosmosRelayerModule {
 }
 
 impl EthToCosmosTxBuilder {
+    fn metadata(&self) -> HashMap<String, String> {
+        match self {
+            Self::Real(tb) => tb.metadata(),
+            Self::Mock(tb) => tb.metadata(),
+        }
+    }
+
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,

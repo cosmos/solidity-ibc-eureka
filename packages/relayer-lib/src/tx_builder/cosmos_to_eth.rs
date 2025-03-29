@@ -1,7 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Ethereum chain from events received from the Cosmos SDK chain.
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use alloy::{primitives::Address, providers::Provider, sol_types::SolCall};
 use anyhow::Result;
@@ -83,6 +83,10 @@ where
     P: Provider + Clone,
     C: SP1ProverComponents,
 {
+    fn metadata(&self) -> HashMap<String, String> {
+        HashMap::default()
+    }
+
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,

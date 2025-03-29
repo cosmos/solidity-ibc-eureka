@@ -23,4 +23,6 @@ WORKDIR /usr/local/bin
 COPY --from=build /etc/ssl/certs /etc/ssl/certs
 COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
 COPY --from=build /solidity-ibc-eureka/target/release/operator /usr/local/bin/operator
+# TODO: REMOVE
+COPY config.json /usr/local/relayer/relayer.json
 ENTRYPOINT [ "/usr/local/bin/relayer", "start", "--config", "/usr/local/relayer/relayer.json"]
