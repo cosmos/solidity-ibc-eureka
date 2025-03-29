@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	EthAPIURL              = "https://ethereum-rpc.publicnode.com"
+	EthAPIURL              = ""
 	BeaconAPIURL           = ""
-	IbcContractAddress     = ""
-	ChainID                = 11155111
-	EtheruemClientChecksum = "77dd083b93f4d7d7199aa432a04f33109a1692af2483d87c689577540fca4fbc"
+	IbcContractAddress     = "0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7"
+	ChainID                = 1
+	EtheruemClientChecksum = "d289da2c475deace8d099df57101f1ed7f9f23a9f7ecd4ca285b3e556a796f40"
 )
 
 func main() {
