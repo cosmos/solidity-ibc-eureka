@@ -591,6 +591,16 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         address user = ibcNFT721.whoIsAuthorized(newDenom);
         assertEq(user, receiver);
 
+        // check random user can't claim
+        vm.expectRevert();
+        vm.prank(makeAddr("random_user"));
+        ibcNFT721.claim(newDenom, defaultAmount);
+
+        // check random user can't claim NFT doesn't exist
+        vm.expectRevert();
+        vm.prank(makeAddr("random_user"));
+        ibcNFT721.claim("transfer/client-0/nonexistent_nft", defaultAmount);
+
         // claim the NFT
         vm.prank(receiver);
         ibcERC20.approve(address(ibcNFT721), defaultAmount);
@@ -601,6 +611,11 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(receiverBalanceAfterClaim, 0);
         uint256 nftContractBalanceAfterClaim = receivedERC20.balanceOf(address(ibcNFT721));
         assertEq(nftContractBalanceAfterClaim, defaultAmount);
+
+        // check random user can't claim
+        vm.expectRevert();
+        vm.prank(makeAddr("random_user"));
+        ibcNFT721.destroy(newDenom);
 
         // destroy the NFT
         vm.prank(receiver);
