@@ -134,3 +134,9 @@ ed25519-consensus   = { git = "https://github.com/sp1-patches/ed25519-consensus"
 ecdsa               = { git = "https://github.com/sp1-patches/signatures", branch = "patch-ecdsa-v0.16.9" }
 curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", branch = "patch-v4.1.1" }
 tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+
+# Tendermint-rs patch
+tendermint                       = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint", branch = "gjermund/fix-double-auth-header" }
+tendermint-rpc                   = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-rpc", branch = "gjermund/fix-double-auth-header" }
+tendermint-light-client-verifier = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-light-client-verifier", branch = "gjermund/fix-double-auth-header" }
+tendermint-proto                 = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-proto", branch = "gjermund/fix-double-auth-header" }
