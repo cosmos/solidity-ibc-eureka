@@ -142,4 +142,36 @@ abstract contract Deployments {
 
         return fixture;
     }
+
+    struct ProxiedMemeDeployment {
+        // transparant proxies
+        address ics26Router;
+        address ics20;
+
+        // implementation addresses
+        address implementation;
+        string name;
+        string symbol;
+        address proxy;
+    }
+
+    function loadProxiedMemeDeployment(
+        Vm vm,
+        string memory json
+    )
+    public
+    pure
+    returns (ProxiedMemeDeployment memory)
+    {
+        ProxiedMemeDeployment memory fixture = ProxiedMemeDeployment({
+            ics26Router: vm.parseJsonAddress(json, ".meme.ics26Router"),
+            ics20: vm.parseJsonAddress(json, ".meme.ics20"),
+            implementation: vm.parseJsonAddress(json, ".meme.implementation"),
+            name: vm.parseJsonString(json, ".meme.name"),
+            symbol: vm.parseJsonString(json, ".meme.symbol"),
+            proxy: vm.parseJsonAddress(json, ".meme.proxy")
+        });
+
+        return fixture;
+    }
 }

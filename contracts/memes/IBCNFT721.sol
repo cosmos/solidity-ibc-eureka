@@ -29,8 +29,8 @@ contract IBCNFT721 is
         IICS26Router _ics26;
         IICS20Transfer _ics20;
         address _admin;
-        mapping(address denom => address user) _firstSender;
-        mapping(address denom => uint256 amount) _vault;
+        mapping(string denom => address user) _firstReceiver;
+        mapping(string denom => uint256 amount) _vault;
     }
 
     bytes32 private constant IBCNFT721_STORAGE_SLOT = 0xed26987a4c0cd054c76bcc646d9bfb315b6bab9c405b583fff9fbb7c01979800;
@@ -42,7 +42,7 @@ contract IBCNFT721 is
 
     function initialize(
         address ics26Router,
-        address ics20,
+        address ics20_,
         string memory name_,
         string memory symbol_
     ) 
@@ -53,9 +53,9 @@ contract IBCNFT721 is
         __ERC721_init(name_, symbol_);
 
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        $._admin = msg.sender;
+        $._admin = _msgSender();
         $._ics26 = IICS26Router(ics26Router);
-        $._ics20 = IICS20Transfer(ics20);
+        $._ics20 = IICS20Transfer(ics20_);
     }
 
     // if you call recvPacket through this function for the first time for a given denom
@@ -74,48 +74,57 @@ contract IBCNFT721 is
         bytes memory newDenomPrefix = ICS20Lib.getDenomPrefix(msg_.packet.payloads[0].destPort, msg_.packet.destClient);
         bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
-        address newERC20 = $._ics20.ibcERC20Contract(string(newDenom));
-        require(newERC20 == address(0), "denom already exists");
+        // unfortunate way to prove ERC20 contract already doesn't exist
+        try $._ics20.ibcERC20Contract(string(newDenom)) {
+            require(false, "denom already exists");
+        } catch {}
 
         $._ics26.recvPacket(msg_);
 
-        newERC20 = $._ics20.ibcERC20Contract(string(newDenom));
+        address newERC20 = $._ics20.ibcERC20Contract(string(newDenom));
         require(newERC20 != address(0), "denom was not created");
 
         // authorize receiver to claim the NFT for this denom
         address receiver = ICS20Lib.mustHexStringToAddress(packetData.receiver);
-        _authorize(newERC20, receiver);
+        _authorize(string(newDenom), receiver);
     }
 
     // we also allow the admin to manually authorize adding the first sender
     // of a newdenom if they did not use the automatic endpoint
-    function authorize(address denom, address user) external onlyAdmin {
+    function authorize(string memory denom, address user) external onlyAdmin {
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        require($._firstSender[denom] == address(0), "already authorized");
-        $._firstSender[denom] = user;
+        require($._firstReceiver[denom] == address(0), "already authorized");
+        $._firstReceiver[denom] = user;
     }
 
     // this sets the user as the only address that can redeem the NFT for 
-    function _authorize(address denom, address user) internal {
+    function _authorize(string memory denom, address user) internal {
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        require($._firstSender[denom] == address(0), "already authorized");
-        $._firstSender[denom] = user;
+        require($._firstReceiver[denom] == address(0), "already authorized");
+        $._firstReceiver[denom] = user;
     }
 
-    function claim(address denom, uint256 amount) external {
+    function claim(string memory denom, uint256 amount) external {
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        require($._firstSender[denom] == msg.sender, "not authorized");
-        IERC20(denom).safeTransferFrom(msg.sender, address(this), amount);
+        require($._firstReceiver[denom] == _msgSender(), "not authorized");
+        address erc20 = $._ics20.ibcERC20Contract(denom);
+        IERC20(erc20).safeTransferFrom(_msgSender(), address(this), amount);
         $._vault[denom] = amount;
-        _safeMint(msg.sender, uint256(uint160(denom)));
+        _safeMint(_msgSender(), uint256((keccak256(bytes(denom)))));
     }
 
-    function destroy(address denom) external {
+    function destroy(string memory denom) external {
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        require(ownerOf(uint256(uint160(denom))) == msg.sender, "non owner cannot destroy NFT");
+        require(ownerOf(uint256(keccak256(bytes(denom)))) == _msgSender(), "non owner cannot destroy NFT");
         // send back the vault tokens
-        IERC20(denom).safeTransfer(msg.sender, $._vault[denom]);
-        _burn(uint256(uint160(denom)));
+        address erc20 = $._ics20.ibcERC20Contract(denom);
+        IERC20(erc20).safeTransfer(_msgSender(), $._vault[denom]);
+        _burn(uint256(keccak256(bytes(denom))));
+    }
+
+    function whoIsAuthorized(string memory denom) external view returns (address) {
+        IBCNFT721Storage storage $ = _getIBCNFT721Storage();
+        return $._firstReceiver[denom];
     }
 
     /// @notice Returns the storage of the IBCNFT721 contract
@@ -126,9 +135,17 @@ contract IBCNFT721 is
         }
     }
 
+    function ics26() external view returns (address) {
+        return address(_getIBCNFT721Storage()._ics26);
+    }
+
+    function ics20() external view returns (address) {
+        return address(_getIBCNFT721Storage()._ics20);
+    }
+
     modifier onlyAdmin() {
         IBCNFT721Storage storage $ = _getIBCNFT721Storage();
-        require(msg.sender == $._admin, "only admin can call this function");
+        require(_msgSender() == $._admin, "only admin can call this function");
         _;
     }
 

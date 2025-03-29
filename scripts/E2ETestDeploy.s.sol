@@ -14,6 +14,7 @@ import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07Tend
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
+import { IBCNFT721 } from "../contracts/memes/IBCNFT721.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
@@ -56,6 +57,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
         address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
+        address memeNFTLogic = address(new IBCNFT721());
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
@@ -80,6 +82,14 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             unpausers: new address[](0),
             tokenOperator: address(0),
             permit2: address(0)
+        }));
+
+        ERC1967Proxy memeNFTProxy = deployProxiedMemeNFT(IBCNFT721Deployment({
+            proxy: payable(address(0)),
+            implementation: memeNFTLogic,
+            ics20Transfer: address(transferProxy),
+            name: "MemeNFT",
+            symbol: "MEME"
         }));
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));

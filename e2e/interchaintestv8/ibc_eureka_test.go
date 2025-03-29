@@ -35,6 +35,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ibcerc20"
+	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ibcnft721"
 	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics20transfer"
 	"github.com/cosmos/solidity-ibc-eureka/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/go-abigen/sp1ics07tendermint"
@@ -70,6 +71,7 @@ type IbcEurekaTestSuite struct {
 	ics26Contract    *ics26router.Contract
 	ics20Contract    *ics20transfer.Contract
 	erc20Contract    *erc20.Contract
+	memeContract     *ibcnft721.Contract
 
 	RelayerClient relayertypes.RelayerServiceClient
 
@@ -169,6 +171,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
 		s.Require().NoError(err)
+		s.memeContract, err = ibcnft721.NewContract(ethcommon.HexToAddress(s.contractAddresses.Meme), eth.RPCClient)
 	}))
 
 	s.T().Cleanup(func() {

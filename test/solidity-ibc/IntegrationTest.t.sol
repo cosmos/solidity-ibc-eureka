@@ -21,6 +21,7 @@ import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { RelayerHelper } from "../../contracts/utils/RelayerHelper.sol";
 import { TestERC20 } from "./mocks/TestERC20.sol";
 import { AttackerIBCERC20 } from "./mocks/AttackerIBCERC20.sol";
+import { IBCNFT721 } from "../../contracts/memes/IBCNFT721.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -46,6 +47,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
     string public erc20AddressStr;
     ISignatureTransfer public permit2;
     RelayerHelper public relayerHelper;
+    IBCNFT721 public ibcNFT721;
+    string public ibcNFT721AddressStr;
 
     string public counterpartyId = "42-dummy-01";
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
@@ -73,6 +76,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        IBCNFT721 ibcNFT721Logic = new IBCNFT721();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy =
@@ -85,9 +89,15 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             )
         );
 
+        ERC1967Proxy ibcNFT721Proxy = new ERC1967Proxy(
+            address(ibcNFT721Logic),
+            abi.encodeCall(IBCNFT721.initialize, (address(routerProxy), address(transferProxy), "MemeNFT", "MEME"))
+        );
+
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
+        ibcNFT721 = IBCNFT721(address(ibcNFT721Proxy));
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
@@ -96,6 +106,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         clientIdentifier =
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
+        ibcNFT721AddressStr = Strings.toHexString(address(ibcNFT721));
 
         ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
@@ -532,6 +543,74 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(supplyAfterReceive, defaultAmount);
 
         IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
+
+        // Send out again
+        address sender = receiver;
+        vm.prank(receiver);
+        ibcERC20.approve(address(ics20Transfer), defaultAmount);
+
+        _sendICS20TransferPacket(Strings.toHexString(sender), "whatever", address(receivedERC20));
+
+        // check balances after sending out
+        uint256 senderBalanceAfterSend = ibcERC20.balanceOf(sender);
+        assertEq(senderBalanceAfterSend, 0);
+        uint256 contractBalanceAfterSend = ibcERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
+        assertEq(contractBalanceAfterSend, 0); // Burned
+        uint256 supplyAfterSend = ibcERC20.totalSupply();
+        assertEq(supplyAfterSend, 0); // Burned
+    }
+
+    function test_success_receiveICS20PacketWithForeignBaseDenomMemez() public {
+        string memory foreignDenom = "uatom";
+
+        address receiver = makeAddr("receiver_of_foreign_denom");
+
+        // receive token using the meme nft contract
+        (IERC20 receivedERC20, string memory newDenom, IICS26RouterMsgs.Packet memory recvPacket) = _receiveICS20TransferForMemez(
+            "cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", Strings.toHexString(receiver), foreignDenom, defaultAmount
+        );
+
+        // acknowledgement should be written
+        bytes32 storedAck = relayerHelper.queryAckCommitment(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedAck, ICS24Host.packetAcknowledgementCommitmentBytes32(singleSuccessAck));
+
+        // packet receipt should be written
+        bytes32 storedReceipt = relayerHelper.queryPacketReceipt(recvPacket.destClient, recvPacket.sequence);
+        assertEq(storedReceipt, ICS24Host.packetReceiptCommitmentBytes32(recvPacket));
+
+        // check balances after receiving
+        uint256 senderBalanceAfterReceive = receivedERC20.balanceOf(receiver);
+        assertEq(senderBalanceAfterReceive, defaultAmount);
+        uint256 contractBalanceAfterReceive = receivedERC20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
+        assertEq(contractBalanceAfterReceive, 0);
+        uint256 supplyAfterReceive = receivedERC20.totalSupply();
+        assertEq(supplyAfterReceive, defaultAmount);
+
+        IBCERC20 ibcERC20 = IBCERC20(address(receivedERC20));
+
+        address user = ibcNFT721.whoIsAuthorized(newDenom);
+        assertEq(user, receiver);
+
+        // claim the NFT
+        vm.prank(receiver);
+        ibcERC20.approve(address(ibcNFT721), defaultAmount);
+        vm.prank(receiver);
+        ibcNFT721.claim(newDenom, defaultAmount);
+        assertEq(ibcNFT721.ownerOf(uint256(keccak256(bytes(newDenom)))), receiver);
+        uint256 receiverBalanceAfterClaim = receivedERC20.balanceOf(receiver);
+        assertEq(receiverBalanceAfterClaim, 0);
+        uint256 nftContractBalanceAfterClaim = receivedERC20.balanceOf(address(ibcNFT721));
+        assertEq(nftContractBalanceAfterClaim, defaultAmount);
+
+        // destroy the NFT
+        vm.prank(receiver);
+        ibcNFT721.destroy(newDenom);
+        vm.expectRevert();
+        ibcNFT721.ownerOf(uint256(keccak256(bytes(newDenom))));
+        uint256 nftContractBalanceAfterDestroy = receivedERC20.balanceOf(address(ibcNFT721));
+        assertEq(nftContractBalanceAfterDestroy, 0);
+        uint256 receiverBalanceAfterDestroy = receivedERC20.balanceOf(receiver);
+        assertEq(receiverBalanceAfterDestroy, defaultAmount);
 
         // Send out again
         address sender = receiver;
@@ -1154,6 +1233,67 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         }
 
         ics26Router.recvPacket(
+            IICS26RouterMsgs.MsgRecvPacket({
+                packet: receivePacket,
+                proofCommitment: bytes("doesntmatter"), // dummy client will accept
+                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
+             })
+        );
+
+        try ics20Transfer.ibcERC20Contract(expectedDenom) returns (address ibcERC20Addres) {
+            receivedERC20 = IERC20(ibcERC20Addres);
+
+            IBCERC20 ibcERC20 = IBCERC20(ibcERC20Addres);
+            string memory actualDenom = ibcERC20.fullDenomPath();
+            assertEq(actualDenom, expectedDenom);
+        } catch {
+            // base must be an erc20 address then
+            receivedERC20 = IERC20(ICS20Lib.mustHexStringToAddress(expectedDenom));
+        }
+        receivedDenom = expectedDenom;
+
+        recvSeqs[counterpartyId]++;
+
+        return (receivedERC20, receivedDenom, receivePacket);
+    }
+
+    function _receiveICS20TransferForMemez(
+        string memory sender,
+        string memory receiver,
+        string memory denom,
+        uint256 amount
+    )
+        internal
+        returns (IERC20 receivedERC20, string memory receivedDenom, IICS26RouterMsgs.Packet memory receivePacket)
+    {
+        IICS20TransferMsgs.FungibleTokenPacketData memory receivePacketData = IICS20TransferMsgs.FungibleTokenPacketData({
+            denom: denom,
+            amount: amount,
+            sender: sender,
+            receiver: receiver,
+            memo: "memo"
+        });
+
+        IICS26RouterMsgs.Payload[] memory payloads = _getPayloads(abi.encode(receivePacketData));
+        receivePacket = IICS26RouterMsgs.Packet({
+            sequence: recvSeqs[counterpartyId],
+            sourceClient: counterpartyId,
+            destClient: clientIdentifier,
+            timeoutTimestamp: uint64(block.timestamp + 1000),
+            payloads: payloads
+        });
+
+        bytes memory denomBz = bytes(denom);
+        bytes memory prefix = abi.encodePacked(payloads[0].sourcePort, "/", receivePacket.sourceClient, "/");
+        string memory expectedDenom;
+        if (ICS20Lib.hasPrefix(denomBz, prefix)) {
+            expectedDenom = string(Bytes.slice(denomBz, prefix.length));
+        } else {
+            bytes memory newDenomPrefix = abi.encodePacked(payloads[0].destPort, "/", receivePacket.destClient, "/");
+            expectedDenom = string(abi.encodePacked(newDenomPrefix, denomBz));
+        }
+
+        ibcNFT721.recvPacket(
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
