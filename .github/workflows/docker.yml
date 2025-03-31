@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_version:
-      description: 'Optional: Docker tag to build (e.g., v1.0.0). Leave empty for default dev build.'
-      required: false
-      type: string
+        description: 'Optional: Docker tag to build (e.g., v1.0.0). Leave empty for default dev build.'
+        required: false
+        type: string
   pull_request:
     paths:
       - '**.rs'
