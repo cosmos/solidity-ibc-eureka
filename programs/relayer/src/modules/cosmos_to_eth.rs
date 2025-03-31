@@ -46,12 +46,12 @@ pub struct CosmosToEthConfig {
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
     /// The SP1 prover configuration.
-    pub sp1_config: SP1Config,
+    pub sp1_prover: SP1Config,
 }
 
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "prover_type")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum SP1Config {
     /// Mock prover.
     Mock,
@@ -94,7 +94,7 @@ impl CosmosToEthRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let tx_builder = match config.sp1_config {
+        let tx_builder = match config.sp1_prover {
             SP1Config::Mock => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().mock().build());
