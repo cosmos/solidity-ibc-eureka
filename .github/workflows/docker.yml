@@ -48,7 +48,7 @@ jobs:
             # Tag triggered events
             type=match,event=tag,pattern=^relayer-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
 
-            # Avoid latest on manual potentially old ref runs
+            # Latest, but only on main
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
 
             # For PR tags
