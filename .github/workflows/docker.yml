@@ -52,11 +52,23 @@ jobs:
           images: |
             ${{ env.registry_url }}
           tags: |
-            type=sha,priority=900,prefix=
-            type=semver,priority=1000,pattern={{version}}
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # Manually triggered with workflow_dispatch
+            type=raw,value=${{ github.event.inputs.tag_version }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_version != '' }},priority=1100
+
+            # Tag triggered events
+            type=match,event=tag,pattern=^relayer-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
+
+            # Avoid latest on manual potentially old ref runs
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
+
+            # Avoid branch tag on manual runs
+            type=ref,event=branch,enable=${{ github.event_name != 'workflow_dispatch' }},priority=800
+
+            # For PR tags
+            type=ref,event=pr,priority=700
+
+            # For sha tags
+            type=sha,priority=600,prefix=
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
