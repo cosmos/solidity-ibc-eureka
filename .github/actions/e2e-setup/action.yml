@@ -52,6 +52,7 @@ runs:
     - name: Install just
       uses: extractions/setup-just@v2
     - name: Build SP1 Programs
+      shell: bash
       run: just build-sp1-programs
 
     - name: Setup Kurtosis
