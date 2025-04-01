@@ -15,7 +15,7 @@ type EthCosmosConfigInfo struct {
 	// Ethereum Beacon API URL
 	BeaconAPI string
 	// SP1 config
-	SP1Config SP1Config
+	SP1Config SP1ProverConfig
 	// Signer address cosmos
 	SignerAddress string
 	// Whether we use the mock client in Cosmos

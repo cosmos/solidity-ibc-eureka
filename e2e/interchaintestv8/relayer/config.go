@@ -31,8 +31,8 @@ type ModuleConfig struct {
 	Config   any    `json:"config"`
 }
 
-// SP1Config represents the configuration for SP1 prover
-type SP1Config struct {
+// SP1ProverConfig represents the configuration for SP1 prover
+type SP1ProverConfig struct {
 	ProverType        string `json:"prover_type"`
 	NetworkPrivateKey string `json:"network_private_key,omitempty"`
 	NetworkRpcUrl     string `json:"network_rpc_url,omitempty"`
@@ -41,10 +41,10 @@ type SP1Config struct {
 
 // CosmosToEthModuleConfig represents the configuration for cosmos_to_eth module
 type CosmosToEthModuleConfig struct {
-	TmRpcUrl     string    `json:"tm_rpc_url"`
-	Ics26Address string    `json:"ics26_address"`
-	EthRpcUrl    string    `json:"eth_rpc_url"`
-	Sp1Config    SP1Config `json:"sp1_config"`
+	TmRpcUrl     string          `json:"tm_rpc_url"`
+	Ics26Address string          `json:"ics26_address"`
+	EthRpcUrl    string          `json:"eth_rpc_url"`
+	Sp1Config    SP1ProverConfig `json:"sp1_config"`
 }
 
 // CosmosToCosmosModuleConfig represents the configuration for cosmos_to_cosmos module
