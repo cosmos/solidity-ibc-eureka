@@ -9,6 +9,10 @@ use ibc_eureka_relayer_lib::{
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use sp1_ics07_tendermint_prover::programs::{
+    MembershipProgram, MisbehaviourProgram, SP1ICS07TendermintPrograms,
+    UpdateClientAndMembershipProgram, UpdateClientProgram,
+};
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
@@ -47,6 +51,42 @@ pub struct CosmosToEthConfig {
     pub eth_rpc_url: String,
     /// The SP1 prover configuration.
     pub sp1_prover: SP1Config,
+    /// The SP1 program paths.
+    pub sp1_programs: SP1ProgramPaths,
+}
+
+/// The paths to the SP1 programs.
+/// This is relative to the current working directory.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct SP1ProgramPaths {
+    /// The path to the update client program.
+    pub update_client: String,
+    /// The path to the membership program.
+    pub membership: String,
+    /// The path to the update client and membership program.
+    pub update_client_and_membership: String,
+    /// The path to the misbehavior program.
+    pub misbehavior: String,
+}
+
+impl SP1ProgramPaths {
+    /// Get the ELF bytes for the programs.
+    ///
+    /// # Errors
+    /// Returns an error if the programs cannot be read.
+    pub fn read_programs(&self) -> anyhow::Result<SP1ICS07TendermintPrograms> {
+        let update_client = std::fs::read(&self.update_client)?;
+        let membership = std::fs::read(&self.membership)?;
+        let uc_and_membership = std::fs::read(&self.update_client_and_membership)?;
+        let misbehavior = std::fs::read(&self.misbehavior)?;
+
+        Ok(SP1ICS07TendermintPrograms {
+            update_client: UpdateClientProgram::new(update_client),
+            membership: MembershipProgram::new(membership),
+            update_client_and_membership: UpdateClientAndMembershipProgram::new(uc_and_membership),
+            misbehaviour: MisbehaviourProgram::new(misbehavior),
+        })
+    }
 }
 
 /// The configuration for the SP1 prover.
@@ -94,26 +134,55 @@ impl CosmosToEthRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
+        let sp1_programs = config
+            .sp1_programs
+            .read_programs()
+            .unwrap_or_else(|e| panic!("failed to read SP1 programs: {e}"));
+
         let tx_builder = match config.sp1_prover {
             SP1Config::Mock => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().mock().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Env => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::from_env());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Cpu => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cpu().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Cuda => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cuda().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Network {
                 network_private_key,
@@ -133,11 +202,18 @@ impl CosmosToEthRelayerModuleService {
                         provider,
                         tm_client,
                         prover_builder.build(),
+                        sp1_programs,
                     )
                 } else {
                     let prover: Box<dyn Prover<CpuProverComponents>> =
                         Box::new(prover_builder.build());
-                    TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                    TxBuilder::new(
+                        config.ics26_address,
+                        provider,
+                        tm_client,
+                        prover,
+                        sp1_programs,
+                    )
                 }
             }
         };

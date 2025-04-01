@@ -6578,6 +6578,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "sp1-ics07-tendermint-prover",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",

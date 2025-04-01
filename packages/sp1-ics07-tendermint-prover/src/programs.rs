@@ -16,6 +16,18 @@ pub trait SP1Program {
     }
 }
 
+/// SP1 ICS07 Tendermint programs.
+pub struct SP1ICS07TendermintPrograms {
+    /// The update client program.
+    pub update_client: UpdateClientProgram,
+    /// The membership program.
+    pub membership: MembershipProgram,
+    /// The update client and membership program.
+    pub update_client_and_membership: UpdateClientAndMembershipProgram,
+    /// The misbehaviour program.
+    pub misbehaviour: MisbehaviourProgram,
+}
+
 /// SP1 ICS07 Tendermint update client program.
 pub struct UpdateClientProgram(Vec<u8>);
 
