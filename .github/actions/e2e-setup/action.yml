@@ -49,6 +49,11 @@ runs:
         command: install
         args: --bin relayer --path programs/relayer --locked
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+    - name: Build SP1 Programs
+      run: just build-sp1-programs
+
     - name: Setup Kurtosis
       if: env.ETH_TESTNET_TYPE == 'pos'
       shell: bash
