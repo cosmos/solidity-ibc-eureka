@@ -1,7 +1,5 @@
 //! Contains the runner for the `operator run` command.
 
-use std::env;
-
 use crate::cli::command::operator::Args;
 use alloy::{providers::ProviderBuilder, sol_types::SolValue};
 use ibc_eureka_solidity_types::{
@@ -14,6 +12,7 @@ use sp1_ics07_tendermint_prover::{
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_sdk::{utils::setup_logger, HashableKey, ProverClient};
+use std::{env, fs};
 use tendermint_rpc::HttpClient;
 
 /// Runs the update client program in a loop.
@@ -43,9 +42,13 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     } else {
         Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
-    let prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
+
+    let elf = fs::read(args.update_client_path)?;
+    let program = UpdateClientProgram::new(elf);
+    let prover = SP1ICS07TendermintProver::new(
         contract_client_state.zkAlgorithm.try_into()?,
         &sp1_prover,
+        &program,
     );
 
     loop {
