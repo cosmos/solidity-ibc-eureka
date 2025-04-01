@@ -33,10 +33,17 @@ type ModuleConfig struct {
 
 // SP1ProverConfig represents the configuration for SP1 prover
 type SP1ProverConfig struct {
-	ProverType        string `json:"prover_type"`
+	Type              string `json:"type"`
 	NetworkPrivateKey string `json:"network_private_key,omitempty"`
 	NetworkRpcUrl     string `json:"network_rpc_url,omitempty"`
 	PrivateCluster    bool   `json:"private_cluster,omitempty"`
+}
+
+type SP1ProgramPaths struct {
+	UpdateClient              string `json:"update_client"`
+	Membership                string `json:"membership"`
+	UpdateClientAndMembership string `json:"update_client_and_membership"`
+	Misbehaviour              string `json:"misbehaviour"`
 }
 
 // CosmosToEthModuleConfig represents the configuration for cosmos_to_eth module
@@ -44,7 +51,8 @@ type CosmosToEthModuleConfig struct {
 	TmRpcUrl     string          `json:"tm_rpc_url"`
 	Ics26Address string          `json:"ics26_address"`
 	EthRpcUrl    string          `json:"eth_rpc_url"`
-	Sp1Config    SP1ProverConfig `json:"sp1_config"`
+	Sp1Prover    SP1ProverConfig `json:"sp1_prover"`
+	Sp1Programs  SP1ProgramPaths `json:"sp1_programs"`
 }
 
 // CosmosToCosmosModuleConfig represents the configuration for cosmos_to_cosmos module

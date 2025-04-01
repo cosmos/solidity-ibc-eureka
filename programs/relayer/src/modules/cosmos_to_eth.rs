@@ -65,8 +65,8 @@ pub struct SP1ProgramPaths {
     pub membership: String,
     /// The path to the update client and membership program.
     pub update_client_and_membership: String,
-    /// The path to the misbehavior program.
-    pub misbehavior: String,
+    /// The path to the misbehaviour program.
+    pub misbehaviour: String,
 }
 
 impl SP1ProgramPaths {
@@ -78,13 +78,13 @@ impl SP1ProgramPaths {
         let update_client = std::fs::read(&self.update_client)?;
         let membership = std::fs::read(&self.membership)?;
         let uc_and_membership = std::fs::read(&self.update_client_and_membership)?;
-        let misbehavior = std::fs::read(&self.misbehavior)?;
+        let misbehaviour = std::fs::read(&self.misbehaviour)?;
 
         Ok(SP1ICS07TendermintPrograms {
             update_client: UpdateClientProgram::new(update_client),
             membership: MembershipProgram::new(membership),
             update_client_and_membership: UpdateClientAndMembershipProgram::new(uc_and_membership),
-            misbehaviour: MisbehaviourProgram::new(misbehavior),
+            misbehaviour: MisbehaviourProgram::new(misbehaviour),
         })
     }
 }
