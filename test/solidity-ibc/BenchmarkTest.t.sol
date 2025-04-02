@@ -50,7 +50,7 @@ contract BenchmarkTest is FixtureTest {
         }
         console.log("Avg (", numPackets, "packets ) Send packet gas used: ", sendGasUsed / numPackets);
 
-        // Step 2: Cosmos has received the packet and commited an acknowledgement, which we will now prove and process
+        // Step 2: Cosmos has received the packet and committed an acknowledgement, which we will now prove and process
         (bool success,) = address(ics26Router).call(ackFixture.msg);
         console.log(
             "Avg (", numPackets, "packets ) Multicall ack gas used: ", vm.lastCallGas().gasTotalUsed / numPackets
@@ -63,7 +63,7 @@ contract BenchmarkTest is FixtureTest {
         bytes32 storedCommitment = ics26Router.getCommitment(path);
         assertEq(storedCommitment, 0);
 
-        // Step 3: Cosmos has sent the tokens back and commited a packet, which we will now prove and receive
+        // Step 3: Cosmos has sent the tokens back and committed a packet, which we will now prove and receive
         Fixture memory recvFixture = loadFixture(recvFix);
 
         (success,) = address(ics26Router).call(recvFixture.msg);

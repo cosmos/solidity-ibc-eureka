@@ -62,7 +62,7 @@ func main() {
 		panic(err)
 	}
 	if bootstrap.Data.Header.Execution.BlockNumber != executionHeight {
-		panic(fmt.Sprintf("creating client: expected exec height %d, to equal boostrap block number %d", executionHeight, bootstrap.Data.Header.Execution.BlockNumber))
+		panic(fmt.Sprintf("creating client: expected exec height %d, to equal bootstrap block number %d", executionHeight, bootstrap.Data.Header.Execution.BlockNumber))
 	}
 
 	latestSlot := bootstrap.Data.Header.Beacon.Slot

@@ -57,7 +57,7 @@ interface IICS02Client {
         returns (string memory);
 
     /// @notice Migrate the underlying client of the subject client to the substitute client.
-    /// @dev This is a privilaged operation, only the owner of ICS02Client can call this function.
+    /// @dev This is a privileged operation, only the owner of ICS02Client can call this function.
     /// @param subjectClientId The client identifier of the subject client
     /// @param substituteClientId The client identifier of the substitute client
     function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external;

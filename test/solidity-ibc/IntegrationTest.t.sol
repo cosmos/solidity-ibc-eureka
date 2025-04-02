@@ -739,7 +739,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         realIBCERC20.transfer(realIBCERC20.escrow(), defaultAmount);
         vm.stopPrank();
 
-        // Try to send out agian with the same denom, but using the attacker contract
+        // Try to send out again with the same denom, but using the attacker contract
         address sender = receiver;
 
         attackerContract.mintTo(sender, defaultAmount); // To make sure it has balance to send

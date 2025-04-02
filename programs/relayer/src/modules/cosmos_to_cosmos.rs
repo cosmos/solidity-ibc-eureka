@@ -22,7 +22,7 @@ pub struct CosmosToCosmosRelayerModule;
 /// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
 #[allow(dead_code)]
 struct CosmosToCosmosRelayerModuleService {
-    /// The souce chain listener for Cosmos SDK.
+    /// The source chain listener for Cosmos SDK.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
