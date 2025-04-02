@@ -11,8 +11,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
       - name: Install SP1 toolchain
         shell: bash
         run: |
@@ -21,6 +19,7 @@ jobs:
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
         uses: extractions/setup-just@v2
+
       - name: Build SP1 Programs
         shell: bash
         run: just build-sp1-programs
