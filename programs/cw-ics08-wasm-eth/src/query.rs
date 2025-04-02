@@ -71,7 +71,7 @@ pub fn verify_client_message(
 /// Checks for misbehaviour. Returning an error means no misbehaviour was found.
 ///
 /// Note that we are replicating some of the logic of `verify_client_message` here, ideally we
-/// would also check for misbehavior of the header in this function.
+/// would also check for misbehaviour of the header in this function.
 /// # Errors
 /// Returns an error if the misbehaviour cannot be verified
 #[allow(clippy::needless_pass_by_value)]
