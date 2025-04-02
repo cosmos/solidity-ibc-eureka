@@ -251,7 +251,9 @@ type InfoResponse struct {
 	// The target chain information
 	TargetChain *Chain `protobuf:"bytes,1,opt,name=target_chain,json=targetChain,proto3" json:"target_chain,omitempty"`
 	// The source chain information
-	SourceChain   *Chain `protobuf:"bytes,2,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`
+	SourceChain *Chain `protobuf:"bytes,2,opt,name=source_chain,json=sourceChain,proto3" json:"source_chain,omitempty"`
+	// Metadata for the module
+	Metadata      map[string]string `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -296,6 +298,13 @@ func (x *InfoResponse) GetTargetChain() *Chain {
 func (x *InfoResponse) GetSourceChain() *Chain {
 	if x != nil {
 		return x.SourceChain
+	}
+	return nil
+}
+
+func (x *InfoResponse) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -383,10 +392,14 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\"G\n" +
 	"\vInfoRequest\x12\x1b\n" +
 	"\tsrc_chain\x18\x01 \x01(\tR\bsrcChain\x12\x1b\n" +
-	"\tdst_chain\x18\x02 \x01(\tR\bdstChain\"t\n" +
+	"\tdst_chain\x18\x02 \x01(\tR\bdstChain\"\xf2\x01\n" +
 	"\fInfoResponse\x121\n" +
 	"\ftarget_chain\x18\x01 \x01(\v2\x0e.relayer.ChainR\vtargetChain\x121\n" +
-	"\fsource_chain\x18\x02 \x01(\v2\x0e.relayer.ChainR\vsourceChain\"f\n" +
+	"\fsource_chain\x18\x02 \x01(\v2\x0e.relayer.ChainR\vsourceChain\x12?\n" +
+	"\bmetadata\x18\x03 \x03(\v2#.relayer.InfoResponse.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"f\n" +
 	"\x05Chain\x12\x19\n" +
 	"\bchain_id\x18\x01 \x01(\tR\achainId\x12\x1f\n" +
 	"\vibc_version\x18\x02 \x01(\tR\n" +
@@ -409,26 +422,28 @@ func file_relayer_relayer_proto_rawDescGZIP() []byte {
 	return file_relayer_relayer_proto_rawDescData
 }
 
-var file_relayer_relayer_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_relayer_relayer_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_relayer_relayer_proto_goTypes = []any{
 	(*RelayByTxRequest)(nil),  // 0: relayer.RelayByTxRequest
 	(*RelayByTxResponse)(nil), // 1: relayer.RelayByTxResponse
 	(*InfoRequest)(nil),       // 2: relayer.InfoRequest
 	(*InfoResponse)(nil),      // 3: relayer.InfoResponse
 	(*Chain)(nil),             // 4: relayer.Chain
+	nil,                       // 5: relayer.InfoResponse.MetadataEntry
 }
 var file_relayer_relayer_proto_depIdxs = []int32{
 	4, // 0: relayer.InfoResponse.target_chain:type_name -> relayer.Chain
 	4, // 1: relayer.InfoResponse.source_chain:type_name -> relayer.Chain
-	0, // 2: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
-	2, // 3: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
-	1, // 4: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
-	3, // 5: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	5, // 2: relayer.InfoResponse.metadata:type_name -> relayer.InfoResponse.MetadataEntry
+	0, // 3: relayer.RelayerService.RelayByTx:input_type -> relayer.RelayByTxRequest
+	2, // 4: relayer.RelayerService.Info:input_type -> relayer.InfoRequest
+	1, // 5: relayer.RelayerService.RelayByTx:output_type -> relayer.RelayByTxResponse
+	3, // 6: relayer.RelayerService.Info:output_type -> relayer.InfoResponse
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_relayer_relayer_proto_init() }
@@ -442,7 +457,7 @@ func file_relayer_relayer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_relayer_relayer_proto_rawDesc), len(file_relayer_relayer_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

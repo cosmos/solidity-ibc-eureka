@@ -233,7 +233,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for Cosmos to Eth...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -253,6 +253,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
+            metadata: self.tx_builder.metadata(),
         }))
     }
 
@@ -261,7 +262,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for cosmos to eth...");
+        tracing::info!("Handling relay by tx request for Cosmos to Eth...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
@@ -287,7 +288,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
             "Fetched {} eureka events from CosmosSDK.",
             cosmos_events.len()

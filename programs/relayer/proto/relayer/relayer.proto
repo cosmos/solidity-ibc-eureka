@@ -61,6 +61,8 @@ message InfoResponse {
     Chain target_chain = 1;
     // The source chain information
     Chain source_chain = 2;
+    // Metadata for the module
+    map<string, string> metadata = 3;
 }
 
 // The chain definition

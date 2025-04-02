@@ -55,6 +55,10 @@ impl RelayerBuilder {
         tracing::info!(%socket_addr, "Starting relayer...");
         let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
 
+        let reflection_service = tonic_reflection::server::Builder::configure()
+            .register_encoded_file_descriptor_set(api::FILE_DESCRIPTOR_SET)
+            .build_v1()?; // Build the reflection service
+
         let mut relayer = Relayer::default();
         // Iterate through all configured modules
         for c in config.modules.into_iter().filter(|c| c.enabled) {
@@ -73,6 +77,7 @@ impl RelayerBuilder {
         tracing::info!("Started gRPC server on {}", socket_addr);
         Server::builder()
             .add_service(RelayerServiceServer::new(relayer))
+            .add_service(reflection_service)
             .serve(socket_addr)
             .await?;
 

@@ -1,7 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Ethereum chain from events received from the Cosmos SDK chain.
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use alloy::{primitives::Address, providers::Provider, sol_types::SolCall};
 use anyhow::Result;
@@ -15,7 +15,11 @@ use ibc_eureka_solidity_types::{
     sp1_ics07::sp1_ics07_tendermint,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use sp1_ics07_tendermint_prover::{programs::SP1ICS07TendermintPrograms, prover::Sp1Prover};
+use sp1_ics07_tendermint_prover::{
+    programs::{SP1ICS07TendermintPrograms, SP1Program},
+    prover::Sp1Prover,
+};
+use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
 
 use sp1_prover::components::SP1ProverComponents;
@@ -78,6 +82,31 @@ where
                 .await?
                 .into(),
         )
+    }
+
+    /// Get the metadata for the transaction builder.
+    pub fn metadata(&self) -> HashMap<String, String> {
+        HashMap::from([
+            (
+                "update_client_vkey".to_string(),
+                self.sp1_programs.update_client.get_vkey().bytes32(),
+            ),
+            (
+                "membership_vkey".to_string(),
+                self.sp1_programs.membership.get_vkey().bytes32(),
+            ),
+            (
+                "update_client_and_membership_vkey".to_string(),
+                self.sp1_programs
+                    .update_client_and_membership
+                    .get_vkey()
+                    .bytes32(),
+            ),
+            (
+                "misbehaviour_vkey".to_string(),
+                self.sp1_programs.misbehaviour.get_vkey().bytes32(),
+            ),
+        ])
     }
 }
 

@@ -5,6 +5,8 @@
 #[allow(clippy::nursery, clippy::pedantic)]
 pub mod api {
     tonic::include_proto!("relayer");
+    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
+        tonic::include_file_descriptor_set!("relayer_descriptor");
 }
 
 pub mod cli;
