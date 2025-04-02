@@ -2,7 +2,7 @@
 name: rust
 
 on:
-  workflow_dispath:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
