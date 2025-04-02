@@ -136,7 +136,7 @@ curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-n
 tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 
 # Tendermint-rs patch
-tendermint                       = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint", branch = "gjermund/fix-double-auth-header" }
-tendermint-rpc                   = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-rpc", branch = "gjermund/fix-double-auth-header" }
-tendermint-light-client-verifier = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-light-client-verifier", branch = "gjermund/fix-double-auth-header" }
-tendermint-proto                 = { git = "https://github.com/gjermundgaraba/tendermint-rs", package = "tendermint-proto", branch = "gjermund/fix-double-auth-header" }
+tendermint                       = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-rpc                   = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-rpc", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-light-client-verifier = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-light-client-verifier", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-proto                 = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-proto", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
