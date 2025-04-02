@@ -7,7 +7,7 @@ on:
 jobs:
   release-sp1-programs:
     runs-on: depot-ubuntu-22.04-4
-    if: startsWith(github.ref, 'refs/tags/sp1-programs-')
+    if: startsWith(github.ref_name, 'sp1-programs-')
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust
