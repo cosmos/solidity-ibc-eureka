@@ -103,7 +103,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Handling info request for eth to cosmos...");
+        tracing::info!("Handling info request for Eth to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -123,7 +123,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router_address().to_string(),
             }),
-            metadata: self.tx_builder.metadata(),
+            metadata: HashMap::default(),
         }))
     }
 
@@ -132,7 +132,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for eth to cosmos...");
+        tracing::info!("Handling relay by tx request for Eth to Cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
@@ -167,7 +167,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
             "Fetched {} eureka events from CosmosSDK.",
             cosmos_events.len()
@@ -215,13 +215,6 @@ impl RelayerModule for EthToCosmosRelayerModule {
 }
 
 impl EthToCosmosTxBuilder {
-    fn metadata(&self) -> HashMap<String, String> {
-        match self {
-            Self::Real(tb) => tb.metadata(),
-            Self::Mock(tb) => tb.metadata(),
-        }
-    }
-
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,

@@ -1,5 +1,7 @@
 //! Defines Cosmos to Cosmos relayer module.
 
+use std::collections::HashMap;
+
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
     tx_builder::{cosmos_to_cosmos, TxBuilderService},
@@ -68,7 +70,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Handling info request for cosmos to cosmos...");
+        tracing::info!("Handling info request for Cosmos to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -88,7 +90,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
-            metadata: self.tx_builder.metadata(),
+            metadata: HashMap::default(),
         }))
     }
 
@@ -97,7 +99,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for cosmos to cosmos...");
+        tracing::info!("Handling relay by tx request for Cosmos to Cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());

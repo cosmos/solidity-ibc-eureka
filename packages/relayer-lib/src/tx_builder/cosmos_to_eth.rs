@@ -15,7 +15,11 @@ use ibc_eureka_solidity_types::{
     sp1_ics07::sp1_ics07_tendermint,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use sp1_ics07_tendermint_prover::{programs::SP1ICS07TendermintPrograms, prover::Sp1Prover};
+use sp1_ics07_tendermint_prover::{
+    programs::{SP1ICS07TendermintPrograms, SP1Program},
+    prover::Sp1Prover,
+};
+use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
 
 use sp1_prover::components::SP1ProverComponents;
@@ -79,6 +83,31 @@ where
                 .into(),
         )
     }
+
+    /// Get the metadata for the transaction builder.
+    pub fn metadata(&self) -> HashMap<String, String> {
+        HashMap::from([
+            (
+                "update_client_vkey".to_string(),
+                self.sp1_programs.update_client.get_vkey().bytes32(),
+            ),
+            (
+                "membership_vkey".to_string(),
+                self.sp1_programs.membership.get_vkey().bytes32(),
+            ),
+            (
+                "update_client_and_membership_vkey".to_string(),
+                self.sp1_programs
+                    .update_client_and_membership
+                    .get_vkey()
+                    .bytes32(),
+            ),
+            (
+                "misbehaviour_vkey".to_string(),
+                self.sp1_programs.misbehaviour.get_vkey().bytes32(),
+            ),
+        ])
+    }
 }
 
 #[async_trait::async_trait]
@@ -87,10 +116,6 @@ where
     P: Provider + Clone,
     C: SP1ProverComponents,
 {
-    fn metadata(&self) -> HashMap<String, String> {
-        HashMap::default()
-    }
-
     #[tracing::instrument(skip_all)]
     async fn relay_events(
         &self,

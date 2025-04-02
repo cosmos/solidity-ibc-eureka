@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::chain::Chain;
 
 use anyhow::Result;
@@ -32,7 +30,4 @@ pub trait TxBuilderService<A: Chain, B: Chain> {
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>>;
-
-    /// Return metadata about the transaction builder.
-    fn metadata(&self) -> HashMap<String, String>;
 }
