@@ -15,7 +15,7 @@ use ibc_eureka_solidity_types::{
     sp1_ics07::sp1_ics07_tendermint,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use sp1_ics07_tendermint_prover::prover::Sp1Prover;
+use sp1_ics07_tendermint_prover::{programs::SP1ICS07TendermintPrograms, prover::Sp1Prover};
 use tendermint_rpc::HttpClient;
 
 use sp1_prover::components::SP1ProverComponents;
@@ -41,6 +41,8 @@ where
     pub tm_client: HttpClient,
     /// SP1 prover for generating proofs.
     pub sp1_prover: Sp1Prover<C>,
+    /// The SP1 programs for ICS07 Tendermint.
+    pub sp1_programs: SP1ICS07TendermintPrograms,
 }
 
 impl<P, C> TxBuilder<P, C>
@@ -54,11 +56,13 @@ where
         provider: P,
         tm_client: HttpClient,
         sp1_prover: impl Into<Sp1Prover<C>>,
+        sp1_programs: SP1ICS07TendermintPrograms,
     ) -> Self {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
             sp1_prover: sp1_prover.into(),
+            sp1_programs,
         }
     }
 
@@ -137,6 +141,7 @@ where
 
         inject_sp1_proof(
             &self.sp1_prover,
+            &self.sp1_programs.update_client_and_membership,
             &mut all_msgs,
             &self.tm_client,
             latest_light_block,
