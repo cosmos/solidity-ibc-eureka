@@ -12,6 +12,7 @@ on:
       - '**.lock'
       - '**.proto'
       - 'abi/**'
+      - '.github/workflows/rust.yml'
 
 jobs:
   lints:
