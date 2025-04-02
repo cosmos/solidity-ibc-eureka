@@ -40,12 +40,16 @@ pub struct SP1ICS07TendermintGenesis {
 impl SP1ICS07TendermintGenesis {
     /// Creates a new genesis instance by reading the environment variables
     /// and making the necessary RPC calls.
-    #[allow(clippy::missing_errors_doc)]
+    #[allow(clippy::missing_errors_doc, clippy::too_many_arguments)]
     pub async fn from_env(
         trusted_light_block: &LightBlock,
         trusting_period: Option<u32>,
         trust_level: TrustThreshold,
         proof_type: SupportedZkAlgorithm,
+        update_client: &UpdateClientProgram,
+        membership: &MembershipProgram,
+        uc_and_membership: &UpdateClientAndMembershipProgram,
+        misbehaviour: &MisbehaviourProgram,
     ) -> anyhow::Result<Self> {
         setup_logger();
         if dotenv::dotenv().is_err() {
@@ -81,10 +85,10 @@ impl SP1ICS07TendermintGenesis {
         Ok(Self {
             trusted_consensus_state: SolConsensusState::from(trusted_consensus_state).abi_encode(),
             trusted_client_state: trusted_client_state.abi_encode(),
-            update_client_vkey: UpdateClientProgram::get_vkey().bytes32(),
-            membership_vkey: MembershipProgram::get_vkey().bytes32(),
-            uc_and_membership_vkey: UpdateClientAndMembershipProgram::get_vkey().bytes32(),
-            misbehaviour_vkey: MisbehaviourProgram::get_vkey().bytes32(),
+            update_client_vkey: update_client.get_vkey().bytes32(),
+            membership_vkey: membership.get_vkey().bytes32(),
+            uc_and_membership_vkey: uc_and_membership.get_vkey().bytes32(),
+            misbehaviour_vkey: misbehaviour.get_vkey().bytes32(),
         })
     }
 }
@@ -102,11 +106,24 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         );
     }
 
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+
     let genesis = SP1ICS07TendermintGenesis::from_env(
         &trusted_light_block,
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
 

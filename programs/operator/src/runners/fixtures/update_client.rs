@@ -13,7 +13,10 @@ use ibc_eureka_solidity_types::msgs::{
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientProgram,
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_sdk::{HashableKey, ProverClient};
@@ -53,8 +56,17 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
         Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
 
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+
     let uc_prover =
-        SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(args.sp1.proof_type, &sp1_prover);
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &update_client_program);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.trusted_block))
@@ -68,6 +80,10 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
 

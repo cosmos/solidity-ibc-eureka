@@ -6578,6 +6578,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "sp1-ics07-tendermint-prover",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -6748,15 +6749,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-helper"
-version = "4.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1497b740424cfc7601951f67142edcc3ec1c4f73b63f60658e8871689448c60e"
-dependencies = [
- "sp1-build",
-]
-
-[[package]]
 name = "sp1-ics07-tendermint-membership"
 version = "0.1.0"
 dependencies = [
@@ -6820,7 +6812,6 @@ dependencies = [
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
- "sp1-helper",
  "sp1-prover",
  "sp1-sdk",
  "tracing",
