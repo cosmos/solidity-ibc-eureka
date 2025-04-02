@@ -2,7 +2,6 @@
 name: rust
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -12,7 +11,6 @@ on:
       - '**.lock'
       - '**.proto'
       - 'abi/**'
-      - '.github/workflows/rust.yml'
 
 jobs:
   lints:
@@ -75,35 +73,6 @@ jobs:
         with:
           command: build
           args: --bin operator --release --locked
-
-  build-sp1-programs:
-    name: build-sp1-programs
-    runs-on: depot-ubuntu-22.04-4
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up environment
-        uses: ./.github/actions/foundry-setup
-      - name: Build SP1 programs
-      - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
-      - name: Install just
-        uses: extractions/setup-just@v2
-      - name: Build SP1 Programs
-        shell: bash
-        run: just build-sp1-programs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sp1-programs
-          path: |
-            target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client
-            target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership
-            target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership
-            target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour
 
   build-08-wasm-eth:
     name: build-08-wasm-eth
