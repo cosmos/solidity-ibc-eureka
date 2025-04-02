@@ -133,3 +133,9 @@ ed25519-consensus   = { git = "https://github.com/sp1-patches/ed25519-consensus"
 ecdsa               = { git = "https://github.com/sp1-patches/signatures", branch = "patch-ecdsa-v0.16.9" }
 curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", branch = "patch-v4.1.1" }
 tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+
+# Tendermint-rs patch
+tendermint                       = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-rpc                   = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-rpc", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-light-client-verifier = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-light-client-verifier", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
+tendermint-proto                 = { git = "https://github.com/informalsystems/tendermint-rs", package = "tendermint-proto", rev = "261f8a4d50be7a53edcf4690b4c57796a8021bbd" }
