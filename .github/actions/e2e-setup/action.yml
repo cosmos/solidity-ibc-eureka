@@ -51,8 +51,10 @@ runs:
         args: --bin relayer --path programs/relayer --locked
 
     - name: Install just
+      if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
     - name: Build SP1 Programs
+      if: (steps.cache-relayer.outputs.cache-hit != 'true')
       shell: bash
       run: just build-sp1-programs
 
