@@ -470,7 +470,11 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+        if parameters.is_some() {
+            anyhow::bail!("Parameters are not supported for create client");
+        }
+
         todo!();
     }
 }
