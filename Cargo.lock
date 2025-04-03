@@ -3741,6 +3741,7 @@ dependencies = [
  "ibc-eureka-solidity-types",
  "ibc-eureka-utils",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "ics23",
  "prost",
  "serde",
  "serde_json",

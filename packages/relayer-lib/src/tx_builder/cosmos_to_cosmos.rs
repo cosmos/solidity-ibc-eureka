@@ -1,14 +1,17 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
+use std::str::FromStr;
+
 use anyhow::Result;
+use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
-    google::protobuf::Any,
+    google::protobuf::{Any, Duration},
     ibc::{
-        core::client::v1::{Height, MsgUpdateClient},
-        lightclients::tendermint::v1::ClientState,
+        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        lightclients::tendermint::v1::{ClientState, Fraction},
     },
 };
 use prost::Message;
@@ -152,7 +155,58 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
-        todo!();
+    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+        if parameters.is_some() {
+            anyhow::bail!("Parameters are not supported for creating an 07-tendermint client");
+        }
+
+        let latest_light_block = self.source_tm_client.get_light_block(None).await?;
+
+        let chain_id =
+            ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
+        let height = Height {
+            revision_number: chain_id.revision_number(),
+            revision_height: latest_light_block.height().value(),
+        };
+        let default_trust_level = Fraction {
+            numerator: 1,
+            denominator: 3,
+        };
+        let default_max_clock_drift = Duration {
+            seconds: 15,
+            nanos: 0,
+        };
+        let unbonding_period = self
+            .source_tm_client
+            .sdk_staking_params()
+            .await?
+            .unbonding_time
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+        // Defaults to the recommended 2/3 of the UnbondingPeriod
+        let trusting_period = Duration {
+            seconds: 2 * (unbonding_period.seconds / 3),
+            ..Default::default()
+        };
+
+        let client_state = ClientState {
+            chain_id: chain_id.to_string(),
+            trust_level: Some(default_trust_level),
+            trusting_period: Some(trusting_period),
+            unbonding_period: Some(unbonding_period),
+            max_clock_drift: Some(default_max_clock_drift),
+            latest_height: Some(height),
+            proof_specs: vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+            upgrade_path: vec!["upgrade".to_string(), "upgradedIBCState".to_string()],
+            ..Default::default()
+        };
+
+        let consensus_state = latest_light_block.to_consensus_state();
+
+        Ok(MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(consensus_state.into()),
+            signer: self.signer_address.clone(),
+        }
+        .encode_to_vec())
     }
 }
