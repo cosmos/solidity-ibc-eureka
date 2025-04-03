@@ -30,4 +30,13 @@ pub trait TxBuilderService<A: Chain, B: Chain> {
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>>;
+
+    /// Create a transaction to chain A that creates a light client of chain B.
+    ///
+    /// # Arguments
+    /// - `parameters` - The optional parameters for the light client creation.
+    ///
+    /// # Returns
+    /// The relay transaction bytes.
+    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>>;
 }

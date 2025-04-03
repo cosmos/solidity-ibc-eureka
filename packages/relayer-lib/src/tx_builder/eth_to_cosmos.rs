@@ -468,6 +468,11 @@ where
 
         Ok(tx_body.encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+        todo!();
+    }
 }
 
 impl<P: Provider + Clone> MockTxBuilder<P> {
@@ -549,5 +554,10 @@ where
             ..Default::default()
         };
         Ok(tx_body.encode_to_vec())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+        todo!();
     }
 }

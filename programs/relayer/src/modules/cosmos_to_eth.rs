@@ -314,7 +314,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                 inner_req.dst_packet_sequences,
             )
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
@@ -327,9 +327,23 @@ impl RelayerService for CosmosToEthRelayerModuleService {
     #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
-        _request: Request<api::CreateClientRequest>,
+        request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        todo!();
+        tracing::info!("Handling create client request for Cosmos to Eth...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(inner_req.parameters.as_deref())
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
+            tx,
+            address: self.tx_builder.ics26_router.address().to_string(),
+        }))
     }
 }
 

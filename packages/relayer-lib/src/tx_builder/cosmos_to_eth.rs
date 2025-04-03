@@ -192,4 +192,9 @@ where
 
         Ok(multicall_tx.abi_encode())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+        todo!();
+    }
 }
