@@ -14,7 +14,7 @@ fi
 
 # Loop through each version provided
 for version in $SP1_PROGRAM_VERSIONS; do
-  target_dir="/usr/local/relayer/sp1-programs/$version"
+  target_dir="/usr/local/bin/sp1-programs/$version"
   mkdir -p "$target_dir"
 
   # Download each program for the current version

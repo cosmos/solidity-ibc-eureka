@@ -23,4 +23,4 @@ COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/rel
 COPY --from=build /solidity-ibc-eureka/target/release/operator /usr/local/bin/operator
 COPY --from=build /docker_entrypoint.sh /docker_entrypoint.sh
 
-ENTRYPOINT ["sh", "/docker_entrypoint.sh", "start", "--config", "/config/config.toml"]
+ENTRYPOINT ["sh", "/docker_entrypoint.sh", "start", "--config", "/usr/local/relayer/relayer.json"]
