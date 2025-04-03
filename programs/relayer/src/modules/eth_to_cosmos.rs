@@ -193,6 +193,14 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        _request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        todo!();
+    }
 }
 
 #[tonic::async_trait]

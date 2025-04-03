@@ -323,6 +323,14 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             address: self.tx_builder.ics26_router.address().to_string(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        _request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        todo!();
+    }
 }
 
 #[tonic::async_trait]
