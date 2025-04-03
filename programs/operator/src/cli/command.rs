@@ -1,9 +1,8 @@
 //! Contains the command line interface for the application.
 
-use std::convert::Infallible;
-
 use clap::{command, Parser};
 use sp1_ics07_tendermint_prover::prover::SupportedZkAlgorithm;
+use std::{convert::Infallible, str::FromStr};
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 /// The command line interface for the operator.
@@ -320,9 +319,5 @@ fn parse_trust_threshold(input: &str) -> anyhow::Result<TrustThreshold> {
 }
 
 fn parse_proof_type(input: &str) -> anyhow::Result<SupportedZkAlgorithm> {
-    match input {
-        "groth16" => Ok(SupportedZkAlgorithm::Groth16),
-        "plonk" => Ok(SupportedZkAlgorithm::Plonk),
-        _ => Err(anyhow::anyhow!("invalid proof type")),
-    }
+    Ok(SupportedZkAlgorithm::from_str(input)?)
 }

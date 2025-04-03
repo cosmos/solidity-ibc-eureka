@@ -15,6 +15,7 @@ serde           = { workspace = true }
 hex             = { workspace = true, optional = true }
 time            = { workspace = true }
 sha2            = { workspace = true }
+thiserror       = { workspace = true }
 
 ibc-proto-eureka                 = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }

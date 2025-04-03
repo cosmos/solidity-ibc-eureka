@@ -120,8 +120,11 @@ pub struct CreateClientParams {
     /// The address of the SP1 verifier contract.
     pub sp1_verifier: Address,
     /// The zk algorithm to use.
-    /// This is optional and defaults to "groth16".
-    pub zk_algorithm: Option<String>,
+    #[serde(default = "default_zk_algorithm")]
+    pub zk_algorithm: String,
+}
+fn default_zk_algorithm() -> String {
+    "groth16".to_string()
 }
 
 #[async_trait::async_trait]
@@ -217,16 +220,7 @@ where
         let latest_light_block = self.tm_client.get_light_block(None).await?;
 
         let sp1_verifier = params.sp1_verifier;
-        let zk_algorithm = if let Some(alg) = params.zk_algorithm {
-            match alg.as_str() {
-                "groth16" => SupportedZkAlgorithm::Groth16,
-                "plonk" => SupportedZkAlgorithm::Plonk,
-                _ => anyhow::bail!("Unsupported zk algorithm: {alg}"),
-            }
-        } else {
-            SupportedZkAlgorithm::Groth16
-        };
-
+        let zk_algorithm = SupportedZkAlgorithm::from_str(&params.zk_algorithm)?;
         let default_trust_threshold = TrustThreshold {
             numerator: 1,
             denominator: 3,

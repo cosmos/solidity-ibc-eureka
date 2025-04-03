@@ -2,6 +2,10 @@
 //! In case some message types are not found in the `ics26` module nor the `sp1_ics07` module,
 //! they are defined here.
 
+use std::str::FromStr;
+
+use crate::FromStrError;
+
 use super::sp1_ics07;
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState;
@@ -170,6 +174,18 @@ impl From<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
         Self {
             revisionNumber: height.revision_number(),
             revisionHeight: height.revision_height(),
+        }
+    }
+}
+
+impl FromStr for IICS07TendermintMsgs::SupportedZkAlgorithm {
+    type Err = FromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "groth16" => Ok(Self::Groth16),
+            "plonk" => Ok(Self::Plonk),
+            _ => Err(FromStrError::UnsupportedZkAlgorithm(s.to_string())),
         }
     }
 }

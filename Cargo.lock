@@ -3769,6 +3769,7 @@ dependencies = [
  "sha2 0.10.8",
  "tendermint",
  "tendermint-light-client-verifier",
+ "thiserror 2.0.12",
  "time",
 ]
 
