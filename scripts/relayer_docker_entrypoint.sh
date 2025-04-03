@@ -23,4 +23,4 @@ for version in $SP1_PROGRAM_VERSIONS; do
   done
 done
 
-/usr/local/bin/relayer start --config /usr/local/relayer/relayer.json
+/usr/local/bin/relayer $@
