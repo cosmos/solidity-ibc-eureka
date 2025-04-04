@@ -157,7 +157,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     #[tracing::instrument(skip_all)]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         if !parameters.is_empty() {
-            anyhow::bail!("Parameters are not supported for creating an 07-tendermint client");
+            anyhow::bail!("Parameters are not supported for creating an `07-tendermint` client");
         }
 
         let latest_light_block = self.source_tm_client.get_light_block(None).await?;
