@@ -56,7 +56,7 @@ message CreateClientRequest {
     // The target chain identifier
     string dst_chain = 2;
     // Optional genesis parameters
-    optional bytes parameters = 3;
+    map<string, string> parameters = 3;
 }
 
 // The create client response message
