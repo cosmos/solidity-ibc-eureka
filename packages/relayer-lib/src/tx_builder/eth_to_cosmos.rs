@@ -1,9 +1,10 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Ethereum.
 
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use alloy::{
+    hex,
     primitives::{Address, U256},
     providers::Provider,
 };
@@ -479,10 +480,15 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>> {
-        if parameters.is_some() {
-            anyhow::bail!("Parameters are not supported for create client");
-        }
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != "checksum_hex")
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `checksum_hex` is allowed"
+                ))
+            })?;
 
         let genesis = self.beacon_api_client.genesis().await?.data;
         let spec = self.beacon_api_client.spec().await?.data;
@@ -524,7 +530,11 @@ where
 
         let _client_state = WasmClientState {
             data: serde_json::to_vec(&eth_client_state)?,
-            checksum: vec![],
+            checksum: hex::decode(
+                parameters
+                    .get("checksum_hex")
+                    .ok_or_else(|| anyhow::anyhow!("Missing `checksum_hex` parameter"))?,
+            )?,
             latest_height: Some(Height {
                 revision_number: 0,
                 revision_height: bootstrap.header.beacon.slot,
@@ -617,7 +627,7 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, _parameters: Option<&[u8]>) -> Result<Vec<u8>> {
+    async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         todo!();
     }
 }

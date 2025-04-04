@@ -1,7 +1,7 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from another Cosmos SDK chain.
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
@@ -155,8 +155,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>> {
-        if parameters.is_some() {
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        if !parameters.is_empty() {
             anyhow::bail!("Parameters are not supported for creating an 07-tendermint client");
         }
 

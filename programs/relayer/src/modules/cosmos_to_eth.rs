@@ -334,7 +334,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
-            .create_client(inner_req.parameters.as_deref())
+            .create_client(&inner_req.parameters)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 

@@ -114,19 +114,6 @@ where
     }
 }
 
-/// Parameters for creating a client.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct CreateClientParams {
-    /// The address of the SP1 verifier contract.
-    pub sp1_verifier: Address,
-    /// The zk algorithm to use.
-    #[serde(default = "default_zk_algorithm")]
-    pub zk_algorithm: String,
-}
-fn default_zk_algorithm() -> String {
-    "groth16".to_string()
-}
-
 #[async_trait::async_trait]
 impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
 where
@@ -211,16 +198,27 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, parameters: Option<&[u8]>) -> Result<Vec<u8>> {
-        let params =
-            serde_json::from_slice::<CreateClientParams>(parameters.ok_or_else(|| {
-                anyhow::anyhow!("Expected parameters of type '{{\"sp1_verifier\": \"0x1234...\"}}'")
-            })?)?;
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        // Check if parameters only include correct keys
+        parameters
+            .keys()
+            .find(|k| !["sp1_verifier", "zk_algorithm"].contains(&k.as_str()))
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `sp1_verifier` and `zk_algorithm` are allowed"))
+            })?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
 
-        let sp1_verifier = params.sp1_verifier;
-        let zk_algorithm = SupportedZkAlgorithm::from_str(&params.zk_algorithm)?;
+        let sp1_verifier = Address::from_str(
+            parameters
+                .get("sp1_verifier")
+                .ok_or_else(|| anyhow::anyhow!("Missing `sp1_verifier` parameter"))?,
+        )?;
+        let zk_algorithm = parameters
+            .get("zk_algorithm")
+            .map_or(Ok(SupportedZkAlgorithm::Groth16), |z| {
+                SupportedZkAlgorithm::from_str(z.as_str())
+            })?;
         let default_trust_threshold = TrustThreshold {
             numerator: 1,
             denominator: 3,
