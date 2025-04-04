@@ -310,6 +310,9 @@ where
     }
 }
 
+/// The key for the checksum hex in the parameters map.
+const CHECKSUM_HEX: &str = "checksum_hex";
+
 #[async_trait::async_trait]
 impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
@@ -483,10 +486,10 @@ where
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         parameters
             .keys()
-            .find(|k| k.as_str() != "checksum_hex")
+            .find(|k| k.as_str() != CHECKSUM_HEX)
             .map_or(Ok(()), |param| {
                 Err(anyhow::anyhow!(
-                    "Unexpected parameter: `{param}`, only `checksum_hex` is allowed"
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
                 ))
             })?;
 
@@ -532,8 +535,8 @@ where
             data: serde_json::to_vec(&eth_client_state)?,
             checksum: hex::decode(
                 parameters
-                    .get("checksum_hex")
-                    .ok_or_else(|| anyhow::anyhow!("Missing `checksum_hex` parameter"))?,
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
             )?,
             latest_height: Some(Height {
                 revision_number: 0,

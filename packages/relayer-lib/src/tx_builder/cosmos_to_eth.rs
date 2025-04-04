@@ -114,6 +114,11 @@ where
     }
 }
 
+/// The key for the SP1 verifier in the parameters map.
+const SP1_VERIFIER: &str = "sp1_verifier";
+/// The key for the zk algorithm in the parameters map.
+const ZK_ALGORITHM: &str = "zk_algorithm";
+
 #[async_trait::async_trait]
 impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
 where
@@ -202,20 +207,20 @@ where
         // Check if parameters only include correct keys
         parameters
             .keys()
-            .find(|k| !["sp1_verifier", "zk_algorithm"].contains(&k.as_str()))
+            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM].contains(&k.as_str()))
             .map_or(Ok(()), |param| {
-                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `sp1_verifier` and `zk_algorithm` are allowed"))
+                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}` and `{ZK_ALGORITHM}` are allowed"))
             })?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
 
         let sp1_verifier = Address::from_str(
             parameters
-                .get("sp1_verifier")
-                .ok_or_else(|| anyhow::anyhow!("Missing `sp1_verifier` parameter"))?,
+                .get(SP1_VERIFIER)
+                .ok_or_else(|| anyhow::anyhow!("Missing `{SP1_VERIFIER}` parameter"))?,
         )?;
         let zk_algorithm = parameters
-            .get("zk_algorithm")
+            .get(ZK_ALGORITHM)
             .map_or(Ok(SupportedZkAlgorithm::Groth16), |z| {
                 SupportedZkAlgorithm::from_str(z.as_str())
             })?;
