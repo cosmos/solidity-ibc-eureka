@@ -12,6 +12,7 @@ use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::{
     client_state::ClientState,
+    consensus_state::ConsensusState,
     header::{AccountUpdate, ActiveSyncCommittee, Header},
 };
 use ethereum_types::{
@@ -27,8 +28,10 @@ use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
     google::protobuf::Any,
     ibc::{
-        core::client::v1::{Height, MsgUpdateClient},
-        lightclients::wasm::v1::{ClientMessage, ClientState as WasmClientState},
+        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        lightclients::wasm::v1::{
+            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
     },
 };
 use prost::Message;
@@ -530,8 +533,7 @@ where
             ibc_contract_address: *self.ics26_router.address(),
             latest_execution_block_number: bootstrap.header.execution.block_number,
         };
-
-        let _client_state = WasmClientState {
+        let client_state = WasmClientState {
             data: serde_json::to_vec(&eth_client_state)?,
             checksum: hex::decode(
                 parameters
@@ -540,11 +542,51 @@ where
             )?,
             latest_height: Some(Height {
                 revision_number: 0,
-                revision_height: bootstrap.header.beacon.slot,
+                revision_height: eth_client_state.latest_slot,
             }),
         };
 
-        todo!();
+        let contract_proof = self
+            .eth_client
+            .get_proof(
+                &self.ics26_router.address().to_string(),
+                vec![hex::encode(ICS26_IBC_STORAGE_SLOT_HEX)],
+                hex::encode(eth_client_state.latest_execution_block_number.to_be_bytes()),
+            )
+            .await?;
+
+        let latest_period =
+            eth_client_state.compute_sync_committee_period_at_slot(eth_client_state.latest_slot);
+        let next_sync_committee = self
+            .beacon_api_client
+            .light_client_updates(latest_period, 1)
+            .await?
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("No light client updates found for the latest period"))?
+            .data
+            .next_sync_committee
+            .ok_or_else(|| {
+                anyhow::anyhow!("No next sync committee found in the light client update")
+            })?;
+
+        let eth_consensus_state = ConsensusState {
+            slot: eth_client_state.latest_slot,
+            state_root: bootstrap.header.execution.state_root,
+            storage_root: contract_proof.storage_hash,
+            timestamp: bootstrap.header.execution.timestamp,
+            current_sync_committee: bootstrap.current_sync_committee.aggregate_pubkey,
+            next_sync_committee: Some(next_sync_committee.aggregate_pubkey),
+        };
+        let consensus_state = WasmConsensusState {
+            data: serde_json::to_vec(&eth_consensus_state)?,
+        };
+
+        Ok(MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        }
+        .encode_to_vec())
     }
 }
 
