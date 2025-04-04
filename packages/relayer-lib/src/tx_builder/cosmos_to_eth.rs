@@ -271,6 +271,7 @@ where
             consensus_state_hash,
             *self.ics26_router.address(),
         )
-        .build_unsigned_raw_transaction()?)
+        .calldata()
+        .to_vec())
     }
 }
