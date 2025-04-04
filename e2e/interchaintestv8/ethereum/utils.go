@@ -23,10 +23,15 @@ type ForgeDeployOutput struct {
 }
 
 type DeployedContracts struct {
-	Ics07Tendermint string `json:"ics07Tendermint"`
-	Ics26Router     string `json:"ics26Router"`
-	Ics20Transfer   string `json:"ics20Transfer"`
-	Erc20           string `json:"erc20"`
+	// SP1Verifier for plonk
+	VerifierPlonk string `json:"verifierPlonk"`
+	// SP1Verifier for groth16
+	VerifierGroth16 string `json:"verifierGroth16"`
+	// Mock SP1 verifier
+	VerifierMock  string `json:"verifierMock"`
+	Ics26Router   string `json:"ics26Router"`
+	Ics20Transfer string `json:"ics20Transfer"`
+	Erc20         string `json:"erc20"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
@@ -49,8 +54,10 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	}
 
 	if embeddedContracts.Erc20 == "" ||
-		embeddedContracts.Ics07Tendermint == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
+		embeddedContracts.VerifierPlonk == "" ||
+		embeddedContracts.VerifierGroth16 == "" ||
+		embeddedContracts.VerifierMock == "" ||
 		embeddedContracts.Ics26Router == "" {
 
 		return DeployedContracts{}, fmt.Errorf("one or more contracts missing: %+v", embeddedContracts)
