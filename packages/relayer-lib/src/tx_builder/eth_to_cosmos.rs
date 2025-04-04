@@ -3,33 +3,42 @@
 
 use std::time::Duration;
 
-use alloy::{primitives::Address, providers::Provider};
+use alloy::{
+    primitives::{Address, U256},
+    providers::Provider,
+};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
-use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee};
-use ethereum_light_client::{client_state::ClientState, header::Header};
-use ethereum_types::consensus::light_client_header::{
-    LightClientFinalityUpdate, LightClientUpdate,
+use ethereum_light_client::{
+    client_state::ClientState,
+    header::{AccountUpdate, ActiveSyncCommittee, Header},
 };
-use ethereum_types::consensus::sync_committee::SyncCommittee;
-use ethereum_types::execution::account_proof::AccountProof;
-use ibc_eureka_solidity_types::ics26::router::routerInstance;
+use ethereum_types::{
+    consensus::{
+        light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
+        sync_committee::SyncCommittee,
+    },
+    execution::account_proof::AccountProof,
+};
+use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT_HEX};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
-use ibc_proto_eureka::google::protobuf::Any;
-use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
-use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
-use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState as WasmClientState;
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{
+        core::client::v1::{Height, MsgUpdateClient},
+        lightclients::wasm::v1::{ClientMessage, ClientState as WasmClientState},
+    },
+};
 use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::utils::{cosmos, wait_for_condition};
+use super::r#trait::TxBuilderService;
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
+    utils::{cosmos, wait_for_condition},
 };
-
-use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
 pub struct TxBuilder<P>
@@ -474,6 +483,53 @@ where
         if parameters.is_some() {
             anyhow::bail!("Parameters are not supported for create client");
         }
+
+        let genesis = self.beacon_api_client.genesis().await?.data;
+        let spec = self.beacon_api_client.spec().await?.data;
+        let beacon_block = self.beacon_api_client.beacon_block("finalized").await?;
+        let block_root = self
+            .beacon_api_client
+            .beacon_block_root(&format!("{}", beacon_block.message.slot))
+            .await?;
+        let bootstrap = self
+            .beacon_api_client
+            .light_client_bootstrap(&block_root)
+            .await?
+            .data;
+
+        if bootstrap.header.execution.block_number
+            != beacon_block.message.body.execution_payload.block_number
+        {
+            anyhow::bail!(
+                "Light client bootstrap block number does not match execution block number"
+            );
+        }
+
+        let eth_client_state = ClientState {
+            chain_id: self.ics26_router.provider().get_chain_id().await?,
+            genesis_validators_root: genesis.genesis_validators_root,
+            min_sync_committee_participants: 1,
+            genesis_time: genesis.genesis_time,
+            genesis_slot: spec.genesis_slot,
+            fork_parameters: spec.to_fork_parameters(),
+            seconds_per_slot: spec.seconds_per_slot,
+            slots_per_epoch: spec.slots_per_epoch,
+            epochs_per_sync_committee_period: spec.epochs_per_sync_committee_period,
+            latest_slot: bootstrap.header.beacon.slot,
+            is_frozen: false,
+            ibc_commitment_slot: U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT_HEX),
+            ibc_contract_address: *self.ics26_router.address(),
+            latest_execution_block_number: bootstrap.header.execution.block_number,
+        };
+
+        let _client_state = WasmClientState {
+            data: serde_json::to_vec(&eth_client_state)?,
+            checksum: vec![],
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: bootstrap.header.beacon.slot,
+            }),
+        };
 
         todo!();
     }

@@ -3759,6 +3759,7 @@ name = "ibc-eureka-solidity-types"
 version = "0.1.0"
 dependencies = [
  "alloy-contract",
+ "alloy-primitives",
  "alloy-sol-types",
  "hex",
  "ibc-client-tendermint-types",
