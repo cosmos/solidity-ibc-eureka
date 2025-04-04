@@ -672,7 +672,37 @@ where
     }
 
     #[tracing::instrument(skip_all)]
-    async fn create_client(&self, _parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        todo!();
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != CHECKSUM_HEX)
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+                ))
+            })?;
+
+        let client_state = WasmClientState {
+            data: b"test".to_vec(),
+            checksum: hex::decode(
+                parameters
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+            )?,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: 1,
+            }),
+        };
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+
+        Ok(MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        }
+        .encode_to_vec())
     }
 }
