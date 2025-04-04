@@ -185,7 +185,7 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         // Defaults to the recommended 2/3 of the UnbondingPeriod
         let trusting_period = Duration {
             seconds: 2 * (unbonding_period.seconds / 3),
-            ..Default::default()
+            nanos: 0,
         };
 
         let client_state = ClientState {
