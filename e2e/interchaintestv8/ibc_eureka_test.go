@@ -233,8 +233,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-				SrcChain: eth.ChainID.String(),
-				DstChain: simd.Config().ChainID,
+				SrcChain: simd.Config().ChainID,
+				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
 					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
