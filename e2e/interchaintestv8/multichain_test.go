@@ -60,7 +60,8 @@ type MultichainTestSuite struct {
 	deployer *ecdsa.PrivateKey
 
 	contractAddresses     ethereum.DeployedContracts
-	chainBSP1Ics07Address string
+	chainAsp1Ics07Address ethcommon.Address
+	chainBsp1Ics07Address ethcommon.Address
 
 	chainASP1Ics07Contract *sp1ics07tendermint.Contract
 	chainBSP1Ics07Contract *sp1ics07tendermint.Contract
@@ -151,7 +152,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
-		s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
+		s.chainAsp1Ics07Address = ethcommon.HexToAddress("TODO")
+		s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(s.chainAsp1Ics07Address, eth.RPCClient)
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
 		s.Require().NoError(err)
@@ -178,12 +180,13 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
 		s.Require().NoError(err)
 
-		s.chainBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
+		chainBSp1Ics07Addr, err := ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
 		s.Require().NoError(err)
-		s.Require().NotEmpty(s.chainBSP1Ics07Address)
-		s.Require().True(ethcommon.IsHexAddress(s.chainBSP1Ics07Address))
+		s.Require().NotEmpty(chainBSp1Ics07Addr)
+		s.Require().True(ethcommon.IsHexAddress(chainBSp1Ics07Addr))
 
-		s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.chainBSP1Ics07Address), eth.RPCClient)
+		s.chainBsp1Ics07Address = ethcommon.HexToAddress(chainBSp1Ics07Addr)
+		s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(s.chainBsp1Ics07Address, eth.RPCClient)
 		s.Require().NoError(err)
 	}))
 
@@ -204,8 +207,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
-		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, s.chainAsp1Ics07Address)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -226,8 +228,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
-		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
-		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, s.chainBsp1Ics07Address)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -457,7 +458,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
 		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.chainAsp1Ics07Address, clientAddress)
 
 		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
@@ -465,7 +466,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		clientAddress, err = s.ics26Contract.GetClient(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.chainBsp1Ics07Address, clientAddress)
 
 		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)

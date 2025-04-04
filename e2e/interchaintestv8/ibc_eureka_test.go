@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +64,7 @@ type IbcEurekaTestSuite struct {
 	deployer *ecdsa.PrivateKey
 
 	contractAddresses ethereum.DeployedContracts
+	sp1Ics07Address   ethcommon.Address
 
 	sp1Ics07Contract *sp1ics07tendermint.Contract
 	ics26Contract    *ics26router.Contract
@@ -251,6 +251,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, createClientTxBz)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			s.sp1Ics07Address = receipt.ContractAddress
 		}))
 	}))
 
@@ -271,8 +273,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			ClientId:     testvalues.FirstWasmClientID,
 			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 		}
-		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID, counterpartyInfo, lightClientAddress)
+		tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.deployer, eth), testvalues.CustomClientID, counterpartyInfo, s.sp1Ics07Address)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
@@ -333,7 +334,7 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
 		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.CustomClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.sp1Ics07Address, clientAddress)
 
 		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.CustomClientID)
 		s.Require().NoError(err)
