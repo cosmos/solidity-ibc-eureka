@@ -342,7 +342,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
 
         Ok(Response::new(api::CreateClientResponse {
             tx,
-            address: self.tx_builder.ics26_router.address().to_string(),
+            address: String::new(),
         }))
     }
 }
