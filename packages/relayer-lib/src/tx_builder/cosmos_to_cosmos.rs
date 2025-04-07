@@ -202,10 +202,15 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let consensus_state = latest_light_block.to_consensus_state();
 
-        Ok(MsgCreateClient {
+        let msg = MsgCreateClient {
             client_state: Some(Any::from_msg(&client_state)?),
             consensus_state: Some(consensus_state.into()),
             signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
         }
         .encode_to_vec())
     }

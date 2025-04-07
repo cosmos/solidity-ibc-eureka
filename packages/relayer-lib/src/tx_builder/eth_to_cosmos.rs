@@ -703,10 +703,15 @@ where
             data: b"test".to_vec(),
         };
 
-        Ok(MsgCreateClient {
+        let msg = MsgCreateClient {
             client_state: Some(Any::from_msg(&client_state)?),
             consensus_state: Some(Any::from_msg(&consensus_state)?),
             signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
         }
         .encode_to_vec())
     }
