@@ -6577,7 +6577,6 @@ dependencies = [
  "futures",
  "ibc-eureka-relayer-lib",
  "ibc-eureka-utils",
- "lazy_static",
  "prometheus",
  "prost",
  "serde",
