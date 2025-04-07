@@ -3,7 +3,7 @@ alloy_sol_types::sol!(
     #[sol(rpc)]
     #[allow(clippy::nursery, clippy::too_many_arguments)]
     sp1_ics07_tendermint,
-    "../../out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json"
+    "../../abi/bytecode/SP1ICS07Tendermint.json"
 );
 
 // NOTE: The riscv program won't compile with the `rpc` features.
