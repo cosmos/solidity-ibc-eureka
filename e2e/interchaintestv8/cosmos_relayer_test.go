@@ -121,7 +121,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 20_000_000, createClientTxBodyBz)
+			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.FirstClientID, clientId)
@@ -143,7 +143,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 20_000_000, createClientTxBodyBz)
+			resp := s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.FirstClientID, clientId)
