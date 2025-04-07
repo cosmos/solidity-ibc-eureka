@@ -90,8 +90,6 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
-	// SP1ICS07DeployScriptPath is the path to the SP1ICS07 deploy script.
-	SP1ICS07DeployScriptPath = "scripts/SP1ICS07Tendermint.s.sol:SP1TendermintScript"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
