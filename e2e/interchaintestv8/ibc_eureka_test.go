@@ -267,11 +267,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 	}))
 
-	var createClientTxBodyBz []byte
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
 		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
+		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),

@@ -130,7 +130,8 @@ var (
 	DefaultTrustLevel = ibctm.Fraction{Numerator: 1, Denominator: 3}.ToTendermint()
 
 	// DefaultTrustPeriod is the trust period used by the SP1ICS07Tendermint contract.
-	DefaultTrustPeriod = 1209669
+	// 129600 seconds = 14 days
+	DefaultTrustPeriod = 1209600
 
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
