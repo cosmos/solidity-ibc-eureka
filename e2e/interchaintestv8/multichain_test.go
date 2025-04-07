@@ -305,7 +305,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 20_000_000, createClientTxBodyBz)
 			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
@@ -350,7 +350,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 20_000_000, createClientTxBodyBz)
 			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
@@ -413,7 +413,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.SecondClientID, clientId)
@@ -435,7 +435,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.SecondClientID, clientId)
@@ -862,7 +862,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -1009,7 +1009,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -1112,7 +1112,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 			// NOTE: We don't need to check the response since we don't need to acknowledge the packet
 		}))
 
@@ -1191,7 +1191,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
 			// NOTE: We don't need to check the response since we don't need to acknowledge the packet
 		}))
 
@@ -1267,7 +1267,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdA", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on SimdA", func() {
@@ -1424,7 +1424,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on SimdB", func() {
@@ -1577,7 +1577,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			}))
 
 			s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-				_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
+				_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
 			}))
 
 			s.Require().True(s.Run("Verify balances on SimdB", func() {
@@ -1648,7 +1648,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			}))
 
 			s.Require().True(s.Run("Broadcast relay tx on SimdA", func() {
-				_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
+				_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
 			}))
 
 			s.Require().True(s.Run("Verify balances on SimdA", func() {

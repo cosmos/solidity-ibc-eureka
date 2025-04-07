@@ -443,7 +443,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -631,7 +631,7 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 
 		var ackTxHash []byte
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -818,7 +818,7 @@ func (s *RelayerTestSuite) FilteredRecvPacketToCosmosTest(ctx context.Context, n
 
 		var ackTxHash []byte
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -988,7 +988,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
@@ -1109,7 +1109,7 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 
 		relayTxBodyBz := relayResp.Tx
 
-		_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+		_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 		// Remove the last txHash from the list
 		sendTxHashes = sendTxHashes[:len(sendTxHashes)-1]

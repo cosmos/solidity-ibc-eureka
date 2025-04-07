@@ -288,7 +288,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
 			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
@@ -575,7 +575,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, relayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -784,7 +784,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, ackRelayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, ackRelayTxBodyBz)
 
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
@@ -983,7 +983,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, ackRelayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, ackRelayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -1081,7 +1081,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			returnAckTxHash, err = hex.DecodeString(resp.TxHash)
@@ -1373,7 +1373,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 	}))
 
 	s.Require().True(s.Run("Receive packets on Cosmos chain after timeout", func() {
-		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
+		resp, err := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, txBodyBz)
 		s.Require().Error(err)
 		s.Require().Nil(resp)
 	}))
@@ -1480,7 +1480,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -1675,7 +1675,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {

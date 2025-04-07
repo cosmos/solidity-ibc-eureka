@@ -3,12 +3,12 @@ package cosmos
 import (
 	"fmt"
 
-	abcitypes "github.com/cometbft/cometbft/abci/types"
-
 	"cosmossdk.io/collections"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 )
 
 // CloneAppend returns a new slice with the contents of the provided slices.

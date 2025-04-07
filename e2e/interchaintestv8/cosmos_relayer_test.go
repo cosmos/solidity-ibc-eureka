@@ -121,7 +121,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.FirstClientID, clientId)
@@ -143,7 +143,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, createClientTxBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
 			s.Require().Equal(ibctesting.FirstClientID, clientId)
@@ -307,7 +307,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -359,7 +359,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 		}))
 
 		s.Require().True(s.Run("Broadcast ack tx on Chain A", func() {
-			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
@@ -495,7 +495,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 		}))
 
 		s.Require().True(s.Run("Broadcast timeout tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Chain A", func() {
@@ -522,7 +522,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 	}))
 
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
-		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+		resp, err := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 		s.Require().ErrorContains(err, "timeout elapsed")
 		s.Require().Nil(resp)
 	}))
