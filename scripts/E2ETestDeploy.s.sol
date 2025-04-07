@@ -19,7 +19,6 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
-import { Deployments } from "./helpers/Deployments.sol";
 import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
 import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
