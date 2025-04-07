@@ -1,6 +1,10 @@
 package cosmos
 
 import (
+	"fmt"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
+
 	"cosmossdk.io/collections"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -20,4 +24,21 @@ func BankBalanceKey(addr sdk.AccAddress, denom string) ([]byte, error) {
 	keyCodec := collections.PairKeyCodec(sdk.AccAddressKey, collections.StringKey)
 	cKey := collections.Join(addr, denom)
 	return collections.EncodeKeyWithPrefix(banktypes.BalancesPrefix, keyCodec, cKey)
+}
+
+// GetEventValue retrieves the value of a specific attribute from a specific event type in the provided events.
+func GetEventValue(events []abcitypes.Event, eventType, attrKey string) (string, error) {
+	for _, event := range events {
+		if event.Type != eventType {
+			continue
+		}
+
+		for _, attr := range event.Attributes {
+			if attr.Key == attrKey {
+				return attr.Value, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("event type %s with attribute key %s not found", eventType, attrKey)
 }

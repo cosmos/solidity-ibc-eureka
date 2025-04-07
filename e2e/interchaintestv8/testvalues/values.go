@@ -111,6 +111,8 @@ const (
 	ParameterKey_Sp1Verifier = "sp1_verifier"
 	// Zk algorithm parameter key for the relayer's sp1 light client creation.
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
+	// Checksum hex parameter key for the relayer's ethereum light client creation.
+	ParameterKey_ChecksumHex = "checksum_hex"
 )
 
 var (

@@ -38,6 +38,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -231,7 +232,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		}
 
 		var createClientTxBz []byte
-		s.Require().True(s.Run("Retrieve create tx", func() {
+		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
@@ -266,8 +267,32 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Add ethereum light client on Cosmos chain", func() {
-		s.CreateEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter, s.contractAddresses.Ics26Router, s.wasmFixtureGenerator)
+	var createClientTxBodyBz []byte
+	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
+		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		s.Require().NotEmpty(checksumHex)
+
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simd.Config().ChainID,
+				DstChain: eth.ChainID.String(),
+				Parameters: map[string]string{
+					testvalues.ParameterKey_ChecksumHex: checksumHex,
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
+		}))
 	}))
 
 	s.Require().True(s.Run("Add client and counterparty on EVM", func() {

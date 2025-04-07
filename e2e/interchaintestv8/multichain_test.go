@@ -199,7 +199,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.Ics26Router, nil)
+		s.StoreEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter)
 	}))
 
 	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
@@ -220,7 +220,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.Ics26Router, nil)
+		s.StoreEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
 	}))
 
 	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
