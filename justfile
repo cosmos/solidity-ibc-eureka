@@ -29,7 +29,7 @@ build-cw-ics08-wasm-eth:
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 build-relayer-image:
-    docker build -t eureka-relayer:latest --platform linux/amd64 .
+    docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
 
 # Clean up the cache and out directories
 clean:
