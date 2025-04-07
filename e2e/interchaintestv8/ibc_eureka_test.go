@@ -274,8 +274,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-				SrcChain: simd.Config().ChainID,
-				DstChain: eth.ChainID.String(),
+				SrcChain: eth.ChainID.String(),
+				DstChain: simd.Config().ChainID,
 				Parameters: map[string]string{
 					testvalues.ParameterKey_ChecksumHex: checksumHex,
 				},
