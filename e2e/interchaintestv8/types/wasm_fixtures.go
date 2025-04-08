@@ -8,6 +8,12 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
+
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
@@ -47,6 +53,54 @@ func (g *WasmFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble in
 		Name: stepName,
 		Data: jsonMarshalble,
 	})
+}
+
+// AddInitialStateStep creates the initial step from the create client tx body (relayer response)
+func (g *WasmFixtureGenerator) AddInitialStateStep(createClientTxBodyBz []byte) error {
+	if !g.shouldGenerateFixture {
+		return nil
+	}
+
+	var (
+		txBody             txtypes.TxBody
+		msgCreateClient    clienttypes.MsgCreateClient
+		wasmClientState    ibcwasmtypes.ClientState
+		wasmConsensusState ibcwasmtypes.ConsensusState
+		clientState        ethereumtypes.ClientState
+		consensusState     ethereumtypes.ConsensusState
+	)
+
+	if err := proto.Unmarshal(createClientTxBodyBz, &txBody); err != nil {
+		return err
+	}
+	if len(txBody.GetMessages()) != 1 {
+		return fmt.Errorf("expected 1 `create_client` message, got %d", len(txBody.GetMessages()))
+	}
+
+	if err := proto.Unmarshal(txBody.GetMessages()[0].GetValue(), &msgCreateClient); err != nil {
+		return err
+	}
+
+	if err := proto.Unmarshal(msgCreateClient.ClientState.GetValue(), &wasmClientState); err != nil {
+		return err
+	}
+	if err := proto.Unmarshal(msgCreateClient.ConsensusState.GetValue(), &wasmConsensusState); err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(wasmClientState.Data, &clientState); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(wasmConsensusState.Data, &consensusState); err != nil {
+		return err
+	}
+
+	g.AddFixtureStep("initial_state", ethereumtypes.InitialState{
+		ClientState:    clientState,
+		ConsensusState: consensusState,
+	})
+
+	return nil
 }
 
 func (g *WasmFixtureGenerator) ShouldGenerateFixture() bool {
