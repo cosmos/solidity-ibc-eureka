@@ -12,8 +12,6 @@
 
 This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
-Uh
-
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
