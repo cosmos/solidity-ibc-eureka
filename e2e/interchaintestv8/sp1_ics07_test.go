@@ -201,9 +201,14 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 			receipt, err := eth.BroadcastTx(ctx, s.key, 15_000_000, nil, createClientTxBz)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.Require().NotEmpty(receipt.ContractAddress.Hex())
+
+			err = os.Setenv(testvalues.EnvKeyContractAddress, receipt.ContractAddress.Hex())
+			s.Require().NoError(err)
 
 			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
 			s.Require().NoError(err)
+
 		}))
 	}))
 }
