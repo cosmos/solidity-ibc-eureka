@@ -9,69 +9,6 @@ abstract contract Deployments {
 
     string internal constant DEPLOYMENT_DIR = "/deployments/";
 
-    struct SP1ICS07TendermintDeployment {
-        // The verifier address can be set in the environment variables.
-        // If not set, then the verifier is set based on the zkAlgorithm.
-        // If set to "mock", then the verifier is set to a mock verifier.
-        address implementation;
-        string clientId;
-        string counterpartyClientId;
-        string verifier;
-        string[] merklePrefix;
-        bytes trustedClientState;
-        bytes trustedConsensusState;
-        bytes32 updateClientVkey;
-        bytes32 membershipVkey;
-        bytes32 ucAndMembershipVkey;
-        bytes32 misbehaviourVkey;
-        address proofSubmitter;
-    }
-
-    function loadSP1ICS07TendermintDeployment(
-        string memory json,
-        string memory key,
-        address defaultProofSubmitter
-    )
-    public
-    view
-    returns (SP1ICS07TendermintDeployment memory) {
-        return SP1ICS07TendermintDeployment({
-            clientId: json.readStringOr(string.concat(key, ".clientId"), ""),
-            verifier: json.readStringOr(string.concat(key, ".verifier"), ""),
-            merklePrefix: json.readStringArrayOr(string.concat(key, ".merklePrefix"), new string[](0)),
-            counterpartyClientId: json.readStringOr(string.concat(key, ".counterpartyClientId"), ""),
-            implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
-            trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
-            trustedConsensusState: json.readBytes(string.concat(key, ".trustedConsensusState")),
-            updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
-            membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
-            ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
-            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
-            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), defaultProofSubmitter)
-        });
-    }
-
-    // TODO: Move these to ops repo
-    function loadSP1ICS07TendermintDeployments(
-        Vm vm,
-        string memory json,
-        address defaultProofSubmitter
-    )
-    public
-    view
-    returns (SP1ICS07TendermintDeployment[] memory)
-    {
-        string[] memory keys = vm.parseJsonKeys(json, "$.light_clients");
-        SP1ICS07TendermintDeployment[] memory deployments = new SP1ICS07TendermintDeployment[](keys.length);
-
-        for (uint256 i = 0; i < keys.length; i++) {
-            string memory key = string.concat(".light_clients['", keys[i], "']");
-            deployments[i] = loadSP1ICS07TendermintDeployment(json, key, defaultProofSubmitter);
-        }
-
-        return deployments;
-    }
-
     struct ProxiedICS26RouterDeployment {
         address implementation;
         address proxy;

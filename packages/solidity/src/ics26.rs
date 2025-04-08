@@ -1,7 +1,12 @@
 //! Solidity types for ICS26Router.sol
 
+use alloy_primitives::hex;
 use ibc_proto_eureka::ibc::core::channel::v2::{Packet, Payload};
 use sha2::{Digest, Sha256};
+
+/// The EVM storage slot for the `ICS26Router`'s provable IBC store.
+pub const ICS26_IBC_STORAGE_SLOT: [u8; 32] =
+    hex!("0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600");
 
 #[cfg(feature = "rpc")]
 alloy_sol_types::sol!(

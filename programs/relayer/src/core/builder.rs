@@ -151,4 +151,26 @@ impl RelayerService for Relayer {
         })
         .await
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        let inner_request = request.get_ref();
+        let src_chain = inner_request.src_chain.clone();
+        let dst_chain = inner_request.dst_chain.clone();
+
+        crate::metrics::track_metrics("create_client", &src_chain, &dst_chain, || async move {
+            let inner_request = request.get_ref();
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .create_client(request)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Create client request failed: {:?}", e);
+                    tonic::Status::internal("Failed to create client. See logs for more details.")
+                })
+        })
+        .await
+    }
 }

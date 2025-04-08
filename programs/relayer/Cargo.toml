@@ -12,7 +12,6 @@ tokio = { workspace = true, default-features = true }
 tonic = { workspace = true, default-features = true }
 
 prometheus         = { workspace = true, default-features = true }
-lazy_static        = { workspace = true, default-features = true }
 warp               = { workspace = true, default-features = true }
 tracing            = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }

@@ -15,6 +15,7 @@ COPY packages packages
 COPY programs programs
 COPY contracts contracts
 COPY abi abi
+COPY proto proto
 
 RUN cargo build --bin relayer --release --locked
 RUN cargo build --bin operator --release --locked
