@@ -208,7 +208,6 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 
 			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
 			s.Require().NoError(err)
-
 		}))
 	}))
 }
