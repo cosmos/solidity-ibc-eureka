@@ -22,7 +22,7 @@ use ethereum_types::{
     },
     execution::account_proof::AccountProof,
 };
-use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT_HEX};
+use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
@@ -537,7 +537,7 @@ where
             epochs_per_sync_committee_period: spec.epochs_per_sync_committee_period,
             latest_slot: bootstrap.header.beacon.slot,
             is_frozen: false,
-            ibc_commitment_slot: U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT_HEX),
+            ibc_commitment_slot: U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT),
             ibc_contract_address: *self.ics26_router.address(),
             latest_execution_block_number: bootstrap.header.execution.block_number,
         };
