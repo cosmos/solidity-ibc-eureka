@@ -193,6 +193,28 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        tracing::info!("Handling relay by tx request for Eth to Cosmos...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(&inner_req.parameters)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
+            tx,
+            address: String::new(),
+        }))
+    }
 }
 
 #[tonic::async_trait]
@@ -247,6 +269,13 @@ impl EthToCosmosTxBuilder {
                 )
                 .await
             }
+        }
+    }
+
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real(tb) => tb.create_client(parameters).await,
+            Self::Mock(tb) => tb.create_client(parameters).await,
         }
     }
 

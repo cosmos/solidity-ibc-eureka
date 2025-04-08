@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -29,7 +27,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -42,6 +39,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
@@ -60,7 +58,8 @@ type MultichainTestSuite struct {
 	deployer *ecdsa.PrivateKey
 
 	contractAddresses     ethereum.DeployedContracts
-	chainBSP1Ics07Address string
+	chainAsp1Ics07Address ethcommon.Address
+	chainBsp1Ics07Address ethcommon.Address
 
 	chainASP1Ics07Contract *sp1ics07tendermint.Contract
 	chainBSP1Ics07Contract *sp1ics07tendermint.Contract
@@ -137,222 +136,16 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 
 	s.Require().True(s.Run("Deploy ethereum contracts with SimdA client", func() {
-		os.Setenv(testvalues.EnvKeyTendermintRPC, simdA.GetHostRPCAddress())
-
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", testvalues.Sp1GenesisFilePath,
-		}, proofType.ToOperatorArgs()...)
-		s.Require().NoError(operator.RunGenesis(args...))
-
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
-		s.Require().NoError(err)
-		s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint), eth.RPCClient)
 		s.Require().NoError(err)
 		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
 		s.Require().NoError(err)
 		s.ics20Contract, err = ics20transfer.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer), eth.RPCClient)
 		s.Require().NoError(err)
 		s.erc20Contract, err = erc20.NewContract(ethcommon.HexToAddress(s.contractAddresses.Erc20), eth.RPCClient)
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Deploy SimdB light client on ethereum", func() {
-		os.Setenv(testvalues.EnvKeyTendermintRPC, simdB.GetHostRPCAddress())
-
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", testvalues.Sp1GenesisFilePath,
-		}, proofType.ToOperatorArgs()...)
-		s.Require().NoError(operator.RunGenesis(args...))
-
-		s.T().Cleanup(func() {
-			_ = os.Remove(testvalues.Sp1GenesisFilePath)
-		})
-
-		stdout, err := eth.ForgeScript(s.deployer, testvalues.SP1ICS07DeployScriptPath, "--json")
-		s.Require().NoError(err)
-
-		s.chainBSP1Ics07Address, err = ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
-		s.Require().NoError(err)
-		s.Require().NotEmpty(s.chainBSP1Ics07Address)
-		s.Require().True(ethcommon.IsHexAddress(s.chainBSP1Ics07Address))
-
-		s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(s.chainBSP1Ics07Address), eth.RPCClient)
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Fund address with ERC20", func() {
-		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
-		s.Require().NoError(err)
-
-		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		s.CreateEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter, s.contractAddresses.Ics26Router, nil)
-	}))
-
-	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
-		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     testvalues.FirstWasmClientID,
-			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
-		}
-		lightClientAddress := ethcommon.HexToAddress(s.contractAddresses.Ics07Tendermint)
-		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
-		s.Require().NoError(err)
-		s.Require().Equal(testvalues.FirstUniversalClientID, event.ClientId)
-		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
-	}))
-
-	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		s.CreateEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter, s.contractAddresses.Ics26Router, nil)
-	}))
-
-	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
-		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
-			ClientId:     testvalues.FirstWasmClientID,
-			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
-		}
-		lightClientAddress := ethcommon.HexToAddress(s.chainBSP1Ics07Address)
-		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, lightClientAddress)
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-
-		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
-		s.Require().NoError(err)
-		s.Require().Equal(testvalues.SecondUniversalClientID, event.ClientId)
-		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
-	}))
-
-	s.Require().True(s.Run("Register counterparty on SimdA", func() {
-		merklePathPrefix := [][]byte{[]byte("")}
-
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     testvalues.FirstUniversalClientID,
-			CounterpartyMerklePrefix: merklePathPrefix,
-			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Register counterparty on SimdB", func() {
-		merklePathPrefix := [][]byte{[]byte("")}
-
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 testvalues.FirstWasmClientID,
-			CounterpartyClientId:     testvalues.SecondUniversalClientID,
-			CounterpartyMerklePrefix: merklePathPrefix,
-			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
-		simdAHeader, err := s.FetchCosmosHeader(ctx, simdA)
-		s.Require().NoError(err)
-
-		var (
-			clientStateAny    *codectypes.Any
-			consensusStateAny *codectypes.Any
-		)
-		s.Require().True(s.Run("Construct the client and consensus state", func() {
-			tmConfig := ibctesting.NewTendermintConfig()
-			revision := clienttypes.ParseChainID(simdAHeader.ChainID)
-			height := clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
-
-			clientState := ibctm.NewClientState(
-				simdAHeader.ChainID,
-				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
-				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
-			)
-			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
-			s.Require().NoError(err)
-
-			consensusState := ibctm.NewConsensusState(simdAHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdAHeader.ValidatorsHash)
-			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
-			s.Require().NoError(err)
-		}))
-
-		_, err = s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, &clienttypes.MsgCreateClient{
-			ClientState:    clientStateAny,
-			ConsensusState: consensusStateAny,
-			Signer:         s.SimdBRelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
-		simdBHeader, err := s.FetchCosmosHeader(ctx, simdB)
-		s.Require().NoError(err)
-
-		var (
-			clientStateAny    *codectypes.Any
-			consensusStateAny *codectypes.Any
-		)
-		s.Require().True(s.Run("Construct the client and consensus state", func() {
-			tmConfig := ibctesting.NewTendermintConfig()
-			revision := clienttypes.ParseChainID(simdBHeader.ChainID)
-			height := clienttypes.NewHeight(revision, uint64(simdBHeader.Height))
-
-			clientState := ibctm.NewClientState(
-				simdBHeader.ChainID,
-				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
-				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
-			)
-			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
-			s.Require().NoError(err)
-
-			consensusState := ibctm.NewConsensusState(simdBHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdBHeader.ValidatorsHash)
-			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
-			s.Require().NoError(err)
-		}))
-
-		_, err = s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, &clienttypes.MsgCreateClient{
-			ClientState:    clientStateAny,
-			ConsensusState: consensusStateAny,
-			Signer:         s.SimdARelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
-		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
-
-		// We can do this because we know what the counterparty channel ID will be
-		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.SecondClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
-			CounterpartyMerklePrefix: merklePathPrefix,
-			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
-	}))
-
-	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
-		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
-
-		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.SecondClientID,
-			CounterpartyClientId:     ibctesting.SecondClientID,
-			CounterpartyMerklePrefix: merklePathPrefix,
-			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
-		})
 		s.Require().NoError(err)
 	}))
 
@@ -396,6 +189,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			os.Remove(testvalues.RelayerConfigFilePath)
 		})
 	}))
+
 	s.T().Cleanup(func() {
 		if relayerProcess != nil {
 			err := relayerProcess.Kill()
@@ -405,9 +199,271 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Clients", func() {
+	s.Require().True(s.Run("Create Relayer Client", func() {
+		time.Sleep(5 * time.Second) // wait for the relayer to start
+
 		var err error
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Deploy SP1 ICS07 contracts", func() {
+		var verfierAddress string
+		if prover == testvalues.EnvValueSp1Prover_Mock {
+			verfierAddress = s.contractAddresses.VerifierMock
+		} else {
+			switch proofType {
+			case operator.ProofTypeGroth16:
+				verfierAddress = s.contractAddresses.VerifierGroth16
+			case operator.ProofTypePlonk:
+				verfierAddress = s.contractAddresses.VerifierPlonk
+			default:
+				s.Require().Fail("invalid proof type: %s", proofType)
+			}
+		}
+
+		var createClientTxBz []byte
+		s.Require().True(s.Run("Retrieve create client tx for ChainA's client", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simdA.Config().ChainID,
+				DstChain: eth.ChainID.String(),
+				Parameters: map[string]string{
+					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx for ChainA's client", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, createClientTxBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			s.chainAsp1Ics07Address = receipt.ContractAddress
+			s.chainASP1Ics07Contract, err = sp1ics07tendermint.NewContract(s.chainAsp1Ics07Address, eth.RPCClient)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Retrieve create client tx for ChainB's client", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simdB.Config().ChainID,
+				DstChain: eth.ChainID.String(),
+				Parameters: map[string]string{
+					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx for ChainB's client", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, createClientTxBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			s.chainBsp1Ics07Address = receipt.ContractAddress
+			s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(s.chainBsp1Ics07Address, eth.RPCClient)
+			s.Require().NoError(err)
+		}))
+	}))
+
+	s.Require().True(s.Run("Fund address with ERC20", func() {
+		tx, err := s.erc20Contract.Transfer(s.GetTransactOpts(eth.Faucet, eth), crypto.PubkeyToAddress(s.key.PublicKey), testvalues.StartingERC20Balance)
+		s.Require().NoError(err)
+
+		_, err = eth.GetTxReciept(ctx, tx.Hash()) // wait for the tx to be mined
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
+		checksumHex := s.StoreEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter)
+		s.Require().NotEmpty(checksumHex)
+
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: eth.ChainID.String(),
+				DstChain: simdA.Config().ChainID,
+				Parameters: map[string]string{
+					testvalues.ParameterKey_ChecksumHex: checksumHex,
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
+		}))
+	}))
+
+	s.Require().True(s.Run("Add simdA client and counterparty on EVM", func() {
+		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+			ClientId:     testvalues.FirstWasmClientID,
+			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+		}
+		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, s.chainAsp1Ics07Address)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
+		s.Require().NoError(err)
+		s.Require().Equal(testvalues.FirstUniversalClientID, event.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
+	}))
+
+	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
+		checksumHex := s.StoreEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
+		s.Require().NotEmpty(checksumHex)
+
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: eth.ChainID.String(),
+				DstChain: simdB.Config().ChainID,
+				Parameters: map[string]string{
+					testvalues.ParameterKey_ChecksumHex: checksumHex,
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 20_000_000, createClientTxBodyBz)
+			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.FirstWasmClientID, clientId)
+		}))
+	}))
+
+	s.Require().True(s.Run("Add simdB client and counterparty on EVM", func() {
+		counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+			ClientId:     testvalues.FirstWasmClientID,
+			MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+		}
+		tx, err := s.ics26Contract.AddClient0(s.GetTransactOpts(s.deployer, eth), counterpartyInfo, s.chainBsp1Ics07Address)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+
+		event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
+		s.Require().NoError(err)
+		s.Require().Equal(testvalues.SecondUniversalClientID, event.ClientId)
+		s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
+	}))
+
+	s.Require().True(s.Run("Register counterparty on SimdA", func() {
+		merklePathPrefix := [][]byte{[]byte("")}
+
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+			ClientId:                 testvalues.FirstWasmClientID,
+			CounterpartyClientId:     testvalues.FirstUniversalClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Register counterparty on SimdB", func() {
+		merklePathPrefix := [][]byte{[]byte("")}
+
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+			ClientId:                 testvalues.FirstWasmClientID,
+			CounterpartyClientId:     testvalues.SecondUniversalClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simdA.Config().ChainID,
+				DstChain: simdB.Config().ChainID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, createClientTxBodyBz)
+			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(ibctesting.SecondClientID, clientId)
+		}))
+	}))
+
+	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simdB.Config().ChainID,
+				DstChain: simdA.Config().ChainID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, createClientTxBodyBz)
+			clientId, err := cosmos.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(ibctesting.SecondClientID, clientId)
+		}))
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain A", func() {
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
+
+		// We can do this because we know what the counterparty channel ID will be
+		_, err := s.BroadcastMessages(ctx, simdA, s.SimdARelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.SecondClientID,
+			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdARelayerSubmitter.FormattedAddress(),
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Create Channel and register counterparty on Chain B", func() {
+		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
+
+		_, err := s.BroadcastMessages(ctx, simdB, s.SimdBRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+			ClientId:                 ibctesting.SecondClientID,
+			CounterpartyClientId:     ibctesting.SecondClientID,
+			CounterpartyMerklePrefix: merklePathPrefix,
+			Signer:                   s.SimdBRelayerSubmitter.FormattedAddress(),
+		})
 		s.Require().NoError(err)
 	}))
 }
@@ -457,7 +513,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	s.Require().True(s.Run("Verify ICS02 Client", func() {
 		clientAddress, err := s.ics26Contract.GetClient(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.contractAddresses.Ics07Tendermint, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.chainAsp1Ics07Address, clientAddress)
 
 		counterpartyInfo, err := s.ics26Contract.GetCounterparty(nil, testvalues.FirstUniversalClientID)
 		s.Require().NoError(err)
@@ -465,7 +521,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 
 		clientAddress, err = s.ics26Contract.GetClient(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
-		s.Require().Equal(s.chainBSP1Ics07Address, strings.ToLower(clientAddress.Hex()))
+		s.Require().Equal(s.chainBsp1Ics07Address, clientAddress)
 
 		counterpartyInfo, err = s.ics26Contract.GetCounterparty(nil, testvalues.SecondUniversalClientID)
 		s.Require().NoError(err)
@@ -700,7 +756,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 
 		var packet ics26router.IICS26RouterMsgsPacket
 		s.Require().True(s.Run("Submit relay tx", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, recvRelayTx)
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, recvRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 
@@ -806,7 +862,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -882,7 +938,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 			}))
 
 			s.Require().True(s.Run("Submit relay tx", func() {
-				receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, relayTxBodyBz)
+				receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, relayTxBodyBz)
 				s.Require().NoError(err)
 				s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			}))
@@ -953,7 +1009,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
@@ -1056,7 +1112,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 			// NOTE: We don't need to check the response since we don't need to acknowledge the packet
 		}))
 
@@ -1135,7 +1191,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
 			// NOTE: We don't need to check the response since we don't need to acknowledge the packet
 		}))
 
@@ -1211,7 +1267,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdA", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, relayTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on SimdA", func() {
@@ -1280,7 +1336,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 			}))
 
 			s.Require().True(s.Run("Submit relay tx", func() {
-				receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, relayTxBodyBz)
+				receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, relayTxBodyBz)
 				s.Require().NoError(err)
 				s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			}))
@@ -1368,7 +1424,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-			_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, txBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on SimdB", func() {
@@ -1441,7 +1497,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
-			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, ics26Address, relayTxBodyBz)
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, relayTxBodyBz)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			denomOnEthereum = transfertypes.NewDenom(
@@ -1521,7 +1577,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			}))
 
 			s.Require().True(s.Run("Broadcast relay tx on SimdB", func() {
-				_ = s.BroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
+				_ = s.MustBroadcastSdkTxBody(ctx, simdB, s.SimdBRelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
 			}))
 
 			s.Require().True(s.Run("Verify balances on SimdB", func() {
@@ -1592,7 +1648,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 			}))
 
 			s.Require().True(s.Run("Broadcast relay tx on SimdA", func() {
-				_ = s.BroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
+				_ = s.MustBroadcastSdkTxBody(ctx, simdA, s.SimdARelayerSubmitter, 2_000_000, returnRelayTxBodyBz)
 			}))
 
 			s.Require().True(s.Run("Verify balances on SimdA", func() {

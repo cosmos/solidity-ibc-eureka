@@ -3,7 +3,11 @@
 
 use std::{collections::HashMap, str::FromStr};
 
-use alloy::{primitives::Address, providers::Provider, sol_types::SolCall};
+use alloy::{
+    primitives::{keccak256, Address},
+    providers::Provider,
+    sol_types::{SolCall, SolValue},
+};
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
@@ -11,13 +15,13 @@ use ibc_eureka_solidity_types::{
         router::{multicallCall, routerCalls, routerInstance},
         IICS02ClientMsgs::Height,
     },
-    msgs::IICS07TendermintMsgs::ClientState,
+    msgs::IICS07TendermintMsgs::{ClientState, ConsensusState, TrustThreshold},
     sp1_ics07::sp1_ics07_tendermint,
 };
-use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::{SP1ICS07TendermintPrograms, SP1Program},
-    prover::Sp1Prover,
+    prover::{Sp1Prover, SupportedZkAlgorithm},
 };
 use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
@@ -110,6 +114,11 @@ where
     }
 }
 
+/// The key for the SP1 verifier in the parameters map.
+const SP1_VERIFIER: &str = "sp1_verifier";
+/// The key for the zk algorithm in the parameters map.
+const ZK_ALGORITHM: &str = "zk_algorithm";
+
 #[async_trait::async_trait]
 impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
 where
@@ -191,5 +200,83 @@ where
         };
 
         Ok(multicall_tx.abi_encode())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        // Check if parameters only include correct keys
+        parameters
+            .keys()
+            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM].contains(&k.as_str()))
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}` and `{ZK_ALGORITHM}` are allowed"))
+            })?;
+
+        let latest_light_block = self.tm_client.get_light_block(None).await?;
+
+        tracing::info!(
+            "Creating client at height: {}",
+            latest_light_block.height().value()
+        );
+
+        let sp1_verifier = Address::from_str(
+            parameters
+                .get(SP1_VERIFIER)
+                .ok_or_else(|| anyhow::anyhow!("Missing `{SP1_VERIFIER}` parameter"))?,
+        )?;
+        let zk_algorithm = parameters
+            .get(ZK_ALGORITHM)
+            .map_or(Ok(SupportedZkAlgorithm::Groth16), |z| {
+                SupportedZkAlgorithm::from_str(z.as_str())
+            })?;
+        let default_trust_threshold = TrustThreshold {
+            numerator: 1,
+            denominator: 3,
+        };
+        let unbonding_period = self
+            .tm_client
+            .sdk_staking_params()
+            .await?
+            .unbonding_time
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
+            .seconds
+            .try_into()?;
+        let trusting_period = 2 * (unbonding_period / 3);
+
+        let client_state = latest_light_block.to_sol_client_state(
+            default_trust_threshold,
+            unbonding_period,
+            trusting_period,
+            zk_algorithm,
+        )?;
+
+        let consensus_state = ConsensusState::from(latest_light_block.to_consensus_state());
+        let consensus_state_hash = keccak256(consensus_state.abi_encode());
+
+        Ok(sp1_ics07_tendermint::deploy_builder(
+            self.ics26_router.provider().clone(),
+            self.sp1_programs
+                .update_client
+                .get_vkey()
+                .bytes32_raw()
+                .into(),
+            self.sp1_programs.membership.get_vkey().bytes32_raw().into(),
+            self.sp1_programs
+                .update_client_and_membership
+                .get_vkey()
+                .bytes32_raw()
+                .into(),
+            self.sp1_programs
+                .misbehaviour
+                .get_vkey()
+                .bytes32_raw()
+                .into(),
+            sp1_verifier,
+            client_state.abi_encode().into(),
+            consensus_state_hash,
+            *self.ics26_router.address(),
+        )
+        .calldata()
+        .to_vec())
     }
 }

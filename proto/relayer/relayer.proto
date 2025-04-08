@@ -10,11 +10,13 @@ option go_package = "types/relayer";
 service RelayerService {
     // Relay the ibc packets produced by the results of transactions
     rpc RelayByTx (RelayByTxRequest) returns (RelayByTxResponse);
+    // Create a new ibc client on the target (destination) chain
+    rpc CreateClient (CreateClientRequest) returns (CreateClientResponse);
     // Request relayer information
     rpc Info (InfoRequest) returns (InfoResponse);
 }
 
-// The request message
+// The relay by tx request message
 message RelayByTxRequest {
     // The source chain identifier
     string src_chain = 1;
@@ -39,9 +41,27 @@ message RelayByTxRequest {
     repeated uint64 dst_packet_sequences = 8;
 }
 
-// The response message
+// The relay by tx response message
 message RelayByTxResponse {
     // The multicall transaction to be submitted by caller
+    bytes tx = 1;
+    // The contract address to submit the transaction, if applicable
+    string address = 2;
+}
+
+// The create client request message
+message CreateClientRequest {
+    // The source chain identifier
+    string src_chain = 1;
+    // The target chain identifier
+    string dst_chain = 2;
+    // Optional genesis parameters
+    map<string, string> parameters = 3;
+}
+
+// The create client response message
+message CreateClientResponse {
+    // The transaction to be submitted by caller
     bytes tx = 1;
     // The contract address to submit the transaction, if applicable
     string address = 2;

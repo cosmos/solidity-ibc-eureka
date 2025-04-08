@@ -162,6 +162,28 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        tracing::info!("Handling create client request for Cosmos to Cosmos...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(&inner_req.parameters)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
+            tx,
+            address: String::new(),
+        }))
+    }
 }
 
 #[tonic::async_trait]

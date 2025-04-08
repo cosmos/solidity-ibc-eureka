@@ -16,8 +16,7 @@ on:
       - 'packages/go-abigen/**'
 
 jobs:
-  abigen-check:
-    name: Check for abigen changes
+  check:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -33,13 +32,19 @@ jobs:
       - name: Install abigen
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
 
-      - name: Check that generating files from go does not create any changes
-        uses: nickcharlton/diff-check@main
-        with: 
-          command: just generate-abi
+      - name: Run abigen
+        run: just generate-abi
 
-  abigen-golangci:
-    name: lint abigen
+      - name: Check for diffs in go-abigen
+        run: |
+          if ! git diff --quiet HEAD -- packages/go-abigen; then
+            echo "Git diff found in the selected directory. Failing the job."
+            exit 1
+          else
+            echo "No changes detected in the selected directory."
+          fi
+
+  golangci:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +59,7 @@ jobs:
           version: v1.63
           working-directory: packages/go-abigen
 
-  abigen-test:
+  test:
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -65,20 +70,3 @@ jobs:
 
       - name: Unit test abigen
         run: cd packages/go-abigen && go test -v ./...
-
-  ethgenesis-golangci:
-    name: lint ethgenesis
-    runs-on: depot-ubuntu-22.04-4
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
-        with:
-          go-version: 1.23
-          cache-dependency-path: scripts/ethgenesis/go.sum
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.63
-          args: --timeout=5m
-          working-directory: scripts/ethgenesis
