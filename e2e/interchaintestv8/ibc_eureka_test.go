@@ -287,7 +287,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			createClientTxBodyBz = resp.Tx
 		}))
 
-		s.wasmFixtureGenerator.AddInitialStateStep(createClientTxBodyBz)
+		err := s.wasmFixtureGenerator.AddInitialStateStep(createClientTxBodyBz)
+		s.Require().NoError(err)
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 20_000_000, createClientTxBodyBz)
