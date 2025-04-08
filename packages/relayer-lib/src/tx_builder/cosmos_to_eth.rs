@@ -214,6 +214,11 @@ where
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
 
+        tracing::info!(
+            "Creating client at height: {}",
+            latest_light_block.height().value()
+        );
+
         let sp1_verifier = Address::from_str(
             parameters
                 .get(SP1_VERIFIER)

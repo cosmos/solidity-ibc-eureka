@@ -498,11 +498,19 @@ where
 
         let genesis = self.beacon_api_client.genesis().await?.data;
         let spec = self.beacon_api_client.spec().await?.data;
-        let beacon_block = self.beacon_api_client.beacon_block("finalized").await?;
+        let beacon_block = self
+            .beacon_api_client
+            .beacon_block("finalized")
+            .await?
+            .message;
+
+        tracing::info!("Creating client at slot: {}", beacon_block.slot);
+
         let block_root = self
             .beacon_api_client
-            .beacon_block_root(&format!("{}", beacon_block.message.slot))
+            .beacon_block_root(&format!("{}", beacon_block.slot))
             .await?;
+
         let bootstrap = self
             .beacon_api_client
             .light_client_bootstrap(&block_root)
@@ -510,7 +518,7 @@ where
             .data;
 
         if bootstrap.header.execution.block_number
-            != beacon_block.message.body.execution_payload.block_number
+            != beacon_block.body.execution_payload.block_number
         {
             anyhow::bail!(
                 "Light client bootstrap block number does not match execution block number"
@@ -550,8 +558,8 @@ where
             .eth_client
             .get_proof(
                 &self.ics26_router.address().to_string(),
-                vec![hex::encode(ICS26_IBC_STORAGE_SLOT_HEX)],
-                hex::encode(eth_client_state.latest_execution_block_number.to_be_bytes()),
+                vec![],
+                format!("0x{:x}", eth_client_state.latest_execution_block_number),
             )
             .await?;
 

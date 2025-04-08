@@ -162,6 +162,11 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
 
         let latest_light_block = self.source_tm_client.get_light_block(None).await?;
 
+        tracing::info!(
+            "Creating client at height: {}",
+            latest_light_block.height().value()
+        );
+
         let chain_id =
             ChainId::from_str(latest_light_block.signed_header.header.chain_id.as_str())?;
         let height = Height {
