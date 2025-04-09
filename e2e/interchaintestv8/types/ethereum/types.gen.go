@@ -43,6 +43,8 @@ type ClientState struct {
 	SecondsPerSlot uint64 `json:"seconds_per_slot"`
 	// The number of slots per epoch
 	SlotsPerEpoch uint64 `json:"slots_per_epoch"`
+	// The size of the sync committee, maximum possible number of participants
+	SyncCommitteeSize uint64 `json:"sync_committee_size"`
 }
 
 // The fork parameters
