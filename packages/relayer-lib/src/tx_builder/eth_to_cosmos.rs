@@ -331,28 +331,17 @@ where
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
-        let latest_block_number = self.eth_client.get_block_number().await?;
-        let minimum_block_number = if dest_events.is_empty() {
-            let latest_block_from_events = src_events.iter().map(|e| e.height).max();
-            latest_block_from_events.unwrap_or(latest_block_number)
-        } else {
-            // If we have destination events (e.g. timeout), use the latest block number
-            latest_block_number
-        };
-
-        let target_height = Height {
-            revision_number: 0,
-            revision_height: minimum_block_number,
-        };
-
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+        let mut ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
+        let latest_block_number = self.eth_client.get_block_number().await?;
+
+        let max_src_block_number = src_events.iter().map(|e| e.height).max();
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
@@ -363,12 +352,42 @@ where
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
 
-        let mut ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
+        let max_timeout_slot = timeout_msgs
+            .iter()
+            .filter_map(|e| {
+                ethereum_client_state
+                    .compute_slot_at_timestamp(e.packet.as_ref()?.timeout_timestamp)
+            })
+            .max();
+
+        let max_timeout_block_number = if let Some(max_timeout_slot) = max_timeout_slot {
+            Some(
+                self.beacon_api_client
+                    .beacon_block(&format!("{max_timeout_slot}"))
+                    .await
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to get beacon block for timeout slot {max_timeout_slot}: {e}",
+                        )
+                    })?
+                    .message
+                    .body
+                    .execution_payload
+                    .block_number,
+            )
+        } else {
+            None
+        };
+
+        let minimum_block_number = max_src_block_number
+            .into_iter()
+            .chain(max_timeout_block_number.into_iter())
+            .max()
+            .unwrap_or(latest_block_number);
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}",
@@ -629,17 +648,10 @@ where
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
-        let target_block_number = self.eth_client.get_block_number().await?;
-
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}",
             dst_client_id
         );
-
-        let target_height = Height {
-            revision_number: 0,
-            revision_height: target_block_number,
-        };
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -648,7 +660,6 @@ where
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
@@ -659,7 +670,6 @@ where
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );

@@ -79,11 +79,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
             .revision_number;
 
-        let target_height = Height {
-            revision_number,
-            revision_height,
-        };
-
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
@@ -91,7 +86,6 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             &src_client_id,
             &dst_client_id,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
@@ -102,10 +96,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             &dst_client_id,
             &src_packet_seqs,
             &dst_packet_seqs,
-            &target_height,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
+
+        let target_height = Height {
+            revision_number,
+            revision_height,
+        };
 
         cosmos::inject_tendermint_proofs(
             &mut recv_msgs,
