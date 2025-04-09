@@ -384,14 +384,14 @@ func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosC
 	return &headerResp.SdkBlock.Header, nil
 }
 
-func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
-	resp, err := s.BroadcastSdkTxBodyGetResult(ctx, chain, user, gas, txBodyBz)
+func (s *TestSuite) MustBroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	resp, err := s.BroadcastSdkTxBody(ctx, chain, user, gas, txBodyBz)
 	s.Require().NoError(err)
 
 	return resp
 }
 
-func (s *TestSuite) BroadcastSdkTxBodyGetResult(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
+func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
 	var txBody txtypes.TxBody
 	err := proto.Unmarshal(txBodyBz, &txBody)
 	s.Require().NoError(err)

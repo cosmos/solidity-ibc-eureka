@@ -90,8 +90,6 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
-	// SP1ICS07DeployScriptPath is the path to the SP1ICS07 deploy script.
-	SP1ICS07DeployScriptPath = "scripts/SP1ICS07Tendermint.s.sol:SP1TendermintScript"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
@@ -106,6 +104,13 @@ const (
 	// BUG: https://github.com/cosmos/ibc-go/issues/8145
 	// We must use a client ID of the form `type-n` due to the issue above.
 	CustomClientID = "cosmoshub-1"
+
+	// Sp1 verifier address parameter key for the relaye's sp1 light client creation.
+	ParameterKey_Sp1Verifier = "sp1_verifier"
+	// Zk algorithm parameter key for the relayer's sp1 light client creation.
+	ParameterKey_ZkAlgorithm = "zk_algorithm"
+	// Checksum hex parameter key for the relayer's ethereum light client creation.
+	ParameterKey_ChecksumHex = "checksum_hex"
 )
 
 var (
@@ -120,10 +125,11 @@ var (
 	StartingEthBalance = math.NewInt(2 * ethereum.ETHER)
 
 	// DefaultTrustLevel is the trust level used by the SP1ICS07Tendermint contract.
-	DefaultTrustLevel = ibctm.Fraction{Numerator: 2, Denominator: 3}.ToTendermint()
+	DefaultTrustLevel = ibctm.Fraction{Numerator: 1, Denominator: 3}.ToTendermint()
 
 	// DefaultTrustPeriod is the trust period used by the SP1ICS07Tendermint contract.
-	DefaultTrustPeriod = 1209669
+	// 129600 seconds = 14 days
+	DefaultTrustPeriod = 1209600
 
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")

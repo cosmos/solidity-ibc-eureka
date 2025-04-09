@@ -2,36 +2,41 @@
 
 #![allow(missing_docs)]
 
-use lazy_static::lazy_static;
 use prometheus::{
     register_counter, register_histogram_vec, register_int_counter_vec, register_int_gauge,
     Counter, HistogramVec, IntCounterVec, IntGauge,
 };
-use std::time::Instant;
+use std::{sync::LazyLock, time::Instant};
 
-// Prometheus metrics for the relayer
-lazy_static! {
-    // Total number of requests
-    pub static ref REQUEST_COUNTER: Counter =
-        register_counter!("request_total", "Total number of requests").unwrap();
-    // Response time in seconds, distinguished by method, src_chain, and dst_chain
-    pub static ref RESPONSE_TIME: HistogramVec = register_histogram_vec!(
-        "response_time_seconds",
+/// Prometheus metric for total number of requests
+pub static REQUEST_COUNTER: LazyLock<Counter> = LazyLock::new(|| {
+    register_counter!("eureka_relayer_request_total", "Total number of requests").unwrap()
+});
+
+/// Prometheus metric for response time in seconds, distinguished by method, `src_chain`, and `dst_chain`
+pub static RESPONSE_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "eureka_relayer_response_time_seconds",
         "Response time in seconds",
         &["method", "src_chain", "dst_chain"]
     )
-    .unwrap();
-    // Response Codes, distinguished by method, src_chain, dst_chain, and status_code
-    pub static ref RESPONSE_CODE: IntCounterVec = register_int_counter_vec!(
-        "response_code",
+    .unwrap()
+});
+
+/// Prometheus metric for response codes, distinguished by method, `src_chain`, `dst_chain`, and `status_code`
+pub static RESPONSE_CODE: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec!(
+        "eureka_relayer_response_codes",
         "Response Codes",
         &["method", "src_chain", "dst_chain", "status_code"]
     )
-    .unwrap();
-    // Number of connected clients, or concurrent requests
-    pub static ref CONNECTED_CLIENTS: IntGauge =
-        register_int_gauge!("connected_clients", "Connected clients").unwrap();
-}
+    .unwrap()
+});
+
+/// Prometheus metric for number of connected clients, or concurrent requests
+pub static CONNECTED_CLIENTS: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!("eureka_relayer_connected_clients", "Connected clients").unwrap()
+});
 
 /// Generic metrics tracking middleware for service calls
 /// # Errors

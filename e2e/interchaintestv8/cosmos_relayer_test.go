@@ -12,7 +12,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -20,15 +19,14 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v10/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -109,71 +107,47 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
-		simdAHeader, err := s.FetchCosmosHeader(ctx, s.SimdA)
-		s.Require().NoError(err)
-
-		var (
-			clientStateAny    *codectypes.Any
-			consensusStateAny *codectypes.Any
-		)
-		s.Require().True(s.Run("Construct the client and consensus state", func() {
-			tmConfig := ibctesting.NewTendermintConfig()
-			revision := clienttypes.ParseChainID(simdAHeader.ChainID)
-			height := clienttypes.NewHeight(revision, uint64(simdAHeader.Height))
-
-			clientState := ibctm.NewClientState(
-				simdAHeader.ChainID,
-				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
-				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
-			)
-			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: s.SimdA.Config().ChainID,
+				DstChain: s.SimdB.Config().ChainID,
+			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-			consensusState := ibctm.NewConsensusState(simdAHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdAHeader.ValidatorsHash)
-			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
-			s.Require().NoError(err)
+			createClientTxBodyBz = resp.Tx
 		}))
 
-		_, err = s.BroadcastMessages(ctx, s.SimdB, s.SimdBSubmitter, 200_000, &clienttypes.MsgCreateClient{
-			ClientState:    clientStateAny,
-			ConsensusState: consensusStateAny,
-			Signer:         s.SimdBSubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, createClientTxBodyBz)
+			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(ibctesting.FirstClientID, clientId)
+		}))
 	}))
 
 	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
-		simdBHeader, err := s.FetchCosmosHeader(ctx, s.SimdB)
-		s.Require().NoError(err)
-
-		var (
-			clientStateAny    *codectypes.Any
-			consensusStateAny *codectypes.Any
-		)
-		s.Require().True(s.Run("Construct the client and consensus state", func() {
-			tmConfig := ibctesting.NewTendermintConfig()
-			revision := clienttypes.ParseChainID(simdBHeader.ChainID)
-			height := clienttypes.NewHeight(revision, uint64(simdBHeader.Height))
-
-			clientState := ibctm.NewClientState(
-				simdBHeader.ChainID,
-				tmConfig.TrustLevel, tmConfig.TrustingPeriod, tmConfig.UnbondingPeriod, tmConfig.MaxClockDrift,
-				height, commitmenttypes.GetSDKSpecs(), ibctesting.UpgradePath,
-			)
-			clientStateAny, err = codectypes.NewAnyWithValue(clientState)
+		var createClientTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: s.SimdB.Config().ChainID,
+				DstChain: s.SimdA.Config().ChainID,
+			})
 			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
 
-			consensusState := ibctm.NewConsensusState(simdBHeader.Time, commitmenttypes.NewMerkleRoot([]byte(ibctm.SentinelRoot)), simdBHeader.ValidatorsHash)
-			consensusStateAny, err = codectypes.NewAnyWithValue(consensusState)
-			s.Require().NoError(err)
+			createClientTxBodyBz = resp.Tx
 		}))
 
-		_, err = s.BroadcastMessages(ctx, s.SimdA, s.SimdASubmitter, 200_000, &clienttypes.MsgCreateClient{
-			ClientState:    clientStateAny,
-			ConsensusState: consensusStateAny,
-			Signer:         s.SimdASubmitter.FormattedAddress(),
-		})
-		s.Require().NoError(err)
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, createClientTxBodyBz)
+			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
+			s.Require().NoError(err)
+			s.Require().Equal(ibctesting.FirstClientID, clientId)
+		}))
 	}))
 
 	s.Require().True(s.Run("Register counterparty on Chain A", func() {
@@ -333,7 +307,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			resp := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+			resp := s.MustBroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 
 			var err error
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
@@ -385,7 +359,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 		}))
 
 		s.Require().True(s.Run("Broadcast ack tx on Chain A", func() {
-			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify commitments removed", func() {
@@ -521,7 +495,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 		}))
 
 		s.Require().True(s.Run("Broadcast timeout tx", func() {
-			_ = s.BroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify balances on Chain A", func() {
@@ -548,7 +522,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 	}))
 
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
-		resp, err := s.BroadcastSdkTxBodyGetResult(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
+		resp, err := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 		s.Require().ErrorContains(err, "timeout elapsed")
 		s.Require().Nil(resp)
 	}))

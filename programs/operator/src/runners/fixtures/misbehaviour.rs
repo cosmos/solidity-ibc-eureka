@@ -14,7 +14,10 @@ use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::MisbehaviourProgram,
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_sdk::{HashableKey, ProverClient};
@@ -38,10 +41,19 @@ struct SP1ICS07SubmitMisbehaviourFixture {
 /// Writes the proof data for misbehaviour to the given fixture path.
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
-    let path = args.misbehaviour_path;
+    let path = args.misbehaviour_json_path;
     let misbehaviour_bz = std::fs::read(path)?;
     // deserialize from json
     let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
+
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
 
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
@@ -83,6 +95,10 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
     // use trusted light block 2 to instantiate a new SP1 tendermint client with light block 2 as initial trusted consensus state
@@ -91,6 +107,10 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
 
@@ -104,7 +124,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state, false)?;
 
     let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::<MisbehaviourProgram, _>::new(args.sp1.proof_type, &sp1_prover);
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &misbehaviour_program);
 
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     let proof_data = verify_misbehaviour_prover.generate_proof(

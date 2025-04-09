@@ -3,6 +3,7 @@
 use ethereum_types::consensus::{
     beacon_block::BeaconBlock,
     bootstrap::LightClientBootstrap,
+    genesis::Genesis,
     light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
     spec::Spec,
 };
@@ -16,6 +17,7 @@ use super::{
 };
 
 const SPEC_PATH: &str = "/eth/v1/config/spec";
+const GENESIS_PATH: &str = "/eth/v1/beacon/genesis";
 const BEACON_BLOCKS_V1_PATH: &str = "/eth/v1/beacon/blocks";
 const BEACON_BLOCKS_V2_PATH: &str = "/eth/v2/beacon/blocks";
 const LIGHT_CLIENT_BOOTSTRAP_PATH: &str = "/eth/v1/beacon/light_client/bootstrap";
@@ -44,6 +46,13 @@ impl BeaconApiClient {
     /// Returns an error if the request fails or the response is not successful deserialized
     pub async fn spec(&self) -> Result<Response<Spec>, BeaconApiClientError> {
         self.get_json(SPEC_PATH).await
+    }
+
+    /// Retrieve details of the chain's genesis which can be used to identify chain.
+    /// # Errors
+    /// Returns an error if the request fails or the response is not successful deserialized
+    pub async fn genesis(&self) -> Result<Response<Genesis>, BeaconApiClientError> {
+        self.get_json(GENESIS_PATH).await
     }
 
     /// Fetches the `LigthClientBootstrap` for a given beacon block root
