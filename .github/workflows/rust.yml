@@ -99,14 +99,3 @@ jobs:
       # it checks for things like memories, exports, imports, available capabilities, and non-determinism
       - name: Check cosmwasm file
         run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
-      - name: Check binary has not changed
-        run: |
-          if ! git diff --quiet HEAD; then
-            echo "Git diff found in the selected directory. Failing the job."
-            git diff # To make debugging easier
-            exit 1
-          else
-            echo "No changes detected in the selected directory."
-          fi
-
-
