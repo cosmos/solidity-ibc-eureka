@@ -88,9 +88,9 @@ type Fork struct {
 // The consensus state at the initial state
 type ConsensusState struct {
 	// aggregate public key of current sync committee at the finalized header
-	CurrentSyncCommittee string `json:"current_sync_committee"`
+	CurrentSyncCommittee SummarizedSyncCommittee `json:"current_sync_committee"`
 	// aggregate public key of next sync committee at the finalized header if known
-	NextSyncCommittee string `json:"next_sync_committee"`
+	NextSyncCommittee *SummarizedSyncCommittee `json:"next_sync_committee"`
 	// The slot number of the finalized header
 	Slot uint64 `json:"slot"`
 	// The state merkle root of the finalized header
@@ -99,6 +99,16 @@ type ConsensusState struct {
 	StorageRoot string `json:"storage_root"`
 	// The execution timestamp of the finalized header
 	Timestamp uint64 `json:"timestamp"`
+}
+
+// aggregate public key of current sync committee at the finalized header
+//
+// The summarized sync committee data
+type SummarizedSyncCommittee struct {
+	// The aggregate public key of the sync committee
+	AggregatePubkey string `json:"aggregate_pubkey"`
+	// The ssz hash root of the public keys of the sync committee
+	PubkeysHash string `json:"pubkeys_hash"`
 }
 
 // The header of a light client update
