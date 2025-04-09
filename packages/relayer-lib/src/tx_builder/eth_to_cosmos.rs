@@ -333,7 +333,7 @@ where
     ) -> Result<Vec<u8>> {
         let latest_block_number = self.eth_client.get_block_number().await?;
         let minimum_block_number = if dest_events.is_empty() {
-            let latest_block_from_events = src_events.iter().filter_map(|e| e.block_number).max();
+            let latest_block_from_events = src_events.iter().map(|e| e.block_number).max();
             latest_block_from_events.unwrap_or(latest_block_number)
         } else {
             // If we have destination events (e.g. timeout), use the latest block number
