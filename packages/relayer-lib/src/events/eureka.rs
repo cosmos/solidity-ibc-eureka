@@ -21,8 +21,8 @@ use super::cosmos_sdk;
 pub struct EurekaEventWithHeight {
     /// The type of the event.
     pub event: EurekaEvent,
-    /// The block number at which the event was emitted.
-    pub block_number: u64,
+    /// The height at which the event was emitted.
+    pub height: u64,
 }
 
 /// The event type
@@ -85,7 +85,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
 
         Ok(Self {
             event: event_type,
-            block_number: log
+            height: log
                 .block_number
                 .ok_or_else(|| anyhow::anyhow!("Block number not found in log: {:?}", log))?,
         })
