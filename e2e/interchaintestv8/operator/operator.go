@@ -221,7 +221,7 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	}
 	defer os.Remove(misbehaviourFileName)
 
-	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-path", misbehaviourFileName}, args...)
+	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-json-path", misbehaviourFileName}, args...)
 	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
 	if isPrivateCluster {
 		args = append(args, "--private-cluster")

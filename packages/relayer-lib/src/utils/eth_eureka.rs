@@ -122,6 +122,7 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// Returns an error if the sp1 proof cannot be generated.
 pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     sp1_prover: &Sp1Prover<C>,
+    uc_and_mem_program: &UpdateClientAndMembershipProgram,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
     target_light_block: LightBlock,
@@ -157,10 +158,8 @@ pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     // Get the proposed header from the target light block.
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-    let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        client_state.zkAlgorithm,
-        sp1_prover,
-    );
+    let uc_and_mem_prover =
+        SP1ICS07TendermintProver::new(client_state.zkAlgorithm, sp1_prover, uc_and_mem_program);
 
     let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
         &client_state,

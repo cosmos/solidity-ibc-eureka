@@ -6,13 +6,14 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-relayer-lib = { workspace = true, default-features = true }
+ibc-eureka-relayer-lib      = { workspace = true, default-features = true }
+sp1-ics07-tendermint-prover = { workspace = true }
 
-tokio = { workspace = true, default-features = true }
-tonic = { workspace = true, default-features = true }
+tokio            = { workspace = true, default-features = true }
+tonic            = { workspace = true, default-features = true }
+tonic-reflection = { workspace = true, default-features = true }
 
 prometheus         = { workspace = true, default-features = true }
-lazy_static        = { workspace = true, default-features = true }
 warp               = { workspace = true, default-features = true }
 tracing            = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }

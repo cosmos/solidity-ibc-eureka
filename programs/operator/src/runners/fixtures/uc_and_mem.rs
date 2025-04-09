@@ -16,7 +16,10 @@ use ibc_eureka_solidity_types::msgs::{
 };
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram,
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
 use sp1_sdk::{HashableKey, ProverClient};
@@ -31,6 +34,15 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         "The target block must be greater than the trusted block"
     );
 
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
         Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
@@ -38,10 +50,8 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
 
-    let uc_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        args.sp1.proof_type,
-        &sp1_prover,
-    );
+    let uc_mem_prover =
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &uc_and_membership_program);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
@@ -55,6 +65,10 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
         args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;

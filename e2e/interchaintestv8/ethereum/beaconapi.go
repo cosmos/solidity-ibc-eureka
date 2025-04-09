@@ -154,46 +154,6 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 	})
 }
 
-func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64) (LightClientUpdatesResponse, error) {
-	return retry(b.Retries, b.RetryWait, func() (LightClientUpdatesResponse, error) {
-		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-
-		var lightClientUpdatesResponse LightClientUpdatesResponse
-		if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-
-		return lightClientUpdatesResponse, nil
-	})
-}
-
-func (b BeaconAPIClient) GetGenesis() (*apiv1.Genesis, error) {
-	return retry(b.Retries, b.RetryWait, func() (*apiv1.Genesis, error) {
-		genesisResponse, err := b.client.(eth2client.GenesisProvider).Genesis(b.ctx, &api.GenesisOpts{})
-		if err != nil {
-			return nil, err
-		}
-
-		return genesisResponse.Data, nil
-	})
-}
-
 func (b BeaconAPIClient) GetSpec() (Spec, error) {
 	return retry(b.Retries, b.RetryWait, func() (Spec, error) {
 		specResponse, err := b.client.(eth2client.SpecProvider).Spec(b.ctx, &api.SpecOpts{})
@@ -289,20 +249,5 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) 
 		}
 
 		return resp, nil
-	})
-}
-
-func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
-	return retry(b.Retries, b.RetryWait, func() (uint64, error) {
-		resp, err := b.GetBeaconBlocks(blockID)
-		if err != nil {
-			return 0, err
-		}
-
-		if blockID == "finalized" && !resp.Finalized {
-			return 0, fmt.Errorf("block is not finalized")
-		}
-
-		return resp.Data.Message.Body.ExecutionPayload.BlockNumber, nil
 	})
 }

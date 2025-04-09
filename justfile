@@ -29,7 +29,7 @@ build-cw-ics08-wasm-eth:
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 build-relayer-image:
-    docker build -t eureka-relayer:latest --platform linux/amd64 .
+    docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
 
 # Clean up the cache and out directories
 clean:
@@ -62,7 +62,6 @@ lint:
 	@echo "Linting the Go code..."
 	cd e2e/interchaintestv8 && golangci-lint run
 	cd packages/go-abigen && golangci-lint run
-	cd scripts/ethgenesis && golangci-lint run
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings
 	@echo "Linting the Protobuf files..."
@@ -72,10 +71,11 @@ lint:
 generate-abi: build-contracts
 	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
 	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
-	jq '.abi' ./out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
+	jq '.abi' out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
 	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
 	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
+	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
@@ -161,13 +161,6 @@ genesis-sp1-ics07: build-sp1-programs
 # Deploy scripts. If these fail to land due to gas price fluctuations, try again with a higher gas price:
 # adding something like `--legacy --with-gas-price 100gwei` -- depending on the current gas prices.
 
-
-# Deploy the SP1ICS07Tendermint contract to the Eth Sepolia testnet if the `.env` file is present
-deploy-sp1-ics07: genesis-sp1-ics07
-  @echo "Deploying the SP1ICS07Tendermint contract"
-  forge install
-  forge script scripts/SP1ICS07Tendermint.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-
 # Deploy the ICS26Router contract using environment variables
 deploy-ics26: build-contracts
 	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
@@ -177,11 +170,6 @@ deploy-ics26: build-contracts
 deploy-ics20: build-contracts
 	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
 	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
-
-# Deploy the SP1ICS07Tendermint contract using environment variables
-deploy-light-client: build-contracts
-	@echo "Deploying the SP1ICS07Tendermint contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeploySP1ICS07Tendermint.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer

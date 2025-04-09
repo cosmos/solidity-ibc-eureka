@@ -39,7 +39,8 @@ where
     pub vkey: SP1VerifyingKey,
     /// The proof type.
     pub proof_type: SupportedZkAlgorithm,
-    _phantom: std::marker::PhantomData<T>,
+    /// The program type.
+    pub program: &'a T,
 }
 
 /// The SP1 prover used by the [`TxBuilder`].
@@ -86,16 +87,20 @@ where
     /// Create a new prover.
     #[must_use]
     #[tracing::instrument(skip_all)]
-    pub fn new(proof_type: SupportedZkAlgorithm, prover_client: &'a Sp1Prover<C>) -> Self {
+    pub fn new(
+        proof_type: SupportedZkAlgorithm,
+        prover_client: &'a Sp1Prover<C>,
+        program: &'a T,
+    ) -> Self {
         tracing::info!("Initializing SP1 ProverClient...");
-        let (pkey, vkey) = prover_client.setup(T::ELF);
+        let (pkey, vkey) = prover_client.setup(program.elf());
         tracing::info!("SP1 ProverClient initialized");
         Self {
             prover_client,
             pkey,
             vkey,
             proof_type,
-            _phantom: std::marker::PhantomData,
+            program,
         }
     }
 

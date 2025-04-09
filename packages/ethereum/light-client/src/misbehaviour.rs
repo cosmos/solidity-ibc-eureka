@@ -1,4 +1,4 @@
-//! This module provides [`verify_misbehavior`] function to check for misbehaviour
+//! This module provides [`verify_misbehaviour`] function to check for misbehaviour
 
 use ethereum_types::consensus::light_client_header::LightClientUpdate;
 
