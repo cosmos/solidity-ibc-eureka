@@ -528,7 +528,8 @@ where
         let eth_client_state = ClientState {
             chain_id: self.ics26_router.provider().get_chain_id().await?,
             genesis_validators_root: genesis.genesis_validators_root,
-            min_sync_committee_participants: 1,
+            min_sync_committee_participants: spec.min_sync_committee_participants,
+            sync_committee_size: spec.sync_committee_size,
             genesis_time: genesis.genesis_time,
             genesis_slot: spec.genesis_slot,
             fork_parameters: spec.to_fork_parameters(),

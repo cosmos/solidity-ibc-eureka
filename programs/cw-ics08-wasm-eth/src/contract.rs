@@ -203,6 +203,7 @@ mod tests {
                 chain_id: 0,
                 genesis_validators_root: B256::from([0; 32]),
                 min_sync_committee_participants: 0,
+                sync_committee_size: 0,
                 genesis_time: 0,
                 genesis_slot: 0,
                 fork_parameters: ForkParameters {

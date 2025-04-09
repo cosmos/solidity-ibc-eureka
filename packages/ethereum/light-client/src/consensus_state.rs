@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use ethereum_types::consensus::sync_committee::{SummarizedSyncCommittee, SyncCommittee};
 
-use crate::{error::EthereumIBCError, header::ActiveSyncCommittee, verify::BlsVerify};
+use crate::{
+    client_state::ClientState, error::EthereumIBCError, header::ActiveSyncCommittee,
+    verify::BlsVerify,
+};
 
 /// The consensus state of the Ethereum light client corresponding to a finalized header
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
@@ -49,6 +52,7 @@ impl TrustedConsensusState {
     /// # Errors
     /// Returns an error if the untrusted sync committee does not match the trusted state
     pub fn new<V: BlsVerify>(
+        client_state: &ClientState,
         trusted_state: ConsensusState,
         untrusted_sync_committee: ActiveSyncCommittee,
         bls_verifier: &V,
@@ -80,6 +84,15 @@ impl TrustedConsensusState {
                 committee
             }
         };
+
+        // Verify the sync committee size
+        ensure!(
+            full_committee.pubkeys.len() as u64 == client_state.sync_committee_size,
+            EthereumIBCError::InsufficientSyncCommitteeLength {
+                expected: client_state.sync_committee_size,
+                found: full_committee.pubkeys.len() as u64
+            }
+        );
 
         let aggregate_pubkey = bls_verifier
             .aggregate(&full_committee.pubkeys)

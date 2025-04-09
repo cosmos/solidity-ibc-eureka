@@ -20,6 +20,13 @@ pub struct Spec {
     #[serde_as(as = "DisplayFromStr")]
     pub epochs_per_sync_committee_period: u64,
 
+    /// The size of the sync committee.
+    #[serde_as(as = "DisplayFromStr")]
+    pub sync_committee_size: u64,
+    /// The minimum number of participants in the sync committee.
+    #[serde_as(as = "DisplayFromStr")]
+    pub min_sync_committee_participants: u64,
+
     // Fork Parameters
     /// The genesis fork version.
     pub genesis_fork_version: Version,
