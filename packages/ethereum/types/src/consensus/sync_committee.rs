@@ -31,11 +31,13 @@ pub struct SyncAggregate {
 }
 
 /// The summarized sync committee data
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
 pub struct SummarizedSyncCommittee {
     /// The ssz hash root of the public keys of the sync committee
+    #[schemars(with = "String")]
     pub pubkeys_hash: FixedBytes<32>,
     /// The aggregate public key of the sync committee
+    #[schemars(with = "String")]
     pub aggregate_pubkey: BlsPublicKey,
 }
 

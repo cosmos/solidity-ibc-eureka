@@ -25,10 +25,8 @@ pub struct ConsensusState {
     /// The execution timestamp of the finalized header
     pub timestamp: u64,
     /// aggregate public key of current sync committee at the finalized header
-    #[schemars(with = "String")]
     pub current_sync_committee: SummarizedSyncCommittee,
     /// aggregate public key of next sync committee at the finalized header if known
-    #[schemars(with = "String")]
     pub next_sync_committee: Option<SummarizedSyncCommittee>,
 }
 
