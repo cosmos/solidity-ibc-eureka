@@ -582,8 +582,10 @@ where
             state_root: bootstrap.header.execution.state_root,
             storage_root: contract_proof.storage_hash,
             timestamp: bootstrap.header.execution.timestamp,
-            current_sync_committee: bootstrap.current_sync_committee.aggregate_pubkey,
-            next_sync_committee: Some(next_sync_committee.aggregate_pubkey),
+            current_sync_committee: bootstrap
+                .current_sync_committee
+                .to_summarized_sync_committee(),
+            next_sync_committee: Some(next_sync_committee.to_summarized_sync_committee()),
         };
         let consensus_state = WasmConsensusState {
             data: serde_json::to_vec(&eth_consensus_state)?,

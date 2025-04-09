@@ -3,6 +3,7 @@
 use alloy_primitives::{Bytes, FixedBytes};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
 use super::bls::{BlsPublicKey, BlsSignature, BLS_PUBLIC_KEY_BYTES_LEN};
@@ -27,6 +28,26 @@ pub struct SyncAggregate {
     /// The aggregated signature of the sync committee.
     #[schemars(with = "String")]
     pub sync_committee_signature: BlsSignature,
+}
+
+/// The summarized sync committee data
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, TreeHash)]
+pub struct SummarizedSyncCommittee {
+    /// The ssz hash root of the public keys of the sync committee
+    pub pubkeys_hash: FixedBytes<32>,
+    /// The aggregate public key of the sync committee
+    pub aggregate_pubkey: BlsPublicKey,
+}
+
+impl SyncCommittee {
+    /// Returns the summarized sync committee data
+    #[must_use]
+    pub fn to_summarized_sync_committee(&self) -> SummarizedSyncCommittee {
+        SummarizedSyncCommittee {
+            pubkeys_hash: self.pubkeys.tree_hash_root(),
+            aggregate_pubkey: self.aggregate_pubkey,
+        }
+    }
 }
 
 impl SyncAggregate {
