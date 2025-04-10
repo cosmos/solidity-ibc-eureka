@@ -1,22 +1,9 @@
 //! This module contains the `CosmWasm` entrypoints for the 08-wasm smart contract
 
-use cosmwasm_std::{ensure, entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
-use ethereum_light_client::{
-    client_state::ClientState as EthClientState,
-    consensus_state::ConsensusState as EthConsensusState,
-};
-use ibc_proto::ibc::{
-    core::client::v1::Height as IbcProtoHeight,
-    lightclients::wasm::v1::{
-        ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-    },
-};
+use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use crate::{custom_query::EthereumCustomQuery, msg::MigrateMsg, query, state::store_client_state};
-use crate::{
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
-    state::store_consensus_state,
-};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
+use crate::{custom_query::EthereumCustomQuery, instantiate, msg::MigrateMsg, query};
 use crate::{sudo, ContractError};
 
 /// The version of the contracts state.
@@ -39,43 +26,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
 
-    let client_state_bz: Vec<u8> = msg.client_state.into();
-    let client_state: EthClientState = serde_json::from_slice(&client_state_bz)
-        .map_err(ContractError::DeserializeClientStateFailed)?;
-    let wasm_client_state = WasmClientState {
-        checksum: msg.checksum.into(),
-        data: client_state_bz,
-        latest_height: Some(IbcProtoHeight {
-            revision_number: 0,
-            revision_height: client_state.latest_slot,
-        }),
-    };
-
-    let consensus_state_bz: Vec<u8> = msg.consensus_state.into();
-    let consensus_state: EthConsensusState = serde_json::from_slice(&consensus_state_bz)
-        .map_err(ContractError::DeserializeConsensusStateFailed)?;
-    let wasm_consensus_state = WasmConsensusState {
-        data: consensus_state_bz,
-    };
-
-    ensure!(
-        wasm_client_state.latest_height.unwrap().revision_height == client_state.latest_slot,
-        ContractError::ClientStateSlotMismatch
-    );
-
-    ensure!(
-        client_state.latest_slot == consensus_state.slot,
-        ContractError::ClientAndConsensusStateMismatch
-    );
-
-    client_state
-        .verify_supported_fork_at_epoch(
-            client_state.compute_epoch_at_slot(client_state.latest_slot),
-        )
-        .map_err(ContractError::UnsupportedForkVersion)?;
-
-    store_client_state(deps.storage, &wasm_client_state)?;
-    store_consensus_state(deps.storage, &wasm_consensus_state, consensus_state.slot)?;
+    instantiate::client(deps.storage, msg)?;
 
     Ok(Response::default())
 }
@@ -153,10 +104,15 @@ pub fn query(
 pub fn migrate(
     deps: DepsMut<EthereumCustomQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> Result<Response, ContractError> {
     // Check if the state version is older than the current one and update it
     cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
+
+    // Re-initialize the client if needed.
+    if let Some(instantiate_msg) = msg.instantiate_msg {
+        instantiate::client(deps.storage, instantiate_msg)?;
+    }
 
     Ok(Response::default())
 }
@@ -714,7 +670,14 @@ mod tests {
             instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
             // Migrate without any changes (i.e. same state version)
-            migrate(deps.as_mut(), mock_env(), crate::msg::MigrateMsg {}).unwrap();
+            migrate(
+                deps.as_mut(),
+                mock_env(),
+                crate::msg::MigrateMsg {
+                    instantiate_msg: None,
+                },
+            )
+            .unwrap();
         }
     }
 }
