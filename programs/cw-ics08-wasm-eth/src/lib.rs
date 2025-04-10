@@ -10,6 +10,7 @@
 pub mod contract;
 pub mod custom_query;
 mod error;
+pub mod instantiate;
 pub mod msg;
 pub mod query;
 pub mod state;
