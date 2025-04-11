@@ -93,9 +93,25 @@ jobs:
           args: cargo-run-script cosmwasm-check
       - name: Install just
         uses: extractions/setup-just@v2
+
+      - name: Compute SHA-256 of commited binary
+        id: commited_sha256
+        run: |
+          echo "sha256=$(gunzip -c e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz | sha256sum | awk '{print $1}')" >> $GITHUB_OUTPUT
+
       - name: Build optimized wasm binary
         run: just build-cw-ics08-wasm-eth
-      # checks that the wasm binary is a proper cosmwasm smart contract
-      # it checks for things like memories, exports, imports, available capabilities, and non-determinism
+        # checks that the wasm binary is a proper cosmwasm smart contract
+        # it checks for things like memories, exports, imports, available capabilities, and non-determinism
       - name: Check cosmwasm file
         run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
+
+      - name: Verify built binary matches commited
+        run: |
+          sha256_built=$(sha256sum artifacts/cw_ics08_wasm_eth.wasm | awk '{print $1}')
+          if [ "$sha256_built" != "${{ steps.commited_sha256.outputs.sha256 }}" ]; then
+            echo "SHA-256 hashes do not match"
+            exit 1
+          fi
+
+
