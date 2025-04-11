@@ -10,7 +10,7 @@ import (
 )
 
 type EthAPI struct {
-	client *ethclient.Client
+	Client *ethclient.Client
 
 	Retries   int
 	RetryWait time.Duration
@@ -29,7 +29,7 @@ func NewEthAPI(rpc string) (EthAPI, error) {
 	}
 
 	return EthAPI{
-		client:    ethClient,
+		Client:    ethClient,
 		Retries:   6,
 		RetryWait: 10 * time.Second,
 	}, nil
@@ -38,7 +38,7 @@ func NewEthAPI(rpc string) (EthAPI, error) {
 func (e EthAPI) GetProof(address string, storageKeys []string, blockHex string) (EthGetProofResponse, error) {
 	return retry(e.Retries, e.RetryWait, func() (EthGetProofResponse, error) {
 		var proofResponse EthGetProofResponse
-		if err := e.client.Client().Call(&proofResponse, "eth_getProof", address, storageKeys, blockHex); err != nil {
+		if err := e.Client.Client().Call(&proofResponse, "eth_getProof", address, storageKeys, blockHex); err != nil {
 			return EthGetProofResponse{}, err
 		}
 
@@ -48,7 +48,7 @@ func (e EthAPI) GetProof(address string, storageKeys []string, blockHex string) 
 
 func (e EthAPI) GetBlockNumber() (string, uint64, error) {
 	var blockNumberHex string
-	if err := e.client.Client().Call(&blockNumberHex, "eth_blockNumber"); err != nil {
+	if err := e.Client.Client().Call(&blockNumberHex, "eth_blockNumber"); err != nil {
 		return "", 0, err
 	}
 
