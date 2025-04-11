@@ -555,7 +555,6 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		})
 		s.Require().NoError(err)
 		s.Require().Equal(testvalues.FirstUniversalClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
-
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
