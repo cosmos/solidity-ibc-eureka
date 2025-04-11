@@ -51,7 +51,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
         with:
-          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16,TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16,TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos,TestWithRelayerTestSuite/Test_5_FinalizedTimeoutPacketFromEth_Groth16
 
   e2e:
     needs: generate-matrix
