@@ -199,7 +199,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for Eth to Cosmos...");
+        tracing::info!("Handling create client request for Eth to Cosmos...");
 
         let inner_req = request.into_inner();
         let tx = self
