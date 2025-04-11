@@ -567,7 +567,7 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 			ClientId: testvalues.FirstWasmClientID,
 		})
 		s.Require().NoError(err)
-		s.Require().Equal(ibctesting.SecondClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
+		s.Require().Equal(testvalues.SecondUniversalClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
