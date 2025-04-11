@@ -550,13 +550,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		})
 		s.Require().NoError(err)
 
-		// TODO: https://github.com/cosmos/ibc-go/issues/7875
-		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdA, &channeltypesv2.QueryChannelRequest{
-		// 	ChannelId: ibctesting.FirstChannelID,
-		// })
-		// s.Require().NoError(err)
-		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(testvalues.FirstUniversalClientID, channelResp.Channel.CounterpartyChannelId)
+		counterpartyInfoResp, err := e2esuite.GRPCQuery[clienttypesv2.QueryCounterpartyInfoResponse](ctx, simdA, &clienttypesv2.QueryCounterpartyInfoRequest{
+			ClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(testvalues.FirstUniversalClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify ethereum light client for SimdB", func() {
@@ -565,13 +563,11 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 		})
 		s.Require().NoError(err)
 
-		// TODO: https://github.com/cosmos/ibc-go/issues/7875
-		// channelResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryChannelResponse](ctx, simdB, &channeltypesv2.QueryChannelRequest{
-		// 	ChannelId: ibctesting.FirstChannelID,
-		// })
-		// s.Require().NoError(err)
-		// s.Require().Equal(testvalues.FirstWasmClientID, channelResp.Channel.ClientId)
-		// s.Require().Equal(ibctesting.SecondClientID, channelResp.Channel.CounterpartyChannelId)
+		counterpartyInfoResp, err := e2esuite.GRPCQuery[clienttypesv2.QueryCounterpartyInfoResponse](ctx, simdB, &clienttypesv2.QueryCounterpartyInfoRequest{
+			ClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(testvalues.SecondUniversalClientID, counterpartyInfoResp.CounterpartyInfo.ClientId)
 	}))
 
 	s.Require().True(s.Run("Verify Light Client of Chain A on Chain B", func() {
@@ -1137,9 +1133,6 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		transferPayload := transfertypes.FungibleTokenPacketData{
-			// Denom:    denomOnSimdA.IBCDenom(),
-			// BUG: Allowing user to choose the above is a bug in ibc-go
-			// https://github.com/cosmos/ibc-go/issues/7848
 			Denom:    denomOnSimdA.Path(),
 			Amount:   transferAmount.String(),
 			Sender:   simdAUser.FormattedAddress(),
