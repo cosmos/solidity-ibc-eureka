@@ -675,7 +675,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
-	var refundedAmount *big.Int = totalTransferAmount
+	refundedAmount := totalTransferAmount
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 	cosmosUserWallet := s.CosmosUsers[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
