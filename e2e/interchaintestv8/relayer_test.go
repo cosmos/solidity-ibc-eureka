@@ -778,7 +778,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 		reqStartTime := time.Now()
 
 		var timeoutRelayTx []byte
-		s.Require().True(s.Run("Retrieve timeout tx with time constraints", func() {
+		s.Require().True(s.Run("Retrieve timeout tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:     simd.Config().ChainID,
 				DstChain:     eth.ChainID.String(),
