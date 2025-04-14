@@ -122,4 +122,9 @@ contract ICS02ClientTest is Test {
         bool hasRole = ics02Client.hasRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         assertFalse(hasRole, "client owner not renounced");
     }
+
+    function test_Misbehaviour() public {
+        bytes memory misbehaviourMsg = "testMisbehaviourMsg";
+        ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
+    }
 }

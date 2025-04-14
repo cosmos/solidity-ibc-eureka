@@ -61,6 +61,11 @@ interface IICS02Client {
     /// @param substituteClientId The client identifier of the substitute client
     function migrateClient(string calldata subjectClientId, string calldata substituteClientId) external;
 
+    /// @notice Submits misbehaviour to the client with the given client identifier.
+    /// @param clientId The client identifier
+    /// @param misbehaviourMsg The misbehaviour message
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
+
     /// @notice Returns the role identifier for a light client
     /// @param clientId The client identifier
     /// @return The role identifier
