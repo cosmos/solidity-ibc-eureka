@@ -80,13 +80,6 @@ contract ICS02ClientTest is Test {
         ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
     }
 
-    function test_UpdateClient() public {
-        bytes memory updateMsg = "testUpdateMsg";
-        ILightClientMsgs.UpdateResult updateResult = ics02Client.updateClient(clientIdentifier, updateMsg);
-        assertEq(uint256(updateResult), uint256(ILightClientMsgs.UpdateResult.Update), "updateClient failed");
-        assertEq(updateMsg, lightClient.latestUpdateMsg(), "updateClient failed");
-    }
-
     function test_MigrateClient() public {
         address bob = makeAddr("bob");
 
@@ -128,15 +121,5 @@ contract ICS02ClientTest is Test {
 
         bool hasRole = ics02Client.hasRole(ics02Client.getLightClientMigratorRole(clientIdentifier), clientOwner);
         assertFalse(hasRole, "client owner not renounced");
-    }
-
-    function test_Misbehaviour() public {
-        bytes memory misbehaviourMsg = "testMisbehaviourMsg";
-        ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
-    }
-
-    function test_UpgradeClient() public {
-        bytes memory upgradeMsg = "testUpgradeMsg";
-        ics02Client.upgradeClient(clientIdentifier, upgradeMsg);
     }
 }

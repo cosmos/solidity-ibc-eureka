@@ -151,28 +151,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         emit ICS02ClientMigrated(subjectClientId, substituteClientId);
     }
 
-    /// @inheritdoc IICS02Client
-    function updateClient(
-        string calldata clientId,
-        bytes calldata updateMsg
-    )
-        external
-        returns (ILightClientMsgs.UpdateResult)
-    {
-        return getClient(clientId).updateClient(updateMsg);
-    }
-
-    /// @inheritdoc IICS02Client
-    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
-        getClient(clientId).misbehaviour(misbehaviourMsg);
-        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
-    }
-
-    /// @inheritdoc IICS02Client
-    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
-        getClient(clientId).upgradeClient(upgradeMsg);
-    }
-
     /// @notice Returns the storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
