@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
@@ -152,25 +151,9 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02Client
-    function updateClient(
-        string calldata clientId,
-        bytes calldata updateMsg
-    )
-        external
-        returns (ILightClientMsgs.UpdateResult)
-    {
-        return getClient(clientId).updateClient(updateMsg);
-    }
-
-    /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
         emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
-    }
-
-    /// @inheritdoc IICS02Client
-    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
-        getClient(clientId).upgradeClient(upgradeMsg);
     }
 
     /// @notice Returns the storage of the ICS02Client contract
