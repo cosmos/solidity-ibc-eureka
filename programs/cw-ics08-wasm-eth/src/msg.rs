@@ -61,7 +61,10 @@ pub enum QueryMsg {
 
 /// The message to migrate the contract
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    /// The optional instantiate msg to re-initialize the client
+    pub instantiate_msg: Option<InstantiateMsg>,
+}
 
 /// Verify membership message
 #[cw_serde]

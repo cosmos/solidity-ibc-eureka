@@ -23,9 +23,6 @@ pub struct Spec {
     /// The size of the sync committee.
     #[serde_as(as = "DisplayFromStr")]
     pub sync_committee_size: u64,
-    /// The minimum number of participants in the sync committee.
-    #[serde_as(as = "DisplayFromStr")]
-    pub min_sync_committee_participants: u64,
 
     // Fork Parameters
     /// The genesis fork version.
