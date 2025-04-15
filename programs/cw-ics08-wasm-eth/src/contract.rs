@@ -392,8 +392,10 @@ mod tests {
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
         }
 
+        /// This test runs through a scenario where a malicious relayer sends an incorrect sync
+        /// commitee whose aggregate pubkey is the same as the one in the header.
         #[test]
-        fn test_ar_vulnerability_patched() {
+        fn test_aggragate_sync_committee_collision() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
