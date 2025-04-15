@@ -9,7 +9,6 @@ pragma solidity ^0.8.28;
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
-import { SP1ICS07Tendermint } from "../contracts/light-clients/SP1ICS07Tendermint.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
@@ -20,40 +19,32 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
-import { Deployments } from "./helpers/Deployments.sol";
-import { DeploySP1ICS07Tendermint } from "./deployments/DeploySP1ICS07Tendermint.sol";
-import {DeployProxiedICS20Transfer} from "./deployments/DeployProxiedICS20Transfer.sol";
-import {DeployProxiedICS26Router} from "./deployments/DeployProxiedICS26Router.sol";
+import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
+import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint, DeployProxiedICS20Transfer, DeployProxiedICS26Router {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS20Transfer, DeployProxiedICS26Router {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
-    address public verifier;
+    address[] public publicRelayers = [address(0)];
 
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
-        ConsensusState memory trustedConsensusState;
-        ClientState memory trustedClientState;
-        SP1ICS07Tendermint ics07Tendermint;
-
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, SP1_GENESIS_DIR, "genesis.json");
-        string memory json = vm.readFile(path);
-
-        Deployments.SP1ICS07TendermintDeployment memory genesis = Deployments.loadSP1ICS07TendermintDeployment(json, "");
-
-        genesis.verifier = vm.envOr("VERIFIER", string(""));
-
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
         // ============ Step 2: Deploy the contracts ==============
 
         vm.startBroadcast();
 
-        (ics07Tendermint, trustedConsensusState, trustedClientState) = deploySP1ICS07Tendermint(genesis);
+        // Deploy the SP1 verifiers for testing
+        address verifierPlonk = address(new SP1VerifierPlonk());
+        address verifierGroth16 = address(new SP1VerifierGroth16());
+        address verifierMock = address(new SP1MockVerifier());
 
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());
@@ -66,7 +57,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             implementation: ics26RouterLogic,
             timeLockAdmin: msg.sender,
             portCustomizer: msg.sender,
-            relayer: address(0)
+            clientIdCustomizer: msg.sender,
+            relayers: publicRelayers
         }));
 
         ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ProxiedICS20TransferDeployment({
@@ -75,8 +67,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
             ics26Router: address(routerProxy),
             escrowImplementation: escrowLogic,
             ibcERC20Implementation: ibcERC20Logic,
-            pauser: address(0),
-            unpauser: address(0),
+            pausers: new address[](0),
+            unpausers: new address[](0),
+            tokenOperator: address(0),
             permit2: address(0)
         }));
 
@@ -91,10 +84,14 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeploySP1ICS07Tendermint
 
         vm.stopBroadcast();
 
-        json = "json";
-        json.serialize("ics07Tendermint", Strings.toHexString(address(ics07Tendermint)));
+        string memory json = "json";
+        json.serialize("verifierPlonk", Strings.toHexString(address(verifierPlonk)));
+        json.serialize("verifierGroth16", Strings.toHexString(address(verifierGroth16)));
+        json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
+        // TODO: resolve finalJson vs json
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;

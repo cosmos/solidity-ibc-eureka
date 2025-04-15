@@ -18,7 +18,7 @@ use prost::Message;
 use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, SP1ProofMode, SP1ProofWithPublicValues,
-    SP1ProvingKey, SP1Stdin, SP1VerificationError, SP1VerifyingKey,
+    SP1ProvingKey, SP1Stdin, SP1VerifyingKey,
 };
 
 // Re-export the supported zk algorithms.
@@ -39,7 +39,8 @@ where
     pub vkey: SP1VerifyingKey,
     /// The proof type.
     pub proof_type: SupportedZkAlgorithm,
-    _phantom: std::marker::PhantomData<T>,
+    /// The program type.
+    pub program: &'a T,
 }
 
 /// The SP1 prover used by the [`TxBuilder`].
@@ -76,20 +77,6 @@ impl<C: SP1ProverComponents> Sp1Prover<C> {
             Self::PrivateCluster(prover) => prover.setup(elf),
         }
     }
-
-    /// Calls the underlying prover's `prove` method.
-    /// # Errors
-    /// If the underlying prover errors.
-    pub fn verify(
-        &self,
-        bundle: &SP1ProofWithPublicValues,
-        vkey: &SP1VerifyingKey,
-    ) -> Result<(), SP1VerificationError> {
-        match self {
-            Self::PublicCluster(prover) => prover.verify(bundle, vkey),
-            Self::PrivateCluster(prover) => prover.verify(bundle, vkey),
-        }
-    }
 }
 
 impl<'a, T, C> SP1ICS07TendermintProver<'a, T, C>
@@ -100,16 +87,20 @@ where
     /// Create a new prover.
     #[must_use]
     #[tracing::instrument(skip_all)]
-    pub fn new(proof_type: SupportedZkAlgorithm, prover_client: &'a Sp1Prover<C>) -> Self {
+    pub fn new(
+        proof_type: SupportedZkAlgorithm,
+        prover_client: &'a Sp1Prover<C>,
+        program: &'a T,
+    ) -> Self {
         tracing::info!("Initializing SP1 ProverClient...");
-        let (pkey, vkey) = prover_client.setup(T::ELF);
+        let (pkey, vkey) = prover_client.setup(program.elf());
         tracing::info!("SP1 ProverClient initialized");
         Self {
             prover_client,
             pkey,
             vkey,
             proof_type,
-            _phantom: std::marker::PhantomData,
+            program,
         }
     }
 
@@ -119,7 +110,7 @@ where
     #[must_use]
     pub fn prove(&self, stdin: &SP1Stdin) -> SP1ProofWithPublicValues {
         // Generate the proof. Depending on SP1_PROVER env variable, this may be a mock, local or
-        let proof = match self.prover_client {
+        match self.prover_client {
             Sp1Prover::PublicCluster(ref prover) => prover
                 .prove(
                     &self.pkey,
@@ -139,13 +130,7 @@ where
             .strategy(FulfillmentStrategy::Reserved)
             .run()
             .expect("proving failed"),
-        };
-
-        self.prover_client
-            .verify(&proof, &self.vkey)
-            .expect("verification failed");
-
-        proof
+        }
     }
 }
 

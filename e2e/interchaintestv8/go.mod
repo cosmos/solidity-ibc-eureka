@@ -14,7 +14,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.1.0
 	github.com/cosmos/ibc-go/v10 v10.1.0
-	github.com/cosmos/solidity-ibc-eureka/abigen v0.0.0
+	github.com/cosmos/solidity-ibc-eureka/packages/go-abigen v0.0.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/holiman/uint256 v1.3.2
@@ -275,7 +275,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/cosmos/solidity-ibc-eureka/abigen => ../../abigen
+replace github.com/cosmos/solidity-ibc-eureka/packages/go-abigen => ../../packages/go-abigen
 
 replace github.com/strangelove-ventures/interchaintest/v8 => github.com/gjermundgaraba/interchaintest/v8 v8.0.0-20250215185800-7e1ec6907f6e
 

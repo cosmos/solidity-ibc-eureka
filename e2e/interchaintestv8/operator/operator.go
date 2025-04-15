@@ -19,7 +19,7 @@ import (
 
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
@@ -221,7 +221,7 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	}
 	defer os.Remove(misbehaviourFileName)
 
-	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-path", misbehaviourFileName}, args...)
+	args = append([]string{"fixtures", "misbehaviour", "--misbehaviour-json-path", misbehaviourFileName}, args...)
 	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
 	if isPrivateCluster {
 		args = append(args, "--private-cluster")

@@ -23,7 +23,7 @@ type MultichainConfigInfo struct {
 	// Ethereum Beacon API URL
 	BeaconAPI string
 	// SP1 config
-	SP1Config SP1Config
+	SP1Config SP1ProverConfig
 	// Whether we use the mock client in the cosmos chains
 	MockWasmClient bool
 }

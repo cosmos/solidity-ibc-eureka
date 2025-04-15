@@ -15,7 +15,7 @@ type EthCosmosConfigInfo struct {
 	// Ethereum Beacon API URL
 	BeaconAPI string
 	// SP1 config
-	SP1Config SP1Config
+	SP1Config SP1ProverConfig
 	// Signer address cosmos
 	SignerAddress string
 	// Whether we use the mock client in Cosmos
@@ -47,7 +47,13 @@ func CreateEthCosmosModules(
 				TmRpcUrl:     configInfo.TmRPC,
 				Ics26Address: configInfo.ICS26Address,
 				EthRpcUrl:    configInfo.EthRPC,
-				Sp1Config:    configInfo.SP1Config,
+				Sp1Prover:    configInfo.SP1Config,
+				Sp1Programs: SP1ProgramPaths{
+					UpdateClient:              "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+					Membership:                "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+					UpdateClientAndMembership: "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+					Misbehaviour:              "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour",
+				},
 			},
 		},
 	}

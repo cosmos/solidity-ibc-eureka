@@ -14,6 +14,9 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 soljson-latest.js
+config.json
+scripts/ethgenesis/client_state.json
+scripts/ethgenesis/consensus_state.json
 
 # broadcasts
 !broadcast

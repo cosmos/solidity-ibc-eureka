@@ -1,5 +1,7 @@
 //! Defines Ethereum to Cosmos relayer module.
 
+use std::collections::HashMap;
+
 use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
@@ -101,7 +103,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for Eth to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -121,6 +123,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: self.tx_builder.ics26_router_address().to_string(),
             }),
+            metadata: HashMap::default(),
         }))
     }
 
@@ -129,7 +132,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for eth to cosmos...");
+        tracing::info!("Handling relay by tx request for Eth to Cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
@@ -164,7 +167,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
             "Fetched {} eureka events from CosmosSDK.",
             cosmos_events.len()
@@ -172,13 +175,42 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .relay_events(eth_events, cosmos_events, inner_req.target_client_id)
+            .relay_events(
+                eth_events,
+                cosmos_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
+            tx,
+            address: String::new(),
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        tracing::info!("Handling create client request for Eth to Cosmos...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(&inner_req.parameters)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
             tx,
             address: String::new(),
         }))
@@ -209,17 +241,41 @@ impl EthToCosmosTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Real(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
             }
             Self::Mock(tb) => {
-                tb.relay_events(src_events, target_events, target_client_id)
-                    .await
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                )
+                .await
             }
+        }
+    }
+
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real(tb) => tb.create_client(parameters).await,
+            Self::Mock(tb) => tb.create_client(parameters).await,
         }
     }
 

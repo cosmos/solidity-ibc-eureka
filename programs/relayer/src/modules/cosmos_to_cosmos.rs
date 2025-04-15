@@ -1,5 +1,7 @@
 //! Defines Cosmos to Cosmos relayer module.
 
+use std::collections::HashMap;
+
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
     tx_builder::{cosmos_to_cosmos, TxBuilderService},
@@ -47,7 +49,6 @@ impl CosmosToCosmosRelayerModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::from_rpc_url(&config.src_rpc_url);
         let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
-
         let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
         let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
@@ -69,7 +70,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for Cosmos to Cosmos...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -89,6 +90,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
+            metadata: HashMap::default(),
         }))
     }
 
@@ -97,7 +99,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for cosmos to cosmos...");
+        tracing::info!("Handling relay by tx request for Cosmos to Cosmos...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
@@ -142,13 +144,42 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
 
         let tx = self
             .tx_builder
-            .relay_events(src_events, target_events, inner_req.target_client_id)
+            .relay_events(
+                src_events,
+                target_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
+            tx,
+            address: String::new(),
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        tracing::info!("Handling create client request for Cosmos to Cosmos...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(&inner_req.parameters)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
             tx,
             address: String::new(),
         }))

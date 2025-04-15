@@ -29,7 +29,6 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
   - [End to End Benchmarks](#end-to-end-benchmarks)
     - [Single Packet Benchmarks](#single-packet-benchmarks)
     - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
-  - [Run ICS-07 Tendermint Light Client End to End](#run-ics-07-tendermint-light-client-end-to-end)
   - [Security Assumptions](#security-assumptions)
     - [Handling Frozen Light Clients](#handling-frozen-light-clients)
     - [Security Council and Governance Admin](#security-council-and-governance-admin)
@@ -47,7 +46,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
-- `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `relayer/`: Contains the relayer implementation.
@@ -55,6 +53,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
+    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 
 ### Contracts
 
@@ -182,7 +181,7 @@ just lint
 
 ## End to End Benchmarks
 
-The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 25 seconds. More granular and in-depth benchmarks are planned for the future.
 
 ### Single Packet Benchmarks
 
@@ -191,10 +190,10 @@ The following benchmarks are for a single packet transfer without aggregation.
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
 | `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~165,000 | ~165,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~518,340 | ~602,020 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,087,699 | ~1,171,433 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~392,851 | ~476,578 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~466,083 | ~550,208 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~524,474 | ~608,862 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,072,445 | ~1,156,233 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~399,576 | ~483,375 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~473,505 | ~556,640 |
 
 ### Aggregated Packet Benchmarks
 
@@ -203,54 +202,10 @@ Since there is no meaningful difference in gas costs between plonk and groth16 i
 
 | **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** | **Calldata size (25 packets)** | **Calldata size (50 packets)** |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~178,487 | ~172,258 | ~51,172B | ~100,772B |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~91,722 | ~86,018 | ~53,572B | ~105,572B |
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~179,471 | ~172,804 | ~51,172B | ~100,772B |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,621 | ~88,485 | ~53,572B | ~105,572B |
 
 Note: These gas benchmarks are with Groth16.
-
-## Run ICS-07 Tendermint Light Client End to End
-
-1. Set the environment variables by filling in the `.env` file with the following:
-
-    ```sh
-    cp .env.example .env
-    ```
-
-    You need to fill in the `PRIVATE_KEY`, `SP1_PROVER`, `TENDERMINT_RPC_URL`, and `RPC_URL`. You also need the `NETWORK_PRIVATE_KEY` field if you are using the SP1 prover network.
-
-2. Deploy the `SP1ICS07Tendermint` contract:
-
-    ```sh
-    just deploy-sp1-ics07
-    ```
-
-    This will generate the `contracts/script/genesis.json` file which contains the initialization parameters for the contract. And then deploy the contract using `contracts/script/SP1ICS07Tendermint.s.sol`.
-    If you see the following error, add `--legacy` to the command in the `justfile`:
-    ```text
-    Error: Failed to get EIP-1559 fees    
-    ```
-
-3. Your deployed contract address will be printed to the terminal.
-
-    ```text
-    == Return ==
-    0: address <CONTRACT_ADDRESS>
-    ```
-
-    This will be used when you run the operator in step 5. So add this to your `.env` file.
-
-    ```.env
-    CONTRACT_ADDRESS=<CONTRACT_ADDRESS>
-    ```
-
-4. Run the Tendermint operator.
-
-    To run the operator, you need to select the prover type for SP1. This is set in the `.env` file with the `SP1_PROVER` value (`network|local|mock`).
-    If you run the operator with the `network` prover, you need to provide your SP1 network private key with `NETWORK_PRIVATE_KEY=0xyourprivatekey` in `.env`.
-
-    ```sh
-    RUST_LOG=info cargo run --bin operator --release -- start
-    ```
 
 ## Security Assumptions
 
@@ -306,15 +261,19 @@ Once the **govAdmin** is set, the Security Council must **apply a timelock** to 
 
 The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
 
-| **Role Name** | **Contract** | **Default** | **Description** |
-|:---:|:---:|:---:|:---:|
-| `PAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can pause the contract. |
-| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Set at initialization. | Can unpause the contract. |
-| `RATE_LIMITER_ROLE` | `Escrow.sol` | `None` | Can set withdrawal rate limits per `ERC20` token. |
-| `RELAYER_ROLE` | `ICS26Router.sol` | `None` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
-| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom port ids for applications. |
-| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | `None` | Can set custom light client ids for applications. |
-| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Creator of the light client. | Can migrate the light client identified by `client_id`. |
+| **Role Name** | **Contract** | **Description** |
+|:---:|:---:|:---:|
+| `PAUSER_ROLE` | `ICS20Transfer.sol` | Can pause the contract. |
+| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
+| `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
+| `DELEGATE_SENDER_ROLE` | `ICS20Transfer.sol` | Has permission to call `sendTransferWithSender` |
+| `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
+| `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
+| `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
+| `RELAYER_ROLE` | `ICS26Router.sol` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
+| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom port ids for applications. |
+| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom light client ids for applications. |
+| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Can migrate the light client identified by `client_id`. Creator of the light client has this role by default. |
 
 ## License
 

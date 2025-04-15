@@ -1,14 +1,27 @@
-# TODO: dynamically fetch this from cargo file
-ARG SP1_VERSION="v4.1.0"
-FROM ghcr.io/succinctlabs/sp1:${SP1_VERSION} as BUILD
+FROM rust:1.85-bookworm AS build
 
-RUN apt update && apt install -y just protobuf-compiler
+RUN apt update && apt install -y build-essential protobuf-compiler ca-certificates
+
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /solidity-ibc-eureka/
-COPY . .
-RUN just build-relayer
+COPY Cargo.toml Cargo.lock ./
+COPY packages packages
+COPY programs programs
+COPY contracts contracts
+COPY abi abi
+COPY proto proto
 
-FROM gcr.io/distroless/base-debian11:debug
+RUN cargo build --bin relayer --release --locked
+RUN cargo build --bin operator --release --locked
+
+COPY scripts/relayer_docker_entrypoint.sh /docker_entrypoint.sh
+
+FROM gcr.io/distroless/cc-debian12:debug
 WORKDIR /usr/local/bin
-COPY --from=BUILD /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
-ENTRYPOINT [ "/usr/local/bin/relayer", "--config", "/usr/local/relayer/relayer.json"]
+COPY --from=build /etc/ssl/certs /etc/ssl/certs
+COPY --from=build /solidity-ibc-eureka/target/release/relayer /usr/local/bin/relayer
+COPY --from=build /solidity-ibc-eureka/target/release/operator /usr/local/bin/operator
+COPY --from=build /docker_entrypoint.sh /docker_entrypoint.sh
+
+ENTRYPOINT ["sh", "/docker_entrypoint.sh", "start", "--config", "/usr/local/relayer/relayer.json"]

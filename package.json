@@ -1,11 +1,7 @@
 {
-  "name": "@srdtrk/solidity-ibc-eureka",
-  "description": "This is a solidity implementation of ibc-eureka. (WIP)",
+  "name": "@cosmos/solidity-ibc-eureka",
+  "description": "This is a solidity implementation of ibc-eureka.",
   "version": "1.0.0",
-  "author": {
-    "name": "srdtrk",
-    "url": "https://github.com/srdtrk"
-  },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0",
     "@openzeppelin/contracts-upgradeable": "^5.2.0",

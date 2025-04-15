@@ -9,6 +9,10 @@ use ibc_eureka_relayer_lib::{
     tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use sp1_ics07_tendermint_prover::programs::{
+    MembershipProgram, MisbehaviourProgram, SP1ICS07TendermintPrograms,
+    UpdateClientAndMembershipProgram, UpdateClientProgram,
+};
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
@@ -46,12 +50,48 @@ pub struct CosmosToEthConfig {
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
     /// The SP1 prover configuration.
-    pub sp1_config: SP1Config,
+    pub sp1_prover: SP1Config,
+    /// The SP1 program paths.
+    pub sp1_programs: SP1ProgramPaths,
+}
+
+/// The paths to the SP1 programs.
+/// This is relative to the current working directory.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct SP1ProgramPaths {
+    /// The path to the update client program.
+    pub update_client: String,
+    /// The path to the membership program.
+    pub membership: String,
+    /// The path to the update client and membership program.
+    pub update_client_and_membership: String,
+    /// The path to the misbehaviour program.
+    pub misbehaviour: String,
+}
+
+impl SP1ProgramPaths {
+    /// Get the ELF bytes for the programs.
+    ///
+    /// # Errors
+    /// Returns an error if the programs cannot be read.
+    pub fn read_programs(&self) -> anyhow::Result<SP1ICS07TendermintPrograms> {
+        let update_client = std::fs::read(&self.update_client)?;
+        let membership = std::fs::read(&self.membership)?;
+        let uc_and_membership = std::fs::read(&self.update_client_and_membership)?;
+        let misbehaviour = std::fs::read(&self.misbehaviour)?;
+
+        Ok(SP1ICS07TendermintPrograms {
+            update_client: UpdateClientProgram::new(update_client),
+            membership: MembershipProgram::new(membership),
+            update_client_and_membership: UpdateClientAndMembershipProgram::new(uc_and_membership),
+            misbehaviour: MisbehaviourProgram::new(misbehaviour),
+        })
+    }
 }
 
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "prover_type")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum SP1Config {
     /// Mock prover.
     Mock,
@@ -94,26 +134,55 @@ impl CosmosToEthRelayerModuleService {
 
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
-        let tx_builder = match config.sp1_config {
+        let sp1_programs = config
+            .sp1_programs
+            .read_programs()
+            .unwrap_or_else(|e| panic!("failed to read SP1 programs: {e}"));
+
+        let tx_builder = match config.sp1_prover {
             SP1Config::Mock => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().mock().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Env => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::from_env());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Cpu => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cpu().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Cuda => {
                 let prover: Box<dyn Prover<CpuProverComponents>> =
                     Box::new(ProverClient::builder().cuda().build());
-                TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    prover,
+                    sp1_programs,
+                )
             }
             SP1Config::Network {
                 network_private_key,
@@ -133,11 +202,18 @@ impl CosmosToEthRelayerModuleService {
                         provider,
                         tm_client,
                         prover_builder.build(),
+                        sp1_programs,
                     )
                 } else {
                     let prover: Box<dyn Prover<CpuProverComponents>> =
                         Box::new(prover_builder.build());
-                    TxBuilder::new(config.ics26_address, provider, tm_client, prover)
+                    TxBuilder::new(
+                        config.ics26_address,
+                        provider,
+                        tm_client,
+                        prover,
+                        sp1_programs,
+                    )
                 }
             }
         };
@@ -157,7 +233,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Received info request.");
+        tracing::info!("Handling info request for Cosmos to Eth...");
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
                 chain_id: self
@@ -177,6 +253,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
+            metadata: self.tx_builder.metadata(),
         }))
     }
 
@@ -185,7 +262,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for cosmos to eth...");
+        tracing::info!("Handling relay by tx request for Cosmos to Eth...");
 
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
@@ -211,7 +288,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched cosmos events.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
             "Fetched {} eureka events from CosmosSDK.",
             cosmos_events.len()
@@ -228,15 +305,44 @@ impl RelayerService for CosmosToEthRelayerModuleService {
 
         let multicall_tx = self
             .tx_builder
-            .relay_events(cosmos_events, eth_events, inner_req.target_client_id)
+            .relay_events(
+                cosmos_events,
+                eth_events,
+                inner_req.src_client_id,
+                inner_req.dst_client_id,
+                inner_req.src_packet_sequences,
+                inner_req.dst_packet_sequences,
+            )
             .await
-            .map_err(|e| tonic::Status::from_error(e.to_string().into()))?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
         Ok(Response::new(api::RelayByTxResponse {
             tx: multicall_tx,
             address: self.tx_builder.ics26_router.address().to_string(),
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(
+        &self,
+        request: Request<api::CreateClientRequest>,
+    ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
+        tracing::info!("Handling create client request for Cosmos to Eth...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .create_client(&inner_req.parameters)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Create client request completed.");
+
+        Ok(Response::new(api::CreateClientResponse {
+            tx,
+            address: String::new(),
         }))
     }
 }

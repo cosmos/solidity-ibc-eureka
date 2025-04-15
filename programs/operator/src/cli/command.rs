@@ -1,9 +1,8 @@
 //! Contains the command line interface for the application.
 
-use std::convert::Infallible;
-
 use clap::{command, Parser};
 use sp1_ics07_tendermint_prover::prover::SupportedZkAlgorithm;
+use std::{convert::Infallible, str::FromStr};
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 /// The command line interface for the operator.
@@ -75,6 +74,10 @@ pub mod genesis {
         /// Supported proof types: groth16, plonk.
         #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
         pub proof_type: super::SupportedZkAlgorithm,
+
+        /// The paths to the ELF files.
+        #[clap(flatten)]
+        pub elf_paths: super::SP1ELFPaths,
     }
 }
 
@@ -93,6 +96,13 @@ pub mod operator {
         /// If true, the operator will use the private cluster configuration.
         #[clap(long, default_value = "false")]
         pub private_cluster: bool,
+
+        /// Path to the update client ELF file.
+        #[clap(
+            long,
+            default_value = "target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client"
+        )]
+        pub update_client_path: String,
     }
 }
 
@@ -145,6 +155,10 @@ pub mod fixtures {
         /// Sp1 configuration
         #[clap(flatten)]
         pub sp1: Sp1Args,
+
+        /// The paths to the ELF files.
+        #[clap(flatten)]
+        pub elf_paths: super::SP1ELFPaths,
     }
 
     /// The arguments for the `Membership` fixture executable.
@@ -158,6 +172,10 @@ pub mod fixtures {
         /// Sp1 configuration
         #[clap(flatten)]
         pub sp1: Sp1Args,
+
+        /// The paths to the ELF files.
+        #[clap(flatten)]
+        pub elf_paths: super::SP1ELFPaths,
     }
 
     /// The arguments for generic membership proof generation.
@@ -200,6 +218,10 @@ pub mod fixtures {
         /// Sp1 configuration
         #[clap(flatten)]
         pub sp1: Sp1Args,
+
+        /// The paths to the ELF files.
+        #[clap(flatten)]
+        pub elf_paths: super::SP1ELFPaths,
     }
 
     /// The arguments for the `Misbehaviour` fixture executable.
@@ -208,7 +230,7 @@ pub mod fixtures {
     pub struct MisbehaviourCmd {
         /// Path to the misbehaviour json file.
         #[clap(long)]
-        pub misbehaviour_path: String,
+        pub misbehaviour_json_path: String,
 
         /// Fixture path. If not provided, the output will be written to stdout.
         #[clap(long, short = 'o', value_parser = super::parse_output_path, default_value = "-")]
@@ -221,6 +243,10 @@ pub mod fixtures {
         /// Sp1 configuration
         #[clap(flatten)]
         pub sp1: Sp1Args,
+
+        /// The paths to the ELF files.
+        #[clap(flatten)]
+        pub elf_paths: super::SP1ELFPaths,
     }
 
     /// The arguments for sp1 configuration.
@@ -236,6 +262,35 @@ pub mod fixtures {
         #[clap(long, default_value = "false")]
         pub private_cluster: bool,
     }
+}
+
+/// The paths to the ELF files.
+#[derive(Parser, Clone)]
+pub struct SP1ELFPaths {
+    /// Path to the update client ELF file.
+    #[clap(
+        long,
+        default_value = "target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client"
+    )]
+    pub update_client_path: String,
+    /// Path to the membership ELF file.
+    #[clap(
+        long,
+        default_value = "target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership"
+    )]
+    pub membership_path: String,
+    /// Path to the update client and membership ELF file.
+    #[clap(
+        long,
+        default_value = "target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership"
+    )]
+    pub uc_and_membership_path: String,
+    /// Path to the misbehaviour ELF file.
+    #[clap(
+        long,
+        default_value = "target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+    )]
+    pub misbehaviour_path: String,
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -264,9 +319,5 @@ fn parse_trust_threshold(input: &str) -> anyhow::Result<TrustThreshold> {
 }
 
 fn parse_proof_type(input: &str) -> anyhow::Result<SupportedZkAlgorithm> {
-    match input {
-        "groth16" => Ok(SupportedZkAlgorithm::Groth16),
-        "plonk" => Ok(SupportedZkAlgorithm::Plonk),
-        _ => Err(anyhow::anyhow!("invalid proof type")),
-    }
+    Ok(SupportedZkAlgorithm::from_str(input)?)
 }

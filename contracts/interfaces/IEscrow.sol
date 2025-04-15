@@ -27,6 +27,5 @@ interface IEscrow {
     /// @notice Initializes the IBCERC20 contract
     /// @dev This function is meant to be called by a proxy
     /// @param ics20_ The ICS20 contract address, can send funds from the escrow
-    /// @param ics26_ The ICS26 contract address, can set the rate limiter role
-    function initialize(address ics20_, address ics26_) external;
+    function initialize(address ics20_) external;
 }

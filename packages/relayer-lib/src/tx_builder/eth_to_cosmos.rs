@@ -1,35 +1,48 @@
 //! This module defines [`TxBuilder`] which is responsible for building transactions to be sent to
 //! the Cosmos SDK chain from events received from Ethereum.
 
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
-use alloy::{primitives::Address, providers::Provider};
+use alloy::{
+    hex,
+    primitives::{Address, U256},
+    providers::Provider,
+};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
-use ethereum_light_client::header::{AccountUpdate, ActiveSyncCommittee};
-use ethereum_light_client::{client_state::ClientState, header::Header};
-use ethereum_types::consensus::light_client_header::{
-    LightClientFinalityUpdate, LightClientUpdate,
+use ethereum_light_client::{
+    client_state::ClientState,
+    consensus_state::ConsensusState,
+    header::{AccountUpdate, ActiveSyncCommittee, Header},
 };
-use ethereum_types::consensus::sync_committee::SyncCommittee;
-use ethereum_types::execution::account_proof::AccountProof;
-use ibc_eureka_solidity_types::ics26::router::routerInstance;
+use ethereum_types::{
+    consensus::{
+        light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
+        sync_committee::SyncCommittee,
+    },
+    execution::account_proof::AccountProof,
+};
+use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
-use ibc_proto_eureka::google::protobuf::Any;
-use ibc_proto_eureka::ibc::core::client::v1::{Height, MsgUpdateClient};
-use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
-use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState as WasmClientState;
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{
+        core::client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        lightclients::wasm::v1::{
+            ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
+    },
+};
 use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
-use crate::utils::{cosmos, wait_for_condition};
+use super::r#trait::TxBuilderService;
 use crate::{
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
+    utils::{cosmos, wait_for_condition},
 };
-
-use super::r#trait::TxBuilderService;
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
 pub struct TxBuilder<P>
@@ -300,6 +313,9 @@ where
     }
 }
 
+/// The key for the checksum hex in the parameters map.
+const CHECKSUM_HEX: &str = "checksum_hex";
+
 #[async_trait::async_trait]
 impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
@@ -310,46 +326,72 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
-        let latest_block_number = self.eth_client.get_block_number().await?;
-        let minimum_block_number = if dest_events.is_empty() {
-            let latest_block_from_events = src_events.iter().filter_map(|e| e.block_number).max();
-            latest_block_from_events.unwrap_or(latest_block_number)
-        } else {
-            // If we have destination events (e.g. timeout), use the latest block number
-            latest_block_number
-        };
-
-        let target_height = Height {
-            revision_number: 0,
-            revision_height: minimum_block_number,
-        };
-
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+        let mut ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
+        let latest_block_number = self.eth_client.get_block_number().await?;
+
+        let max_src_block_number = src_events.iter().map(|e| e.height).max();
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_client_id,
-            &target_height,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_client_id,
-            &target_height,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
 
-        let mut ethereum_client_state =
-            self.ethereum_client_state(target_client_id.clone()).await?;
+        let max_timeout_slot = timeout_msgs
+            .iter()
+            .filter_map(|e| {
+                ethereum_client_state
+                    .compute_slot_at_timestamp(e.packet.as_ref()?.timeout_timestamp)
+            })
+            .max();
+
+        let max_timeout_block_number = if let Some(max_timeout_slot) = max_timeout_slot {
+            Some(
+                self.beacon_api_client
+                    .beacon_block(&format!("{max_timeout_slot}"))
+                    .await
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to get beacon block for timeout slot {max_timeout_slot}: {e}",
+                        )
+                    })?
+                    .message
+                    .body
+                    .execution_payload
+                    .block_number,
+            )
+        } else {
+            None
+        };
+
+        let minimum_block_number = max_src_block_number
+            .into_iter()
+            .chain(max_timeout_block_number.into_iter())
+            .max()
+            .unwrap_or(latest_block_number);
 
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}, target block number: {}, client state latest slot: {}",
-            target_client_id,
+            dst_client_id,
             minimum_block_number,
             ethereum_client_state.latest_slot,
         );
@@ -360,7 +402,7 @@ where
             self.wait_for_light_client_readiness(minimum_block_number)
                 .await?;
             // Update the client state and consensus state, in case they have changed while we were waiting
-            ethereum_client_state = self.ethereum_client_state(target_client_id.clone()).await?;
+            ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
             self.get_update_headers(&ethereum_client_state).await?
         } else {
             vec![]
@@ -390,7 +432,7 @@ where
                 let header_bz = serde_json::to_vec(&header)?;
                 let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
                 Ok(MsgUpdateClient {
-                    client_id: target_client_id.clone(),
+                    client_id: dst_client_id.clone(),
                     client_message: Some(client_msg),
                     signer: self.signer_address.clone(),
                 })
@@ -461,6 +503,123 @@ where
 
         Ok(tx_body.encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != CHECKSUM_HEX)
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+                ))
+            })?;
+
+        let genesis = self.beacon_api_client.genesis().await?.data;
+        let spec = self.beacon_api_client.spec().await?.data;
+        let beacon_block = self
+            .beacon_api_client
+            .beacon_block("finalized")
+            .await?
+            .message;
+
+        tracing::info!("Creating client at slot: {}", beacon_block.slot);
+
+        let block_root = self
+            .beacon_api_client
+            .beacon_block_root(&format!("{}", beacon_block.slot))
+            .await?;
+
+        let bootstrap = self
+            .beacon_api_client
+            .light_client_bootstrap(&block_root)
+            .await?
+            .data;
+
+        if bootstrap.header.execution.block_number
+            != beacon_block.body.execution_payload.block_number
+        {
+            anyhow::bail!(
+                "Light client bootstrap block number does not match execution block number"
+            );
+        }
+
+        let eth_client_state = ClientState {
+            chain_id: self.ics26_router.provider().get_chain_id().await?,
+            genesis_validators_root: genesis.genesis_validators_root,
+            min_sync_committee_participants: spec.sync_committee_size.div_ceil(3),
+            genesis_time: genesis.genesis_time,
+            genesis_slot: spec.genesis_slot,
+            fork_parameters: spec.to_fork_parameters(),
+            seconds_per_slot: spec.seconds_per_slot,
+            slots_per_epoch: spec.slots_per_epoch,
+            epochs_per_sync_committee_period: spec.epochs_per_sync_committee_period,
+            latest_slot: bootstrap.header.beacon.slot,
+            is_frozen: false,
+            ibc_commitment_slot: U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT),
+            ibc_contract_address: *self.ics26_router.address(),
+            latest_execution_block_number: bootstrap.header.execution.block_number,
+        };
+        let client_state = WasmClientState {
+            data: serde_json::to_vec(&eth_client_state)?,
+            checksum: hex::decode(
+                parameters
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+            )?,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: eth_client_state.latest_slot,
+            }),
+        };
+
+        let contract_proof = self
+            .eth_client
+            .get_proof(
+                &self.ics26_router.address().to_string(),
+                vec![],
+                format!("0x{:x}", eth_client_state.latest_execution_block_number),
+            )
+            .await?;
+
+        let latest_period =
+            eth_client_state.compute_sync_committee_period_at_slot(eth_client_state.latest_slot);
+        let next_sync_committee = self
+            .beacon_api_client
+            .light_client_updates(latest_period, 1)
+            .await?
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("No light client updates found for the latest period"))?
+            .data
+            .next_sync_committee
+            .ok_or_else(|| {
+                anyhow::anyhow!("No next sync committee found in the light client update")
+            })?;
+
+        let eth_consensus_state = ConsensusState {
+            slot: eth_client_state.latest_slot,
+            state_root: bootstrap.header.execution.state_root,
+            storage_root: contract_proof.storage_hash,
+            timestamp: bootstrap.header.execution.timestamp,
+            current_sync_committee: bootstrap.current_sync_committee.aggregate_pubkey,
+            next_sync_committee: Some(next_sync_committee.aggregate_pubkey),
+        };
+        let consensus_state = WasmConsensusState {
+            data: serde_json::to_vec(&eth_consensus_state)?,
+        };
+
+        let msg = MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
 }
 
 impl<P: Provider + Clone> MockTxBuilder<P> {
@@ -484,34 +643,33 @@ where
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         dest_events: Vec<EurekaEventWithHeight>,
-        target_client_id: String,
+        src_client_id: String,
+        dst_client_id: String,
+        src_packet_seqs: Vec<u64>,
+        dst_packet_seqs: Vec<u64>,
     ) -> Result<Vec<u8>> {
-        let target_block_number = self.eth_client.get_block_number().await?;
-
         tracing::info!(
             "Relaying events from Ethereum to Cosmos for client {}",
-            target_client_id
+            dst_client_id
         );
-
-        let target_height = Height {
-            revision_number: 0,
-            revision_height: target_block_number,
-        };
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
         let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
             dest_events,
-            &target_client_id,
-            &target_height,
+            &src_client_id,
+            &dst_client_id,
+            &dst_packet_seqs,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
 
         let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
             src_events,
-            &target_client_id,
-            &target_height,
+            &src_client_id,
+            &dst_client_id,
+            &src_packet_seqs,
+            &dst_packet_seqs,
             &self.signer_address,
             now_since_unix.as_secs(),
         );
@@ -534,5 +692,45 @@ where
             ..Default::default()
         };
         Ok(tx_body.encode_to_vec())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        parameters
+            .keys()
+            .find(|k| k.as_str() != CHECKSUM_HEX)
+            .map_or(Ok(()), |param| {
+                Err(anyhow::anyhow!(
+                    "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+                ))
+            })?;
+
+        let client_state = WasmClientState {
+            data: b"test".to_vec(),
+            checksum: hex::decode(
+                parameters
+                    .get(CHECKSUM_HEX)
+                    .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+            )?,
+            latest_height: Some(Height {
+                revision_number: 0,
+                revision_height: 1,
+            }),
+        };
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+
+        let msg = MsgCreateClient {
+            client_state: Some(Any::from_msg(&client_state)?),
+            consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
     }
 }

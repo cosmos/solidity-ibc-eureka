@@ -9,72 +9,13 @@ abstract contract Deployments {
 
     string internal constant DEPLOYMENT_DIR = "/deployments/";
 
-    struct SP1ICS07TendermintDeployment {
-        // The verifier address can be set in the environment variables.
-        // If not set, then the verifier is set based on the zkAlgorithm.
-        // If set to "mock", then the verifier is set to a mock verifier.
-        address implementation;
-        string clientId;
-        string counterpartyClientId;
-        string verifier;
-        string[] merklePrefix;
-        bytes trustedClientState;
-        bytes trustedConsensusState;
-        bytes32 updateClientVkey;
-        bytes32 membershipVkey;
-        bytes32 ucAndMembershipVkey;
-        bytes32 misbehaviourVkey;
-        address proofSubmitter;
-    }
-
-    function loadSP1ICS07TendermintDeployment(
-        string memory json,
-        string memory key
-    )
-    public
-    view
-    returns (SP1ICS07TendermintDeployment memory) {
-        return SP1ICS07TendermintDeployment({
-            clientId: json.readStringOr(string.concat(key, ".clientId"), ""),
-            verifier: json.readStringOr(string.concat(key, ".verifier"), ""),
-            merklePrefix: json.readStringArrayOr(string.concat(key, ".merklePrefix"), new string[](0)),
-            counterpartyClientId: json.readStringOr(string.concat(key, ".counterpartyClientId"), ""),
-            implementation: json.readAddressOr(string.concat(key, ".implementation"), address(0)),
-            trustedClientState: json.readBytes(string.concat(key, ".trustedClientState")),
-            trustedConsensusState: json.readBytes(string.concat(key, ".trustedConsensusState")),
-            updateClientVkey: json.readBytes32(string.concat(key, ".updateClientVkey")),
-            membershipVkey: json.readBytes32(string.concat(key, ".membershipVkey")),
-            ucAndMembershipVkey: json.readBytes32(string.concat(key, ".ucAndMembershipVkey")),
-            misbehaviourVkey: json.readBytes32(string.concat(key, ".misbehaviourVkey")),
-            proofSubmitter: json.readAddressOr(string.concat(key, ".proofSubmitter"), address(0))
-        });
-    }
-
-    function loadSP1ICS07TendermintDeployments(
-        Vm vm,
-        string memory json
-    )
-    public
-    view
-    returns (SP1ICS07TendermintDeployment[] memory)
-    {
-        string[] memory keys = vm.parseJsonKeys(json, "$.light_clients");
-        SP1ICS07TendermintDeployment[] memory deployments = new SP1ICS07TendermintDeployment[](keys.length);
-
-        for (uint256 i = 0; i < keys.length; i++) {
-            string memory key = string.concat(".light_clients['", keys[i], "']");
-            deployments[i] = loadSP1ICS07TendermintDeployment(json, key);
-        }
-
-        return deployments;
-    }
-
     struct ProxiedICS26RouterDeployment {
         address implementation;
         address proxy;
         address timeLockAdmin;
         address portCustomizer;
-        address relayer;
+        address clientIdCustomizer;
+        address[] relayers;
     }
 
     function loadProxiedICS26RouterDeployment(
@@ -90,7 +31,8 @@ abstract contract Deployments {
             proxy: vm.parseJsonAddress(json, ".ics26Router.proxy"),
             timeLockAdmin: vm.parseJsonAddress(json, ".ics26Router.timeLockAdmin"),
             portCustomizer: vm.parseJsonAddress(json, ".ics26Router.portCustomizer"),
-            relayer: vm.parseJsonAddress(json, ".ics26Router.relayer")
+            clientIdCustomizer: vm.parseJsonAddress(json, ".ics26Router.clientIdCustomizer"),
+            relayers: vm.parseJsonAddressArray(json, ".ics26Router.relayers")
         });
 
         return fixture;
@@ -106,12 +48,14 @@ abstract contract Deployments {
         address ibcERC20Implementation;
 
         // admin control
-        address pauser;
-        address unpauser;
+        address[] pausers;
+        address[] unpausers;
+        address tokenOperator;
         address permit2;
         address proxy;
     }
 
+    // TODO: Move these to ops repo
     function loadProxiedICS20TransferDeployment(
         Vm vm,
         string memory json
@@ -126,8 +70,9 @@ abstract contract Deployments {
             ibcERC20Implementation: vm.parseJsonAddress(json, ".ics20Transfer.ibcERC20Implementation"),
             ics26Router: vm.parseJsonAddress(json, ".ics20Transfer.ics26Router"),
             implementation: vm.parseJsonAddress(json, ".ics20Transfer.implementation"),
-            pauser: vm.parseJsonAddress(json, ".ics20Transfer.pauser"),
-            unpauser: vm.parseJsonAddress(json, ".ics20Transfer.unpauser"),
+            pausers: vm.parseJsonAddressArray(json, ".ics20Transfer.pausers"),
+            unpausers: vm.parseJsonAddressArray(json, ".ics20Transfer.unpausers"),
+            tokenOperator: vm.parseJsonAddress(json, ".ics20Transfer.tokenOperator"),
             permit2: vm.parseJsonAddress(json, ".ics20Transfer.permit2"),
             proxy: vm.parseJsonAddress(json, ".ics20Transfer.proxy")
         });
