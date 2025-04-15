@@ -26,7 +26,6 @@ use crate::events::{EurekaEvent, EurekaEventWithHeight};
 /// - `src_client_id` - The source client ID.
 /// - `dst_client_id` - The destination client ID.
 /// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
-/// - `target_height` - The target height.
 /// - `signer_address` - The signer address.
 /// - `now` - The current time.
 pub fn target_events_to_timeout_msgs(
@@ -34,7 +33,6 @@ pub fn target_events_to_timeout_msgs(
     src_client_id: &str,
     dst_client_id: &str,
     dst_packet_seqs: &[u64],
-    target_height: &Height,
     signer_address: &str,
     now: u64,
 ) -> Vec<MsgTimeout> {
@@ -47,7 +45,7 @@ pub fn target_events_to_timeout_msgs(
                 && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
             .then_some(MsgTimeout {
                 packet: Some(packet.into()),
-                proof_height: Some(*target_height),
+                proof_height: None,
                 proof_unreceived: vec![],
                 signer: signer_address.to_string(),
             }),
@@ -65,7 +63,6 @@ pub fn target_events_to_timeout_msgs(
 /// - `dst_client_id` - The destination client ID.
 /// - `src_packet_seqs` - The list of source packet sequences to filter. If empty, no filtering.
 /// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
-/// - `target_height` - The target height.
 /// - `signer_address` - The signer address.
 /// - `now` - The current time.
 #[allow(clippy::too_many_arguments)]
@@ -75,7 +72,6 @@ pub fn src_events_to_recv_and_ack_msgs(
     dst_client_id: &str,
     src_packet_seqs: &[u64],
     dst_packet_seqs: &[u64],
-    target_height: &Height,
     signer_address: &str,
     now: u64,
 ) -> (Vec<MsgRecvPacket>, Vec<MsgAcknowledgement>) {
@@ -104,7 +100,7 @@ pub fn src_events_to_recv_and_ack_msgs(
         .map(|e| match e.event {
             EurekaEvent::SendPacket(packet) => MsgRecvPacket {
                 packet: Some(packet.into()),
-                proof_height: Some(*target_height),
+                proof_height: None,
                 proof_commitment: vec![],
                 signer: signer_address.to_string(),
             },
@@ -120,7 +116,7 @@ pub fn src_events_to_recv_and_ack_msgs(
                 acknowledgement: Some(Acknowledgement {
                     app_acknowledgements: acks.into_iter().map(Into::into).collect(),
                 }),
-                proof_height: Some(*target_height),
+                proof_height: None,
                 proof_acked: vec![],
                 signer: signer_address.to_string(),
             },

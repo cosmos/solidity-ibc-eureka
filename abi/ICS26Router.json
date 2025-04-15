@@ -923,48 +923,6 @@
   },
   {
     "type": "function",
-    "name": "updateClient",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "updateMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ILightClientMsgs.UpdateResult"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "upgradeClient",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "upgradeMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "upgradeToAndCall",
     "inputs": [
       {
