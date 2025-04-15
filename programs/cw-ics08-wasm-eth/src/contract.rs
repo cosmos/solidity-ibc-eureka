@@ -392,7 +392,6 @@ mod tests {
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
         }
 
-        #[allow(clippy::pedantic, clippy::clone_on_copy)]
         #[test]
         fn test_ar_vulnerability_patched() {
             let mut deps = mk_deps();
@@ -462,10 +461,10 @@ mod tests {
                         84, 46, 133, 35, 12, 231, 182, 84, 204, 230, 21, 131, 156, 120, 141, 61,
                     ]);
 
-                    m.pubkeys = vec![m.aggregate_pubkey.clone(), pk1, pk2];
+                    m.pubkeys = vec![m.aggregate_pubkey, pk1, pk2];
 
                     let mut bits = vec![0xFF; 48];
-                    bits[0] = 0b00000010;
+                    bits[0] = 0b0000_0010;
 
                     header.consensus_update.sync_aggregate.sync_committee_bits = bits.into();
                     header
