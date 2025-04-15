@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 interface IICS27GMPMsgs {
-    /// @notice GMPPacketData is the payload for the GMP application.
+    /// @notice GMPPacketData is the IBC payload for the GMP application.
     /// @param sender The sender of the packet
     /// @param receiver The receiver address of the contract call
     /// @param salt The salt used to generate the caller account address
@@ -14,5 +14,11 @@ interface IICS27GMPMsgs {
         bytes salt;
         bytes payload;
         string memo;
+    }
+
+    /// @notice GMPAcknowledgement is the IBC acknowledgement of the GMP application.
+    /// @param result The result of the call
+    struct GMPAcknowledgement {
+        bytes result;
     }
 }
