@@ -69,15 +69,15 @@ pub fn update_consensus_state(
     new_consensus_state.timestamp = header.consensus_update.finalized_header.execution.timestamp;
 
     let new_client_state = if update_finalized_slot > current_consensus_state.slot {
-         Some(ClientState {
-        latest_slot: update_finalized_slot,
-        latest_execution_block_number: header
-            .consensus_update
-            .finalized_header
-            .execution
-            .block_number,
-        ..current_client_state
-    })
+        Some(ClientState {
+            latest_slot: update_finalized_slot,
+            latest_execution_block_number: header
+                .consensus_update
+                .finalized_header
+                .execution
+                .block_number,
+            ..current_client_state
+        })
     } else {
         None
     };

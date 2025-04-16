@@ -31,16 +31,14 @@ pub fn verify_client_message(
         querier: deps.querier,
     };
 
-    if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message) {
-        let mut trusted_slot = header
-            .consensus_update
-            .trusted_slot;
+    if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
+    {
+        let mut trusted_slot = header.consensus_update.trusted_slot;
         // if trusted_slot is 0, default to updating from latest slot
         if trusted_slot == 0 {
             trusted_slot = eth_client_state.latest_slot;
         }
-        let eth_consensus_state =
-            get_eth_consensus_state(deps.storage, trusted_slot)?;
+        let eth_consensus_state = get_eth_consensus_state(deps.storage, trusted_slot)?;
 
         ethereum_light_client::verify::verify_header(
             &eth_consensus_state,
@@ -220,7 +218,14 @@ mod tests {
             })
             .collect::<Vec<Header>>();
 
+        let current_slot = client_state.latest_slot;
+
         let header = headers[0].clone();
+
+        // create duplicate header that is verifying from the previously
+        // highest slot
+        let mut header2 = headers[0].clone();
+        header2.consensus_update.trusted_slot = current_slot;
 
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
@@ -231,9 +236,18 @@ mod tests {
 
         verify_client_message(
             deps.as_ref(),
-            env,
+            env.clone(),
             VerifyClientMessageMsg {
                 client_message: Binary::from(header_bz),
+            },
+        )
+        .unwrap();
+
+        verify_client_message(
+            deps.as_ref(),
+            env,
+            VerifyClientMessageMsg {
+                client_message: Binary::from(serde_json::to_vec(&header2).unwrap()),
             },
         )
         .unwrap();
