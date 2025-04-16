@@ -36,6 +36,12 @@ pub struct LightClientUpdate {
     #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub signature_slot: u64,
+    /// Trusted slot to verify the new update against
+    // The client **must** have a consensus state for the provided slot
+    #[serde_as(as = "DisplayFromStr")]
+    #[schemars(with = "String")]
+    #[serde(default)]
+    pub trusted_slot: u64,
 }
 
 impl LightClientUpdate {
@@ -76,6 +82,12 @@ pub struct LightClientFinalityUpdate {
     #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub signature_slot: u64,
+    /// Trusted slot to verify the new update against
+    // The client **must** have a consensus state for the provided slot
+    #[serde_as(as = "DisplayFromStr")]
+    #[schemars(with = "String")]
+    #[serde(default)]
+    pub trusted_slot: u64,
 }
 
 // Light Client Finality Update to Light Client Update conversion
@@ -89,6 +101,7 @@ impl From<LightClientFinalityUpdate> for LightClientUpdate {
             finality_branch: finality_update.finality_branch,
             sync_aggregate: finality_update.sync_aggregate,
             signature_slot: finality_update.signature_slot,
+            trusted_slot: finality_update.trusted_slot,
         }
     }
 }

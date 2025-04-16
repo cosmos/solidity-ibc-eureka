@@ -159,11 +159,135 @@ mod tests {
     use cosmwasm_std::{
         coins, from_json,
         testing::{message_info, mock_env},
-        Binary,
+        Binary, Timestamp,
     };
-    use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
+    use ethereum_light_client::{
+        header::Header,
+        test_utils::fixtures::{self, InitialState, RelayerMessages, StepsFixture},
+    };
+    use ibc_proto::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
 
-    use crate::{contract::instantiate, test::mk_deps};
+    use crate::{
+        contract::instantiate,
+        msg::{UpdateStateMsg, VerifyClientMessageMsg},
+        query::verify_client_message,
+        state::get_eth_client_state,
+        test::mk_deps,
+    };
+
+    use super::update_state;
+
+    #[test]
+    fn test_update_state() {
+        let mut deps = mk_deps();
+        let creator = deps.api.addr_make("creator");
+        let info = message_info(&creator, &coins(1, "uatom"));
+
+        let fixture: StepsFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
+
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+        let msg = crate::msg::InstantiateMsg {
+            client_state: Binary::from(client_state_bz),
+            consensus_state: Binary::from(consensus_state_bz),
+            checksum: b"checksum".into(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let trusted_slot = client_state.latest_slot;
+
+        // the first header updates from latest height with default trusted slot
+        // the second header is the same header but updates explicitly from the trusted slot
+        // after first header has updated the latest slot
+        let header = headers[0].clone();
+        let mut redundant_header = headers[0].clone();
+        redundant_header.consensus_update.trusted_slot = trusted_slot;
+
+        let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
+        let header_bz2: Vec<u8> = header_bz.clone();
+
+        let header_bz3: Vec<u8> = serde_json::to_vec(&redundant_header).unwrap();
+        let header_bz4: Vec<u8> = header_bz3.clone();
+
+        let mut env = mock_env();
+        env.block.time = Timestamp::from_seconds(
+            header.consensus_update.attested_header.execution.timestamp + 1000,
+        );
+        let mut env2 = env.clone();
+        env2.block.time = Timestamp::from_seconds(
+            header.consensus_update.attested_header.execution.timestamp + 2000,
+        );
+
+        verify_client_message(
+            deps.as_ref(),
+            env,
+            VerifyClientMessageMsg {
+                client_message: Binary::from(header_bz),
+            },
+        )
+        .unwrap();
+
+        update_state(
+            deps.as_mut(),
+            UpdateStateMsg {
+                client_message: Binary::from(header_bz2),
+            },
+        )
+        .unwrap();
+
+        // verify that the client state has been updated
+        let new_client_state = get_eth_client_state(deps.as_ref().storage).unwrap();
+        assert_eq!(
+            new_client_state.latest_slot,
+            header.consensus_update.finalized_header.beacon.slot
+        );
+
+        // submit redundant messsage and verify that the messages do not error
+        verify_client_message(
+            deps.as_ref(),
+            env2,
+            VerifyClientMessageMsg {
+                client_message: Binary::from(header_bz3),
+            },
+        )
+        .unwrap();
+
+        update_state(
+            deps.as_mut(),
+            UpdateStateMsg {
+                client_message: Binary::from(header_bz4),
+            },
+        )
+        .unwrap();
+
+        // verify that the client state has the same latest slot
+        let redundant_client_state = get_eth_client_state(deps.as_ref().storage).unwrap();
+        assert_eq!(
+            redundant_client_state.latest_slot,
+            header.consensus_update.finalized_header.beacon.slot
+        );
+    }
 
     #[test]
     fn test_misbehaviour() {
