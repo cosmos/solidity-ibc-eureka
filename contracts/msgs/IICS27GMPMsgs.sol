@@ -2,6 +2,24 @@
 pragma solidity ^0.8.28;
 
 interface IICS27GMPMsgs {
+    /// @notice Message for sending a GMP packet
+    /// @param sourceClient The source client identifier
+    /// @param destPort The destination port on the counterparty chain
+    /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
+    /// @param receiver The receiver address of the contract call
+    /// @param salt The salt used to generate the caller account address
+    /// @param payload The payload of the call
+    /// @param memo Optional memo
+    struct SendGMPPacketMsg {
+        string sourceClient;
+        string destPort;
+        uint64 timeoutTimestamp;
+        string receiver;
+        bytes salt;
+        bytes payload;
+        string memo;
+    }
+
     /// @notice GMPPacketData is the IBC payload for the GMP application.
     /// @param sender The sender of the packet
     /// @param receiver The receiver address of the contract call
