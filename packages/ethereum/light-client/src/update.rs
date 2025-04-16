@@ -59,14 +59,6 @@ pub fn update_consensus_state(
             .map(|c| c.aggregate_pubkey);
     }
 
-    ensure!(
-        update_finalized_slot > store_slot,
-        EthereumIBCError::HistoricalUpdateNotAllowed {
-            consensus_state_slot: store_slot,
-            update_finalized_slot,
-        }
-    );
-
     new_consensus_state.slot = update_finalized_slot;
     new_consensus_state.state_root = header
         .consensus_update
@@ -76,7 +68,8 @@ pub fn update_consensus_state(
     new_consensus_state.storage_root = header.account_update.account_proof.storage_root;
     new_consensus_state.timestamp = header.consensus_update.finalized_header.execution.timestamp;
 
-    let new_client_state = Some(ClientState {
+    let new_client_state = if update_finalized_slot > current_consensus_state.slot {
+         Some(ClientState {
         latest_slot: update_finalized_slot,
         latest_execution_block_number: header
             .consensus_update
@@ -84,6 +77,9 @@ pub fn update_consensus_state(
             .execution
             .block_number,
         ..current_client_state
-    });
+    })
+    } else {
+        None
+    };
     Ok((update_finalized_slot, new_consensus_state, new_client_state))
 }

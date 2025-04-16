@@ -1,6 +1,7 @@
 //! This module contains the query message handlers
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
+use ethereum_light_client::header::Header;
 
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
@@ -30,9 +31,16 @@ pub fn verify_client_message(
         querier: deps.querier,
     };
 
-    if let Ok(header) = serde_json::from_slice(&verify_client_message_msg.client_message) {
+    if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message) {
+        let mut trusted_slot = header
+            .consensus_update
+            .trusted_slot;
+        // if trusted_slot is 0, default to updating from latest slot
+        if trusted_slot == 0 {
+            trusted_slot = eth_client_state.latest_slot;
+        }
         let eth_consensus_state =
-            get_eth_consensus_state(deps.storage, eth_client_state.latest_slot)?;
+            get_eth_consensus_state(deps.storage, trusted_slot)?;
 
         ethereum_light_client::verify::verify_header(
             &eth_consensus_state,
