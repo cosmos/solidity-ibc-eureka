@@ -548,6 +548,7 @@ where
             chain_id: self.ics26_router.provider().get_chain_id().await?,
             genesis_validators_root: genesis.genesis_validators_root,
             min_sync_committee_participants: spec.sync_committee_size.div_ceil(3),
+            sync_committee_size: spec.sync_committee_size,
             genesis_time: genesis.genesis_time,
             genesis_slot: spec.genesis_slot,
             fork_parameters: spec.to_fork_parameters(),
@@ -601,8 +602,10 @@ where
             state_root: bootstrap.header.execution.state_root,
             storage_root: contract_proof.storage_hash,
             timestamp: bootstrap.header.execution.timestamp,
-            current_sync_committee: bootstrap.current_sync_committee.aggregate_pubkey,
-            next_sync_committee: Some(next_sync_committee.aggregate_pubkey),
+            current_sync_committee: bootstrap
+                .current_sync_committee
+                .to_summarized_sync_committee(),
+            next_sync_committee: Some(next_sync_committee.to_summarized_sync_committee()),
         };
         let consensus_state = WasmConsensusState {
             data: serde_json::to_vec(&eth_consensus_state)?,
