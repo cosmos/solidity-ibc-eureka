@@ -1,12 +1,15 @@
 //! This module defines [`ConsensusState`] and [`TrustedConsensusState`].
 
-use alloy_primitives::{FixedBytes, B256};
+use alloy_primitives::B256;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use ethereum_types::consensus::sync_committee::SyncCommittee;
+use ethereum_types::consensus::sync_committee::{SummarizedSyncCommittee, SyncCommittee};
 
-use crate::{error::EthereumIBCError, header::ActiveSyncCommittee, verify::BlsVerify};
+use crate::{
+    client_state::ClientState, error::EthereumIBCError, header::ActiveSyncCommittee,
+    verify::BlsVerify,
+};
 
 /// The consensus state of the Ethereum light client corresponding to a finalized header
 #[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq, Debug, Clone)]
@@ -22,11 +25,9 @@ pub struct ConsensusState {
     /// The execution timestamp of the finalized header
     pub timestamp: u64,
     /// aggregate public key of current sync committee at the finalized header
-    #[schemars(with = "String")]
-    pub current_sync_committee: FixedBytes<48>,
+    pub current_sync_committee: SummarizedSyncCommittee,
     /// aggregate public key of next sync committee at the finalized header if known
-    #[schemars(with = "String")]
-    pub next_sync_committee: Option<FixedBytes<48>>,
+    pub next_sync_committee: Option<SummarizedSyncCommittee>,
 }
 
 /// The trusted consensus state of the Ethereum light client
@@ -49,6 +50,7 @@ impl TrustedConsensusState {
     /// # Errors
     /// Returns an error if the untrusted sync committee does not match the trusted state
     pub fn new<V: BlsVerify>(
+        client_state: &ClientState,
         trusted_state: ConsensusState,
         untrusted_sync_committee: ActiveSyncCommittee,
         bls_verifier: &V,
@@ -56,9 +58,10 @@ impl TrustedConsensusState {
         let full_committee = match untrusted_sync_committee {
             ActiveSyncCommittee::Current(ref committee) => {
                 ensure!(
-                    committee.aggregate_pubkey == trusted_state.current_sync_committee,
+                    committee.to_summarized_sync_committee()
+                        == trusted_state.current_sync_committee,
                     EthereumIBCError::CurrenttSyncCommitteeMismatch {
-                        expected: trusted_state.current_sync_committee,
+                        expected: trusted_state.current_sync_committee.aggregate_pubkey,
                         found: committee.aggregate_pubkey
                     }
                 );
@@ -67,17 +70,27 @@ impl TrustedConsensusState {
             ActiveSyncCommittee::Next(ref committee) => {
                 let trusted_next_sync_committee = trusted_state
                     .next_sync_committee
+                    .as_ref()
                     .ok_or(EthereumIBCError::NextSyncCommitteeUnknown)?;
                 ensure!(
-                    committee.aggregate_pubkey == trusted_next_sync_committee,
+                    committee.to_summarized_sync_committee() == *trusted_next_sync_committee,
                     EthereumIBCError::NextSyncCommitteeMismatch {
-                        expected: trusted_next_sync_committee,
+                        expected: trusted_next_sync_committee.aggregate_pubkey,
                         found: committee.aggregate_pubkey
                     }
                 );
                 committee
             }
         };
+
+        // Verify the sync committee size
+        ensure!(
+            full_committee.pubkeys.len() as u64 == client_state.sync_committee_size,
+            EthereumIBCError::InsufficientSyncCommitteeLength {
+                expected: client_state.sync_committee_size,
+                found: full_committee.pubkeys.len() as u64
+            }
+        );
 
         let aggregate_pubkey = bls_verifier
             .aggregate(&full_committee.pubkeys)

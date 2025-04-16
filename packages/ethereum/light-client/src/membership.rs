@@ -132,7 +132,9 @@ mod test {
         hex::{self, FromHex},
         Bytes, FixedBytes, B256, U256,
     };
-    use ethereum_types::execution::storage_proof::StorageProof;
+    use ethereum_types::{
+        consensus::sync_committee::SummarizedSyncCommittee, execution::storage_proof::StorageProof,
+    };
     use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;
 
     use prost::Message;
@@ -206,7 +208,7 @@ mod test {
             .unwrap(),
             state_root: FixedBytes::default(),
             timestamp: 0,
-            current_sync_committee: FixedBytes::default(),
+            current_sync_committee: SummarizedSyncCommittee::default(),
             next_sync_committee: None,
         };
 
@@ -264,7 +266,7 @@ mod test {
             .unwrap(),
             state_root: FixedBytes::default(),
             timestamp: 0,
-            current_sync_committee: FixedBytes::default(),
+            current_sync_committee: SummarizedSyncCommittee::default(),
             next_sync_committee: None,
         };
 
