@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IICS27GMPMsgs } from "./msgs/IICS27GMPMsgs.sol";
+import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
+import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
@@ -15,7 +17,7 @@ import { ICS27Lib } from "./utils/ICS27Lib.sol";
 
 /// @title ICS27 General Message Passing
 /// @notice This contract is the implementation of the ics27-2 IBC specification for general message passing.
-contract ICS27GMP is IICS27GMP, ReentrancyGuardTransientUpgradeable, MulticallUpgradeable {
+contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, MulticallUpgradeable {
     /// @notice Storage of the ICS27GMP contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -53,6 +55,21 @@ contract ICS27GMP is IICS27GMP, ReentrancyGuardTransientUpgradeable, MulticallUp
                 })
             })
         );
+    }
+
+    /// @inheritdoc IIBCApp
+    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_) external nonReentrant returns (bytes memory) {
+        revert("TODO: Not implemented");
+    }
+
+    /// @inheritdoc IIBCApp
+    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) nonReentrant external {
+        revert("TODO: Not implemented");
+    }
+
+    /// @inheritdoc IIBCApp
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) nonReentrant external {
+        revert("TODO: Not implemented");
     }
 
     /// @notice Returns the storage of the ICS27GMP contract
