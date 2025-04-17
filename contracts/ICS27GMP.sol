@@ -13,6 +13,7 @@ import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { ICS27Lib } from "./utils/ICS27Lib.sol";
 
 /// @title ICS27 General Message Passing
@@ -22,15 +23,42 @@ contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, Mu
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _ics26 The ICS26Router contract address. Immutable.
+    /// @param _accountBeacon The address of the ICS27Account beacon contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS27GMP
     struct ICS27GMPStorage {
         IICS26Router _ics26;
+        UpgradeableBeacon _accountBeacon;
     }
 
     /// @notice ERC-7201 slot for the ICS27GMP storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS27GMP")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ICS27GMP_STORAGE_SLOT =
         0xe73deb02cd654f25b90ec94b434589ea350a706e2446d278b41c3a86dc8f4500;
+
+    /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @inheritdoc IICS27GMP
+    function initialize(address ics26_, address accountLogic) external initializer {
+        __ReentrancyGuardTransient_init();
+        __Multicall_init();
+
+        ICS27GMPStorage storage $ = _getICS27GMPStorage();
+        $._ics26 = IICS26Router(ics26_);
+        $._accountBeacon = new UpgradeableBeacon(accountLogic, address(this));
+    }
+
+    /// @inheritdoc IICS27GMP
+    function ics26() external view returns (address) {
+        return address(_getICS27GMPStorage()._ics26);
+    }
+
+    /// @inheritdoc IICS27GMP
+    function getAccountBeacon() external view returns (address) {
+        return address(_getICS27GMPStorage()._accountBeacon);
+    }
 
     /// @inheritdoc IICS27GMP
     function sendCall(IICS27GMPMsgs.SendCallMsg calldata msg_) external nonReentrant returns (uint64) {
