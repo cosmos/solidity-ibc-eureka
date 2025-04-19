@@ -10,13 +10,17 @@ use ibc_eureka_solidity_types::msgs::{
     ISP1Msgs::SP1Proof,
     IUpdateClientMsgs::{MsgUpdateClient, UpdateClientOutput},
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use serde::{Deserialize, Serialize};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientProgram, prover::SP1ICS07TendermintProver,
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
-use std::{env, path::PathBuf};
+use sp1_sdk::{HashableKey, ProverClient};
+use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`UpdateClientProgram`] tests.
@@ -31,7 +35,7 @@ struct SP1ICS07UpdateClientFixture {
     #[serde_as(as = "serde_with::hex::Hex")]
     target_consensus_state: Vec<u8>,
     /// Target height.
-    target_height: u32,
+    target_height: u64,
     /// The encoded update client message.
     #[serde_as(as = "serde_with::hex::Hex")]
     update_msg: Vec<u8>,
@@ -46,17 +50,23 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     );
 
     let tm_rpc_client = HttpClient::from_env();
-    // TODO: Just use ProverClient::from_env() here once
-    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
-    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
-        Box::new(CpuProver::mock())
+    let sp1_prover = if args.sp1.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
     } else {
-        Box::new(ProverClient::from_env())
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
-    let uc_prover = SP1ICS07TendermintProver::<UpdateClientProgram, _>::new(
-        args.proof_type,
-        sp1_prover.as_ref(),
-    );
+
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+
+    let uc_prover =
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &update_client_program);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.trusted_block))
@@ -69,7 +79,11 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
 
@@ -78,16 +92,13 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state,
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
     );
 
     let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice(), false)?;

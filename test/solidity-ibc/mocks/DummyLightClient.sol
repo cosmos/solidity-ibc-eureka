@@ -25,7 +25,14 @@ contract DummyLightClient is ILightClient, ILightClientMsgs {
         return updateResult;
     }
 
-    function membership(MsgMembership calldata) external view returns (uint256) {
+    function verifyMembership(MsgVerifyMembership calldata) external view returns (uint256) {
+        if (membershipShouldFail) {
+            revert MembershipShouldFail();
+        }
+        return membershipResult;
+    }
+
+    function verifyNonMembership(MsgVerifyNonMembership calldata) external view returns (uint256) {
         if (membershipShouldFail) {
             revert MembershipShouldFail();
         }

@@ -1,8 +1,13 @@
 //! Define the events that can be retrieved by the relayer.
 
-use alloy::{primitives::hex, sol_types::SolEvent};
-use ibc_eureka_solidity_types::ics26::router::{
-    routerEvents, RecvPacket, SendPacket, WriteAcknowledgement,
+use alloy::{
+    primitives::{hex, Bytes},
+    rpc::types::Log,
+    sol_types::{SolEvent, SolEventInterface},
+};
+use ibc_eureka_solidity_types::ics26::{
+    router::{routerEvents, SendPacket, WriteAcknowledgement},
+    IICS26RouterMsgs::Packet as SolPacket,
 };
 use ibc_proto_eureka::ibc::core::channel::v2::{Acknowledgement, Packet};
 use prost::Message;
@@ -13,36 +18,48 @@ use super::cosmos_sdk;
 /// Events emitted by IBC Eureka implementations that the relayer is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
-pub enum EurekaEvent {
-    /// A packet was sent.
-    SendPacket(SendPacket),
-    /// A packet was received.
-    RecvPacket(RecvPacket),
-    /// An acknowledgement was written.
-    WriteAcknowledgement(WriteAcknowledgement),
+pub struct EurekaEventWithHeight {
+    /// The type of the event.
+    pub event: EurekaEvent,
+    /// The height at which the event was emitted.
+    pub height: u64,
 }
 
-impl EurekaEvent {
+/// The event type
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::module_name_repetitions)]
+pub enum EurekaEvent {
+    /// A packet was sent.
+    SendPacket(SolPacket),
+    /// An acknowledgement was written.
+    WriteAcknowledgement(SolPacket, Vec<Bytes>),
+}
+
+impl EurekaEventWithHeight {
     /// Get the signature of the events for EVM.
     /// This is used to filter the logs.
     #[must_use]
-    pub const fn evm_signatures() -> [&'static str; 3] {
-        [
-            SendPacket::SIGNATURE,
-            RecvPacket::SIGNATURE,
-            WriteAcknowledgement::SIGNATURE,
-        ]
+    pub const fn evm_signatures() -> [&'static str; 2] {
+        [SendPacket::SIGNATURE, WriteAcknowledgement::SIGNATURE]
     }
 }
 
-impl TryFrom<routerEvents> for EurekaEvent {
+impl TryFrom<&Log> for EurekaEventWithHeight {
     type Error = anyhow::Error;
 
-    fn try_from(event: routerEvents) -> anyhow::Result<Self> {
-        match event {
-            routerEvents::SendPacket(event) => Ok(Self::SendPacket(event)),
-            routerEvents::RecvPacket(event) => Ok(Self::RecvPacket(event)),
-            routerEvents::WriteAcknowledgement(event) => Ok(Self::WriteAcknowledgement(event)),
+    fn try_from(log: &Log) -> anyhow::Result<Self> {
+        let sol_event = routerEvents::decode_log(&log.inner, true).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to decode log into ICS26Router event: {}",
+                e.to_string()
+            )
+        })?;
+        let event_type = match sol_event.data {
+            routerEvents::SendPacket(event) => Ok(EurekaEvent::SendPacket(event.packet)),
+            routerEvents::WriteAcknowledgement(event) => Ok(EurekaEvent::WriteAcknowledgement(
+                event.packet,
+                event.acknowledgements,
+            )),
             routerEvents::AckPacket(_) => Err(anyhow::anyhow!("AckPacket event is not used")),
             routerEvents::TimeoutPacket(_) => {
                 Err(anyhow::anyhow!("TimeoutPacket event is not used"))
@@ -58,7 +75,20 @@ impl TryFrom<routerEvents> for EurekaEvent {
             routerEvents::RoleGranted(_)
             | routerEvents::RoleRevoked(_)
             | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),
-        }
+            routerEvents::ICS02ClientMigrated(_) => {
+                Err(anyhow::anyhow!("ICS02ClientMigrated event"))
+            }
+            routerEvents::ICS02MisbehaviourSubmitted(_) => {
+                Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
+            }
+        }?;
+
+        Ok(Self {
+            event: event_type,
+            height: log
+                .block_number
+                .ok_or_else(|| anyhow::anyhow!("Block number not found in log: {:?}", log))?,
+        })
     }
 }
 
@@ -76,23 +106,7 @@ impl TryFrom<TmEvent> for EurekaEvent {
                     }
                     let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
                     let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self::SendPacket(SendPacket {
-                        packet: packet.try_into().ok()?,
-                    }))
-                })
-                .ok_or_else(|| anyhow::anyhow!("No packet data found")),
-            cosmos_sdk::EVENT_TYPE_RECV_PACKET => event
-                .attributes
-                .into_iter()
-                .find_map(|attr| {
-                    if attr.key_str().ok()? != cosmos_sdk::ATTRIBUTE_KEY_ENCODED_PACKET_HEX {
-                        return None;
-                    }
-                    let packet: Vec<u8> = hex::decode(attr.value_str().ok()?).ok()?;
-                    let packet = Packet::decode(packet.as_slice()).ok()?;
-                    Some(Self::RecvPacket(RecvPacket {
-                        packet: packet.try_into().ok()?,
-                    }))
+                    Some(Self::SendPacket(packet.into()))
                 })
                 .ok_or_else(|| anyhow::anyhow!("No packet data found")),
             cosmos_sdk::EVENT_TYPE_WRITE_ACK => {
@@ -116,21 +130,20 @@ impl TryFrom<TmEvent> for EurekaEvent {
                         (ack.or(ack_acc), packet.or(packet_acc))
                     });
 
-                Ok(Self::WriteAcknowledgement(WriteAcknowledgement {
-                    acknowledgements: ack
-                        .ok_or_else(|| anyhow::anyhow!("No ack data found"))?
+                Ok(Self::WriteAcknowledgement(
+                    packet
+                        .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
+                        .into(),
+                    ack.ok_or_else(|| anyhow::anyhow!("No ack data found"))?
                         .app_acknowledgements
                         .into_iter()
                         .map(Into::into)
                         .collect(),
-                    packet: packet
-                        .ok_or_else(|| anyhow::anyhow!("No packet data found"))?
-                        .try_into()?,
-                }))
+                ))
             }
-            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET | cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET => {
-                Err(anyhow::anyhow!("Not implemented"))
-            }
+            cosmos_sdk::EVENT_TYPE_ACKNOWLEDGE_PACKET
+            | cosmos_sdk::EVENT_TYPE_TIMEOUT_PACKET
+            | cosmos_sdk::EVENT_TYPE_RECV_PACKET => Err(anyhow::anyhow!("Not implemented")),
             _ => Err(anyhow::anyhow!("Unwanted event type: {}", event.kind)),
         }
     }

@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 // solhint-disable no-inline-assembly
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { IICS20Errors } from "../errors/IICS20Errors.sol";
+import { IBCIdentifiers } from "./IBCIdentifiers.sol";
 
 // This library was originally copied, with minor adjustments, from https://github.com/hyperledger-labs/yui-ibc-solidity
 // It has since been modified heavily (e.g. replacing JSON with ABI encoding, adding new functions, etc.)
@@ -25,6 +25,15 @@ library ICS20Lib {
     /// @notice SUCCESSFUL_ACKNOWLEDGEMENT_JSON is the JSON bytes for a successful acknowledgement.
     bytes internal constant SUCCESSFUL_ACKNOWLEDGEMENT_JSON = bytes("{\"result\":\"AQ==\"}");
 
+    /// @notice KECCAK256_ICS20_VERSION is the keccak256 hash of the ICS20_VERSION.
+    bytes32 internal constant KECCAK256_ICS20_VERSION = keccak256(bytes(ICS20_VERSION));
+
+    /// @notice KECCAK256_ICS20_ENCODING is the keccak256 hash of the ICS20_ENCODING.
+    bytes32 internal constant KECCAK256_ICS20_ENCODING = keccak256(bytes(ICS20_ENCODING));
+
+    /// @notice KECCAK256_DEFAULT_PORT_ID is the keccak256 hash of the DEFAULT_PORT_ID.
+    bytes32 internal constant KECCAK256_DEFAULT_PORT_ID = keccak256(bytes(DEFAULT_PORT_ID));
+
     /// @notice mustHexStringToAddress converts a hex string to an address and reverts on failure.
     /// @param addrHexString hex address string
     /// @return address the converted address
@@ -39,10 +48,7 @@ library ICS20Lib {
     /// @param prefix the prefix to check with
     /// @return true if `denomBz` has the prefix `prefix`
     function hasPrefix(bytes memory denomBz, bytes memory prefix) internal pure returns (bool) {
-        if (denomBz.length < prefix.length) {
-            return false;
-        }
-        return keccak256(Bytes.slice(denomBz, 0, prefix.length)) == keccak256(prefix);
+        return IBCIdentifiers.hasPrefix(denomBz, prefix);
     }
 
     /// @notice getDenomPrefix returns an ibc path prefix

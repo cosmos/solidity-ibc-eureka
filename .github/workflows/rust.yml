@@ -11,29 +11,16 @@ on:
       - '**.lock'
       - '**.proto'
       - 'abi/**'
+      - '.github/workflows/rust.yml'
 
 jobs:
   lints:
     name: fmt-and-clippy
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: "Set up environment"
-        uses: ./.github/setup
-
-      - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
-
-      - name: Install just
-        uses: extractions/setup-just@v2
-      - name: Build SP1 Programs
-        run: just build-sp1-programs
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -47,18 +34,12 @@ jobs:
 
   tests:
     name: unit-tests
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
-      - name: "Set up environment"
-        uses: ./.github/setup
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
+
       - name: Install just
         uses: extractions/setup-just@v2
       - name: Run unit tests
@@ -68,19 +49,12 @@ jobs:
 
   build-relayer:
     name: build-relayer
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: "Set up environment"
-        uses: ./.github/setup
-      - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -89,19 +63,12 @@ jobs:
 
   build-operator:
     name: build-operator
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: "Set up environment"
-        uses: ./.github/setup
-      - name: Install SP1 toolchain
-        shell: bash
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
-          ~/.sp1/bin/cargo-prove prove --version
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -110,18 +77,15 @@ jobs:
 
   build-08-wasm-eth:
     name: build-08-wasm-eth
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     continue-on-error: true
     steps:
-      - name: "Check out the repo"
-        uses: "actions/checkout@v4"
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: rustfmt, clippy
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
       - name: Install cargo-run-script and cosmwasm-check
         uses: actions-rs/cargo@v1
         with:
@@ -129,11 +93,25 @@ jobs:
           args: cargo-run-script cosmwasm-check
       - name: Install just
         uses: extractions/setup-just@v2
+
+      - name: Compute SHA-256 of commited binary
+        id: commited_sha256
+        run: |
+          echo "sha256=$(gunzip -c e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz | sha256sum | awk '{print $1}')" >> $GITHUB_OUTPUT
+
       - name: Build optimized wasm binary
         run: just build-cw-ics08-wasm-eth
-      # checks that the wasm binary is a proper cosmwasm smart contract
-      # it checks for things like memories, exports, imports, available capabilities, and non-determinism
+        # checks that the wasm binary is a proper cosmwasm smart contract
+        # it checks for things like memories, exports, imports, available capabilities, and non-determinism
       - name: Check cosmwasm file
         run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
+
+      - name: Verify built binary matches commited
+        run: |
+          sha256_built=$(sha256sum artifacts/cw_ics08_wasm_eth.wasm | awk '{print $1}')
+          if [ "$sha256_built" != "${{ steps.commited_sha256.outputs.sha256 }}" ]; then
+            echo "SHA-256 hashes do not match"
+            exit 1
+          fi
 
 

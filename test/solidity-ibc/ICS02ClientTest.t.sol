@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length
@@ -11,6 +11,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
 import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.sol";
+import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.sol";
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
@@ -32,10 +33,11 @@ contract ICS02ClientTest is Test {
         ICS26Router ics26RouterLogic = new ICS26Router();
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this), address(this)))
-        );
+        ERC1967Proxy routerProxy =
+            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
+
+        ics02Client.grantRole(ics02Client.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
 
         vm.startPrank(clientOwner);
         string memory counterpartyId = "42-dummy-01";
@@ -56,11 +58,26 @@ contract ICS02ClientTest is Test {
         assertTrue(hasRole, "client owner not set correctly");
     }
 
-    function test_UpdateClient() public {
-        bytes memory updateMsg = "testUpdateMsg";
-        ILightClientMsgs.UpdateResult updateResult = ics02Client.updateClient(clientIdentifier, updateMsg);
-        assertEq(uint256(updateResult), uint256(ILightClientMsgs.UpdateResult.Update), "updateClient failed");
-        assertEq(updateMsg, lightClient.latestUpdateMsg(), "updateClient failed");
+    function test_success_customClientId() public {
+        string memory customClientId = "custom-client-id";
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(customClientId, merklePrefix);
+        string memory newId = ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        assertEq(customClientId, newId, "custom client id not set correctly");
+    }
+
+    function test_failure_customClientId() public {
+        // client id is not custom (starts with "client-")
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo(clientIdentifier, merklePrefix);
+        vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCInvalidClientId.selector, clientIdentifier));
+        ics02Client.addClient(clientIdentifier, counterpartyInfo, address(lightClient));
+
+        // reuse of client id
+        string memory customClientId = "custom-client-id";
+        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCClientAlreadyExists.selector, customClientId));
+        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
     }
 
     function test_MigrateClient() public {
@@ -109,10 +126,5 @@ contract ICS02ClientTest is Test {
     function test_Misbehaviour() public {
         bytes memory misbehaviourMsg = "testMisbehaviourMsg";
         ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
-    }
-
-    function test_UpgradeClient() public {
-        bytes memory upgradeMsg = "testUpgradeMsg";
-        ics02Client.upgradeClient(clientIdentifier, upgradeMsg);
     }
 }

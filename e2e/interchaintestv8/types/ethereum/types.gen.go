@@ -13,11 +13,7 @@ type GeneratedTypes struct {
 
 // The ethereum client state
 //
-// # The client state at the time of the proof
-//
-// # The client state at the initial state
-//
-// The client state after the update
+// The client state at the initial state
 type ClientState struct {
 	// The chain ID
 	ChainID uint64 `json:"chain_id"`
@@ -25,6 +21,8 @@ type ClientState struct {
 	EpochsPerSyncCommitteePeriod uint64 `json:"epochs_per_sync_committee_period"`
 	// The fork parameters
 	ForkParameters ForkParameters `json:"fork_parameters"`
+	// The genesis slot
+	GenesisSlot uint64 `json:"genesis_slot"`
 	// The time of genesis (unix timestamp)
 	GenesisTime uint64 `json:"genesis_time"`
 	// The genesis validators root
@@ -35,6 +33,8 @@ type ClientState struct {
 	IbcContractAddress string `json:"ibc_contract_address"`
 	// Whether the client is frozen
 	IsFrozen bool `json:"is_frozen"`
+	// The latest execution block number, used for relayer convenience only
+	LatestExecutionBlockNumber uint64 `json:"latest_execution_block_number"`
 	// The latest slot of this client
 	LatestSlot uint64 `json:"latest_slot"`
 	// The minimum number of participants in the sync committee
@@ -43,6 +43,8 @@ type ClientState struct {
 	SecondsPerSlot uint64 `json:"seconds_per_slot"`
 	// The number of slots per epoch
 	SlotsPerEpoch uint64 `json:"slots_per_epoch"`
+	// The size of the sync committee, maximum possible number of participants
+	SyncCommitteeSize uint64 `json:"sync_committee_size"`
 }
 
 // The fork parameters
@@ -55,6 +57,8 @@ type ForkParameters struct {
 	Capella Fork `json:"capella"`
 	// The deneb fork
 	Deneb Fork `json:"deneb"`
+	// The electra fork
+	Electra Fork `json:"electra"`
 	// The genesis fork version
 	GenesisForkVersion string `json:"genesis_fork_version"`
 	// The genesis slot
@@ -69,7 +73,9 @@ type ForkParameters struct {
 //
 // # The capella fork
 //
-// The deneb fork
+// # The deneb fork
+//
+// The electra fork
 type Fork struct {
 	// The epoch at which this fork is activated
 	Epoch uint64 `json:"epoch"`
@@ -77,37 +83,42 @@ type Fork struct {
 	Version string `json:"version"`
 }
 
-// The consensus state of the Ethereum light client
+// The consensus state of the Ethereum light client corresponding to a finalized header
 //
-// # The consensus state at the time of the proof
-//
-// # The consensus state at the initial state
-//
-// The consensus state after the update
+// The consensus state at the initial state
 type ConsensusState struct {
-	// aggregate public key of current sync committee
-	CurrentSyncCommittee string `json:"current_sync_committee"`
-	// aggregate public key of next sync committee
-	NextSyncCommittee string `json:"next_sync_committee"`
-	// The slot number
+	// aggregate public key of current sync committee at the finalized header
+	CurrentSyncCommittee SummarizedSyncCommittee `json:"current_sync_committee"`
+	// aggregate public key of next sync committee at the finalized header if known
+	NextSyncCommittee *SummarizedSyncCommittee `json:"next_sync_committee"`
+	// The slot number of the finalized header
 	Slot uint64 `json:"slot"`
-	// The state merkle root
+	// The state merkle root of the finalized header
 	StateRoot string `json:"state_root"`
-	// The storage merkle root
+	// The storage merkle root of the tracked contract at the finalized header
 	StorageRoot string `json:"storage_root"`
-	// The unix timestamp at the time of the slot. It is calculated from the genesis time and
-	// slots per.
+	// The execution timestamp of the finalized header
 	Timestamp uint64 `json:"timestamp"`
+}
+
+// aggregate public key of current sync committee at the finalized header
+//
+// The summarized sync committee data
+type SummarizedSyncCommittee struct {
+	// The aggregate public key of the sync committee
+	AggregatePubkey string `json:"aggregate_pubkey"`
+	// The ssz hash root of the public keys of the sync committee
+	PubkeysHash string `json:"pubkeys_hash"`
 }
 
 // The header of a light client update
 type Header struct {
 	// The account update
 	AccountUpdate AccountUpdate `json:"account_update"`
+	// The active sync committee (untrusted)
+	ActiveSyncCommittee ActiveSyncCommittee `json:"active_sync_committee"`
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
-	// The trusted sync committee
-	TrustedSyncCommittee TrustedSyncCommittee `json:"trusted_sync_committee"`
 }
 
 // The account update
@@ -122,6 +133,26 @@ type AccountProof struct {
 	Proof []string `json:"proof"`
 	// The account storage root
 	StorageRoot string `json:"storage_root"`
+}
+
+// The active sync committee (untrusted)
+//
+// # The active sync committee
+//
+// # The current sync committee
+//
+// The next sync committee
+type ActiveSyncCommittee struct {
+	Current *SyncCommittee `json:"Current,omitempty"`
+	Next    *SyncCommittee `json:"Next,omitempty"`
+}
+
+// The sync committee data
+type SyncCommittee struct {
+	// The aggregate public key of the sync committee
+	AggregatePubkey string `json:"aggregate_pubkey"`
+	// The public keys of the sync committee
+	Pubkeys []string `json:"pubkeys"`
 }
 
 // The consensus update
@@ -212,14 +243,6 @@ type ExecutionPayloadHeader struct {
 	WithdrawalsRoot string `json:"withdrawals_root"`
 }
 
-// The sync committee data
-type SyncCommittee struct {
-	// The aggregate public key of the sync committee
-	AggregatePubkey string `json:"aggregate_pubkey"`
-	// The public keys of the sync committee
-	Pubkeys []string `json:"pubkeys"`
-}
-
 // Sync committee aggregate signature
 //
 // The sync committee aggregate
@@ -230,27 +253,7 @@ type SyncAggregate struct {
 	SyncCommitteeSignature string `json:"sync_committee_signature"`
 }
 
-// The trusted sync committee
-type TrustedSyncCommittee struct {
-	// The current sync committee
-	SyncCommittee ActiveSyncCommittee `json:"sync_committee"`
-	// The trusted slot
-	TrustedSlot uint64 `json:"trusted_slot"`
-}
-
-// The current sync committee
-//
-// # The active sync committee
-//
-// The next sync committee
-type ActiveSyncCommittee struct {
-	Current *SyncCommittee `json:"Current,omitempty"`
-	Next    *SyncCommittee `json:"Next,omitempty"`
-}
-
 // The key-value storage proof for a smart contract account
-//
-// The storage proof used to verify membership
 type StorageProof struct {
 	// The key of the storage
 	Key string `json:"key"`
@@ -261,25 +264,10 @@ type StorageProof struct {
 }
 
 type TestFixtures struct {
-	CommitmentProof CommitmentProof `json:"commitment_proof"`
 	InitialState    InitialState    `json:"initial_state"`
+	RelayerMessages RelayerMessages `json:"relayer_messages"`
 	Step            Step            `json:"step"`
 	StepsFixture    StepsFixture    `json:"steps_fixture"`
-	UpdateClient    UpdateClient    `json:"update_client"`
-}
-
-// The proof used to verify membership
-type CommitmentProof struct {
-	// The client state at the time of the proof
-	ClientState ClientState `json:"client_state"`
-	// The consensus state at the time of the proof
-	ConsensusState ConsensusState `json:"consensus_state"`
-	// The IBC path sent to verify membership
-	Path string `json:"path"`
-	// The slot of the proof (ibc height)
-	ProofSlot uint64 `json:"proof_slot"`
-	// The storage proof used to verify membership
-	StorageProof StorageProof `json:"storage_proof"`
 }
 
 // The initial state of the light client in the e2e tests
@@ -288,6 +276,12 @@ type InitialState struct {
 	ClientState ClientState `json:"client_state"`
 	// The consensus state at the initial state
 	ConsensusState ConsensusState `json:"consensus_state"`
+}
+
+// Operation to update the light client
+type RelayerMessages struct {
+	// The headers used to update the light client, in order, as a `TxBody`, encoded as hex
+	RelayerTxBody string `json:"relayer_tx_body"`
 }
 
 // Step is a light client operation such as an initial state, commitment proof, or update
@@ -303,14 +297,4 @@ type Step struct {
 type StepsFixture struct {
 	// steps is a list of light client operations
 	Steps []Step `json:"steps"`
-}
-
-// Operation to update the light client
-type UpdateClient struct {
-	// The client state after the update
-	ClientState ClientState `json:"client_state"`
-	// The consensus state after the update
-	ConsensusState ConsensusState `json:"consensus_state"`
-	// The headers used to update the light client, in order
-	Updates []Header `json:"updates"`
 }

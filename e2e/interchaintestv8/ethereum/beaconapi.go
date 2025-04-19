@@ -55,6 +55,10 @@ func (s Spec) ToForkParameters() ethereumtypes.ForkParameters {
 			Version: ethcommon.Bytes2Hex(s.DenebForkVersion[:]),
 			Epoch:   s.DenebForkEpoch,
 		},
+		Electra: ethereumtypes.Fork{
+			Version: ethcommon.Bytes2Hex(s.ElectraForkVersion[:]),
+			Epoch:   s.ElectraForkEpoch,
+		},
 	}
 }
 
@@ -66,8 +70,8 @@ func (b BeaconAPIClient) Close() {
 	b.cancel()
 }
 
-func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewBeaconAPIClient(ctx context.Context, beaconAPIAddress string) (BeaconAPIClient, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	client, err := ethttp.New(ctx,
 		// WithAddress supplies the address of the beacon node, as a URL.
 		ethttp.WithAddress(beaconAPIAddress),
@@ -75,7 +79,8 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 		ethttp.WithLogLevel(zerolog.WarnLevel),
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		return BeaconAPIClient{}, err
 	}
 
 	return BeaconAPIClient{
@@ -85,13 +90,13 @@ func NewBeaconAPIClient(beaconAPIAddress string) BeaconAPIClient {
 		url:       beaconAPIAddress,
 		Retries:   60,
 		RetryWait: 10 * time.Second,
-	}
+	}, nil
 }
 
 func retry[T any](retries int, waitTime time.Duration, fn func() (T, error)) (T, error) {
 	var err error
 	var result T
-	for i := 0; i < retries; i++ {
+	for range retries {
 		result, err = fn()
 		if err == nil {
 			return result, nil
@@ -146,46 +151,6 @@ func (b BeaconAPIClient) GetBootstrap(finalizedRoot phase0.Root) (Bootstrap, err
 		}
 
 		return bootstrap, nil
-	})
-}
-
-func (b BeaconAPIClient) GetLightClientUpdates(startPeriod uint64, count uint64) (LightClientUpdatesResponse, error) {
-	return retry(b.Retries, b.RetryWait, func() (LightClientUpdatesResponse, error) {
-		url := fmt.Sprintf("%s/eth/v1/beacon/light_client/updates?start_period=%d&count=%d", b.url, startPeriod, count)
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-
-		var lightClientUpdatesResponse LightClientUpdatesResponse
-		if err := json.Unmarshal(body, &lightClientUpdatesResponse); err != nil {
-			return LightClientUpdatesResponse{}, err
-		}
-
-		return lightClientUpdatesResponse, nil
-	})
-}
-
-func (b BeaconAPIClient) GetGenesis() (*apiv1.Genesis, error) {
-	return retry(b.Retries, b.RetryWait, func() (*apiv1.Genesis, error) {
-		genesisResponse, err := b.client.(eth2client.GenesisProvider).Genesis(b.ctx, &api.GenesisOpts{})
-		if err != nil {
-			return nil, err
-		}
-
-		return genesisResponse.Data, nil
 	})
 }
 
@@ -284,20 +249,5 @@ func (b BeaconAPIClient) GetFinalizedBlocks() (BeaconBlocksResponseJSON, error) 
 		}
 
 		return resp, nil
-	})
-}
-
-func (b BeaconAPIClient) GetExecutionHeight(blockID string) (uint64, error) {
-	return retry(b.Retries, b.RetryWait, func() (uint64, error) {
-		resp, err := b.GetBeaconBlocks(blockID)
-		if err != nil {
-			return 0, err
-		}
-
-		if blockID == "finalized" && !resp.Finalized {
-			return 0, fmt.Errorf("block is not finalized")
-		}
-
-		return resp.Data.Message.Body.ExecutionPayload.BlockNumber, nil
 	})
 }

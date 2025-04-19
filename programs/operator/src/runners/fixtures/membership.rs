@@ -14,11 +14,17 @@ use ibc_eureka_solidity_types::msgs::{
     IMembershipMsgs::{KVPair, MembershipOutput, MembershipProof, SP1MembershipProof},
     ISP1Msgs::SP1Proof,
 };
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use serde::{Deserialize, Serialize};
-use sp1_ics07_tendermint_prover::{programs::MembershipProgram, prover::SP1ICS07TendermintProver};
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
-use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
-use std::{env, path::PathBuf};
+use sp1_ics07_tendermint_prover::{
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
+};
+use sp1_sdk::{HashableKey, ProverClient};
+use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// The fixture data to be used in [`MembershipProgram`] tests.
@@ -42,6 +48,15 @@ pub struct SP1ICS07MembershipFixture {
 pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
     assert!(!args.membership.key_paths.is_empty());
 
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+
     let tm_rpc_client = HttpClient::from_env();
 
     let trusted_light_block = tm_rpc_client
@@ -52,7 +67,11 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
 
@@ -66,7 +85,9 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
         args.membership.key_paths,
         args.membership.trusted_block,
         trusted_consensus_state,
-        args.proof_type,
+        args.sp1.proof_type,
+        args.sp1.private_cluster,
+        &membership_program,
     )
     .await?;
 
@@ -93,25 +114,26 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
 #[allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::module_name_repetitions
+    clippy::module_name_repetitions,
+    clippy::too_many_arguments
 )]
 pub async fn run_sp1_membership(
     tm_rpc_client: &HttpClient,
     is_base64: bool,
     key_paths: Vec<String>,
-    trusted_block: u32,
+    trusted_block: u64,
     trusted_consensus_state: SolConsensusState,
     proof_type: SupportedZkAlgorithm,
+    private_cluster: bool,
+    membership_program: &MembershipProgram,
 ) -> anyhow::Result<MembershipProof> {
-    // TODO: Just use ProverClient::from_env() here once
-    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
-    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
-        Box::new(CpuProver::mock())
+    let sp1_prover = if private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
     } else {
-        Box::new(ProverClient::from_env())
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
     let verify_mem_prover =
-        SP1ICS07TendermintProver::<MembershipProgram, _>::new(proof_type, sp1_prover.as_ref());
+        SP1ICS07TendermintProver::new(proof_type, &sp1_prover, membership_program);
 
     let commitment_root_bytes = ConsensusState::from(trusted_consensus_state.clone())
         .root

@@ -1,10 +1,5 @@
 package relayer
 
-import (
-	"html/template"
-	"os"
-)
-
 // MultichainConfigInfo is a struct that holds the configuration information for the multichain config template
 type MultichainConfigInfo struct {
 	// Chain A chain identifier
@@ -27,26 +22,54 @@ type MultichainConfigInfo struct {
 	EthRPC string
 	// Ethereum Beacon API URL
 	BeaconAPI string
-	// SP1 private key
-	SP1PrivateKey string
+	// SP1 config
+	SP1Config SP1ProverConfig
 	// Whether we use the mock client in the cosmos chains
 	MockWasmClient bool
-	// Whether we use the mock SP1 client
-	MockSP1Client bool
 }
 
-// GenerateMultichainConfigFile generates a multichain config file from the template.
-func (c *MultichainConfigInfo) GenerateMultichainConfigFile(path string) error {
-	tmpl, err := template.ParseFiles("e2e/interchaintestv8/relayer/multichain_config.tmpl")
-	if err != nil {
-		return err
-	}
+func CreateMultichainModules(
+	configInfo MultichainConfigInfo,
+) []ModuleConfig {
+	var modules []ModuleConfig
+	modules = append(modules, CreateEthCosmosModules(
+		EthCosmosConfigInfo{
+			EthChainID:     configInfo.EthChainID,
+			CosmosChainID:  configInfo.ChainAID,
+			TmRPC:          configInfo.ChainATmRPC,
+			ICS26Address:   configInfo.ICS26Address,
+			EthRPC:         configInfo.EthRPC,
+			BeaconAPI:      configInfo.BeaconAPI,
+			SP1Config:      configInfo.SP1Config,
+			SignerAddress:  configInfo.ChainASignerAddress,
+			MockWasmClient: configInfo.MockWasmClient,
+		},
+	)...)
 
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
+	modules = append(modules, CreateEthCosmosModules(
+		EthCosmosConfigInfo{
+			EthChainID:     configInfo.EthChainID,
+			CosmosChainID:  configInfo.ChainBID,
+			TmRPC:          configInfo.ChainBTmRPC,
+			ICS26Address:   configInfo.ICS26Address,
+			EthRPC:         configInfo.EthRPC,
+			BeaconAPI:      configInfo.BeaconAPI,
+			SP1Config:      configInfo.SP1Config,
+			SignerAddress:  configInfo.ChainBSignerAddress,
+			MockWasmClient: configInfo.MockWasmClient,
+		},
+	)...)
 
-	defer f.Close()
-	return tmpl.Execute(f, c)
+	modules = append(modules, CreateCosmosCosmosModules(
+		CosmosToCosmosConfigInfo{
+			ChainAID:    configInfo.ChainAID,
+			ChainBID:    configInfo.ChainBID,
+			ChainATmRPC: configInfo.ChainATmRPC,
+			ChainBTmRPC: configInfo.ChainBTmRPC,
+			ChainAUser:  configInfo.ChainASignerAddress,
+			ChainBUser:  configInfo.ChainBSignerAddress,
+		},
+	)...)
+
+	return modules
 }

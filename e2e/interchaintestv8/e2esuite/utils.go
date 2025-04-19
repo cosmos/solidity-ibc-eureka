@@ -37,7 +37,7 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 	comettime "github.com/cometbft/cometbft/types/time"
 
-	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
@@ -237,7 +237,7 @@ func (s *TestSuite) GetEthereumClientState(ctx context.Context, cosmosChain *cos
 
 	var ethClientState ethereumtypes.ClientState
 	err = json.Unmarshal(wasmClientState.Data, &ethClientState)
-	s.Require().NoError(err)
+	s.Require().NoError(err, "failed to unmarshal ethereum client state: %s", string(wasmClientState.Data))
 
 	return wasmClientState, ethClientState
 }
@@ -384,7 +384,14 @@ func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosC
 	return &headerResp.SdkBlock.Header, nil
 }
 
-func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+func (s *TestSuite) MustBroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	resp, err := s.BroadcastSdkTxBody(ctx, chain, user, gas, txBodyBz)
+	s.Require().NoError(err)
+
+	return resp
+}
+
+func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
 	var txBody txtypes.TxBody
 	err := proto.Unmarshal(txBodyBz, &txBody)
 	s.Require().NoError(err)
@@ -400,8 +407,5 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 
 	s.Require().NotZero(len(msgs))
 
-	resp, err := s.BroadcastMessages(ctx, chain, user, gas, msgs...)
-	s.Require().NoError(err)
-
-	return resp
+	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
 }

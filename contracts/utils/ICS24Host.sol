@@ -10,16 +10,6 @@ library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space
 
-    /// @notice Packet receipt types
-    enum PacketReceipt {
-        NONE,
-        SUCCESSFUL
-    }
-
-    /// @notice successful packet receipt
-    bytes32 internal constant PACKET_RECEIPT_SUCCESSFUL_KECCAK256 =
-        keccak256(abi.encodePacked(PacketReceipt.SUCCESSFUL));
-
     /// @notice Universal error acknowledgement
     /// @dev The error acknowledgement used when a packet is not successfully received
     /// @dev abi.encodePacked(sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT"))
@@ -161,12 +151,24 @@ library ICS24Host {
     /// @param acks The list of acknowledgements to get the commitment for
     /// @return The commitment bytes
     function packetAcknowledgementCommitmentBytes32(bytes[] memory acks) internal pure returns (bytes32) {
+        require(acks.length > 0, IICS24HostErrors.NoAcknowledgements());
         bytes memory ackBytes = "";
         for (uint256 i = 0; i < acks.length; i++) {
             ackBytes = abi.encodePacked(ackBytes, sha256(acks[i]));
         }
 
         return sha256(abi.encodePacked(uint8(2), ackBytes));
+    }
+
+    /// @notice Get the packet receipt commitment bytes.
+    /// @dev PacketReceiptCommitment returns the keccak256 hash of the packet.
+    /// @dev The non-zero value of this commitment doesn't matter in the protocol, it is only used to prove
+    /// non-membership.
+    /// @dev It is important that this is non-zero to prevent replay attacks.
+    /// @param packet The packet to get the receipt commitment for
+    /// @return The keccak256 hash of the packet
+    function packetReceiptCommitmentBytes32(IICS26RouterMsgs.Packet memory packet) internal pure returns (bytes32) {
+        return keccak256(abi.encode(packet));
     }
 
     /// @notice Create a prefixed path

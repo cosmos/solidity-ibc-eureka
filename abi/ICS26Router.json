@@ -6,7 +6,46 @@
   },
   {
     "type": "function",
+    "name": "CLIENT_ID_CUSTOMIZER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PORT_CUSTOMIZER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "RELAYER_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -46,8 +85,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -115,13 +154,13 @@
             "components": [
               {
                 "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               }
             ]
           }
@@ -129,6 +168,47 @@
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -165,6 +245,19 @@
         "internalType": "string"
       }
     ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addIBCApp",
+    "inputs": [
+      {
+        "name": "app",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -400,11 +493,6 @@
         "name": "timelockedAdmin",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "portCustomizer",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -495,8 +583,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -559,13 +647,13 @@
             "components": [
               {
                 "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               }
             ]
           }
@@ -668,8 +756,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "nonpayable"
@@ -753,8 +841,8 @@
             "components": [
               {
                 "name": "sequence",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "sourceClient",
@@ -817,59 +905,17 @@
             "components": [
               {
                 "name": "revisionNumber",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               },
               {
                 "name": "revisionHeight",
-                "type": "uint32",
-                "internalType": "uint32"
+                "type": "uint64",
+                "internalType": "uint64"
               }
             ]
           }
         ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateClient",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "updateMsg",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ILightClientMsgs.UpdateResult"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "upgradeClient",
-    "inputs": [
-      {
-        "name": "clientId",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "upgradeMsg",
-        "type": "bytes",
-        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -898,6 +944,18 @@
     "name": "AckPacket",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -905,8 +963,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1031,6 +1089,44 @@
   },
   {
     "type": "event",
+    "name": "ICS02ClientMigrated",
+    "inputs": [
+      {
+        "name": "subjectClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "substituteClientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02MisbehaviourSubmitted",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "misbehaviourMsg",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -1046,73 +1142,6 @@
     "type": "event",
     "name": "Noop",
     "inputs": [],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "RecvPacket",
-    "inputs": [
-      {
-        "name": "packet",
-        "type": "tuple",
-        "indexed": false,
-        "internalType": "struct IICS26RouterMsgs.Packet",
-        "components": [
-          {
-            "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "sourceClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "destClient",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "payloads",
-            "type": "tuple[]",
-            "internalType": "struct IICS26RouterMsgs.Payload[]",
-            "components": [
-              {
-                "name": "sourcePort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "destPort",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "version",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "encoding",
-                "type": "string",
-                "internalType": "string"
-              },
-              {
-                "name": "value",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          }
-        ]
-      }
-    ],
     "anonymous": false
   },
   {
@@ -1195,6 +1224,18 @@
     "name": "SendPacket",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -1202,8 +1243,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1262,6 +1303,18 @@
     "name": "TimeoutPacket",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -1269,8 +1322,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1342,6 +1395,18 @@
     "name": "WriteAcknowledgement",
     "inputs": [
       {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "sequence",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "packet",
         "type": "tuple",
         "indexed": false,
@@ -1349,8 +1414,8 @@
         "components": [
           {
             "name": "sequence",
-            "type": "uint32",
-            "internalType": "uint32"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "sourceClient",
@@ -1444,6 +1509,11 @@
   },
   {
     "type": "error",
+    "name": "DefaultAdminRoleCannotBeGranted",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1481,6 +1551,17 @@
   },
   {
     "type": "error",
+    "name": "IBCClientAlreadyExists",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCClientNotFound",
     "inputs": [
       {
@@ -1508,10 +1589,15 @@
   },
   {
     "type": "error",
-    "name": "IBCInvalidClientType",
+    "name": "IBCFailedCallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IBCInvalidClientId",
     "inputs": [
       {
-        "name": "clientType",
+        "name": "clientId",
         "type": "string",
         "internalType": "string"
       }
@@ -1621,6 +1707,22 @@
   },
   {
     "type": "error",
+    "name": "IBCPacketReceiptMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actual",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "IBCPortAlreadyExists",
     "inputs": [
       {
@@ -1656,6 +1758,11 @@
         "internalType": "bytes[]"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "NoAcknowledgements",
+    "inputs": []
   },
   {
     "type": "error",

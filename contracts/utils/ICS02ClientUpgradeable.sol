@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
@@ -10,6 +9,7 @@ import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 
 /// @title ICS02 Client contract
 /// @notice This contract implements the ICS02 Client Router interface
@@ -40,12 +40,11 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev The role identifier is driven in _getLightClientMigratorRole
     string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
 
-    /// @notice Prefix for the client identifiers
-    string private constant CLIENT_ID_PREFIX = "client-";
+    /// @inheritdoc IICS02Client
+    bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
 
-    // no need to run any initialization logic
-    // solhint-disable-next-line no-empty-blocks
-    function __ICS02Client_init() internal onlyInitializing { }
+    function __ICS02Client_init_unchained() internal onlyInitializing { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IICS02Client
     function getNextClientSeq() external view returns (uint256) {
@@ -54,12 +53,10 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @notice Generates the next client identifier
     /// @return The next client identifier
-    function getNextClientId() private returns (string memory) {
+    function nextClientId() private returns (string memory) {
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
-
-        uint256 seq = $.nextClientSeq;
-        $.nextClientSeq = seq + 1;
-        return string.concat(CLIENT_ID_PREFIX, Strings.toString(seq));
+        // initial client sequence should be 0, hence we use x++ instead of ++x
+        return string.concat(IBCIdentifiers.CLIENT_ID_PREFIX, Strings.toString($.nextClientSeq++));
     }
 
     /// @inheritdoc IICS02Client
@@ -86,9 +83,42 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         external
         returns (string memory)
     {
-        ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        string memory clientId = nextClientId();
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
 
-        string memory clientId = getNextClientId();
+    /// @inheritdoc IICS02Client
+    function addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        onlyRole(CLIENT_ID_CUSTOMIZER_ROLE)
+        returns (string memory)
+    {
+        require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
+        require(IBCIdentifiers.validateCustomIBCIdentifier(bytes(clientId)), IBCInvalidClientId(clientId));
+        _addClient(clientId, counterpartyInfo, client);
+        return clientId;
+    }
+
+    /// @notice This function adds a client to the client router
+    /// @dev This function assumes that the clientId has already been generated and validated.
+    /// @param clientId The client identifier
+    /// @param counterpartyInfo The counterparty client information
+    /// @param client The address of the client contract
+    function _addClient(
+        string memory clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        private
+    {
+        ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        require(address($.clients[clientId]) == address(0), IBCClientAlreadyExists(clientId));
+
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
@@ -96,8 +126,6 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         bytes32 role = getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
-
-        return clientId;
     }
 
     /// @inheritdoc IICS02Client
@@ -118,27 +146,14 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
         $.counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
         $.clients[subjectClientId] = substituteClient;
-    }
 
-    /// @inheritdoc IICS02Client
-    function updateClient(
-        string calldata clientId,
-        bytes calldata updateMsg
-    )
-        external
-        returns (ILightClientMsgs.UpdateResult)
-    {
-        return getClient(clientId).updateClient(updateMsg);
+        emit ICS02ClientMigrated(subjectClientId, substituteClientId);
     }
 
     /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
-    }
-
-    /// @inheritdoc IICS02Client
-    function upgradeClient(string calldata clientId, bytes calldata upgradeMsg) external {
-        getClient(clientId).upgradeClient(upgradeMsg);
+        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
     }
 
     /// @notice Returns the storage of the ICS02Client contract

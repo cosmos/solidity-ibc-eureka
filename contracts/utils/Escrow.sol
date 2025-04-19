@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IEscrowErrors } from "../errors/IEscrowErrors.sol";
+import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
+
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { RateLimitUpgradeable } from "./RateLimitUpgradeable.sol";
-import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
+import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 using SafeERC20 for IERC20;
 
@@ -18,10 +19,8 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _ics20 The ICS20 contract address, can send funds from the escrow
-    /// @param _ics26 The ICS26 contract address, can set the rate limiter role
     struct EscrowStorage {
-        address _ics20;
-        IIBCUUPSUpgradeable _ics26;
+        IICS20Transfer _ics20;
     }
 
     /// @notice ERC-7201 slot for the Escrow storage
@@ -34,31 +33,33 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     }
 
     /// @inheritdoc IEscrow
-    function initialize(address ics20_, address ics26_) external initializer {
+    function initialize(address ics20_) external initializer {
         __Context_init();
         __RateLimit_init();
 
         EscrowStorage storage $ = _getEscrowStorage();
-
-        $._ics20 = ics20_;
-        $._ics26 = IIBCUUPSUpgradeable(ics26_);
+        $._ics20 = IICS20Transfer(ics20_);
     }
 
     /// @inheritdoc IEscrow
-    function send(IERC20 token, address to, uint256 amount) external override onlyICS20 {
+    function send(IERC20 token, address to, uint256 amount) external onlyICS20 {
         _assertAndUpdateRateLimit(address(token), amount);
         token.safeTransfer(to, amount);
     }
 
     /// @inheritdoc IEscrow
+    function recvCallback(address token, address, uint256 amount) external onlyICS20 {
+        _reduceDailyUsage(token, amount);
+    }
+
+    /// @inheritdoc IEscrow
     function ics20() external view override returns (address) {
-        return _getEscrowStorage()._ics20;
+        return address(_getEscrowStorage()._ics20);
     }
 
     /// @inheritdoc RateLimitUpgradeable
-    function _authorizeSetRateLimiterRole(address) internal view override {
-        require(_getEscrowStorage()._ics26.isAdmin(_msgSender()), EscrowUnauthorized(_msgSender()));
-    }
+    function _authorizeSetRateLimiterRole(address) internal view override onlyTokenOperator { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the Escrow contract
     function _getEscrowStorage() private pure returns (EscrowStorage storage $) {
@@ -70,7 +71,13 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
 
     /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
-        require(_msgSender() == _getEscrowStorage()._ics20, EscrowUnauthorized(_msgSender()));
+        require(_msgSender() == address(_getEscrowStorage()._ics20), EscrowUnauthorized(_msgSender()));
+        _;
+    }
+
+    /// @notice Modifier to check if the caller is the token operator
+    modifier onlyTokenOperator() {
+        require(_getEscrowStorage()._ics20.isTokenOperator(_msgSender()), EscrowUnauthorized(_msgSender()));
         _;
     }
 }

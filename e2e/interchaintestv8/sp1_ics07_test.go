@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -33,13 +32,15 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	"github.com/cosmos/solidity-ibc-eureka/abigen/sp1ics07tendermint"
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
 // SP1ICS07TendermintTestSuite is a suite of tests that wraps TestSuite
@@ -54,6 +55,9 @@ type SP1ICS07TendermintTestSuite struct {
 	key *ecdsa.PrivateKey
 	// The SP1ICS07Tendermint contract
 	contract *sp1ics07tendermint.Contract
+
+	// The relayer API (only used for deployment at the moment)
+	RelayerClient relayertypes.RelayerServiceClient
 }
 
 // SetupSuite calls the underlying SP1ICS07TendermintTestSuite's SetupSuite method
@@ -63,6 +67,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -70,9 +75,11 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		s.key, err = eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
-		switch os.Getenv(testvalues.EnvKeySp1Prover) {
+		prover = os.Getenv(testvalues.EnvKeySp1Prover)
+		switch prover {
 		case "", testvalues.EnvValueSp1Prover_Mock:
 			s.T().Logf("Using mock prover")
+			prover = testvalues.EnvValueSp1Prover_Mock
 			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
 			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
 
@@ -89,7 +96,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 			// make sure that the NETWORK_PRIVATE_KEY is set.
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 		default:
-			s.Require().Fail("invalid prover type: %s", os.Getenv(testvalues.EnvKeySp1Prover))
+			s.Require().Fail("invalid prover type: %s", prover)
 		}
 
 		os.Setenv(testvalues.EnvKeyRustLog, testvalues.EnvValueRustLog_Info)
@@ -99,31 +106,109 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
-	s.Require().True(s.Run("Deploy contracts", func() {
-		args := append([]string{
-			"--trust-level", testvalues.DefaultTrustLevel.String(),
-			"--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod),
-			"-o", testvalues.Sp1GenesisFilePath,
-		}, pt.ToOperatorArgs()...)
-		s.Require().NoError(operator.RunGenesis(args...))
+	var relayerProcess *os.Process
+	s.Require().True(s.Run("Start Relayer", func() {
+		beaconAPI := ""
+		// The BeaconAPIClient is nil when the testnet is `pow`
+		if eth.BeaconAPIClient != nil {
+			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
+		}
+
+		sp1Config := relayer.SP1ProverConfig{
+			Type:           prover,
+			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
+		}
+
+		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
+			relayer.EthCosmosConfigInfo{
+				EthChainID:     eth.ChainID.String(),
+				CosmosChainID:  simd.Config().ChainID,
+				TmRPC:          simd.GetHostRPCAddress(),
+				ICS26Address:   "0x0000000000000000000000000000000000000000", // permissionless proof submission
+				EthRPC:         eth.RPC,
+				BeaconAPI:      beaconAPI,
+				SP1Config:      sp1Config,
+				SignerAddress:  "",   // unused
+				MockWasmClient: true, // unused
+			}),
+		)
+
+		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
+
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			err := os.Remove(testvalues.Sp1GenesisFilePath)
-			s.Require().NoError(err)
+			os.Remove(testvalues.RelayerConfigFilePath)
 		})
+	}))
 
-		stdout, err := eth.ForgeScript(s.key, testvalues.SP1ICS07DeployScriptPath, "--json")
+	s.T().Cleanup(func() {
+		if relayerProcess != nil {
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
+		}
+	})
+
+	s.Require().True(s.Run("Create Relayer Client", func() {
+		var err error
+		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Deploy SP1 ICS07 contract", func() {
+		stdout, err := eth.ForgeScript(s.key, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
 
-		contractAddress, err := ethereum.GetOnlySp1Ics07AddressFromStdout(string(stdout))
+		contractAddresses, err := ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
-		s.Require().NotEmpty(contractAddress)
-		s.Require().True(ethcommon.IsHexAddress(contractAddress))
 
-		os.Setenv(testvalues.EnvKeyContractAddress, contractAddress)
+		var verfierAddress string
+		if prover == testvalues.EnvValueSp1Prover_Mock {
+			verfierAddress = contractAddresses.VerifierMock
+		} else {
+			switch pt {
+			case operator.ProofTypeGroth16:
+				verfierAddress = contractAddresses.VerifierGroth16
+			case operator.ProofTypePlonk:
+				verfierAddress = contractAddresses.VerifierPlonk
+			default:
+				s.Require().Fail("invalid proof type: %s", pt)
+			}
+		}
 
-		s.contract, err = sp1ics07tendermint.NewContract(ethcommon.HexToAddress(contractAddress), eth.RPCClient)
-		s.Require().NoError(err)
+		var createClientTxBz []byte
+		s.Require().True(s.Run("Retrieve create client tx", func() {
+			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+				SrcChain: simd.Config().ChainID,
+				DstChain: eth.ChainID.String(),
+				Parameters: map[string]string{
+					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: pt.String(),
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			createClientTxBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.key, 15_000_000, nil, createClientTxBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.Require().NotEmpty(receipt.ContractAddress.Hex())
+
+			err = os.Setenv(testvalues.EnvKeyContractAddress, receipt.ContractAddress.Hex())
+			s.Require().NoError(err)
+
+			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
+			s.Require().NoError(err)
+		}))
 	}))
 }
 
@@ -161,8 +246,8 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
-		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint32(0))
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Greater(clientState.LatestHeight.RevisionHeight, uint64(0))
 	}))
 }
 
@@ -206,7 +291,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 		s.Require().Equal(uint32(testvalues.DefaultTrustPeriod), clientState.TrustingPeriod)
 		s.Require().Equal(uint32(stakingParams.UnbondingTime.Seconds()), clientState.UnbondingPeriod)
 		s.Require().False(clientState.IsFrozen)
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
 		s.Require().Greater(clientState.LatestHeight.RevisionHeight, initialHeight)
 	}))
 }
@@ -264,19 +349,19 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 		memArgs := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.MembershipProof(
-			uint64(trustedHeight), operator.ToBase64KeyPaths(membershipKey), "",
+			trustedHeight, operator.ToBase64KeyPaths(membershipKey), "",
 			memArgs...,
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        membershipKey,
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -302,19 +387,18 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 
 		nonMemArgs := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.MembershipProof(
-			uint64(trustedHeight), operator.ToBase64KeyPaths(nonMembershipKey), "",
+			trustedHeight, operator.ToBase64KeyPaths(nonMembershipKey), "",
 			nonMemArgs...,
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyNonMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        nonMembershipKey,
-			Value:       []byte(""),
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyNonMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -372,7 +456,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		latestHeight, err := simd.Height(ctx)
 		s.Require().NoError(err)
 
-		s.Require().Greater(uint32(latestHeight), trustedHeight)
+		s.Require().Greater(uint64(latestHeight), trustedHeight)
 
 		var expValue []byte
 		s.Require().True(s.Run("Get expected value for the verify membership", func() {
@@ -389,20 +473,20 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 
 		args := append([]string{"--trust-level", testvalues.DefaultTrustLevel.String(), "--trusting-period", strconv.Itoa(testvalues.DefaultTrustPeriod), "--base64"}, pt.ToOperatorArgs()...)
 		proofHeight, ucAndMemProof, err := operator.UpdateClientAndMembershipProof(
-			uint64(trustedHeight), uint64(latestHeight),
+			trustedHeight, uint64(latestHeight),
 			operator.ToBase64KeyPaths(membershipKey, nonMembershipKey),
 			args...,
 		)
 		s.Require().NoError(err)
 
-		msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+		msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 			ProofHeight: *proofHeight,
 			Proof:       ucAndMemProof,
 			Path:        membershipKey,
 			Value:       expValue,
 		}
 
-		tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+		tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 		s.Require().NoError(err)
 
 		// wait until transaction is included in a block
@@ -414,7 +498,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
 
-		s.Require().Equal(uint32(1), clientState.LatestHeight.RevisionNumber)
+		s.Require().Equal(uint64(1), clientState.LatestHeight.RevisionNumber)
 		s.Require().Greater(clientState.LatestHeight.RevisionHeight, trustedHeight)
 		s.Require().Equal(proofHeight.RevisionHeight, clientState.LatestHeight.RevisionHeight)
 		s.Require().False(clientState.IsFrozen)
@@ -453,7 +537,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
+		trustedHeight := clienttypes.NewHeight(clientState.LatestHeight.RevisionNumber, clientState.LatestHeight.RevisionHeight)
 
 		trustedHeader.TrustedHeight = trustedHeight
 		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
@@ -559,7 +643,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		trustedHeight := clienttypes.NewHeight(uint64(clientState.LatestHeight.RevisionNumber), uint64(clientState.LatestHeight.RevisionHeight))
+		trustedHeight := clienttypes.NewHeight(clientState.LatestHeight.RevisionNumber, clientState.LatestHeight.RevisionHeight)
 
 		trustedHeader.TrustedHeight = trustedHeight
 		trustedHeader.TrustedValidators = trustedHeader.ValidatorSet
@@ -695,14 +779,14 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.
 			)
 			s.Require().NoError(err)
 
-			msg := sp1ics07tendermint.ILightClientMsgsMsgMembership{
+			msg := sp1ics07tendermint.ILightClientMsgsMsgVerifyMembership{
 				ProofHeight: *proofHeight,
 				Proof:       memProof,
 				Path:        membershipKeys[rndIdx],
 				Value:       expValue,
 			}
 
-			tx, err := s.contract.Membership(s.GetTransactOpts(s.key, eth), msg)
+			tx, err := s.contract.VerifyMembership(s.GetTransactOpts(s.key, eth), msg)
 			s.Require().NoError(err)
 
 			// wait until transaction is included in a block
@@ -725,7 +809,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clientty
 	}))
 
 	return clienttypes.Height{
-		RevisionNumber: uint64(latestHeight.RevisionNumber),
-		RevisionHeight: uint64(latestHeight.RevisionHeight),
+		RevisionNumber: latestHeight.RevisionNumber,
+		RevisionHeight: latestHeight.RevisionHeight,
 	}
 }

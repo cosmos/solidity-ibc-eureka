@@ -63,20 +63,20 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the transaction is mined, the receipt is returned.
-func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, gasLimit uint64, address ethcommon.Address, txBz []byte) (*ethtypes.Receipt, error) {
+func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, gasLimit uint64, address *ethcommon.Address, txBz []byte) (*ethtypes.Receipt, error) {
 	txOpts, err := e.GetTransactOpts(userKey)
 	if err != nil {
 		return nil, err
 	}
 
-	tx := ethtypes.NewTransaction(
-		txOpts.Nonce.Uint64(),
-		address,
-		txOpts.Value,
-		gasLimit,
-		txOpts.GasPrice,
-		txBz,
-	)
+	tx := ethtypes.NewTx(&ethtypes.LegacyTx{
+		Nonce:    txOpts.Nonce.Uint64(),
+		To:       address,
+		Value:    txOpts.Value,
+		Gas:      gasLimit,
+		GasPrice: txOpts.GasPrice,
+		Data:     txBz,
+	})
 
 	signedTx, err := txOpts.Signer(txOpts.From, tx)
 	if err != nil {
@@ -93,12 +93,16 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 		return nil, err
 	}
 
+	if receipt != nil && receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("eth transaction was broadcasted, but failed on-chain with status %d", receipt.Status)
+	}
+
 	return receipt, nil
 }
 
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
 	args = append(args, "script", "--rpc-url", e.RPC, "--private-key",
-		hex.EncodeToString(deployer.D.Bytes()), "--broadcast",
+		hex.EncodeToString(crypto.FromECDSA(deployer)), "--broadcast",
 		"--non-interactive", "-vvvv", solidityContract,
 	)
 	cmd := exec.Command(
@@ -158,7 +162,7 @@ func (e Ethereum) SendEth(key *ecdsa.PrivateKey, toAddress string, amount math.I
 		"send",
 		toAddress,
 		"--value", amount.String(),
-		"--private-key", fmt.Sprintf("0x%s", ethcommon.Bytes2Hex(key.D.Bytes())),
+		"--private-key", fmt.Sprintf("0x%s", hex.EncodeToString(crypto.FromECDSA(key))),
 		"--rpc-url", e.RPC,
 	)
 	cmd.Stdout = os.Stdout

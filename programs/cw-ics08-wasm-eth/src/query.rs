@@ -1,13 +1,12 @@
 //! This module contains the query message handlers
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, Env};
-use ethereum_light_client::consensus_state::TrustedConsensusState;
 
 use crate::{
     custom_query::{BlsVerifier, EthereumCustomQuery},
     msg::{
-        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, StatusResult,
-        TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
+        CheckForMisbehaviourMsg, CheckForMisbehaviourResult, EthereumMisbehaviourMsg, Status,
+        StatusResult, TimestampAtHeightMsg, TimestampAtHeightResult, VerifyClientMessageMsg,
     },
     state::{get_eth_client_state, get_eth_consensus_state},
     ContractError,
@@ -54,10 +53,8 @@ pub fn verify_client_message(
 
         ethereum_light_client::misbehaviour::verify_misbehaviour(
             &eth_client_state,
-            &TrustedConsensusState {
-                state: eth_consensus_state,
-                sync_committee: misbehaviour.sync_committee,
-            },
+            &eth_consensus_state,
+            &misbehaviour.sync_committee,
             &misbehaviour.update_1,
             &misbehaviour.update_2,
             env.block.time.seconds(),
@@ -74,7 +71,7 @@ pub fn verify_client_message(
 /// Checks for misbehaviour. Returning an error means no misbehaviour was found.
 ///
 /// Note that we are replicating some of the logic of `verify_client_message` here, ideally we
-/// would also check for misbehavior of the header in this function.
+/// would also check for misbehaviour of the header in this function.
 /// # Errors
 /// Returns an error if the misbehaviour cannot be verified
 #[allow(clippy::needless_pass_by_value)]
@@ -97,10 +94,8 @@ pub fn check_for_misbehaviour(
 
     ethereum_light_client::misbehaviour::verify_misbehaviour(
         &eth_client_state,
-        &TrustedConsensusState {
-            state: eth_consensus_state,
-            sync_committee: misbehaviour.sync_committee,
-        },
+        &eth_consensus_state,
+        &misbehaviour.sync_committee,
         &misbehaviour.update_1,
         &misbehaviour.update_2,
         env.block.time.seconds(),
@@ -135,13 +130,20 @@ pub fn timestamp_at_height(
 
 /// Gets the status of the light client
 /// # Returns
-/// Active status, because no other state is currently implemented
+/// The current status of the client
 /// # Errors
-/// It won't error at this point
-// TODO: Implement a proper status once freezing/misbehaviour is implemented #164
-pub fn status() -> Result<Binary, ContractError> {
+/// Errors if the client state can't be deserialized.
+pub fn status(deps: Deps<EthereumCustomQuery>) -> Result<Binary, ContractError> {
+    let eth_client_state = get_eth_client_state(deps.storage)?;
+
+    if eth_client_state.is_frozen {
+        return Ok(to_json_binary(&StatusResult {
+            status: Status::Frozen.to_string(),
+        })?);
+    }
+
     Ok(to_json_binary(&StatusResult {
-        status: "Active".to_string(),
+        status: Status::Active.to_string(),
     })?)
 }
 
@@ -152,9 +154,12 @@ mod tests {
         testing::{message_info, mock_env},
         Binary, Timestamp,
     };
-    use ethereum_light_client::test_utils::fixtures::{
-        self, InitialState, StepsFixture, UpdateClient,
+    use ethereum_light_client::{
+        header::Header,
+        test_utils::fixtures::{self, InitialState, RelayerMessages, StepsFixture},
     };
+    use ibc_proto::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
 
     use crate::{
         contract::{instantiate, query},
@@ -194,8 +199,21 @@ mod tests {
 
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let update_client: UpdateClient = fixture.get_data_at_step(1);
-        let header = update_client.updates[0].clone();
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let header = headers[0].clone();
+
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
         let mut env = mock_env();
@@ -257,7 +275,29 @@ mod tests {
 
     #[test]
     fn test_status() {
-        let deps = mk_deps();
+        let mut deps = mk_deps();
+        let creator = deps.api.addr_make("creator");
+        let info = message_info(&creator, &coins(1, "uatom"));
+
+        let fixture: StepsFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
+
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+        let msg = crate::msg::InstantiateMsg {
+            client_state: Binary::from(client_state_bz),
+            consensus_state: Binary::from(consensus_state_bz),
+            checksum: b"checksum".into(),
+        };
+
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
         let res = query(deps.as_ref(), mock_env(), QueryMsg::Status(StatusMsg {})).unwrap();
         let status_response: StatusResult = from_json(&res).unwrap();
         assert_eq!("Active", status_response.status);

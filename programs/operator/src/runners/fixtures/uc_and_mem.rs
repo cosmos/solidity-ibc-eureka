@@ -14,12 +14,16 @@ use ibc_eureka_solidity_types::msgs::{
     ISP1Msgs::SP1Proof,
     IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
+    programs::{
+        MembershipProgram, MisbehaviourProgram, UpdateClientAndMembershipProgram,
+        UpdateClientProgram,
+    },
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_sdk::{CpuProver, HashableKey, Prover, ProverClient};
-use std::{env, path::PathBuf};
+use sp1_sdk::{HashableKey, ProverClient};
+use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
@@ -30,18 +34,24 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         "The target block must be greater than the trusted block"
     );
 
+    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
+    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
+    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
+    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
+    let update_client_program = UpdateClientProgram::new(update_client_elf);
+    let membership_program = MembershipProgram::new(membership_elf);
+    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
+    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+
     let tm_rpc_client = HttpClient::from_env();
-    // TODO: Just use ProverClient::from_env() here once
-    // (https://github.com/succinctlabs/sp1/issues/1962) is resolved. (#1962)
-    let sp1_prover: Box<dyn Prover<_>> = if env::var("SP1_PROVER").unwrap_or_default() == "mock" {
-        Box::new(CpuProver::mock())
+    let sp1_prover = if args.sp1.private_cluster {
+        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
     } else {
-        Box::new(ProverClient::from_env())
+        Sp1Prover::new_public_cluster(ProverClient::from_env())
     };
-    let uc_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        args.proof_type,
-        sp1_prover.as_ref(),
-    );
+
+    let uc_mem_prover =
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &uc_and_membership_program);
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
@@ -54,7 +64,11 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         &trusted_light_block,
         args.membership.trust_options.trusting_period,
         args.membership.trust_options.trust_level,
-        args.proof_type,
+        args.sp1.proof_type,
+        &update_client_program,
+        &membership_program,
+        &uc_and_membership_program,
+        &misbehaviour_program,
     )
     .await?;
     let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
@@ -62,9 +76,6 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         SolConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?.into();
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
 
     let kv_proofs: Vec<(_, _)> =
         futures::future::try_join_all(args.membership.key_paths.into_iter().map(|path| async {
@@ -88,12 +99,13 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         .await?;
 
     let kv_len = kv_proofs.len();
+    let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
     let proof_data = uc_mem_prover.generate_proof(
         &trusted_client_state,
         &trusted_consensus_state.into(),
         &proposed_header,
-        now,
+        now_since_unix.as_nanos(),
         kv_proofs,
     );
 

@@ -23,6 +23,11 @@ interface IICS20Errors {
     /// @param version actual version of the packet data
     error ICS20UnexpectedVersion(string expected, string version);
 
+    /// @notice Unexpected packet data encoding
+    /// @param expected expected encoding of the packet data
+    /// @param actual actual encoding of the packet data
+    error ICS20UnexpectedEncoding(string expected, string actual);
+
     /// @notice Unexpected ERC20 balance
     /// @param expected Expected balance of the ERC20 token for ICS20Transfer
     /// @param actual Actual balance of the ERC20 token for ICS20Transfer

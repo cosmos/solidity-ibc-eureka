@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RelayerService_RelayByTx_FullMethodName = "/relayer.RelayerService/RelayByTx"
-	RelayerService_Info_FullMethodName      = "/relayer.RelayerService/Info"
+	RelayerService_RelayByTx_FullMethodName    = "/relayer.RelayerService/RelayByTx"
+	RelayerService_CreateClient_FullMethodName = "/relayer.RelayerService/CreateClient"
+	RelayerService_Info_FullMethodName         = "/relayer.RelayerService/Info"
 )
 
 // RelayerServiceClient is the client API for RelayerService service.
@@ -33,6 +34,8 @@ const (
 type RelayerServiceClient interface {
 	// Relay the ibc packets produced by the results of transactions
 	RelayByTx(ctx context.Context, in *RelayByTxRequest, opts ...grpc.CallOption) (*RelayByTxResponse, error)
+	// Create a new ibc client on the target (destination) chain
+	CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error)
 	// Request relayer information
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
 }
@@ -49,6 +52,16 @@ func (c *relayerServiceClient) RelayByTx(ctx context.Context, in *RelayByTxReque
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RelayByTxResponse)
 	err := c.cc.Invoke(ctx, RelayerService_RelayByTx_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayerServiceClient) CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateClientResponse)
+	err := c.cc.Invoke(ctx, RelayerService_CreateClient_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +88,8 @@ func (c *relayerServiceClient) Info(ctx context.Context, in *InfoRequest, opts .
 type RelayerServiceServer interface {
 	// Relay the ibc packets produced by the results of transactions
 	RelayByTx(context.Context, *RelayByTxRequest) (*RelayByTxResponse, error)
+	// Create a new ibc client on the target (destination) chain
+	CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error)
 	// Request relayer information
 	Info(context.Context, *InfoRequest) (*InfoResponse, error)
 	mustEmbedUnimplementedRelayerServiceServer()
@@ -89,6 +104,9 @@ type UnimplementedRelayerServiceServer struct{}
 
 func (UnimplementedRelayerServiceServer) RelayByTx(context.Context, *RelayByTxRequest) (*RelayByTxResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RelayByTx not implemented")
+}
+func (UnimplementedRelayerServiceServer) CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateClient not implemented")
 }
 func (UnimplementedRelayerServiceServer) Info(context.Context, *InfoRequest) (*InfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
@@ -132,6 +150,24 @@ func _RelayerService_RelayByTx_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayerService_CreateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateClientRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayerServiceServer).CreateClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayerService_CreateClient_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayerServiceServer).CreateClient(ctx, req.(*CreateClientRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RelayerService_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InfoRequest)
 	if err := dec(in); err != nil {
@@ -160,6 +196,10 @@ var RelayerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RelayByTx",
 			Handler:    _RelayerService_RelayByTx_Handler,
+		},
+		{
+			MethodName: "CreateClient",
+			Handler:    _RelayerService_CreateClient_Handler,
 		},
 		{
 			MethodName: "Info",

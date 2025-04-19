@@ -1,7 +1,8 @@
-# IBC Eureka in Solidity  [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC in Solidity  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
 [gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
-[gha-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e.yml/badge.svg
+[e2e-minimal-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-minimal.yml/badge.svg
+[e2e-full-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-full.yml/badge.svg
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://opensource.org/licenses/MIT
@@ -9,11 +10,33 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress IBC Eureka implementation in Solidity. IBC Eureka is a simplified version of the IBC protocol that is encoding agnostic. This project also includes an [SP1](https://github.com/succinctlabs/sp1) based tendermint light client for the Ethereum chain, and a POC relayer implementation.
+This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
+
+- [IBC in Solidity     ](#ibc-in-solidity-----)
+  - [Overview](#overview)
+    - [Project Structure](#project-structure)
+    - [Contracts](#contracts)
+    - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
+  - [Requirements](#requirements)
+  - [Unit Testing](#unit-testing)
+  - [End to End Testing](#end-to-end-testing)
+    - [Running the tests](#running-the-tests)
+  - [Linting](#linting)
+  - [End to End Benchmarks](#end-to-end-benchmarks)
+    - [Single Packet Benchmarks](#single-packet-benchmarks)
+    - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
+  - [Security Assumptions](#security-assumptions)
+    - [Handling Frozen Light Clients](#handling-frozen-light-clients)
+    - [Security Council and Governance Admin](#security-council-and-governance-admin)
+      - [Admin Powers and Restrictions](#admin-powers-and-restrictions)
+      - [Key Distinction Between Admins](#key-distinction-between-admins)
+    - [Roles and Permissions](#roles-and-permissions)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 ### Project Structure
 
@@ -23,7 +46,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `test/`: Contains the Solidity tests.
 - `scripts/`: Contains the Solidity scripts.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
-- `abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `relayer/`: Contains the relayer implementation.
@@ -31,16 +53,17 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
+    - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 
 ### Contracts
 
 | **Contracts** | **Description** | **Status** |
 |:---:|:---:|:---:|
-| `ICS26Router.sol` | IBC Eureka router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
-| `ICS20Transfer.sol` | IBC Eureka transfer application to send and receive tokens to/from another Eureka transfer implementation. | ✅ |
+| `ICS26Router.sol` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
+| `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
-| `ICS27Controller.sol` | IBC Eureka interchain accounts controller. | ❌ |
-| `ICS27Host.sol` | IBC Eureka interchain accounts host. | ❌ |
+| `ICS27Controller.sol` | IBC interchain accounts controller. | ❌ |
+| `ICS27Host.sol` | IBC interchain accounts host. | ❌ |
 
 ### SP1 Programs for the Light Client
 
@@ -58,7 +81,8 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
-- [SP1](https://succinctlabs.github.io/sp1/getting-started/install.html) (for end-to-end tests)
+- [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
+- [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
@@ -119,29 +143,33 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 ### Running the tests
 
-There are three test suites in the `e2e/interchaintestv8` directory:
+There are five test suites in the `e2e/interchaintestv8` directory:
 
-- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC Eureka contracts via manual relaying (requires the operator to be installed).
+- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
     - To run any of the tests, run the following command:
         ```sh
-        just test-e2e $TEST_NAME
+        just test-e2e-eureka $TEST_NAME
         ```
-- `TestWithRelayerTestSuite`: This test suite tests the IBC Eureka contracts via the relayer (requires the relayer and operator to be installed).
+- `TestWithRelayerTestSuite`: This test suite tests the relayer via the IBC contracts (requires the relayer and operator to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e-relayer $TEST_NAME
+        ```
+- `TestWithCosmosRelayerTestSuite`: This test suite tests the relayer via Cosmos to Cosmos connections (requires the relayer and operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-cosmos-relayer $TEST_NAME
         ```
 - `TestWithSP1ICS07TendermintTestSuite`: This test suite tests the SP1 ICS07 Tendermint light client (requires the operator to be installed).
     - To run any of the tests, run the following command:
         ```sh
         just test-e2e-sp1-ics07 $TEST_NAME
         ```
-
-Where `$TEST_NAME` is the name of the test you want to run, for example:
-
-```sh
-just test-e2e TestDeploy_Groth16
-```
+- `TestWithMultichainTestSuite`: This test suite tests multi-chain transfers with Ethereum and multiple Cosmos chains (requires the relayer and operator to be installed).
+    - To run any of the tests, run the following command:
+        ```sh
+        just test-e2e-multichain $TEST_NAME
+        ```
 
 ## Linting
 
@@ -153,7 +181,7 @@ just lint
 
 ## End to End Benchmarks
 
-The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 1 minute. More granular and in-depth benchmarks are planned for the future.
+The contracts in this repository are benchmarked end-to-end using foundry. The following benchmarks were ran with the underlying [sp1-ics07-tendermint](https://github.com/cosmos/sp1-ics07-tendermint). About ~230,000 gas is used for each light client verification (groth16), and this is included in the gas costs below for `recvPacket`, `timeoutPacket` and `ackPacket`. At the time of writing, proof generation takes around 25 seconds. More granular and in-depth benchmarks are planned for the future.
 
 ### Single Packet Benchmarks
 
@@ -161,77 +189,91 @@ The following benchmarks are for a single packet transfer without aggregation.
 
 | **Contract** | **Method** | **Description** | **Gas (groth16)** | **Gas (plonk)** |
 |:---:|:---:|:---:|:---:|:---:|
-| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~149,000 | ~149,000 |
-| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~522,788 | ~605,734 |
-| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,092,349 | ~1,176,657 |
-| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~391,990 | ~475,788 |
-| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~464,141 | ~548,602 |
+| `ICS26Router.sol` | `sendPacket` | Initiating an IBC transfer with an `ERC20`. | ~165,000 | ~165,000 |
+| `ICS26Router.sol` | `recvPacket` | Receiving _back_ an `ERC20` token. | ~524,474 | ~608,862 |
+| `ICS26Router.sol` | `recvPacket` | Receiving a _new_ Cosmos token for the first time. (Deploying an `ERC20` contract) | ~1,072,445 | ~1,156,233 |
+| `ICS26Router.sol` | `ackPacket` | Acknowledging an ICS20 packet. | ~399,576 | ~483,375 |
+| `ICS26Router.sol` | `timeoutPacket` | Timing out an ICS20 packet | ~473,505 | ~556,640 |
 
 ### Aggregated Packet Benchmarks
 
 The gas costs are substantially lower when aggregating multiple packets into a single proof, as long as the packets are submitted in the same tx.
 Since there is no meaningful difference in gas costs between plonk and groth16 in the aggregated case, they are not separated in the table below.
 
-| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** |
-|:---:|:---:|:---:|:---:|
-| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~183,517 | ~176,964 |
-| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~90,903 | ~85,198 |
+| **ICS26Router Method** | **Description** | **Avg Gas (25 packets)** | **Avg Gas (50 packets)** | **Calldata size (25 packets)** | **Calldata size (50 packets)** |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| `multicall/recvPacket` | Receiving _back_ an `ERC20` token. | ~179,471 | ~172,804 | ~51,172B | ~100,772B |
+| `multicall/ackPacket` | Acknowledging an ICS20 packet. | ~92,621 | ~88,485 | ~53,572B | ~105,572B |
 
 Note: These gas benchmarks are with Groth16.
 
-## Run ICS-07 Tendermint Light Client End to End
+## Security Assumptions
 
-1. Set the environment variables by filling in the `.env` file with the following:
+IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains two light clients:
 
-    ```sh
-    cp .env.example .env
-    ```
+- **SP1 Light Client** – Verifies the consensus state of a Cosmos SDK chain.
+- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain.
 
-    You need to fill in the `PRIVATE_KEY`, `SP1_PROVER`, `TENDERMINT_RPC_URL`, and `RPC_URL`. You also need the `NETWORK_PRIVATE_KEY` field if you are using the SP1 prover network.
+The security of an IBC connection depends on the integrity of these light clients and the validator sets of the respective chains. However, IBC light clients can become **frozen** under certain conditions, such as:
 
-2. Deploy the `SP1ICS07Tendermint` contract:
+- Detection of two conflicting valid headers.
+- Failure to update the light client for an extended period.
 
-    ```sh
-    just deploy-sp1-ics07
-    ```
+### Handling Frozen Light Clients
 
-    This will generate the `contracts/script/genesis.json` file which contains the initialization parameters for the contract. And then deploy the contract using `contracts/script/SP1ICS07Tendermint.s.sol`.
-    If you see the following error, add `--legacy` to the command in the `justfile`:
-    ```text
-    Error: Failed to get EIP-1559 fees    
-    ```
+When a light client freezes, Cosmos SDK chains rely on **governance** to restart the client. However, Ethereum lacks a native governance mechanism for this purpose. **To address this, the Solidity implementation of IBC requires a timelocked Security Council to restart the light client in case of a freeze.**
 
-3. Your deployed contract address will be printed to the terminal.
+Additionally, the Security Council is responsible for:
 
-    ```text
-    == Return ==
-    0: address <CONTRACT_ADDRESS>
-    ```
+- **Upgrading IBC contracts** in the event of a security vulnerability.
+- **Introducing new features** while balancing security and decentralization.
 
-    This will be used when you run the operator in step 5. So add this to your `.env` file.
+Ideally, the Security Council should mirror the validators of the counterparty Cosmos SDK chain for better decentralization. In the future, a mechanism called **`govAdmin`** will allow the Cosmos SDK chain’s governance to directly control Ethereum contract upgrades via IBC (tracked in [#278](https://github.com/cosmos/solidity-ibc-eureka/issues/278)).
 
-    ```.env
-    CONTRACT_ADDRESS=<CONTRACT_ADDRESS>
-    ```
+### Security Council and Governance Admin
 
-4. Run the Tendermint operator.
+Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCUUPSUpgradeable.sol`](./contracts/utils/IBCUUPSUpgradeable.sol). This contract is inherited by [`ICS26Router.sol`](./contracts/ICS26Router.sol), which maintains:
 
-    To run the operator, you need to select the prover type for SP1. This is set in the `.env` file with the `SP1_PROVER` value (`network|local|mock`).
-    If you run the operator with the `network` prover, you need to provide your SP1 network private key with `NETWORK_PRIVATE_KEY=0xyourprivatekey` in `.env`.
+- **`timelockedAdmin`** (Security Council)
+- **`govAdmin`** (Governance Admin)
 
-    ```sh
-    RUST_LOG=info cargo run --bin operator --release -- start
-    ```
+Other IBC contracts that require administrative access or upgradability should reference `ICS26Router` to retrieve the current admin. For example, see its implementation in [`ICS20Transfer.sol`](https://github.com/cosmos/solidity-ibc-eureka/blob/1db4d38d00f7935e2aa4564b7026182a4c095ef1/contracts/ICS20Transfer.sol#L487-L492).
 
-## Etheruem Light Client
+#### Admin Powers and Restrictions
 
-> [!CAUTION]
-> ⚠ The Ethereum Light Client is currently under heavy development, and is not ready for use.
+Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `IBCUUPSUpgradeable` contract, both admins will eventually have **equal authority**, including the ability to:
 
-This repository contains an Ethereum light client which is implemented as two separate layers:
+- Assign or modify the other admin.
+- Manage roles on IBC contracts.
+- Upgrade IBC contracts. Learn more about [upgrading the Solidity contracts](./UPGRADEABILITY.md).
 
-- A CosmWasm contract that supports the 08-wasm light client interface in `programs/cw-ics08-wasm-eth`
-- A stateless light client verification package in `packages/ethereum-light-client`
+#### Key Distinction Between Admins
+
+Once the **govAdmin** is set, the Security Council must **apply a timelock** to itself. This ensures that after delegation, the Security Council only retains power in cases where IBC light clients are **frozen**—effectively making **govAdmin** the primary administrator in normal conditions.
+
+> [!WARNING]
+> - The timelock on the **Security Council** is **not** enforced within the IBC contracts but should be self-enforced.
+> - The timelock duration should be at least as long as:
+>   - The **govAdmin** timelock (if applicable).
+>   - The time required for governance proposals to pass.
+
+### Roles and Permissions
+
+The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
+
+| **Role Name** | **Contract** | **Description** |
+|:---:|:---:|:---:|
+| `PAUSER_ROLE` | `ICS20Transfer.sol` | Can pause the contract. |
+| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
+| `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
+| `DELEGATE_SENDER_ROLE` | `ICS20Transfer.sol` | Has permission to call `sendTransferWithSender` |
+| `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
+| `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
+| `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
+| `RELAYER_ROLE` | `ICS26Router.sol` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
+| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom port ids for applications. |
+| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom light client ids for applications. |
+| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Can migrate the light client identified by `client_id`. Creator of the light client has this role by default. |
 
 ## License
 

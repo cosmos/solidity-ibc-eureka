@@ -15,87 +15,104 @@ use ibc_eureka_solidity_types::{
         ISP1Msgs::SP1Proof,
     },
 };
+use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
-    programs::UpdateClientAndMembershipProgram, prover::SP1ICS07TendermintProver,
+    programs::UpdateClientAndMembershipProgram,
+    prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_ics07_tendermint_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
-use sp1_prover::components::CpuProverComponents;
-use sp1_sdk::{HashableKey, Prover};
+use sp1_prover::components::SP1ProverComponents;
+use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
 
-use crate::events::EurekaEvent;
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::timeoutPacket`]s with empty
 /// proofs.
+///
+/// # Arguments
+/// - `target_events`: The list of target events to convert.
+/// - `src_client_id`: The source client ID.
+/// - `dst_client_id`: The destination client ID.
+/// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
+/// - `target_height`: The target height for the proofs.
+/// - `now`: The current time.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
-    target_client_id: &str,
+    target_events: Vec<EurekaEventWithHeight>,
+    src_client_id: &str,
+    dst_client_id: &str,
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     target_events
         .into_iter()
-        .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceClient == target_client_id {
-                    Some(routerCalls::timeoutPacket(
-                        ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
-                            msg_: MsgTimeoutPacket {
-                                packet: se.packet,
-                                proofHeight: target_height.clone(),
-                                proofTimeout: Bytes::default(),
-                            },
-                        },
-                    ))
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        .filter_map(|e| match e.event {
+            EurekaEvent::SendPacket(packet) => (now >= packet.timeoutTimestamp
+                && packet.sourceClient == dst_client_id
+                && packet.destClient == src_client_id
+                && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+            .then_some(routerCalls::timeoutPacket(
+                ibc_eureka_solidity_types::ics26::router::timeoutPacketCall {
+                    msg_: MsgTimeoutPacket {
+                        packet,
+                        proofHeight: target_height.clone(),
+                        proofTimeout: Bytes::default(),
+                    },
+                },
+            )),
+            EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
 }
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::recvPacket`]s and
 /// [`routerCalls::ackPacket`]s with empty proofs.
+///
+/// # Arguments
+/// - `src_events`: The list of source events to convert.
+/// - `src_client_id`: The source client ID.
+/// - `dst_client_id`: The destination client ID.
+/// - `src_packet_seqs`: The list of source packet sequences to filter by. If empty, no filtering.
+/// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
+/// - `target_height`: The target height for the proofs.
+/// - `now`: The current time.
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
-    target_client_id: &str,
+    src_events: Vec<EurekaEventWithHeight>,
+    src_client_id: &str,
+    dst_client_id: &str,
+    src_packet_seqs: &[u64],
+    dst_packet_seqs: &[u64],
     target_height: &Height,
     now: u64,
 ) -> Vec<routerCalls> {
     src_events
         .into_iter()
-        .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if se.packet.timeoutTimestamp > now && se.packet.destClient == target_client_id {
-                    Some(routerCalls::recvPacket(recvPacketCall {
-                        msg_: MsgRecvPacket {
-                            packet: se.packet,
-                            proofHeight: target_height.clone(),
-                            proofCommitment: Bytes::default(),
-                        },
-                    }))
-                } else {
-                    None
-                }
+        .filter_map(|e| match e.event {
+            EurekaEvent::SendPacket(packet) => (packet.timeoutTimestamp > now
+                && packet.sourceClient == src_client_id
+                && packet.destClient == dst_client_id
+                && (src_packet_seqs.is_empty() || src_packet_seqs.contains(&packet.sequence)))
+            .then_some(routerCalls::recvPacket(recvPacketCall {
+                msg_: MsgRecvPacket {
+                    packet,
+                    proofHeight: target_height.clone(),
+                    proofCommitment: Bytes::default(),
+                },
+            })),
+            EurekaEvent::WriteAcknowledgement(packet, acks) => {
+                (packet.sourceClient == dst_client_id
+                    && packet.destClient == src_client_id
+                    && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+                .then_some(routerCalls::ackPacket(ackPacketCall {
+                    msg_: MsgAckPacket {
+                        packet,
+                        acknowledgement: acks[0].clone(), // TODO: handle multiple acks (#93)
+                        proofHeight: target_height.clone(),
+                        proofAcked: Bytes::default(),
+                    },
+                }))
             }
-            EurekaEvent::WriteAcknowledgement(we) => {
-                if we.packet.sourceClient == target_client_id {
-                    Some(routerCalls::ackPacket(ackPacketCall {
-                        msg_: MsgAckPacket {
-                            packet: we.packet,
-                            acknowledgement: we.acknowledgements[0].clone(), // TODO: handle multiple acks (#93)
-                            proofHeight: target_height.clone(),
-                            proofAcked: Bytes::default(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
-            EurekaEvent::RecvPacket(_) => None,
         })
         .collect()
 }
@@ -103,15 +120,16 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// Generates and injects an SP1 proof into the first message in `msgs`.
 /// # Errors
 /// Returns an error if the sp1 proof cannot be generated.
-pub async fn inject_sp1_proof(
-    sp1_prover: Box<dyn Prover<CpuProverComponents>>,
+pub async fn inject_sp1_proof<C: SP1ProverComponents>(
+    sp1_prover: &Sp1Prover<C>,
+    uc_and_mem_program: &UpdateClientAndMembershipProgram,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
     target_light_block: LightBlock,
     client_state: ClientState,
-    now: u64,
+    now: u128,
 ) -> Result<()> {
-    let target_height = u32::try_from(target_light_block.height().value())?;
+    let target_height = target_light_block.height().value();
 
     let ibc_paths = msgs
         .iter()
@@ -140,10 +158,8 @@ pub async fn inject_sp1_proof(
     // Get the proposed header from the target light block.
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
-    let uc_and_mem_prover = SP1ICS07TendermintProver::<UpdateClientAndMembershipProgram, _>::new(
-        client_state.zkAlgorithm,
-        sp1_prover.as_ref(),
-    );
+    let uc_and_mem_prover =
+        SP1ICS07TendermintProver::new(client_state.zkAlgorithm, sp1_prover, uc_and_mem_program);
 
     let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
         &client_state,

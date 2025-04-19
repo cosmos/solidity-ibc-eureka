@@ -23,10 +23,15 @@ type ForgeDeployOutput struct {
 }
 
 type DeployedContracts struct {
-	Ics07Tendermint string `json:"ics07Tendermint"`
-	Ics26Router     string `json:"ics26Router"`
-	Ics20Transfer   string `json:"ics20Transfer"`
-	Erc20           string `json:"erc20"`
+	// SP1Verifier for plonk
+	VerifierPlonk string `json:"verifierPlonk"`
+	// SP1Verifier for groth16
+	VerifierGroth16 string `json:"verifierGroth16"`
+	// Mock SP1 verifier
+	VerifierMock  string `json:"verifierMock"`
+	Ics26Router   string `json:"ics26Router"`
+	Ics20Transfer string `json:"ics20Transfer"`
+	Erc20         string `json:"erc20"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
@@ -49,27 +54,16 @@ func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	}
 
 	if embeddedContracts.Erc20 == "" ||
-		embeddedContracts.Ics07Tendermint == "" ||
 		embeddedContracts.Ics20Transfer == "" ||
+		embeddedContracts.VerifierPlonk == "" ||
+		embeddedContracts.VerifierGroth16 == "" ||
+		embeddedContracts.VerifierMock == "" ||
 		embeddedContracts.Ics26Router == "" {
 
 		return DeployedContracts{}, fmt.Errorf("one or more contracts missing: %+v", embeddedContracts)
 	}
 
 	return embeddedContracts, nil
-}
-
-func GetOnlySp1Ics07AddressFromStdout(stdout string) (string, error) {
-	// Define the regular expression pattern
-	re := regexp.MustCompile(`"value":"(0x[0-9a-fA-F]+)"`)
-
-	// Find the first match
-	matches := re.FindStringSubmatch(stdout)
-	if len(matches) <= 1 {
-		return "", fmt.Errorf("no matches found in stdout")
-	}
-	// Extract the value
-	return strings.ToLower(matches[1]), nil
 }
 
 // From https://medium.com/@zhuytt4/verify-the-owner-of-safe-wallet-with-eth-getproof-7edc450504ff

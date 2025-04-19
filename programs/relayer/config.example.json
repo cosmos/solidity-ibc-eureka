@@ -11,9 +11,39 @@
       "dst_chain": "0x1",
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
-        "ics26_address": "0x1234567890abcdef1234567890abcdef",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "sp1_private_key": "0x1234567890abcdef1234567890abcdef"
+        "sp1_prover": {
+          "type": "network",
+          "network_private_key": "0x4242424242424242424242424242424242424242424242424242424242424242",
+          "network_rpc_url": "https://prover-url.com",
+          "private_cluster": true
+        },
+        "sp1_programs": {
+          "update_client": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+          "membership": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+          "update_client_and_membership": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+          "misbehaviour": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+        }
+      }
+    },
+    {
+      "name": "cosmos_to_eth",
+      "src_chain": "testnet-1",
+      "dst_chain": "0x2",
+      "config": {
+        "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "sp1_prover": {
+          "type": "mock"
+        },
+        "sp1_programs": {
+          "update_client": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+          "membership": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+          "update_client_and_membership": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+          "misbehaviour": "./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+        }
       }
     },
     {
@@ -22,7 +52,7 @@
       "dst_chain": "cosmoshub-4",
       "config": {
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
-        "ics26_address": "0x1234567890abcdef1234567890abcdef",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
         "eth_beacon_api_url": "https://ethereum-holesky-beacon-api.publicnode.com",
         "signer_address": "cosmos1abcdef1234567890abcdef1234567890"

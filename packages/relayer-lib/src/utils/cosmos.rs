@@ -2,11 +2,12 @@
 
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
-use ethereum_apis::eth_api::client::EthApiClient;
-use ethereum_light_client::membership::ibc_commitment_key_v2;
+use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
+use ethereum_light_client::membership::evm_ics26_commitment_path;
 use ethereum_types::execution::storage_proof::StorageProof;
 use futures::future;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::{
     ibc::core::{
         channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
@@ -14,89 +15,112 @@ use ibc_proto_eureka::{
     },
     Protobuf,
 };
-use sp1_ics07_tendermint_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 
-use crate::events::EurekaEvent;
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
+///
+/// # Arguments
+/// - `target_events` - The list of target events.
+/// - `src_client_id` - The source client ID.
+/// - `dst_client_id` - The destination client ID.
+/// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
+/// - `signer_address` - The signer address.
+/// - `now` - The current time.
 pub fn target_events_to_timeout_msgs(
-    target_events: Vec<EurekaEvent>,
-    target_client_id: &str,
-    target_height: &Height,
+    target_events: Vec<EurekaEventWithHeight>,
+    src_client_id: &str,
+    dst_client_id: &str,
+    dst_packet_seqs: &[u64],
     signer_address: &str,
     now: u64,
 ) -> Vec<MsgTimeout> {
     target_events
         .into_iter()
-        .filter_map(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                if now >= se.packet.timeoutTimestamp && se.packet.sourceClient == target_client_id {
-                    Some(MsgTimeout {
-                        packet: Some(se.packet.into()),
-                        proof_height: Some(*target_height),
-                        proof_unreceived: vec![],
-                        signer: signer_address.to_string(),
-                    })
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        .filter_map(|e| match e.event {
+            EurekaEvent::SendPacket(packet) => (now >= packet.timeoutTimestamp
+                && packet.sourceClient == dst_client_id
+                && packet.destClient == src_client_id
+                && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence)))
+            .then_some(MsgTimeout {
+                packet: Some(packet.into()),
+                proof_height: None,
+                proof_unreceived: vec![],
+                signer: signer_address.to_string(),
+            }),
+            EurekaEvent::WriteAcknowledgement(..) => None,
         })
         .collect()
 }
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgRecvPacket`]s and
 /// [`MsgAcknowledgement`]s.
+///
+/// # Arguments
+/// - `src_events` - The list of source events.
+/// - `src_client_id` - The source client ID.
+/// - `dst_client_id` - The destination client ID.
+/// - `src_packet_seqs` - The list of source packet sequences to filter. If empty, no filtering.
+/// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
+/// - `signer_address` - The signer address.
+/// - `now` - The current time.
+#[allow(clippy::too_many_arguments)]
 pub fn src_events_to_recv_and_ack_msgs(
-    src_events: Vec<EurekaEvent>,
-    target_client_id: &str,
-    target_height: &Height,
+    src_events: Vec<EurekaEventWithHeight>,
+    src_client_id: &str,
+    dst_client_id: &str,
+    src_packet_seqs: &[u64],
+    dst_packet_seqs: &[u64],
     signer_address: &str,
     now: u64,
 ) -> (Vec<MsgRecvPacket>, Vec<MsgAcknowledgement>) {
     let (src_send_events, src_ack_events): (Vec<_>, Vec<_>) = src_events
         .into_iter()
-        .filter(|e| match e {
-            EurekaEvent::SendPacket(se) => {
-                se.packet.timeoutTimestamp > now && se.packet.destClient == target_client_id
+        .filter(|e| match &e.event {
+            EurekaEvent::SendPacket(packet) => {
+                packet.timeoutTimestamp > now
+                    && packet.sourceClient == src_client_id
+                    && packet.destClient == dst_client_id
+                    && (src_packet_seqs.is_empty() || src_packet_seqs.contains(&packet.sequence))
             }
-            EurekaEvent::WriteAcknowledgement(we) => we.packet.sourceClient == target_client_id,
-            EurekaEvent::RecvPacket(_) => false,
+            EurekaEvent::WriteAcknowledgement(packet, _) => {
+                packet.sourceClient == dst_client_id
+                    && packet.destClient == src_client_id
+                    && (dst_packet_seqs.is_empty() || dst_packet_seqs.contains(&packet.sequence))
+            }
         })
-        .partition(|e| match e {
+        .partition(|e| match e.event {
             EurekaEvent::SendPacket(_) => true,
-            EurekaEvent::WriteAcknowledgement(_) => false,
-            EurekaEvent::RecvPacket(_) => unreachable!(),
+            EurekaEvent::WriteAcknowledgement(..) => false,
         });
 
     let recv_msgs = src_send_events
         .into_iter()
-        .map(|e| match e {
-            EurekaEvent::SendPacket(se) => MsgRecvPacket {
-                packet: Some(se.packet.into()),
-                proof_height: Some(*target_height),
+        .map(|e| match e.event {
+            EurekaEvent::SendPacket(packet) => MsgRecvPacket {
+                packet: Some(packet.into()),
+                proof_height: None,
                 proof_commitment: vec![],
                 signer: signer_address.to_string(),
             },
-            _ => unreachable!(),
+            EurekaEvent::WriteAcknowledgement(..) => unreachable!(),
         })
         .collect::<Vec<MsgRecvPacket>>();
 
     let ack_msgs = src_ack_events
         .into_iter()
-        .map(|e| match e {
-            EurekaEvent::WriteAcknowledgement(we) => MsgAcknowledgement {
-                packet: Some(we.packet.into()),
+        .map(|e| match e.event {
+            EurekaEvent::WriteAcknowledgement(packet, acks) => MsgAcknowledgement {
+                packet: Some(packet.into()),
                 acknowledgement: Some(Acknowledgement {
-                    app_acknowledgements: we.acknowledgements.into_iter().map(Into::into).collect(),
+                    app_acknowledgements: acks.into_iter().map(Into::into).collect(),
                 }),
-                proof_height: Some(*target_height),
+                proof_height: None,
                 proof_acked: vec![],
                 signer: signer_address.to_string(),
             },
-            _ => unreachable!(),
+            EurekaEvent::SendPacket(_) => unreachable!(),
         })
         .collect::<Vec<MsgAcknowledgement>>();
 
@@ -114,12 +138,12 @@ pub async fn inject_tendermint_proofs(
     target_height: &Height,
 ) -> Result<()> {
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let commitment_path = packet.commitment_path();
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), commitment_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
         if value.is_empty() {
@@ -133,13 +157,10 @@ pub async fn inject_tendermint_proofs(
     .await?;
 
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let (value, proof) = source_tm_client
-            .prove_path(
-                &[b"ibc".to_vec(), ack_path],
-                target_height.revision_height.try_into().unwrap(),
-            )
+            .prove_path(&[b"ibc".to_vec(), ack_path], target_height.revision_height)
             .await?;
         if value.is_empty() {
             anyhow::bail!("Membership value is empty")
@@ -152,12 +173,12 @@ pub async fn inject_tendermint_proofs(
     .await?;
 
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let receipt_path = packet.receipt_commitment_path();
         let (value, proof) = source_tm_client
             .prove_path(
                 &[b"ibc".to_vec(), receipt_path],
-                target_height.revision_height.try_into().unwrap(),
+                target_height.revision_height,
             )
             .await?;
 
@@ -179,23 +200,33 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     ack_msgs: &mut [MsgAcknowledgement],
     timeout_msgs: &mut [MsgTimeout],
     eth_client: &EthApiClient<P>,
+    beacon_api_client: &BeaconApiClient,
     ibc_contrct_address: &str,
     ibc_contract_slot: U256,
-    target_block_number: u64,
-    target_slot: u64,
+    proof_slot: u64,
 ) -> Result<()> {
-    let target_height = Height {
+    let current_beacon_block = beacon_api_client
+        .beacon_block(&format!("{proof_slot:?}"))
+        .await?;
+
+    let proof_block_number = current_beacon_block
+        .message
+        .body
+        .execution_payload
+        .block_number;
+
+    let proof_slot_height = Height {
         revision_number: 0,
-        revision_height: target_slot,
+        revision_height: proof_slot,
     };
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let commitment_path = packet.commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             commitment_path,
             ibc_contract_slot,
         )
@@ -205,19 +236,19 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_commitment = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
 
     // ack messages
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             ack_path,
             ibc_contract_slot,
         )
@@ -227,19 +258,19 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         }
 
         msg.proof_acked = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
 
     // timeout messages
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
-        let packet: Packet = msg.packet.clone().unwrap().try_into()?;
+        let packet: Packet = msg.packet.clone().unwrap().into();
         let receipt_path = packet.receipt_commitment_path();
         let storage_proof = get_commitment_proof(
             eth_client,
             ibc_contrct_address,
-            target_block_number,
+            proof_block_number,
             receipt_path,
             ibc_contract_slot,
         )
@@ -248,7 +279,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
             anyhow::bail!("Non-Membership value is empty")
         }
         msg.proof_unreceived = serde_json::to_vec(&storage_proof)?;
-        msg.proof_height = Some(target_height);
+        msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
     .await?;
@@ -263,7 +294,7 @@ async fn get_commitment_proof<P: Provider + Clone>(
     path: Vec<u8>,
     slot: U256,
 ) -> Result<StorageProof> {
-    let storage_key = ibc_commitment_key_v2(path, slot);
+    let storage_key = evm_ics26_commitment_path(&path, slot);
     let storage_key_be_bytes = storage_key.to_be_bytes_vec();
     let storage_key_hex = hex::encode(storage_key_be_bytes);
     let block_hex = format!("0x{block_number:x}");

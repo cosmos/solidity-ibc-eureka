@@ -24,6 +24,8 @@ type Spec struct {
 	CapellaForkEpoch     uint64         `json:"CAPELLA_FORK_EPOCH"`
 	DenebForkVersion     phase0.Version `json:"DENEB_FORK_VERSION"`
 	DenebForkEpoch       uint64         `json:"DENEB_FORK_EPOCH"`
+	ElectraForkVersion   phase0.Version `json:"ELECTRA_FORK_VERSION"`
+	ElectraForkEpoch     uint64         `json:"ELECTRA_FORK_EPOCH"`
 }
 
 type Bootstrap struct {

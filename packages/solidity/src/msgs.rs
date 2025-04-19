@@ -2,6 +2,10 @@
 //! In case some message types are not found in the `ics26` module nor the `sp1_ics07` module,
 //! they are defined here.
 
+use std::str::FromStr;
+
+use crate::FromStrError;
+
 use super::sp1_ics07;
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint_types::ConsensusState as ICS07TendermintConsensusState;
@@ -59,7 +63,9 @@ impl From<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusStat
             .unwrap();
         Self {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            timestamp: ics07_tendermint_consensus_state.timestamp.unix_timestamp() as u64,
+            timestamp: ics07_tendermint_consensus_state
+                .timestamp
+                .unix_timestamp_nanos() as u128,
             root: root.into(),
             nextValidatorsHash: next_validators_hash.into(),
         }
@@ -69,9 +75,10 @@ impl From<ICS07TendermintConsensusState> for IICS07TendermintMsgs::ConsensusStat
 #[allow(clippy::fallible_impl_from)]
 impl From<IICS07TendermintMsgs::ConsensusState> for ICS07TendermintConsensusState {
     fn from(consensus_state: IICS07TendermintMsgs::ConsensusState) -> Self {
-        let time =
-            OffsetDateTime::from_unix_timestamp(consensus_state.timestamp.try_into().unwrap())
-                .unwrap();
+        let time = OffsetDateTime::from_unix_timestamp_nanos(
+            consensus_state.timestamp.try_into().unwrap(),
+        )
+        .unwrap();
         let seconds = time.unix_timestamp();
         let nanos = time.nanosecond();
         Self {
@@ -162,14 +169,24 @@ impl TryFrom<TendermintTrustThreshold> for IICS07TendermintMsgs::TrustThreshold 
     }
 }
 
-impl TryFrom<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
-    type Error = <u64 as TryInto<u32>>::Error;
+impl From<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
+    fn from(height: ibc_core_client_types::Height) -> Self {
+        Self {
+            revisionNumber: height.revision_number(),
+            revisionHeight: height.revision_height(),
+        }
+    }
+}
 
-    fn try_from(height: ibc_core_client_types::Height) -> Result<Self, Self::Error> {
-        Ok(Self {
-            revisionNumber: height.revision_number().try_into()?,
-            revisionHeight: height.revision_height().try_into()?,
-        })
+impl FromStr for IICS07TendermintMsgs::SupportedZkAlgorithm {
+    type Err = FromStrError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "groth16" => Ok(Self::Groth16),
+            "plonk" => Ok(Self::Plonk),
+            _ => Err(FromStrError::UnsupportedZkAlgorithm(s.to_string())),
+        }
     }
 }
 

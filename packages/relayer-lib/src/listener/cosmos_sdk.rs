@@ -1,12 +1,15 @@
 //! This module defines the chain listener for 'ibc-go-eureka'.
 
 use futures::future;
-use tendermint::Hash;
+use tendermint::{block::Height, Hash};
 use tendermint_rpc::{Client, HttpClient};
 
 use anyhow::Result;
 
-use crate::{chain::CosmosSdk, events::EurekaEvent};
+use crate::{
+    chain::CosmosSdk,
+    events::{EurekaEvent, EurekaEventWithHeight},
+};
 
 use super::ChainListenerService;
 
@@ -44,18 +47,20 @@ impl ChainListener {
 
 #[async_trait::async_trait]
 impl ChainListenerService<CosmosSdk> for ChainListener {
-    async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_tx_events(&self, tx_ids: Vec<Hash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
-                Ok::<_, tendermint_rpc::Error>(
-                    self.client()
-                        .tx(tx_id, false)
-                        .await?
-                        .tx_result
-                        .events
-                        .into_iter()
-                        .filter_map(|e| EurekaEvent::try_from(e).ok()),
-                )
+                let tx_response = self.client().tx(tx_id, false).await?;
+                let height = tx_response.height.value();
+                Ok::<_, tendermint_rpc::Error>(tx_response.tx_result.events.into_iter().filter_map(
+                    move |e| {
+                        let event_type = EurekaEvent::try_from(e).ok()?;
+                        Some(EurekaEventWithHeight {
+                            event: event_type,
+                            height,
+                        })
+                    },
+                ))
             }))
             .await?
             .into_iter()
@@ -64,11 +69,16 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
         )
     }
 
-    async fn fetch_events(&self, start_height: u32, end_height: u32) -> Result<Vec<EurekaEvent>> {
+    async fn fetch_events(
+        &self,
+        start_height: u64,
+        end_height: u64,
+    ) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all((start_height..=end_height).map(|h| async move {
-                let resp = self.client().block_results(h).await?;
-                Ok::<_, tendermint_rpc::Error>(
+                let height: Height = h.try_into()?;
+                let resp = self.client().block_results(height).await?;
+                Ok::<_, anyhow::Error>(
                     resp.txs_results
                         .unwrap_or_default()
                         .into_iter()
@@ -76,7 +86,13 @@ impl ChainListenerService<CosmosSdk> for ChainListener {
                         .chain(resp.begin_block_events.unwrap_or_default())
                         .chain(resp.end_block_events.unwrap_or_default())
                         .chain(resp.finalize_block_events)
-                        .filter_map(|e| EurekaEvent::try_from(e).ok()),
+                        .filter_map(move |e| {
+                            let event_type = EurekaEvent::try_from(e).ok()?;
+                            Some(EurekaEventWithHeight {
+                                event: event_type,
+                                height: h,
+                            })
+                        }),
                 )
             }))
             .await?

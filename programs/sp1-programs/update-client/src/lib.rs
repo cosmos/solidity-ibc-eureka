@@ -24,17 +24,23 @@ pub fn update_client(
     client_state: ClientState,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
-    time: u64,
+    time: u128,
 ) -> UpdateClientOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     let chain_id = ChainId::from_str(&client_state.chainId).unwrap();
     let options = Options {
         trust_threshold: client_state.trustLevel.clone().into(),
         trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
-        clock_drift: Duration::default(),
+        clock_drift: Duration::from_secs(15),
     };
 
-    let ctx = types::validation::ClientValidationCtx::new(time, &trusted_consensus_state);
+    let mut ctx = types::validation::ClientValidationCtx::new(time);
+    ctx.insert_trusted_consensus_state(
+        client_id.clone(),
+        proposed_header.trusted_height.revision_number(),
+        proposed_header.trusted_height.revision_height(),
+        &trusted_consensus_state,
+    );
 
     verify_header::<_, sha2::Sha256>(
         &ctx,
@@ -46,8 +52,8 @@ pub fn update_client(
     )
     .unwrap();
 
-    let trusted_height = proposed_header.trusted_height.try_into().unwrap();
-    let new_height = proposed_header.height().try_into().unwrap();
+    let trusted_height = proposed_header.trusted_height.into();
+    let new_height = proposed_header.height().into();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     UpdateClientOutput {

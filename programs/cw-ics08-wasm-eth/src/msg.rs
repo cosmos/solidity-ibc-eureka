@@ -38,6 +38,34 @@ pub enum SudoMsg {
     MigrateClientStore(MigrateClientStoreMsg),
 }
 
+/// The query messages called by `ibc-go`
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    /// The message to verify the client message
+    #[returns[()]]
+    VerifyClientMessage(VerifyClientMessageMsg),
+
+    /// The message to check for misbehaviour
+    #[returns[CheckForMisbehaviourResult]]
+    CheckForMisbehaviour(CheckForMisbehaviourMsg),
+
+    /// The message to get the timestamp at height
+    #[returns[TimestampAtHeightResult]]
+    TimestampAtHeight(TimestampAtHeightMsg),
+
+    /// The message to get the status
+    #[returns[StatusResult]]
+    Status(StatusMsg),
+}
+
+/// The message to migrate the contract
+#[cw_serde]
+pub struct MigrateMsg {
+    /// The optional instantiate msg to re-initialize the client
+    pub instantiate_msg: Option<InstantiateMsg>,
+}
+
 /// Verify membership message
 #[cw_serde]
 pub struct VerifyMembershipMsg {
@@ -114,27 +142,6 @@ pub struct EthereumMisbehaviourMsg {
     pub update_2: LightClientUpdate,
 }
 
-/// The query messages called by `ibc-go`
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    /// The message to verify the client message
-    #[returns[()]]
-    VerifyClientMessage(VerifyClientMessageMsg),
-
-    /// The message to check for misbehaviour
-    #[returns[CheckForMisbehaviourResult]]
-    CheckForMisbehaviour(CheckForMisbehaviourMsg),
-
-    /// The message to get the timestamp at height
-    #[returns[TimestampAtHeightResult]]
-    TimestampAtHeight(TimestampAtHeightMsg),
-
-    /// The message to get the status
-    #[returns[StatusResult]]
-    Status(StatusMsg),
-}
-
 /// The message to verify the client message
 #[cw_serde]
 pub struct VerifyClientMessageMsg {
@@ -191,6 +198,26 @@ pub struct MerklePath {
 pub struct StatusResult {
     /// The status of the client
     pub status: String,
+}
+
+/// The client status types
+pub enum Status {
+    /// The client is frozen
+    Frozen,
+    /// The client is expired
+    Expired,
+    /// The client is active
+    Active,
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Frozen => write!(f, "Frozen"),
+            Self::Expired => write!(f, "Expired"),
+            Self::Active => write!(f, "Active"),
+        }
+    }
 }
 
 /// The response to the check for misbehaviour query

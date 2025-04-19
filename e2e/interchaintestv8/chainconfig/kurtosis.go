@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -18,34 +19,52 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const (
 	// ethereumPackageId is the package ID used by Kurtosis to find the Ethereum package we use for the testnet
-	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.4.0"
+	ethereumPackageId = "github.com/ethpandaops/ethereum-package@4.5.0"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
 )
 
 var (
-	kurtosisConfig = kurtosisNetworkParams{
+	// KurtosisConfig sets up the default values for the eth testnet
+	// It can be changed before calling SetupSuite to alter the testnet configuration
+	KurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
-				CLType:     "lodestar",
-				CLImage:    "chainsafe/lodestar:v1.24.0",
-				ELType:     "geth",
-				ELImage:    "ethereum/client-go:v1.14.6",
-				ELLogLevel: "info",
+				CLType:         "lodestar",
+				CLImage:        "ethpandaops/lodestar:unstable",
+				ELType:         "geth",
+				ELImage:        "ethpandaops/geth:prague-devnet-6",
+				ELExtraParams:  []string{"--gcmode=archive"},
+				ELLogLevel:     "info",
+				ValidatorCount: 64,
 			},
 		},
+		// We
 		NetworkParams: kurtosisNetworkConfigParams{
-			Preset: "minimal",
+			Preset:           "minimal",
+			ElectraForkEpoch: 1,
 		},
 		WaitForFinalization: true,
+		AdditionalServices:  []string{},
 	}
-	executionService = fmt.Sprintf("el-1-%s-%s", kurtosisConfig.Participants[0].ELType, kurtosisConfig.Participants[0].CLType)
-	consensusService = fmt.Sprintf("cl-1-%s-%s", kurtosisConfig.Participants[0].CLType, kurtosisConfig.Participants[0].ELType)
+	executionService = fmt.Sprintf("el-1-%s-%s", KurtosisConfig.Participants[0].ELType, KurtosisConfig.Participants[0].CLType)
+	consensusService = fmt.Sprintf("cl-1-%s-%s", KurtosisConfig.Participants[0].CLType, KurtosisConfig.Participants[0].ELType)
 )
+
+// getKurtosisPreset returns the Kurtosis preset to use.
+// It retrieves the preset from the environment variable or falls back to the default.
+func getKurtosisPreset() string {
+	preset := os.Getenv(testvalues.EnvKeyEthereumPosNetworkPreset)
+	if preset == "" {
+		return testvalues.EnvValueEthereumPosPreset_Minimal
+	}
+	return preset
+}
 
 type EthKurtosisChain struct {
 	RPC             string
@@ -61,22 +80,29 @@ type kurtosisNetworkParams struct {
 	Participants        []kurtosisParticipant       `json:"participants"`
 	NetworkParams       kurtosisNetworkConfigParams `json:"network_params"`
 	WaitForFinalization bool                        `json:"wait_for_finalization"`
+	AdditionalServices  []string                    `json:"additional_services"`
 }
 
 type kurtosisParticipant struct {
-	CLType     string `json:"cl_type"`
-	CLImage    string `json:"cl_image"`
-	ELType     string `json:"el_type"`
-	ELImage    string `json:"el_image"`
-	ELLogLevel string `json:"el_log_level"`
+	CLType         string   `json:"cl_type"`
+	CLImage        string   `json:"cl_image"`
+	ELType         string   `json:"el_type"`
+	ELImage        string   `json:"el_image"`
+	ELExtraParams  []string `json:"el_extra_params"`
+	ELLogLevel     string   `json:"el_log_level"`
+	ValidatorCount uint64   `json:"validator_count"`
 }
 
 type kurtosisNetworkConfigParams struct {
-	Preset string `json:"preset"`
+	Preset           string `json:"preset"`
+	ElectraForkEpoch uint64 `json:"electra_fork_epoch"`
 }
 
 // SpinUpKurtosisPoS spins up a kurtosis enclave with Etheruem PoS testnet using github.com/ethpandaops/ethereum-package
 func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
+	// Load dynamic configurations
+	KurtosisConfig.NetworkParams.Preset = getKurtosisPreset()
+
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
 		return EthKurtosisChain{}, err
@@ -106,7 +132,7 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		return EthKurtosisChain{}, err
 	}
 
-	networkParamsJson, err := json.Marshal(kurtosisConfig)
+	networkParamsJson, err := json.Marshal(KurtosisConfig)
 	if err != nil {
 		return EthKurtosisChain{}, err
 	}
@@ -135,8 +161,13 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 	beaconRPC := fmt.Sprintf("http://localhost:%d", beaconPortSpec.GetNumber())
 
 	// Wait for the chain to finalize
-	beaconAPIClient := ethereum.NewBeaconAPIClient(beaconRPC)
-	err = testutil.WaitForCondition(10*time.Minute, 5*time.Second, func() (bool, error) {
+	var beaconAPIClient ethereum.BeaconAPIClient
+	err = testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
+		beaconAPIClient, err = ethereum.NewBeaconAPIClient(ctx, beaconRPC)
+		if err != nil {
+			return false, nil
+		}
+
 		finalizedBlocksResp, err := beaconAPIClient.GetFinalizedBlocks()
 		fmt.Printf("Waiting for chain to finalize, finalizedBlockResp: %+v, err: %s\n", finalizedBlocksResp, err)
 		if err != nil {
