@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+import { IICS27Account } from "../interfaces/IICS27Account.sol";
+import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
+
 library ICS27Lib {
     /// @notice ICS27_VERSION is the version string for ICS27 packet data.
     string internal constant ICS27_VERSION = "ics27-2";
@@ -17,4 +20,29 @@ library ICS27Lib {
     /// @notice KECCAK256_ICS27_ENCODING is the keccak256 hash of the ICS27_ENCODING.
     bytes32 internal constant KECCAK256_ICS27_ENCODING = keccak256(bytes(ICS27_ENCODING));
 
+    /// @notice Retrieve the deployment bytecode of the BeaconProxy contract.
+    /// @param beacon The address of the beacon contract.
+    /// @param ics27 The address of the ICS27 contract.
+    /// @return The deployment bytecode of the BeaconProxy contract.
+    function getBeaconProxyBytecode(
+        address beacon,
+        address ics27
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                type(BeaconProxy).creationCode,
+                abi.encode(beacon, abi.encodeCall(IICS27Account.initialize, (ics27)))
+            );
+    }
+
+    /// @notice Compute the code hash of the BeaconProxy contract.
+    /// @param beacon The address of the beacon contract.
+    /// @param ics27 The address of the ICS27 contract.
+    /// @return The code hash of the BeaconProxy contract.
+    function getBeaconProxyCodeHash(
+        address beacon,
+        address ics27
+    ) internal pure returns (bytes32) {
+        return keccak256(getBeaconProxyBytecode(beacon, ics27));
+    }
 }

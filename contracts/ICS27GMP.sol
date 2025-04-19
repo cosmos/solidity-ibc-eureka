@@ -8,11 +8,13 @@ import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
+import { IICS27Account } from "./interfaces/IICS27Account.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { Create2 } from "@openzeppelin-contracts/utils/Create2.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { ICS27Lib } from "./utils/ICS27Lib.sol";
 
@@ -22,10 +24,12 @@ contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, Mu
     /// @notice Storage of the ICS27GMP contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
+    /// @param _accounts The mapping of account identifiers to account contracts.
     /// @param _ics26 The ICS26Router contract address. Immutable.
     /// @param _accountBeacon The address of the ICS27Account beacon contract. Immutable.
     /// @custom:storage-location erc7201:ibc.storage.ICS27GMP
     struct ICS27GMPStorage {
+        mapping(bytes32 accountIdHash => IICS27Account account) _accounts;
         IICS26Router _ics26;
         UpgradeableBeacon _accountBeacon;
     }
@@ -98,6 +102,56 @@ contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, Mu
     /// @inheritdoc IIBCApp
     function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) nonReentrant external {
         revert("TODO: Not implemented");
+    }
+
+    /// @notice Creates or retrieves an account contract for the given account identifier
+    /// @param accountId The account identifier
+    /// @return account The account contract address
+    function _getOrCreateAccount(
+        IICS27GMPMsgs.AccountIdentifier calldata accountId
+    ) private returns (IICS27Account) {
+        ICS27GMPStorage storage $ = _getICS27GMPStorage();
+
+        bytes32 accountIdHash = keccak256(abi.encode(accountId));
+        IICS27Account account = $._accounts[accountIdHash];
+        if (address(account) != address(0)) {
+            return account;
+        }
+
+        bytes memory bytecode = ICS27Lib.getBeaconProxyBytecode(
+            address($._accountBeacon),
+            address(this)
+        );
+        address accountAddress = Create2.deploy(
+            0,
+            accountIdHash,
+            bytecode
+        );
+
+        $._accounts[accountIdHash] = IICS27Account(accountAddress);
+        return IICS27Account(accountAddress);
+    }
+
+    /// @inheritdoc IICS27GMP
+    function getOrComputeAccountAddress(
+        IICS27GMPMsgs.AccountIdentifier calldata accountId
+    ) external view returns (address) {
+        ICS27GMPStorage storage $ = _getICS27GMPStorage();
+
+        bytes32 accountIdHash = keccak256(abi.encode(accountId));
+        address account = address($._accounts[accountIdHash]);
+        if (account != address(0)) {
+            return account;
+        }
+
+        bytes32 codeHash = ICS27Lib.getBeaconProxyCodeHash(
+            address($._accountBeacon),
+            address(this)
+        );
+        return Create2.computeAddress(
+            accountIdHash,
+            codeHash
+        );
     }
 
     /// @notice Returns the storage of the ICS27GMP contract

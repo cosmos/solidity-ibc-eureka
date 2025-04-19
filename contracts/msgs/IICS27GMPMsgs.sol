@@ -37,4 +37,15 @@ interface IICS27GMPMsgs {
     struct GMPAcknowledgement {
         bytes result;
     }
+
+    /// @notice AccountIdentifier is used to identify a ICS27 account.
+    /// @dev The keccak256 hash of abi.encode(AccountIdentifier) is used as the create2 salt
+    /// @param clientId The (local) client identifier
+    /// @param sender The sender of the packet
+    /// @param salt The salt of the packet
+    struct AccountIdentifier {
+        string clientId;
+        string sender;
+        bytes salt;
+    }
 }

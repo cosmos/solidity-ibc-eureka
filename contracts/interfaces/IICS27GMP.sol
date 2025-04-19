@@ -12,6 +12,14 @@ interface IICS27GMP {
     /// @return The Escrow beacon contract address
     function getAccountBeacon() external view returns (address);
 
+    /// @notice Retrieve the Account (proxy) contract address
+    /// @dev This is view instead of pure in case we change the proxy bytecode
+    /// @param accountId The account identifier
+    /// @return The (proxy) Account contract address
+    function getOrComputeAccountAddress(
+        IICS27GMPMsgs.AccountIdentifier calldata accountId
+    ) external view returns (address);
+
     /// @notice Send a GMP packet by calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a GMP packet
     /// @return sequence The sequence number of the packet created
