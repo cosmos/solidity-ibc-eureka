@@ -127,7 +127,7 @@ contract IntegrationTest is Test {
         // Verify that the packet receipt was set correctly
         bytes32 receiptPath =
             keccak256(ICS24Host.packetReceiptCommitmentPathCalldata(sentPacket.destClient, sentPacket.sequence));
-        bytes32 expReceipt = ICS24Host.PACKET_RECEIPT_SUCCESSFUL_KECCAK256;
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(sentPacket);
         bytes32 storedReceipt = ibcImplB.ics26Router().getCommitment(receiptPath);
         assertEq(storedReceipt, expReceipt, "receipt mismatch");
 

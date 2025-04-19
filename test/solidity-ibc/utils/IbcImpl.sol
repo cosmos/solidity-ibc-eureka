@@ -40,14 +40,14 @@ contract IbcImpl is Test {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (msg.sender, msg.sender))
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (msg.sender))
         );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(permit2))
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2))
             )
         );
 
@@ -55,8 +55,12 @@ contract IbcImpl is Test {
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
         // ============== Step 3: Wire up the contracts ==============
-        vm.prank(msg.sender);
+        vm.startPrank(msg.sender);
+        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), msg.sender);
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), msg.sender);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        vm.stopPrank();
     }
 
     /// @notice Adds a counterparty implementation by creating a solidity light client
@@ -139,7 +143,7 @@ contract IbcImpl is Test {
     {
         vm.startPrank(sender);
         vm.recordLogs();
-        ics20Transfer.permitSendTransfer(
+        ics20Transfer.sendTransferWithPermit2(
             IICS20TransferMsgs.SendTransferMsg({
                 denom: address(token),
                 amount: permit.permitted.amount,
