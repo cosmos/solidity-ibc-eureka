@@ -21,19 +21,19 @@ contract SolidityLightClient is ILightClient {
     }
 
     function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_) external view returns (uint256) {
-        return _membership(msg_.path, msg_.value);
+        require(msg_.path.length == 1, "only support single path");
+        bytes32 solidityPath = keccak256(msg_.path[0]);
+        bytes32 commitment = _counterpartyIcs26.getCommitment(solidityPath);
+        require(commitment != bytes32(0), "invalid path");
+        require(keccak256(abi.encodePacked(commitment)) == keccak256(msg_.value), "invalid commitment");
+        return block.timestamp;
     }
 
     function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_) external view returns (uint256) {
-        return _membership(msg_.path, bytes(""));
-    }
-
-    function _membership(bytes[] calldata path, bytes memory value) private view returns (uint256) {
-        require(path.length == 1, "only support single path");
-        bytes32 solidityPath = keccak256(path[0]);
+        require(msg_.path.length == 1, "only support single path");
+        bytes32 solidityPath = keccak256(msg_.path[0]);
         bytes32 commitment = _counterpartyIcs26.getCommitment(solidityPath);
-        require(commitment != bytes32(0), "invalid path");
-        require(keccak256(abi.encodePacked(commitment)) == keccak256(value), "invalid commitment");
+        require(commitment == bytes32(0), "invalid path");
         return block.timestamp;
     }
 

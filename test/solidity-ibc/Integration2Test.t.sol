@@ -13,6 +13,7 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -172,5 +173,26 @@ contract IntegrationTest is Test {
 
         // Verify that the tokens were transferred
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+    }
+
+    function testFuzz_success_timeoutPacket(uint256 amount) public {
+        // We will send a packet from A to B and then time it out on A
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount, uint64(block.timestamp + 10 seconds));
+
+        // Set the block timestamp to the timeout
+        vm.warp(block.timestamp + 30 seconds);
+
+        // Fail to receive the packet on Chain B
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, sentPacket.timeoutTimestamp, block.timestamp));
+        ibcImplB.recvPacket(sentPacket);
+
+        // Timeout the packet on Chain A
+        ibcImplA.timeoutPacket(sentPacket);
     }
 }

@@ -92,6 +92,33 @@ contract IbcImpl is Test {
         address sender,
         string calldata receiver,
         uint256 amount,
+        uint64 timeoutTimestamp
+    )
+        external
+        returns (IICS26RouterMsgs.Packet memory)
+    {
+        return sendTransferAsUser(token, sender, receiver, amount, timeoutTimestamp, _testHelper.FIRST_CLIENT_ID());
+    }
+
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount,
+        string memory sourceClient
+    )
+        public
+        returns (IICS26RouterMsgs.Packet memory)
+    {
+        return sendTransferAsUser(token, sender, receiver, amount, uint64(block.timestamp + 10 minutes), sourceClient);
+    }
+
+    function sendTransferAsUser(
+        IERC20 token,
+        address sender,
+        string calldata receiver,
+        uint256 amount,
+        uint64 timeoutTimestamp,
         string memory sourceClient
     )
         public
@@ -107,7 +134,7 @@ contract IbcImpl is Test {
                 receiver: receiver,
                 sourceClient: sourceClient,
                 destPort: ICS20Lib.DEFAULT_PORT_ID,
-                timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+                timeoutTimestamp: timeoutTimestamp,
                 memo: _testHelper.randomString()
             })
         );
@@ -180,6 +207,13 @@ contract IbcImpl is Test {
         msgWriteAck.acknowledgement = acks[0];
 
         ics26Router.ackPacket(msgWriteAck);
+    }
+
+    function timeoutPacket(IICS26RouterMsgs.Packet calldata packet) external {
+        IICS26RouterMsgs.MsgTimeoutPacket memory msgTimeoutPacket;
+        msgTimeoutPacket.packet = packet;
+        vm.recordLogs();
+        ics26Router.timeoutPacket(msgTimeoutPacket);
     }
 
     function cheatPacketCommitment(IICS26RouterMsgs.Packet calldata packet) external {
