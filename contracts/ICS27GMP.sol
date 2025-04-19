@@ -9,6 +9,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 import { IICS27Account } from "./interfaces/IICS27Account.sol";
+import { IICS27Errors } from "./errors/IICS27Errors.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -20,7 +21,7 @@ import { ICS27Lib } from "./utils/ICS27Lib.sol";
 
 /// @title ICS27 General Message Passing
 /// @notice This contract is the implementation of the ics27-2 IBC specification for general message passing.
-contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, MulticallUpgradeable {
+contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, MulticallUpgradeable {
     /// @notice Storage of the ICS27GMP contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -91,7 +92,42 @@ contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, Mu
 
     /// @inheritdoc IIBCApp
     function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_) external nonReentrant returns (bytes memory) {
-        revert("TODO: Not implemented");
+        require(
+            keccak256(bytes(msg_.payload.version)) == ICS27Lib.KECCAK256_ICS27_VERSION,
+            ICS27UnexpectedVersion(ICS27Lib.ICS27_VERSION, msg_.payload.version)
+        );
+        require(
+            keccak256(bytes(msg_.payload.sourcePort)) == ICS27Lib.KECCAK256_DEFAULT_PORT_ID,
+            ICS27InvalidPort(ICS27Lib.DEFAULT_PORT_ID, msg_.payload.sourcePort)
+        );
+        require(
+            keccak256(bytes(msg_.payload.encoding)) == ICS27Lib.KECCAK256_ICS27_ENCODING,
+            ICS27UnexpectedEncoding(ICS27Lib.ICS27_ENCODING, msg_.payload.encoding)
+        );
+        require(
+            keccak256(bytes(msg_.payload.destPort)) == ICS27Lib.KECCAK256_DEFAULT_PORT_ID,
+            ICS27InvalidPort(ICS27Lib.DEFAULT_PORT_ID, msg_.payload.destPort)
+        );
+
+        IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(
+            msg_.payload.value,
+            (IICS27GMPMsgs.GMPPacketData)
+        );
+
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: msg_.destinationClient,
+            sender: packetData.sender,
+            salt: packetData.salt
+        });
+        IICS27Account account = _getOrCreateAccount(accountId);
+
+        (bool success, address receiver) = Strings.tryParseAddress(packetData.receiver);
+        require(success, ICS27InvalidReceiver(packetData.receiver));
+
+        return account.functionCall(
+            receiver,
+            packetData.payload
+        );
     }
 
     /// @inheritdoc IIBCApp
@@ -108,7 +144,7 @@ contract ICS27GMP is IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, Mu
     /// @param accountId The account identifier
     /// @return account The account contract address
     function _getOrCreateAccount(
-        IICS27GMPMsgs.AccountIdentifier calldata accountId
+        IICS27GMPMsgs.AccountIdentifier memory accountId
     ) private returns (IICS27Account) {
         ICS27GMPStorage storage $ = _getICS27GMPStorage();
 

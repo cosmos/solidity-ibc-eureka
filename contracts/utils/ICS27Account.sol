@@ -70,12 +70,12 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
 
     modifier onlyICS27() {
         address ics27_ = _getICS27AccountStorage()._ics27;
-        require(_msgSender() == ics27_, Unauthorized(ics27_, _msgSender()));
+        require(_msgSender() == ics27_, ICS27Unauthorized(ics27_, _msgSender()));
         _;
     }
 
     modifier onlySelf() {
-        require(_msgSender() == address(this), Unauthorized(address(this), _msgSender()));
+        require(_msgSender() == address(this), ICS27Unauthorized(address(this), _msgSender()));
         _;
     }
 }
