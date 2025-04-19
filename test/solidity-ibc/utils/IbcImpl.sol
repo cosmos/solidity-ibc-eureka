@@ -24,10 +24,12 @@ import { SolidityLightClient } from "../utils/SolidityLightClient.sol";
 import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
+import { RelayerHelper } from "../../../contracts/utils/RelayerHelper.sol";
 
 contract IbcImpl is Test {
     ICS26Router public immutable ics26Router;
     ICS20Transfer public immutable ics20Transfer;
+    RelayerHelper public immutable relayerHelper;
 
     TestHelper private _testHelper = new TestHelper();
 
@@ -53,6 +55,7 @@ contract IbcImpl is Test {
 
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
+        relayerHelper = new RelayerHelper(address(ics26Router));
 
         // ============== Step 3: Wire up the contracts ==============
         vm.startPrank(msg.sender);

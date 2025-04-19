@@ -194,5 +194,15 @@ contract IntegrationTest is Test {
 
         // Timeout the packet on Chain A
         ibcImplA.timeoutPacket(sentPacket);
+
+        // commitment should be deleted
+        bytes32 storedCommitment = ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+
+        // transfer should be reverted
+        uint256 senderBalanceAfterTimeout = integrationEnv.erc20().balanceOf(user);
+        uint256 contractBalanceAfterTimeout = integrationEnv.erc20().balanceOf(ibcImplA.ics20Transfer().getEscrow(testHelper.FIRST_CLIENT_ID()));
+        assertEq(senderBalanceAfterTimeout, amount);
+        assertEq(contractBalanceAfterTimeout, 0);
     }
 }
