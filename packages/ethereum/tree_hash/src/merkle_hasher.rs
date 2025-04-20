@@ -158,7 +158,7 @@ impl MerkleHasher {
     /// Instantiate a hasher for a tree with a given number of leaves.
     ///
     /// `num_leaves` will be rounded to the next power of two. E.g., if `num_leaves == 6`, then the
-    /// tree will _actually_ be able to accomodate 8 leaves and the resulting hasher is exactly the
+    /// tree will _actually_ be able to accommodate 8 leaves and the resulting hasher is exactly the
     /// same as one that was instantiated with `Self::with_leaves(8)`.
     ///
     /// ## Notes
