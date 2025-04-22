@@ -173,6 +173,11 @@ contract IntegrationTest is Test {
 
         // Verify that the tokens were transferred
         assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.ackPacket(sentPacket, acks);
     }
 
     function testFuzz_success_timeoutPacket(uint256 amount) public {
@@ -204,5 +209,10 @@ contract IntegrationTest is Test {
         uint256 contractBalanceAfterTimeout = integrationEnv.erc20().balanceOf(ibcImplA.ics20Transfer().getEscrow(testHelper.FIRST_CLIENT_ID()));
         assertEq(senderBalanceAfterTimeout, amount);
         assertEq(contractBalanceAfterTimeout, 0);
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.timeoutPacket(sentPacket);
     }
 }
