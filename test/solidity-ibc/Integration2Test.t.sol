@@ -79,7 +79,7 @@ contract IntegrationTest is Test {
         assertEq(integrationEnv.erc20().balanceOf(escrow), amount, "escrow balance mismatch");
     }
 
-    function testFuzz_success_sendICS20PacketWithPermit(uint256 amount) public {
+    function testFuzz_success_sendICS20PacketWithPermit2(uint256 amount) public {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
@@ -179,6 +179,35 @@ contract IntegrationTest is Test {
         emit IICS26Router.Noop();
         ibcImplA.ackPacket(sentPacket, acks);
     }
+
+    function testFuzz_success_errAckPacket(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        string memory invalidReceiver = testHelper.INVALID_ID();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, invalidReceiver, amount);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // Verify that the packet commitment was deleted
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertTrue(storedCommitment == 0, "packet commitment not deleted");
+
+        // Verify that the tokens were refunded
+        assertEq(integrationEnv.erc20().balanceOf(user), amount, "user balance mismatch");
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.ackPacket(sentPacket, acks);
+    }
+
 
     function testFuzz_success_timeoutPacket(uint256 amount) public {
         // We will send a packet from A to B and then time it out on A

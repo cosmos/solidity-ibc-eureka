@@ -8,8 +8,10 @@ import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
 
 contract TestHelper is Test {
-    /// @notice The first client ID used in the test
+    /// @notice The first client ID used for testing
     string public constant FIRST_CLIENT_ID = "client-0";
+    /// @notice Invalid ID used for testing
+    string public constant INVALID_ID = "invalid";
     /// @notice The default starting balance for the ERC20 token
     uint256 public constant DEFAULT_ERC20_STARTING_BALANCE = type(uint256).max;
 
