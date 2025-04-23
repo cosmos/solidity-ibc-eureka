@@ -58,7 +58,36 @@ contract IntegrationTest is Test {
         );
     }
 
-    function testFuzz_success_sendICS20PacketWithAllowance(uint256 amount) public {
+    function setup_createForeignDenomOnImplA(address receiver, uint256 amount) public returns (IERC20) {
+        return setup_createForeignDenom(receiver, amount, testHelper.FIRST_CLIENT_ID());
+    }
+    /// @notice Create a foreign ibc denom on ibcImplA and client on a specified user
+    /// @dev We do this by transferring the native erc20 from the counterparty chain
+    function setup_createForeignDenom(address receiver, uint256 amount, string memory clientId) public returns (IERC20) {
+        address user = integrationEnv.createAndFundUser(amount);
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplB.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount, clientId);
+
+        bytes[] memory acks = ibcImplA.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, testHelper.SINGLE_SUCCESS_ACK(), "ack mismatch");
+
+        ibcImplB.ackPacket(sentPacket, acks);
+
+        string memory expDenomPath = string.concat(
+            ICS20Lib.DEFAULT_PORT_ID,
+            "/",
+            testHelper.FIRST_CLIENT_ID(),
+            "/",
+            Strings.toHexString(address(integrationEnv.erc20()))
+        );
+        address ibcERC20 = ibcImplA.ics20Transfer().ibcERC20Contract(expDenomPath); 
+
+        return IERC20(ibcERC20);
+    }
+
+    function testFuzz_success_native_sendICS20PacketWithAllowance(uint256 amount) public {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
@@ -79,7 +108,30 @@ contract IntegrationTest is Test {
         assertEq(integrationEnv.erc20().balanceOf(escrow), amount, "escrow balance mismatch");
     }
 
-    function testFuzz_success_sendICS20PacketWithPermit2(uint256 amount) public {
+    function testFuzz_success_foreign_sendICS20PacketWithAllowance(uint256 amount) public {
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        string memory receiver = testHelper.randomString();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, receiver, amount);
+        assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+
+        // check that the packet was committed correctly
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+
+        // check that the tokens were burned correctly
+        address escrow = ibcImplA.ics20Transfer().getEscrow(sentPacket.sourceClient);
+        assertEq(ibcERC20.balanceOf(escrow), 0, "escrow balance mismatch");
+        assertEq(ibcERC20.balanceOf(user), 0, "user balance mismatch");
+    }
+
+    function testFuzz_success_native_sendICS20PacketWithPermit2(uint256 amount) public {
         vm.assume(amount > 0);
 
         address user = integrationEnv.createAndFundUser(amount);
@@ -104,7 +156,34 @@ contract IntegrationTest is Test {
         assertEq(integrationEnv.erc20().balanceOf(escrow), amount, "escrow balance mismatch");
     }
 
-    function testFuzz_success_recvNativeICS20Packet(uint256 amount) public {
+    function testFuzz_success_foreign_sendICS20PacketWithPermit2(uint256 amount) public {
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        string memory receiver = testHelper.randomString();
+
+        ISignatureTransfer.PermitTransferFrom memory permit;
+        bytes memory signature;
+        (permit, signature) = integrationEnv.getPermitAndSignature(user, address(ibcImplA.ics20Transfer()), amount, address(ibcERC20));
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, receiver, permit, signature);
+        assertEq(ibcERC20.balanceOf(user), 0, "user balance mismatch");
+
+        // check that the packet was committed correctly
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+
+        // check that the tokens were burned correctly
+        address escrow = ibcImplA.ics20Transfer().getEscrow(sentPacket.sourceClient);
+        assertEq(ibcERC20.balanceOf(escrow), 0, "escrow balance mismatch");
+        assertEq(ibcERC20.balanceOf(user), 0, "user balance mismatch");
+    }
+
+    function testFuzz_success_native_recvICS20Packet(uint256 amount) public {
         // We will send a packet from A to B and then receive it on B
         vm.assume(amount > 0);
 
@@ -143,6 +222,46 @@ contract IntegrationTest is Test {
         IERC20 token = IERC20(ibcImplB.ics20Transfer().ibcERC20Contract(expDenomPath));
         assertTrue(address(token) != address(0), "IBCERC20 token not found");
         assertEq(token.balanceOf(receiver), amount, "receiver balance mismatch");
+
+        // Check replay protection
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
+        msgRecvPacket.packet = sentPacket;
+        vm.recordLogs();
+        ibcImplB.ics26Router().recvPacket(msgRecvPacket);
+        testHelper.getValueFromEvent(IICS26Router.Noop.selector);
+    }
+
+    function testFuzz_success_foreign_recvICS20Packet(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, Strings.toHexString(receiver), amount);
+
+        // Receive the packet on B
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, testHelper.SINGLE_SUCCESS_ACK(), "ack mismatch");
+
+        // Verify that the packet acknowledgement was written correctly
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(sentPacket.destClient, sentPacket.sequence);
+        bytes32 expAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(testHelper.SINGLE_SUCCESS_ACK());
+        bytes32 storedAckCommitment = ibcImplB.ics26Router().getCommitment(path);
+        assertEq(storedAckCommitment, expAckCommitment, "ack commitment mismatch");
+
+        // Verify that the packet receipt was set correctly
+        bytes32 receiptPath =
+            keccak256(ICS24Host.packetReceiptCommitmentPathCalldata(sentPacket.destClient, sentPacket.sequence));
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(sentPacket);
+        bytes32 storedReceipt = ibcImplB.ics26Router().getCommitment(receiptPath);
+        assertEq(storedReceipt, expReceipt, "receipt mismatch");
+
+        // Check that the receiver got the tokens
+        assertEq(integrationEnv.erc20().balanceOf(receiver), amount, "receiver balance mismatch");
 
         // Check replay protection
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;

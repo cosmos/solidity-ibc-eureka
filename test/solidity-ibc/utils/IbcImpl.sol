@@ -31,6 +31,8 @@ contract IbcImpl is Test {
     ICS20Transfer public immutable ics20Transfer;
     RelayerHelper public immutable relayerHelper;
 
+    mapping(string => IbcImpl) public counterpartyImpls;
+
     TestHelper private _testHelper = new TestHelper();
 
     constructor(address permit2) {
@@ -72,6 +74,9 @@ contract IbcImpl is Test {
     function addCounterpartyImpl(IbcImpl counterparty, string calldata counterpartyId) public returns (string memory) {
         ICS26Router counterpartyIcs26 = counterparty.ics26Router();
         SolidityLightClient lightClient = new SolidityLightClient(counterpartyIcs26);
+
+        // Set the light client as the counterparty for the current implementation
+        counterpartyImpls[counterpartyId] = counterparty;
 
         return ics26Router.addClient(
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testHelper.EMPTY_MERKLE_PREFIX()), address(lightClient)

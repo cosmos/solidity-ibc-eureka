@@ -74,8 +74,6 @@ contract IntegrationEnv is Test, DeployPermit2 {
 
     function fundUser(TestERC20 token, address user, uint256 amount) public {
         token.mint(user, amount);
-        vm.prank(user);
-        _erc20.approve(address(_permit2), amount);
     }
 
     function getPermitAndSignature(
@@ -107,6 +105,10 @@ contract IntegrationEnv is Test, DeployPermit2 {
             deadline: block.timestamp + 100
         });
         sig = _permitHelper.getPermitTransferSignature(permit, privateKey, spender, _permit2.DOMAIN_SEPARATOR());
+
+        vm.prank(user);
+        IERC20(token).approve(address(_permit2), amount);
+
         return (permit, sig);
     }
 }
