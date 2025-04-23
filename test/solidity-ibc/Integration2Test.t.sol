@@ -59,11 +59,11 @@ contract IntegrationTest is Test {
     }
 
     function setup_createForeignDenomOnImplA(address receiver, uint256 amount) public returns (IERC20) {
-        return setup_createForeignDenom(receiver, amount, testHelper.FIRST_CLIENT_ID());
+        return setup_createForeignDenomOnImplA(receiver, amount, testHelper.FIRST_CLIENT_ID());
     }
     /// @notice Create a foreign ibc denom on ibcImplA and client on a specified user
     /// @dev We do this by transferring the native erc20 from the counterparty chain
-    function setup_createForeignDenom(address receiver, uint256 amount, string memory clientId) public returns (IERC20) {
+    function setup_createForeignDenomOnImplA(address receiver, uint256 amount, string memory clientId) public returns (IERC20) {
         address user = integrationEnv.createAndFundUser(amount);
 
         IICS26RouterMsgs.Packet memory sentPacket =
@@ -198,6 +198,10 @@ contract IntegrationTest is Test {
         assertEq(acks.length, 1, "ack length mismatch");
         assertEq(acks, testHelper.SINGLE_SUCCESS_ACK(), "ack mismatch");
 
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assert(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
         // Verify that the packet acknowledgement was written correctly
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(sentPacket.destClient, sentPacket.sequence);
         bytes32 expAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(testHelper.SINGLE_SUCCESS_ACK());
@@ -247,6 +251,10 @@ contract IntegrationTest is Test {
         assertEq(acks.length, 1, "ack length mismatch");
         assertEq(acks, testHelper.SINGLE_SUCCESS_ACK(), "ack mismatch");
 
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assert(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
         // Verify that the packet acknowledgement was written correctly
         bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(sentPacket.destClient, sentPacket.sequence);
         bytes32 expAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(testHelper.SINGLE_SUCCESS_ACK());
@@ -262,6 +270,8 @@ contract IntegrationTest is Test {
 
         // Check that the receiver got the tokens
         assertEq(integrationEnv.erc20().balanceOf(receiver), amount, "receiver balance mismatch");
+        uint256 supplyAfterSend = ibcERC20.totalSupply();
+        assertEq(supplyAfterSend, 0); // Burned
 
         // Check replay protection
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
@@ -271,7 +281,7 @@ contract IntegrationTest is Test {
         testHelper.getValueFromEvent(IICS26Router.Noop.selector);
     }
 
-    function testFuzz_success_ackPacket(uint256 amount) public {
+    function testFuzz_success_native_ackPacket(uint256 amount) public {
         // We will send a packet from A to B and then receive it on B
         vm.assume(amount > 0);
 
@@ -299,7 +309,36 @@ contract IntegrationTest is Test {
         ibcImplA.ackPacket(sentPacket, acks);
     }
 
-    function testFuzz_success_errAckPacket(uint256 amount) public {
+    function testFuzz_success_foreign_ackPacket(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, Strings.toHexString(receiver), amount);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // Verify that the packet commitment was deleted
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertTrue(storedCommitment == 0, "packet commitment not deleted");
+
+        // Verify that the tokens were transferred
+        assertEq(ibcERC20.balanceOf(user), 0, "user balance mismatch");
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.ackPacket(sentPacket, acks);
+    }
+
+    function testFuzz_success_native_errAckPacket(uint256 amount) public {
         // We will send a packet from A to B and then receive it on B
         vm.assume(amount > 0);
 
@@ -327,8 +366,36 @@ contract IntegrationTest is Test {
         ibcImplA.ackPacket(sentPacket, acks);
     }
 
+    function testFuzz_success_foreign_errAckPacket(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
 
-    function testFuzz_success_timeoutPacket(uint256 amount) public {
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        string memory invalidReceiver = testHelper.INVALID_ID();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, invalidReceiver, amount);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // Verify that the packet commitment was deleted
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertTrue(storedCommitment == 0, "packet commitment not deleted");
+
+        // Verify that the tokens were refunded
+        assertEq(ibcERC20.balanceOf(user), amount, "user balance mismatch");
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.ackPacket(sentPacket, acks);
+    }
+
+    function testFuzz_success_native_timeoutPacket(uint256 amount) public {
         // We will send a packet from A to B and then time it out on A
         vm.assume(amount > 0);
 
@@ -355,6 +422,43 @@ contract IntegrationTest is Test {
         // transfer should be reverted
         uint256 senderBalanceAfterTimeout = integrationEnv.erc20().balanceOf(user);
         uint256 contractBalanceAfterTimeout = integrationEnv.erc20().balanceOf(ibcImplA.ics20Transfer().getEscrow(testHelper.FIRST_CLIENT_ID()));
+        assertEq(senderBalanceAfterTimeout, amount);
+        assertEq(contractBalanceAfterTimeout, 0);
+
+        // Check replay protection
+        vm.expectEmit();
+        emit IICS26Router.Noop();
+        ibcImplA.timeoutPacket(sentPacket);
+    }
+
+    function testFuzz_success_foreign_timeoutPacket(uint256 amount) public {
+        // We will send a packet from A to B and then time it out on A
+        vm.assume(amount > 0);
+
+        address user = integrationEnv.createUser();
+        IERC20 ibcERC20 = setup_createForeignDenomOnImplA(user, amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(ibcERC20, user, Strings.toHexString(receiver), amount, uint64(block.timestamp + 10 seconds));
+
+        // Set the block timestamp to the timeout
+        vm.warp(block.timestamp + 30 seconds);
+
+        // Fail to receive the packet on Chain B
+        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, sentPacket.timeoutTimestamp, block.timestamp));
+        ibcImplB.recvPacket(sentPacket);
+
+        // Timeout the packet on Chain A
+        ibcImplA.timeoutPacket(sentPacket);
+
+        // commitment should be deleted
+        bytes32 storedCommitment = ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+
+        // transfer should be reverted
+        uint256 senderBalanceAfterTimeout = ibcERC20.balanceOf(user);
+        uint256 contractBalanceAfterTimeout = ibcERC20.balanceOf(ibcImplA.ics20Transfer().getEscrow(testHelper.FIRST_CLIENT_ID()));
         assertEq(senderBalanceAfterTimeout, amount);
         assertEq(contractBalanceAfterTimeout, 0);
 
