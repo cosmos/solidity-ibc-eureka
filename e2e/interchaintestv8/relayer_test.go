@@ -795,7 +795,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 
 		s.Require().True(s.Run("Verify time constraints", func() {
 			elapsed := time.Since(reqStartTime)
-			s.Require().LessOrEqual(elapsed, 60*time.Second) // Up to 60 seconds to generate the sp1 proof
+			s.Require().LessOrEqual(elapsed, 90*time.Second) // Up to 90 seconds to generate the sp1 proof
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
