@@ -23,7 +23,14 @@ import { ICS27Lib } from "./utils/ICS27Lib.sol";
 
 /// @title ICS27 General Message Passing
 /// @notice This contract is the implementation of the ics27-2 IBC specification for general message passing.
-contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientUpgradeable, MulticallUpgradeable, UUPSUpgradeable {
+contract ICS27GMP is
+    IICS27Errors,
+    IICS27GMP,
+    IIBCApp,
+    ReentrancyGuardTransientUpgradeable,
+    MulticallUpgradeable,
+    UUPSUpgradeable
+{
     /// @notice Storage of the ICS27GMP contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
