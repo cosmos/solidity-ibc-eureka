@@ -117,27 +117,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         relayerHelper = new RelayerHelper(address(ics26Router));
     }
 
-    function test_failure_sendPacketWithLargeTimeoutDuration() public {
-        erc20.mint(defaultSender, defaultAmount);
-        vm.startPrank(defaultSender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
-
-        uint64 timeoutTimestamp = uint64(block.timestamp + 2 days);
-
-        vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidTimeoutDuration.selector, 1 days, 2 days));
-        ics20Transfer.sendTransfer(
-            IICS20TransferMsgs.SendTransferMsg({
-                denom: address(erc20),
-                amount: defaultAmount,
-                receiver: defaultReceiverStr,
-                sourceClient: clientIdentifier,
-                destPort: ICS20Lib.DEFAULT_PORT_ID,
-                timeoutTimestamp: timeoutTimestamp,
-                memo: "memo"
-            })
-        );
-    }
-
     function test_success_receiveMultiPacketWithForeignBaseDenom() public {
         string memory foreignDenom = "uatom";
 
