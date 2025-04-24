@@ -21,7 +21,13 @@ interface IICS27Account {
     /// @param data The data to send to the target address
     /// @param value The value to send to the target address
     /// @return result The result of the call
-    function functionCallWithValue(address target, bytes memory data, uint256 value) external returns (bytes memory result);
+    function functionCallWithValue(
+        address target,
+        bytes memory data,
+        uint256 value
+    )
+        external
+        returns (bytes memory result);
 
     /// @notice Performs a Solidity function call using a low level `delegatecall`.
     /// @dev This is a wrapper around openzeppelin's `Address.functionDelegateCall`.
@@ -30,7 +36,6 @@ interface IICS27Account {
     /// @param data The data to send to the target address
     /// @return result The result of the call
     function functionDelegateCall(address target, bytes calldata data) external returns (bytes memory result);
-
 
     /// @notice Get the ICS27 contract address
     /// @return The ICS27 contract address

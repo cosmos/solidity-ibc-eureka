@@ -27,25 +27,17 @@ library ICS27Lib {
     /// @param beacon The address of the beacon contract.
     /// @param ics27 The address of the ICS27 contract.
     /// @return The deployment bytecode of the BeaconProxy contract.
-    function getBeaconProxyBytecode(
-        address beacon,
-        address ics27
-    ) internal pure returns (bytes memory) {
-        return
-            abi.encodePacked(
-                type(BeaconProxy).creationCode,
-                abi.encode(beacon, abi.encodeCall(IICS27Account.initialize, (ics27)))
-            );
+    function getBeaconProxyBytecode(address beacon, address ics27) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            type(BeaconProxy).creationCode, abi.encode(beacon, abi.encodeCall(IICS27Account.initialize, (ics27)))
+        );
     }
 
     /// @notice Compute the code hash of the BeaconProxy contract.
     /// @param beacon The address of the beacon contract.
     /// @param ics27 The address of the ICS27 contract.
     /// @return The code hash of the BeaconProxy contract.
-    function getBeaconProxyCodeHash(
-        address beacon,
-        address ics27
-    ) internal pure returns (bytes32) {
+    function getBeaconProxyCodeHash(address beacon, address ics27) internal pure returns (bytes32) {
         return keccak256(getBeaconProxyBytecode(beacon, ics27));
     }
 }
