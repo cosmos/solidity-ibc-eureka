@@ -150,8 +150,9 @@ contract Integration3Test is Test {
 
         // Send from B -> C
         address receiverC = integrationEnv.createUser();
-        sentPacket =
-            ibcImplB.sendTransferAsUser(tokenOnB, receiverB, Strings.toHexString(receiverC), amount, th.SECOND_CLIENT_ID());
+        sentPacket = ibcImplB.sendTransferAsUser(
+            tokenOnB, receiverB, Strings.toHexString(receiverC), amount, th.SECOND_CLIENT_ID()
+        );
         assertEq(tokenOnB.balanceOf(receiverB), 0, "sender balance mismatch");
 
         // Receive the packet on C
@@ -185,8 +186,7 @@ contract Integration3Test is Test {
         // Transfer the tokens back: C -> B -> A
 
         // Send from C -> B
-        sentPacket =
-            ibcImplC.sendTransferAsUser(tokenOnC, receiverC, Strings.toHexString(receiverB), amount);
+        sentPacket = ibcImplC.sendTransferAsUser(tokenOnC, receiverC, Strings.toHexString(receiverB), amount);
         assertEq(tokenOnC.balanceOf(receiverC), 0, "sender balance mismatch");
 
         // Receive the packet on B
@@ -206,8 +206,7 @@ contract Integration3Test is Test {
         ibcImplC.ackPacket(sentPacket, acks);
 
         // Send from B -> A
-        sentPacket =
-            ibcImplB.sendTransferAsUser(tokenOnB, receiverB, Strings.toHexString(user), amount);
+        sentPacket = ibcImplB.sendTransferAsUser(tokenOnB, receiverB, Strings.toHexString(user), amount);
         assertEq(tokenOnB.balanceOf(receiverB), 0, "sender balance mismatch");
 
         // Receive the packet on A
