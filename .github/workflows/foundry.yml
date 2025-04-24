@@ -93,8 +93,8 @@ jobs:
             echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
           )" >> $GITHUB_ENV
 
-      - name: Limit the fuzz runs to 2500
-        run: echo "FOUNDRY_FUZZ_RUNS=2500" >> $GITHUB_ENV
+      - name: Limit the fuzz runs to 5000
+        run: echo "FOUNDRY_FUZZ_RUNS=5000" >> $GITHUB_ENV
 
       - name: Run coverage
         run: forge coverage --report lcov
