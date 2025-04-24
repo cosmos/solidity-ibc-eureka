@@ -6,12 +6,14 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
-import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
+import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
+import { IICS27Account } from "../../contracts/interfaces/IICS27Account.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -595,5 +597,49 @@ contract Integration2Test is Test {
         bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
         bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
         assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+    }
+
+    function testFuzz_success_fullGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCall(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(),
+            sender: Strings.toHexString(user),
+            salt: vm.randomBytes(saltLen)
+        });
+        address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
+
+        // send packet
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+
+        // Receive the packet on B
+        vm.expectCall(receiver, 0, payload);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks[0], ICS27Lib.acknowledgement(callResp), "ack mismatch");
+
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assert(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Verify that the account has been created
+        address storedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
+        assertEq(storedAccount, address(computedAccount), "account address mismatch");
+        assertEq(IICS27Account(computedAccount).ics27(), address(ibcImplB.ics27Gmp()), "account nor deployed");
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
     }
 }

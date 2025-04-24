@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
 import { IICS27Account } from "../interfaces/IICS27Account.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 
@@ -22,6 +23,14 @@ library ICS27Lib {
 
     /// @notice KECCAK256_DEFAULT_PORT_ID is the keccak256 hash of the DEFAULT_PORT_ID.
     bytes32 internal constant KECCAK256_DEFAULT_PORT_ID = keccak256(bytes(DEFAULT_PORT_ID));
+
+
+    /// @notice Create a GMP acknowledgement from a call result.
+    /// @param result The result of the call
+    /// @return The GMP acknowledgement message
+    function acknowledgement(bytes memory result) internal pure returns (bytes memory) {
+        return abi.encode(IICS27GMPMsgs.GMPAcknowledgement({ result: result }));
+    }
 
     /// @notice Retrieve the deployment bytecode of the BeaconProxy contract.
     /// @param beacon The address of the beacon contract.

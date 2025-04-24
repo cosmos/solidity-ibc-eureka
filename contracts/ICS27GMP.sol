@@ -134,7 +134,8 @@ contract ICS27GMP is
         (bool success, address receiver) = Strings.tryParseAddress(packetData.receiver);
         require(success, ICS27InvalidReceiver(packetData.receiver));
 
-        return account.functionCall(receiver, packetData.payload);
+        bytes memory result = account.functionCall(receiver, packetData.payload);
+        return ICS27Lib.acknowledgement(result);
     }
 
     /// @inheritdoc IIBCApp
