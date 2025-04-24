@@ -117,7 +117,7 @@ contract IntegrationTest is Test {
 
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendTransferAsUser(ibcERC20, user, receiver, amount);
-        assertEq(integrationEnv.erc20().balanceOf(user), 0, "user balance mismatch");
+        assertEq(ibcERC20.balanceOf(user), 0, "user balance mismatch");
 
         // check that the packet was committed correctly
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
