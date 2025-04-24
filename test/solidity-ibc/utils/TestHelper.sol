@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+// solhint-disable no-empty-blocks,gas-custom-errors
+
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
@@ -56,7 +58,7 @@ contract TestHelper is Test {
         pure
         returns (IICS20TransferMsgs.FungibleTokenPacketData memory)
     {
-        require(packet.payloads.length == 1, "Packet must have exactly one payload");
+        require(packet.payloads.length == 1, "Packet must have 1 payload");
         return abi.decode(packet.payloads[0].value, (IICS20TransferMsgs.FungibleTokenPacketData));
     }
 

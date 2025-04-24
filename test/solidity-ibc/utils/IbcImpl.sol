@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-custom-errors,max-line-length,max-states-count,immutable-vars-naming
+
 // This is a helper to deploy the IBC implementation for testing purposes
 
-import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
-import { ILightClientMsgs } from "../../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
@@ -31,7 +31,7 @@ contract IbcImpl is Test {
     ICS20Transfer public immutable ics20Transfer;
     RelayerHelper public immutable relayerHelper;
 
-    mapping(string => IbcImpl) public counterpartyImpls;
+    mapping(string counterpartyId => IbcImpl ibcImpl) public counterpartyImpls;
 
     TestHelper private _testHelper = new TestHelper();
 

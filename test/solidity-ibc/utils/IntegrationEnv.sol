@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-custom-errors,immutable-vars-naming
+
 import { Vm } from "forge-std/Vm.sol";
 import { Test } from "forge-std/Test.sol";
 
@@ -20,7 +22,7 @@ contract IntegrationEnv is Test, DeployPermit2 {
     TestERC20 public immutable _erc20;
     ISignatureTransfer public immutable _permit2;
 
-    mapping(address => uint256) private _userPrivateKeys;
+    mapping(address userAddress => uint256 userPrivateKey) private _userPrivateKeys;
 
     constructor() {
         // Set the default starting balance for the ERC20 token
