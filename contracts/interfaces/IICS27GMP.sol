@@ -16,9 +16,10 @@ interface IICS27GMP {
     /// @dev This is view instead of pure in case we change the proxy bytecode
     /// @param accountId The account identifier
     /// @return The (proxy) Account contract address
-    function getOrComputeAccountAddress(
-        IICS27GMPMsgs.AccountIdentifier calldata accountId
-    ) external view returns (address);
+    function getOrComputeAccountAddress(IICS27GMPMsgs.AccountIdentifier calldata accountId)
+        external
+        view
+        returns (address);
 
     /// @notice Send a GMP packet by calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a GMP packet

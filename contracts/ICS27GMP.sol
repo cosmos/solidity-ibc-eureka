@@ -37,8 +37,7 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
 
     /// @notice ERC-7201 slot for the ICS27GMP storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.ICS27GMP")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ICS27GMP_STORAGE_SLOT =
-        0xe73deb02cd654f25b90ec94b434589ea350a706e2446d278b41c3a86dc8f4500;
+    bytes32 private constant ICS27GMP_STORAGE_SLOT = 0xe73deb02cd654f25b90ec94b434589ea350a706e2446d278b41c3a86dc8f4500;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
@@ -91,7 +90,12 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_) external nonReentrant onlyRouter returns (bytes memory) {
+    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_)
+        external
+        nonReentrant
+        onlyRouter
+        returns (bytes memory)
+    {
         require(
             keccak256(bytes(msg_.payload.version)) == ICS27Lib.KECCAK256_ICS27_VERSION,
             ICS27UnexpectedVersion(ICS27Lib.ICS27_VERSION, msg_.payload.version)
@@ -109,10 +113,7 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
             ICS27InvalidPort(ICS27Lib.DEFAULT_PORT_ID, msg_.payload.destPort)
         );
 
-        IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(
-            msg_.payload.value,
-            (IICS27GMPMsgs.GMPPacketData)
-        );
+        IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
             clientId: msg_.destinationClient,
@@ -124,26 +125,25 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
         (bool success, address receiver) = Strings.tryParseAddress(packetData.receiver);
         require(success, ICS27InvalidReceiver(packetData.receiver));
 
-        return account.functionCall(
-            receiver,
-            packetData.payload
-        );
+        return account.functionCall(receiver, packetData.payload);
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) nonReentrant onlyRouter external { }
+    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_)
+        external
+        nonReentrant
+        onlyRouter
+    { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) nonReentrant onlyRouter external { }
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external nonReentrant onlyRouter { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Creates or retrieves an account contract for the given account identifier
     /// @param accountId The account identifier
     /// @return account The account contract address
-    function _getOrCreateAccount(
-        IICS27GMPMsgs.AccountIdentifier memory accountId
-    ) private returns (IICS27Account) {
+    function _getOrCreateAccount(IICS27GMPMsgs.AccountIdentifier memory accountId) private returns (IICS27Account) {
         ICS27GMPStorage storage $ = _getICS27GMPStorage();
 
         bytes32 accountIdHash = keccak256(abi.encode(accountId));
@@ -152,24 +152,19 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
             return account;
         }
 
-        bytes memory bytecode = ICS27Lib.getBeaconProxyBytecode(
-            address($._accountBeacon),
-            address(this)
-        );
-        address accountAddress = Create2.deploy(
-            0,
-            accountIdHash,
-            bytecode
-        );
+        bytes memory bytecode = ICS27Lib.getBeaconProxyBytecode(address($._accountBeacon), address(this));
+        address accountAddress = Create2.deploy(0, accountIdHash, bytecode);
 
         $._accounts[accountIdHash] = IICS27Account(accountAddress);
         return IICS27Account(accountAddress);
     }
 
     /// @inheritdoc IICS27GMP
-    function getOrComputeAccountAddress(
-        IICS27GMPMsgs.AccountIdentifier calldata accountId
-    ) external view returns (address) {
+    function getOrComputeAccountAddress(IICS27GMPMsgs.AccountIdentifier calldata accountId)
+        external
+        view
+        returns (address)
+    {
         ICS27GMPStorage storage $ = _getICS27GMPStorage();
 
         bytes32 accountIdHash = keccak256(abi.encode(accountId));
@@ -178,14 +173,8 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
             return account;
         }
 
-        bytes32 codeHash = ICS27Lib.getBeaconProxyCodeHash(
-            address($._accountBeacon),
-            address(this)
-        );
-        return Create2.computeAddress(
-            accountIdHash,
-            codeHash
-        );
+        bytes32 codeHash = ICS27Lib.getBeaconProxyCodeHash(address($._accountBeacon), address(this));
+        return Create2.computeAddress(accountIdHash, codeHash);
     }
 
     /// @notice Returns the storage of the ICS27GMP contract
@@ -198,10 +187,7 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
 
     modifier onlyRouter() {
         address router = address(_getICS27GMPStorage()._ics26);
-        require(
-            _msgSender() == router,
-            ICS27Unauthorized(router, _msgSender())
-        );
+        require(_msgSender() == router, ICS27Unauthorized(router, _msgSender()));
         _;
     }
 }

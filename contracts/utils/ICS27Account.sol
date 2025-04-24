@@ -46,7 +46,15 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     }
 
     /// @inheritdoc IICS27Account
-    function functionCallWithValue(address target, bytes memory data, uint256 value) external onlySelf returns (bytes memory) {
+    function functionCallWithValue(
+        address target,
+        bytes memory data,
+        uint256 value
+    )
+        external
+        onlySelf
+        returns (bytes memory)
+    {
         return Address.functionCallWithValue(target, data, value);
     }
 
