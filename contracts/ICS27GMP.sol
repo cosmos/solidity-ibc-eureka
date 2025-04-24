@@ -191,6 +191,7 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
     function _authorizeUpgrade(address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
 
+    /// @notice Modifier to check if the caller is the ICS26Router contract
     modifier onlyRouter() {
         address router = address(_getICS27GMPStorage()._ics26);
         require(_msgSender() == router, ICS27Unauthorized(router, _msgSender()));
