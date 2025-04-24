@@ -198,6 +198,10 @@ contract Integration2Test is Test {
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
 
+        // run the receive packet queries
+        assertFalse(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
         // Receive the packet on B
         bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
         assertEq(acks.length, 1, "ack length mismatch");
@@ -250,6 +254,10 @@ contract Integration2Test is Test {
 
         IICS26RouterMsgs.Packet memory sentPacket =
             ibcImplA.sendTransferAsUser(ibcERC20, user, Strings.toHexString(receiver), amount);
+
+        // run the receive packet queries
+        assertFalse(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
 
         // Receive the packet on B
         bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
