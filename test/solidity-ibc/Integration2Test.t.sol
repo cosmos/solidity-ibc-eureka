@@ -22,7 +22,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 
-contract IntegrationTest is Test {
+contract Integration2Test is Test {
     IbcImpl public ibcImplA;
     IbcImpl public ibcImplB;
 
