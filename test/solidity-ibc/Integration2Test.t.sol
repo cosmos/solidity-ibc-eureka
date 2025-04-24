@@ -562,4 +562,20 @@ contract Integration2Test is Test {
         emit IICS26Router.Noop();
         ibcImplA.timeoutPacket(sentPacket);
     }
+
+    function test_success_sendGmp() public {
+        address user = integrationEnv.createUser();
+        string memory receiver = th.randomString();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, receiver, bytes("mock"));
+
+        // TODO: check the fields of the packet
+
+        // check that the packet was committed correctly
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);
+        bytes32 expCommitment = ICS24Host.packetCommitmentBytes32(sentPacket);
+        bytes32 storedCommitment = ibcImplA.ics26Router().getCommitment(path);
+        assertEq(storedCommitment, expCommitment, "packet commitment mismatch");
+    }
 }
