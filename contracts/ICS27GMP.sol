@@ -91,7 +91,7 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_) external nonReentrant returns (bytes memory) {
+    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_) external nonReentrant onlyRouter returns (bytes memory) {
         require(
             keccak256(bytes(msg_.payload.version)) == ICS27Lib.KECCAK256_ICS27_VERSION,
             ICS27UnexpectedVersion(ICS27Lib.ICS27_VERSION, msg_.payload.version)
@@ -131,14 +131,12 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) nonReentrant external {
-        revert("TODO: Not implemented");
-    }
+    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_) nonReentrant onlyRouter external { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) nonReentrant external {
-        revert("TODO: Not implemented");
-    }
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) nonReentrant onlyRouter external { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Creates or retrieves an account contract for the given account identifier
     /// @param accountId The account identifier
@@ -196,5 +194,14 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
         assembly {
             $.slot := ICS27GMP_STORAGE_SLOT
         }
+    }
+
+    modifier onlyRouter() {
+        address router = address(_getICS27GMPStorage()._ics26);
+        require(
+            _msgSender() == router,
+            ICS27Unauthorized(router, _msgSender())
+        );
+        _;
     }
 }
