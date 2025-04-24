@@ -9,7 +9,7 @@ interface IICS27GMP {
     function ics26() external view returns (address);
 
     /// @notice Retrieve the Account beacon contract address
-    /// @return The Escrow beacon contract address
+    /// @return The account beacon contract address
     function getAccountBeacon() external view returns (address);
 
     /// @notice Retrieve the Account (proxy) contract address
@@ -31,4 +31,9 @@ interface IICS27GMP {
     /// @param ics26_ The ICS26Router contract address
     /// @param accountLogic The address of the ICS27Account logic contract
     function initialize(address ics26_, address accountLogic) external;
+
+    /// @notice Upgrades the implementation of the account beacon contract
+    /// @dev The caller must be the ICS26Router admin
+    /// @param newAccountLogic The address of the new account logic contract
+    function upgradeAccountTo(address newAccountLogic) external;
 }

@@ -187,6 +187,11 @@ contract ICS27GMP is IICS27Errors, IICS27GMP, IIBCApp, ReentrancyGuardTransientU
         }
     }
 
+    /// @inheritdoc IICS27GMP
+    function upgradeAccountTo(address newEscrowLogic) external onlyAdmin {
+        _getICS27GMPStorage()._accountBeacon.upgradeTo(newEscrowLogic);
+    }
+
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal view override onlyAdmin { }
     // solhint-disable-previous-line no-empty-blocks
