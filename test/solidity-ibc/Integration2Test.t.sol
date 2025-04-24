@@ -11,6 +11,7 @@ import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -20,6 +21,7 @@ import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
+import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 
 contract Integration2Test is Test {
     IbcImpl public ibcImplA;
@@ -567,10 +569,26 @@ contract Integration2Test is Test {
         address user = integrationEnv.createUser();
         string memory receiver = th.randomString();
 
-        IICS26RouterMsgs.Packet memory sentPacket =
-            ibcImplA.sendGmpAsUser(user, receiver, bytes("mock"));
+        bytes memory mockPayload = bytes("mock");
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, receiver, mockPayload);
 
-        // TODO: check the fields of the packet
+        // check the fields of the packet
+        assertEq(sentPacket.sourceClient, th.FIRST_CLIENT_ID(), "source client mismatch");
+        assertEq(sentPacket.destClient, th.FIRST_CLIENT_ID(), "dest client mismatch");
+        assertEq(sentPacket.timeoutTimestamp, th.DEFAULT_TIMEOUT_TIMESTAMP(), "timeout timestamp mismatch");
+        assertEq(sentPacket.payloads.length, 1, "payload length mismatch");
+        assertEq(sentPacket.payloads[0].sourcePort, ICS27Lib.DEFAULT_PORT_ID, "source port mismatch");
+        assertEq(sentPacket.payloads[0].destPort, ICS27Lib.DEFAULT_PORT_ID, "dest port mismatch");
+        assertEq(sentPacket.payloads[0].version, ICS27Lib.ICS27_VERSION, "version mismatch");
+        assertEq(sentPacket.payloads[0].encoding, ICS27Lib.ICS27_ENCODING, "encoding mismatch");
+
+        IICS27GMPMsgs.GMPPacketData memory gmpPacketData =
+            abi.decode(sentPacket.payloads[0].value, (IICS27GMPMsgs.GMPPacketData));
+        assertEq(gmpPacketData.sender, Strings.toHexString(user), "sender mismatch");
+        assertEq(gmpPacketData.receiver, receiver, "receiver mismatch");
+        assertEq(gmpPacketData.payload, mockPayload, "payload mismatch");
+        assertEq(gmpPacketData.salt, bytes(""), "salt mismatch");
+        assertEq(gmpPacketData.memo, "", "memo mismatch");
 
         // check that the packet was committed correctly
         bytes32 path = ICS24Host.packetCommitmentKeyCalldata(sentPacket.sourceClient, sentPacket.sequence);

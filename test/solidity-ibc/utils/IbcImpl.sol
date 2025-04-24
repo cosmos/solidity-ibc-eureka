@@ -42,7 +42,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
     mapping(string counterpartyId => IbcImpl ibcImpl) public counterpartyImpls;
 
-    TestHelper private _testHelper = new TestHelper();
+    TestHelper private _th = new TestHelper();
 
     constructor(address permit2) {
         // ============ Step 1: Deploy the logic contracts ==============
@@ -100,7 +100,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         counterpartyImpls[counterpartyId] = counterparty;
 
         return ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _testHelper.EMPTY_MERKLE_PREFIX()), address(lightClient)
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _th.EMPTY_MERKLE_PREFIX()), address(lightClient)
         );
     }
 
@@ -113,7 +113,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, amount, _testHelper.FIRST_CLIENT_ID());
+        return
+            sendTransferAsUser(token, sender, receiver, amount, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendTransferAsUser(
@@ -126,7 +127,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, amount, timeoutTimestamp, _testHelper.FIRST_CLIENT_ID());
+        return sendTransferAsUser(token, sender, receiver, amount, timeoutTimestamp, _th.FIRST_CLIENT_ID());
     }
 
     function sendTransferAsUser(
@@ -139,7 +140,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         public
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, amount, uint64(block.timestamp + 10 minutes), sourceClient);
+        return sendTransferAsUser(token, sender, receiver, amount, _th.DEFAULT_TIMEOUT_TIMESTAMP(), sourceClient);
     }
 
     function sendTransferAsUser(
@@ -164,12 +165,12 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
                 sourceClient: sourceClient,
                 destPort: ICS20Lib.DEFAULT_PORT_ID,
                 timeoutTimestamp: timeoutTimestamp,
-                memo: _testHelper.randomString()
+                memo: _th.randomString()
             })
         );
         vm.stopPrank();
 
-        bytes memory packetBz = _testHelper.getValueFromEvent(IICS26Router.SendPacket.selector);
+        bytes memory packetBz = _th.getValueFromEvent(IICS26Router.SendPacket.selector);
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
@@ -183,7 +184,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         public
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendTransferAsUser(token, sender, receiver, _testHelper.FIRST_CLIENT_ID(), permit, signature);
+        return sendTransferAsUser(token, sender, receiver, _th.FIRST_CLIENT_ID(), permit, signature);
     }
 
     function sendTransferAsUser(
@@ -206,7 +207,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
                 receiver: receiver,
                 sourceClient: sourceClient,
                 destPort: ICS20Lib.DEFAULT_PORT_ID,
-                timeoutTimestamp: uint64(block.timestamp + 10 minutes),
+                timeoutTimestamp: _th.DEFAULT_TIMEOUT_TIMESTAMP(),
                 memo: ""
             }),
             permit,
@@ -214,7 +215,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         );
         vm.stopPrank();
 
-        bytes memory packetBz = _testHelper.getValueFromEvent(IICS26Router.SendPacket.selector);
+        bytes memory packetBz = _th.getValueFromEvent(IICS26Router.SendPacket.selector);
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
@@ -226,9 +227,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendGmpAsUser(
-            sender, receiver, payload, "", "", uint64(block.timestamp + 10 minutes), _testHelper.FIRST_CLIENT_ID()
-        );
+        return sendGmpAsUser(sender, receiver, payload, "", "", _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendGmpAsUser(
@@ -240,9 +239,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendGmpAsUser(
-            sender, receiver, payload, salt, "", uint64(block.timestamp + 10 minutes), _testHelper.FIRST_CLIENT_ID()
-        );
+        return
+            sendGmpAsUser(sender, receiver, payload, salt, "", _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendGmpAsUser(
@@ -255,9 +253,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         external
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendGmpAsUser(
-            sender, receiver, payload, salt, memo, uint64(block.timestamp + 10 minutes), _testHelper.FIRST_CLIENT_ID()
-        );
+        return
+            sendGmpAsUser(sender, receiver, payload, salt, memo, _th.DEFAULT_TIMEOUT_TIMESTAMP(), _th.FIRST_CLIENT_ID());
     }
 
     function sendGmpAsUser(
@@ -271,7 +268,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         public
         returns (IICS26RouterMsgs.Packet memory)
     {
-        return sendGmpAsUser(sender, receiver, payload, salt, memo, timeoutTimestamp, _testHelper.FIRST_CLIENT_ID());
+        return sendGmpAsUser(sender, receiver, payload, salt, memo, timeoutTimestamp, _th.FIRST_CLIENT_ID());
     }
 
     function sendGmpAsUser(
@@ -300,7 +297,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         );
         vm.stopPrank();
 
-        bytes memory packetBz = _testHelper.getValueFromEvent(IICS26Router.SendPacket.selector);
+        bytes memory packetBz = _th.getValueFromEvent(IICS26Router.SendPacket.selector);
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
 
@@ -310,7 +307,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         vm.recordLogs();
         ics26Router.recvPacket(msgRecvPacket);
 
-        bytes memory ackBz = _testHelper.getValueFromEvent(IICS26Router.WriteAcknowledgement.selector);
+        bytes memory ackBz = _th.getValueFromEvent(IICS26Router.WriteAcknowledgement.selector);
         (, acks) = abi.decode(ackBz, (IICS26RouterMsgs.Packet, bytes[]));
         return acks;
     }
