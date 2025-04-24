@@ -29,7 +29,11 @@ contract SolidityLightClient is ILightClient {
         return block.timestamp;
     }
 
-    function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_) external view returns (uint256) {
+    function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_)
+        external
+        view
+        returns (uint256)
+    {
         require(msg_.path.length == 1, "only support single path");
         bytes32 solidityPath = keccak256(msg_.path[0]);
         bytes32 commitment = _counterpartyIcs26.getCommitment(solidityPath);

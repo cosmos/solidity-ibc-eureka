@@ -45,7 +45,9 @@ contract ICS26RouterTest is Test {
         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
 
-        ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo("42-dummy-01", testHelper.COSMOS_MERKLE_PREFIX()), mockClient);
+        ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo("42-dummy-01", testHelper.COSMOS_MERKLE_PREFIX()), mockClient
+        );
     }
 
     function test_success_addIBCAppUsingAddress() public {
@@ -127,8 +129,9 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier =
-            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient));
+        string memory clientIdentifier = ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
+        );
 
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
         address escrowLogic = address(new Escrow());
@@ -170,8 +173,9 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithErrorAck() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        string memory clientIdentifier =
-            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient));
+        string memory clientIdentifier = ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
+        );
 
         // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
         ICS20Transfer ics20Transfer = new ICS20Transfer();
@@ -211,8 +215,9 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithOOG() public {
         string memory counterpartyID = "42-dummy-01";
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        string memory clientIdentifier =
-            ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient));
+        string memory clientIdentifier = ics26Router.addClient(
+            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
+        );
 
         // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
         MockApplication mockApp = new MockApplication();
