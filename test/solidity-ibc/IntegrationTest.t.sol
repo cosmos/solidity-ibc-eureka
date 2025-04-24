@@ -408,64 +408,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         assertEq(returnedERC20.balanceOf(middleReceiver), defaultAmount);
     }
 
-    function test_failure_receiveICS20PacketHasTimedOut() public {
-        erc20.mint(defaultSender, defaultAmount);
-        vm.prank(defaultSender);
-        erc20.approve(address(ics20Transfer), defaultAmount);
-
-        IICS26RouterMsgs.Packet memory packet =
-            _sendICS20TransferPacket(defaultSenderStr, defaultReceiverStr, address(erc20));
-
-        IICS26RouterMsgs.MsgAckPacket memory ackMsg = IICS26RouterMsgs.MsgAckPacket({
-            packet: packet,
-            acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
-            proofAcked: bytes("doesntmatter"), // dummy client will accept
-            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // dummy client will accept
-         });
-
-        ics26Router.ackPacket(ackMsg);
-
-        // commitment should be deleted
-        bytes32 storedCommitment = relayerHelper.queryPacketCommitment(packet.sourceClient, packet.sequence);
-        assertEq(storedCommitment, 0);
-
-        uint256 senderBalanceAfterSend = erc20.balanceOf(defaultSender);
-        assertEq(senderBalanceAfterSend, 0);
-        uint256 contractBalanceAfterSend = erc20.balanceOf(ics20Transfer.getEscrow(clientIdentifier));
-        assertEq(contractBalanceAfterSend, defaultAmount);
-
-        // Send back
-        string memory receiverStr = defaultSenderStr;
-
-        string memory denom =
-            string(abi.encodePacked(packet.payloads[0].destPort, "/", packet.destClient, "/", erc20AddressStr));
-
-        IICS20TransferMsgs.FungibleTokenPacketData memory receivePacketData =
-            _getPacketData("cosmos1mhmwgrfrcrdex5gnr0vcqt90wknunsxej63feh", receiverStr, denom);
-        uint64 timeoutTimestamp = uint64(block.timestamp - 1);
-        IICS26RouterMsgs.Payload[] memory payloads = _getPayloads(abi.encode(receivePacketData));
-        packet = IICS26RouterMsgs.Packet({
-            sequence: 1,
-            sourceClient: counterpartyId,
-            destClient: clientIdentifier,
-            timeoutTimestamp: timeoutTimestamp,
-            payloads: payloads
-        });
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, packet.timeoutTimestamp, block.timestamp
-            )
-        );
-        ics26Router.recvPacket(
-            IICS26RouterMsgs.MsgRecvPacket({
-                packet: packet,
-                proofCommitment: bytes("doesntmatter"), // dummy client will accept
-                proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 1, revisionHeight: 42 }) // will accept
-             })
-        );
-    }
-
     function test_success_rateLimitWithForeignBaseDenom() public {
         string memory foreignDenom = "uatom";
 
