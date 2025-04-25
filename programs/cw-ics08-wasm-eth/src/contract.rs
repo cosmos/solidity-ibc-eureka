@@ -297,8 +297,8 @@ mod tests {
         use crate::{
             contract::{instantiate, migrate, query, sudo},
             msg::{
-                Height, InstantiateMsg, MerklePath, MigrateMsg, QueryMsg, SudoMsg, UpdateStateMsg,
-                UpdateStateResult, VerifyClientMessageMsg, VerifyMembershipMsg,
+                Height, InstantiateMsg, MerklePath, MigrateMsg, Migration, QueryMsg, SudoMsg,
+                UpdateStateMsg, UpdateStateResult, VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             state::HOST_CLIENT_STATE_KEY,
             test::mk_deps,
@@ -325,7 +325,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let msg = crate::msg::InstantiateMsg {
+            let msg = InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
@@ -426,7 +426,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let msg = crate::msg::InstantiateMsg {
+            let msg = InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
@@ -597,7 +597,7 @@ mod tests {
                 let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
                 let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-                let msg = crate::msg::InstantiateMsg {
+                let msg = InstantiateMsg {
                     client_state: Binary::from(client_state_bz),
                     consensus_state: Binary::from(consensus_state_bz),
                     checksum: b"checksum".into(),
@@ -646,7 +646,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let msg = crate::msg::InstantiateMsg {
+            let msg = InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
@@ -747,7 +747,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let msg = crate::msg::InstantiateMsg {
+            let msg = InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
@@ -915,7 +915,7 @@ mod tests {
             let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
 
-            let msg = crate::msg::InstantiateMsg {
+            let msg = InstantiateMsg {
                 client_state: Binary::from(client_state_bz),
                 consensus_state: Binary::from(consensus_state_bz),
                 checksum: b"checksum".into(),
@@ -927,8 +927,8 @@ mod tests {
             migrate(
                 deps.as_mut(),
                 mock_env(),
-                crate::msg::MigrateMsg {
-                    migration: crate::msg::Migration::CodeOnly,
+                MigrateMsg {
+                    migration: Migration::CodeOnly,
                 },
             )
             .unwrap();
@@ -1022,7 +1022,7 @@ mod tests {
             };
 
             let migrate_msg = MigrateMsg {
-                migration: crate::msg::Migration::Reinstantiate(msg.clone()),
+                migration: Migration::Reinstantiate(msg.clone()),
             };
 
             // Migrate without any changes (i.e. same state version)
@@ -1111,7 +1111,7 @@ mod tests {
             assert_eq!(0, res.messages.len());
 
             let migrate_msg = MigrateMsg {
-                migration: crate::msg::Migration::UpdateForkParameters(ForkParameters {
+                migration: Migration::UpdateForkParameters(ForkParameters {
                     genesis_fork_version: FixedBytes([0; 4]),
                     genesis_slot: 0,
                     altair: Fork {
