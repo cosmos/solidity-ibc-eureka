@@ -38,7 +38,7 @@ clean:
 
 # Run the foundry tests
 test-foundry testname=".\\*":
-	forge test -vvv --show-progress --match-test ^{{testname}}\(.\*\)\$
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$
 
 # Run the benchmark tests
 # Run with `just test-benchmark Plonk"` to run only Plonk benchmarks
