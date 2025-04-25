@@ -106,3 +106,24 @@ pub fn store_client_state(
 
     Ok(())
 }
+
+/// Store the eth client state
+// # Errors
+// Returns an error if the client state cannot be serialized into an Any
+// Note this is a function that will store a change to the internal eth client state
+// wrapped by the WasmClientState
+// It will replace the eth client state, while keeping the checksum and latest height
+// the same. Note if the latest height is changed, then the wasm client state
+// will be invalid.
+#[allow(clippy::module_name_repetitions)]
+pub fn store_eth_client_state(
+    storage: &mut dyn Storage,
+    eth_client_state: &EthClientState,
+) -> Result<(), ContractError> {
+    let mut wasm_client_state = get_wasm_client_state(storage)?;
+    wasm_client_state.data = serde_json::to_vec(eth_client_state)?;
+
+    store_client_state(storage, &wasm_client_state)?;
+
+    Ok(())
+}

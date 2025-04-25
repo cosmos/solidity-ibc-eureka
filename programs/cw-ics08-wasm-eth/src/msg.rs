@@ -5,6 +5,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
 use ethereum_light_client::header::ActiveSyncCommittee;
 use ethereum_types::consensus::light_client_header::LightClientUpdate;
+use ethereum_types::consensus::fork::ForkParameters;
 
 /// The message to instantiate the contract
 #[cw_serde]
@@ -63,7 +64,18 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct MigrateMsg {
     /// The optional instantiate msg to re-initialize the client
-    pub instantiate_msg: Option<InstantiateMsg>,
+    pub migration: Migration,
+}
+
+/// The supported migration types
+#[cw_serde]
+pub enum Migration {
+    /// Migrate only the contract code not state
+    CodeOnlyMigrate,
+    /// Migrate the contract code and reinitialize state
+    Reinstantiate(InstantiateMsg),
+    /// Migrate the contract code and change fork parameters
+    ChangeParameters(ForkParameters)
 }
 
 /// Verify membership message

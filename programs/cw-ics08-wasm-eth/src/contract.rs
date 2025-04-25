@@ -2,8 +2,8 @@
 
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
-use crate::{custom_query::EthereumCustomQuery, instantiate, msg::MigrateMsg, query};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg, MigrateMsg, Migration};
+use crate::{custom_query::EthereumCustomQuery, instantiate, query, state};
 use crate::{sudo, ContractError};
 
 /// The version of the contracts state.
@@ -109,9 +109,19 @@ pub fn migrate(
     // Check if the state version is older than the current one and update it
     cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
 
-    // Re-initialize the client if needed.
-    if let Some(instantiate_msg) = msg.instantiate_msg {
-        instantiate::client(deps.storage, instantiate_msg)?;
+    // Perform the migration
+    match msg.migration {
+        Migration::CodeOnlyMigrate => {} // do nothing here
+        Migration::Reinstantiate(instantiate_msg) => {
+            // Re-instantiate the client
+            instantiate::client(deps.storage, instantiate_msg)?;
+        }
+        Migration::ChangeParameters(fork_parameters) => {
+            // Change the fork parameters
+            let mut client_state = state::get_eth_client_state(deps.storage)?;
+            client_state.fork_parameters = fork_parameters;
+            state::store_eth_client_state(deps.storage, &client_state)?;
+        }
     }
 
     Ok(Response::default())
@@ -682,7 +692,7 @@ mod tests {
                 deps.as_mut(),
                 mock_env(),
                 crate::msg::MigrateMsg {
-                    instantiate_msg: None,
+                    migration: crate::msg::Migration::CodeOnlyMigrate,
                 },
             )
             .unwrap();
@@ -775,7 +785,7 @@ mod tests {
             };
 
             let migrate_msg = MigrateMsg {
-                instantiate_msg: Some(msg.clone()),
+                migration: crate::msg::Migration::Reinstantiate(msg.clone()),
             };
 
             // Migrate without any changes (i.e. same state version)
@@ -792,6 +802,132 @@ mod tests {
                 wasm_client_state.latest_height.unwrap().revision_height,
                 client_state.latest_slot
             );
+        }
+
+        #[test]
+        fn test_migrate_with_fork_parameters() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let client_state = EthClientState {
+                chain_id: 0,
+                genesis_validators_root: B256::from([0; 32]),
+                min_sync_committee_participants: 0,
+                genesis_time: 0,
+                genesis_slot: 0,
+                fork_parameters: ForkParameters {
+                    genesis_fork_version: FixedBytes([0; 4]),
+                    genesis_slot: 0,
+                    altair: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    bellatrix: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    capella: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    deneb: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    electra: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                },
+                seconds_per_slot: 10,
+                slots_per_epoch: 8,
+                epochs_per_sync_committee_period: 0,
+                latest_slot: 42,
+                latest_execution_block_number: 38,
+                ibc_commitment_slot: U256::from(0),
+                ibc_contract_address: Address::default(),
+                is_frozen: false,
+            };
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+
+            let consensus_state = EthConsensusState {
+                slot: 42,
+                state_root: B256::from([0; 32]),
+                storage_root: B256::from([0; 32]),
+                timestamp: 0,
+                current_sync_committee: FixedBytes::<48>::from([0; 48]),
+                next_sync_committee: None,
+            };
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = InstantiateMsg {
+                client_state: client_state_bz.into(),
+                consensus_state: consensus_state_bz.into(),
+                checksum: b"checksum".into(),
+            };
+            let msg_copy = msg.clone();
+
+            let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+            assert_eq!(0, res.messages.len());
+
+            let migrate_msg = MigrateMsg {
+                migration: crate::msg::Migration::ChangeParameters(ForkParameters 
+                    { 
+                        genesis_fork_version: FixedBytes([0; 4]),
+                        genesis_slot: 0,
+                        altair: Fork {
+                            version: FixedBytes([0; 4]),
+                            epoch: 0,
+                        },
+                        bellatrix: Fork {
+                            version: FixedBytes([0; 4]),
+                            epoch: 0,
+                        },
+                        capella: Fork {
+                            version: FixedBytes([0; 4]),
+                            epoch: 0,
+                        },
+                        deneb: Fork {
+                            version: FixedBytes([0; 4]),
+                            epoch: 0,
+                        },
+                        electra: Fork {
+                            version: FixedBytes([0; 4]),
+                            epoch: 5000,
+                        },
+                    }
+                ),
+            };
+
+            // Migrate without any changes and without reinitializing (i.e. same state version)
+            migrate(deps.as_mut(), mock_env(), migrate_msg).unwrap();
+
+            let actual_wasm_client_state_any_bz =
+                deps.storage.get(HOST_CLIENT_STATE_KEY.as_bytes()).unwrap();
+            let actual_wasm_client_state_any =
+                Any::decode(actual_wasm_client_state_any_bz.as_slice()).unwrap();
+            let wasm_client_state =
+                WasmClientState::decode(actual_wasm_client_state_any.value.as_slice()).unwrap();
+            // verify checksum hasn't changed
+            assert_eq!(msg_copy.checksum, wasm_client_state.checksum);
+            // verify latest height hasn't changed
+            assert_eq!(
+                wasm_client_state.latest_height.unwrap().revision_height,
+                client_state.latest_slot
+            );
+            // verify fork parameters have changed
+            let eth_client_state: EthClientState =
+                serde_json::from_slice(&wasm_client_state.data).unwrap();
+            assert_ne!(
+                eth_client_state.fork_parameters.electra.epoch,
+                client_state.fork_parameters.electra.epoch
+            );
+            assert_eq!(
+                eth_client_state.fork_parameters.electra.epoch,
+                5000
+            );
+
         }
     }
 }
