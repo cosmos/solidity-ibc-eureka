@@ -140,7 +140,10 @@ mod tests {
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState,
         };
-        use ethereum_types::consensus::fork::{Fork, ForkParameters};
+        use ethereum_types::consensus::{
+            fork::{Fork, ForkParameters},
+            sync_committee::SummarizedSyncCommittee,
+        };
         use ibc_proto::{
             google::protobuf::Any,
             ibc::lightclients::wasm::v1::{
@@ -166,6 +169,7 @@ mod tests {
                 chain_id: 0,
                 genesis_validators_root: B256::from([0; 32]),
                 min_sync_committee_participants: 0,
+                sync_committee_size: 0,
                 genesis_time: 0,
                 genesis_slot: 0,
                 fork_parameters: ForkParameters {
@@ -208,7 +212,7 @@ mod tests {
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
-                current_sync_committee: FixedBytes::<48>::from([0; 48]),
+                current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
@@ -270,12 +274,16 @@ mod tests {
         use ethereum_light_client::{
             client_state::ClientState as EthClientState,
             consensus_state::ConsensusState as EthConsensusState,
-            header::Header,
+            error::EthereumIBCError,
+            header::{ActiveSyncCommittee, Header},
             test_utils::fixtures::{
                 self, get_packet_proof, InitialState, RelayerMessages, StepsFixture,
             },
         };
-        use ethereum_types::consensus::fork::{Fork, ForkParameters};
+        use ethereum_types::consensus::{
+            fork::{Fork, ForkParameters},
+            sync_committee::SummarizedSyncCommittee,
+        };
         use ibc_proto::{
             google::protobuf::Any,
             ibc::lightclients::wasm::v1::{ClientMessage, ClientState as WasmClientState},
@@ -290,6 +298,7 @@ mod tests {
             },
             state::HOST_CLIENT_STATE_KEY,
             test::mk_deps,
+            ContractError,
         };
 
         #[test]
@@ -391,6 +400,229 @@ mod tests {
                 value: Binary::from(value),
             });
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
+        }
+
+        /// This test runs through a scenario where a malicious relayer sends an incorrect sync
+        /// commitee whose aggregate pubkey is the same as the one in the header.
+        #[test]
+        fn test_aggragate_sync_committee_collision() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let fixture: StepsFixture =
+                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let consensus_state = initial_state.consensus_state;
+
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+            let msg = crate::msg::InstantiateMsg {
+                client_state: Binary::from(client_state_bz),
+                consensus_state: Binary::from(consensus_state_bz),
+                checksum: b"checksum".into(),
+            };
+
+            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+            // At this point, the light clients are initialized and the client state is stored
+            // In the flow, an ICS20 transfer has been initiated from Ethereum to Cosmos
+            // Next up we want to prove the packet on the Cosmos chain, so we start by updating the
+            // light client (which is two steps: verify client message and update state)
+
+            // Verify client message
+            let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            assert_eq!(1, update_client_msgs.len()); // just to make sure
+            assert_eq!(1, recv_msgs.len()); // just to make sure
+            let client_msgs = update_client_msgs
+                .iter()
+                .map(|msg| {
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap()
+                })
+                .map(|msg| msg.data)
+                .collect::<Vec<_>>();
+
+            let mut env = mock_env();
+
+            for header_bz in client_msgs {
+                let mut header: Header = serde_json::from_slice(&header_bz).unwrap();
+
+                let sync_committee = header.active_sync_committee;
+
+                header.active_sync_committee = sync_committee.clone();
+                if let ActiveSyncCommittee::Current(_x) = sync_committee {
+                    panic!("shouldn't happen");
+                } else if let ActiveSyncCommittee::Next(x) = sync_committee {
+                    let mut m = x.clone();
+
+                    let pk1 = FixedBytes([
+                        140, 49, 208, 243, 132, 3, 164, 40, 45, 148, 208, 102, 241, 152, 252, 233,
+                        211, 98, 140, 14, 252, 12, 218, 20, 119, 221, 237, 190, 104, 87, 99, 203,
+                        84, 46, 133, 35, 12, 231, 182, 84, 204, 230, 21, 131, 156, 120, 141, 61,
+                    ]);
+                    let pk2 = FixedBytes([
+                        172, 49, 208, 243, 132, 3, 164, 40, 45, 148, 208, 102, 241, 152, 252, 233,
+                        211, 98, 140, 14, 252, 12, 218, 20, 119, 221, 237, 190, 104, 87, 99, 203,
+                        84, 46, 133, 35, 12, 231, 182, 84, 204, 230, 21, 131, 156, 120, 141, 61,
+                    ]);
+
+                    m.pubkeys = vec![m.aggregate_pubkey, pk1, pk2];
+
+                    let mut bits = vec![0xFF; 48];
+                    bits[0] = 0b0000_0010;
+
+                    header.consensus_update.sync_aggregate.sync_committee_bits = bits.into();
+                    header
+                        .consensus_update
+                        .sync_aggregate
+                        .sync_committee_signature = FixedBytes([
+                        141, 213, 40, 198, 216, 4, 232, 6, 81, 233, 68, 218, 77, 6, 86, 182, 237,
+                        151, 157, 194, 232, 232, 2, 229, 197, 81, 72, 102, 47, 198, 140, 250, 207,
+                        60, 148, 124, 180, 228, 54, 236, 83, 56, 107, 245, 42, 98, 160, 150, 1,
+                        238, 185, 147, 132, 245, 121, 184, 114, 109, 240, 147, 152, 17, 155, 245,
+                        103, 165, 20, 131, 198, 158, 174, 20, 209, 57, 48, 219, 193, 164, 139, 206,
+                        114, 40, 86, 54, 211, 231, 111, 231, 233, 198, 92, 154, 229, 100, 165, 215,
+                    ]);
+
+                    header.active_sync_committee = ActiveSyncCommittee::Next(m);
+                }
+
+                let header_manipulated = serde_json::to_vec(&header).unwrap();
+
+                env.block.time = Timestamp::from_seconds(
+                    header.consensus_update.attested_header.execution.timestamp + 1000,
+                );
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_manipulated.clone()),
+                    });
+                // NOTE: It should error here if the vuln is patched
+                let err = query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap_err();
+                assert!(matches!(
+                    err,
+                    ContractError::VerifyClientMessageFailed(
+                        EthereumIBCError::NextSyncCommitteeMismatch { .. }
+                    )
+                ));
+            }
+        }
+
+        #[test]
+        fn test_invalid_sync_committee_size() {
+            let mut deps = mk_deps();
+            let creator = deps.api.addr_make("creator");
+            let info = message_info(&creator, &coins(1, "uatom"));
+
+            let fixture: StepsFixture =
+                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+
+            let initial_state: InitialState = fixture.get_data_at_step(0);
+
+            let client_state = initial_state.client_state;
+
+            let mut consensus_state = initial_state.consensus_state;
+
+            // Verify client message
+            let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            assert_eq!(1, update_client_msgs.len()); // just to make sure
+            assert_eq!(1, recv_msgs.len()); // just to make sure
+            let client_msgs = update_client_msgs
+                .iter()
+                .map(|msg| {
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap()
+                })
+                .map(|msg| msg.data)
+                .collect::<Vec<_>>();
+
+            let mut env = mock_env();
+
+            for header_bz in client_msgs {
+                let mut header: Header = serde_json::from_slice(&header_bz).unwrap();
+
+                let sync_committee = header.active_sync_committee;
+
+                header.active_sync_committee = sync_committee.clone();
+                if let ActiveSyncCommittee::Current(_x) = sync_committee {
+                    panic!("shouldn't happen");
+                } else if let ActiveSyncCommittee::Next(x) = sync_committee {
+                    let mut m = x.clone();
+
+                    let pk1 = FixedBytes([
+                        140, 49, 208, 243, 132, 3, 164, 40, 45, 148, 208, 102, 241, 152, 252, 233,
+                        211, 98, 140, 14, 252, 12, 218, 20, 119, 221, 237, 190, 104, 87, 99, 203,
+                        84, 46, 133, 35, 12, 231, 182, 84, 204, 230, 21, 131, 156, 120, 141, 61,
+                    ]);
+                    let pk2 = FixedBytes([
+                        172, 49, 208, 243, 132, 3, 164, 40, 45, 148, 208, 102, 241, 152, 252, 233,
+                        211, 98, 140, 14, 252, 12, 218, 20, 119, 221, 237, 190, 104, 87, 99, 203,
+                        84, 46, 133, 35, 12, 231, 182, 84, 204, 230, 21, 131, 156, 120, 141, 61,
+                    ]);
+
+                    m.pubkeys = vec![m.aggregate_pubkey, pk1, pk2];
+
+                    let mut bits = vec![0xFF; 48];
+                    bits[0] = 0b0000_0010;
+
+                    header.consensus_update.sync_aggregate.sync_committee_bits = bits.into();
+                    header
+                        .consensus_update
+                        .sync_aggregate
+                        .sync_committee_signature = FixedBytes([
+                        141, 213, 40, 198, 216, 4, 232, 6, 81, 233, 68, 218, 77, 6, 86, 182, 237,
+                        151, 157, 194, 232, 232, 2, 229, 197, 81, 72, 102, 47, 198, 140, 250, 207,
+                        60, 148, 124, 180, 228, 54, 236, 83, 56, 107, 245, 42, 98, 160, 150, 1,
+                        238, 185, 147, 132, 245, 121, 184, 114, 109, 240, 147, 152, 17, 155, 245,
+                        103, 165, 20, 131, 198, 158, 174, 20, 209, 57, 48, 219, 193, 164, 139, 206,
+                        114, 40, 86, 54, 211, 231, 111, 231, 233, 198, 92, 154, 229, 100, 165, 215,
+                    ]);
+
+                    consensus_state.next_sync_committee = Some(m.to_summarized_sync_committee());
+                    header.active_sync_committee = ActiveSyncCommittee::Next(m);
+                }
+
+                let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+                let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+                let msg = crate::msg::InstantiateMsg {
+                    client_state: Binary::from(client_state_bz),
+                    consensus_state: Binary::from(consensus_state_bz),
+                    checksum: b"checksum".into(),
+                };
+
+                instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+                let header_manipulated = serde_json::to_vec(&header).unwrap();
+
+                env.block.time = Timestamp::from_seconds(
+                    header.consensus_update.attested_header.execution.timestamp + 1000,
+                );
+
+                let query_verify_client_msg =
+                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
+                        client_message: Binary::from(header_manipulated.clone()),
+                    });
+                // NOTE: It should error here if the vuln is patched
+                let err = query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap_err();
+                assert!(matches!(
+                    err,
+                    ContractError::VerifyClientMessageFailed(
+                        EthereumIBCError::InsufficientSyncCommitteeLength {
+                            expected: 32,
+                            found: 3
+                        }
+                    )
+                ));
+            }
         }
 
         #[test]
@@ -734,6 +966,7 @@ mod tests {
                         epoch: 0,
                     },
                 },
+                sync_committee_size: 512,
                 seconds_per_slot: 10,
                 slots_per_epoch: 8,
                 epochs_per_sync_committee_period: 0,
@@ -750,7 +983,7 @@ mod tests {
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
-                current_sync_committee: FixedBytes::<48>::from([0; 48]),
+                current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();

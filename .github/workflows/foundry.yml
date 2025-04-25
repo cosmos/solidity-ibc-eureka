@@ -62,6 +62,9 @@ jobs:
             echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
           )" >> $GITHUB_ENV
 
+      - name: Limit the fuzz runs to 5000
+        run: echo "FOUNDRY_FUZZ_RUNS=5000" >> $GITHUB_ENV
+
       - name: Run the tests
         run: forge test
 
@@ -83,6 +86,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lcov
+
+      - name: Generate a fuzz seed that changes weekly to avoid burning through RPC allowance
+        run: >
+          echo "FOUNDRY_FUZZ_SEED=$(
+            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
+          )" >> $GITHUB_ENV
+
+      - name: Limit the fuzz runs to 5000
+        run: echo "FOUNDRY_FUZZ_RUNS=5000" >> $GITHUB_ENV
 
       - name: Run coverage
         run: forge coverage --report lcov
