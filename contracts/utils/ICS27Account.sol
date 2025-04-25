@@ -12,7 +12,7 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param _ics27 The ICS27GMP contract address. Immutable.
-    /// @custom:storage-location erc7201:ibc.storage.ICS27GMP
+    /// @custom:storage-location erc7201:ibc.storage.ICS27Account
     struct ICS27AccountStorage {
         address _ics27;
     }
