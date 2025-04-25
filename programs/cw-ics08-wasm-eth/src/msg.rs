@@ -63,7 +63,8 @@ pub enum QueryMsg {
 /// The message to migrate the contract
 #[cw_serde]
 pub struct MigrateMsg {
-    /// The optional instantiate msg to re-initialize the client
+    /// Migration enum that defines the type of migration
+    /// and any additional data needed for the migration
     pub migration: Migration,
 }
 

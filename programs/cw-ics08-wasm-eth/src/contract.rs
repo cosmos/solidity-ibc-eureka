@@ -120,8 +120,8 @@ pub fn migrate(
             // Change the fork parameters
             let mut client_state = state::get_eth_client_state(deps.storage)?;
             client_state.fork_parameters = fork_parameters;
-            let client_state_bz: Vec<u8> =
-            serde_json::to_vec(&client_state).map_err(ContractError::SerializeClientStateFailed)?;
+            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state)
+                .map_err(ContractError::SerializeClientStateFailed)?;
             let mut wasm_client_state = state::get_wasm_client_state(deps.storage)?;
             wasm_client_state.data = client_state_bz;
             state::store_client_state(deps.storage, &wasm_client_state)?;
