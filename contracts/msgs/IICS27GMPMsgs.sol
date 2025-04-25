@@ -4,17 +4,17 @@ pragma solidity ^0.8.28;
 interface IICS27GMPMsgs {
     /// @notice Message for sending a GMP packet
     /// @param sourceClient The source client identifier
-    /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
     /// @param receiver The receiver address of the contract call
     /// @param salt The salt used to generate the caller account address
     /// @param payload The payload of the call
+    /// @param timeoutTimestamp The absolute timeout timestamp in unix seconds
     /// @param memo Optional memo
     struct SendCallMsg {
         string sourceClient;
-        uint64 timeoutTimestamp;
         string receiver;
         bytes salt;
         bytes payload;
+        uint64 timeoutTimestamp;
         string memo;
     }
 
