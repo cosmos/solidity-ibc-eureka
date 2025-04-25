@@ -71,11 +71,11 @@ pub struct MigrateMsg {
 #[cw_serde]
 pub enum Migration {
     /// Migrate only the contract code not state
-    CodeOnlyMigrate,
+    CodeOnly,
     /// Migrate the contract code and reinitialize state
     Reinstantiate(InstantiateMsg),
-    /// Migrate the contract code and change fork parameters
-    ChangeParameters(ForkParameters),
+    /// Migrate the contract code and update fork parameters
+    UpdateForkParameters(ForkParameters),
 }
 
 /// Verify membership message
