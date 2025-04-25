@@ -356,11 +356,6 @@
             "internalType": "string"
           },
           {
-            "name": "timeoutTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "receiver",
             "type": "string",
             "internalType": "string"
@@ -374,6 +369,11 @@
             "name": "payload",
             "type": "bytes",
             "internalType": "bytes"
+          },
+          {
+            "name": "timeoutTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "memo",
