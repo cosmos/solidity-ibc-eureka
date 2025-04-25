@@ -642,4 +642,86 @@ contract Integration2Test is Test {
             ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
         assertEq(storedCommitment, 0);
     }
+
+    function testFuzz_success_errorGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCallRevert(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(),
+            sender: Strings.toHexString(user),
+            salt: vm.randomBytes(saltLen)
+        });
+
+        // send packet
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+
+        // Receive the packet on B
+        vm.expectCall(receiver, 0, payload);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, th.SINGLE_ERROR_ACK(), "ack mismatch");
+
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Acknowledge the packet on A
+        ibcImplA.ackPacket(sentPacket, acks);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+    }
+
+    function testFuzz_success_timeoutGmp(uint16 saltLen) public {
+        address user = integrationEnv.createUser();
+        address receiver = makeAddr("receiver");
+
+        // any function call as payload
+        bytes memory payload = abi.encodeCall(ILightClient.misbehaviour, (bytes("any")));
+        bytes memory callResp = bytes("any response");
+        vm.mockCallRevert(receiver, payload, callResp);
+
+        // precompute account address
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(),
+            sender: Strings.toHexString(user),
+            salt: vm.randomBytes(saltLen)
+        });
+
+        // send packet
+        uint64 timeoutTimestamp = uint64(block.timestamp + 10 seconds);
+        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt, "", timeoutTimestamp);
+
+        // Set the block timestamp to the timeout
+        vm.warp(block.timestamp + 30 seconds);
+
+        // Fail to receive the packet on Chain B
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS26RouterErrors.IBCInvalidTimeoutTimestamp.selector, sentPacket.timeoutTimestamp, block.timestamp
+            )
+        );
+        ibcImplB.recvPacket(sentPacket);
+
+        // run the receive packet queries
+        assertFalse(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Timeout the packet on Chain A
+        ibcImplA.timeoutPacket(sentPacket);
+
+        // commitment should be deleted
+        bytes32 storedCommitment =
+            ibcImplA.relayerHelper().queryPacketCommitment(sentPacket.sourceClient, sentPacket.sequence);
+        assertEq(storedCommitment, 0);
+    }
 }
