@@ -17,6 +17,8 @@ pub struct ClientState {
     pub genesis_validators_root: B256,
     /// The minimum number of participants in the sync committee
     pub min_sync_committee_participants: u64,
+    /// The size of the sync committee, maximum possible number of participants
+    pub sync_committee_size: u64,
     /// The time of genesis (unix timestamp)
     pub genesis_time: u64,
     /// The genesis slot

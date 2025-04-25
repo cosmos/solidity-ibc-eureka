@@ -33,6 +33,7 @@ pub fn verify_misbehaviour<V: BlsVerify>(
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState::new(
+        client_state,
         consensus_state.clone(),
         full_sync_committee.clone(),
         &bls_verifier,

@@ -33,3 +33,18 @@ jobs:
           file: target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour} 
           tag: ${{ github.ref }}
           overwrite: true
+
+  release-cw-ics08-wasm-eth:
+    runs-on: depot-ubuntu-22.04-4
+    if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload cw-ics08-wasm-eth to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file_glob: true
+          file: e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz
+          tag: ${{ github.ref }}
+          overwrite: true
