@@ -1156,6 +1156,7 @@ mod tests {
             // verify fork parameters have changed
             let eth_client_state: EthClientState =
                 serde_json::from_slice(&wasm_client_state.data).unwrap();
+            assert_eq!(eth_client_state.latest_slot, client_state.latest_slot);
             assert_ne!(
                 eth_client_state.fork_parameters.electra.epoch,
                 client_state.fork_parameters.electra.epoch
