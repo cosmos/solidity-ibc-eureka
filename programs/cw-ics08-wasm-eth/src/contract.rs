@@ -111,12 +111,12 @@ pub fn migrate(
 
     // Perform the migration
     match msg.migration {
-        Migration::CodeOnlyMigrate => {} // do nothing here
+        Migration::CodeOnly => {} // do nothing here
         Migration::Reinstantiate(instantiate_msg) => {
             // Re-instantiate the client
             instantiate::client(deps.storage, instantiate_msg)?;
         }
-        Migration::ChangeParameters(fork_parameters) => {
+        Migration::UpdateForkParameters(fork_parameters) => {
             // Change the fork parameters
             let mut client_state = state::get_eth_client_state(deps.storage)?;
             client_state.fork_parameters = fork_parameters;
@@ -924,7 +924,7 @@ mod tests {
                 deps.as_mut(),
                 mock_env(),
                 crate::msg::MigrateMsg {
-                    migration: crate::msg::Migration::CodeOnlyMigrate,
+                    migration: crate::msg::Migration::CodeOnly,
                 },
             )
             .unwrap();
@@ -1106,7 +1106,7 @@ mod tests {
             assert_eq!(0, res.messages.len());
 
             let migrate_msg = MigrateMsg {
-                migration: crate::msg::Migration::ChangeParameters(ForkParameters {
+                migration: crate::msg::Migration::UpdateForkParameters(ForkParameters {
                     genesis_fork_version: FixedBytes([0; 4]),
                     genesis_slot: 0,
                     altair: Fork {
