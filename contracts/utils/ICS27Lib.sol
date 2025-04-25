@@ -24,7 +24,6 @@ library ICS27Lib {
     /// @notice KECCAK256_DEFAULT_PORT_ID is the keccak256 hash of the DEFAULT_PORT_ID.
     bytes32 internal constant KECCAK256_DEFAULT_PORT_ID = keccak256(bytes(DEFAULT_PORT_ID));
 
-
     /// @notice Create a GMP acknowledgement from a call result.
     /// @param result The result of the call
     /// @return The GMP acknowledgement message

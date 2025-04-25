@@ -617,7 +617,8 @@ contract Integration2Test is Test {
         address computedAccount = ibcImplB.ics27Gmp().getOrComputeAccountAddress(accountId);
 
         // send packet
-        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
 
         // Receive the packet on B
         vm.expectCall(receiver, 0, payload);
@@ -660,7 +661,8 @@ contract Integration2Test is Test {
         });
 
         // send packet
-        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt);
 
         // Receive the packet on B
         vm.expectCall(receiver, 0, payload);
@@ -699,7 +701,8 @@ contract Integration2Test is Test {
 
         // send packet
         uint64 timeoutTimestamp = uint64(block.timestamp + 10 seconds);
-        IICS26RouterMsgs.Packet memory sentPacket = ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt, "", timeoutTimestamp);
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendGmpAsUser(user, Strings.toHexString(receiver), payload, accountId.salt, "", timeoutTimestamp);
 
         // Set the block timestamp to the timeout
         vm.warp(block.timestamp + 30 seconds);
