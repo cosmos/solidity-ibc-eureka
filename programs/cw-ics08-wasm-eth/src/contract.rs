@@ -2,7 +2,7 @@
 
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg, MigrateMsg, Migration};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg};
 use crate::{custom_query::EthereumCustomQuery, instantiate, query, state};
 use crate::{sudo, ContractError};
 
@@ -872,32 +872,30 @@ mod tests {
             assert_eq!(0, res.messages.len());
 
             let migrate_msg = MigrateMsg {
-                migration: crate::msg::Migration::ChangeParameters(ForkParameters 
-                    { 
-                        genesis_fork_version: FixedBytes([0; 4]),
-                        genesis_slot: 0,
-                        altair: Fork {
-                            version: FixedBytes([0; 4]),
-                            epoch: 0,
-                        },
-                        bellatrix: Fork {
-                            version: FixedBytes([0; 4]),
-                            epoch: 0,
-                        },
-                        capella: Fork {
-                            version: FixedBytes([0; 4]),
-                            epoch: 0,
-                        },
-                        deneb: Fork {
-                            version: FixedBytes([0; 4]),
-                            epoch: 0,
-                        },
-                        electra: Fork {
-                            version: FixedBytes([0; 4]),
-                            epoch: 5000,
-                        },
-                    }
-                ),
+                migration: crate::msg::Migration::ChangeParameters(ForkParameters {
+                    genesis_fork_version: FixedBytes([0; 4]),
+                    genesis_slot: 0,
+                    altair: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    bellatrix: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    capella: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    deneb: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 0,
+                    },
+                    electra: Fork {
+                        version: FixedBytes([0; 4]),
+                        epoch: 5000,
+                    },
+                }),
             };
 
             // Migrate without any changes and without reinitializing (i.e. same state version)
@@ -923,11 +921,7 @@ mod tests {
                 eth_client_state.fork_parameters.electra.epoch,
                 client_state.fork_parameters.electra.epoch
             );
-            assert_eq!(
-                eth_client_state.fork_parameters.electra.epoch,
-                5000
-            );
-
+            assert_eq!(eth_client_state.fork_parameters.electra.epoch, 5000);
         }
     }
 }

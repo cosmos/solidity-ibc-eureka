@@ -4,8 +4,8 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Binary;
 use ethereum_light_client::header::ActiveSyncCommittee;
-use ethereum_types::consensus::light_client_header::LightClientUpdate;
 use ethereum_types::consensus::fork::ForkParameters;
+use ethereum_types::consensus::light_client_header::LightClientUpdate;
 
 /// The message to instantiate the contract
 #[cw_serde]
@@ -75,7 +75,7 @@ pub enum Migration {
     /// Migrate the contract code and reinitialize state
     Reinstantiate(InstantiateMsg),
     /// Migrate the contract code and change fork parameters
-    ChangeParameters(ForkParameters)
+    ChangeParameters(ForkParameters),
 }
 
 /// Verify membership message
