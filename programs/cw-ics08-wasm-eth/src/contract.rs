@@ -1041,6 +1041,7 @@ mod tests {
             );
         }
 
+        #[allow(clippy::too_many_lines)]
         #[test]
         fn test_migrate_with_fork_parameters() {
             let mut deps = mk_deps();
