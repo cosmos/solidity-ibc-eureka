@@ -1073,6 +1073,7 @@ mod tests {
                         epoch: 0,
                     },
                 },
+                sync_committee_size: 512,
                 seconds_per_slot: 10,
                 slots_per_epoch: 8,
                 epochs_per_sync_committee_period: 0,
@@ -1089,7 +1090,7 @@ mod tests {
                 state_root: B256::from([0; 32]),
                 storage_root: B256::from([0; 32]),
                 timestamp: 0,
-                current_sync_committee: FixedBytes::<48>::from([0; 48]),
+                current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
             };
             let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();

@@ -108,8 +108,8 @@ pub fn store_client_state(
 }
 
 /// Store the eth client state
-// # Errors
-// Returns an error if the client state cannot be serialized into an Any
+/// # Errors
+/// Returns an error if the client state cannot be serialized into an Any
 // Note this is a function that will store a change to the internal eth client state
 // wrapped by the WasmClientState
 // It will replace the eth client state, while keeping the checksum and latest height
