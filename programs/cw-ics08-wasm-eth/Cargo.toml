@@ -1,6 +1,6 @@
 [package]
 name = "cw-ics08-wasm-eth"
-version = { workspace = true }
+version = "1.2.0"
 edition = { workspace = true }
 repository = { workspace = true }
 
