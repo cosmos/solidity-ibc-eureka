@@ -71,9 +71,9 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
         &misbehaviour_program,
     )
     .await?;
-    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
+    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state)?;
     let trusted_consensus_state: ConsensusState =
-        SolConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?.into();
+        SolConsensusState::abi_decode(&genesis.trusted_consensus_state)?.into();
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
@@ -110,7 +110,7 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     );
 
     let bytes = proof_data.public_values.as_slice();
-    let output = UcAndMembershipOutput::abi_decode(bytes, false)?;
+    let output = UcAndMembershipOutput::abi_decode(bytes)?;
     assert_eq!(output.kvPairs.len(), kv_len);
 
     let sp1_membership_proof = SP1MembershipAndUpdateClientProof {

@@ -48,7 +48,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
     type Error = anyhow::Error;
 
     fn try_from(log: &Log) -> anyhow::Result<Self> {
-        let sol_event = routerEvents::decode_log(&log.inner, true).map_err(|e| {
+        let sol_event = routerEvents::decode_log(&log.inner).map_err(|e| {
             anyhow::anyhow!(
                 "Failed to decode log into ICS26Router event: {}",
                 e.to_string()

@@ -29,17 +29,13 @@ pub fn main() {
     let encoded_5 = sp1_zkvm::io::read_vec();
 
     // input 1: client state
-    let client_state = SolClientState::abi_decode(&encoded_1, true).unwrap();
+    let client_state = SolClientState::abi_decode(&encoded_1).unwrap();
     // input 2: the misbehaviour evidence
     let misbehaviour = <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(&encoded_2).unwrap();
     // input 3: header 1 trusted consensus state
-    let trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3, true)
-        .unwrap()
-        .into();
+    let trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3).unwrap().into();
     // input 4: header 2 trusted consensus state
-    let trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4, true)
-        .unwrap()
-        .into();
+    let trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4).unwrap().into();
     // input 5: time
     let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 

@@ -31,7 +31,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let wallet = eth::wallet_from_env();
     let provider = ProviderBuilder::new()
         .wallet(wallet)
-        .on_http(rpc_url.parse()?);
+        .connect_http(rpc_url.parse()?);
 
     let contract = sp1_ics07_tendermint::new(contract_address.parse()?, provider);
     let contract_client_state = contract.clientState().call().await?;

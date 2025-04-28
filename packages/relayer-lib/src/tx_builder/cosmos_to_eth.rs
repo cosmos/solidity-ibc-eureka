@@ -4,6 +4,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use alloy::{
+    network::Ethereum,
     primitives::{keccak256, Address},
     providers::Provider,
     sol_types::{SolCall, SolValue},
@@ -44,7 +45,7 @@ where
     C: SP1ProverComponents,
 {
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<(), P>,
+    pub ics26_router: routerInstance<P, Ethereum>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// SP1 prover for generating proofs.
@@ -78,7 +79,7 @@ where
     /// # Errors
     /// Returns an error if the client state cannot be retrieved.
     pub async fn client_state(&self, client_id: String) -> Result<ClientState> {
-        let ics07_address = self.ics26_router.getClient(client_id).call().await?._0;
+        let ics07_address = self.ics26_router.getClient(client_id).call().await?;
         Ok(
             sp1_ics07_tendermint::new(ics07_address, self.ics26_router.provider().clone())
                 .clientState()
