@@ -58,6 +58,7 @@ pub fn verify_header<V: BlsVerify>(
     bls_verifier: V,
 ) -> Result<(), EthereumIBCError> {
     let trusted_consensus_state = TrustedConsensusState::new(
+        client_state,
         consensus_state.clone(),
         header.active_sync_committee.clone(),
         &bls_verifier,
@@ -347,6 +348,13 @@ pub fn validate_light_client_update<V: BlsVerify>(
 
     // It's not mandatory for all of the members of the sync committee to participate. So we are extracting the
     // public keys of the ones who participated.
+    ensure!(
+        update.sync_aggregate.sync_committee_size() == sync_committee.pubkeys.len() as u64,
+        EthereumIBCError::InsufficientSyncCommitteeLength {
+            expected: sync_committee.pubkeys.len() as u64,
+            found: update.sync_aggregate.sync_committee_size()
+        }
+    );
     let participant_pubkeys = update
         .sync_aggregate
         .sync_committee_bits
