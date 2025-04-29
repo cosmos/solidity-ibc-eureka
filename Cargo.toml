@@ -115,7 +115,7 @@ ethereum_ssz_derive = { version = "0.9", default-features = false }
 tree_hash_derive    = { version = "0.10", default-features = false }
 
 # The dependencies below are maintained by Parity Tech
-trie-db            = { version = "0.29", default-features = false }
+trie-db            = { version = "0.30", default-features = false }
 hash-db            = { version = "0.16", default-features = false }
 memory-db          = { version = "0.32", default-features = false }
 hash256-std-hasher = { version = "0.15", default-features = false }
