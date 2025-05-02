@@ -30,11 +30,9 @@ pub fn main() {
     let encoded_4 = sp1_zkvm::io::read_vec();
 
     // input 1: the client state
-    let client_state = SolClientState::abi_decode(&encoded_1, true).unwrap();
+    let client_state = SolClientState::abi_decode(&encoded_1).unwrap();
     // input 2: the trusted consensus state
-    let trusted_consensus_state = SolConsensusState::abi_decode(&encoded_2, true)
-        .unwrap()
-        .into();
+    let trusted_consensus_state = SolConsensusState::abi_decode(&encoded_2).unwrap().into();
     // input 3: the proposed header
     let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time

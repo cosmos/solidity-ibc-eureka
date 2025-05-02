@@ -5,6 +5,7 @@ use std::{collections::HashMap, time::Duration};
 
 use alloy::{
     hex,
+    network::Ethereum,
     primitives::{Address, U256},
     providers::Provider,
 };
@@ -54,7 +55,7 @@ where
     /// The Beacon API client.
     pub beacon_api_client: BeaconApiClient,
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<(), P>,
+    pub ics26_router: routerInstance<P, Ethereum>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// The signer address for the Cosmos messages.
@@ -67,7 +68,7 @@ pub struct MockTxBuilder<P: Provider + Clone> {
     /// The ETH API client.
     pub eth_client: EthApiClient<P>,
     /// The IBC Eureka router instance.
-    pub ics26_router: routerInstance<(), P>,
+    pub ics26_router: routerInstance<P, Ethereum>,
     /// The signer address for the Cosmos messages.
     pub signer_address: String,
 }
