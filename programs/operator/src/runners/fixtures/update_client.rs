@@ -87,9 +87,8 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     )
     .await?;
 
-    let trusted_consensus_state =
-        ConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?;
-    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
+    let trusted_consensus_state = ConsensusState::abi_decode(&genesis.trusted_consensus_state)?;
+    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state)?;
 
     let proposed_header = target_light_block.into_header(&trusted_light_block);
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
@@ -101,7 +100,7 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
         now_since_unix.as_nanos(),
     );
 
-    let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice(), false)?;
+    let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice())?;
 
     let update_msg = MsgUpdateClient {
         sp1Proof: SP1Proof::new(
