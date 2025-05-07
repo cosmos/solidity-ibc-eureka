@@ -26,7 +26,7 @@ import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -52,7 +52,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ERC1967Proxy routerProxy = DeployProxiedICS26Router.deployProxiedICS26Router(
+        ERC1967Proxy routerProxy = deployProxiedICS26Router(
             ics26RouterLogic,
             msg.sender,
             msg.sender,
@@ -60,7 +60,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
             publicRelayers
         );
 
-        ERC1967Proxy transferProxy = DeployProxiedICS20Transfer.deployProxiedICS20Transfer(
+        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(
             ics20TransferLogic,
             address(routerProxy),
             escrowLogic,

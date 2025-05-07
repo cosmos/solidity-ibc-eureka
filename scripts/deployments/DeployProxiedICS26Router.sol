@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-library DeployProxiedICS26Router {
+abstract contract DeployProxiedICS26Router {
     function deployProxiedICS26Router(
         address implementation,
         address timeLockAdmin,
