@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,gas-custom-errors
 
-import { Deployments } from "../helpers/Deployments.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
@@ -12,22 +11,28 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { Script } from "forge-std/Script.sol";
 
-abstract contract DeployProxiedICS26Router is Deployments {
-    function deployProxiedICS26Router(Deployments.ProxiedICS26RouterDeployment memory deployment) public returns (ERC1967Proxy) {
-        require(msg.sender == deployment.timeLockAdmin, "sender must be timeLockAdmin");
+library DeployProxiedICS26Router {
+    function deployProxiedICS26Router(
+        address implementation,
+        address timeLockAdmin,
+        address portCustomizer,
+        address clientIdCustomizer,
+        address[] memory relayers
+    ) public returns (ERC1967Proxy) {
+        require(msg.sender == timeLockAdmin, "sender must be timeLockAdmin");
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            deployment.implementation,
-            abi.encodeCall(ICS26Router.initialize, (deployment.timeLockAdmin))
+            implementation,
+            abi.encodeCall(ICS26Router.initialize, (timeLockAdmin))
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
 
-        for (uint256 i = 0; i < deployment.relayers.length; i++) {
-            ics26Router.grantRole(ics26Router.RELAYER_ROLE(), deployment.relayers[i]);
+        for (uint256 i = 0; i < relayers.length; i++) {
+            ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayers[i]);
         }
-         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), deployment.portCustomizer);
-         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), deployment.clientIdCustomizer);
+         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer);
+         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), clientIdCustomizer);
 
         return routerProxy;
     }
