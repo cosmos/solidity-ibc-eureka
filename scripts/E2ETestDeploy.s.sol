@@ -13,6 +13,7 @@ import { Script } from "forge-std/Script.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { ICS27GMP } from "../contracts/ICS27GMP.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
@@ -47,6 +48,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         // Deploy IBC Eureka with proxy
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
+        address ics27GmpLogic = address(new ICS27GMP());
 
         AccessManager accessManager = new AccessManager(msg.sender);
 
