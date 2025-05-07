@@ -12,6 +12,7 @@ import { Script } from "forge-std/Script.sol";
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
+import { ICS27GMP } from "../contracts/ICS27GMP.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -51,6 +52,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS20Transf
         address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
+        address ics27GmpLogic = address(new ICS27GMP());
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
             proxy: payable(address(0)),
