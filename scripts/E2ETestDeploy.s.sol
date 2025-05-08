@@ -20,14 +20,16 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
+import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
 import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
+import { DeployProxiedICS27GMP } from "./deployments/DeployProxiedICS27GMP.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer, DeployProxiedICS27GMP {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -50,6 +52,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         // Deploy IBC Eureka with proxy
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
+        address accountLogic = address(new ICS27Account());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
         address ics27GmpLogic = address(new ICS27GMP());
@@ -73,8 +76,15 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
             address(0)
         );
 
+        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(
+            ics27GmpLogic,
+            address(routerProxy),
+            accountLogic
+        );
+
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
+        ICS27GMP ics27Gmp = ICS27GMP(address(gmpProxy));
         TestERC20 erc20 = new TestERC20();
         // Wire Transfer app
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
@@ -90,6 +100,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
+        json.serialize("ics27Gmp", Strings.toHexString(address(ics27Gmp)));
         json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
         // TODO: resolve finalJson vs json
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
