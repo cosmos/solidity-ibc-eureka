@@ -111,6 +111,9 @@ const (
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+
+	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
+	Ics27AbiEncoding = "application/x-solidity-abi"
 )
 
 var (
