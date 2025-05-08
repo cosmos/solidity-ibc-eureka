@@ -148,6 +148,12 @@ test-e2e-multichain testname: clean
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the IbcEurekaGmpTestSuite using the test's name
+# For example, `just test-e2e-multichain TestDeploy_Groth16`
+test-e2e-gmp testname: clean
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
+
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 install-operator:
 	cargo install --bin operator --path programs/operator --locked
