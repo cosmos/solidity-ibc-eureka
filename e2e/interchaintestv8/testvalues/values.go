@@ -158,6 +158,9 @@ const (
 	AggregatorConfigPath = "/tmp/aggregator.toml"
 	// The RPC endpoint for the aggregator service
 	AggregatorRpcPath = "http://localhost:8080"
+
+	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
+	Ics27AbiEncoding = "application/x-solidity-abi"
 )
 
 var (

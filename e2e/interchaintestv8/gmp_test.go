@@ -423,13 +423,15 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 		encodedCall, err := erc20Abi.Pack("transfer", ics26Address, testAmount)
 		s.Require().NoError(err)
 
-		resp, err := s.BroadcastMessages(ctx, simd, simdUser, 200_000, &gmptypes.MsgSendCall{
-			SourceClient:     testvalues.CustomClientID,
+		resp, err := s.BroadcastMessages(ctx, simd, simdUser, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     testvalues.FirstWasmClientID,
 			Sender:           simdUser.FormattedAddress(),
-			Receiver:         s.contractAddresses.Ics26Router,
+			Receiver:         s.contractAddresses.Erc20,
 			Salt:             nil,
 			Payload:          encodedCall,
 			TimeoutTimestamp: timeout,
+			Memo:             "",
+			Encoding:         testvalues.Ics27AbiEncoding,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
