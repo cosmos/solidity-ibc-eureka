@@ -27,7 +27,7 @@ import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS20Transfer, DeployProxiedICS26Router {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -54,26 +54,24 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS20Transf
         address ics20TransferLogic = address(new ICS20Transfer());
         address ics27GmpLogic = address(new ICS27GMP());
 
-        ERC1967Proxy routerProxy = deployProxiedICS26Router(ProxiedICS26RouterDeployment({
-            proxy: payable(address(0)),
-            implementation: ics26RouterLogic,
-            timeLockAdmin: msg.sender,
-            portCustomizer: msg.sender,
-            clientIdCustomizer: msg.sender,
-            relayers: publicRelayers
-        }));
+        ERC1967Proxy routerProxy = deployProxiedICS26Router(
+            ics26RouterLogic,
+            msg.sender,
+            msg.sender,
+            msg.sender,
+            publicRelayers
+        );
 
-        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(ProxiedICS20TransferDeployment({
-            proxy: payable(address(0)),
-            implementation: ics20TransferLogic,
-            ics26Router: address(routerProxy),
-            escrowImplementation: escrowLogic,
-            ibcERC20Implementation: ibcERC20Logic,
-            pausers: new address[](0),
-            unpausers: new address[](0),
-            tokenOperator: address(0),
-            permit2: address(0)
-        }));
+        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(
+            ics20TransferLogic,
+            address(routerProxy),
+            escrowLogic,
+            ibcERC20Logic,
+            new address[](0),
+            new address[](0),
+            address(0),
+            address(0)
+        );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
