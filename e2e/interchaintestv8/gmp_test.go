@@ -398,11 +398,16 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	testAmount := big.NewInt(1)
 
+	testUserKey, err := eth.CreateUser()
+	s.Require().NoError(err)
+	testUserAddress := crypto.PubkeyToAddress(testUserKey.PublicKey)
+
 	erc20Abi, err := abi.JSON(strings.NewReader(erc20.ContractABI))
 	s.Require().NoError(err)
 
+	var computedAddress ethcommon.Address
 	s.Require().True(s.Run("Fund pre-computed ICS27 address", func() {
-		computedAddress, err := s.ics27Contract.GetOrComputeAccountAddress(nil, ics27gmp.IICS27GMPMsgsAccountIdentifier{
+		computedAddress, err = s.ics27Contract.GetOrComputeAccountAddress(nil, ics27gmp.IICS27GMPMsgsAccountIdentifier{
 			ClientId: testvalues.CustomClientID,
 			Sender:   simdUser.FormattedAddress(),
 			Salt:     nil,
@@ -416,11 +421,22 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 		s.Require().NoError(err)
 	}))
 
-	// var sendTxHash []byte
+	s.True(s.Run("Verify initial balances on Ethereum", func() {
+		// ICS27Account balance should be zero
+		ics27AccBal, err := s.erc20Contract.BalanceOf(nil, computedAddress)
+		s.Require().NoError(err)
+		s.Require().Equal(testAmount, ics27AccBal)
+
+		testBalance, err := s.erc20Contract.BalanceOf(nil, testUserAddress)
+		s.Require().NoError(err)
+		s.Require().Zero(testBalance.Int64())
+	}))
+
+	var sendTxHash []byte
 	s.Require().True(s.Run("Send call from Cosmos", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
-		encodedCall, err := erc20Abi.Pack("transfer", ics26Address, testAmount)
+		encodedCall, err := erc20Abi.Pack("transfer", testUserAddress, testAmount)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, simdUser, 2_000_000, &gmptypes.MsgSendCall{
@@ -436,7 +452,45 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.TxHash)
 
-		_, err = hex.DecodeString(resp.TxHash)
+		sendTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
+	}))
+
+	// var ackTxHash []byte
+	s.Require().True(s.Run("Receive packet in Ethereum", func() {
+		var recvRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			recvRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 2_000_000, &ics26Address, recvRelayTx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+
+			// ackTxHash = receipt.TxHash.Bytes()
+		}))
+
+		s.True(s.Run("Verify balances on Ethereum", func() {
+			// ICS27Account balance should be zero
+			ics27AccBal, err := s.erc20Contract.BalanceOf(nil, computedAddress)
+			s.Require().NoError(err)
+			s.Require().Zero(ics27AccBal.Int64())
+
+			testBalance, err := s.erc20Contract.BalanceOf(nil, testUserAddress)
+			s.Require().NoError(err)
+			s.Require().Equal(testAmount, testBalance)
+		}))
 	}))
 }

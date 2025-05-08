@@ -17,6 +17,7 @@ import { ICS27GMP } from "../contracts/ICS27GMP.sol";
 import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
+import { ICS27Lib } from "../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerWithRoles.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
@@ -93,8 +94,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         ICS27GMP ics27Gmp = ICS27GMP(address(gmpProxy));
         TestERC20 erc20 = new TestERC20();
-        // Wire Transfer app
-        ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
+        // Wire apps
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        ics26Router.addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(ics27Gmp));
 
         // Mint some tokens
         TestERC20 erc20 = new TestERC20();
