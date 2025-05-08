@@ -208,6 +208,20 @@ generate-ethereum-types:
 	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak # this is to be linux and mac compatible (coming from the sed command)
 	cd e2e/interchaintestv8 && golangci-lint run --fix types/ethereum/types.gen.go
 
+
+# Deploy scripts. If these fail to land due to gas price fluctuations, try again with a higher gas price:
+# adding something like `--legacy --with-gas-price 100gwei` -- depending on the current gas prices.
+
+# Deploy the ICS26Router contract using environment variables
+deploy-ics26: build-contracts
+	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
+# Deploy the ICS20Transfer contract using environment variables
+deploy-ics20: build-contracts
+	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
+	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
+
 # Generate the fixtures for the Solidity tests using the e2e tests
 [group('generate')]
 generate-fixtures-solidity: clean-foundry install-operator install-relayer
@@ -321,6 +335,11 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-gmp TestDeploy_Groth16`
+[group('test')]
+test-e2e-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]
