@@ -11,12 +11,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -37,6 +43,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -422,7 +429,6 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 	}))
 
 	s.True(s.Run("Verify initial balances on Ethereum", func() {
-		// ICS27Account balance should be zero
 		ics27AccBal, err := s.erc20Contract.BalanceOf(nil, computedAddress)
 		s.Require().NoError(err)
 		s.Require().Equal(testAmount, ics27AccBal)
@@ -518,6 +524,163 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
+		}))
+	}))
+}
+
+// TestSendCallFromEth_Groth16 tests the SendCall from Ethereum to Cosmos
+func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth_Groth16() {
+	ctx := context.Background()
+	s.SendCallFromEthTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType)
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(1)))
+	testSimdUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
+
+	s.T().Logf("Eth user address: %s", ethUserAddress.Hex())
+
+	var computedAddress sdk.AccAddress
+	s.Require().True(s.Run("Fund pre-computed ICS27 address", func() {
+		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
+			ClientId: testvalues.FirstWasmClientID,
+			Sender:   strings.ToLower(ethUserAddress.Hex()),
+			Salt:     "",
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(res.AccountAddress)
+
+		computedAddress, err = sdk.AccAddressFromBech32(res.AccountAddress)
+		s.Require().NoError(err)
+
+		_, err = s.BroadcastMessages(ctx, simd, testSimdUser, 2_000_000, &banktypes.MsgSend{
+			FromAddress: testSimdUser.FormattedAddress(),
+			ToAddress:   computedAddress.String(),
+			Amount:      testAmount,
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.True(s.Run("Verify initial balances on Cosmos", func() {
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: computedAddress.String(),
+			Denom:   simd.Config().Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		s.Require().Equal(testAmount[0].Denom, resp.Balance.Denom)
+		s.Require().Equal(testAmount[0].Amount.Int64(), resp.Balance.Amount.Int64())
+
+	}))
+
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send call from Eth", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		msgSend := &banktypes.MsgSend{
+			FromAddress: computedAddress.String(),
+			ToAddress:   testSimdUser.FormattedAddress(),
+			Amount:      testAmount,
+		}
+
+		sendCallMsg, err := gmphelpers.NewPayload_FromProto([]proto.Message{msgSend})
+		s.Require().NoError(err)
+
+		tx, err := s.ics27Contract.SendCall(s.GetTransactOpts(s.key, eth), ics27gmp.IICS27GMPMsgsSendCallMsg{
+			SourceClient:     testvalues.CustomClientID,
+			Receiver:         "",
+			Salt:             nil,
+			Payload:          sendCallMsg,
+			TimeoutTimestamp: timeout,
+			Memo:             "",
+		})
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
+		s.Require().NotEmpty(receipt.TxHash)
+
+		sendTxHash = receipt.TxHash.Bytes()
+	}))
+
+	var ackTxHash []byte
+	s.Require().True(s.Run("Receive packet in Cosmos", func() {
+		var recvRelayTx []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			recvRelayTx = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Submit relay tx", func() {
+			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, recvRelayTx)
+			s.Require().Equal(uint32(0), receipt.Code, fmt.Sprintf("Tx failed: %+v", receipt))
+			s.Require().NotEmpty(receipt.TxHash)
+
+			var err error
+			ackTxHash, err = hex.DecodeString(receipt.TxHash)
+			s.Require().NoError(err)
+		}))
+
+		s.True(s.Run("Verify balances on Cosmos", func() {
+			// ICS27Account balance should be zero
+			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: computedAddress.String(),
+				Denom:   simd.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testAmount[0].Denom, resp.Balance.Denom)
+			s.Require().Zero(resp.Balance.Amount.Int64())
+
+			resp, err = e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+				Address: testSimdUser.FormattedAddress(),
+				Denom:   simd.Config().Denom,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.Balance)
+			s.Require().Equal(testAmount[0].Denom, resp.Balance.Denom)
+			s.Require().Equal(testAmount[0].Amount.Int64(), resp.Balance.Amount.Int64())
+		}))
+	}))
+
+	s.Require().True(s.Run("Acknowledge packet in Eth", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{ackTxHash},
+				SrcClientId: testvalues.FirstWasmClientID,
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, ics26Address.String())
+
+			relayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 2_000_000, &ics26Address, relayTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 		}))
 	}))
 }
