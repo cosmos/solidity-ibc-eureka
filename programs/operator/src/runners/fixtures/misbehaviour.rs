@@ -115,13 +115,11 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     .await?;
 
     // use the clients to convert the Tendermint light blocks into the IBC Tendermint trusted consensus states
-    let trusted_consensus_state_1 =
-        ConsensusState::abi_decode(&genesis_1.trusted_consensus_state, false)?;
-    let trusted_consensus_state_2 =
-        ConsensusState::abi_decode(&genesis_2.trusted_consensus_state, false)?;
+    let trusted_consensus_state_1 = ConsensusState::abi_decode(&genesis_1.trusted_consensus_state)?;
+    let trusted_consensus_state_2 = ConsensusState::abi_decode(&genesis_2.trusted_consensus_state)?;
 
     // use the client state from genesis_2 as the client state since they will both be the same
-    let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state, false)?;
+    let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state)?;
 
     let verify_misbehaviour_prover =
         SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &misbehaviour_program);

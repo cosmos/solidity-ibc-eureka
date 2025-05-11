@@ -33,7 +33,7 @@ pub fn main() {
     let request_iter = (0..request_len).map(|_| {
         // loop_encoded_1 is the key-value pair we want to verify the membership of
         let loop_encoded_1 = sp1_zkvm::io::read_vec();
-        let kv_pair = KVPair::abi_decode(&loop_encoded_1, true).unwrap();
+        let kv_pair = KVPair::abi_decode(&loop_encoded_1).unwrap();
 
         // loop_encoded_2 is the Merkle proof of the key-value pair
         let loop_encoded_2 = sp1_zkvm::io::read_vec();

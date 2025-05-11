@@ -1,6 +1,7 @@
 //! This module defines the chain listener for 'solidity-ibc-eureka' contracts.
 
 use alloy::{
+    network::Ethereum,
     primitives::{Address, TxHash},
     providers::Provider,
     rpc::types::Filter,
@@ -16,7 +17,7 @@ use super::ChainListenerService;
 /// The `ChainListenerService` listens for events on the Ethereum chain.
 pub struct ChainListener<P: Provider> {
     /// The IBC Eureka router instance.
-    ics26_router: routerInstance<(), P>,
+    ics26_router: routerInstance<P, Ethereum>,
 }
 
 impl<P: Provider> ChainListener<P> {

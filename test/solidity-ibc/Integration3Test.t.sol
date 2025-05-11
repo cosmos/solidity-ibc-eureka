@@ -68,43 +68,6 @@ contract Integration3Test is Test {
         );
     }
 
-    function setup_createForeignDenomOnImplA(address receiver, uint256 amount) public returns (IERC20) {
-        return setup_createForeignDenomOnImplA(receiver, amount, th.FIRST_CLIENT_ID());
-    }
-    /// @notice Create a foreign ibc denom on ibcImplA and client on a specified user
-    /// @dev We do this by transferring the native erc20 from the counterparty chain
-
-    function setup_createForeignDenomOnImplA(
-        address receiver,
-        uint256 amount,
-        string memory clientId
-    )
-        public
-        returns (IERC20)
-    {
-        address user = integrationEnv.createAndFundUser(amount);
-
-        IICS26RouterMsgs.Packet memory sentPacket =
-            ibcImplB.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount, clientId);
-
-        bytes[] memory acks = ibcImplA.recvPacket(sentPacket);
-        assertEq(acks.length, 1, "ack length mismatch");
-        assertEq(acks, th.SINGLE_SUCCESS_ACK(), "ack mismatch");
-
-        ibcImplB.ackPacket(sentPacket, acks);
-
-        string memory expDenomPath = string.concat(
-            ICS20Lib.DEFAULT_PORT_ID,
-            "/",
-            th.FIRST_CLIENT_ID(),
-            "/",
-            Strings.toHexString(address(integrationEnv.erc20()))
-        );
-        address ibcERC20 = ibcImplA.ics20Transfer().ibcERC20Contract(expDenomPath);
-
-        return IERC20(ibcERC20);
-    }
-
     function testFuzz_success_forwardAndBack(uint256 amount) public {
         // There are three chains in this scenario: A -> B -> C
         vm.assume(amount > 0);
