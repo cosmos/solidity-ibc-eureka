@@ -63,7 +63,8 @@ impl ClientState {
         timestamp_seconds
             .checked_sub(self.genesis_time)?
             .checked_div(self.seconds_per_slot)?
-            .checked_add(self.genesis_slot)
+            .checked_add(self.genesis_slot)?
+            .checked_add(1)
     }
 
     /// Returns the epoch at a given `slot`.
