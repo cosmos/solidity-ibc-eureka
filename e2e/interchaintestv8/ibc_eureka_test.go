@@ -1865,6 +1865,20 @@ func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Con
 		s.Require().Zero(userBalance.Int64())
 	}))
 
+	// We retrieve the relay tx before the timeout, and will attempt to relay it after the timeout
+	var recvRelayTxBodyBz []byte
+	s.Require().True(s.Run("Retrieve relay tx before timeout", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: [][]byte{ethTimeoutSendTxHash},
+			SrcClientId: testvalues.CustomClientID,
+			DstClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		recvRelayTxBodyBz = resp.Tx
+	}))
+
 	s.Require().True(s.Run("Wait for timeout", func() {
 		time.Sleep(45 * time.Second)
 	}))
@@ -1905,37 +1919,9 @@ func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Con
 		s.Require().Zero(escrowBalance.Int64(), "Escrow balance should be zero")
 	}))
 
-	s.Require().True(s.Run("Verify recvPacket fails on Cosmos", func() {
-		var recvRelayTxBodyBz []byte
-		s.Require().True(s.Run("Retrieve original relay tx (should still work)", func() {
-			// Note: The relayer might still generate the recvPacket message even if timeout happened.
-			// The failure occurs when submitting it to the chain.
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    eth.ChainID.String(),
-				DstChain:    simd.Config().ChainID,
-				SourceTxIds: [][]byte{ethTimeoutSendTxHash},
-				SrcClientId: testvalues.CustomClientID,
-				DstClientId: testvalues.FirstWasmClientID,
-			})
-			// Relayer might error here if it detects timeout beforehand, or might succeed.
-			// We primarily care about the chain rejecting the message.
-			if err != nil {
-				s.T().Logf("Relayer correctly identified timeout beforehand: %v", err)
-				// If relayer errors, we can't proceed to broadcast, but the test goal is met.
-				return
-			}
-			recvRelayTxBodyBz = resp.Tx
-		}))
-
-		// If the relayer didn't error, try broadcasting the recvPacket message
-		if recvRelayTxBodyBz != nil {
-			s.Require().True(s.Run("Broadcast recvPacket tx (should fail)", func() {
-				_, err := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, recvRelayTxBodyBz)
-				s.Require().Error(err, "Receiving packet on Cosmos after timeout should fail")
-				// Check for specific timeout error if possible, e.g., "packet sequence timeout"
-				s.Require().Contains(err.Error(), "packet timeout", "Error should indicate timeout")
-			}))
-		}
+	s.Require().True(s.Run("Verify recvPacket fails on Cosmos after timeout", func() {
+		_, err := s.BroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, recvRelayTxBodyBz)
+		s.Require().Error(err)
 	}))
 }
 
@@ -2142,6 +2128,20 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 		s.Require().Zero(balanceResp.Balance.Amount.Int64())
 	}))
 
+	// We retrieve the relay tx before the timeout, and will attempt to relay it after the timeout
+	var recvRelayTx []byte
+	s.Require().True(s.Run("Retrieve relay tx before timeout", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    eth.ChainID.String(),
+			SourceTxIds: [][]byte{cosmosTimeoutSendTxHash},
+			SrcClientId: testvalues.FirstWasmClientID,
+			DstClientId: testvalues.CustomClientID,
+		})
+		s.Require().NoError(err)
+		recvRelayTx = resp.Tx
+	}))
+
 	s.Require().True(s.Run("Wait for timeout", func() {
 		time.Sleep(45 * time.Second)
 	}))
@@ -2161,8 +2161,6 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
-			// Broadcasting the timeout relay tx successfully implies the timeout event was processed.
-			// Further verification happens in the balance check (Step 5).
 			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, timeoutRelayTxBodyBz)
 		}))
 	}))
@@ -2177,29 +2175,7 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 	}))
 
 	s.Require().True(s.Run("Verify recvPacket fails on Eth", func() {
-		var recvRelayTx []byte
-		s.Require().True(s.Run("Retrieve original relay tx (should still work)", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    simd.Config().ChainID,
-				DstChain:    eth.ChainID.String(),
-				SourceTxIds: [][]byte{cosmosTimeoutSendTxHash},
-				SrcClientId: testvalues.FirstWasmClientID,
-				DstClientId: testvalues.CustomClientID,
-			})
-			if err != nil {
-				s.T().Logf("Relayer correctly identified timeout beforehand: %v", err)
-				return
-			}
-			recvRelayTx = resp.Tx
-		}))
-
-		if recvRelayTx != nil {
-			s.Require().True(s.Run("Submit recvPacket tx (should fail)", func() {
-				_, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, recvRelayTx)
-				s.Require().Error(err, "Receiving packet on Eth after timeout should fail")
-				// Check for specific timeout error if possible
-				s.Require().Contains(err.Error(), "execution reverted", "Error should indicate revert") // EVM revert is expected
-			}))
-		}
+		_, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, recvRelayTx)
+		s.Require().Error(err)
 	}))
 }
