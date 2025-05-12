@@ -362,6 +362,7 @@ where
             .filter_map(|e| {
                 ethereum_client_state
                     .compute_slot_at_timestamp(e.packet.as_ref()?.timeout_timestamp)
+                    .and_then(|slot| slot.checked_add(1))
             })
             .max();
 
