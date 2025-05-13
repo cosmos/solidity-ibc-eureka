@@ -15,6 +15,11 @@ interface IICS20Transfer {
     /// @return The role identifier
     function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
 
+    /// @notice The role identifier for the ERC20 customizer role
+    /// @dev This role is required to call `insertCustomERC20`
+    /// @return The role identifier
+    function ERC20_CUSTOMIZER_ROLE() external view returns (bytes32);
+
     /// @notice Checks if an account has the token operator role
     /// @param account The account to check
     /// @return True if the account has the token operator role
@@ -50,6 +55,21 @@ interface IICS20Transfer {
     )
         external
         returns (uint64 sequence);
+
+    /// @notice Inserts a custom ERC20 contract for a given IBC denom
+    /// @dev This must be called prior to the first transfer of the token so that the is no existing entry for the
+    /// denom.
+    /// @dev This function requires the `ERC20_CUSTOMIZER_ROLE`
+    /// @param denom The IBC denom
+    /// @param token The address of the custom ERC20 contract
+    function insertCustomERC20(string calldata denom, address token) external;
+
+    /// @notice Sets a custom ERC20 contract for a given IBC denom
+    /// @dev This overrides the existing entry for the denom.
+    /// @dev This function can only be called by the ICS26Router admin
+    /// @param denom The IBC denom
+    /// @param token The address of the custom ERC20 contract
+    function setCustomERC20(string calldata denom, address token) external;
 
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier

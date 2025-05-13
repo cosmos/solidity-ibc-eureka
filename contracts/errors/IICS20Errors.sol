@@ -50,4 +50,8 @@ interface IICS20Errors {
     /// @notice Escrow not found
     /// @param clientID Client ID
     error ICS20EscrowNotFound(string clientID);
+
+    /// @notice IBCERC20 already deployed
+    /// @param denom The IBC denom of the token
+    error ICS20DenomAlreadyDeployed(string denom);
 }

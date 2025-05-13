@@ -72,6 +72,9 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     bytes32 public constant TOKEN_OPERATOR_ROLE = keccak256("TOKEN_OPERATOR_ROLE");
 
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant ERC20_CUSTOMIZER_ROLE = keccak256("ERC20_CUSTOMIZER_ROLE");
+
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
@@ -255,6 +258,19 @@ contract ICS20Transfer is
                 })
             })
         );
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function insertCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+        require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyDeployed(denom));
+
+        $._ibcERC20Contracts[denom] = IMintableAndBurnable(token);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function setCustomERC20(string calldata denom, address token) external onlyAdmin {
+        _getICS20TransferStorage()._ibcERC20Contracts[denom] = IMintableAndBurnable(token);
     }
 
     /// @inheritdoc IIBCApp
