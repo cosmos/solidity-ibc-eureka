@@ -153,7 +153,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -182,7 +182,7 @@ contract ICS20Transfer is
         );
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -202,7 +202,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
@@ -210,7 +210,7 @@ contract ICS20Transfer is
     /// @param escrow The address of the escrow contract
     /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrowWithSender(
+    function _sendTransferFromEscrowWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address escrow,
         address sender
