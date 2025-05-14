@@ -409,6 +409,14 @@ contract IBCAdminTest is Test {
         ics20Transfer.grantERC20CustomizerRole(newErc20Customizer);
         assert(ics20Transfer.hasRole(erc20CustomizerRole, newErc20Customizer));
 
+        // Check that the new ERC20 customizer can call insertCustomERC20
+        string memory denom = "ibc/0x1234567890abcdef";
+        address customErc20 = makeAddr("customErc20");
+        vm.prank(newErc20Customizer);
+        ics20Transfer.insertCustomERC20(denom, customErc20);
+        assertEq(ics20Transfer.ibcERC20Contract(denom), customErc20);
+        assertEq(ics20Transfer.ibcERC20Denom(customErc20), denom);
+
         ics20Transfer.revokeERC20CustomizerRole(newErc20Customizer);
         assertFalse(ics20Transfer.hasRole(erc20CustomizerRole, newErc20Customizer));
     }
@@ -422,6 +430,15 @@ contract IBCAdminTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.grantERC20CustomizerRole(newErc20Customizer);
         assertFalse(ics20Transfer.hasRole(erc20CustomizerRole, newErc20Customizer));
+
+        // Check that the new ERC20 customizer cannot call insertCustomERC20
+        string memory denom = "ibc/0x1234567890abcdef";
+        address customErc20 = makeAddr("customErc20");
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, erc20CustomizerRole)
+        );
+        ics20Transfer.insertCustomERC20(denom, customErc20);
 
         // Revoke the token operator role from an unauthorized account
         vm.prank(unauthorized);

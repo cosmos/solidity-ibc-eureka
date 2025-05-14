@@ -264,13 +264,13 @@ contract ICS20Transfer is
     function insertCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyDeployed(denom));
+        require(
+            bytes($._ibcERC20Denoms[token]).length == 0,
+            IICS20Errors.ICS20TokenAlreadyExists($._ibcERC20Denoms[token])
+        );
 
         $._ibcERC20Contracts[denom] = IMintableAndBurnable(token);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function setCustomERC20(string calldata denom, address token) external onlyAdmin {
-        _getICS20TransferStorage()._ibcERC20Contracts[denom] = IMintableAndBurnable(token);
+        $._ibcERC20Denoms[token] = denom;
     }
 
     /// @inheritdoc IIBCApp

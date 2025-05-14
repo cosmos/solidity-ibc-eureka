@@ -64,13 +64,6 @@ interface IICS20Transfer {
     /// @param token The address of the custom ERC20 contract
     function insertCustomERC20(string calldata denom, address token) external;
 
-    /// @notice Sets a custom ERC20 contract for a given IBC denom
-    /// @dev This overrides the existing entry for the denom.
-    /// @dev This function can only be called by the ICS26Router admin
-    /// @param denom The IBC denom
-    /// @param token The address of the custom ERC20 contract
-    function setCustomERC20(string calldata denom, address token) external;
-
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
     /// @return The escrow contract address

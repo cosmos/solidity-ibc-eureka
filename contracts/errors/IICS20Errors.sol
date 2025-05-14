@@ -54,4 +54,8 @@ interface IICS20Errors {
     /// @notice IBCERC20 already deployed
     /// @param denom The IBC denom of the token
     error ICS20DenomAlreadyDeployed(string denom);
+
+    /// @notice IBCERC20 token already exists
+    /// @param denom The IBC denom of the token
+    error ICS20TokenAlreadyExists(string denom);
 }
