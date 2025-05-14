@@ -176,7 +176,7 @@ There are five test suites in the `e2e/interchaintestv8` directory:
 Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
 
 ```sh
-just lint
+just lint-all
 ```
 
 ## End to End Benchmarks
