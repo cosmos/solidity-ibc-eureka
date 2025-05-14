@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-// solhint-disable no-empty-blocks
+// solhint-disable no-empty-blocks,gas-custom-errors
 
 import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IMintableAndBurnable } from "../../../contracts/interfaces/IMintableAndBurnable.sol";
@@ -54,12 +54,12 @@ contract TestCustomERC20 is ERC20, IMintableAndBurnable {
     }
 
     function mint(address to, uint256 amount) external {
-        require(msg.sender == _ics20);
+        require(msg.sender == _ics20, "only ics20 can mint");
         _mint(to, amount);
     }
 
     function burn(address from, uint256 amount) external {
-        require(msg.sender == _ics20);
+        require(msg.sender == _ics20, "only ics20 can burn");
         _burn(from, amount);
     }
 }
