@@ -241,7 +241,6 @@ clean-foundry:
 	@echo "clean-foundrying up cache and out directories"
 	-rm -rf cache out broadcast # ignore errors
 
-
 # Clean up the cargo artifacts using `cargo clean`
 [group('clean')]
 clean-cargo:
