@@ -442,7 +442,7 @@ contract IBCAdminTest is Test {
         );
         ics20Transfer.setCustomERC20(denom, customErc20);
 
-        // Revoke the token operator role from an unauthorized account
+        // Revoke the erc20 customizer role from an unauthorized account
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
         ics20Transfer.revokeERC20CustomizerRole(newErc20Customizer);
