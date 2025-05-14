@@ -161,16 +161,6 @@ genesis-sp1-ics07: build-sp1-programs
 # Deploy scripts. If these fail to land due to gas price fluctuations, try again with a higher gas price:
 # adding something like `--legacy --with-gas-price 100gwei` -- depending on the current gas prices.
 
-# Deploy the ICS26Router contract using environment variables
-deploy-ics26: build-contracts
-	@echo "Deploying the ICS26Router contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeployProxiedICS26Router.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
-
-# Deploy the ICS20Transfer contract using environment variables
-deploy-ics20: build-contracts
-	@echo "Deploying the ICS20Router contract with RPC_URL=$RPC_URL"
-	forge script scripts/deployments/DeployProxiedICS20Transfer.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY -vvv --broadcast
-
 # Generate the fixtures for the Solidity tests using the e2e tests
 generate-fixtures-solidity: clean install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."
