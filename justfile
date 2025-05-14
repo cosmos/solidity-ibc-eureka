@@ -2,7 +2,7 @@ set dotenv-load
 
 # Build the contracts using `forge build`
 [group('build')]
-build-contracts: clean
+build-contracts: clean-foundry
 	forge build
 
 # Build the relayer using `cargo build`
@@ -106,7 +106,7 @@ generate-abi-bytecode: build-contracts
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
-generate-fixtures-wasm: clean
+generate-fixtures-wasm: clean-foundry
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 60m
@@ -116,9 +116,6 @@ generate-fixtures-wasm: clean
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithIbcEurekaTestSuite/TestTimeoutPacketFromEth_Groth16$' -timeout 60m
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/TestMultiPeriodClientUpdateToCosmos$' -timeout 60m
-	# TODO: Remove after support for Deneb is removed (#440)
-	@echo "Generating deneb to electra fork fixtures..."
-	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_Electra_Fork$' -timeout 60m
 
 # Generate go types for the e2e tests from the etheruem light client code
 [group('generate')]
@@ -132,7 +129,7 @@ generate-ethereum-types:
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 [group('generate')]
-generate-fixtures-solidity: clean install-operator install-relayer
+generate-fixtures-solidity: clean-foundry install-operator install-relayer
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network go test -v -run '^TestWithIbcEurekaTestSuite/TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16$' -timeout 40m
@@ -204,7 +201,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
 [group('test')]
-test-e2e testname: clean install-relayer
+test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
@@ -238,9 +235,15 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
-# Clean up the cache and out directories
+# Clean up the foundry cache and out directories
 [group('clean')]
-clean:
-	@echo "Cleaning up cache and out directories"
+clean-foundry:
+	@echo "clean-foundrying up cache and out directories"
 	-rm -rf cache out broadcast # ignore errors
 
+
+# Clean up the cargo artifacts using `cargo clean`
+[group('clean')]
+clean-cargo:
+	@echo "Cleaning up cargo target directory"
+	cargo clean
