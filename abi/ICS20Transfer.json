@@ -32,6 +32,19 @@
   },
   {
     "type": "function",
+    "name": "ERC20_CUSTOMIZER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "PAUSER_ROLE",
     "inputs": [],
     "outputs": [
@@ -162,6 +175,19 @@
   {
     "type": "function",
     "name": "grantDelegateSenderRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "grantERC20CustomizerRole",
     "inputs": [
       {
         "name": "account",
@@ -325,6 +351,24 @@
       },
       {
         "name": "permit2",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "insertCustomERC20",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "token",
         "type": "address",
         "internalType": "address"
       }
@@ -636,6 +680,19 @@
   {
     "type": "function",
     "name": "revokeDelegateSenderRole",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeERC20CustomizerRole",
     "inputs": [
       {
         "name": "account",
@@ -1196,6 +1253,17 @@
   },
   {
     "type": "error",
+    "name": "ICS20DenomAlreadyDeployed",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS20DenomNotFound",
     "inputs": [
       {
@@ -1267,6 +1335,17 @@
         "name": "sentToken",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS20TokenAlreadyExists",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
       }
     ]
   },
