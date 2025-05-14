@@ -51,9 +51,9 @@ interface IICS20Errors {
     /// @param clientID Client ID
     error ICS20EscrowNotFound(string clientID);
 
-    /// @notice IBCERC20 already deployed
+    /// @notice IBCERC20 already exists
     /// @param denom The IBC denom of the token
-    error ICS20DenomAlreadyDeployed(string denom);
+    error ICS20DenomAlreadyExists(string denom);
 
     /// @notice IBCERC20 token already exists
     /// @param denom The IBC denom of the token
