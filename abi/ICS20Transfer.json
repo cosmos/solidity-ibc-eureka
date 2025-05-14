@@ -360,24 +360,6 @@
   },
   {
     "type": "function",
-    "name": "insertCustomERC20",
-    "inputs": [
-      {
-        "name": "denom",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "isTokenOperator",
     "inputs": [
       {
@@ -974,6 +956,24 @@
   },
   {
     "type": "function",
+    "name": "setCustomERC20",
+    "inputs": [
+      {
+        "name": "denom",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -1253,7 +1253,7 @@
   },
   {
     "type": "error",
-    "name": "ICS20DenomAlreadyDeployed",
+    "name": "ICS20DenomAlreadyExists",
     "inputs": [
       {
         "name": "denom",
