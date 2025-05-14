@@ -417,6 +417,11 @@ contract IBCAdminTest is Test {
         assertEq(ics20Transfer.ibcERC20Contract(denom), customErc20);
         assertEq(ics20Transfer.ibcERC20Denom(customErc20), denom);
 
+        // Check that it cannot be set again
+        vm.prank(newErc20Customizer);
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20DenomAlreadyExists.selector, denom));
+        ics20Transfer.setCustomERC20(denom, customErc20);
+
         ics20Transfer.revokeERC20CustomizerRole(newErc20Customizer);
         assertFalse(ics20Transfer.hasRole(erc20CustomizerRole, newErc20Customizer));
     }
