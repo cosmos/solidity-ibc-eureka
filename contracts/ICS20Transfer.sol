@@ -265,8 +265,7 @@ contract ICS20Transfer is
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyDeployed(denom));
         require(
-            bytes($._ibcERC20Denoms[token]).length == 0,
-            IICS20Errors.ICS20TokenAlreadyExists($._ibcERC20Denoms[token])
+            bytes($._ibcERC20Denoms[token]).length == 0, IICS20Errors.ICS20TokenAlreadyExists($._ibcERC20Denoms[token])
         );
 
         $._ibcERC20Contracts[denom] = IMintableAndBurnable(token);

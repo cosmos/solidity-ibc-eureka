@@ -436,7 +436,9 @@ contract IBCAdminTest is Test {
         address customErc20 = makeAddr("customErc20");
         vm.prank(unauthorized);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, erc20CustomizerRole)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, erc20CustomizerRole
+            )
         );
         ics20Transfer.insertCustomERC20(denom, customErc20);
 
