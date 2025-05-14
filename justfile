@@ -238,7 +238,7 @@ test-e2e-multichain testname:
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:
-	@echo "clean-foundrying up cache and out directories"
+	@echo "Cleaning up cache and out directories"
 	-rm -rf cache out broadcast # ignore errors
 
 # Clean up the cargo artifacts using `cargo clean`
