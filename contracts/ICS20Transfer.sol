@@ -261,7 +261,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function insertCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
+    function setCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyExists(denom));
         require(

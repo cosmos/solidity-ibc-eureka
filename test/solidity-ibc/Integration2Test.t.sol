@@ -258,7 +258,7 @@ contract Integration2Test is Test {
         );
 
         address customERC20 = address(new TestCustomERC20(address(ibcImplB.ics20Transfer())));
-        ibcImplB.ics20Transfer().insertCustomERC20(expDenomPath, customERC20);
+        ibcImplB.ics20Transfer().setCustomERC20(expDenomPath, customERC20);
 
         address user = integrationEnv.createAndFundUser(amount);
         address receiver = integrationEnv.createUser();

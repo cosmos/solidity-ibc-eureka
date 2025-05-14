@@ -16,7 +16,7 @@ interface IICS20Transfer {
     function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
 
     /// @notice The role identifier for the ERC20 customizer role
-    /// @dev This role is required to call `insertCustomERC20`
+    /// @dev This role is required to call `setCustomERC20`
     /// @return The role identifier
     function ERC20_CUSTOMIZER_ROLE() external view returns (bytes32);
 
@@ -62,7 +62,7 @@ interface IICS20Transfer {
     /// @dev This function requires the `ERC20_CUSTOMIZER_ROLE`
     /// @param denom The IBC denom
     /// @param token The address of the custom ERC20 contract
-    function insertCustomERC20(string calldata denom, address token) external;
+    function setCustomERC20(string calldata denom, address token) external;
 
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
