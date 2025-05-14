@@ -140,6 +140,16 @@ interface IICS20Transfer {
     /// @param account The account to revoke the role from
     function revokeTokenOperatorRole(address account) external;
 
+    /// @notice Grants the ERC20 customizer role to an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to grant the role to
+    function grantERC20CustomizerRole(address account) external;
+
+    /// @notice Revokes the ERC20 customizer role from an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to revoke the role from
+    function revokeERC20CustomizerRole(address account) external;
+
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBCERC20 contract is created

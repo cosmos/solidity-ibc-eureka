@@ -530,6 +530,16 @@ contract ICS20Transfer is
         _revokeRole(TOKEN_OPERATOR_ROLE, account);
     }
 
+    /// @inheritdoc IICS20Transfer
+    function grantERC20CustomizerRole(address account) external onlyAdmin {
+        _grantRole(ERC20_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeERC20CustomizerRole(address account) external onlyAdmin {
+        _revokeRole(ERC20_CUSTOMIZER_ROLE, account);
+    }
+
     /// @notice Returns the ICS26Router contract
     /// @return The ICS26Router contract address
     function _getICS26Router() private view returns (IICS26Router) {
