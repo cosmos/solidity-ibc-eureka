@@ -12,6 +12,12 @@ interface IICS02Client {
     /// @return The role identifier
     function CLIENT_ID_CUSTOMIZER_ROLE() external view returns (bytes32);
 
+    /// @notice The role identifier for the relayer role
+    /// @dev The relayer role is used to whitelist addresses that can relay packets and update clients
+    /// @dev If `address(0)` has this role, then anyone can relay packets
+    /// @return The role identifier
+    function RELAYER_ROLE() external view returns (bytes32);
+
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
     /// @return The counterparty client information

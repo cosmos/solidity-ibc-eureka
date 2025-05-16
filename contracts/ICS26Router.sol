@@ -52,9 +52,6 @@ contract ICS26Router is
     /// @inheritdoc IICS26Router
     bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
-    /// @inheritdoc IICS26Router
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
         _disableInitializers();
