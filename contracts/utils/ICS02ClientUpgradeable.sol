@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
 import { IICS02Client } from "../interfaces/IICS02Client.sol";
@@ -132,6 +133,20 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02Client
+    function updateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
+        external
+        onlyRole(RELAYER_ROLE)
+        returns (ILightClientMsgs.UpdateResult)
+    {
+        ILightClientMsgs.UpdateResult result = getClient(clientId).updateClient(updateMsg);
+        emit ICS02ClientUpdated(clientId, result);
+        return result;
+    }
+
+    /// @inheritdoc IICS02Client
     function migrateClient(
         string calldata subjectClientId,
         string calldata substituteClientId
@@ -156,7 +171,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
-        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
+        emit ICS02MisbehaviourSubmitted(clientId);
     }
 
     /// @notice Returns the storage of the ICS02Client contract
