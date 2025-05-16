@@ -86,6 +86,7 @@ impl RelayerBuilder {
 }
 
 impl Relayer {
+    #[allow(clippy::result_large_err)]
     fn get_module(
         &self,
         src_chain: &str,
