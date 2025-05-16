@@ -345,6 +345,14 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(
+        &self,
+        _request: Request<api::UpdateClientRequest>,
+    ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        todo!()
+    }
 }
 
 #[tonic::async_trait]
