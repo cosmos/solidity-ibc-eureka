@@ -217,4 +217,9 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         }
         .encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
+        todo!()
+    }
 }

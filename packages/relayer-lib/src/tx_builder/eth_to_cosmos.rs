@@ -625,6 +625,11 @@ where
         }
         .encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
+        todo!()
+    }
 }
 
 impl<P: Provider + Clone> MockTxBuilder<P> {
@@ -737,5 +742,10 @@ where
             ..Default::default()
         }
         .encode_to_vec())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
+        todo!()
     }
 }
