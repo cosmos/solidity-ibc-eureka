@@ -923,6 +923,30 @@
   },
   {
     "type": "function",
+    "name": "updateClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "updateMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "upgradeToAndCall",
     "inputs": [
       {
@@ -1063,7 +1087,7 @@
       {
         "name": "clientId",
         "type": "string",
-        "indexed": false,
+        "indexed": true,
         "internalType": "string"
       },
       {
@@ -1094,7 +1118,7 @@
       {
         "name": "subjectClientId",
         "type": "string",
-        "indexed": false,
+        "indexed": true,
         "internalType": "string"
       },
       {
@@ -1108,19 +1132,32 @@
   },
   {
     "type": "event",
+    "name": "ICS02ClientUpdated",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "result",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ICS02MisbehaviourSubmitted",
     "inputs": [
       {
         "name": "clientId",
         "type": "string",
-        "indexed": false,
+        "indexed": true,
         "internalType": "string"
-      },
-      {
-        "name": "misbehaviourMsg",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
       }
     ],
     "anonymous": false
