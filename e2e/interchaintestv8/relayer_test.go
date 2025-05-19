@@ -1272,6 +1272,64 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 	}))
 }
 
+func (s *RelayerTestSuite) TestUpdateClientToEth_Groth16() {
+	ctx := context.Background()
+	s.UpdateClientToEthTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *RelayerTestSuite) TestUpdateClientToEth_Plonk() {
+	ctx := context.Background()
+	s.UpdateClientToEthTest(ctx, operator.ProofTypePlonk)
+}
+
+func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType) // Doesn't matter, since we won't relay to eth in this test
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
+		s.Require().NoError(err)
+		s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+		initialHeight = clientState.LatestHeight.RevisionHeight
+	}))
+
+	s.Require().True(s.Run("Update the client on Ethereum", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(resp.Address, s.contractAddresses.Ics26Router)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, updateTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			clientState, err := s.sp1Ics07Contract.ClientState(nil)
+			s.Require().NoError(err)
+			s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+			newHeight := clientState.LatestHeight.RevisionHeight
+			s.Require().Greater(newHeight, initialHeight)
+		}))
+	}))
+}
+
 // TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 50 packets from Ethereum to Cosmos
 func (s *RelayerTestSuite) Test_50_concurrent_RecvPacketToCosmosTest() {
 	ctx := context.Background()
