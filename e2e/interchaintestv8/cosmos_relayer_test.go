@@ -534,8 +534,6 @@ func (s *CosmosRelayerTestSuite) TestUpdateClient() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	simdAUser, _ := s.CosmosUsers[0], s.CosmosUsers[1]
-
 	var initialHeight uint64
 	s.Require().True(s.Run("Get the initial height", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, s.SimdA, &clienttypes.QueryClientStateRequest{
@@ -568,7 +566,7 @@ func (s *CosmosRelayerTestSuite) TestUpdateClient() {
 		}))
 
 		s.Require().True(s.Run("Broadcast update client tx", func() {
-			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, simdAUser, 2_000_000, updateTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, updateTxBodyBz)
 		}))
 
 		s.Require().True(s.Run("Verify client update on Chain A", func() {
