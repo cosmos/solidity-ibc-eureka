@@ -127,10 +127,7 @@ contract ICS02ClientTest is Test {
         bytes memory misbehaviourCall = abi.encodeCall(ILightClient.misbehaviour, (misbehaviourMsg));
         vm.mockCall(lightClient, misbehaviourCall, bytes(""));
 
-        vm.expectCall(
-            lightClient,
-            misbehaviourCall
-        );
+        vm.expectCall(lightClient, misbehaviourCall);
         ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
     }
 
@@ -139,10 +136,7 @@ contract ICS02ClientTest is Test {
         bytes memory updateCall = abi.encodeCall(ILightClient.updateClient, (updateMsg));
         vm.mockCall(lightClient, updateCall, abi.encode(ILightClientMsgs.UpdateResult(0)));
 
-        vm.expectCall(
-            lightClient,
-            updateCall
-        );
+        vm.expectCall(lightClient, updateCall);
         ics02Client.updateClient(clientIdentifier, updateMsg);
     }
 
@@ -152,9 +146,7 @@ contract ICS02ClientTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                unauthorized,
-                ics02Client.RELAYER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics02Client.RELAYER_ROLE()
             )
         );
         vm.prank(unauthorized);
