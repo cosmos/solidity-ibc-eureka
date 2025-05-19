@@ -1087,7 +1087,7 @@
       {
         "name": "clientId",
         "type": "string",
-        "indexed": true,
+        "indexed": false,
         "internalType": "string"
       },
       {
@@ -1118,7 +1118,7 @@
       {
         "name": "subjectClientId",
         "type": "string",
-        "indexed": true,
+        "indexed": false,
         "internalType": "string"
       },
       {
@@ -1137,7 +1137,7 @@
       {
         "name": "clientId",
         "type": "string",
-        "indexed": true,
+        "indexed": false,
         "internalType": "string"
       },
       {
@@ -1156,7 +1156,7 @@
       {
         "name": "clientId",
         "type": "string",
-        "indexed": true,
+        "indexed": false,
         "internalType": "string"
       }
     ],
