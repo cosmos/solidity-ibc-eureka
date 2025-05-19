@@ -1214,6 +1214,7 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 		var wasmClientState ibcwasmtypes.ClientState
 		err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
 		s.Require().NoError(err)
+		s.Require().NotZero(wasmClientState.LatestHeight.RevisionHeight)
 
 		initialHeight = wasmClientState.LatestHeight.RevisionHeight
 	}))
