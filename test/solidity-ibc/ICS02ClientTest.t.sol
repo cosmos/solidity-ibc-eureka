@@ -14,7 +14,6 @@ import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.so
 import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.sol";
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
-import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 
