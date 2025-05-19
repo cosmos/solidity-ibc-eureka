@@ -1221,13 +1221,13 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 
 	s.Require().True(s.Run("Wait for finality", func() {
 		err := testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
-			resp, err := eth.BeaconAPIClient.GetFinalizedBlocks()
+			resp, err := eth.BeaconAPIClient.GetFinalityUpdate()
 			if err != nil {
 				return false, err
 			}
 
 			// resp.Data.Message.Slot is a string, so we need to convert it to a uint64
-			finalizedSlot, err := strconv.ParseUint(resp.Data.Message.Slot, 10, 64)
+			finalizedSlot, err := strconv.ParseUint(resp.Data.FinalizedHeader.Beacon.Slot, 10, 64)
 			if err != nil {
 				return false, err
 			}
