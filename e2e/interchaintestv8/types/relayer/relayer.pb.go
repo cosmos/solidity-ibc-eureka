@@ -316,7 +316,7 @@ type UpdateClientRequest struct {
 	SrcChain string `protobuf:"bytes,1,opt,name=src_chain,json=srcChain,proto3" json:"src_chain,omitempty"`
 	// The target chain identifier
 	DstChain string `protobuf:"bytes,2,opt,name=dst_chain,json=dstChain,proto3" json:"dst_chain,omitempty"`
-	// / The identifier for the client on the destination chain
+	// The identifier for the client on the destination chain
 	DstClientId   string `protobuf:"bytes,3,opt,name=dst_client_id,json=dstClientId,proto3" json:"dst_client_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
