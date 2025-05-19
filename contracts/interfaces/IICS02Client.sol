@@ -95,19 +95,19 @@ interface IICS02Client {
     /// @notice Emitted when a new client is added to the client router.
     /// @param clientId The newly created client identifier
     /// @param counterpartyInfo The counterparty client information, if provided
-    event ICS02ClientAdded(string indexed clientId, IICS02ClientMsgs.CounterpartyInfo counterpartyInfo);
+    event ICS02ClientAdded(string clientId, IICS02ClientMsgs.CounterpartyInfo counterpartyInfo);
 
     /// @notice Emitted when a client is migrated to a new client.
     /// @param subjectClientId The client identifier of the existing client
     /// @param substituteClientId The client identifier of the new client migrated to
-    event ICS02ClientMigrated(string indexed subjectClientId, string substituteClientId);
+    event ICS02ClientMigrated(string subjectClientId, string substituteClientId);
 
     /// @notice Emitted when a client is updated.
     /// @param clientId The client identifier of the updated ILightClientMsgs
     /// @param result The result of the update operation
-    event ICS02ClientUpdated(string indexed clientId, ILightClientMsgs.UpdateResult result);
+    event ICS02ClientUpdated(string clientId, ILightClientMsgs.UpdateResult result);
 
     /// @notice Emitted when a misbehaviour is submitted to a client and the client is frozen.
     /// @param clientId The client identifier of the frozen client
-    event ICS02MisbehaviourSubmitted(string indexed clientId);
+    event ICS02MisbehaviourSubmitted(string clientId);
 }
