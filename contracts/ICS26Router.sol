@@ -302,11 +302,4 @@ contract ICS26Router is
             $.slot := ICS26ROUTER_STORAGE_SLOT
         }
     }
-
-    modifier onlyRelayer() {
-        if (!hasRole(RELAYER_ROLE, address(0))) {
-            _checkRole(RELAYER_ROLE);
-        }
-        _;
-    }
 }

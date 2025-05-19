@@ -138,7 +138,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         bytes calldata updateMsg
     )
         external
-        onlyRole(RELAYER_ROLE)
+        onlyRelayer
         returns (ILightClientMsgs.UpdateResult)
     {
         ILightClientMsgs.UpdateResult result = getClient(clientId).updateClient(updateMsg);
@@ -185,5 +185,12 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function getLightClientMigratorRole(string memory clientId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
+    }
+
+    modifier onlyRelayer() {
+        if (!hasRole(RELAYER_ROLE, address(0))) {
+            _checkRole(RELAYER_ROLE);
+        }
+        _;
     }
 }
