@@ -1309,7 +1309,7 @@ func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType 
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
-			s.Require().Equal(resp.Address, s.contractAddresses.Ics26Router)
+			s.Require().Equal(s.contractAddresses.Ics26Router, resp.Address)
 
 			updateTxBodyBz = resp.Tx
 		}))
