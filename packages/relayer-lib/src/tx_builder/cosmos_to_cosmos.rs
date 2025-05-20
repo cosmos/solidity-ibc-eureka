@@ -240,7 +240,8 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             .await?;
 
         tracing::info!(
-            "Updating client at height: {} to height {}",
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
             trusted_light_block.height().value(),
             target_light_block.height().value()
         );

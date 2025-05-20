@@ -300,7 +300,8 @@ where
         let latest_light_block = self.tm_client.get_light_block(None).await?;
 
         tracing::info!(
-            "Generating tx to update client from height: {} to height: {}",
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
             trusted_light_block.height().value(),
             latest_light_block.height().value()
         );
