@@ -28,9 +28,9 @@ func (pt SupportedProofType) ToOperatorArgs() []string {
 	return []string{"-p", pt.String()}
 }
 
-// GetRandProofType returns a proof type based on the environment variable SP1_PROOF_TYPE.
+// GetEnvProofType returns a proof type based on the environment variable SP1_PROOF_TYPE.
 // If the variable is not set, it returns a random proof type.
-func GetRandProofType() SupportedProofType {
+func GetEnvProofType() SupportedProofType {
 	envProofType := os.Getenv(testvalues.EnvKeyE2EProofType)
 	switch envProofType {
 	case "":

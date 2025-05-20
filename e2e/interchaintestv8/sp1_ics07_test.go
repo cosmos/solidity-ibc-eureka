@@ -219,7 +219,7 @@ func TestWithSP1ICS07TendermintTestSuite(t *testing.T) {
 
 func (s *SP1ICS07TendermintTestSuite) Test_Deploy() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.DeployTest(ctx, proofType)
 }
 
@@ -249,7 +249,7 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 
 func (s *SP1ICS07TendermintTestSuite) Test_UpdateClient() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.UpdateClientTest(ctx, proofType)
 }
 
@@ -290,7 +290,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 
 func (s *SP1ICS07TendermintTestSuite) Test_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.MembershipTest(ctx, proofType)
 }
 
@@ -397,7 +397,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt ope
 
 func (s *SP1ICS07TendermintTestSuite) Test_UpdateClientAndMembership() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.UpdateClientAndMembershipTest(ctx, proofType)
 }
 
@@ -489,7 +489,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 
 func (s *SP1ICS07TendermintTestSuite) Test_DoubleSignMisbehaviour() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.DoubleSignMisbehaviourTest(ctx, "double_sign-plonk", proofType)
 }
 
@@ -592,7 +592,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 func (s *SP1ICS07TendermintTestSuite) Test_BreakingTimeMonotonicityMisbehaviour() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-plonk", proofType)
 }
 
@@ -681,14 +681,14 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 func (s *SP1ICS07TendermintTestSuite) Test_100_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 
 	s.largeMembershipTest(ctx, 100, proofType)
 }
 
 func (s *SP1ICS07TendermintTestSuite) Test_25_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetRandProofType()
+	proofType := operator.GetEnvProofType()
 
 	s.largeMembershipTest(ctx, 25, proofType)
 }
