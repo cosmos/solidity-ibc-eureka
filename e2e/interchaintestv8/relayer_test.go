@@ -29,7 +29,9 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibchostv2 "github.com/cosmos/ibc-go/v10/modules/core/24-host/v2"
 
@@ -1186,6 +1188,160 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest
 				}
 
 			}
+		}))
+	}))
+}
+
+func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("Test is only relevant for PoS networks")
+	}
+
+	ctx := context.Background()
+
+	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+			ClientId: testvalues.FirstWasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.ClientState)
+
+		var wasmClientState ibcwasmtypes.ClientState
+		err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
+		s.Require().NoError(err)
+		s.Require().NotZero(wasmClientState.LatestHeight.RevisionHeight)
+
+		initialHeight = wasmClientState.LatestHeight.RevisionHeight
+	}))
+
+	s.Require().True(s.Run("Wait for finality", func() {
+		err := testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
+			resp, err := eth.BeaconAPIClient.GetFinalityUpdate()
+			if err != nil {
+				return false, err
+			}
+
+			// resp.Data.Message.Slot is a string, so we need to convert it to a uint64
+			finalizedSlot, err := strconv.ParseUint(resp.Data.FinalizedHeader.Beacon.Slot, 10, 64)
+			if err != nil {
+				return false, err
+			}
+
+			finalizedBlock, err := strconv.ParseInt(resp.Data.FinalizedHeader.Execution.BlockNumber, 10, 64)
+			if err != nil {
+				return false, err
+			}
+
+			code, err := eth.EthAPI.Client.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
+			if err != nil || len(code) == 0 {
+				// Code not found at the finalized block number
+				return false, nil
+			}
+
+			return finalizedSlot > initialHeight, nil
+		})
+		s.Require().NoError(err)
+	}))
+
+	s.Require().NoError(testutil.WaitForBlocks(ctx, 1, simd))
+
+	s.Require().True(s.Run("Update the client on Cosmos", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+				ClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.ClientState)
+
+			var wasmClientState ibcwasmtypes.ClientState
+			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
+			s.Require().NoError(err)
+
+			newHeight := wasmClientState.LatestHeight.RevisionHeight
+			s.Require().Greater(newHeight, initialHeight)
+		}))
+	}))
+}
+
+func (s *RelayerTestSuite) TestUpdateClientToEth_Groth16() {
+	ctx := context.Background()
+	s.UpdateClientToEthTest(ctx, operator.ProofTypeGroth16)
+}
+
+func (s *RelayerTestSuite) TestUpdateClientToEth_Plonk() {
+	ctx := context.Background()
+	s.UpdateClientToEthTest(ctx, operator.ProofTypePlonk)
+}
+
+func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+	s.SetupSuite(ctx, proofType) // Doesn't matter, since we won't relay to eth in this test
+
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
+		s.Require().NoError(err)
+		s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+		initialHeight = clientState.LatestHeight.RevisionHeight
+	}))
+
+	s.Require().True(s.Run("Update the client on Ethereum", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(ics26Address.String(), resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ics26Address, updateTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			clientState, err := s.sp1Ics07Contract.ClientState(nil)
+			s.Require().NoError(err)
+			s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+			newHeight := clientState.LatestHeight.RevisionHeight
+			s.Require().Greater(newHeight, initialHeight)
 		}))
 	}))
 }

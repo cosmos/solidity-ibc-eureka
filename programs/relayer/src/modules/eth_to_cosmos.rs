@@ -215,6 +215,28 @@ impl RelayerService for EthToCosmosRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(
+        &self,
+        request: Request<api::UpdateClientRequest>,
+    ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        tracing::info!("Handling update client request for Eth to Cosmos...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .update_client(inner_req.dst_client_id)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Update client request completed.");
+
+        Ok(Response::new(api::UpdateClientResponse {
+            tx,
+            address: String::new(),
+        }))
+    }
 }
 
 #[tonic::async_trait]
@@ -276,6 +298,13 @@ impl EthToCosmosTxBuilder {
         match self {
             Self::Real(tb) => tb.create_client(parameters).await,
             Self::Mock(tb) => tb.create_client(parameters).await,
+        }
+    }
+
+    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Real(tb) => tb.update_client(dst_client_id).await,
+            Self::Mock(tb) => tb.update_client(dst_client_id).await,
         }
     }
 

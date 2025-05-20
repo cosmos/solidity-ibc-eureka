@@ -345,6 +345,28 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             address: String::new(),
         }))
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(
+        &self,
+        request: Request<api::UpdateClientRequest>,
+    ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        tracing::info!("Handling update client request for Cosmos to Eth...");
+
+        let inner_req = request.into_inner();
+        let tx = self
+            .tx_builder
+            .update_client(inner_req.dst_client_id)
+            .await
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
+
+        tracing::info!("Update client request completed.");
+
+        Ok(Response::new(api::UpdateClientResponse {
+            tx,
+            address: self.tx_builder.ics26_router.address().to_string(),
+        }))
+    }
 }
 
 #[tonic::async_trait]

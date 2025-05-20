@@ -485,6 +485,7 @@ where
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
             "Update client summary: 
+                client id: {},
                 recv events processed: #{}, 
                 ack events processed: #{}, 
                 timeout events processed: #{}, 
@@ -493,6 +494,7 @@ where
                 initial period: {}, 
                 latest period: {}, 
                 number of headers: #{}",
+            dst_client_id,
             recv_msgs.len(),
             ack_msgs.len(),
             timeout_msgs.len(),
@@ -625,6 +627,83 @@ where
         }
         .encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        let ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
+        let finality_update = self.beacon_api_client.finality_update().await?;
+        let latest_finalized_block_number =
+            finality_update.data.finalized_header.execution.block_number;
+
+        if latest_finalized_block_number <= ethereum_client_state.latest_execution_block_number {
+            tracing::warn!(
+                "No updates needed for client {}: latest finalized block number: {}, latest execution block number: {}",
+                dst_client_id,
+                latest_finalized_block_number,
+                ethereum_client_state.latest_execution_block_number
+            );
+
+            return Err(anyhow::anyhow!(
+                "No updates needed for client {}: latest finalized block number: {}, latest execution block number: {}",
+                dst_client_id,
+                latest_finalized_block_number,
+                ethereum_client_state.latest_execution_block_number
+            ));
+        }
+
+        tracing::info!(
+            "Generating tx to update client from block number: {} to block number: {}",
+            ethereum_client_state.latest_execution_block_number,
+            latest_finalized_block_number
+        );
+
+        let headers = self.get_update_headers(&ethereum_client_state).await?;
+        let update_msgs = headers
+            .iter()
+            .map(|header| -> Result<MsgUpdateClient> {
+                let header_bz = serde_json::to_vec(&header)?;
+                let client_msg = Any::from_msg(&ClientMessage { data: header_bz })?;
+                Ok(MsgUpdateClient {
+                    client_id: dst_client_id.clone(),
+                    client_message: Some(client_msg),
+                    signer: self.signer_address.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let proof_slot = headers
+            .last()
+            .map_or(ethereum_client_state.latest_slot, |h| {
+                h.consensus_update.finalized_header.beacon.slot
+            });
+        let initial_period = ethereum_client_state
+            .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
+        let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
+        tracing::info!(
+            "Update client summary: 
+                client id: {},
+                initial slot: {}, 
+                latest trusted slot (after updates): {}, 
+                initial period: {}, 
+                latest period: {}, 
+                number of headers: #{}",
+            dst_client_id,
+            ethereum_client_state.latest_slot,
+            proof_slot,
+            initial_period,
+            latest_period,
+            headers.len()
+        );
+
+        Ok(TxBody {
+            messages: update_msgs
+                .into_iter()
+                .map(|m| Any::from_msg(&m))
+                .collect::<Result<Vec<_>, _>>()?,
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
 }
 
 impl<P: Provider + Clone> MockTxBuilder<P> {
@@ -729,6 +808,29 @@ where
         let msg = MsgCreateClient {
             client_state: Some(Any::from_msg(&client_state)?),
             consensus_state: Some(Any::from_msg(&consensus_state)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Generating tx to update mock light client: {}",
+            dst_client_id
+        );
+
+        let consensus_state = WasmConsensusState {
+            data: b"test".to_vec(),
+        };
+        let msg = MsgUpdateClient {
+            client_id: dst_client_id,
+            client_message: Some(Any::from_msg(&consensus_state)?),
             signer: self.signer_address.clone(),
         };
 

@@ -923,6 +923,30 @@
   },
   {
     "type": "function",
+    "name": "updateClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "updateMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "upgradeToAndCall",
     "inputs": [
       {
@@ -1108,7 +1132,7 @@
   },
   {
     "type": "event",
-    "name": "ICS02MisbehaviourSubmitted",
+    "name": "ICS02ClientUpdated",
     "inputs": [
       {
         "name": "clientId",
@@ -1117,10 +1141,23 @@
         "internalType": "string"
       },
       {
-        "name": "misbehaviourMsg",
-        "type": "bytes",
+        "name": "result",
+        "type": "uint8",
         "indexed": false,
-        "internalType": "bytes"
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02MisbehaviourSubmitted",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false

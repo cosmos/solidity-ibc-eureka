@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { ILightClient } from "./ILightClient.sol";
 
 /// @title ICS02 Light Client Router Interface
@@ -11,6 +12,12 @@ interface IICS02Client {
     /// @dev The client identifier role is used to add IBC clients with custom client identifiers
     /// @return The role identifier
     function CLIENT_ID_CUSTOMIZER_ROLE() external view returns (bytes32);
+
+    /// @notice The role identifier for the relayer role
+    /// @dev The relayer role is used to whitelist addresses that can relay packets and update clients
+    /// @dev If `address(0)` has this role, then anyone can relay packets
+    /// @return The role identifier
+    function RELAYER_ROLE() external view returns (bytes32);
 
     /// @notice Returns the counterparty client information given the client identifier.
     /// @param clientId The client identifier
@@ -55,6 +62,18 @@ interface IICS02Client {
         external
         returns (string memory);
 
+    /// @notice Updates the client with the given client identifier.
+    /// @dev Can only be called with the `RELAYER_ROLE`.
+    /// @param clientId The client identifier
+    /// @param updateMsg The encoded update message e.g., an SP1 proof.
+    /// @return The result of the update operation
+    function updateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
+        external
+        returns (ILightClientMsgs.UpdateResult);
+
     /// @notice Migrate the underlying client of the subject client to the substitute client.
     /// @dev This is a privilaged operation, only the owner of ICS02Client can call this function.
     /// @param subjectClientId The client identifier of the subject client
@@ -83,8 +102,12 @@ interface IICS02Client {
     /// @param substituteClientId The client identifier of the new client migrated to
     event ICS02ClientMigrated(string subjectClientId, string substituteClientId);
 
+    /// @notice Emitted when a client is updated.
+    /// @param clientId The client identifier of the updated ILightClientMsgs
+    /// @param result The result of the update operation
+    event ICS02ClientUpdated(string clientId, ILightClientMsgs.UpdateResult result);
+
     /// @notice Emitted when a misbehaviour is submitted to a client and the client is frozen.
     /// @param clientId The client identifier of the frozen client
-    /// @param misbehaviourMsg The misbehaviour message
-    event ICS02MisbehaviourSubmitted(string clientId, bytes misbehaviourMsg);
+    event ICS02MisbehaviourSubmitted(string clientId);
 }
