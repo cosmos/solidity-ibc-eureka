@@ -298,6 +298,13 @@ where
             .await?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
+
+        tracing::info!(
+            "Generating tx to update client from height: {} to height: {}",
+            trusted_light_block.height().value(),
+            latest_light_block.height().value()
+        );
+
         let proposed_header = latest_light_block.into_header(&trusted_light_block);
 
         let update_client_prover = SP1ICS07TendermintProver::new(

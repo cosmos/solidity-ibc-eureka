@@ -239,6 +239,12 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             ))
             .await?;
 
+        tracing::info!(
+            "Updating client at height: {} to height {}",
+            trusted_light_block.height().value(),
+            target_light_block.height().value()
+        );
+
         let proposed_header = target_light_block.into_header(&trusted_light_block);
         let update_msg = MsgUpdateClient {
             client_id: dst_client_id,

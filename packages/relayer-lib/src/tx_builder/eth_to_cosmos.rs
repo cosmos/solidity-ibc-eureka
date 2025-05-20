@@ -649,6 +649,12 @@ where
             ));
         }
 
+        tracing::info!(
+            "Generating tx to update client from block number: {} to block number: {}",
+            ethereum_client_state.latest_execution_block_number,
+            latest_finalized_block_number
+        );
+
         let headers = self.get_update_headers(&ethereum_client_state).await?;
         let update_msgs = headers
             .iter()
@@ -788,6 +794,11 @@ where
 
     #[tracing::instrument(skip_all)]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        tracing::info!(
+            "Generating tx to update mock light client: {}",
+            dst_client_id
+        );
+
         let consensus_state = WasmConsensusState {
             data: b"test".to_vec(),
         };
