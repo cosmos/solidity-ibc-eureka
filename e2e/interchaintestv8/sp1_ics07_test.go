@@ -217,7 +217,7 @@ func TestWithSP1ICS07TendermintTestSuite(t *testing.T) {
 	suite.Run(t, new(SP1ICS07TendermintTestSuite))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestDeploy() {
+func (s *SP1ICS07TendermintTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.DeployTest(ctx, proofType)
@@ -247,7 +247,7 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClient() {
+func (s *SP1ICS07TendermintTestSuite) Test_UpdateClient() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.UpdateClientTest(ctx, proofType)
@@ -288,7 +288,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestMembership() {
+func (s *SP1ICS07TendermintTestSuite) Test_Membership() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.MembershipTest(ctx, proofType)
@@ -395,7 +395,7 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt ope
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership() {
+func (s *SP1ICS07TendermintTestSuite) Test_UpdateClientAndMembership() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.UpdateClientAndMembershipTest(ctx, proofType)
@@ -487,7 +487,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour() {
+func (s *SP1ICS07TendermintTestSuite) Test_DoubleSignMisbehaviour() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.DoubleSignMisbehaviourTest(ctx, "double_sign-plonk", proofType)
@@ -590,7 +590,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour() {
+func (s *SP1ICS07TendermintTestSuite) Test_BreakingTimeMonotonicityMisbehaviour() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-plonk", proofType)

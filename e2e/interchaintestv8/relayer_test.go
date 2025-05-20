@@ -530,7 +530,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	}))
 }
 
-func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
+func (s *RelayerTestSuite) Test_MultiPeriodClientUpdateToCosmos() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 
@@ -1206,7 +1206,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest
 	}))
 }
 
-func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
+func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
 		s.T().Skip("Test is only relevant for PoS networks")
 	}
@@ -1303,7 +1303,7 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 	}))
 }
 
-func (s *RelayerTestSuite) TestUpdateClientToEth() {
+func (s *RelayerTestSuite) Test_UpdateClientToEth() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 	s.UpdateClientToEthTest(ctx, proofType)

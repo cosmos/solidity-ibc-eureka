@@ -468,7 +468,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 }
 
-func (s *MultichainTestSuite) TestDeploy() {
+func (s *MultichainTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 
@@ -665,7 +665,7 @@ func (s *MultichainTestSuite) TestDeploy() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack() {
+func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 
@@ -1020,7 +1020,7 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack() {
+func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 
@@ -1343,7 +1343,7 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
+func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 	ctx := context.Background()
 	proofType := operator.GetRandProofType()
 
