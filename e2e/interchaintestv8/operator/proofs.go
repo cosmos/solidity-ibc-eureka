@@ -1,6 +1,12 @@
 package operator
 
-import "math/rand"
+import (
+	"fmt"
+	"math/rand"
+	"os"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+)
 
 // SupportedProofType is an enum for supported proof types.
 type SupportedProofType int
@@ -22,6 +28,18 @@ func (pt SupportedProofType) ToOperatorArgs() []string {
 	return []string{"-p", pt.String()}
 }
 
+// GetRandProofType returns a proof type based on the environment variable SP1_PROOF_TYPE.
+// If the variable is not set, it returns a random proof type.
 func GetRandProofType() SupportedProofType {
-	return SupportedProofType(rand.Intn(2))
+	envProofType := os.Getenv(testvalues.EnvKeyProofType)
+	switch envProofType {
+	case "":
+		return SupportedProofType(rand.Intn(2))
+	case testvalues.EnvValueProofType_Groth16:
+		return ProofTypeGroth16
+	case testvalues.EnvValueProofType_Plonk:
+		return ProofTypePlonk
+	default:
+		panic(fmt.Errorf("unsupported proof type in env: %s", envProofType))
+	}
 }
