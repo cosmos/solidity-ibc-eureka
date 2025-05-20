@@ -485,6 +485,7 @@ where
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
             "Update client summary: 
+                client id: {},
                 recv events processed: #{}, 
                 ack events processed: #{}, 
                 timeout events processed: #{}, 
@@ -493,6 +494,7 @@ where
                 initial period: {}, 
                 latest period: {}, 
                 number of headers: #{}",
+            dst_client_id,
             recv_msgs.len(),
             ack_msgs.len(),
             timeout_msgs.len(),
@@ -668,6 +670,30 @@ where
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+
+        let proof_slot = headers
+            .last()
+            .map_or(ethereum_client_state.latest_slot, |h| {
+                h.consensus_update.finalized_header.beacon.slot
+            });
+        let initial_period = ethereum_client_state
+            .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
+        let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
+        tracing::info!(
+            "Update client summary: 
+                client id: {},
+                initial slot: {}, 
+                latest trusted slot (after updates): {}, 
+                initial period: {}, 
+                latest period: {}, 
+                number of headers: #{}",
+            dst_client_id,
+            ethereum_client_state.latest_slot,
+            proof_slot,
+            initial_period,
+            latest_period,
+            headers.len()
+        );
 
         Ok(TxBody {
             messages: update_msgs
