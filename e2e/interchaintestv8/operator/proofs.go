@@ -1,5 +1,7 @@
 package operator
 
+import "math/rand"
+
 // SupportedProofType is an enum for supported proof types.
 type SupportedProofType int
 
@@ -18,4 +20,8 @@ func (pt SupportedProofType) String() string {
 // ToOperatorArgs returns the proof type as arguments for the operator command.
 func (pt SupportedProofType) ToOperatorArgs() []string {
 	return []string{"-p", pt.String()}
+}
+
+func GetRandProofType() SupportedProofType {
+	return SupportedProofType(rand.Intn(2))
 }

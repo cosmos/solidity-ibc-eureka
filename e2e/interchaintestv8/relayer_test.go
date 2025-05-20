@@ -59,19 +59,22 @@ func TestWithRelayerTestSuite(t *testing.T) {
 	suite.Run(t, new(RelayerTestSuite))
 }
 
-func (s *RelayerTestSuite) Test_10_RecvPacketToEth_Groth16() {
+func (s *RelayerTestSuite) Test_10_RecvPacketToEth() {
 	ctx := context.Background()
-	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	proofType := operator.GetRandProofType()
+	s.FilteredRecvPacketToEthTest(ctx, proofType, 10, nil)
 }
 
-func (s *RelayerTestSuite) Test_5_RecvPacketToEth_Plonk() {
+func (s *RelayerTestSuite) Test_5_RecvPacketToEth() {
 	ctx := context.Background()
-	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
+	proofType := operator.GetRandProofType()
+	s.FilteredRecvPacketToEthTest(ctx, proofType, 5, []uint64{1, 2, 3, 4, 5})
 }
 
-func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth_Groth16() {
+func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth() {
 	ctx := context.Background()
-	s.FilteredRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 6})
+	proofType := operator.GetRandProofType()
+	s.FilteredRecvPacketToEthTest(ctx, proofType, 10, []uint64{2, 6})
 }
 
 func (s *RelayerTestSuite) FilteredRecvPacketToEthTest(
@@ -198,12 +201,13 @@ func (s *RelayerTestSuite) FilteredRecvPacketToEthTest(
 	}))
 }
 
-// TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 2 packets from Cosmos to Ethereum
+// TestConcurrentRecvPacketToEth tests the concurrent relaying of 2 packets from Cosmos to Ethereum
 // NOTE: This test is not included in the CI pipeline as it is flaky
-func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth_Groth16() {
+func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth() {
 	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
-	s.ConcurrentRecvPacketToEthTest(ctx, operator.ProofTypeGroth16, 2)
+	proofType := operator.GetRandProofType()
+	s.ConcurrentRecvPacketToEthTest(ctx, proofType, 2)
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
@@ -326,19 +330,22 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 }
 
-func (s *RelayerTestSuite) Test_10_BatchedAckPacketToEth_Groth16() {
+func (s *RelayerTestSuite) Test_10_BatchedAckPacketToEth() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10, big.NewInt(testvalues.TransferAmount), nil)
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
-func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth_Plonk() {
+func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypePlonk, 5, big.NewInt(testvalues.TransferAmount), []uint64{1, 2, 3, 4, 5})
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 5, big.NewInt(testvalues.TransferAmount), []uint64{1, 2, 3, 4, 5})
 }
 
-func (s *RelayerTestSuite) Test_10_FilteredBatchedAckPacketToEth_Groth16() {
+func (s *RelayerTestSuite) Test_10_FilteredBatchedAckPacketToEth() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, operator.ProofTypeGroth16, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
 
 // Note that the relayer still only relays one tx, the batching is done
@@ -525,8 +532,9 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 	ctx := context.Background()
+	proofType := operator.GetRandProofType()
 
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
@@ -658,9 +666,10 @@ func (s *RelayerTestSuite) TestMultiPeriodClientUpdateToCosmos() {
 	}))
 }
 
-func (s *IbcEurekaTestSuite) Test_5_FinalizedTimeoutPacketFromEth_Groth16() {
+func (s *IbcEurekaTestSuite) Test_5_FinalizedTimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.ICS20FinalizedTimeoutPacketFromEthTest(ctx, operator.ProofTypeGroth16, 5)
+	proofType := operator.GetRandProofType()
+	s.ICS20FinalizedTimeoutPacketFromEthTest(ctx, proofType, 5)
 }
 
 func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
@@ -841,11 +850,12 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 	}
 
 	ctx := context.Background()
+	proofType := operator.GetRandProofType()
 
 	electraForkEpoch := 12
 	chainconfig.KurtosisConfig.NetworkParams.ElectraForkEpoch = uint64(electraForkEpoch)
 
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	s.SetupSuite(ctx, proofType)
 
 	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 
@@ -874,13 +884,15 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	proofType := operator.GetRandProofType()
+	s.SetupSuite(ctx, proofType)
 	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToCosmos() {
 	ctx := context.Background()
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	proofType := operator.GetRandProofType()
+	s.SetupSuite(ctx, proofType)
 	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
 
@@ -1022,12 +1034,14 @@ func (s *RelayerTestSuite) FilteredRecvPacketToCosmosTest(ctx context.Context, n
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToCosmos() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, proofType, 10, nil)
 }
 
 func (s *RelayerTestSuite) Test_10_BatchedFilteredAckPacketToCosmos() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, operator.ProofTypeGroth16, 10, []uint64{1, 2, 8})
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, proofType, 10, []uint64{1, 2, 8})
 }
 
 // Note that the relayer still only relays one tx, the batching is done
@@ -1198,8 +1212,9 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 	}
 
 	ctx := context.Background()
+	proofType := operator.GetRandProofType()
 
-	s.SetupSuite(ctx, operator.ProofTypeGroth16) // Doesn't matter, since we won't relay to eth in this test
+	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
@@ -1288,14 +1303,10 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 	}))
 }
 
-func (s *RelayerTestSuite) TestUpdateClientToEth_Groth16() {
+func (s *RelayerTestSuite) TestUpdateClientToEth() {
 	ctx := context.Background()
-	s.UpdateClientToEthTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *RelayerTestSuite) TestUpdateClientToEth_Plonk() {
-	ctx := context.Background()
-	s.UpdateClientToEthTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.UpdateClientToEthTest(ctx, proofType)
 }
 
 func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
@@ -1346,10 +1357,11 @@ func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType 
 	}))
 }
 
-// TestConcurrentRecvPacketToEth_Groth16 tests the concurrent relaying of 50 packets from Ethereum to Cosmos
+// Test_50_concurrent_RecvPacketToCosmosTest tests the concurrent relaying of 50 packets from Ethereum to Cosmos
 func (s *RelayerTestSuite) Test_50_concurrent_RecvPacketToCosmosTest() {
 	ctx := context.Background()
-	s.ConcurrentRecvPacketToCosmos(ctx, operator.ProofTypeGroth16, 50)
+	proofType := operator.GetRandProofType()
+	s.ConcurrentRecvPacketToCosmos(ctx, proofType, 50)
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(

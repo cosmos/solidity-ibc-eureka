@@ -217,14 +217,10 @@ func TestWithSP1ICS07TendermintTestSuite(t *testing.T) {
 	suite.Run(t, new(SP1ICS07TendermintTestSuite))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestDeploy_Groth16() {
+func (s *SP1ICS07TendermintTestSuite) TestDeploy() {
 	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *SP1ICS07TendermintTestSuite) TestDeploy_Plonk() {
-	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.DeployTest(ctx, proofType)
 }
 
 // DeployTest tests the deployment of the SP1ICS07Tendermint contract with the given arguments
@@ -251,14 +247,10 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClient_Groth16() {
+func (s *SP1ICS07TendermintTestSuite) TestUpdateClient() {
 	ctx := context.Background()
-	s.UpdateClientTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClient_Plonk() {
-	ctx := context.Background()
-	s.UpdateClientTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.UpdateClientTest(ctx, proofType)
 }
 
 // UpdateClientTest tests the update client functionality
@@ -296,20 +288,14 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 	}))
 }
 
-// TestSP1Membership tests the verify (non)membership functionality with the plonk flag
-func (s *SP1ICS07TendermintTestSuite) TestMembership_Plonk() {
-	s.MembershipTest(operator.ProofTypePlonk)
-}
-
-// TestSP1Membership tests the verify (non)membership functionality with the plonk flag
-func (s *SP1ICS07TendermintTestSuite) TestMembership_Groth16() {
-	s.MembershipTest(operator.ProofTypeGroth16)
+func (s *SP1ICS07TendermintTestSuite) TestMembership() {
+	ctx := context.Background()
+	proofType := operator.GetRandProofType()
+	s.MembershipTest(ctx, proofType)
 }
 
 // MembershipTest tests the verify (non)membership functionality with the given arguments
-func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofType) {
-	ctx := context.Background()
-
+func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -409,14 +395,10 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(pt operator.SupportedProofT
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership_Plonk() {
+func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership() {
 	ctx := context.Background()
-	s.UpdateClientAndMembershipTest(ctx, operator.ProofTypePlonk)
-}
-
-func (s *SP1ICS07TendermintTestSuite) TestUpdateClientAndMembership_Groth16() {
-	ctx := context.Background()
-	s.UpdateClientAndMembershipTest(ctx, operator.ProofTypeGroth16)
+	proofType := operator.GetRandProofType()
+	s.UpdateClientAndMembershipTest(ctx, proofType)
 }
 
 // UpdateClientAndMembershipTest tests the update client and membership functionality with the given arguments
@@ -505,14 +487,10 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour_Plonk() {
+func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour() {
 	ctx := context.Background()
-	s.DoubleSignMisbehaviourTest(ctx, "double_sign-plonk", operator.ProofTypePlonk)
-}
-
-func (s *SP1ICS07TendermintTestSuite) TestDoubleSignMisbehaviour_Groth16() {
-	ctx := context.Background()
-	s.DoubleSignMisbehaviourTest(ctx, "double_sign-groth16", operator.ProofTypeGroth16)
+	proofType := operator.GetRandProofType()
+	s.DoubleSignMisbehaviourTest(ctx, "double_sign-plonk", proofType)
 }
 
 // DoubleSignMisbehaviourTest tests the misbehaviour functionality with the given arguments
@@ -612,14 +590,10 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour_Plonk() {
+func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour() {
 	ctx := context.Background()
-	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-plonk", operator.ProofTypePlonk)
-}
-
-func (s *SP1ICS07TendermintTestSuite) TestBreakingTimeMonotonicityMisbehaviour_Groth16() {
-	ctx := context.Background()
-	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-groth16", operator.ProofTypeGroth16)
+	proofType := operator.GetRandProofType()
+	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-plonk", proofType)
 }
 
 // TestBreakingTimeMonotonicityMisbehaviour tests the misbehaviour functionality
@@ -705,18 +679,22 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 	}))
 }
 
-func (s *SP1ICS07TendermintTestSuite) Test100Membership_Groth16() {
-	s.largeMembershipTest(100, operator.ProofTypeGroth16)
+func (s *SP1ICS07TendermintTestSuite) Test_100_Membership() {
+	ctx := context.Background()
+	proofType := operator.GetRandProofType()
+
+	s.largeMembershipTest(ctx, 100, proofType)
 }
 
-func (s *SP1ICS07TendermintTestSuite) Test25Membership_Plonk() {
-	s.largeMembershipTest(25, operator.ProofTypePlonk)
+func (s *SP1ICS07TendermintTestSuite) Test_25_Membership() {
+	ctx := context.Background()
+	proofType := operator.GetRandProofType()
+
+	s.largeMembershipTest(ctx, 25, proofType)
 }
 
 // largeMembershipTest tests membership proofs with a large number of key-value pairs
-func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(n uint64, pt operator.SupportedProofType) {
-	ctx := context.Background()
-
+func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n uint64, pt operator.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

@@ -468,9 +468,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 }
 
-func (s *MultichainTestSuite) TestDeploy_Groth16() {
+func (s *MultichainTestSuite) TestDeploy() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := operator.GetRandProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -665,9 +665,9 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
+func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := operator.GetRandProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -1020,9 +1020,9 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
+func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := operator.GetRandProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -1345,9 +1345,9 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 
 func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
 	ctx := context.Background()
-	prootType := operator.ProofTypeGroth16
+	proofType := operator.GetRandProofType()
 
-	s.SetupSuite(ctx, prootType)
+	s.SetupSuite(ctx, proofType)
 
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 

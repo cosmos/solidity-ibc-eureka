@@ -328,14 +328,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
+func (s *IbcEurekaTestSuite) TestDeploy() {
 	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
-	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.DeployTest(ctx, proofType)
 }
 
 // DeployTest tests the deployment of the IbcEureka contracts
@@ -423,35 +419,29 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 1, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
+func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 25, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 25, big.NewInt(testvalues.TransferAmount))
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 50, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) TestICS20TransferUint256TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 50, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 50, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) TestICS20TransferUint256TokenfromEthereumToCosmosAndBack_Groth16() {
-	ctx := context.Background()
+	proofType := operator.GetRandProofType()
 	transferAmount := new(big.Int).Div(testvalues.StartingERC20Balance, big.NewInt(2))
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, transferAmount)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 1, transferAmount)
 }
 
 // ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality by transferring
@@ -804,9 +794,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenFromEthereumToCosmosAndBackFails_Groth16() {
+func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenFromEthereumToCosmosAndBackFails() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(ctx, operator.ProofTypeGroth16, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(ctx, proofType, 1, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(
@@ -1002,14 +993,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackF
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypeGroth16, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypePlonk, big.NewInt(testvalues.TransferAmount))
+	proofType := operator.GetRandProofType()
+	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, proofType, big.NewInt(testvalues.TransferAmount))
 }
 
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
@@ -1359,29 +1346,28 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Groth16() {
+func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 1, nil)
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 1, nil)
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Plonk() {
+func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 1, []uint64{1})
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 10, nil)
 }
 
-func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth_Groth16() {
+func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 5, []uint64{1, 2, 3, 4, 5})
 }
 
-func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth_Plonk() {
+func (s *IbcEurekaTestSuite) Test_5_FilteredTimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
-}
-
-func (s *IbcEurekaTestSuite) Test_5_FilteredTimeoutPacketFromEth_Plonk() {
-	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{2, 3})
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 5, []uint64{2, 3})
 }
 
 func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
@@ -1586,14 +1572,10 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Groth16() {
+func (s *IbcEurekaTestSuite) TestErrorAckToEthereum() {
 	ctx := context.Background()
-	s.ICS20ErrorAckToEthereumTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Plonk() {
-	ctx := context.Background()
-	s.ICS20ErrorAckToEthereumTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.ICS20ErrorAckToEthereumTest(ctx, proofType)
 }
 
 func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
@@ -1748,17 +1730,20 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 
 func (s *IbcEurekaTestSuite) TestTimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 1, nil)
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 1, nil)
 }
 
 func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 }
 
 func (s *IbcEurekaTestSuite) Test_10_FilteredTimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 4, 6, 8, 10})
+	proofType := operator.GetRandProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 10, []uint64{2, 4, 6, 8, 10})
 }
 
 func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
@@ -1915,14 +1900,10 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketEthRemintsVouchers_Groth16() {
+func (s *IbcEurekaTestSuite) TestTimeoutPacketEthRemintsVouchers() {
 	ctx := context.Background()
-	s.TimeoutPacketEthRemintsVouchersTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestTimeoutPacketEthRemintsVouchers_Plonk() {
-	ctx := context.Background()
-	s.TimeoutPacketEthRemintsVouchersTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.TimeoutPacketEthRemintsVouchersTest(ctx, proofType)
 }
 
 // TimeoutPacketEthRemintsVouchersTest tests that when a transfer of a voucher (Cosmos native -> Eth)
@@ -2130,14 +2111,10 @@ func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Con
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketCosmosRemintsVouchers_Groth16() {
+func (s *IbcEurekaTestSuite) TestTimeoutPacketCosmosRemintsVouchers() {
 	ctx := context.Background()
-	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestTimeoutPacketCosmosRemintsVouchers_Plonk() {
-	ctx := context.Background()
-	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, operator.ProofTypePlonk)
+	proofType := operator.GetRandProofType()
+	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, proofType)
 }
 
 // TimeoutPacketCosmosRemintsVouchersTest tests that when a transfer of a voucher (Eth native -> Cosmos)
