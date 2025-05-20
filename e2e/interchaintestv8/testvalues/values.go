@@ -80,9 +80,9 @@ const (
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
 	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
 	EnvKeyEthereumPosNetworkPreset = "ETHEREUM_POS_NETWORK_PRESET"
-	// EnvKeyProofType is the environment variable name to configure the proof type. (groth16|plonk)
+	// EnvKeyE2EProofType is the environment variable name to configure the proof type. (groth16|plonk)
 	// A randomly selected proof type is used if not set.
-	EnvKeyProofType = "PROOF_TYPE"
+	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
