@@ -1237,6 +1237,8 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 		s.Require().NoError(err)
 	}))
 
+	time.Sleep(2 * time.Minute)
+
 	s.Require().True(s.Run("Update the client on Cosmos", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
