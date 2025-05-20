@@ -1203,6 +1203,8 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
 	var initialHeight uint64
 	s.Require().True(s.Run("Get the initial height", func() {
 		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
@@ -1232,12 +1234,23 @@ func (s *RelayerTestSuite) TestUpdateClientToCosmos() {
 				return false, err
 			}
 
+			finalizedBlock, err := strconv.ParseInt(resp.Data.FinalizedHeader.Execution.BlockNumber, 10, 64)
+			if err != nil {
+				return false, err
+			}
+
+			code, err := eth.EthAPI.Client.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
+			if err != nil || len(code) == 0 {
+				// Code not found at the finalized block number
+				return false, nil
+			}
+
 			return finalizedSlot > initialHeight, nil
 		})
 		s.Require().NoError(err)
 	}))
 
-	time.Sleep(2 * time.Minute)
+	s.Require().NoError(testutil.WaitForBlocks(ctx, 1, simd))
 
 	s.Require().True(s.Run("Update the client on Cosmos", func() {
 		var updateTxBodyBz []byte
