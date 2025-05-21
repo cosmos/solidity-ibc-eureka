@@ -152,7 +152,7 @@ generate-fixtures-solidity: clean-foundry install-operator install-relayer
 
 # Generate the fixture files for `TENDERMINT_RPC_URL` using the prover parameter.
 [group('generate')]
-generate-fixtures-sp1-ics07: install-operator
+generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
   @echo "Generating fixtures... This may take a while (up to 20 minutes)"
   TENDERMINT_RPC_URL="${TENDERMINT_RPC_URL%/}" && \
   CURRENT_HEIGHT=$(curl "$TENDERMINT_RPC_URL"/block | jq -r ".result.block.header.height") && \
