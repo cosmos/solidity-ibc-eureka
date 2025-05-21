@@ -89,6 +89,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
+
 	var prover string
 	shouldGenerateWasmFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {

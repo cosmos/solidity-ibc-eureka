@@ -68,6 +68,8 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt types.S
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	s.T().Logf("Setting up the test suite with proof type: %s", pt.String())
+
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")

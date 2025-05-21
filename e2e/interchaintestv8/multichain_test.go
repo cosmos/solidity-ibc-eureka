@@ -86,6 +86,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 
+	s.T().Logf("Setting up test suite with proof type: %s", proofType.String())
+
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
