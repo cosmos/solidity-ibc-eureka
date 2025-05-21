@@ -119,7 +119,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         string memory path = string.concat(root, FIXTURE_DIR, fixtureFileName);
         string memory json = vm.readFile(path);
 
-        bytes memory sp1GenesisBz = json.readBytes(".sp1_genesis_fixture");
+        bytes memory sp1GenesisBz = json.readBytes(".sp1GenesisFixture");
         string memory sp1GenesisJSON = string(sp1GenesisBz);
         SP1ICS07GenesisFixtureJson memory genesisFixture;
         genesisFixture.trustedClientState = sp1GenesisJSON.readBytes(".trustedClientState");
@@ -133,7 +133,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         IICS26RouterMsgs.Packet memory packet = abi.decode(packetBz, (IICS26RouterMsgs.Packet));
 
         bytes memory msgBz = json.readBytes(".msg");
-        address erc20Address = json.readAddress(".erc20_address");
+        address erc20Address = json.readAddress(".erc20Address");
         uint256 timestamp = json.readUint(".timestamp");
 
         vm.warp(timestamp);

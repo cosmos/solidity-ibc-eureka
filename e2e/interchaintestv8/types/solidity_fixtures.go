@@ -13,16 +13,31 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
+type Sp1GenesisFixture struct {
+	// The trusted client state of the sp1 light client
+	TrustedClientState string `json:"trustedClientState"`
+	// The trusted consensus state of the sp1 light client
+	TrustedConsensusState string `json:"trustedConsensusState"`
+	// The vkey for the update client program
+	UpdateClientVkey string `json:"updateClientVkey"`
+	// The vkey for the membership program
+	MembershipVkey string `json:"membershipVkey"`
+	// The vkey for the update client and membership program
+	UcAndMembershipVkey string `json:"ucAndMembershipVkey"`
+	// The vkey for the misbehavior program
+	MisbehaviorVkey string `json:"misbehaviorVkey"`
+}
+
 // GenericSolidityFixture is the fixture to be unmarshalled into a test case in Solidity tests
 type GenericSolidityFixture struct {
 	// Hex encoded bytes for sp1 genesis fixture
-	Sp1GenesisFixture string `json:"sp1_genesis_fixture"`
+	Sp1GenesisFixture string `json:"sp1GenesisFixture"`
 	// Hex encoded bytes to be fed into the router contract
 	Msg string `json:"msg"`
 	// Hex encoded bytes for the IICS26RouterMsgsPacket in the context of this fixture
 	Packet string `json:"packet"`
 	// The contract address of the ERC20 token
-	Erc20Address string `json:"erc20_address"`
+	Erc20Address string `json:"erc20Address"`
 	// The timestamp in seconds around the time of submitting the Msg to the router contract
 	Timestamp int64 `json:"timestamp"`
 }
