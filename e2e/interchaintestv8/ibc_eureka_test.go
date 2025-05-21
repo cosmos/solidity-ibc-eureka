@@ -41,7 +41,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
@@ -56,7 +55,7 @@ type IbcEurekaTestSuite struct {
 	e2esuite.TestSuite
 
 	// Whether to generate fixtures for tests or not
-	generateSolidityFixtures bool
+	solidityFixtureGenerator *types.SolidityFixtureGenerator
 	wasmFixtureGenerator     *types.WasmFixtureGenerator
 
 	// The private key of a test account
@@ -85,13 +84,14 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
-func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
+	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
+
 	var prover string
-	shouldGenerateWasmFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -140,14 +140,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
-		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
-			s.generateSolidityFixtures = true
-		}
-		shouldGenerateWasmFixtures = os.Getenv(testvalues.EnvKeyGenerateWasmFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
 	// Needs to be added here so the cleanup is called after the test suite is done
-	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite, shouldGenerateWasmFixtures)
+	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite)
+	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator()
 
 	s.Require().True(s.Run("Deploy IBC contracts", func() {
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
@@ -222,9 +219,9 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 			verfierAddress = s.contractAddresses.VerifierMock
 		} else {
 			switch proofType {
-			case operator.ProofTypeGroth16:
+			case types.ProofTypeGroth16:
 				verfierAddress = s.contractAddresses.VerifierGroth16
-			case operator.ProofTypePlonk:
+			case types.ProofTypePlonk:
 				verfierAddress = s.contractAddresses.VerifierPlonk
 			default:
 				s.Require().Fail("invalid proof type: %s", proofType)
@@ -326,20 +323,42 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
+
+	s.Require().True(s.Run("Generate the genesis fixtures", func() {
+		if !s.solidityFixtureGenerator.Enabled {
+			s.T().Skip("Skipping solidity fixture generation")
+		}
+
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
+		s.Require().NoError(err)
+		clientStateBz, err := s.sp1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+		consensusStateHash, err := s.sp1Ics07Contract.GetConsensusStateHash(nil, clientState.LatestHeight.RevisionHeight)
+		s.Require().NoError(err)
+		updateClientVkey, err := s.sp1Ics07Contract.UPDATECLIENTPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		membershipVkey, err := s.sp1Ics07Contract.MEMBERSHIPPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		ucAndMembershipVkey, err := s.sp1Ics07Contract.UPDATECLIENTANDMEMBERSHIPPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		misbehaviourVkey, err := s.sp1Ics07Contract.MISBEHAVIOURPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+
+		s.solidityFixtureGenerator.SetGenesisFixture(
+			clientStateBz, consensusStateHash, updateClientVkey,
+			membershipVkey, ucAndMembershipVkey, misbehaviourVkey,
+		)
+	}))
 }
 
-func (s *IbcEurekaTestSuite) TestDeploy_Groth16() {
+func (s *IbcEurekaTestSuite) Test_Deploy() {
 	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestDeploy_Plonk() {
-	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypePlonk)
+	proofType := types.GetEnvProofType()
+	s.DeployTest(ctx, proofType)
 }
 
 // DeployTest tests the deployment of the IbcEureka contracts
-func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -423,41 +442,35 @@ func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType operator.
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := types.GetEnvProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 1, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
+func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := types.GetEnvProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 25, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) Test_25_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 25, big.NewInt(testvalues.TransferAmount))
+	proofType := types.GetEnvProofType()
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 50, big.NewInt(testvalues.TransferAmount))
 }
 
-func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) Test_ICS20TransferUint256TokenfromEthereumToCosmosAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 50, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) Test_50_ICS20TransferERC20TokenfromEthereumToCosmosAndBack_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypePlonk, 50, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) TestICS20TransferUint256TokenfromEthereumToCosmosAndBack_Groth16() {
-	ctx := context.Background()
+	proofType := types.GetEnvProofType()
 	transferAmount := new(big.Int).Div(testvalues.StartingERC20Balance, big.NewInt(2))
-	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, operator.ProofTypeGroth16, 1, transferAmount)
+	s.ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(ctx, proofType, 1, transferAmount)
 }
 
 // ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest tests the ICS20 transfer functionality by transferring
 // ERC20 tokens with n packets from Ethereum to Cosmos chain and then back from Cosmos chain to Ethereum
 func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
 ) {
 	s.SetupSuite(ctx, proofType)
 
@@ -626,12 +639,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
-				fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, ackRelayTx, sendPacket,
-			))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
+			s.contractAddresses.Erc20, ackRelayTx, sendPacket,
+		))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
@@ -733,12 +744,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			returnAckTxHash = receipt.TxHash.Bytes()
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
-				fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, recvRelayTx, returnPacket,
-			))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
+			s.contractAddresses.Erc20, recvRelayTx, returnPacket,
+		))
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance should be back to the starting point
@@ -804,13 +813,14 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferERC20TokenFromEthereumToCosmosAndBackFails_Groth16() {
+func (s *IbcEurekaTestSuite) Test_ICS20TransferERC20TokenFromEthereumToCosmosAndBackFails() {
 	ctx := context.Background()
-	s.ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(ctx, operator.ProofTypeGroth16, 1, big.NewInt(testvalues.TransferAmount))
+	proofType := types.GetEnvProofType()
+	s.ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(ctx, proofType, 1, big.NewInt(testvalues.TransferAmount))
 }
 
 func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackFailsTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, transferAmount *big.Int,
 ) {
 	s.SetupSuite(ctx, proofType)
 
@@ -1002,19 +1012,15 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackF
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16() {
+func (s *IbcEurekaTestSuite) Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack() {
 	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypeGroth16, big.NewInt(testvalues.TransferAmount))
-}
-
-func (s *IbcEurekaTestSuite) TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Plonk() {
-	ctx := context.Background()
-	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, operator.ProofTypePlonk, big.NewInt(testvalues.TransferAmount))
+	proofType := types.GetEnvProofType()
+	s.ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx, proofType, big.NewInt(testvalues.TransferAmount))
 }
 
 // ICS20TransferNativeCosmosCoinsToEthereumAndBackTest tests the ICS20 transfer functionality
 // by transferring native coins from a Cosmos chain to Ethereum and back
-func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt operator.SupportedProofType, transferAmount *big.Int) {
+func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -1111,9 +1117,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ackTxHash = receipt.TxHash.Bytes()
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, recvRelayTx, packet))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("receiveNativePacket-%s.json", pt.String()),
+			s.contractAddresses.Erc20, recvRelayTx, packet,
+		))
 
 		// Recreate the full denom path
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
@@ -1359,33 +1366,32 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Groth16() {
+func (s *IbcEurekaTestSuite) Test_TimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 1, nil)
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 1, nil)
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketFromEth_Plonk() {
+func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 1, []uint64{1})
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 10, nil)
 }
 
-func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromEth_Groth16() {
+func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypeGroth16, 10, nil)
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 5, []uint64{1, 2, 3, 4, 5})
 }
 
-func (s *IbcEurekaTestSuite) Test_5_TimeoutPacketFromEth_Plonk() {
+func (s *IbcEurekaTestSuite) Test_5_FilteredTimeoutPacketFromEth() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{1, 2, 3, 4, 5})
-}
-
-func (s *IbcEurekaTestSuite) Test_5_FilteredTimeoutPacketFromEth_Plonk() {
-	ctx := context.Background()
-	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, operator.ProofTypePlonk, 5, []uint64{2, 3})
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutPacketFromEthereumTest(ctx, proofType, 5, []uint64{2, 3})
 }
 
 func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
-	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
+	ctx context.Context, pt types.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(timeoutFilter))
 	s.Require().Greater(numOfTransfers, 0)
@@ -1460,7 +1466,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 
 			// We use the first packet in fixture generation
-			if i == 0 && s.generateSolidityFixtures {
+			if i == 0 && s.solidityFixtureGenerator.Enabled {
 				sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 				s.Require().NoError(err)
 				sendPacket = sendPacketEvent.Packet
@@ -1532,9 +1538,12 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 		}))
 
-		if s.generateSolidityFixtures {
+		if s.solidityFixtureGenerator.Enabled {
 			s.Require().Zero(len(timeoutFilter))
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutMultiPacket_%d-%s.json", numOfTransfers, pt.String()), s.contractAddresses.Erc20, timeoutRelayTx, sendPacket))
+			s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+				fmt.Sprintf("timeoutMultiPacket_%d-%s.json", numOfTransfers, pt.String()),
+				s.contractAddresses.Erc20, timeoutRelayTx, sendPacket,
+			))
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
@@ -1586,18 +1595,14 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Groth16() {
+func (s *IbcEurekaTestSuite) Test_ErrorAckToEthereum() {
 	ctx := context.Background()
-	s.ICS20ErrorAckToEthereumTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestErrorAckToEthereum_Plonk() {
-	ctx := context.Background()
-	s.ICS20ErrorAckToEthereumTest(ctx, operator.ProofTypePlonk)
+	proofType := types.GetEnvProofType()
+	s.ICS20ErrorAckToEthereumTest(ctx, proofType)
 }
 
 func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
-	ctx context.Context, pt operator.SupportedProofType,
+	ctx context.Context, pt types.SupportedProofType,
 ) {
 	s.SetupSuite(ctx, pt)
 
@@ -1746,23 +1751,26 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketFromCosmos() {
+func (s *IbcEurekaTestSuite) Test_TimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 1, nil)
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 1, nil)
 }
 
 func (s *IbcEurekaTestSuite) Test_10_TimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 10, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 }
 
 func (s *IbcEurekaTestSuite) Test_10_FilteredTimeoutPacketFromCosmos() {
 	ctx := context.Background()
-	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, operator.ProofTypeGroth16, 10, []uint64{2, 4, 6, 8, 10})
+	proofType := types.GetEnvProofType()
+	s.FilteredICS20TimeoutFromCosmosTimeoutTest(ctx, proofType, 10, []uint64{2, 4, 6, 8, 10})
 }
 
 func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, timeoutFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(timeoutFilter))
 	s.Require().Greater(numOfTransfers, 0)
@@ -1915,19 +1923,15 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketEthRemintsVouchers_Groth16() {
+func (s *IbcEurekaTestSuite) Test_TimeoutPacketEthRemintsVouchers() {
 	ctx := context.Background()
-	s.TimeoutPacketEthRemintsVouchersTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestTimeoutPacketEthRemintsVouchers_Plonk() {
-	ctx := context.Background()
-	s.TimeoutPacketEthRemintsVouchersTest(ctx, operator.ProofTypePlonk)
+	proofType := types.GetEnvProofType()
+	s.TimeoutPacketEthRemintsVouchersTest(ctx, proofType)
 }
 
 // TimeoutPacketEthRemintsVouchersTest tests that when a transfer of a voucher (Cosmos native -> Eth)
 // from Ethereum back to Cosmos times out, the vouchers are reminted on Ethereum.
-func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -2130,19 +2134,15 @@ func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Con
 	}))
 }
 
-func (s *IbcEurekaTestSuite) TestTimeoutPacketCosmosRemintsVouchers_Groth16() {
+func (s *IbcEurekaTestSuite) Test_TimeoutPacketCosmosRemintsVouchers() {
 	ctx := context.Background()
-	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, operator.ProofTypeGroth16)
-}
-
-func (s *IbcEurekaTestSuite) TestTimeoutPacketCosmosRemintsVouchers_Plonk() {
-	ctx := context.Background()
-	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, operator.ProofTypePlonk)
+	proofType := types.GetEnvProofType()
+	s.TimeoutPacketCosmosRemintsVouchersTest(ctx, proofType)
 }
 
 // TimeoutPacketCosmosRemintsVouchersTest tests that when a transfer of a voucher (Eth native -> Cosmos)
 // from Cosmos back to Ethereum times out, the vouchers are reminted on Cosmos.
-func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

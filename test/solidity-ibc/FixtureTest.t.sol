@@ -35,7 +35,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
 
     struct SP1ICS07GenesisFixtureJson {
         bytes trustedClientState;
-        bytes trustedConsensusState;
+        bytes32 trustedConsensusStateHash;
         bytes32 updateClientVkey;
         bytes32 membershipVkey;
         bytes32 ucAndMembershipVkey;
@@ -78,9 +78,6 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {
         Fixture memory fixture = loadFixture(fixtureFileName);
 
-        ConsensusState memory trustedConsensusState =
-            abi.decode(fixture.genesisFixture.trustedConsensusState, (ConsensusState));
-        bytes32 trustedConsensusHash = keccak256(abi.encode(trustedConsensusState));
         ClientState memory trustedClientState = abi.decode(fixture.genesisFixture.trustedClientState, (ClientState));
 
         address verifier;
@@ -99,7 +96,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
             fixture.genesisFixture.misbehaviourVkey,
             verifier,
             fixture.genesisFixture.trustedClientState,
-            trustedConsensusHash,
+            fixture.genesisFixture.trustedConsensusStateHash,
             address(ics26Router)
         );
 
@@ -119,11 +116,11 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         string memory path = string.concat(root, FIXTURE_DIR, fixtureFileName);
         string memory json = vm.readFile(path);
 
-        bytes memory sp1GenesisBz = json.readBytes(".sp1_genesis_fixture");
+        bytes memory sp1GenesisBz = json.readBytes(".sp1GenesisFixture");
         string memory sp1GenesisJSON = string(sp1GenesisBz);
         SP1ICS07GenesisFixtureJson memory genesisFixture;
         genesisFixture.trustedClientState = sp1GenesisJSON.readBytes(".trustedClientState");
-        genesisFixture.trustedConsensusState = sp1GenesisJSON.readBytes(".trustedConsensusState");
+        genesisFixture.trustedConsensusStateHash = sp1GenesisJSON.readBytes32(".trustedConsensusStateHash");
         genesisFixture.updateClientVkey = sp1GenesisJSON.readBytes32(".updateClientVkey");
         genesisFixture.membershipVkey = sp1GenesisJSON.readBytes32(".membershipVkey");
         genesisFixture.ucAndMembershipVkey = sp1GenesisJSON.readBytes32(".ucAndMembershipVkey");
@@ -133,7 +130,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         IICS26RouterMsgs.Packet memory packet = abi.decode(packetBz, (IICS26RouterMsgs.Packet));
 
         bytes memory msgBz = json.readBytes(".msg");
-        address erc20Address = json.readAddress(".erc20_address");
+        address erc20Address = json.readAddress(".erc20Address");
         uint256 timestamp = json.readUint(".timestamp");
 
         vm.warp(timestamp);

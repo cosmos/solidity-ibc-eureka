@@ -179,7 +179,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 }
 
 // TestRelayer is a test that runs the relayer
-func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
+func (s *CosmosRelayerTestSuite) Test_RelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
@@ -206,7 +206,7 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	}))
 }
 
-func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
+func (s *CosmosRelayerTestSuite) Test_ICS20RecvAndAckPacket() {
 	ctx := context.Background()
 	s.FilteredICS20RecvAndAckPacketTest(ctx, 1, nil)
 }
@@ -376,7 +376,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 	}))
 }
 
-func (s *CosmosRelayerTestSuite) TestICS20TimeoutPacket() {
+func (s *CosmosRelayerTestSuite) Test_ICS20TimeoutPacket() {
 	ctx := context.Background()
 	s.FilteredICS20TimeoutPacketTest(ctx, 1, nil)
 }
@@ -530,7 +530,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 	}))
 }
 
-func (s *CosmosRelayerTestSuite) TestUpdateClient() {
+func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 

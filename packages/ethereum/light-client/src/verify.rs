@@ -424,7 +424,7 @@ mod test {
         let bls_verifier = TestBlsVerifier;
 
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 

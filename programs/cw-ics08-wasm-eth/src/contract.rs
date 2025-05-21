@@ -314,7 +314,7 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             let fixture: StepsFixture =
-                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+                fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -415,7 +415,7 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             let fixture: StepsFixture =
-                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+                fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -526,7 +526,7 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             let fixture: StepsFixture =
-                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+                fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -635,7 +635,7 @@ mod tests {
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
 
-            let fixture: StepsFixture = fixtures::load("TestMultiPeriodClientUpdateToCosmos");
+            let fixture: StepsFixture = fixtures::load("Test_MultiPeriodClientUpdateToCosmos");
 
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -904,7 +904,7 @@ mod tests {
             let info = message_info(&creator, &coins(1, "uatom"));
 
             let fixture: StepsFixture =
-                fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+                fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
             let initial_state: InitialState = fixture.get_data_at_step(0);
 
