@@ -92,8 +92,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
 
 	var prover string
-	shouldGenerateWasmFixtures := false
-	shouldGenerateSolidityFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -142,15 +140,11 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 		os.Setenv(testvalues.EnvKeyTendermintRPC, simd.GetHostRPCAddress())
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
-		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
-			shouldGenerateSolidityFixtures = true
-		}
-		shouldGenerateWasmFixtures = os.Getenv(testvalues.EnvKeyGenerateWasmFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
 	// Needs to be added here so the cleanup is called after the test suite is done
-	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite, shouldGenerateWasmFixtures)
-	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator(shouldGenerateSolidityFixtures)
+	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite)
+	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator()
 
 	s.Require().True(s.Run("Deploy IBC contracts", func() {
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)

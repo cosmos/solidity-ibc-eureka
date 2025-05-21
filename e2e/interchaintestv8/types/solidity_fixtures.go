@@ -19,10 +19,9 @@ type SolidityFixtureGenerator struct {
 }
 
 // NewSolidityFixtureGenerator creates a new SolidityFixtureGenerator
-// If enabled is false, the generator will not generate any fixtures
-func NewSolidityFixtureGenerator(enabled bool) *SolidityFixtureGenerator {
+func NewSolidityFixtureGenerator() *SolidityFixtureGenerator {
 	return &SolidityFixtureGenerator{
-		Enabled: enabled,
+		Enabled: os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True,
 	}
 }
 
