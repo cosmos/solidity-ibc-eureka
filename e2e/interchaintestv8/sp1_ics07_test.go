@@ -40,6 +40,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
@@ -62,7 +63,7 @@ type SP1ICS07TendermintTestSuite struct {
 
 // SetupSuite calls the underlying SP1ICS07TendermintTestSuite's SetupSuite method
 // and deploys the SP1ICS07Tendermint contract
-func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt types.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -171,9 +172,9 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, pt operato
 			verfierAddress = contractAddresses.VerifierMock
 		} else {
 			switch pt {
-			case operator.ProofTypeGroth16:
+			case types.ProofTypeGroth16:
 				verfierAddress = contractAddresses.VerifierGroth16
-			case operator.ProofTypePlonk:
+			case types.ProofTypePlonk:
 				verfierAddress = contractAddresses.VerifierPlonk
 			default:
 				s.Require().Fail("invalid proof type: %s", pt)
@@ -219,12 +220,12 @@ func TestWithSP1ICS07TendermintTestSuite(t *testing.T) {
 
 func (s *SP1ICS07TendermintTestSuite) Test_Deploy() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.DeployTest(ctx, proofType)
 }
 
 // DeployTest tests the deployment of the SP1ICS07Tendermint contract with the given arguments
-func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	_, simd := s.EthChain, s.CosmosChains[0]
@@ -249,12 +250,12 @@ func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, pt operato
 
 func (s *SP1ICS07TendermintTestSuite) Test_UpdateClient() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.UpdateClientTest(ctx, proofType)
 }
 
 // UpdateClientTest tests the update client functionality
-func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	_, simd := s.EthChain, s.CosmosChains[0]
@@ -290,12 +291,12 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, pt o
 
 func (s *SP1ICS07TendermintTestSuite) Test_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.MembershipTest(ctx, proofType)
 }
 
 // MembershipTest tests the verify (non)membership functionality with the given arguments
-func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -397,12 +398,12 @@ func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, pt ope
 
 func (s *SP1ICS07TendermintTestSuite) Test_UpdateClientAndMembership() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.UpdateClientAndMembershipTest(ctx, proofType)
 }
 
 // UpdateClientAndMembershipTest tests the update client and membership functionality with the given arguments
-func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.Context, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -489,14 +490,14 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 
 func (s *SP1ICS07TendermintTestSuite) Test_DoubleSignMisbehaviour() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.DoubleSignMisbehaviourTest(ctx, "double_sign", proofType)
 }
 
 // DoubleSignMisbehaviourTest tests the misbehaviour functionality with the given arguments
 // Fixture is only generated if the environment variable is set
 // Partially based on https://github.com/cosmos/relayer/blob/f9aaf3dd0ebfe99fbe98d190a145861d7df93804/interchaintest/misbehaviour_test.go#L38
-func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Context, fixName string, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -592,14 +593,14 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 func (s *SP1ICS07TendermintTestSuite) Test_BreakingTimeMonotonicityMisbehaviour() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity", proofType)
 }
 
 // TestBreakingTimeMonotonicityMisbehaviour tests the misbehaviour functionality
 // Fixture is only generated if the environment variable is set
 // Partially based on https://github.com/cosmos/relayer/blob/f9aaf3dd0ebfe99fbe98d190a145861d7df93804/interchaintest/misbehaviour_test.go#L38
-func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(ctx context.Context, fixName string, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(ctx context.Context, fixName string, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -681,20 +682,20 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 func (s *SP1ICS07TendermintTestSuite) Test_100_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 
 	s.largeMembershipTest(ctx, 100, proofType)
 }
 
 func (s *SP1ICS07TendermintTestSuite) Test_25_Membership() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 
 	s.largeMembershipTest(ctx, 25, proofType)
 }
 
 // largeMembershipTest tests membership proofs with a large number of key-value pairs
-func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n uint64, pt operator.SupportedProofType) {
+func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n uint64, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]

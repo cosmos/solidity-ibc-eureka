@@ -42,8 +42,8 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -61,24 +61,24 @@ func TestWithRelayerTestSuite(t *testing.T) {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.FilteredRecvPacketToEthTest(ctx, proofType, 10, nil)
 }
 
 func (s *RelayerTestSuite) Test_5_RecvPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.FilteredRecvPacketToEthTest(ctx, proofType, 5, []uint64{1, 2, 3, 4, 5})
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.FilteredRecvPacketToEthTest(ctx, proofType, 10, []uint64{2, 6})
 }
 
 func (s *RelayerTestSuite) FilteredRecvPacketToEthTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, recvFilter []uint64,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, recvFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(recvFilter))
 	s.Require().Greater(numOfTransfers, 0)
@@ -206,12 +206,12 @@ func (s *RelayerTestSuite) FilteredRecvPacketToEthTest(
 func (s *RelayerTestSuite) Test_2_ConcurrentRecvPacketToEth() {
 	// I've noticed that the prover network drops the requests when sending too many
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ConcurrentRecvPacketToEthTest(ctx, proofType, 2)
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
-	ctx context.Context, proofType operator.SupportedProofType, numConcurrentTransfers int,
+	ctx context.Context, proofType types.SupportedProofType, numConcurrentTransfers int,
 ) {
 	s.Require().Greater(numConcurrentTransfers, 0)
 
@@ -332,26 +332,26 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToEthTest(
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_5_BatchedAckPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 5, big.NewInt(testvalues.TransferAmount), []uint64{1, 2, 3, 4, 5})
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredBatchedAckPacketToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20TransferERC20TokenBatchedAckToEthTest(ctx, proofType, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
 
 // Note that the relayer still only relays one tx, the batching is done
 // on the cosmos transaction itself. So that it emits multiple IBC events.
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, transferAmount *big.Int, ackFilter []uint64,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, transferAmount *big.Int, ackFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(ackFilter))
 	s.Require().Greater(numOfTransfers, 0)
@@ -532,7 +532,7 @@ func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 func (s *RelayerTestSuite) Test_MultiPeriodClientUpdateToCosmos() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -668,12 +668,12 @@ func (s *RelayerTestSuite) Test_MultiPeriodClientUpdateToCosmos() {
 
 func (s *IbcEurekaTestSuite) Test_5_FinalizedTimeoutPacketFromEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20FinalizedTimeoutPacketFromEthTest(ctx, proofType, 5)
 }
 
 func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
-	ctx context.Context, pt operator.SupportedProofType, numOfTransfers int,
+	ctx context.Context, pt types.SupportedProofType, numOfTransfers int,
 ) {
 	s.Require().Greater(numOfTransfers, 0)
 
@@ -850,7 +850,7 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 	}
 
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 
 	electraForkEpoch := 12
 	chainconfig.KurtosisConfig.NetworkParams.ElectraForkEpoch = uint64(electraForkEpoch)
@@ -884,14 +884,14 @@ func (s *RelayerTestSuite) Test_Electra_Fork() {
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.SetupSuite(ctx, proofType)
 	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_10_FilteredRecvPacketToCosmos() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.SetupSuite(ctx, proofType)
 	s.FilteredRecvPacketToCosmosTest(ctx, 10, big.NewInt(testvalues.TransferAmount), []uint64{2, 6})
 }
@@ -1034,13 +1034,13 @@ func (s *RelayerTestSuite) FilteredRecvPacketToCosmosTest(ctx context.Context, n
 
 func (s *RelayerTestSuite) Test_10_BatchedAckPacketToCosmos() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, proofType, 10, nil)
 }
 
 func (s *RelayerTestSuite) Test_10_BatchedFilteredAckPacketToCosmos() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(ctx, proofType, 10, []uint64{1, 2, 8})
 }
 
@@ -1048,7 +1048,7 @@ func (s *RelayerTestSuite) Test_10_BatchedFilteredAckPacketToCosmos() {
 // on the cosmos transaction itself. So that it emits multiple IBC events.
 // This test also tests the filtering of the acks by packet sequence
 func (s *RelayerTestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTest(
-	ctx context.Context, proofType operator.SupportedProofType, numOfTransfers int, ackFilter []uint64,
+	ctx context.Context, proofType types.SupportedProofType, numOfTransfers int, ackFilter []uint64,
 ) {
 	s.Require().GreaterOrEqual(numOfTransfers, len(ackFilter))
 	s.Require().Greater(numOfTransfers, 0)
@@ -1212,7 +1212,7 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 	}
 
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -1305,11 +1305,11 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 
 func (s *RelayerTestSuite) Test_UpdateClientToEth() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.UpdateClientToEthTest(ctx, proofType)
 }
 
-func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType) // Doesn't matter, since we won't relay to eth in this test
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -1360,12 +1360,12 @@ func (s *RelayerTestSuite) UpdateClientToEthTest(ctx context.Context, proofType 
 // Test_50_concurrent_RecvPacketToCosmosTest tests the concurrent relaying of 50 packets from Ethereum to Cosmos
 func (s *RelayerTestSuite) Test_50_concurrent_RecvPacketToCosmosTest() {
 	ctx := context.Background()
-	proofType := operator.GetEnvProofType()
+	proofType := types.GetEnvProofType()
 	s.ConcurrentRecvPacketToCosmos(ctx, proofType, 50)
 }
 
 func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
-	ctx context.Context, proofType operator.SupportedProofType, numConcurrentTransfers int,
+	ctx context.Context, proofType types.SupportedProofType, numConcurrentTransfers int,
 ) {
 	s.Require().Greater(numConcurrentTransfers, 0)
 
