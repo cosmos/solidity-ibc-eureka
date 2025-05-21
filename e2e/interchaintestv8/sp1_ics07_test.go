@@ -490,7 +490,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.
 func (s *SP1ICS07TendermintTestSuite) Test_DoubleSignMisbehaviour() {
 	ctx := context.Background()
 	proofType := operator.GetEnvProofType()
-	s.DoubleSignMisbehaviourTest(ctx, "double_sign-plonk", proofType)
+	s.DoubleSignMisbehaviourTest(ctx, "double_sign", proofType)
 }
 
 // DoubleSignMisbehaviourTest tests the misbehaviour functionality with the given arguments
@@ -564,7 +564,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 
 		var fixtureName string
 		if s.generateFixtures {
-			fixtureName = fixName
+			fixtureName = fmt.Sprintf("%s-%s", fixName, pt.String())
 		}
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
@@ -593,7 +593,7 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 func (s *SP1ICS07TendermintTestSuite) Test_BreakingTimeMonotonicityMisbehaviour() {
 	ctx := context.Background()
 	proofType := operator.GetEnvProofType()
-	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity-plonk", proofType)
+	s.BreakingTimeMonotonicityMisbehaviourTest(ctx, "breaking_time_monotonicity", proofType)
 }
 
 // TestBreakingTimeMonotonicityMisbehaviour tests the misbehaviour functionality
@@ -653,7 +653,7 @@ func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(c
 
 		var fixtureName string
 		if s.generateFixtures {
-			fixtureName = fixName
+			fixtureName = fmt.Sprintf("%s-%s", fixName, pt.String())
 		}
 		args := append([]string{
 			"--trust-level", testvalues.DefaultTrustLevel.String(),
