@@ -28,8 +28,8 @@ type Sp1GenesisFixture struct {
 	MembershipVkey string `json:"membershipVkey"`
 	// The vkey for the update client and membership program
 	UcAndMembershipVkey string `json:"ucAndMembershipVkey"`
-	// The vkey for the misbehavior program
-	MisbehaviorVkey string `json:"misbehaviorVkey"`
+	// The vkey for the misbehaviour program
+	MisbehaviourVkey string `json:"misbehaviourVkey"`
 }
 
 // GenericSolidityFixture is the fixture to be unmarshalled into a test case in Solidity tests
