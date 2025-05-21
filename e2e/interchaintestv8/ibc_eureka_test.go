@@ -326,6 +326,29 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType operator.
 		})
 		s.Require().NoError(err)
 	}))
+
+	s.Require().True(s.Run("Generate the genesis fixtures", func() {
+		if !s.generateSolidityFixtures {
+			s.T().Skip("Skipping solidity fixture generation")
+		}
+
+		clientState, err := s.sp1Ics07Contract.ClientState(nil)
+		s.Require().NoError(err)
+		clientStateBz, err := s.sp1Ics07Contract.GetClientState(nil)
+		s.Require().NoError(err)
+		consensusStateHash, err := s.sp1Ics07Contract.GetConsensusStateHash(nil, clientState.LatestHeight.RevisionHeight)
+		s.Require().NoError(err)
+		updateClientVkey, err := s.sp1Ics07Contract.UPDATECLIENTPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		membershipVkey, err := s.sp1Ics07Contract.MEMBERSHIPPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		ucAndMembershipVkey, err := s.sp1Ics07Contract.UPDATECLIENTANDMEMBERSHIPPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+		misbehaviourVkey, err := s.sp1Ics07Contract.MISBEHAVIOURPROGRAMVKEY(nil)
+		s.Require().NoError(err)
+
+		types.SetGenesisFixture(clientStateBz, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviourVkey)
+	}))
 }
 
 func (s *IbcEurekaTestSuite) Test_Deploy() {

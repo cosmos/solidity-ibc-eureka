@@ -13,11 +13,15 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
+// Global variable to hold the genesis fixture
+var sp1GenesisFixture *Sp1GenesisFixture
+
+// Sp1GenesisFixture is the genesis fixture for the sp1 light client
 type Sp1GenesisFixture struct {
 	// The trusted client state of the sp1 light client
 	TrustedClientState string `json:"trustedClientState"`
 	// The trusted consensus state of the sp1 light client
-	TrustedConsensusState string `json:"trustedConsensusState"`
+	TrustedConsensusStateHash string `json:"trustedConsensusStateHash"`
 	// The vkey for the update client program
 	UpdateClientVkey string `json:"updateClientVkey"`
 	// The vkey for the membership program
@@ -82,22 +86,23 @@ func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS2
 }
 
 func getGenesisFixture() ([]byte, error) {
-	genesisBz, err := os.ReadFile(testvalues.Sp1GenesisFilePath)
+	genesisBz, err := json.Marshal(sp1GenesisFixture)
 	if err != nil {
 		return nil, err
 	}
 
-	// Because the genesis json has line breaks and spaces, we need to unmarshal and marshal it again to get the compact version
-	var jsonData interface{}
-	if err := json.Unmarshal(genesisBz, &jsonData); err != nil {
-		return nil, err
-	}
-	compactGenesisBz, err := json.Marshal(jsonData)
-	if err != nil {
-		return nil, err
-	}
+	return genesisBz, nil
+}
 
-	return compactGenesisBz, nil
+func SetGenesisFixture(clientState []byte, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviorVkey [32]byte) {
+	sp1GenesisFixture = &Sp1GenesisFixture{
+		TrustedClientState:        hex.EncodeToString(clientState),
+		TrustedConsensusStateHash: hex.EncodeToString(consensusStateHash[:]),
+		UpdateClientVkey:          hex.EncodeToString(updateClientVkey[:]),
+		MembershipVkey:            hex.EncodeToString(membershipVkey[:]),
+		UcAndMembershipVkey:       hex.EncodeToString(ucAndMembershipVkey[:]),
+		MisbehaviorVkey:           hex.EncodeToString(misbehaviorVkey[:]),
+	}
 }
 
 func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
