@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
+import { IMintableAndBurnable } from "../interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20Errors } from "../errors/IIBCERC20Errors.sol";
 import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 
@@ -101,14 +102,14 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         $._customSymbol = customSymbol;
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function mint(address mintAddress, uint256 amount) external onlyICS20 {
         address escrow_ = _getIBCERC20Storage()._escrow;
         require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));
         _mint(mintAddress, amount);
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function burn(address mintAddress, uint256 amount) external onlyICS20 {
         address escrow_ = _getIBCERC20Storage()._escrow;
         require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));

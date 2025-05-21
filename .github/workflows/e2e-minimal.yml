@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: '0 3 * * *'  # Run daily at 3 AM UTC (outside EU and US work hours)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,7 +29,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
         with:
-          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth
 
   e2e:
     needs: generate-matrix

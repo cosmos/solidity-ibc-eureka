@@ -52,7 +52,7 @@ where
     /// All default public cluster provers.
     PublicCluster(Box<dyn Prover<C>>),
     /// Private clusters can only be a [`NetworkProver`].
-    PrivateCluster(NetworkProver),
+    PrivateCluster(Box<NetworkProver>),
 }
 
 impl<C: SP1ProverComponents> Sp1Prover<C> {
@@ -65,8 +65,8 @@ impl<C: SP1ProverComponents> Sp1Prover<C> {
     }
 
     /// Create a new [`Sp1Prover::PrivateCluster`] from a [`NetworkProver`].
-    pub const fn new_private_cluster(prover: NetworkProver) -> Self {
-        Self::PrivateCluster(prover)
+    pub fn new_private_cluster(prover: NetworkProver) -> Self {
+        Self::PrivateCluster(Box::new(prover))
     }
 
     /// Calls the underlying prover's `setup` method.
@@ -283,6 +283,6 @@ impl<C: SP1ProverComponents> From<Box<dyn Prover<C>>> for Sp1Prover<C> {
 
 impl<C: SP1ProverComponents> From<NetworkProver> for Sp1Prover<C> {
     fn from(prover: NetworkProver) -> Self {
-        Self::PrivateCluster(prover)
+        Self::PrivateCluster(Box::new(prover))
     }
 }

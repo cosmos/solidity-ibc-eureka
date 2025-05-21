@@ -27,6 +27,9 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee participants ({0})")]
     InsufficientSyncCommitteeParticipants(u64),
 
+    #[error("insufficient number of sync committee addresses ({found}) but expected ({expected})")]
+    InsufficientSyncCommitteeLength { expected: u64, found: u64 },
+
     #[error("unsupported fork version, must be deneb or later")]
     MustBeDenebOrLater,
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
+import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
 import { IICS02Client } from "../interfaces/IICS02Client.sol";
@@ -42,6 +43,9 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @inheritdoc IICS02Client
     bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
+
+    /// @inheritdoc IICS02Client
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     function __ICS02Client_init_unchained() internal onlyInitializing { }
     // solhint-disable-previous-line no-empty-blocks
@@ -129,6 +133,20 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @inheritdoc IICS02Client
+    function updateClient(
+        string calldata clientId,
+        bytes calldata updateMsg
+    )
+        external
+        onlyRelayer
+        returns (ILightClientMsgs.UpdateResult)
+    {
+        ILightClientMsgs.UpdateResult result = getClient(clientId).updateClient(updateMsg);
+        emit ICS02ClientUpdated(clientId, result);
+        return result;
+    }
+
+    /// @inheritdoc IICS02Client
     function migrateClient(
         string calldata subjectClientId,
         string calldata substituteClientId
@@ -153,7 +171,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
         getClient(clientId).misbehaviour(misbehaviourMsg);
-        emit ICS02MisbehaviourSubmitted(clientId, misbehaviourMsg);
+        emit ICS02MisbehaviourSubmitted(clientId);
     }
 
     /// @notice Returns the storage of the ICS02Client contract
@@ -167,5 +185,12 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     function getLightClientMigratorRole(string memory clientId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
+    }
+
+    modifier onlyRelayer() {
+        if (!hasRole(RELAYER_ROLE, address(0))) {
+            _checkRole(RELAYER_ROLE);
+        }
+        _;
     }
 }

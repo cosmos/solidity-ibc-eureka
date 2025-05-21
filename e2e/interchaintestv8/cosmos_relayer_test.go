@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 
 	sdkmath "cosmossdk.io/math"
@@ -20,6 +21,7 @@ import (
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
@@ -177,7 +179,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 }
 
 // TestRelayer is a test that runs the relayer
-func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
+func (s *CosmosRelayerTestSuite) Test_RelayerInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
@@ -204,7 +206,7 @@ func (s *CosmosRelayerTestSuite) TestRelayerInfo() {
 	}))
 }
 
-func (s *CosmosRelayerTestSuite) TestICS20RecvAndAckPacket() {
+func (s *CosmosRelayerTestSuite) Test_ICS20RecvAndAckPacket() {
 	ctx := context.Background()
 	s.FilteredICS20RecvAndAckPacketTest(ctx, 1, nil)
 }
@@ -374,7 +376,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 	}))
 }
 
-func (s *CosmosRelayerTestSuite) TestICS20TimeoutPacket() {
+func (s *CosmosRelayerTestSuite) Test_ICS20TimeoutPacket() {
 	ctx := context.Background()
 	s.FilteredICS20TimeoutPacketTest(ctx, 1, nil)
 }
@@ -525,5 +527,59 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 		resp, err := s.BroadcastSdkTxBody(ctx, s.SimdB, s.SimdBSubmitter, 2_000_000, txBodyBz)
 		s.Require().ErrorContains(err, "timeout elapsed")
 		s.Require().Nil(resp)
+	}))
+}
+
+func (s *CosmosRelayerTestSuite) Test_UpdateClient() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, s.SimdA, &clienttypes.QueryClientStateRequest{
+			ClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.ClientState)
+
+		var tmClientState ibctmtypes.ClientState
+		err = proto.Unmarshal(resp.ClientState.Value, &tmClientState)
+		s.Require().NoError(err)
+		s.Require().NotZero(tmClientState.LatestHeight.RevisionHeight)
+
+		initialHeight = tmClientState.LatestHeight.RevisionHeight
+	}))
+
+	s.Require().True(s.Run("Update client on Chain A", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve update client tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    s.SimdB.Config().ChainID,
+				DstChain:    s.SimdA.Config().ChainID,
+				DstClientId: ibctesting.FirstClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast update client tx", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, updateTxBodyBz)
+		}))
+
+		s.Require().True(s.Run("Verify client update on Chain A", func() {
+			resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, s.SimdA, &clienttypes.QueryClientStateRequest{
+				ClientId: ibctesting.FirstClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.ClientState)
+
+			var tmClientState ibctmtypes.ClientState
+			err = proto.Unmarshal(resp.ClientState.Value, &tmClientState)
+			s.Require().NoError(err)
+			s.Require().Greater(tmClientState.LatestHeight.RevisionHeight, initialHeight)
+		}))
 	}))
 }

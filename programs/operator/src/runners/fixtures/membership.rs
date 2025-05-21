@@ -75,9 +75,8 @@ pub async fn run(args: MembershipCmd) -> anyhow::Result<()> {
     )
     .await?;
 
-    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state, false)?;
-    let trusted_consensus_state =
-        SolConsensusState::abi_decode(&genesis.trusted_consensus_state, false)?;
+    let trusted_client_state = ClientState::abi_decode(&genesis.trusted_client_state)?;
+    let trusted_consensus_state = SolConsensusState::abi_decode(&genesis.trusted_consensus_state)?;
 
     let membership_proof = run_sp1_membership(
         &tm_rpc_client,
@@ -165,7 +164,7 @@ pub async fn run_sp1_membership(
     let proof_data = verify_mem_prover.generate_proof(&commitment_root_bytes, kv_proofs);
 
     let bytes = proof_data.public_values.as_slice();
-    let output = MembershipOutput::abi_decode(bytes, true)?;
+    let output = MembershipOutput::abi_decode(bytes)?;
     assert_eq!(output.commitmentRoot.as_slice(), &commitment_root_bytes);
 
     let sp1_membership_proof = SP1MembershipProof {

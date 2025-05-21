@@ -12,12 +12,6 @@ interface IICS26Router {
     /// @return The role identifier
     function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
 
-    /// @notice The role identifier for the relayer role
-    /// @dev The relayer role is used to whitelist addresses that can relay packets
-    /// @dev If `address(0)` has this role, then anyone can relay packets
-    /// @return The role identifier
-    function RELAYER_ROLE() external view returns (bytes32);
-
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract

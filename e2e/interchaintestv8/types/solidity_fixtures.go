@@ -13,23 +13,55 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
+type SolidityFixtureGenerator struct {
+	Enabled           bool
+	sp1GenesisFixture *Sp1GenesisFixture
+}
+
+// NewSolidityFixtureGenerator creates a new SolidityFixtureGenerator
+func NewSolidityFixtureGenerator() *SolidityFixtureGenerator {
+	return &SolidityFixtureGenerator{
+		Enabled: os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True,
+	}
+}
+
+// Sp1GenesisFixture is the genesis fixture for the sp1 light client
+type Sp1GenesisFixture struct {
+	// The trusted client state of the sp1 light client
+	TrustedClientState string `json:"trustedClientState"`
+	// The trusted consensus state of the sp1 light client
+	TrustedConsensusStateHash string `json:"trustedConsensusStateHash"`
+	// The vkey for the update client program
+	UpdateClientVkey string `json:"updateClientVkey"`
+	// The vkey for the membership program
+	MembershipVkey string `json:"membershipVkey"`
+	// The vkey for the update client and membership program
+	UcAndMembershipVkey string `json:"ucAndMembershipVkey"`
+	// The vkey for the misbehaviour program
+	MisbehaviourVkey string `json:"misbehaviourVkey"`
+}
+
 // GenericSolidityFixture is the fixture to be unmarshalled into a test case in Solidity tests
 type GenericSolidityFixture struct {
 	// Hex encoded bytes for sp1 genesis fixture
-	Sp1GenesisFixture string `json:"sp1_genesis_fixture"`
+	Sp1GenesisFixture string `json:"sp1GenesisFixture"`
 	// Hex encoded bytes to be fed into the router contract
 	Msg string `json:"msg"`
 	// Hex encoded bytes for the IICS26RouterMsgsPacket in the context of this fixture
 	Packet string `json:"packet"`
 	// The contract address of the ERC20 token
-	Erc20Address string `json:"erc20_address"`
+	Erc20Address string `json:"erc20Address"`
 	// The timestamp in seconds around the time of submitting the Msg to the router contract
 	Timestamp int64 `json:"timestamp"`
 }
 
 // GenerateAndSaveSolidityFixture generates a fixture and saves it to a file
-func GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) error {
-	fixture, err := generateFixture(erc20Address, msgBz, packet)
+func (g *SolidityFixtureGenerator) GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) error {
+	if !g.Enabled {
+		return nil
+	}
+
+	fixture, err := g.generateFixture(erc20Address, msgBz, packet)
 	if err != nil {
 		return err
 	}
@@ -44,8 +76,8 @@ func GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte,
 	return os.WriteFile(filePath, fixtureBz, 0o644)
 }
 
-func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
-	genesisBz, err := getGenesisFixture()
+func (g *SolidityFixtureGenerator) generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
+	genesisBz, err := g.GetGenesisFixture()
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
@@ -66,23 +98,31 @@ func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS2
 	return fixture, nil
 }
 
-func getGenesisFixture() ([]byte, error) {
-	genesisBz, err := os.ReadFile(testvalues.Sp1GenesisFilePath)
+func (g *SolidityFixtureGenerator) GetGenesisFixture() ([]byte, error) {
+	genesisBz, err := json.Marshal(g.sp1GenesisFixture)
 	if err != nil {
 		return nil, err
 	}
 
-	// Because the genesis json has line breaks and spaces, we need to unmarshal and marshal it again to get the compact version
-	var jsonData interface{}
-	if err := json.Unmarshal(genesisBz, &jsonData); err != nil {
-		return nil, err
-	}
-	compactGenesisBz, err := json.Marshal(jsonData)
-	if err != nil {
-		return nil, err
+	return genesisBz, nil
+}
+
+func (g *SolidityFixtureGenerator) SetGenesisFixture(
+	clientState []byte, consensusStateHash, updateClientVkey,
+	membershipVkey, ucAndMembershipVkey, misbehaviourVkey [32]byte,
+) {
+	if !g.Enabled {
+		return
 	}
 
-	return compactGenesisBz, nil
+	g.sp1GenesisFixture = &Sp1GenesisFixture{
+		TrustedClientState:        hex.EncodeToString(clientState),
+		TrustedConsensusStateHash: hex.EncodeToString(consensusStateHash[:]),
+		UpdateClientVkey:          hex.EncodeToString(updateClientVkey[:]),
+		MembershipVkey:            hex.EncodeToString(membershipVkey[:]),
+		UcAndMembershipVkey:       hex.EncodeToString(ucAndMembershipVkey[:]),
+		MisbehaviourVkey:          hex.EncodeToString(misbehaviourVkey[:]),
+	}
 }
 
 func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {

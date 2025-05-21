@@ -45,7 +45,7 @@ pub fn update_consensus_state(
             new_consensus_state.next_sync_committee = header
                 .consensus_update
                 .next_sync_committee
-                .map(|c| c.aggregate_pubkey);
+                .map(|c| c.to_summarized_sync_committee());
         }
     } else {
         // if the finalized period is greater, we have to have a next sync committee
@@ -56,7 +56,7 @@ pub fn update_consensus_state(
         new_consensus_state.next_sync_committee = header
             .consensus_update
             .next_sync_committee
-            .map(|c| c.aggregate_pubkey);
+            .map(|c| c.to_summarized_sync_committee());
     }
 
     new_consensus_state.slot = update_finalized_slot;

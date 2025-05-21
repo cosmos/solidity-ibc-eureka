@@ -217,4 +217,46 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
         }
         .encode_to_vec())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        let client_state = ClientState::decode(
+            self.target_tm_client
+                .client_state(dst_client_id.clone())
+                .await?
+                .value
+                .as_slice(),
+        )?;
+
+        let target_light_block = self.source_tm_client.get_light_block(None).await?;
+        let trusted_light_block = self
+            .source_tm_client
+            .get_light_block(Some(
+                client_state
+                    .latest_height
+                    .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+                    .revision_height,
+            ))
+            .await?;
+
+        tracing::info!(
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
+            trusted_light_block.height().value(),
+            target_light_block.height().value()
+        );
+
+        let proposed_header = target_light_block.into_header(&trusted_light_block);
+        let update_msg = MsgUpdateClient {
+            client_id: dst_client_id,
+            client_message: Some(Any::from_msg(&proposed_header)?),
+            signer: self.signer_address.clone(),
+        };
+
+        Ok(TxBody {
+            messages: vec![Any::from_msg(&update_msg)?],
+            ..Default::default()
+        }
+        .encode_to_vec())
+    }
 }

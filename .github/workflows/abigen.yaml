@@ -54,9 +54,9 @@ jobs:
           cache-dependency-path: packages/go-abigen/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.63
+          version: v2.1
           working-directory: packages/go-abigen
 
   test:

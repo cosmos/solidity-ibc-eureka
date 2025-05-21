@@ -12,6 +12,8 @@ import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
+import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
+import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -19,7 +21,6 @@ import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.s
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
-import { IBCERC20 } from "./utils/IBCERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -52,7 +53,7 @@ contract ICS20Transfer is
     /// @custom:storage-location erc7201:ibc.storage.ICS20Transfer
     struct ICS20TransferStorage {
         mapping(string clientId => IEscrow escrow) _escrows;
-        mapping(string => IBCERC20) _ibcERC20Contracts;
+        mapping(string => IMintableAndBurnable) _ibcERC20Contracts;
         mapping(address => string) _ibcERC20Denoms;
         IICS26Router _ics26;
         UpgradeableBeacon _ibcERC20Beacon;
@@ -70,6 +71,9 @@ contract ICS20Transfer is
 
     /// @inheritdoc IICS20Transfer
     bytes32 public constant TOKEN_OPERATOR_ROLE = keccak256("TOKEN_OPERATOR_ROLE");
+
+    /// @inheritdoc IICS20Transfer
+    bytes32 public constant ERC20_CUSTOMIZER_ROLE = keccak256("ERC20_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     constructor() {
@@ -152,7 +156,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -181,7 +185,7 @@ contract ICS20Transfer is
         );
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
     /// @inheritdoc IICS20Transfer
@@ -201,7 +205,7 @@ contract ICS20Transfer is
         _transferFrom(_msgSender(), address(escrow), msg_.denom, msg_.amount);
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
-        return sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
+        return _sendTransferFromEscrowWithSender(msg_, address(escrow), sender);
     }
 
     /// @notice Send a transfer after the funds have been transferred to escrow
@@ -209,7 +213,7 @@ contract ICS20Transfer is
     /// @param escrow The address of the escrow contract
     /// @param sender The address of the sender, used to refund the tokens if the packet fails
     /// @return sequence The sequence number of the packet created
-    function sendTransferFromEscrowWithSender(
+    function _sendTransferFromEscrowWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address escrow,
         address sender
@@ -229,7 +233,7 @@ contract ICS20Transfer is
             bool returningToSource = ICS20Lib.hasPrefix(bytes(fullDenomPath), prefix);
             if (returningToSource) {
                 // token is returning to source, it is an IBCERC20 and we must burn the token (not keep it in escrow)
-                IBCERC20(msg_.denom).burn(escrow, msg_.amount);
+                IMintableAndBurnable(msg_.denom).burn(escrow, msg_.amount);
             }
         }
 
@@ -254,6 +258,18 @@ contract ICS20Transfer is
                 })
             })
         );
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function setCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
+        ICS20TransferStorage storage $ = _getICS20TransferStorage();
+        require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyExists(denom));
+        require(
+            bytes($._ibcERC20Denoms[token]).length == 0, IICS20Errors.ICS20TokenAlreadyExists($._ibcERC20Denoms[token])
+        );
+
+        $._ibcERC20Contracts[denom] = IMintableAndBurnable(token);
+        $._ibcERC20Denoms[token] = denom;
     }
 
     /// @inheritdoc IIBCApp
@@ -322,7 +338,7 @@ contract ICS20Transfer is
             bytes memory newDenom = abi.encodePacked(newDenomPrefix, denomBz);
 
             erc20Address = _getOrCreateIBCERC20(newDenom, address(escrow));
-            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
+            IMintableAndBurnable(erc20Address).mint(address(escrow), packetData.amount);
         }
 
         // transfer the tokens to the receiver
@@ -380,7 +396,7 @@ contract ICS20Transfer is
             erc20Address = address($._ibcERC20Contracts[packetData.denom]);
             require(erc20Address != address(0), ICS20DenomNotFound(packetData.denom));
             // if the token was returning to source, it was burned on send, so we mint it back now
-            IBCERC20(erc20Address).mint(address(escrow), packetData.amount);
+            IMintableAndBurnable(erc20Address).mint(address(escrow), packetData.amount);
         } else {
             // the receiving chain is not the source of the token, so the token is either a native token
             // or we are a middle chain and the token was minted (and mapped) here.
@@ -434,9 +450,9 @@ contract ICS20Transfer is
             // nothing exists, so we create new erc20 contract and register it in the mapping
             BeaconProxy ibcERC20Proxy = new BeaconProxy(
                 address($._ibcERC20Beacon),
-                abi.encodeCall(IBCERC20.initialize, (address(this), escrow, string(fullDenomPath)))
+                abi.encodeCall(IIBCERC20.initialize, (address(this), escrow, string(fullDenomPath)))
             );
-            $._ibcERC20Contracts[string(fullDenomPath)] = IBCERC20(address(ibcERC20Proxy));
+            $._ibcERC20Contracts[string(fullDenomPath)] = IMintableAndBurnable(address(ibcERC20Proxy));
             $._ibcERC20Denoms[address(ibcERC20Proxy)] = string(fullDenomPath);
             erc20Contract = address(ibcERC20Proxy);
 
@@ -511,6 +527,16 @@ contract ICS20Transfer is
     /// @inheritdoc IICS20Transfer
     function revokeTokenOperatorRole(address account) external onlyAdmin {
         _revokeRole(TOKEN_OPERATOR_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function grantERC20CustomizerRole(address account) external onlyAdmin {
+        _grantRole(ERC20_CUSTOMIZER_ROLE, account);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function revokeERC20CustomizerRole(address account) external onlyAdmin {
+        _revokeRole(ERC20_CUSTOMIZER_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract

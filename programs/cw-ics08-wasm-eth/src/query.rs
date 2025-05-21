@@ -186,7 +186,7 @@ mod tests {
         let info = message_info(&creator, &coins(1, "uatom"));
 
         let fixture: StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -260,7 +260,7 @@ mod tests {
         let info = message_info(&creator, &coins(1, "uatom"));
 
         let fixture: StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
@@ -302,7 +302,7 @@ mod tests {
         let info = message_info(&creator, &coins(1, "uatom"));
 
         let fixture: StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
