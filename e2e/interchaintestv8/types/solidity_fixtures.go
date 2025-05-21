@@ -13,8 +13,18 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
-// Global variable to hold the genesis fixture
-var sp1GenesisFixture *Sp1GenesisFixture
+type SolidityFixtureGenerator struct {
+	Enabled           bool
+	sp1GenesisFixture *Sp1GenesisFixture
+}
+
+// NewSolidityFixtureGenerator creates a new SolidityFixtureGenerator
+// If enabled is false, the generator will not generate any fixtures
+func NewSolidityFixtureGenerator(enabled bool) *SolidityFixtureGenerator {
+	return &SolidityFixtureGenerator{
+		Enabled: enabled,
+	}
+}
 
 // Sp1GenesisFixture is the genesis fixture for the sp1 light client
 type Sp1GenesisFixture struct {
@@ -47,8 +57,12 @@ type GenericSolidityFixture struct {
 }
 
 // GenerateAndSaveSolidityFixture generates a fixture and saves it to a file
-func GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) error {
-	fixture, err := generateFixture(erc20Address, msgBz, packet)
+func (g *SolidityFixtureGenerator) GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) error {
+	if !g.Enabled {
+		return nil
+	}
+
+	fixture, err := g.generateFixture(erc20Address, msgBz, packet)
 	if err != nil {
 		return err
 	}
@@ -63,8 +77,8 @@ func GenerateAndSaveSolidityFixture(fileName, erc20Address string, msgBz []byte,
 	return os.WriteFile(filePath, fixtureBz, 0o644)
 }
 
-func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
-	genesisBz, err := getGenesisFixture()
+func (g *SolidityFixtureGenerator) generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS26RouterMsgsPacket) (GenericSolidityFixture, error) {
+	genesisBz, err := g.GetGenesisFixture()
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
@@ -85,8 +99,8 @@ func generateFixture(erc20Address string, msgBz []byte, packet ics26router.IICS2
 	return fixture, nil
 }
 
-func getGenesisFixture() ([]byte, error) {
-	genesisBz, err := json.Marshal(sp1GenesisFixture)
+func (g *SolidityFixtureGenerator) GetGenesisFixture() ([]byte, error) {
+	genesisBz, err := json.Marshal(g.sp1GenesisFixture)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +108,15 @@ func getGenesisFixture() ([]byte, error) {
 	return genesisBz, nil
 }
 
-func SetGenesisFixture(clientState []byte, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviourVkey [32]byte) {
-	sp1GenesisFixture = &Sp1GenesisFixture{
+func (g *SolidityFixtureGenerator) SetGenesisFixture(
+	clientState []byte, consensusStateHash, updateClientVkey,
+	membershipVkey, ucAndMembershipVkey, misbehaviourVkey [32]byte,
+) {
+	if !g.Enabled {
+		return
+	}
+
+	g.sp1GenesisFixture = &Sp1GenesisFixture{
 		TrustedClientState:        hex.EncodeToString(clientState),
 		TrustedConsensusStateHash: hex.EncodeToString(consensusStateHash[:]),
 		UpdateClientVkey:          hex.EncodeToString(updateClientVkey[:]),

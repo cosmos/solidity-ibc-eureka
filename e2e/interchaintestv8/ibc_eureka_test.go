@@ -55,7 +55,7 @@ type IbcEurekaTestSuite struct {
 	e2esuite.TestSuite
 
 	// Whether to generate fixtures for tests or not
-	generateSolidityFixtures bool
+	solidityFixtureGenerator *types.SolidityFixtureGenerator
 	wasmFixtureGenerator     *types.WasmFixtureGenerator
 
 	// The private key of a test account
@@ -93,6 +93,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 
 	var prover string
 	shouldGenerateWasmFixtures := false
+	shouldGenerateSolidityFixtures := false
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -142,13 +143,14 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 		os.Setenv(testvalues.EnvKeySp1Prover, prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 		if os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True {
-			s.generateSolidityFixtures = true
+			shouldGenerateSolidityFixtures = true
 		}
 		shouldGenerateWasmFixtures = os.Getenv(testvalues.EnvKeyGenerateWasmFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
 	// Needs to be added here so the cleanup is called after the test suite is done
 	s.wasmFixtureGenerator = types.NewWasmFixtureGenerator(&s.Suite, shouldGenerateWasmFixtures)
+	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator(shouldGenerateSolidityFixtures)
 
 	s.Require().True(s.Run("Deploy IBC contracts", func() {
 		stdout, err := eth.ForgeScript(s.deployer, testvalues.E2EDeployScriptPath)
@@ -329,7 +331,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 	}))
 
 	s.Require().True(s.Run("Generate the genesis fixtures", func() {
-		if !s.generateSolidityFixtures {
+		if !s.solidityFixtureGenerator.Enabled {
 			s.T().Skip("Skipping solidity fixture generation")
 		}
 
@@ -348,7 +350,10 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 		misbehaviourVkey, err := s.sp1Ics07Contract.MISBEHAVIOURPROGRAMVKEY(nil)
 		s.Require().NoError(err)
 
-		types.SetGenesisFixture(clientStateBz, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviourVkey)
+		s.solidityFixtureGenerator.SetGenesisFixture(
+			clientStateBz, consensusStateHash, updateClientVkey,
+			membershipVkey, ucAndMembershipVkey, misbehaviourVkey,
+		)
 	}))
 }
 
@@ -640,12 +645,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			s.Require().NoError(err)
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
-				fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, ackRelayTx, sendPacket,
-			))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("acknowledgeMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
+			s.contractAddresses.Erc20, ackRelayTx, sendPacket,
+		))
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
 			// User balance on Ethereum
@@ -747,12 +750,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 			returnAckTxHash = receipt.TxHash.Bytes()
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(
-				fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
-				s.contractAddresses.Erc20, recvRelayTx, returnPacket,
-			))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("receiveMultiPacket_%d-%s.json", numOfTransfers, proofType.String()),
+			s.contractAddresses.Erc20, recvRelayTx, returnPacket,
+		))
 
 		s.True(s.Run("Verify balances on Ethereum", func() {
 			// User balance should be back to the starting point
@@ -1122,9 +1123,10 @@ func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest
 			ackTxHash = receipt.TxHash.Bytes()
 		}))
 
-		if s.generateSolidityFixtures {
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("receiveNativePacket-%s.json", pt.String()), s.contractAddresses.Erc20, recvRelayTx, packet))
-		}
+		s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+			fmt.Sprintf("receiveNativePacket-%s.json", pt.String()),
+			s.contractAddresses.Erc20, recvRelayTx, packet,
+		))
 
 		// Recreate the full denom path
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(packet.Payloads[0].DestPort, packet.DestClient))
@@ -1470,7 +1472,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 
 			// We use the first packet in fixture generation
-			if i == 0 && s.generateSolidityFixtures {
+			if i == 0 && s.solidityFixtureGenerator.Enabled {
 				sendPacketEvent, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseSendPacket)
 				s.Require().NoError(err)
 				sendPacket = sendPacketEvent.Packet
@@ -1542,9 +1544,12 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 			s.Require().NoError(err)
 		}))
 
-		if s.generateSolidityFixtures {
+		if s.solidityFixtureGenerator.Enabled {
 			s.Require().Zero(len(timeoutFilter))
-			s.Require().NoError(types.GenerateAndSaveSolidityFixture(fmt.Sprintf("timeoutMultiPacket_%d-%s.json", numOfTransfers, pt.String()), s.contractAddresses.Erc20, timeoutRelayTx, sendPacket))
+			s.Require().NoError(s.solidityFixtureGenerator.GenerateAndSaveSolidityFixture(
+				fmt.Sprintf("timeoutMultiPacket_%d-%s.json", numOfTransfers, pt.String()),
+				s.contractAddresses.Erc20, timeoutRelayTx, sendPacket,
+			))
 		}
 
 		s.Require().True(s.Run("Verify balances on Ethereum", func() {
