@@ -94,14 +94,14 @@ func getGenesisFixture() ([]byte, error) {
 	return genesisBz, nil
 }
 
-func SetGenesisFixture(clientState []byte, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviorVkey [32]byte) {
+func SetGenesisFixture(clientState []byte, consensusStateHash, updateClientVkey, membershipVkey, ucAndMembershipVkey, misbehaviourVkey [32]byte) {
 	sp1GenesisFixture = &Sp1GenesisFixture{
 		TrustedClientState:        hex.EncodeToString(clientState),
 		TrustedConsensusStateHash: hex.EncodeToString(consensusStateHash[:]),
 		UpdateClientVkey:          hex.EncodeToString(updateClientVkey[:]),
 		MembershipVkey:            hex.EncodeToString(membershipVkey[:]),
 		UcAndMembershipVkey:       hex.EncodeToString(ucAndMembershipVkey[:]),
-		MisbehaviorVkey:           hex.EncodeToString(misbehaviorVkey[:]),
+		MisbehaviourVkey:          hex.EncodeToString(misbehaviourVkey[:]),
 	}
 }
 
