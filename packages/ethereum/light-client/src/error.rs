@@ -30,8 +30,8 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee addresses ({found}) but expected ({expected})")]
     InsufficientSyncCommitteeLength { expected: u64, found: u64 },
 
-    #[error("unsupported fork version, must be deneb or later")]
-    MustBeDenebOrLater,
+    #[error("unsupported fork version, must be electra or later")]
+    MustBeElectraOrLater,
 
     #[error(
         "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
