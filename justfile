@@ -183,12 +183,12 @@ generate-buf:
 # Run all the foundry tests except the fork tests
 [group('test')]
 test-foundry testname=".\\*":
-	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --no-match-contract ForkTest
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --no-match-path test/shadowfork/*
 
 # Run the shadowfork tests
 [group('test')]
 test-shadowfork testname=".\\*":
-	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --match-contract ForkTest
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --match-path test/shadowfork/*
 
 # Run the benchmark tests
 [group('test')]

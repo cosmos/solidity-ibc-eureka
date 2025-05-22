@@ -2,6 +2,7 @@ name: foundry
 
 env:
   API_KEY_ALCHEMY: ${{ secrets.API_KEY_ALCHEMY }}
+  ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
   FOUNDRY_PROFILE: ci
 
 on:
@@ -13,7 +14,6 @@ on:
 
 jobs:
   lint:
-    name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   build:
-    name: build
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +44,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   test:
-    name: test
     needs: [lint, build]
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -66,7 +64,26 @@ jobs:
         run: echo "FOUNDRY_FUZZ_RUNS=5000" >> $GITHUB_ENV
 
       - name: Run the tests
-        run: forge test
+        run: forge test --no-match-path test/shadowfork/*
+
+      - name: Add test summary
+        run: |
+          echo "## Tests result" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+
+  test-shadowfork:
+    needs: [lint, build]
+    runs-on: depot-ubuntu-22.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up environment
+        uses: ./.github/actions/foundry-setup
+
+      - name: Show the Foundry config
+        run: forge config
+
+      - name: Run the tests
+        run: forge test --match-path test/shadowfork/*
 
       - name: Add test summary
         run: |
@@ -74,7 +91,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    name: coverage
     needs: [test]
     runs-on: depot-ubuntu-22.04-4
     steps:
