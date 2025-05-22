@@ -180,10 +180,15 @@ generate-buf:
     @echo "Generating Protobuf files for relayer"
     buf generate --template buf.gen.yaml
 
-# Run the foundry tests
+# Run all the foundry tests except the fork tests
 [group('test')]
 test-foundry testname=".\\*":
-	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --no-match-contract ForkTest
+
+# Run the shadowfork tests
+[group('test')]
+test-shadowfork testname=".\\*":
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ --match-contract ForkTest
 
 # Run the benchmark tests
 [group('test')]
