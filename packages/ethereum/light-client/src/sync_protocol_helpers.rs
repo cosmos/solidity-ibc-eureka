@@ -57,7 +57,7 @@ pub fn next_sync_committee_gindex_at_slot(
 // See spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
 /// Returns the execution root of the light client header.
 /// # Errors
-/// Returns an error if the epoch is less than the Deneb epoch.
+/// Returns an error if the epoch is in a non-supported fork.
 pub fn get_lc_execution_root(
     client_state: &ClientState,
     header: &LightClientHeader,
