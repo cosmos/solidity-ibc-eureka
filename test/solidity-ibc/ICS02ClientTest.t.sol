@@ -109,6 +109,7 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory fetchedCounterparty = ics02Client.getCounterparty(clientIdentifier);
         assertEq(fetchedCounterparty.clientId, counterpartyId, "counterparty not migrated");
         assertEq(fetchedCounterparty.merklePrefix, randomPrefix, "counterparty not migrated");
+        assertEq(ics02Client.getNextClientSeq(), 1, "client seq not incremented");
     }
 
     function test_RenounceRole() public {
