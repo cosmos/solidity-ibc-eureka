@@ -75,7 +75,7 @@ interface IICS02Client {
         returns (ILightClientMsgs.UpdateResult);
 
     /// @notice Migrate a client by replacing the existing counterparty information and contract address.
-    /// @dev This is a privilaged operation, only someone with `getLightClientMigratorRole(clientId)` can call this function.
+    /// @dev This is a privilaged operation, only one with `getLightClientMigratorRole(clientId)` can call this.
     /// @param clientId The client identifier of the client to migrate
     /// @param counterpartyInfo The new counterparty client information
     /// @param client The address of the new client contract
@@ -83,7 +83,8 @@ interface IICS02Client {
         string memory clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
-    ) external;
+    )
+        external;
 
     /// @notice Submits misbehaviour to the client with the given client identifier.
     /// @param clientId The client identifier
