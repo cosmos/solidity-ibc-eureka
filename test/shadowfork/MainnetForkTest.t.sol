@@ -9,16 +9,17 @@ import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract MainnetForkTest is Test {
-    string ETH_RPC_URL = vm.envString("ETH_RPC_URL");
+    // solhint-disable-next-line var-name-mixedcase
+    string public ETH_RPC_URL = vm.envString("ETH_RPC_URL");
 
-    string clientId = "cosmoshub-0";
+    string public clientId = "cosmoshub-0";
 
     // WARNING: As the mainnet contracts may not be up to date, some interface functions may not work as expected
     // In this case, you should make the calls manually instead of casting to the interface
 
-    ICS26Router ics26Proxy = ICS26Router(0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7);
-    ICS20Transfer ics20Proxy = ICS20Transfer(0xa348CfE719B63151F228e3C30EB424BA5a983012);
-    address relayer = 0xC4C09A23dDBd1fF0f313885265113F83622284C2;
+    ICS26Router public ics26Proxy = ICS26Router(0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7);
+    ICS20Transfer public ics20Proxy = ICS20Transfer(0xa348CfE719B63151F228e3C30EB424BA5a983012);
+    address public relayer = 0xC4C09A23dDBd1fF0f313885265113F83622284C2;
 
     function setUp() public {
         uint256 forkId = vm.createFork(ETH_RPC_URL);

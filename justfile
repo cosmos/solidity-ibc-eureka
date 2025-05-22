@@ -49,7 +49,7 @@ install-relayer:
 
 # Run all linters
 [group('lint')]
-lint-all:
+lint:
 	@echo "Running all linters..."
 	just lint-solidity
 	just lint-go
