@@ -16,6 +16,7 @@ import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.so
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { TestHelper } from "./utils/TestHelper.sol";
 
 contract ICS02ClientTest is Test {
     ICS02ClientUpgradeable public ics02Client;
@@ -27,6 +28,7 @@ contract ICS02ClientTest is Test {
     string public clientIdentifier;
 
     address public clientOwner = makeAddr("clientOwner");
+    TestHelper public th = new TestHelper();
 
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -43,7 +45,7 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("client-0", counterpartyInfo);
+        emit IICS02Client.ICS02ClientAdded(th.FIRST_CLIENT_ID(), counterpartyInfo, lightClient);
         clientIdentifier = ics02Client.addClient(counterpartyInfo, lightClient);
         vm.stopPrank();
 
@@ -87,10 +89,6 @@ contract ICS02ClientTest is Test {
         address newLightClient = makeAddr("newLightClient");
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
-        vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("client-1", counterpartyInfo);
-        string memory substituteIdentifier = ics02Client.addClient(counterpartyInfo, newLightClient);
-        assertEq(2, ics02Client.getNextClientSeq());
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -99,11 +97,11 @@ contract ICS02ClientTest is Test {
                 ics02Client.getLightClientMigratorRole(clientIdentifier)
             )
         );
-        ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
+        ics02Client.migrateClient(clientIdentifier, counterpartyInfo, newLightClient);
         vm.stopPrank();
 
         vm.startPrank(clientOwner);
-        ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
+        ics02Client.migrateClient(clientIdentifier, counterpartyInfo, newLightClient);
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
         assertEq(address(fetchedLightClient), newLightClient, "client not migrated");
         vm.stopPrank();
