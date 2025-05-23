@@ -94,7 +94,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @inheritdoc IICS02Client
     function addClient(
-        string memory clientId,
+        string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
@@ -126,7 +126,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         $.clients[clientId] = ILightClient(client);
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
-        emit ICS02ClientAdded(clientId, counterpartyInfo);
+        emit ICS02ClientAdded(clientId, counterpartyInfo, client);
 
         bytes32 role = getLightClientMigratorRole(clientId);
         require(_grantRole(role, _msgSender()), Unreachable());
@@ -148,24 +148,20 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
 
     /// @inheritdoc IICS02Client
     function migrateClient(
-        string calldata subjectClientId,
-        string calldata substituteClientId
+        string calldata clientId,
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
     )
         external
-        onlyRole(getLightClientMigratorRole(subjectClientId))
+        onlyRole(getLightClientMigratorRole(clientId))
     {
+        getClient(clientId); // Ensure subject client exists
+
         ICS02ClientStorage storage $ = _getICS02ClientStorage();
+        $.counterpartyInfos[clientId] = counterpartyInfo;
+        $.clients[clientId] = ILightClient(client);
 
-        getClient(subjectClientId); // Ensure subject client exists
-        ILightClient substituteClient = getClient(substituteClientId);
-
-        getCounterparty(subjectClientId); // Ensure subject client's counterparty exists
-        IICS02ClientMsgs.CounterpartyInfo memory substituteCounterpartyInfo = getCounterparty(substituteClientId);
-
-        $.counterpartyInfos[subjectClientId] = substituteCounterpartyInfo;
-        $.clients[subjectClientId] = substituteClient;
-
-        emit ICS02ClientMigrated(subjectClientId, substituteClientId);
+        emit ICS02ClientMigrated(clientId, counterpartyInfo, client);
     }
 
     /// @inheritdoc IICS02Client
