@@ -2,6 +2,7 @@
 
 use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut};
 use ethereum_light_client::update::update_consensus_state;
+use ethereum_light_client::header::Header;
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::ConsensusState as WasmConsensusState,
@@ -94,11 +95,24 @@ pub fn update_state(
     update_state_msg: UpdateStateMsg,
 ) -> Result<Binary, ContractError> {
     let header_bz: Vec<u8> = update_state_msg.client_message.into();
-    let header = serde_json::from_slice(&header_bz)
+    let header = serde_json::from_slice::<Header>(&header_bz)
         .map_err(ContractError::DeserializeClientMessageFailed)?;
 
     let eth_client_state = get_eth_client_state(deps.storage)?;
     let eth_consensus_state = get_eth_consensus_state(deps.storage, eth_client_state.latest_slot)?;
+
+    // no-op the header verification if the header is the same as the latest slot
+    // update will ignore this header
+    if header.consensus_update.finalized_header.beacon.slot
+        == eth_client_state.latest_slot
+    {
+        return Ok(to_json_binary(&UpdateStateResult {
+            heights: vec![Height {
+                revision_number: 0,
+                revision_height: eth_client_state.latest_slot,
+            }],
+        })?);
+    }
 
     let (updated_slot, updated_consensus_state, updated_client_state) =
         update_consensus_state(eth_consensus_state, eth_client_state, header)
@@ -159,11 +173,112 @@ mod tests {
     use cosmwasm_std::{
         coins, from_json,
         testing::{message_info, mock_env},
-        Binary,
+        Binary, Timestamp,
     };
-    use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
+    use ethereum_light_client::{
+        header::Header,
+        test_utils::fixtures::{self, InitialState, RelayerMessages, StepsFixture},
+    };
+    use ibc_proto::ibc::lightclients::wasm::v1::ClientMessage;
+    use prost::Message;
 
-    use crate::{contract::instantiate, test::mk_deps};
+    use crate::{
+        contract::instantiate,
+        msg::{VerifyClientMessageMsg, UpdateStateMsg},
+        test::mk_deps,
+        query::verify_client_message,
+    };
+
+    use super::update_state;
+
+    #[test]
+    fn test_update_state() {
+        let mut deps = mk_deps();
+        let creator = deps.api.addr_make("creator");
+        let info = message_info(&creator, &coins(1, "uatom"));
+
+        let fixture: StepsFixture =
+            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+
+        let initial_state: InitialState = fixture.get_data_at_step(0);
+
+        let client_state = initial_state.client_state;
+        let consensus_state = initial_state.consensus_state;
+
+        let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
+        let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
+
+        let msg = crate::msg::InstantiateMsg {
+            client_state: Binary::from(client_state_bz),
+            consensus_state: Binary::from(consensus_state_bz),
+            checksum: b"checksum".into(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
+        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        assert!(!update_client_msgs.is_empty());
+        let headers = update_client_msgs
+            .iter()
+            .map(|msg| {
+                let client_msg =
+                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
+                        .unwrap();
+                serde_json::from_slice(client_msg.data.as_slice()).unwrap()
+            })
+            .collect::<Vec<Header>>();
+
+        let header = headers[0].clone();
+
+        let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
+        let header_bz2: Vec<u8> = header_bz.clone();
+        let header_bz3: Vec<u8> = header_bz.clone();
+        let header_bz4: Vec<u8> = header_bz.clone();
+
+        let mut env = mock_env();
+        env.block.time = Timestamp::from_seconds(
+            header.consensus_update.attested_header.execution.timestamp + 1000,
+        );
+        let mut env2 = env.clone();
+        env2.block.time = Timestamp::from_seconds(
+            header.consensus_update.attested_header.execution.timestamp + 2000,
+        );
+
+        verify_client_message(
+            deps.as_ref(),
+            env,
+            VerifyClientMessageMsg {
+                client_message: Binary::from(header_bz),
+            },
+        )
+        .unwrap();
+
+
+        update_state(
+            deps.as_mut(),
+            UpdateStateMsg {
+                client_message: Binary::from(header_bz2),
+            },
+        )
+        .unwrap();
+
+        verify_client_message(
+            deps.as_ref(),
+            env2,
+            VerifyClientMessageMsg {
+                client_message: Binary::from(header_bz3),
+            },
+        )
+        .unwrap();
+
+        update_state(
+            deps.as_mut(),
+            UpdateStateMsg {
+                client_message: Binary::from(header_bz4),
+            },
+        )
+        .unwrap();
+    }
 
     #[test]
     fn test_misbehaviour() {
