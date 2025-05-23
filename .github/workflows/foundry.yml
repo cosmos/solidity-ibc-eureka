@@ -2,6 +2,7 @@ name: foundry
 
 env:
   API_KEY_ALCHEMY: ${{ secrets.API_KEY_ALCHEMY }}
+  ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
   FOUNDRY_PROFILE: ci
 
 on:
@@ -13,7 +14,6 @@ on:
 
 jobs:
   lint:
-    name: lint
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   build:
-    name: build
     runs-on: depot-ubuntu-22.04-4
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +44,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   test:
-    name: test
     needs: [lint, build]
     runs-on: depot-ubuntu-22.04-4
     steps:
@@ -74,7 +72,6 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    name: coverage
     needs: [test]
     runs-on: depot-ubuntu-22.04-4
     steps:
