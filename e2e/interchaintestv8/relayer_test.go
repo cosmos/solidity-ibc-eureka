@@ -1394,7 +1394,6 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 				updateClientMsgAny = msg
 				break
 			}
-
 		}
 		s.Require().NotNil(updateClientMsgAny)
 

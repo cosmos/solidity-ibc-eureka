@@ -224,8 +224,8 @@ mod tests {
 
         // create duplicate header that is verifying from the previously
         // highest slot
-        let mut header2 = headers[0].clone();
-        header2.trusted_slot = current_slot;
+        let mut header_against_previous_slot = headers[0].clone();
+        header_against_previous_slot.trusted_slot = current_slot;
 
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
@@ -247,7 +247,9 @@ mod tests {
             deps.as_ref(),
             env,
             VerifyClientMessageMsg {
-                client_message: Binary::from(serde_json::to_vec(&header2).unwrap()),
+                client_message: Binary::from(
+                    serde_json::to_vec(&header_against_previous_slot).unwrap(),
+                ),
             },
         )
         .unwrap();

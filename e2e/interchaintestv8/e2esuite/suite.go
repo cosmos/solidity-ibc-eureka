@@ -47,7 +47,7 @@ type TestSuite struct {
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
-	// To let the download verison be overridden by a calling test
+	// To let the download version be overridden by a calling test
 	if s.EthLightClientTag == "" {
 		s.EthLightClientTag = os.Getenv(testvalues.EnvKeyEthLightClientTag)
 	}

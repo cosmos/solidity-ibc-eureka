@@ -63,6 +63,7 @@ impl SyncAggregate {
     }
 
     /// Returns the size of the sync committee.
+    #[allow(clippy::missing_const_for_fn)]
     pub fn sync_committee_size(&self) -> u64 {
         self.sync_committee_bits.len() as u64 * 8
     }

@@ -52,7 +52,7 @@ func (s *TestSuite) storeEthereumLightClient(
 		lightClientUsed = downloadUrl
 		s.T().Logf("Downloading light client from %s", downloadUrl)
 
-		resp, err := http.Get(downloadUrl)
+		resp, err := http.Get(downloadUrl) //nolint:gosec
 		s.Require().NoError(err)
 		defer resp.Body.Close()
 
