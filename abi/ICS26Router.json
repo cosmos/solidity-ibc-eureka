@@ -522,14 +522,31 @@
     "name": "migrateClient",
     "inputs": [
       {
-        "name": "subjectClientId",
+        "name": "clientId",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "substituteClientId",
-        "type": "string",
-        "internalType": "string"
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1107,6 +1124,12 @@
             "internalType": "bytes[]"
           }
         ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1116,16 +1139,34 @@
     "name": "ICS02ClientMigrated",
     "inputs": [
       {
-        "name": "subjectClientId",
+        "name": "clientId",
         "type": "string",
         "indexed": false,
         "internalType": "string"
       },
       {
-        "name": "substituteClientId",
-        "type": "string",
+        "name": "counterpartyInfo",
+        "type": "tuple",
         "indexed": false,
-        "internalType": "string"
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
