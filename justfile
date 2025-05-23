@@ -49,7 +49,7 @@ install-relayer:
 
 # Run all linters
 [group('lint')]
-lint-all:
+lint:
 	@echo "Running all linters..."
 	just lint-solidity
 	just lint-go
@@ -180,10 +180,13 @@ generate-buf:
     @echo "Generating Protobuf files for relayer"
     buf generate --template buf.gen.yaml
 
-# Run the foundry tests
+shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
+
+# Run all the foundry tests
 [group('test')]
 test-foundry testname=".\\*":
-	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$
+	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ {{shadowfork}}
+	@ {{ if shadowfork == "" { "" } else { 'echo ' + BOLD + YELLOW + 'Ran without shadowfork tests since ETH_RPC_URL was not set' } }}
 
 # Run the benchmark tests
 [group('test')]
