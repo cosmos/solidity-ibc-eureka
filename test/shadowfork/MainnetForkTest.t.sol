@@ -74,6 +74,10 @@ contract MainnetForkTest is Test {
         assertEq(implementation, newLogic, "Implementation not updated");
 
         // Verify that the current implementation does have ERC20_CUSTOMIZER_ROLE
-        ics20Proxy.ERC20_CUSTOMIZER_ROLE();
+        bytes32 erc20CustomizerRole = ics20Proxy.ERC20_CUSTOMIZER_ROLE();
+        address customizer = makeAddr("customizer");
+        vm.prank(timelockedAdmin);
+        ics20Proxy.grantERC20CustomizerRole(customizer);
+        assertTrue(ics20Proxy.hasRole(erc20CustomizerRole, customizer), "Customizer not found");
     }
 }
