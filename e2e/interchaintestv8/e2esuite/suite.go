@@ -39,10 +39,19 @@ type TestSuite struct {
 
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
+	// EthLightClientTag decides which version of the eth light client to use.
+	// empty string means it will use the local binary in the repo, unless running in mock mode
+	// otherwise, it will download the version from the github release with the given tag
+	EthLightClientTag string
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
+	// To let the download verison be overridden by a calling test
+	if s.EthLightClientTag == "" {
+		s.EthLightClientTag = os.Getenv(testvalues.EnvKeyEthLightClientTag)
+	}
+
 	icChainSpecs := chainconfig.DefaultChainSpecs
 
 	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)

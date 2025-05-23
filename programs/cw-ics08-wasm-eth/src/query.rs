@@ -33,7 +33,7 @@ pub fn verify_client_message(
 
     if let Ok(header) = serde_json::from_slice::<Header>(&verify_client_message_msg.client_message)
     {
-        let mut trusted_slot = header.consensus_update.trusted_slot;
+        let mut trusted_slot = header.trusted_slot;
         // if trusted_slot is 0, default to updating from latest slot
         if trusted_slot == 0 {
             trusted_slot = eth_client_state.latest_slot;
@@ -225,7 +225,7 @@ mod tests {
         // create duplicate header that is verifying from the previously
         // highest slot
         let mut header2 = headers[0].clone();
-        header2.consensus_update.trusted_slot = current_slot;
+        header2.trusted_slot = current_slot;
 
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 

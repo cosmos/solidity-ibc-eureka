@@ -17,6 +17,7 @@ alloy-primitives = { workspace = true, default-features = false }
 cosmwasm-std = { workspace = true, features = ["std"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
+schemars = { workspace = true }
 prost = { workspace = true, features = ["std"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
