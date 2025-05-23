@@ -1,14 +1,5 @@
 //! This module defines constants related to merkle trees in the Ethereum consensus.
 
-// https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/light-client/sync-protocol.md#constants
-// Existing GeneralizedIndex constants are frozen at their Altair values.
-/// `get_generalized_index(altair.BeaconState, 'finalized_checkpoint', 'root')` (= 105)
-pub const FINALIZED_ROOT_GINDEX: u64 = 105;
-/// `get_generalized_index(altair.BeaconState, 'current_sync_committee')` (= 54)
-pub const CURRENT_SYNC_COMMITTEE_GINDEX: u64 = 54;
-/// `get_generalized_index(altair.BeaconState, 'next_sync_committee')` (= 55)
-pub const NEXT_SYNC_COMMITTEE_GINDEX: u64 = 55;
-
 // New constants
 /// `get_generalized_index(BeaconState, 'finalized_checkpoint', 'root')` (= 169)
 pub const FINALIZED_ROOT_GINDEX_ELECTRA: u64 = 169;

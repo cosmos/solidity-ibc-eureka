@@ -30,8 +30,8 @@ pub enum EthereumIBCError {
     #[error("insufficient number of sync committee addresses ({found}) but expected ({expected})")]
     InsufficientSyncCommitteeLength { expected: u64, found: u64 },
 
-    #[error("unsupported fork version, must be deneb or later")]
-    MustBeDenebOrLater,
+    #[error("unsupported fork version, must be electra or later")]
+    MustBeElectraOrLater,
 
     #[error(
         "execution payload header must have blob_gas_used and excess_blog_gas set after deneb"
@@ -49,9 +49,6 @@ pub enum EthereumIBCError {
         num_extra: usize,
         normalized_branch: Vec<B256>,
     },
-
-    #[error("invalid light client update branch depths for slot {0} (next sync committee branch depth: {1}), finality branch depth: {2}")]
-    InvalidBranchDepths(u64, usize, usize),
 
     #[error("finalized slot cannot be the genesis slot")]
     FinalizedSlotIsGenesis,
