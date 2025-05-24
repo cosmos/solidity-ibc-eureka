@@ -28,7 +28,7 @@ where
         );
         Delay::new(interval).await;
     }
-    anyhow::bail!("Timeout exceeded")
+    anyhow::bail!("Timeout exceeded waiting for condition")
 }
 
 pub mod cosmos;
