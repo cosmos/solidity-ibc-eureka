@@ -1305,6 +1305,13 @@ func (s *RelayerTestSuite) Test_UpdateClientToCosmos() {
 	}))
 }
 
+// Test_HistoricalUpdateClientToCosmos tests updating the eth light client with updates that are not the latest
+// To do this, we will:
+// 1. Send a transfer on Ethereum
+// 2. Retrieve the relay tx from the relayer
+// 3. Wait until we have a finalized block that is past the update in the relay tx
+// 4. Update the client with the finalized block that is past the update in the relay tx
+// 5. Finally, we will relay the transfer tx, together with the historical update client
 func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
 		s.T().Skip("Test is only relevant for PoS networks")
@@ -1498,7 +1505,6 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 		s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
 			denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
 
-			// User balance on Cosmos chain
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
 				Address: cosmosUserAddress,
 				Denom:   denomOnCosmos.IBCDenom(),
@@ -1741,6 +1747,8 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 	}))
 }
 
+// Test_MigrateLightClientFromLatestReleaseVersion tests the migration of the light client from the latest released version
+// to the latest local binary version.
 func (s *RelayerTestSuite) Test_MigrateLightClientFromLatestReleaseVersion() {
 	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
 		s.T().Skip("Test is only relevant for PoS networks")
@@ -1854,7 +1862,7 @@ func (s *RelayerTestSuite) Test_MigrateLightClientFromLatestReleaseVersion() {
 
 		s.Require().True(s.Run("Run migrate proposal for the light client", func() {
 			migrateMsg := ethereumtypes.MigrateMsg{
-				Migration: "code_only",
+				Migration: ethereumtypes.MigrationCodeOnly,
 			}
 			migrateMsgBz, err := json.Marshal(migrateMsg)
 			s.Require().NoError(err)

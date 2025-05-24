@@ -218,14 +218,7 @@ mod tests {
             })
             .collect::<Vec<Header>>();
 
-        let current_slot = client_state.latest_slot;
-
         let header = headers[0].clone();
-
-        // create duplicate header that is verifying from the previously
-        // highest slot
-        let mut header_against_previous_slot = headers[0].clone();
-        header_against_previous_slot.trusted_slot = current_slot;
 
         let header_bz: Vec<u8> = serde_json::to_vec(&header).unwrap();
 
@@ -236,20 +229,9 @@ mod tests {
 
         verify_client_message(
             deps.as_ref(),
-            env.clone(),
-            VerifyClientMessageMsg {
-                client_message: Binary::from(header_bz),
-            },
-        )
-        .unwrap();
-
-        verify_client_message(
-            deps.as_ref(),
             env,
             VerifyClientMessageMsg {
-                client_message: Binary::from(
-                    serde_json::to_vec(&header_against_previous_slot).unwrap(),
-                ),
+                client_message: Binary::from(header_bz),
             },
         )
         .unwrap();

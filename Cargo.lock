@@ -2225,7 +2225,6 @@ dependencies = [
  "hex",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
- "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
