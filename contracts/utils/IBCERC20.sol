@@ -9,6 +9,9 @@ import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
+/// @title IBCERC20 Contract
+/// @notice This contract implements the IBCERC20 interface, allowing for minting and burning of tokens.
+/// @dev This is the default implementation to be deployed when new IBC tokens are received.
 contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControlUpgradeable {
     /// @notice Storage of the IBCERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -38,6 +41,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     bytes32 public constant METADATA_CUSTOMIZER_ROLE = keccak256("METADATA_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -127,6 +131,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     }
 
     /// @notice Returns the storage of the IBCERC20 contract
+    /// @return $ The storage of the IBCERC20 contract
     function _getIBCERC20Storage() private pure returns (IBCERC20Storage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

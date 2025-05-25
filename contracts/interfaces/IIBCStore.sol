@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 /// @title IBC Store Interface
-/// @dev Non-view functions can only be called by owner.
+/// @notice The public interface for IBC Store
 interface IIBCStore {
     /// @notice Gets the commitment for a given path.
     /// @param hashedPath The hashed path to get the commitment for.

@@ -47,6 +47,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @inheritdoc IICS02Client
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
+    /// @dev This function has no initialization logic
+    // natlint-disable-next-line
     function __ICS02Client_init_unchained() internal onlyInitializing { }
     // solhint-disable-previous-line no-empty-blocks
 
@@ -171,6 +173,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     }
 
     /// @notice Returns the storage of the ICS02Client contract
+    /// @return $ The storage of the ICS02Client contract
     function _getICS02ClientStorage() private pure returns (ICS02ClientStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -183,6 +186,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
     }
 
+    /// @notice Modifier to check if the caller has the relayer role or the relayer role is public
     modifier onlyRelayer() {
         if (!hasRole(RELAYER_ROLE, address(0))) {
             _checkRole(RELAYER_ROLE);

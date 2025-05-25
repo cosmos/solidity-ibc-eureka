@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 
-// @title ICS24 Host Path Generators
-// @notice ICS24Host is a library that provides commitment path generators for ICS24 host requirements.
+/// @title ICS24 Host Path Generators
+/// @notice ICS24Host is a library that provides commitment path generators for ICS24 host requirements.
 library ICS24Host {
     // Commitment generators that comply with
     // https://github.com/cosmos/ibc/tree/main/spec/core/ics-024-host-requirements#path-space

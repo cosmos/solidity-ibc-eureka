@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
+/// @title IICS20Transfer
+/// @notice Interface for the ICS20 Transfer module
 interface IICS20Transfer {
     /// @notice The role identifier for the delegate sender role
     /// @dev This role is required to call `sendTransferWithSender`

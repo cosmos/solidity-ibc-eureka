@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "./IICS26RouterMsgs.sol";
 
+/// @title IBC Application Callbacks
+/// @notice Interface defining IBC application callbacks
 interface IIBCAppCallbacks {
     /// @notice Callback message for receiving a packet.
     /// @param sourceClient The source client identifier
