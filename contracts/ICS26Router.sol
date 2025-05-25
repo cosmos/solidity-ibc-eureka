@@ -21,6 +21,7 @@ import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallU
 import { IBCUUPSUpgradeable } from "./utils/IBCUUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
+/// @title IBC Eureka Router
 /// @notice ICS26Router is the router for the IBC Eureka protocol
 contract ICS26Router is
     IICS26RouterErrors,
