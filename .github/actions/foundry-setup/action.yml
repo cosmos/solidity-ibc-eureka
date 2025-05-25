@@ -17,6 +17,6 @@ runs:
     - name: Setup Protoc
       uses: taiki-e/install-action@protoc
     - name: Setup Natlint
-    - uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@v2
       with:
         tool: natlint
