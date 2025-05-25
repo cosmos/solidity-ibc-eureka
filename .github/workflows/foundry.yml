@@ -20,6 +20,11 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
+      - name: Setup Natlint
+        uses: taiki-e/install-action@v2
+        with:
+          tool: natlint
+
       - name: Lint the code
         run: bun run lint:sol
 
