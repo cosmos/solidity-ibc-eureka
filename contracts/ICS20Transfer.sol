@@ -46,7 +46,8 @@ contract ICS20Transfer is
     /// upgradeable contracts.
     /// @param _escrows The escrow contract per client.
     /// @param _ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
-    /// @param _ics26Router The ICS26Router contract address. Immutable.
+    /// @param _ibcERC20Denoms Mapping of IBCERC20 contracts to their respective denoms.
+    /// @param _ics26 The ICS26Router contract address. Immutable.
     /// @param _ibcERC20Beacon The address of the IBCERC20 beacon contract. Immutable.
     /// @param _escrowBeacon The address of the Escrow beacon contract. Immutable.
     /// @param _permit2 The permit2 contract. Immutable.
@@ -76,6 +77,7 @@ contract ICS20Transfer is
     bytes32 public constant ERC20_CUSTOMIZER_ROLE = keccak256("ERC20_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -436,7 +438,6 @@ contract ICS20Transfer is
     }
 
     /// @notice Finds a contract in the foreign mapping, or creates a new IBCERC20 contract
-    /// @notice This function will never return address(0)
     /// @param fullDenomPath The full path denom to find or create the contract for (which will be the name for the
     /// token)
     /// @param escrow The escrow contract address to use for the IBCERC20 contract
@@ -480,6 +481,7 @@ contract ICS20Transfer is
     }
 
     /// @notice Returns the storage of the ICS20Transfer contract
+    /// @return $ The storage of the ICS20Transfer contract
     function _getICS20TransferStorage() private pure returns (ICS20TransferStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
