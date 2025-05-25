@@ -1,0 +1,69 @@
+[contract_rules]
+missing_author = false
+missing_notice = true
+missing_title = true
+no_inheritdoc = false
+no_param = true
+no_return = true
+too_many_notice = true
+too_many_title = true
+
+[error_rules]
+missing_notice = true
+missing_param = true
+no_author = true
+no_inheritdoc = true
+no_return = true
+no_title = true
+too_many_notice = true
+
+[function_rules]
+missing_inheritdoc = true
+missing_notice = true
+missing_params = true
+missing_return = true
+no_author = true
+no_title = true
+only_inheritdoc = false
+too_many_inheritdoc = true
+too_many_notice = true
+
+[enum_rules]
+missing_author = false
+missing_notice = true
+missing_title = false
+missing_variant = false
+no_inheritdoc = true
+no_param = true
+no_return = true
+too_many_notice = true
+too_many_title = true
+
+[struct_rules]
+missing_author = false
+missing_notice = true
+missing_params = true
+missing_title = false
+no_inheritdoc = true
+no_return = true
+too_many_notice = true
+too_many_title = true
+
+[variable_rules]
+missing_inheritdoc = true
+missing_notice = true
+no_author = true
+no_param = true
+no_return = true
+no_title = true
+too_many_inheritdoc = true
+too_many_notice = true
+
+[event_rules]
+missing_notice = true
+missing_param = true
+no_author = true
+no_inheritdoc = true
+no_return = true
+no_title = true
+too_many_notice = true
