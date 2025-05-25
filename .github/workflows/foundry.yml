@@ -23,6 +23,9 @@ jobs:
       - name: Lint the code
         run: bun run lint:sol
 
+      - name: Lint the NatSpec
+        run: natlint run --include 'contracts/**/*.sol'
+
       - name: Add lint summary
         run: |
           echo "## Lint result" >> $GITHUB_STEP_SUMMARY
