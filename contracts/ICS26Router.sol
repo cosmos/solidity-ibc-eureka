@@ -46,13 +46,14 @@ contract ICS26Router is
     bytes32 private constant ICS26ROUTER_STORAGE_SLOT =
         0xc5779f3c2c21083eefa6d04f6a698bc0d8c10db124ad5e0df6ef394b6d7bf600;
 
-    /// @dev The maximum timeout duration for a packet
+    /// @notice The maximum timeout duration for a packet
     uint256 private constant MAX_TIMEOUT_DURATION = 1 days;
 
     /// @inheritdoc IICS26Router
     bytes32 public constant PORT_CUSTOMIZER_ROLE = keccak256("PORT_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -296,6 +297,7 @@ contract ICS26Router is
     }
 
     /// @notice Returns the storage of the ICS26Router contract
+    /// @return $ The storage of the ICS26Router contract
     function _getICS26RouterStorage() private pure returns (ICS26RouterStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
