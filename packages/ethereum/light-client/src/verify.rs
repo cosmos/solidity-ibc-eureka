@@ -299,7 +299,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
                 .unwrap()
                 .tree_hash_root(),
             &normalize_merkle_branch(
-                &update.next_sync_committee_branch.unwrap(),
+                update.next_sync_committee_branch.as_ref().unwrap(),
                 next_sync_committee_gindex,
             ),
             next_sync_committee_gindex,
