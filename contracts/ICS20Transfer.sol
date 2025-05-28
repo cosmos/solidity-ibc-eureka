@@ -366,7 +366,12 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_)
+        external
+        onlyRouter
+        nonReentrant
+        whenNotPaused
+    {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
