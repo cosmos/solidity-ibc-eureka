@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IMintableAndBurnable } from "./IMintableAndBurnable.sol";
 
 /// @title IIBCERC20
-/// @notice Interface for IBCERC20 contract for internal use.
+/// @notice The interface for received tokens, deployed on receive by ICS20
 interface IIBCERC20 is IMintableAndBurnable {
     /// @notice The role identifier for the metadata customizer role
     /// @return The role identifier

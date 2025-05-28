@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 /// @title Escrow Contract Interface
-/// @notice This interface is implemented by the Escrow contract for internal use.
+/// @notice The interface for locking tokens in escrow in ICS20
 interface IEscrow {
     /// @notice Send tokens to the specified address
     /// @dev This function can only be called by the ICS20 contract
