@@ -39,8 +39,8 @@ abstract contract IBCUUPSUpgradeable is
     bytes32 private constant IBCUUPSUPGRADEABLE_STORAGE_SLOT =
         0xba83ed17c16070da0debaa680185af188d82c999a75962a12a40699ca48a2b00;
 
-    /// @dev This contract is meant to be initialized with only the timelockedAdmin, and the govAdmin should be set by
-    /// the timelockedAdmin later
+    /// @notice This funtion initializes the timelockedAdmin, and the govAdmin should be set by the timelockedAdmin
+    /// later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     function __IBCUUPSUpgradeable_init_unchained(address timelockedAdmin) internal onlyInitializing {
@@ -87,6 +87,7 @@ abstract contract IBCUUPSUpgradeable is
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the IBCUUPSUpgradeable contract
+    /// @return $ The storage of the IBCUUPSUpgradeable contract
     function _getIBCUUPSUpgradeableStorage() internal pure returns (IBCUUPSUpgradeableStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

@@ -15,6 +15,8 @@ contract RelayerHelper is IRelayerHelper {
     /// @inheritdoc IRelayerHelper
     address public immutable ICS26_ROUTER;
 
+    /// @notice Constructs the RelayerHelper contract by setting the ICS26 router address.
+    /// @param _ics26Router The address of the ICS26 router contract
     constructor(address _ics26Router) {
         ICS26_ROUTER = _ics26Router;
     }

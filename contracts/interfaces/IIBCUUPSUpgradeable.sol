@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IIBCUUPSUpgradeable
+/// @notice Interface for tracking the timelocked admin and governance admin for UUPS upgradeable IBC contracts.
 interface IIBCUUPSUpgradeable {
     /// @notice Returns the timelocked admin address
     /// @return The timelocked admin address

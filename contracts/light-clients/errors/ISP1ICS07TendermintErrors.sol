@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title ISP1ICS07TendermintErrors
+/// @notice Interface for errors of the SP1ICS07Tendermint contract.
 interface ISP1ICS07TendermintErrors {
     /// @notice The error that is returned when the verification key does not match the expected value.
     /// @param expected The expected verification key.

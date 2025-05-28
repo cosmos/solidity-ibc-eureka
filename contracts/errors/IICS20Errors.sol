@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+/// @title IICS20Errors
+/// @notice Interface for ICS20 errors
 interface IICS20Errors {
     /// @notice Unauthorized function call
     /// @param caller The caller of the function

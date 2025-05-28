@@ -7,7 +7,7 @@ import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpg
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBC Pausable Upgradeable contract
-/// @notice This contract is an abstract contract for adding pausability to IBC contracts.
+/// @notice An abstract contract for adding pausability to IBC contracts.
 abstract contract IBCPausableUpgradeable is
     IIBCPausable,
     ContextUpgradeable,

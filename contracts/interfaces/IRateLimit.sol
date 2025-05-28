@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IRateLimit
+/// @notice Interface for a rate limiting contract that manages token usage limits
 interface IRateLimit {
     /// @notice The role identifier for the rate limiter role
     /// @return The role identifier

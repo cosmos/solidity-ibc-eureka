@@ -28,6 +28,7 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     bytes32 private constant ESCROW_STORAGE_SLOT = 0x537eb9d931756581e7ea6f7811162c646321946650ac0ac6bf83b24932e41600;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -62,6 +63,7 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Returns the storage of the Escrow contract
+    /// @return $ The storage of the Escrow contract
     function _getEscrowStorage() private pure returns (EscrowStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
