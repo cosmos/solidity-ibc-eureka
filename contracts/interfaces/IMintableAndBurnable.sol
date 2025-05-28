@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 /// @title IMintableAndBurnable
-/// @notice Interface for mintable and burnable tokens for use by ICS20 contract
+/// @notice Interface for ERC20 tokens to be minted and burned by the ICS20 contract.
 interface IMintableAndBurnable {
     /// @notice Mint new tokens to the Escrow contract
     /// @dev This function can only be called by an authorized contract (e.g., ICS20)

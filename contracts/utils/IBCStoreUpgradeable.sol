@@ -8,7 +8,7 @@ import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 
 /// @title IBC Store Upgradeable
-/// @notice This is an upgradeable contract that implements IBCStore.
+/// @notice This is the contract that stores the provable IBC commitments.
 abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializable {
     /// @notice Storage of the IBCStore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with

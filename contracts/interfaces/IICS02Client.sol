@@ -6,7 +6,7 @@ import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { ILightClient } from "./ILightClient.sol";
 
 /// @title ICS02 Light Client Router Interface
-/// @notice IICS02Client is an interface for the IBC Eureka client router
+/// @notice Interface for the IBC Eureka light client router
 interface IICS02Client {
     /// @notice The role identifier for the client id customizer role
     /// @dev The client identifier role is used to add IBC clients with custom client identifiers

@@ -10,7 +10,7 @@ import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upg
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
 /// @title IBCERC20 Contract
-/// @notice This contract implements the IBCERC20 interface, allowing for minting and burning of tokens.
+/// @notice This contract is the default ERC20 implementation for new IBC tokens.
 /// @dev This is the default implementation to be deployed when new IBC tokens are received.
 contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControlUpgradeable {
     /// @notice Storage of the IBCERC20 contract

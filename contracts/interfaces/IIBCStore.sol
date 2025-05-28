@@ -2,7 +2,8 @@
 pragma solidity ^0.8.28;
 
 /// @title IBC Store Interface
-/// @notice The public interface for IBC Store
+/// @notice The public interface for provable IBC Store.
+/// @dev This is the contract whose state is tracked by the counterparty light client.
 interface IIBCStore {
     /// @notice Gets the commitment for a given path.
     /// @param hashedPath The hashed path to get the commitment for.

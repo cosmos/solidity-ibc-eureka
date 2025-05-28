@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "./msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "./msgs/IICS20TransferMsgs.sol";
+import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 
 import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { IEscrow } from "./interfaces/IEscrow.sol";
@@ -31,7 +32,7 @@ import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/Upgradea
 using SafeERC20 for IERC20;
 
 /// @title ICS20Transfer
-/// @notice This contract is the implementation of the ics20-1 IBC specification for fungible token transfers.
+/// @notice An implementation of the ics20-1 IBC specification for fungible token transfers.
 contract ICS20Transfer is
     IICS20Errors,
     IICS20Transfer,
@@ -275,7 +276,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onRecvPacket(OnRecvPacketCallback calldata msg_)
+    function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_)
         external
         onlyRouter
         nonReentrant
@@ -350,7 +351,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onAcknowledgementPacket(OnAcknowledgementPacketCallback calldata msg_)
+    function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_)
         external
         onlyRouter
         nonReentrant
@@ -365,7 +366,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external onlyRouter nonReentrant whenNotPaused {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
