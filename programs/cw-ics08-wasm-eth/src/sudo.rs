@@ -156,7 +156,7 @@ pub fn misbehaviour(
 
 #[cfg(test)]
 mod tests {
-    use crate::{contract::instantiate, test::mk_deps};
+    use crate::{contract::instantiate, test::helpers::mk_deps};
     use cosmwasm_std::{
         coins, from_json,
         testing::{message_info, mock_env},

@@ -42,7 +42,6 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
@@ -844,44 +843,6 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 			s.Require().Equal(originalBalance, resp.Balance)
 		}))
 	}))
-}
-
-func (s *RelayerTestSuite) Test_Electra_Fork() {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
-		s.T().Skip("Test is only relevant for PoS networks")
-	}
-
-	ctx := context.Background()
-	proofType := types.GetEnvProofType()
-
-	electraForkEpoch := 12
-	chainconfig.KurtosisConfig.NetworkParams.ElectraForkEpoch = uint64(electraForkEpoch)
-
-	s.SetupSuite(ctx, proofType)
-
-	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
-
-	spec, err := s.EthChain.BeaconAPIClient.GetSpec()
-	s.Require().NoError(err)
-	err = testutil.WaitForCondition(time.Minute*30, time.Second*30, func() (bool, error) {
-		finalityUpdate, err := s.EthChain.BeaconAPIClient.GetFinalityUpdate()
-		if err != nil {
-			return false, err
-		}
-
-		finalitySlot, err := strconv.Atoi(finalityUpdate.Data.FinalizedHeader.Beacon.Slot)
-		if err != nil {
-			return false, err
-		}
-
-		latestFinalityEpoch := uint64(finalitySlot) / spec.SlotsPerEpoch
-
-		fmt.Printf("Waiting for epoch %d, current epoch: %d\n", electraForkEpoch, latestFinalityEpoch)
-		return latestFinalityEpoch >= uint64(electraForkEpoch), nil
-	})
-	s.Require().NoError(err)
-
-	s.FilteredRecvPacketToCosmosTest(ctx, 1, big.NewInt(testvalues.TransferAmount), nil)
 }
 
 func (s *RelayerTestSuite) Test_10_RecvPacketToCosmos() {

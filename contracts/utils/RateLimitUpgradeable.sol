@@ -113,6 +113,7 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     function _authorizeSetRateLimiterRole(address account) internal virtual;
 
     /// @notice Returns the storage of the RateLimit contract
+    /// @return $ The storage of the RateLimit contract
     function _getRateLimitStorage() internal pure returns (RateLimitStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

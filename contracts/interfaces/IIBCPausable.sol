@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IIBCPausable
+/// @notice Interface for pausable IBC contracts for internal use.
 interface IIBCPausable {
     /// @notice The role identifier for the pauser role
+    /// @return The role identifier
     function PAUSER_ROLE() external view returns (bytes32);
 
     /// @notice The role identifier for the unpauser role
+    /// @return The role identifier
     function UNPAUSER_ROLE() external view returns (bytes32);
 
     /// @notice Pauses the contract

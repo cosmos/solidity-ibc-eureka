@@ -7,6 +7,8 @@ import { ICS24Host } from "./ICS24Host.sol";
 import { IICS24HostErrors } from "../errors/IICS24HostErrors.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 
+/// @title IBC Store Upgradeable
+/// @notice This is the contract that stores the provable IBC commitments.
 abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializable {
     /// @notice Storage of the IBCStore contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -23,7 +25,8 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCStore")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant IBCSTORE_STORAGE_SLOT = 0x1260944489272988d9df285149b5aa1b0f48f2136d6f416159f840a3e0747600;
 
-    /// @dev This contract has no initialization logic
+    /// @dev This function has no initialization logic
+    // natlint-disable-next-line
     function __IBCStoreUpgradeable_init() internal onlyInitializing { }
     // solhint-disable-previous-line no-empty-blocks
 
@@ -32,8 +35,8 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
         return _getIBCStoreStorage().commitments[hashedPath];
     }
 
-    /// @dev Returns the next sequence send for the given client
-    /// @param clientId The client ID
+    /// @notice Returns the next sequence send for the given client
+    /// @param clientId The client identifier
     /// @return The next sequence send for the given client
     function nextSequenceSend(string calldata clientId) internal returns (uint64) {
         // initial sequence send should be 1, hence we use ++x instead of x++
@@ -115,6 +118,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
     }
 
     /// @notice Returns the storage of the IBCStore contract
+    /// @return $ The storage of the IBCStore contract
     function _getIBCStoreStorage() private pure returns (IBCStoreStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

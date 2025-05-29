@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 /// @title Light Client Interface
-/// @notice ILightClient is the light client interface for the IBC Eureka light client
+/// @notice Interface for all IBC Eureka light clients to implement.
 interface ILightClient {
     /// @notice Updating the client and consensus state
     /// @param updateMsg The encoded update message e.g., an SP1 proof.
