@@ -25,3 +25,5 @@ hex = { workspace = true }
 
 [dev-dependencies]
 ethereum-light-client = { workspace = true, features = ["test-utils"] }
+cw-ics08-wasm-eth-v1_2_0 = { workspace = true }
+ethereum-light-client-v1_2_0 = { workspace = true, features = ["test-utils"] }

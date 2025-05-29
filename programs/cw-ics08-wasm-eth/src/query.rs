@@ -168,7 +168,7 @@ mod tests {
             TimestampAtHeightResult, VerifyClientMessageMsg,
         },
         query::timestamp_at_height,
-        test::mk_deps,
+        test::helpers::mk_deps,
     };
 
     use super::verify_client_message;

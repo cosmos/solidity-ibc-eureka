@@ -50,8 +50,8 @@ impl ClientState {
     /// # Errors
     /// Returns an error if the slot is not supported.
     pub const fn verify_supported_fork_at_epoch(&self, epoch: u64) -> Result<(), EthereumIBCError> {
-        if epoch < self.fork_parameters.deneb.epoch {
-            return Err(EthereumIBCError::MustBeDenebOrLater);
+        if epoch < self.fork_parameters.electra.epoch {
+            return Err(EthereumIBCError::MustBeElectraOrLater);
         }
 
         Ok(())

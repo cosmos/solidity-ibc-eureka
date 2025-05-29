@@ -160,7 +160,7 @@ mod tests {
             contract::instantiate,
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
-            test::mk_deps,
+            test::helpers::mk_deps,
         };
 
         #[test]
@@ -301,7 +301,7 @@ mod tests {
                 UpdateStateMsg, UpdateStateResult, VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             state::HOST_CLIENT_STATE_KEY,
-            test::mk_deps,
+            test::helpers::mk_deps,
             ContractError,
         };
 
@@ -727,176 +727,6 @@ mod tests {
             sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
         }
 
-        // TODO: Remove this test (and the fixture) after Deneb support is removed (#440)
-        #[test]
-        #[allow(clippy::too_many_lines)]
-        fn test_electra_fork() {
-            let mut deps = mk_deps();
-            let creator = deps.api.addr_make("creator");
-            let info = message_info(&creator, &coins(1, "uatom"));
-
-            let fixture: StepsFixture = fixtures::load("Test_Electra_Fork");
-
-            // Initial state is at Deneb fork
-            let initial_state: InitialState = fixture.get_data_at_step(0);
-
-            let client_state = initial_state.client_state;
-
-            let consensus_state = initial_state.consensus_state;
-
-            let client_state_bz: Vec<u8> = serde_json::to_vec(&client_state).unwrap();
-            let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state).unwrap();
-
-            let msg = InstantiateMsg {
-                client_state: Binary::from(client_state_bz),
-                consensus_state: Binary::from(consensus_state_bz),
-                checksum: b"checksum".into(),
-            };
-
-            instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-            // At this point, we're at Deneb, and the light client is initialized
-            // Now we will get a client update that is still at Deneb, and a transfer
-
-            // We get the relayer messages
-            let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
-            assert!(!update_client_msgs.is_empty()); // just to make sure
-            assert_eq!(1, recv_msgs.len()); // just to make sure
-            let client_msgs = update_client_msgs
-                .iter()
-                .map(|msg| {
-                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
-                        .unwrap()
-                })
-                .map(|msg| msg.data)
-                .collect::<Vec<_>>();
-
-            let mut env = mock_env();
-
-            for header_bz in client_msgs {
-                let header: Header = serde_json::from_slice(&header_bz).unwrap();
-                env.block.time = Timestamp::from_seconds(
-                    header.consensus_update.attested_header.execution.timestamp + 1000,
-                );
-
-                let query_verify_client_msg =
-                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
-                        client_message: Binary::from(header_bz.clone()),
-                    });
-                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
-
-                // Update state
-                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
-                    client_message: Binary::from(header_bz),
-                });
-                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
-                let update_state_result: UpdateStateResult =
-                    serde_json::from_slice(&update_res.data.unwrap())
-                        .expect("update state result should be deserializable");
-                assert_eq!(1, update_state_result.heights.len());
-                assert_eq!(0, update_state_result.heights[0].revision_number);
-                assert_eq!(
-                    header.consensus_update.finalized_header.beacon.slot,
-                    update_state_result.heights[0].revision_height
-                );
-            }
-
-            // The client has now been updated, and we would submit the packet to the cosmos chain,
-            // along with the proof of th packet commitment. IBC will call verify_membership.
-
-            // Verify memebership
-            let packet = recv_msgs[0].packet.clone().unwrap();
-            let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value) = get_packet_proof(packet);
-
-            let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
-                height: Height {
-                    revision_number: 0,
-                    revision_height: recv_msgs[0].proof_height.unwrap().revision_height,
-                },
-                delay_time_period: 0,
-                delay_block_period: 0,
-                proof: Binary::from(storage_proof),
-                merkle_path: MerklePath {
-                    key_path: vec![Binary::from(path)],
-                },
-                value: Binary::from(value),
-            });
-            sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
-
-            // The chain itself has forked to Electra, but the client is still at Deneb
-            // The next update essentially takes ut to Electra, and we process packets from the
-            // Electra fork
-
-            // We get the relayer messages
-            let relayer_messages: RelayerMessages = fixture.get_data_at_step(2);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
-            assert!(!update_client_msgs.is_empty()); // just to make sure
-            assert_eq!(1, recv_msgs.len()); // just to make sure
-            let client_msgs = update_client_msgs
-                .iter()
-                .map(|msg| {
-                    ClientMessage::decode(msg.client_message.clone().unwrap().value.as_slice())
-                        .unwrap()
-                })
-                .map(|msg| msg.data)
-                .collect::<Vec<_>>();
-
-            let mut env = mock_env();
-
-            for header_bz in client_msgs {
-                let header: Header = serde_json::from_slice(&header_bz).unwrap();
-                env.block.time = Timestamp::from_seconds(
-                    header.consensus_update.attested_header.execution.timestamp + 1000,
-                );
-
-                let query_verify_client_msg =
-                    QueryMsg::VerifyClientMessage(VerifyClientMessageMsg {
-                        client_message: Binary::from(header_bz.clone()),
-                    });
-                query(deps.as_ref(), env.clone(), query_verify_client_msg).unwrap();
-
-                // Update state
-                let sudo_update_state_msg = SudoMsg::UpdateState(UpdateStateMsg {
-                    client_message: Binary::from(header_bz),
-                });
-                let update_res = sudo(deps.as_mut(), env.clone(), sudo_update_state_msg).unwrap();
-                let update_state_result: UpdateStateResult =
-                    serde_json::from_slice(&update_res.data.unwrap())
-                        .expect("update state result should be deserializable");
-                assert_eq!(1, update_state_result.heights.len());
-                assert_eq!(0, update_state_result.heights[0].revision_number);
-                assert_eq!(
-                    header.consensus_update.finalized_header.beacon.slot,
-                    update_state_result.heights[0].revision_height
-                );
-            }
-
-            // The client has now been updated to Electra, and we would submit the packet to the cosmos chain,
-            // along with the proof of th packet commitment. IBC will call verify_membership.
-
-            // Verify memebership
-            let packet = recv_msgs[0].packet.clone().unwrap();
-            let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value) = get_packet_proof(packet);
-
-            let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
-                height: Height {
-                    revision_number: 0,
-                    revision_height: recv_msgs[0].proof_height.unwrap().revision_height,
-                },
-                delay_time_period: 0,
-                delay_block_period: 0,
-                proof: Binary::from(storage_proof),
-                merkle_path: MerklePath {
-                    key_path: vec![Binary::from(path)],
-                },
-                value: Binary::from(value),
-            });
-            sudo(deps.as_mut(), env, query_verify_membership_msg).unwrap();
-        }
-
         #[test]
         fn test_migrate_with_same_state_version() {
             let mut deps = mk_deps();
@@ -1001,7 +831,8 @@ mod tests {
             let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
             assert_eq!(0, res.messages.len());
 
-            let fixture: StepsFixture = fixtures::load("Test_Electra_Fork");
+            let fixture: StepsFixture =
+                fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
             // Initial state is at Electra fork
             let initial_state: InitialState = fixture.get_data_at_step(0);
