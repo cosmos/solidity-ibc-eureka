@@ -1,5 +1,5 @@
 {
-  description = "Development environment for the sp1 tendermint light client";
+  description = "Development environment for Solidity IBC Eureka";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -11,6 +11,8 @@
     };
     foundry.url = "github:shazow/foundry.nix/main";
     rust-overlay.url = "github:oxalica/rust-overlay";
+
+    natlint.url = "github:srdtrk/natlint";
   };
 
   outputs = inputs: inputs.flake-utils.lib.eachSystem
@@ -49,6 +51,7 @@
             protoc-gen-go
             protoc-gen-go-grpc
             quicktype
+            inputs.natlint.packages.${system}.default
           ];
 
           NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [

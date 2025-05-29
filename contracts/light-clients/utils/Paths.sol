@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title Paths Library
+/// @notice A library defining helper functions for IBC paths
 library Paths {
     /// @notice Compares two bytes arrays
     /// @param a The first bytes array

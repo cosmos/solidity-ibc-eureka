@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 /// @title SP1 Messages
+/// @notice This interface defines the structure of messages used in the SP1 program.
 interface ISP1Msgs {
     /// @notice The SP1 proof that can be submitted to the SP1Verifier contract.
     /// @dev vKey must be verified before sending this to the SP1 program.

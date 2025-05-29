@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
+/// @title Router Messages
+/// @notice This interface defines the structure of messages used in the ICS26Router contract.
 interface IICS26RouterMsgs {
     /// @notice Packet struct
     /// @param sequence The sequence number of the packet
@@ -19,7 +21,7 @@ interface IICS26RouterMsgs {
     }
 
     /// @notice Payload struct
-    /// @notice Used in the Packet struct and handled by IBC applications
+    /// @dev Used in the Packet struct and handled by IBC applications
     /// @param sourcePort The source port identifier
     /// @param destPort The destination port identifier
     /// @param version The application version of the packet data
