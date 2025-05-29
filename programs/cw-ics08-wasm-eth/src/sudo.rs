@@ -163,7 +163,7 @@ mod tests {
     };
     use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
 
-    use crate::{contract::instantiate, test::mk_deps};
+    use crate::{contract::instantiate, test::helpers::mk_deps};
 
     #[test]
     fn test_misbehaviour() {

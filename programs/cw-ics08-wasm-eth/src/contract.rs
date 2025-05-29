@@ -160,7 +160,7 @@ mod tests {
             contract::instantiate,
             msg::InstantiateMsg,
             state::{consensus_db_key, HOST_CLIENT_STATE_KEY},
-            test::mk_deps,
+            test::helpers::mk_deps,
         };
 
         #[test]
@@ -301,7 +301,7 @@ mod tests {
                 UpdateStateMsg, UpdateStateResult, VerifyClientMessageMsg, VerifyMembershipMsg,
             },
             state::HOST_CLIENT_STATE_KEY,
-            test::mk_deps,
+            test::helpers::mk_deps,
             ContractError,
         };
 
