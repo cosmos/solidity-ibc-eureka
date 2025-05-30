@@ -19,7 +19,7 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { RefIBCERC20 } from "./utils/RefIBCERC20.sol";
+import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
 
 contract Integration2Test is Test {
     IbcImpl public ibcImplA;
@@ -260,8 +260,8 @@ contract Integration2Test is Test {
 
         address customERC20 = address(
             new ERC1967Proxy(
-                address(new RefIBCERC20()),
-                abi.encodeCall(RefIBCERC20.initialize, (address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20"))
+                address(new RefImplIBCERC20()),
+                abi.encodeCall(RefImplIBCERC20.initialize, (address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20"))
             )
         );
         ibcImplB.ics20Transfer().setCustomERC20(expDenomPath, customERC20);

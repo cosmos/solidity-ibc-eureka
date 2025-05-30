@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IMintableAndBurnable } from "../../../contracts/interfaces/IMintableAndBurnable.sol";
 
-/// @title Reference IBC ERC20 Contract
+/// @title Reference IBC ERC20 Implementation
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
 /// IBC-compatible ERC20 tokens.
-contract RefIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
+contract RefImplIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
     /// @notice Caller is not the ICS20 contract
     /// @param caller The address of the caller
     error CallerIsNotICS20(address caller);
@@ -58,8 +58,8 @@ contract RefIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
      * Cosmos SDK tokens usually opt for a value of 6, imitating the relationship
      * between ATOM and uatom.
      *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
+     * NOTE: This information is only used for _display_ purposes such as in wallets:
+     * it in no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() public pure override(ERC20Upgradeable) returns (uint8) {
