@@ -58,7 +58,7 @@ contract RefImplIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
      * Cosmos SDK tokens usually opt for a value of 6, imitating the relationship
      * between ATOM and uatom.
      *
-     * NOTE: This information is only used for _display_ purposes such as in wallets:
+     * NOTE: This information is only used for _display_ purposes such as by wallets:
      * it in no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
