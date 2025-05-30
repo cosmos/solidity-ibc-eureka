@@ -32,11 +32,20 @@ contract RefIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
     }
 
     /// @notice Initializes the RefIBCERC20 contract
+    /// @param ics20_ The ICS20 contract address
+    /// @param name_ The name of the token
+    /// @param symbol_ The symbol of the token
     function initialize(address ics20_, string calldata name_, string calldata symbol_) external initializer {
         __ERC20_init(name_, symbol_);
 
         RefIBCERC20Storage storage $ = _getRefIBCERC20Storage();
         $._ics20 = ics20_;
+    }
+
+    /// @notice Returns the ICS20 contract address
+    /// @return The ICS20 contract address
+    function ics20() external view returns (address) {
+	return _getRefIBCERC20Storage()._ics20;
     }
 
     /**
