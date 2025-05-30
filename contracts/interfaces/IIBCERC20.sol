@@ -6,17 +6,6 @@ import { IMintableAndBurnable } from "./IMintableAndBurnable.sol";
 /// @title IIBCERC20
 /// @notice The interface for received tokens, deployed on receive by ICS20
 interface IIBCERC20 is IMintableAndBurnable {
-    /// @notice The role identifier for the metadata customizer role
-    /// @return The role identifier
-    function METADATA_CUSTOMIZER_ROLE() external view returns (bytes32);
-
-    /// @notice Set the metadata for the token
-    /// @dev This function can only be called by the metadata customizer role
-    /// @param decimals The decimals for the custom token metadata
-    /// @param name The name for the custom token metadata
-    /// @param symbol The symbol for the custom token metadata
-    function setMetadata(uint8 decimals, string calldata name, string calldata symbol) external;
-
     /// @notice Get the full denom path of the token
     /// @return The full path of the token's denom
     function fullDenomPath() external view returns (string memory);
@@ -28,16 +17,6 @@ interface IIBCERC20 is IMintableAndBurnable {
     /// @notice Get the ICS20 contract address
     /// @return The ICS20 contract address
     function ics20() external view returns (address);
-
-    /// @notice Grant the metadata customizer role to an account
-    /// @dev This function can only be called by the token operator from ICS20
-    /// @param account The account to grant the metadata customizer role to
-    function grantMetadataCustomizerRole(address account) external;
-
-    /// @notice Revoke the metadata customizer role from an account
-    /// @dev This function can only be called by the token operator from ICS20
-    /// @param account The account to revoke the metadata customizer role from
-    function revokeMetadataCustomizerRole(address account) external;
 
     /// @notice Initializes the IBCERC20 contract
     /// @dev This function is meant to be called by a proxy
