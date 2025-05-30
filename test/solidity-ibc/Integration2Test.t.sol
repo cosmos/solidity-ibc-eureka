@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,max-states-count
@@ -261,7 +261,10 @@ contract Integration2Test is Test {
         address customERC20 = address(
             new ERC1967Proxy(
                 address(new RefImplIBCERC20()),
-                abi.encodeCall(RefImplIBCERC20.initialize, (address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20"))
+                abi.encodeCall(
+                    RefImplIBCERC20.initialize,
+                    (makeAddr("owner"), address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20")
+                )
             )
         );
         ibcImplB.ics20Transfer().setCustomERC20(expDenomPath, customERC20);

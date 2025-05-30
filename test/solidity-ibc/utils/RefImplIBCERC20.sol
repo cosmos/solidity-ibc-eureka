@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IMintableAndBurnable } from "../../../contracts/interfaces/IMintableAndBurnable.sol";
+
+import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 
 /// @title Reference IBC ERC20 Implementation
 /// @notice This implementation is intended to serve as a base reference for developers creating their own
-/// IBC-compatible ERC20 tokens.
-contract RefImplIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
+/// IBC-compatible upgradeable ERC20 tokens.
+contract RefImplIBCERC20 is IMintableAndBurnable, UUPSUpgradeable, ERC20Upgradeable, OwnableUpgradeable {
     /// @notice Caller is not the ICS20 contract
     /// @param caller The address of the caller
     error CallerIsNotICS20(address caller);
@@ -32,11 +35,21 @@ contract RefImplIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
     }
 
     /// @notice Initializes the RefIBCERC20 contract
+    /// @param owner_ The owner of the contract, allowing it to be upgraded
     /// @param ics20_ The ICS20 contract address
     /// @param name_ The name of the token
     /// @param symbol_ The symbol of the token
-    function initialize(address ics20_, string calldata name_, string calldata symbol_) external initializer {
+    function initialize(
+        address owner_,
+        address ics20_,
+        string calldata name_,
+        string calldata symbol_
+    )
+        external
+        initializer
+    {
         __ERC20_init(name_, symbol_);
+        __Ownable_init(owner_);
 
         RefIBCERC20Storage storage $ = _getRefIBCERC20Storage();
         $._ics20 = ics20_;
@@ -84,6 +97,10 @@ contract RefImplIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
             $.slot := REFIBCERC20_STORAGE_SLOT
         }
     }
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
+    // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Modifier to check if the caller is the ICS20 contract
     modifier onlyICS20() {
