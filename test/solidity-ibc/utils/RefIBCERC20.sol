@@ -45,7 +45,7 @@ contract RefIBCERC20 is ERC20Upgradeable, IMintableAndBurnable {
     /// @notice Returns the ICS20 contract address
     /// @return The ICS20 contract address
     function ics20() external view returns (address) {
-	return _getRefIBCERC20Storage()._ics20;
+        return _getRefIBCERC20Storage()._ics20;
     }
 
     /**
