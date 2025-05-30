@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IIBCUUPSUpgradeable
-/// @notice Interface for tracking the timelocked admin and governance admin for UUPS upgradeable IBC contracts.
-interface IIBCUUPSUpgradeable {
+/// @title IIBCAdmin
+/// @notice Interface for tracking the timelocked admin and governance admin for IBC contracts.
+interface IIBCAdmin {
     /// @notice Returns the timelocked admin address
     /// @return The timelocked admin address
     function getTimelockedAdmin() external view returns (address);
@@ -19,9 +19,4 @@ interface IIBCUUPSUpgradeable {
     /// @dev Since timelocked admin is timelocked, this operation can be stopped by the govAdmin.
     /// @param newGovAdmin The new governance admin address
     function setGovAdmin(address newGovAdmin) external;
-    /// @notice Returns true if the account is an admin
-    /// @dev Used by other IBC contracts to check if upgrades are authorized
-    /// @param account The account to check
-    /// @return True if the account is an admin
-    function isAdmin(address account) external view returns (bool);
 }

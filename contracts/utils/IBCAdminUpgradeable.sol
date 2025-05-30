@@ -1,85 +1,74 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IIBCUUPSUpgradeableErrors } from "../errors/IIBCUUPSUpgradeableErrors.sol";
+import { IIBCAdminErrors } from "../errors/IIBCAdminErrors.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { IIBCUUPSUpgradeable } from "../interfaces/IIBCUUPSUpgradeable.sol";
+import { IIBCAdmin } from "../interfaces/IIBCAdmin.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
+import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 
-/// @title IBC UUPSUpgradeable contract
-/// @notice This contract is an abstract contract for managing upgradability of IBC contracts.
+/// @title IBC Admin Upgradeable
+/// @notice This contract is an contract for tracking the admins of IBC contracts.
 /// @dev This contract is developed with OpenZeppelin's UUPS upgradeable proxy pattern.
-/// @dev This contract is meant to be inherited by ICS26Router implementation, and it manages its own upgradability.
-/// @dev Other IBC contracts can directly query ICS26Router for the admin addresses to authorize UUPS upgrades (see
-/// ICS20Transfer).
+/// @dev This contract is meant to own AccessManager which is used to control access to IBC contracts.
 /// @dev This contract manages two roles: the timelocked admin, and the governance admin. The timelocked admin
 /// represents a timelocked security council, and the governance admin represents an interchain account from the
 /// governance of a counterparty chain. The timelocked admin must be set during initialization, and the governance admin
 /// should be set later by the timelocked admin.
 /// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the timelocked
 /// admin
-abstract contract IBCUUPSUpgradeable is
-    IIBCUUPSUpgradeableErrors,
-    IIBCUUPSUpgradeable,
+contract IBCAdminUpgradeable is
+    IIBCAdminErrors,
+    IIBCAdmin,
     UUPSUpgradeable,
-    AccessControlUpgradeable
+    Initializable,
+    ContextUpgradeable
 {
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     /// @param govAdmin The governance admin address
-    struct IBCUUPSUpgradeableStorage {
+    struct IBCAdminUpgradeableStorage {
         address timelockedAdmin;
         address govAdmin;
     }
 
     /// @notice ERC-7201 slot for the IBCUUPSUpgradeable storage
-    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCUUPSUpgradeable")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant IBCUUPSUPGRADEABLE_STORAGE_SLOT =
-        0xba83ed17c16070da0debaa680185af188d82c999a75962a12a40699ca48a2b00;
+    /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCAdmin")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant IBCADMIN_STORAGE_SLOT =
+        0xe6e017e6d032847d14d3fdd5f3faaa2f9e83c12c4889c3b8ac9728003f643a00;
 
     /// @notice This funtion initializes the timelockedAdmin, and the govAdmin should be set by the timelockedAdmin
     /// later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
-    function __IBCUUPSUpgradeable_init_unchained(address timelockedAdmin) internal onlyInitializing {
-        _getIBCUUPSUpgradeableStorage().timelockedAdmin = timelockedAdmin;
-        _grantRole(DEFAULT_ADMIN_ROLE, timelockedAdmin);
+    function initialize(address timelockedAdmin) external initializer {
+	__Context_init();
+        _getIBCAdminUpgradeableStorage().timelockedAdmin = timelockedAdmin;
     }
 
-    /// @inheritdoc IIBCUUPSUpgradeable
+    /// @inheritdoc IIBCAdmin
     function getTimelockedAdmin() external view returns (address) {
-        return _getIBCUUPSUpgradeableStorage().timelockedAdmin;
+        return _getIBCAdminUpgradeableStorage().timelockedAdmin;
     }
 
-    /// @inheritdoc IIBCUUPSUpgradeable
+    /// @inheritdoc IIBCAdmin
     function getGovAdmin() external view returns (address) {
-        return _getIBCUUPSUpgradeableStorage().govAdmin;
+        return _getIBCAdminUpgradeableStorage().govAdmin;
     }
 
-    /// @inheritdoc IIBCUUPSUpgradeable
+    /// @inheritdoc IIBCAdmin
     function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
-        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        _revokeRole(DEFAULT_ADMIN_ROLE, $.timelockedAdmin);
-
+        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
         $.timelockedAdmin = newTimelockedAdmin;
-        _grantRole(DEFAULT_ADMIN_ROLE, newTimelockedAdmin);
     }
 
-    /// @inheritdoc IIBCUUPSUpgradeable
+    /// @inheritdoc IIBCAdmin
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
-        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        _revokeRole(DEFAULT_ADMIN_ROLE, $.govAdmin);
-
+        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
         $.govAdmin = newGovAdmin;
-        _grantRole(DEFAULT_ADMIN_ROLE, newGovAdmin);
-    }
-
-    /// @inheritdoc IIBCUUPSUpgradeable
-    function isAdmin(address account) external view returns (bool) {
-        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        return account == $.timelockedAdmin || account == $.govAdmin;
     }
 
     /// @inheritdoc UUPSUpgradeable
@@ -88,16 +77,16 @@ abstract contract IBCUUPSUpgradeable is
 
     /// @notice Returns the storage of the IBCUUPSUpgradeable contract
     /// @return $ The storage of the IBCUUPSUpgradeable contract
-    function _getIBCUUPSUpgradeableStorage() internal pure returns (IBCUUPSUpgradeableStorage storage $) {
+    function _getIBCAdminUpgradeableStorage() internal pure returns (IBCAdminUpgradeableStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            $.slot := IBCUUPSUPGRADEABLE_STORAGE_SLOT
+            $.slot := IBCADMIN_STORAGE_SLOT
         }
     }
 
     /// @notice Modifier to check if the caller is an admin
     modifier onlyAdmin() {
-        IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
+        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
         require(_msgSender() == $.timelockedAdmin || _msgSender() == $.govAdmin, Unauthorized());
         _;
     }
