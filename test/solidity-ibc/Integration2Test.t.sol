@@ -258,10 +258,9 @@ contract Integration2Test is Test {
             Strings.toHexString(address(integrationEnv.erc20()))
         );
 
-        address customERC20Logic = address(new RefIBCERC20());
         address customERC20 = address(
             new ERC1967Proxy(
-                customERC20Logic,
+                address(new RefIBCERC20()),
                 abi.encodeCall(RefIBCERC20.initialize, (address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20"))
             )
         );
