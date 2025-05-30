@@ -7,26 +7,6 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 /// @title IICS20Transfer
 /// @notice Interface for the ICS20 Transfer module
 interface IICS20Transfer {
-    /// @notice The role identifier for the delegate sender role
-    /// @dev This role is required to call `sendTransferWithSender`
-    /// @return The role identifier
-    function DELEGATE_SENDER_ROLE() external view returns (bytes32);
-
-    /// @notice The role identifier for the token operator role
-    /// @dev This role is required to grant and revoke rate limiter and metadata setter roles
-    /// @return The role identifier
-    function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
-
-    /// @notice The role identifier for the ERC20 customizer role
-    /// @dev This role is required to call `setCustomERC20`
-    /// @return The role identifier
-    function ERC20_CUSTOMIZER_ROLE() external view returns (bytes32);
-
-    /// @notice Checks if an account has the token operator role
-    /// @param account The account to check
-    /// @return True if the account has the token operator role
-    function isTokenOperator(address account) external view returns (bool);
-
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
     /// @param msg_ The message for sending a transfer
     /// @return sequence The sequence number of the packet created
@@ -105,6 +85,12 @@ interface IICS20Transfer {
     /// @param permit2 The address of the permit2 contract
     function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address permit2) external;
 
+    /// @notice Initializes the contract with a AccessManager authority
+    /// @dev Meant to be called only once from the proxy
+    /// @dev Must be called after the initial `initialize` call
+    /// @param authority The address of the AccessManager contract
+    function initializeV2(address authority) external;
+
     /// @notice Upgrades the implementation of the escrow beacon contract
     /// @dev The caller must be the ICS26Router admin
     /// @param newEscrowLogic The address of the new escrow logic contract
@@ -114,36 +100,6 @@ interface IICS20Transfer {
     /// @dev The caller must be the ICS26Router admin
     /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
     function upgradeIBCERC20To(address newIbcERC20Logic) external;
-
-    /// @notice Grants the delegate sender role to an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to grant the role to
-    function grantDelegateSenderRole(address account) external;
-
-    /// @notice Revokes the delegate sender role from an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to revoke the role from
-    function revokeDelegateSenderRole(address account) external;
-
-    /// @notice Grants the token operator role to an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to grant the role to
-    function grantTokenOperatorRole(address account) external;
-
-    /// @notice Revokes the token operator role from an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to revoke the role from
-    function revokeTokenOperatorRole(address account) external;
-
-    /// @notice Grants the ERC20 customizer role to an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to grant the role to
-    function grantERC20CustomizerRole(address account) external;
-
-    /// @notice Revokes the ERC20 customizer role from an account
-    /// @dev The caller must be the ICS26Router admin
-    /// @param account The account to revoke the role from
-    function revokeERC20CustomizerRole(address account) external;
 
     // --------------------- Events --------------------- //
 

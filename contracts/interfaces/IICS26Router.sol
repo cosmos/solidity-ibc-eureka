@@ -45,6 +45,7 @@ interface IICS26Router {
 
     /// @notice Reinitializes the contract to upgrade it
     /// @dev Meant to be called only once from the proxy
+    /// @dev Must be called after the initial `initialize` call
     /// @param authority The address of the AccessManager contract
     function initializeV2(address authority) external;
 
