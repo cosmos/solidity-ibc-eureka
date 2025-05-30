@@ -23,7 +23,7 @@ jobs:
       - name: Lint the code
         run: bun run lint:sol
 
-      - uses: srdtrk/natlint@3a2645e48b8744721e34cd50ce9283b320d94d0d
+      - uses: srdtrk/natlint@main
         with:
           include: 'contracts/**/*.sol'
 

@@ -47,6 +47,7 @@ contract ICS20Transfer is
     /// upgradeable contracts.
     /// @param _escrows The escrow contract per client.
     /// @param _ibcERC20Contracts Mapping of non-native denoms to their respective IBCERC20 contracts
+    /// @param _ibcERC20Denoms Mapping of IBCERC20 contracts to their respective denoms.
     /// @param _ics26 The ICS26Router contract address. Immutable.
     /// @param _ibcERC20Beacon The address of the IBCERC20 beacon contract. Immutable.
     /// @param _escrowBeacon The address of the Escrow beacon contract. Immutable.
