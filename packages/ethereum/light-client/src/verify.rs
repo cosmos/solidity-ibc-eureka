@@ -93,7 +93,7 @@ pub fn verify_header<V: BlsVerify>(
     // check whether the update is a height later than trusted consensus slot
     ensure!(
         header.consensus_update.finalized_header.beacon.slot > consensus_state.slot,
-        EthereumIBCError::InvalidUpdateFromLaterTrustedSlot {
+        EthereumIBCError::InvalidUpdateSlot {
             consensus_state_slot: consensus_state.slot,
             update_finalized_slot: header.consensus_update.finalized_header.beacon.slot
         }

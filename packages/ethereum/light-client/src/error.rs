@@ -185,7 +185,7 @@ pub enum EthereumIBCError {
         stored consensus state slot: {consensus_state_slot}, \
         update finalized header slot: {update_finalized_slot}"
     )]
-    InvalidUpdateFromLaterTrustedSlot {
+    InvalidUpdateSlot {
         consensus_state_slot: u64,
         update_finalized_slot: u64,
     },

@@ -2880,7 +2880,6 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "serde_with",
  "sha2 0.10.8",
  "thiserror 2.0.12",
  "tree_hash 0.1.0",

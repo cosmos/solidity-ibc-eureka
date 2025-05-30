@@ -1285,7 +1285,6 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
 
-	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
@@ -1397,17 +1396,6 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 				return false, err
 			}
 
-			finalizedBlock, err := strconv.ParseInt(resp.Data.FinalizedHeader.Execution.BlockNumber, 10, 64)
-			if err != nil {
-				return false, err
-			}
-
-			code, err := eth.EthAPI.Client.CodeAt(ctx, ics26Address, big.NewInt(finalizedBlock))
-			if err != nil || len(code) == 0 {
-				// Code not found at the finalized block number
-				return false, nil
-			}
-
 			return finalizedSlot > relayerUpdateSlot, nil
 		})
 		s.Require().NoError(err)
@@ -1416,6 +1404,7 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 	s.Require().NoError(testutil.WaitForBlocks(ctx, 1, simd))
 
 	// Now we update the client on the Cosmos chain past the relay update
+	var latestHeight uint64
 	s.Require().True(s.Run("Update the client on Cosmos", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
@@ -1446,13 +1435,23 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
 			s.Require().NoError(err)
 
-			newHeight := wasmClientState.LatestHeight.RevisionHeight
-			s.Require().Greater(newHeight, relayerUpdateSlot)
+			latestHeight := wasmClientState.LatestHeight.RevisionHeight
+			s.Require().Greater(latestHeight, relayerUpdateSlot)
 		}))
 	}))
 
 	// And now we can relay the tx with the historical update
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
+		s.Require().True(s.Run("Verify consensus state does not exist before relaying", func() {
+			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+				ClientId:       testvalues.FirstWasmClientID,
+				RevisionNumber: 0,
+				RevisionHeight: relayerUpdateSlot,
+				LatestHeight:   false,
+			})
+			s.Require().ErrorContains(err, "consensus state not found")
+		}))
+
 		var ackTxHash []byte
 		s.Require().True(s.Run("Broadcast relay tx", func() {
 			resp := s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
@@ -1474,6 +1473,33 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 			s.Require().NotNil(resp.Balance)
 			s.Require().Equal(transferAmount, resp.Balance.Amount.BigInt())
 			s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
+		}))
+
+		s.Require().True(s.Run("Verify consensus state exist after relaying", func() {
+			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
+				ClientId:       testvalues.FirstWasmClientID,
+				RevisionNumber: 0,
+				RevisionHeight: relayerUpdateSlot,
+				LatestHeight:   false,
+			})
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify latest client state has not changed", func() {
+			resp, err := e2esuite.GRPCQuery[clienttypes.QueryClientStateResponse](ctx, simd, &clienttypes.QueryClientStateRequest{
+				ClientId: testvalues.FirstWasmClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotNil(resp.ClientState)
+
+			var wasmClientState ibcwasmtypes.ClientState
+			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
+			s.Require().NoError(err)
+
+			heightBefore := latestHeight
+
+			latestHeight = wasmClientState.LatestHeight.RevisionHeight
+			s.Require().Equal(heightBefore, latestHeight, "The latest height should not change after relaying the tx with historical update")
 		}))
 	}))
 }
@@ -1705,210 +1731,5 @@ func (s *RelayerTestSuite) ConcurrentRecvPacketToCosmos(
 		s.Require().NotNil(resp.Balance)
 		s.Require().Equal(totalTransferAmount, resp.Balance.Amount.BigInt())
 		s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
-	}))
-}
-
-// Test_MigrateLightClientFromLatestReleaseVersion tests the migration of the light client from the latest released version
-// to the latest local binary version.
-func (s *RelayerTestSuite) Test_MigrateLightClientFromLatestReleaseVersion() {
-	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
-		s.T().Skip("Test is only relevant for PoS networks")
-	}
-
-	// We start with the latest release version of the light client
-	s.EthLightClientTag = s.GetLatestEthLightClientRelease().TagName
-	s.T().Logf("Latest eth light client version: %s", s.EthLightClientTag)
-
-	ctx := context.Background()
-	proofType := types.GetEnvProofType()
-
-	s.SetupSuite(ctx, proofType)
-
-	eth, simd := s.EthChain, s.CosmosChains[0]
-
-	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
-	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
-
-	cosmosUserWallet := s.CosmosUsers[0]
-	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
-
-	transferAmount := big.NewInt(testvalues.TransferAmount)
-	firstExpectedCosmosBalance := new(big.Int).Set(transferAmount)
-	secondExpectedCosmosBalance := new(big.Int).Mul(firstExpectedCosmosBalance, big.NewInt(2))
-
-	// We start by doing a transfer from Ethereum to Cosmos on the latest release version
-	s.Require().True(s.Run("Before migration transfer from Ethereum to Cosmos", func() {
-		s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
-			tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		}))
-
-		var sendTxHash []byte
-		s.Require().True(s.Run("Send transfers on Ethereum", func() {
-			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-
-			msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-				Denom:            erc20Address,
-				SourceClient:     testvalues.CustomClientID,
-				DestPort:         transfertypes.PortID,
-				Amount:           transferAmount,
-				Receiver:         cosmosUserAddress,
-				TimeoutTimestamp: timeout,
-				Memo:             "",
-			}
-
-			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-			sendTxHash = tx.Hash().Bytes()
-		}))
-
-		s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-			var relayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    eth.ChainID.String(),
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{sendTxHash},
-					SrcClientId: testvalues.CustomClientID,
-					DstClientId: testvalues.FirstWasmClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.Require().Empty(resp.Address)
-
-				relayTxBodyBz = resp.Tx
-
-				s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
-					RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
-				})
-			}))
-
-			s.Require().True(s.Run("Broadcast relay tx", func() {
-				_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
-			}))
-
-			s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-				denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
-
-				// User balance on Cosmos chain
-				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-					Address: cosmosUserAddress,
-					Denom:   denomOnCosmos.IBCDenom(),
-				})
-				s.Require().NoError(err)
-				s.Require().NotNil(resp.Balance)
-				s.Require().Equal(firstExpectedCosmosBalance, resp.Balance.Amount.BigInt())
-				s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
-			}))
-		}))
-	}))
-
-	// We now migrate the light client to the latest version
-	s.Require().True(s.Run("Migrate the light client", func() {
-		var newChecksumHex string
-		s.Require().True(s.Run("Store light client from local binary", func() {
-			s.EthLightClientTag = "" // Reset to the use local binary
-			newChecksumHex = s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
-			s.Require().NotEmpty(newChecksumHex)
-		}))
-
-		s.Require().True(s.Run("Run migrate proposal for the light client", func() {
-			migrateMsg := ethereumtypes.MigrateMsg{
-				Migration: ethereumtypes.MigrationCodeOnly,
-			}
-			migrateMsgBz, err := json.Marshal(migrateMsg)
-			s.Require().NoError(err)
-
-			s.PushMigrateWasmClientProposal(ctx, simd, s.SimdRelayerSubmitter, testvalues.FirstWasmClientID, newChecksumHex, migrateMsgBz)
-
-			wasmClientState, _ := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
-			actualChecksumHex := hex.EncodeToString(wasmClientState.Checksum)
-			s.Require().Equal(newChecksumHex, actualChecksumHex)
-		}))
-	}))
-
-	// Finally we run another transfer from Ethereum to Cosmos to make sure the migration worked
-	s.Require().True(s.Run("After migration transfer from Ethereum to Cosmos", func() {
-		s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
-			tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		}))
-
-		var sendTxHash []byte
-		s.Require().True(s.Run("Send transfers on Ethereum", func() {
-			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-
-			msgSendTransfer := ics20transfer.IICS20TransferMsgsSendTransferMsg{
-				Denom:            erc20Address,
-				SourceClient:     testvalues.CustomClientID,
-				DestPort:         transfertypes.PortID,
-				Amount:           transferAmount,
-				Receiver:         cosmosUserAddress,
-				TimeoutTimestamp: timeout,
-				Memo:             "",
-			}
-
-			tx, err := s.ics20Contract.SendTransfer(s.GetTransactOpts(s.key, eth), msgSendTransfer)
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-			sendTxHash = tx.Hash().Bytes()
-		}))
-
-		s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
-			var relayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    eth.ChainID.String(),
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{sendTxHash},
-					SrcClientId: testvalues.CustomClientID,
-					DstClientId: testvalues.FirstWasmClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.Require().Empty(resp.Address)
-
-				relayTxBodyBz = resp.Tx
-
-				s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
-					RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
-				})
-			}))
-
-			s.Require().True(s.Run("Broadcast relay tx", func() {
-				_ = s.MustBroadcastSdkTxBody(ctx, simd, s.SimdRelayerSubmitter, 2_000_000, relayTxBodyBz)
-			}))
-
-			s.Require().True(s.Run("Verify balances on Cosmos chain", func() {
-				denomOnCosmos := transfertypes.NewDenom(s.contractAddresses.Erc20, transfertypes.NewHop(transfertypes.PortID, testvalues.FirstWasmClientID))
-
-				// User balance on Cosmos chain
-				resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
-					Address: cosmosUserAddress,
-					Denom:   denomOnCosmos.IBCDenom(),
-				})
-				s.Require().NoError(err)
-				s.Require().NotNil(resp.Balance)
-				s.Require().Equal(secondExpectedCosmosBalance, resp.Balance.Amount.BigInt())
-				s.Require().Equal(denomOnCosmos.IBCDenom(), resp.Balance.Denom)
-			}))
-		}))
 	}))
 }

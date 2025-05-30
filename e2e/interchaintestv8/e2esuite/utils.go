@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -53,15 +52,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
-
-const (
-	releaseAPI              = "https://api.github.com/repos/cosmos/solidity-ibc-eureka/releases"
-	ethLightClientTagPrefix = "cw-ics08-wasm-eth-"
-)
-
-type Release struct {
-	TagName string `json:"tag_name"`
-}
 
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the broadcast response is returned, we wait for two blocks to be created on chain.
@@ -434,27 +424,4 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
-}
-
-func (s *TestSuite) GetLatestEthLightClientRelease() Release {
-	resp, err := http.Get(releaseAPI)
-	s.Require().NoError(err)
-	defer resp.Body.Close()
-
-	s.Require().Equal(http.StatusOK, resp.StatusCode)
-
-	var releases []Release
-	err = json.NewDecoder(resp.Body).Decode(&releases)
-	s.Require().NoError(err)
-
-	var latestRelease Release
-	for _, release := range releases {
-		if strings.HasPrefix(release.TagName, ethLightClientTagPrefix) {
-			latestRelease = release
-			break
-		}
-	}
-	s.Require().NotEmpty(latestRelease, "no release found with tag prefix %s", ethLightClientTagPrefix)
-
-	return latestRelease
 }

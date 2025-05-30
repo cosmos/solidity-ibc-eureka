@@ -19,7 +19,6 @@ alloy-primitives = { workspace = true, features = ["serde", "hex-compat", "rlp"]
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
 tree_hash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_with = { workspace = true, features = ["macros"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }

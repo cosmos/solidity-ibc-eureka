@@ -1,6 +1,11 @@
 name: e2e-full
 on:
   workflow_dispatch:
+    inputs:
+      eth-light-client-tag:
+        description: 'The release tag for the eth light client to use'
+        required: false
+        type: string
   schedule:
     - cron: '0 0 */3 * *'  # Run every 3 days at midnight UTC
 
@@ -14,6 +19,7 @@ env:
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
   E2E_PRIVATE_CLUSTER: true
+  ETH_LIGHT_CLIENT_TAG: ${{ inputs.eth-light-client-tag }}
 permissions:
   contents: read
 
@@ -50,3 +56,25 @@ jobs:
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.test }}$" -timeout 120m
+
+  regression-e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        eth-light-client-tag: ['cw-ics08-wasm-eth-v1.2.0']
+    runs-on: depot-ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up E2E environment
+        uses: ./.github/actions/e2e-setup
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Regression Test
+        env:
+          ETH_LIGHT_CLIENT_TAG: ${{ matrix.eth-light-client-tag }}
+          NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
+        run: |
+          cd e2e/interchaintestv8
+          go test -v -mod=readonly . -run "^$TestWithIbcEurekaTestSuite/Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack$" -timeout 60m
+

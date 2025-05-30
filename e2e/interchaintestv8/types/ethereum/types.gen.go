@@ -120,7 +120,7 @@ type Header struct {
 	// The consensus update
 	ConsensusUpdate LightClientUpdate `json:"consensus_update"`
 	// Trusted slot to verify the new update against
-	TrustedSlot *string `json:"trusted_slot,omitempty"`
+	TrustedSlot *uint64 `json:"trusted_slot,omitempty"`
 }
 
 // The account update
