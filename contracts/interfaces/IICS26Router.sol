@@ -7,11 +7,6 @@ import { IIBCApp } from "./IIBCApp.sol";
 /// @title ICS26 Router Interface
 /// @notice Interface for the IBC Eureka Core Router
 interface IICS26Router {
-    /// @notice The role identifier for the port customizer role
-    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
-    /// @return The role identifier
-    function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
-
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier
     /// @return The address of the IBC application contract
@@ -23,7 +18,6 @@ interface IICS26Router {
     function addIBCApp(address app) external;
 
     /// @notice Adds an IBC application to the router
-    /// @dev Can only be called by `PORT_CUSTOMIZER_ROLE`.
     /// @param portId The custom port identifier.
     /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external;
@@ -47,8 +41,12 @@ interface IICS26Router {
 
     /// @notice Initializes the contract instead of a constructor
     /// @dev Meant to be called only once from the proxy
-    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    function initialize(address timelockedAdmin) external;
+    function initialize() external;
+
+    /// @notice Reinitializes the contract to upgrade it
+    /// @dev Meant to be called only once from the proxy
+    /// @param authority The address of the AccessManager contract
+    function initializeV2(address authority) external;
 
     // --------------------- Events --------------------- //
 
