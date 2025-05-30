@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,max-states-count
@@ -18,7 +18,8 @@ import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { TestCustomERC20 } from "./mocks/TestERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
 
 contract Integration2Test is Test {
     IbcImpl public ibcImplA;
@@ -257,7 +258,15 @@ contract Integration2Test is Test {
             Strings.toHexString(address(integrationEnv.erc20()))
         );
 
-        address customERC20 = address(new TestCustomERC20(address(ibcImplB.ics20Transfer())));
+        address customERC20 = address(
+            new ERC1967Proxy(
+                address(new RefImplIBCERC20()),
+                abi.encodeCall(
+                    RefImplIBCERC20.initialize,
+                    (makeAddr("owner"), address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20")
+                )
+            )
+        );
         ibcImplB.ics20Transfer().setCustomERC20(expDenomPath, customERC20);
 
         address user = integrationEnv.createAndFundUser(amount);
