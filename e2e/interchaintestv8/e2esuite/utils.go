@@ -25,6 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -424,4 +425,47 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+}
+
+// GetRelayUpdateSlot extracts the latest update slot from the relay body's update messages.
+func (s *TestSuite) GetRelayUpdateSlot(chain *cosmos.CosmosChain, relayBody []byte) uint64 {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(relayBody, &txBody)
+	s.Require().NoError(err)
+
+	var updateClientMsgsAny []*codectypes.Any
+	for _, msg := range txBody.Messages {
+		if msg.TypeUrl == "/ibc.core.client.v1.MsgUpdateClient" {
+			updateClientMsgsAny = append(updateClientMsgsAny, msg)
+		}
+	}
+	s.Require().NotEmpty(updateClientMsgsAny)
+
+	var headers []ethereumtypes.Header
+	for _, updateClientMsgAny := range updateClientMsgsAny {
+		var updateClientMsgSdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(updateClientMsgAny, &updateClientMsgSdkMsg)
+		s.Require().NoError(err)
+
+		updateClientMsg, ok := updateClientMsgSdkMsg.(*clienttypes.MsgUpdateClient)
+		s.Require().True(ok)
+
+		var clientMessage ibcwasmtypes.ClientMessage
+		err = proto.Unmarshal(updateClientMsg.ClientMessage.Value, &clientMessage)
+
+		var header ethereumtypes.Header
+		err = json.Unmarshal(clientMessage.Data, &header)
+		s.Require().NoError(err)
+
+		headers = append(headers, header)
+	}
+
+	latestUpdateSlot := uint64(0)
+	for _, header := range headers {
+		updateSlot, err := strconv.ParseUint(header.ConsensusUpdate.FinalizedHeader.Beacon.Slot, 10, 64)
+		s.Require().NoError(err)
+		latestUpdateSlot = max(latestUpdateSlot, updateSlot)
+	}
+
+	return latestUpdateSlot
 }

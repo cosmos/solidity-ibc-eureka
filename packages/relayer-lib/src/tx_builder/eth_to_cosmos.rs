@@ -488,7 +488,7 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Update client summary: 
+            "Relay events summary: 
                 client id: {},
                 recv events processed: #{}, 
                 ack events processed: #{}, 

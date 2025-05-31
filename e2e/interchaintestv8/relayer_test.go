@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -26,7 +25,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -1327,19 +1325,39 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 	}))
 
 	var relayTxBodyBz []byte
+	var relayerUpdateSlot uint64
+
 	s.Require().True(s.Run("Retrieve relay tx", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:    eth.ChainID.String(),
-			DstChain:    simd.Config().ChainID,
-			SourceTxIds: [][]byte{sendTxHash},
-			SrcClientId: testvalues.CustomClientID,
-			DstClientId: testvalues.FirstWasmClientID,
+		// We need to make sure that the update slot for the relay tx is a period change, because then the update client will have to include it when it updates the client. We want the update slot for the relayer to _not_ be included in the update client message, so we wait for the non-period change update slot.
+		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
+		err := testutil.WaitForCondition(30*time.Minute, 15*time.Second, func() (bool, error) {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{sendTxHash},
+				SrcClientId: testvalues.CustomClientID,
+				DstClientId: testvalues.FirstWasmClientID,
+			})
+			if err != nil {
+				return false, err
+			}
+			if resp.Tx == nil {
+				return false, fmt.Errorf("no relay tx found")
+			}
+
+			relayTxBodyBz = resp.Tx
+
+			relayerUpdateSlot = s.GetRelayUpdateSlot(simd, resp.Tx)
+			isPeriodChange := relayerUpdateSlot%(ethClientState.EpochsPerSyncCommitteePeriod*ethClientState.SlotsPerEpoch) == 0
+
+			if isPeriodChange {
+				s.T().Logf("Relayer update slot %d is a period change, waiting to update past it", relayerUpdateSlot)
+				return false, nil
+			}
+
+			return true, nil
 		})
 		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-		s.Require().Empty(resp.Address)
-
-		relayTxBodyBz = resp.Tx
 
 		s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
 			RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
@@ -1348,40 +1366,6 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 
 	// Instead of relaying the tx, we will wait until we have a finalized block that is past the update in the relay tx
 	// and then we will update the client on the Cosmos chain, before finally relaying the tx (where the update client will be historical)
-
-	var relayerUpdateSlot uint64
-	s.Require().True(s.Run("Get relay update slot", func() {
-		var txBody txtypes.TxBody
-		err := proto.Unmarshal(relayTxBodyBz, &txBody)
-		s.Require().NoError(err)
-
-		var updateClientMsgAny *codectypes.Any
-		for _, msg := range txBody.Messages {
-			if msg.TypeUrl == "/ibc.core.client.v1.MsgUpdateClient" {
-				updateClientMsgAny = msg
-				break
-			}
-		}
-		s.Require().NotNil(updateClientMsgAny)
-
-		var updateClientMsgSdkMsg sdk.Msg
-		err = simd.Config().EncodingConfig.InterfaceRegistry.UnpackAny(updateClientMsgAny, &updateClientMsgSdkMsg)
-		s.Require().NoError(err)
-
-		updateClientMsg, ok := updateClientMsgSdkMsg.(*clienttypes.MsgUpdateClient)
-		s.Require().True(ok)
-
-		var clientMessage ibcwasmtypes.ClientMessage
-		err = proto.Unmarshal(updateClientMsg.ClientMessage.Value, &clientMessage)
-		s.Require().NoError(err)
-
-		var header ethereumtypes.Header
-		err = json.Unmarshal(clientMessage.Data, &header)
-		s.Require().NoError(err)
-
-		relayerUpdateSlot, err = strconv.ParseUint(header.ConsensusUpdate.FinalizedHeader.Beacon.Slot, 10, 64)
-		s.Require().NoError(err)
-	}))
 
 	s.Require().True(s.Run("Wait for finality to be past update slot", func() {
 		err := testutil.WaitForCondition(30*time.Minute, 5*time.Second, func() (bool, error) {
@@ -1435,7 +1419,7 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 			err = proto.Unmarshal(resp.ClientState.Value, &wasmClientState)
 			s.Require().NoError(err)
 
-			latestHeight := wasmClientState.LatestHeight.RevisionHeight
+			latestHeight = wasmClientState.LatestHeight.RevisionHeight
 			s.Require().Greater(latestHeight, relayerUpdateSlot)
 		}))
 	}))
