@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       eth-light-client-tag:
-        description: 'The release tag for the eth light client to use'
+        description: 'Optional eth light client release tag override'
         required: false
         type: string
   push:
