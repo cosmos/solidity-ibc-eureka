@@ -52,14 +52,6 @@ func binaryPath() string {
 	return "operator"
 }
 
-// RunGenesis is a function that runs the genesis script to generate genesis.json
-func RunGenesis(args ...string) error {
-	args = append([]string{"genesis"}, args...)
-	cmd := exec.Command(binaryPath(), args...)
-	cmd.Stdout = os.Stdout
-	return cmd.Run()
-}
-
 // StartOperator is a function that runs the operator
 func StartOperator(args ...string) error {
 	args = append([]string{"start"}, args...)
