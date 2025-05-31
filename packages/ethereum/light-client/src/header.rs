@@ -17,7 +17,6 @@ pub struct Header {
     pub consensus_update: LightClientUpdate,
     /// Trusted slot to verify the new update against
     // The client **must** have a consensus state for the provided slot
-    #[serde(default)]
     pub trusted_slot: u64,
     /// The account update
     pub account_update: AccountUpdate,
