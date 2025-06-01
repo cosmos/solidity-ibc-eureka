@@ -12,7 +12,6 @@ members = [
 
     "programs/relayer",
     "programs/operator",
-    "programs/sp1-programs/*",
     "programs/cw-ics08-wasm-eth"
 ]
 resolver = "2"
@@ -101,9 +100,8 @@ alloy-provider         = { version = "1.0", default-features = false }
 alloy-transport        = { version = "1.0", default-features = false }
 alloy-rpc-types-eth    = { version = "1.0", default-features = false }
 
-sp1-sdk    = { version = "4.1", default-features = false }
-sp1-prover = { version = "4.1", default-features = false }
-sp1-zkvm   = { version = "4.1", default-features = false }
+sp1-sdk    = { version = "5.0", default-features = false }
+sp1-prover = { version = "5.0", default-features = false }
 
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
@@ -129,10 +127,3 @@ smallvec      = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 
-[patch.crates-io]
-sha2-v0-9-8         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.9.9" }
-sha2-v0-10-8        = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-v0.10.8" }
-ed25519-consensus   = { git = "https://github.com/sp1-patches/ed25519-consensus", branch = "patch-v2.1.0" }
-ecdsa               = { git = "https://github.com/sp1-patches/signatures", branch = "patch-ecdsa-v0.16.9" }
-curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", branch = "patch-v4.1.1" }
-tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
