@@ -77,4 +77,4 @@ jobs:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^$TestWithIbcEurekaTestSuite/Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack$" -timeout 60m
+          go test -v -mod=readonly . -run "^TestWithIbcEurekaTestSuite/Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack$" -timeout 60m
