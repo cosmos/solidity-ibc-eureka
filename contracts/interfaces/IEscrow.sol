@@ -28,4 +28,8 @@ interface IEscrow {
     /// @dev This function is meant to be called by a proxy
     /// @param ics20_ The ICS20 contract address, can send funds from the escrow
     function initialize(address ics20_) external;
+
+    /// @notice Reinitializes the RateLimit contract
+    /// @dev This can only be called once after the initial initialization
+    function initializeV2() external;
 }

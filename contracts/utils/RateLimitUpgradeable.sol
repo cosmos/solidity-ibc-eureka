@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 import { IRateLimitErrors } from "../errors/IRateLimitErrors.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
+
+import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
 /// @title Rate Limit Upgradeable contract
 /// @notice This contract is an abstract contract for adding rate limiting to escrow contracts.
 /// @dev Rate limits are set per token address by the rate limiter role and are enforced per day.
 /// @dev Rate limits are applied to tokens leaving the escrow contract.
-abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessControlUpgradeable {
+abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessManagedUpgradeable {
     /// @notice Storage of the RateLimit contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -24,19 +25,17 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.RateLimit")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant RATELIMIT_STORAGE_SLOT = 0xcb05b6cb8e6c87c443cb04d44193d7d46d51c1198725a0ee3478d5baa736c100;
 
-    /// @inheritdoc IRateLimit
-    bytes32 public constant RATE_LIMITER_ROLE = keccak256("RATE_LIMITER_ROLE");
-
     /// @notice The period for rate limiting
     uint256 private constant RATE_LIMIT_PERIOD = 1 days;
 
     /// @notice The initializer for the RateLimit contract
-    function __RateLimit_init() internal onlyInitializing {
-        __AccessControl_init();
+    /// @param authority_ The address of the AccessManager contract
+    function __RateLimit_init(address authority_) internal onlyInitializing {
+        __AccessManaged_init(authority_);
     }
 
     /// @inheritdoc IRateLimit
-    function setRateLimit(address token, uint256 rateLimit) external onlyRole(RATE_LIMITER_ROLE) {
+    function setRateLimit(address token, uint256 rateLimit) external restricted {
         _getRateLimitStorage()._rateLimits[token] = rateLimit;
     }
 
@@ -89,28 +88,12 @@ abstract contract RateLimitUpgradeable is IRateLimitErrors, IRateLimit, AccessCo
         }
     }
 
-    /// @inheritdoc IRateLimit
-    function grantRateLimiterRole(address account) external {
-        _authorizeSetRateLimiterRole(account);
-        _grantRole(RATE_LIMITER_ROLE, account);
-    }
-
-    /// @inheritdoc IRateLimit
-    function revokeRateLimiterRole(address account) external {
-        _authorizeSetRateLimiterRole(account);
-        _revokeRole(RATE_LIMITER_ROLE, account);
-    }
-
     /// @notice Returns the daily token key for the current timestamp and token
     /// @param token The token address
     /// @return The daily token key
     function _getDailyTokenKey(address token) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(block.timestamp / RATE_LIMIT_PERIOD, token));
     }
-
-    /// @notice Authorizes the granting or revoking of the rate limiter role
-    /// @param account The account to authorize
-    function _authorizeSetRateLimiterRole(address account) internal virtual;
 
     /// @notice Returns the storage of the RateLimit contract
     /// @return $ The storage of the RateLimit contract
