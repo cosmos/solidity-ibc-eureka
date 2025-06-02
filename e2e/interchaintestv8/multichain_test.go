@@ -42,9 +42,9 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
@@ -79,12 +79,14 @@ func TestWithMultichainTestSuite(t *testing.T) {
 	suite.Run(t, new(MultichainTestSuite))
 }
 
-func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
 	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
 
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+
+	s.T().Logf("Setting up test suite with proof type: %s", proofType.String())
 
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
@@ -213,9 +215,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 			verfierAddress = s.contractAddresses.VerifierMock
 		} else {
 			switch proofType {
-			case operator.ProofTypeGroth16:
+			case types.ProofTypeGroth16:
 				verfierAddress = s.contractAddresses.VerifierGroth16
-			case operator.ProofTypePlonk:
+			case types.ProofTypePlonk:
 				verfierAddress = s.contractAddresses.VerifierPlonk
 			default:
 				s.Require().Fail("invalid proof type: %s", proofType)
@@ -468,9 +470,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType operator
 	}))
 }
 
-func (s *MultichainTestSuite) TestDeploy_Groth16() {
+func (s *MultichainTestSuite) Test_Deploy() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := types.GetEnvProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -665,9 +667,9 @@ func (s *MultichainTestSuite) TestDeploy_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
+func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := types.GetEnvProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -1020,9 +1022,9 @@ func (s *MultichainTestSuite) TestTransferCosmosToEthToCosmosAndBack_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
+func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 	ctx := context.Background()
-	proofType := operator.ProofTypeGroth16
+	proofType := types.GetEnvProofType()
 
 	s.SetupSuite(ctx, proofType)
 
@@ -1343,11 +1345,11 @@ func (s *MultichainTestSuite) TestTransferEthToCosmosToCosmosAndBack_Groth16() {
 	}))
 }
 
-func (s *MultichainTestSuite) TestTransferCosmosToCosmosToEth() {
+func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 	ctx := context.Background()
-	prootType := operator.ProofTypeGroth16
+	proofType := types.GetEnvProofType()
 
-	s.SetupSuite(ctx, prootType)
+	s.SetupSuite(ctx, proofType)
 
 	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
 

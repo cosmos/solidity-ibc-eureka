@@ -86,6 +86,7 @@ impl RelayerBuilder {
 }
 
 impl Relayer {
+    #[allow(clippy::result_large_err)]
     fn get_module(
         &self,
         src_chain: &str,
@@ -174,6 +175,28 @@ impl RelayerService for Relayer {
                 .map_err(|e| {
                     tracing::error!("Create client request failed: {:?}", e);
                     tonic::Status::internal("Failed to create client. See logs for more details.")
+                })
+        })
+        .await
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(
+        &self,
+        request: Request<api::UpdateClientRequest>,
+    ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        let inner_request = request.get_ref();
+        let src_chain = inner_request.src_chain.clone();
+        let dst_chain = inner_request.dst_chain.clone();
+
+        crate::metrics::track_metrics("update_client", &src_chain, &dst_chain, || async move {
+            let inner_request = request.get_ref();
+            self.get_module(&inner_request.src_chain, &inner_request.dst_chain)?
+                .update_client(request)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Update client request failed: {:?}", e);
+                    tonic::Status::internal("Failed to update client. See logs for more details.")
                 })
         })
         .await

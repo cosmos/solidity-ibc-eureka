@@ -78,6 +78,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
             routerEvents::ICS02ClientMigrated(_) => {
                 Err(anyhow::anyhow!("ICS02ClientMigrated event"))
             }
+            routerEvents::ICS02ClientUpdated(_) => Err(anyhow::anyhow!("ICS02ClientUpdated event")),
             routerEvents::ICS02MisbehaviourSubmitted(_) => {
                 Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
             }

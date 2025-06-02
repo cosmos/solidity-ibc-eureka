@@ -10,7 +10,6 @@ use thiserror::Error;
 /// This is used to verify BLS signatures in `CosmosSDK`
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
-#[allow(clippy::module_name_repetitions)]
 pub enum EthereumCustomQuery {
     /// Verify a BLS signature
     AggregateVerify {

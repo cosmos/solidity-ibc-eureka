@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
+/// @title IICS20Transfer
+/// @notice Interface for the ICS20 Transfer module
 interface IICS20Transfer {
     /// @notice The role identifier for the delegate sender role
     /// @dev This role is required to call `sendTransferWithSender`
@@ -14,6 +16,11 @@ interface IICS20Transfer {
     /// @dev This role is required to grant and revoke rate limiter and metadata setter roles
     /// @return The role identifier
     function TOKEN_OPERATOR_ROLE() external view returns (bytes32);
+
+    /// @notice The role identifier for the ERC20 customizer role
+    /// @dev This role is required to call `setCustomERC20`
+    /// @return The role identifier
+    function ERC20_CUSTOMIZER_ROLE() external view returns (bytes32);
 
     /// @notice Checks if an account has the token operator role
     /// @param account The account to check
@@ -50,6 +57,14 @@ interface IICS20Transfer {
     )
         external
         returns (uint64 sequence);
+
+    /// @notice Inserts a custom ERC20 contract for a given IBC denom
+    /// @dev This must be called prior to the first transfer of the token so that the is no existing entry for the
+    /// denom.
+    /// @dev This function requires the `ERC20_CUSTOMIZER_ROLE`
+    /// @param denom The IBC denom
+    /// @param token The address of the custom ERC20 contract
+    function setCustomERC20(string calldata denom, address token) external;
 
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
@@ -119,6 +134,16 @@ interface IICS20Transfer {
     /// @dev The caller must be the ICS26Router admin
     /// @param account The account to revoke the role from
     function revokeTokenOperatorRole(address account) external;
+
+    /// @notice Grants the ERC20 customizer role to an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to grant the role to
+    function grantERC20CustomizerRole(address account) external;
+
+    /// @notice Revokes the ERC20 customizer role from an account
+    /// @dev The caller must be the ICS26Router admin
+    /// @param account The account to revoke the role from
+    function revokeERC20CustomizerRole(address account) external;
 
     // --------------------- Events --------------------- //
 

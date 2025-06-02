@@ -163,7 +163,7 @@ mod tests {
     };
     use ethereum_light_client::test_utils::fixtures::{self, InitialState, StepsFixture};
 
-    use crate::{contract::instantiate, test::mk_deps};
+    use crate::{contract::instantiate, test::helpers::mk_deps};
 
     #[test]
     fn test_misbehaviour() {
@@ -172,7 +172,7 @@ mod tests {
         let info = message_info(&creator, &coins(1, "uatom"));
 
         let fixture: StepsFixture =
-            fixtures::load("TestICS20TransferNativeCosmosCoinsToEthereumAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 

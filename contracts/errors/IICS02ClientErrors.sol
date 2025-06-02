@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IICS02ClientErrors
+/// @notice Interface for ICS02Client errors
 interface IICS02ClientErrors {
     /// @notice Invalid client id
     /// @param clientId the invalid client identifier

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 // solhint-disable custom-errors,max-line-length,max-states-count
@@ -22,6 +22,8 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { RefImplIBCERC20 } from "./utils/RefImplIBCERC20.sol";
 
 contract Integration2Test is Test {
     IbcImpl public ibcImplA;
@@ -238,6 +240,73 @@ contract Integration2Test is Test {
         );
         IERC20 token = IERC20(ibcImplB.ics20Transfer().ibcERC20Contract(expDenomPath));
         assertTrue(address(token) != address(0), "IBCERC20 token not found");
+        assertEq(token.balanceOf(receiver), amount, "receiver balance mismatch");
+
+        // Check replay protection
+        IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket;
+        msgRecvPacket.packet = sentPacket;
+        vm.recordLogs();
+        ibcImplB.ics26Router().recvPacket(msgRecvPacket);
+        th.getValueFromEvent(IICS26Router.Noop.selector);
+    }
+
+    function testFuzz_success_custom_recvICS20Packet(uint256 amount) public {
+        // We will send a packet from A to B and then receive it on B
+        vm.assume(amount > 0);
+
+        string memory expDenomPath = string.concat(
+            ICS20Lib.DEFAULT_PORT_ID,
+            "/",
+            th.FIRST_CLIENT_ID(),
+            "/",
+            Strings.toHexString(address(integrationEnv.erc20()))
+        );
+
+        address customERC20 = address(
+            new ERC1967Proxy(
+                address(new RefImplIBCERC20()),
+                abi.encodeCall(
+                    RefImplIBCERC20.initialize,
+                    (makeAddr("owner"), address(ibcImplB.ics20Transfer()), "Test ERC20", "TERC20")
+                )
+            )
+        );
+        ibcImplB.ics20Transfer().setCustomERC20(expDenomPath, customERC20);
+
+        address user = integrationEnv.createAndFundUser(amount);
+        address receiver = integrationEnv.createUser();
+
+        IICS26RouterMsgs.Packet memory sentPacket =
+            ibcImplA.sendTransferAsUser(integrationEnv.erc20(), user, Strings.toHexString(receiver), amount);
+
+        // run the receive packet queries
+        assertFalse(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assertFalse(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Receive the packet on B
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks.length, 1, "ack length mismatch");
+        assertEq(acks, th.SINGLE_SUCCESS_ACK(), "ack mismatch");
+
+        // run the receive packet queries
+        assert(ibcImplB.relayerHelper().isPacketReceived(sentPacket));
+        assert(ibcImplB.relayerHelper().isPacketReceiveSuccessful(sentPacket));
+
+        // Verify that the packet acknowledgement was written correctly
+        bytes32 path = ICS24Host.packetAcknowledgementCommitmentKeyCalldata(sentPacket.destClient, sentPacket.sequence);
+        bytes32 expAckCommitment = ICS24Host.packetAcknowledgementCommitmentBytes32(th.SINGLE_SUCCESS_ACK());
+        bytes32 storedAckCommitment = ibcImplB.ics26Router().getCommitment(path);
+        assertEq(storedAckCommitment, expAckCommitment, "ack commitment mismatch");
+
+        // Verify that the packet receipt was set correctly
+        bytes32 receiptPath =
+            keccak256(ICS24Host.packetReceiptCommitmentPathCalldata(sentPacket.destClient, sentPacket.sequence));
+        bytes32 expReceipt = ICS24Host.packetReceiptCommitmentBytes32(sentPacket);
+        bytes32 storedReceipt = ibcImplB.ics26Router().getCommitment(receiptPath);
+        assertEq(storedReceipt, expReceipt, "receipt mismatch");
+
+        IERC20 token = IERC20(ibcImplB.ics20Transfer().ibcERC20Contract(expDenomPath));
+        assertEq(address(token), customERC20, "custom token address mismatch");
         assertEq(token.balanceOf(receiver), amount, "receiver balance mismatch");
 
         // Check replay protection

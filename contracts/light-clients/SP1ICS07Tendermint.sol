@@ -44,6 +44,7 @@ contract SP1ICS07Tendermint is
     ISP1Verifier public immutable VERIFIER;
 
     /// @notice The ICS07Tendermint client state
+    // natlint-disable-next-line MissingInheritdoc
     IICS07TendermintMsgs.ClientState public clientState;
     /// @notice The mapping from height to consensus state keccak256 hashes.
     /// @dev Revision number need not be keyed as it is not allowed to change.
@@ -588,6 +589,7 @@ contract SP1ICS07Tendermint is
         _;
     }
 
+    /// @notice Modifier to check if the caller has the proof submitter role or if the role is permitted for anyone.
     modifier onlyProofSubmitter() {
         if (!hasRole(PROOF_SUBMITTER_ROLE, address(0))) {
             _checkRole(PROOF_SUBMITTER_ROLE);

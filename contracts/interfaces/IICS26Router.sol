@@ -5,18 +5,12 @@ import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IIBCApp } from "./IIBCApp.sol";
 
 /// @title ICS26 Router Interface
-/// @notice IICS26Router is an interface for the IBC Eureka router
+/// @notice Interface for the IBC Eureka Core Router
 interface IICS26Router {
     /// @notice The role identifier for the port customizer role
     /// @dev The port identifier role is used to add IBC applications with custom port identifiers
     /// @return The role identifier
     function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
-
-    /// @notice The role identifier for the relayer role
-    /// @dev The relayer role is used to whitelist addresses that can relay packets
-    /// @dev If `address(0)` has this role, then anyone can relay packets
-    /// @return The role identifier
-    function RELAYER_ROLE() external view returns (bytes32);
 
     /// @notice Returns the address of the IBC application given the port identifier
     /// @param portId The port identifier

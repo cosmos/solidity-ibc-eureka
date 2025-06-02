@@ -14,13 +14,13 @@ import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.so
 import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.sol";
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
-import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
+import { TestHelper } from "./utils/TestHelper.sol";
 
 contract ICS02ClientTest is Test {
     ICS02ClientUpgradeable public ics02Client;
-    DummyLightClient public lightClient;
+    address public lightClient = makeAddr("lightClient");
 
     bytes[] public merklePrefix = [bytes("ibc"), bytes("")];
     bytes[] public randomPrefix = [bytes("test"), bytes("prefix")];
@@ -28,24 +28,25 @@ contract ICS02ClientTest is Test {
     string public clientIdentifier;
 
     address public clientOwner = makeAddr("clientOwner");
+    TestHelper public th = new TestHelper();
 
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
-        lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
 
         ERC1967Proxy routerProxy =
             new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
 
         ics02Client.grantRole(ics02Client.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
+        ics02Client.grantRole(ics02Client.RELAYER_ROLE(), address(this));
 
         vm.startPrank(clientOwner);
         string memory counterpartyId = "42-dummy-01";
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix);
         vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("client-0", counterpartyInfo);
-        clientIdentifier = ics02Client.addClient(counterpartyInfo, address(lightClient));
+        emit IICS02Client.ICS02ClientAdded(th.FIRST_CLIENT_ID(), counterpartyInfo, lightClient);
+        clientIdentifier = ics02Client.addClient(counterpartyInfo, lightClient);
         vm.stopPrank();
 
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
@@ -62,7 +63,7 @@ contract ICS02ClientTest is Test {
         string memory customClientId = "custom-client-id";
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(customClientId, merklePrefix);
-        string memory newId = ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        string memory newId = ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
         assertEq(customClientId, newId, "custom client id not set correctly");
     }
 
@@ -71,13 +72,13 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(clientIdentifier, merklePrefix);
         vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCInvalidClientId.selector, clientIdentifier));
-        ics02Client.addClient(clientIdentifier, counterpartyInfo, address(lightClient));
+        ics02Client.addClient(clientIdentifier, counterpartyInfo, lightClient);
 
         // reuse of client id
         string memory customClientId = "custom-client-id";
-        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
         vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCClientAlreadyExists.selector, customClientId));
-        ics02Client.addClient(customClientId, counterpartyInfo, address(lightClient));
+        ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
     }
 
     function test_MigrateClient() public {
@@ -85,13 +86,9 @@ contract ICS02ClientTest is Test {
 
         vm.startPrank(bob);
         string memory counterpartyId = "42-dummy-01";
-        DummyLightClient noopLightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.NoOp, 0, false);
+        address newLightClient = makeAddr("newLightClient");
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
-        vm.expectEmit();
-        emit IICS02Client.ICS02ClientAdded("client-1", counterpartyInfo);
-        string memory substituteIdentifier = ics02Client.addClient(counterpartyInfo, address(noopLightClient));
-        assertEq(2, ics02Client.getNextClientSeq());
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -100,18 +97,19 @@ contract ICS02ClientTest is Test {
                 ics02Client.getLightClientMigratorRole(clientIdentifier)
             )
         );
-        ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
+        ics02Client.migrateClient(clientIdentifier, counterpartyInfo, newLightClient);
         vm.stopPrank();
 
         vm.startPrank(clientOwner);
-        ics02Client.migrateClient(clientIdentifier, substituteIdentifier);
+        ics02Client.migrateClient(clientIdentifier, counterpartyInfo, newLightClient);
         ILightClient fetchedLightClient = ics02Client.getClient(clientIdentifier);
-        assertEq(address(fetchedLightClient), address(noopLightClient), "client not migrated");
+        assertEq(address(fetchedLightClient), newLightClient, "client not migrated");
         vm.stopPrank();
 
         IICS02ClientMsgs.CounterpartyInfo memory fetchedCounterparty = ics02Client.getCounterparty(clientIdentifier);
         assertEq(fetchedCounterparty.clientId, counterpartyId, "counterparty not migrated");
         assertEq(fetchedCounterparty.merklePrefix, randomPrefix, "counterparty not migrated");
+        assertEq(ics02Client.getNextClientSeq(), 1, "client seq not incremented");
     }
 
     function test_RenounceRole() public {
@@ -125,6 +123,32 @@ contract ICS02ClientTest is Test {
 
     function test_Misbehaviour() public {
         bytes memory misbehaviourMsg = "testMisbehaviourMsg";
+        bytes memory misbehaviourCall = abi.encodeCall(ILightClient.misbehaviour, (misbehaviourMsg));
+        vm.mockCall(lightClient, misbehaviourCall, bytes(""));
+
+        vm.expectCall(lightClient, misbehaviourCall);
         ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
+    }
+
+    function test_success_updateClient() public {
+        bytes memory updateMsg = "testUpdateMsg";
+        bytes memory updateCall = abi.encodeCall(ILightClient.updateClient, (updateMsg));
+        vm.mockCall(lightClient, updateCall, abi.encode(ILightClientMsgs.UpdateResult(0)));
+
+        vm.expectCall(lightClient, updateCall);
+        ics02Client.updateClient(clientIdentifier, updateMsg);
+    }
+
+    function test_failure_updateClient() public {
+        address unauthorized = makeAddr("unauthorized");
+        bytes memory updateMsg = "testUpdateMsg";
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, ics02Client.RELAYER_ROLE()
+            )
+        );
+        vm.prank(unauthorized);
+        ics02Client.updateClient(clientIdentifier, updateMsg);
     }
 }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title Transfer Messages
+/// @notice Interface defining ICS20 transfer messages
 interface IICS20TransferMsgs {
     /// @notice Message for sending a transfer
     /// @param denom The address of the ERC20 token contract, used as the denomination

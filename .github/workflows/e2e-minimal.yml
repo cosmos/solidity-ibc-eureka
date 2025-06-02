@@ -29,7 +29,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
         with:
-          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth_Groth16
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth
 
   e2e:
     needs: generate-matrix

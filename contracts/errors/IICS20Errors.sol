@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+/// @title IICS20Errors
+/// @notice Interface for ICS20 errors
 interface IICS20Errors {
     /// @notice Unauthorized function call
     /// @param caller The caller of the function
@@ -50,4 +52,12 @@ interface IICS20Errors {
     /// @notice Escrow not found
     /// @param clientID Client ID
     error ICS20EscrowNotFound(string clientID);
+
+    /// @notice IBCERC20 already exists
+    /// @param denom The IBC denom of the token
+    error ICS20DenomAlreadyExists(string denom);
+
+    /// @notice IBCERC20 token already exists
+    /// @param denom The IBC denom of the token
+    error ICS20TokenAlreadyExists(string denom);
 }

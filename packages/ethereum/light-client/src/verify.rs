@@ -7,7 +7,6 @@ use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
     light_client_header::LightClientUpdate,
-    merkle::floorlog2,
     signing_data::compute_signing_root,
 };
 use tree_hash::TreeHash;
@@ -156,27 +155,6 @@ pub fn validate_light_client_update<V: BlsVerify>(
     current_slot: u64,
     bls_verifier: &V,
 ) -> Result<(), EthereumIBCError> {
-    // TODO: Remove this check after type safety is added back (#440)
-    let expected_next_sync_committee_branch_depth = floorlog2(next_sync_committee_gindex_at_slot(
-        client_state,
-        update.attested_header.beacon.slot,
-    )?);
-    let expected_finality_branch_depth = floorlog2(finalized_root_gindex_at_slot(
-        client_state,
-        update.attested_header.beacon.slot,
-    )?);
-    ensure!(
-        update.is_valid_branch_depths(
-            expected_next_sync_committee_branch_depth,
-            expected_finality_branch_depth,
-        ),
-        EthereumIBCError::InvalidBranchDepths(
-            update.attested_header.beacon.slot,
-            expected_next_sync_committee_branch_depth,
-            expected_finality_branch_depth
-        )
-    );
-
     // Verify sync committee has sufficient participants
     ensure!(
         update
@@ -321,7 +299,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
                 .unwrap()
                 .tree_hash_root(),
             &normalize_merkle_branch(
-                &update.next_sync_committee_branch.clone().unwrap(),
+                update.next_sync_committee_branch.as_ref().unwrap(),
                 next_sync_committee_gindex,
             ),
             next_sync_committee_gindex,
@@ -424,7 +402,7 @@ mod test {
         let bls_verifier = TestBlsVerifier;
 
         let fixture: fixtures::StepsFixture =
-            fixtures::load("TestICS20TransferERC20TokenfromEthereumToCosmosAndBack_Groth16");
+            fixtures::load("Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 

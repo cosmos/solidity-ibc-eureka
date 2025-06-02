@@ -13,16 +13,20 @@ use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
     ics26::{
-        router::{multicallCall, routerCalls, routerInstance},
+        router::{multicallCall, routerCalls, routerInstance, updateClientCall},
         IICS02ClientMsgs::Height,
     },
-    msgs::IICS07TendermintMsgs::{ClientState, ConsensusState, TrustThreshold},
+    msgs::{
+        IICS07TendermintMsgs::{ClientState, ConsensusState, TrustThreshold},
+        ISP1Msgs::SP1Proof,
+        IUpdateClientMsgs::MsgUpdateClient,
+    },
     sp1_ics07::sp1_ics07_tendermint,
 };
 use ibc_eureka_utils::{light_block::LightBlockExt, rpc::TendermintRpcExt};
 use sp1_ics07_tendermint_prover::{
     programs::{SP1ICS07TendermintPrograms, SP1Program},
-    prover::{Sp1Prover, SupportedZkAlgorithm},
+    prover::{SP1ICS07TendermintProver, Sp1Prover, SupportedZkAlgorithm},
 };
 use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
@@ -279,5 +283,57 @@ where
         )
         .calldata()
         .to_vec())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+
+        let client_state = self.client_state(dst_client_id.clone()).await?;
+        let trusted_block_height = client_state.latestHeight.revisionHeight;
+
+        let trusted_light_block = self
+            .tm_client
+            .get_light_block(Some(trusted_block_height))
+            .await?;
+
+        let latest_light_block = self.tm_client.get_light_block(None).await?;
+
+        tracing::info!(
+            "Generating tx to update '{}' from height: {} to height: {}",
+            dst_client_id,
+            trusted_light_block.height().value(),
+            latest_light_block.height().value()
+        );
+
+        let proposed_header = latest_light_block.into_header(&trusted_light_block);
+
+        let update_client_prover = SP1ICS07TendermintProver::new(
+            client_state.zkAlgorithm,
+            &self.sp1_prover,
+            &self.sp1_programs.update_client,
+        );
+
+        let trusted_consensus_state = trusted_light_block.to_consensus_state().into();
+        let proof_data = update_client_prover.generate_proof(
+            &client_state,
+            &trusted_consensus_state,
+            &proposed_header,
+            now_since_unix.as_nanos(),
+        );
+
+        let update_msg = MsgUpdateClient {
+            sp1Proof: SP1Proof::new(
+                &self.sp1_programs.update_client.get_vkey().bytes32(),
+                proof_data.bytes(),
+                proof_data.public_values.to_vec(),
+            ),
+        };
+
+        Ok(updateClientCall {
+            clientId: dst_client_id,
+            updateMsg: update_msg.abi_encode().into(),
+        }
+        .abi_encode())
     }
 }

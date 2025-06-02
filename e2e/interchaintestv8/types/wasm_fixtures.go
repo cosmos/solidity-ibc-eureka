@@ -24,14 +24,13 @@ type WasmFixtureGenerator struct {
 }
 
 // NewWasmFixtureGenerator creates a new WasmFixtureGenerator
-// If shouldGenerateFixture is false, the generator will not generate any fixtures
-func NewWasmFixtureGenerator(s *suite.Suite, shouldGenerateFixture bool) *WasmFixtureGenerator {
+func NewWasmFixtureGenerator(s *suite.Suite) *WasmFixtureGenerator {
 	wasmFixtureGenerator := &WasmFixtureGenerator{
-		shouldGenerateFixture: shouldGenerateFixture,
+		shouldGenerateFixture: os.Getenv(testvalues.EnvKeyGenerateWasmFixtures) == testvalues.EnvValueGenerateFixtures_True,
 	}
 
 	fixtureName := getTopLevelTestName(s)
-	if shouldGenerateFixture {
+	if wasmFixtureGenerator.shouldGenerateFixture {
 		s.T().Cleanup(func() {
 			s.T().Logf("Writing fixtures for %s", fixtureName)
 			if err := wasmFixtureGenerator.writeFixtures(fixtureName); err != nil {

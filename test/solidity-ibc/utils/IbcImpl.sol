@@ -77,6 +77,8 @@ contract IbcImpl is Test {
         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), msg.sender);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         ics26Router.addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(ics27Gmp));
+
+        ics20Transfer.grantERC20CustomizerRole(msg.sender);
         vm.stopPrank();
     }
 

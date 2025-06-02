@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IICS24HostErrors
+/// @notice Interface for ICS24Host errors
 interface IICS24HostErrors {
     /// @notice Packet commitment already exists
     /// @param path commitment path

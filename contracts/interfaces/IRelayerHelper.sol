@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 
+/// @title IRelayerHelper
+/// @notice Interface for the RelayerHelper contract
 interface IRelayerHelper {
     /// @notice Returns the underlying ICS26Router contract address
     /// @return ICS26Router contract address

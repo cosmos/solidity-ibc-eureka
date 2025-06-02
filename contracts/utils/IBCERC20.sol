@@ -2,12 +2,16 @@
 pragma solidity ^0.8.28;
 
 import { IIBCERC20 } from "../interfaces/IIBCERC20.sol";
+import { IMintableAndBurnable } from "../interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20Errors } from "../errors/IIBCERC20Errors.sol";
 import { IICS20Transfer } from "../interfaces/IICS20Transfer.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 
+/// @title IBCERC20 Contract
+/// @notice This contract is the default ERC20 implementation for new IBC tokens.
+/// @dev This is the default implementation to be deployed when new IBC tokens are received.
 contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControlUpgradeable {
     /// @notice Storage of the IBCERC20 contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -37,6 +41,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     bytes32 public constant METADATA_CUSTOMIZER_ROLE = keccak256("METADATA_CUSTOMIZER_ROLE");
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -101,14 +106,14 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
         $._customSymbol = customSymbol;
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function mint(address mintAddress, uint256 amount) external onlyICS20 {
         address escrow_ = _getIBCERC20Storage()._escrow;
         require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));
         _mint(mintAddress, amount);
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function burn(address mintAddress, uint256 amount) external onlyICS20 {
         address escrow_ = _getIBCERC20Storage()._escrow;
         require(mintAddress == escrow_, IBCERC20NotEscrow(escrow_, mintAddress));
@@ -126,6 +131,7 @@ contract IBCERC20 is IIBCERC20Errors, IIBCERC20, ERC20Upgradeable, AccessControl
     }
 
     /// @notice Returns the storage of the IBCERC20 contract
+    /// @return $ The storage of the IBCERC20 contract
     function _getIBCERC20Storage() private pure returns (IBCERC20Storage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

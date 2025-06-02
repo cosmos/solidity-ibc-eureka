@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS02ClientMsgs } from "./IICS02ClientMsgs.sol";
 
+/// @title LightClient Messages
+/// @notice Interface defining light client messages
 interface ILightClientMsgs {
     /// @notice Message for querying the membership of a key-value pair in the Merkle root at a given height.
     /// @param proof The proof

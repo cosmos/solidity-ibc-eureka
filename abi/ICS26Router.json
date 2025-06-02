@@ -522,14 +522,31 @@
     "name": "migrateClient",
     "inputs": [
       {
-        "name": "subjectClientId",
+        "name": "clientId",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "substituteClientId",
-        "type": "string",
-        "internalType": "string"
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -923,6 +940,30 @@
   },
   {
     "type": "function",
+    "name": "updateClient",
+    "inputs": [
+      {
+        "name": "clientId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "updateMsg",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum ILightClientMsgs.UpdateResult"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "upgradeToAndCall",
     "inputs": [
       {
@@ -1083,6 +1124,12 @@
             "internalType": "bytes[]"
           }
         ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1092,16 +1139,53 @@
     "name": "ICS02ClientMigrated",
     "inputs": [
       {
-        "name": "subjectClientId",
+        "name": "clientId",
         "type": "string",
         "indexed": false,
         "internalType": "string"
       },
       {
-        "name": "substituteClientId",
+        "name": "counterpartyInfo",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct IICS02ClientMsgs.CounterpartyInfo",
+        "components": [
+          {
+            "name": "clientId",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "merklePrefix",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ICS02ClientUpdated",
+    "inputs": [
+      {
+        "name": "clientId",
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "result",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum ILightClientMsgs.UpdateResult"
       }
     ],
     "anonymous": false
@@ -1115,12 +1199,6 @@
         "type": "string",
         "indexed": false,
         "internalType": "string"
-      },
-      {
-        "name": "misbehaviourMsg",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
       }
     ],
     "anonymous": false

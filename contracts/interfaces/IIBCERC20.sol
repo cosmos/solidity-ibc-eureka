@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-interface IIBCERC20 {
+import { IMintableAndBurnable } from "./IMintableAndBurnable.sol";
+
+/// @title IIBCERC20
+/// @notice The interface for received tokens, deployed on receive by ICS20
+interface IIBCERC20 is IMintableAndBurnable {
     /// @notice The role identifier for the metadata customizer role
     /// @return The role identifier
     function METADATA_CUSTOMIZER_ROLE() external view returns (bytes32);
@@ -12,20 +16,6 @@ interface IIBCERC20 {
     /// @param name The name for the custom token metadata
     /// @param symbol The symbol for the custom token metadata
     function setMetadata(uint8 decimals, string calldata name, string calldata symbol) external;
-
-    /// @notice Mint new tokens to the Escrow contract
-    /// @dev This function can only be called by the ICS20 contract
-    /// @dev This function can only mint tokens to the Escrow contract
-    /// @param mintAddress Address to mint tokens to
-    /// @param amount Amount of tokens to mint
-    function mint(address mintAddress, uint256 amount) external;
-
-    /// @notice Burn tokens from the Escrow contract
-    /// @dev This function can only be called by the ICS20 contract
-    /// @dev This function can only burn tokens from the Escrow contract
-    /// @param mintAddress Address to burn tokens from
-    /// @param amount Amount of tokens to burn
-    function burn(address mintAddress, uint256 amount) external;
 
     /// @notice Get the full denom path of the token
     /// @return The full path of the token's denom

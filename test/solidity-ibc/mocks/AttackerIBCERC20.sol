@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 // solhint-disable no-empty-blocks,gas-custom-errors
 
 import { IIBCERC20 } from "../../../contracts/interfaces/IIBCERC20.sol";
+import { IMintableAndBurnable } from "../../../contracts/interfaces/IMintableAndBurnable.sol";
 import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
 
 contract AttackerIBCERC20 is IIBCERC20, ERC20 {
@@ -21,14 +22,14 @@ contract AttackerIBCERC20 is IIBCERC20, ERC20 {
         return "transfer/client-0/uatom";
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function mint(address, uint256) external { }
 
     function mintTo(address to, uint256 amount) external {
         _mint(to, amount);
     }
 
-    /// @inheritdoc IIBCERC20
+    /// @inheritdoc IMintableAndBurnable
     function burn(address, uint256) external { }
 
     /// @inheritdoc IIBCERC20
