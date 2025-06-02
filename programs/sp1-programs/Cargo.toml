@@ -8,37 +8,33 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version    = "0.1.0"
+version    = "1.2.0"
 edition    = "2021"
 license    = "MIT"
 repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
-sp1-sdk    = { version = "5.0", default-features = false }
-sp1-prover = { version = "5.0", default-features = false }
 sp1-zkvm   = { version = "5.0", default-features = false }
 
 sp1-ics07-tendermint-update-client = { path = "update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "membership", default-features = false }
 ibc-eureka-solidity-types          = { path = "../../packages/solidity", default-features = false }
 
-sha2 = { version = "0.10", default-features = false }
+sha2                        = { version = "0.10", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
 ibc-core-host-types         = { version = "0.57", default-features = false }
 ibc-core-client             = { version = "0.57", default-features = false }
 ibc-client-tendermint       = { version = "0.57", default-features = false }
 ibc-client-tendermint-types = { version = "0.57", default-features = false }
 ibc-primitives              = { version = "0.57", default-features = false }
-ibc-proto        = { version = "0.51", default-features = false }
+ibc-proto                   = { version = "0.51", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 alloy-sol-types        = { version = "1.0", default-features = false }
-
 
 [patch.crates-io]
 sha2-v0-9-9         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }
 sha2-v0-10-8        = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
-# ed25519-consensus   = { git = "https://github.com/sp1-patches/ed25519-consensus", tag = "ed25519_consensus-v2.1.0-patch-v1" }
 tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
 curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", tag = "patch-4.1.1-sp1-5.0.0" }
 sha3-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }

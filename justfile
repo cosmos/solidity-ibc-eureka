@@ -255,3 +255,4 @@ clean-foundry:
 clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
+	cd programs/sp1-programs && cargo clean

@@ -1541,7 +1541,7 @@ checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
 
 [[package]]
 name = "sp1-ics07-tendermint-membership"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "alloy-sol-types",
  "ibc-core-commitment-types",
@@ -1552,7 +1552,7 @@ dependencies = [
 
 [[package]]
 name = "sp1-ics07-tendermint-misbehaviour"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "alloy-sol-types",
  "ibc-client-tendermint",
@@ -1569,7 +1569,7 @@ dependencies = [
 
 [[package]]
 name = "sp1-ics07-tendermint-uc-and-membership"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "alloy-sol-types",
  "ibc-client-tendermint-types",
@@ -1583,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "sp1-ics07-tendermint-update-client"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "alloy-sol-types",
  "ibc-client-tendermint",
