@@ -247,7 +247,7 @@ test-e2e-multichain testname:
 
 # Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
 [group('test')]
-test-e2e-gmp testname: clean
+test-e2e-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
 
