@@ -59,7 +59,7 @@ contract ICS26Router is
     function initialize() external initializer {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __IBCStoreUpgradeable_init();
+        __IBCStore_init();
     }
 
     /// @inheritdoc IICS26Router
