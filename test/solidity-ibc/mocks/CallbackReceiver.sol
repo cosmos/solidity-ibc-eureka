@@ -10,9 +10,7 @@ import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
 /// @title CallbackReceiver
 /// @notice A contract that implements the IIBCCallbacks interface to receive callbacks from IBC applications.
 contract CallbackReceiver is IIBCCallbacks, ERC165 {
-    /// @notice Called when a packet acknowledgement is received by the IBC application.
-    /// @param success Whether the packet was successfully received by the destination chain
-    /// @param msg_ The callback message
+    /// @inheritdoc IIBCCallbacks
     function onAckPacket(
         bool success,
         IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
@@ -24,8 +22,7 @@ contract CallbackReceiver is IIBCCallbacks, ERC165 {
         // For example, emit an event or update state
     }
 
-    /// @notice Called when a packet is timed out by the IBC application.
-    /// @param msg_ The callback message
+    /// @inheritdoc IIBCCallbacks
     function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external override {
         // Handle the timeout logic here
         // For example, emit an event or update state
