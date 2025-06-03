@@ -14,8 +14,8 @@ import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07T
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 
