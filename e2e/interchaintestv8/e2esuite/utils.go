@@ -452,6 +452,7 @@ func (s *TestSuite) GetRelayUpdateSlot(chain *cosmos.CosmosChain, relayBody []by
 
 		var clientMessage ibcwasmtypes.ClientMessage
 		err = proto.Unmarshal(updateClientMsg.ClientMessage.Value, &clientMessage)
+		s.Require().NoError(err)
 
 		var header ethereumtypes.Header
 		err = json.Unmarshal(clientMessage.Data, &header)
