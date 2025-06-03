@@ -18,11 +18,11 @@ build-operator:
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
-  @echo "Building SP1 programs in 'target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
+  @echo "Building SP1 programs in 'programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
@@ -83,6 +83,9 @@ lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
 	cargo clippy --all-targets --all-features -- -D warnings
+	cd programs/sp1-programs && cargo fmt --all -- --check
+	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+
 
 # Generate the (non-bytecode) ABI files for the contracts
 [group('generate')]
@@ -252,3 +255,4 @@ clean-foundry:
 clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
+	cd programs/sp1-programs && cargo clean
