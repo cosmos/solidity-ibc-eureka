@@ -36,13 +36,13 @@ library IBCCallbacksLib {
     /// @param callbackAddress The address of the callback contract
     /// @param msg_ The callback message containing details about the timeout
     function timeoutPacketCallback(
-	address callbackAddress,
-	IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_
+        address callbackAddress,
+        IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_
     )
-	internal
+        internal
     {
-	if (_supportsCallbacks(callbackAddress)) {
-	    IIBCCallbacks(callbackAddress).onTimeoutPacket(msg_);
-	}
+        if (_supportsCallbacks(callbackAddress)) {
+            IIBCCallbacks(callbackAddress).onTimeoutPacket(msg_);
+        }
     }
 }

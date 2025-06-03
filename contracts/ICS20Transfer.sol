@@ -28,6 +28,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { IBCCallbacksLib } from "./utils/IBCCallbacksLib.sol";
 
 using SafeERC20 for IERC20;
 
@@ -357,11 +358,16 @@ contract ICS20Transfer is
         nonReentrant
         whenNotPaused
     {
-        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
-            IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
-                abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
 
-            _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
+            // if the acknowledgement is an error, we must refund the tokens to the sender
+            address sender = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+            IBCCallbacksLib.ackPacketCallback(sender, false, msg_);
+        } else {
+            address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
+            IBCCallbacksLib.ackPacketCallback(sender, true, msg_);
         }
     }
 
@@ -374,19 +380,22 @@ contract ICS20Transfer is
     {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
-        _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        address sender = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        IBCCallbacksLib.timeoutPacketCallback(sender, msg_);
     }
 
     /// @notice Refund the tokens to the sender
     /// @param sourcePort The source port of the packet
     /// @param sourceClient The source client of the packet
     /// @param packetData The packet data
+    /// @return The address that received the refunded tokens, i.e. sender of the packet
     function _refundTokens(
         string calldata sourcePort,
         string calldata sourceClient,
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData
     )
         private
+        returns (address)
     {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         IEscrow escrow = $._escrows[sourceClient];
@@ -417,6 +426,7 @@ contract ICS20Transfer is
         }
 
         escrow.send(IERC20(erc20Address), refundee, packetData.amount);
+        return refundee;
     }
 
     /// @notice Transfer tokens from sender to receiver
