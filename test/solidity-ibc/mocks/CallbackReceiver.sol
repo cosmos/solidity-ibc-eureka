@@ -5,11 +5,11 @@ pragma solidity ^0.8.28;
 
 import { IIBCCallbacks } from "../../../contracts/interfaces/IIBCCallbacks.sol";
 import { IIBCAppCallbacks } from "../../../contracts/msgs/IIBCAppCallbacks.sol";
-import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
+import { IBCCallbackReceiver } from "../../../contracts/utils/IBCCallbackReceiver.sol";
 
 /// @title CallbackReceiver
 /// @notice A contract that implements the IIBCCallbacks interface to receive callbacks from IBC applications.
-contract CallbackReceiver is IIBCCallbacks, ERC165 {
+contract CallbackReceiver is IBCCallbackReceiver {
     /// @inheritdoc IIBCCallbacks
     function onAckPacket(
         bool success,
@@ -26,11 +26,5 @@ contract CallbackReceiver is IIBCCallbacks, ERC165 {
     function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external override {
         // Handle the timeout logic here
         // For example, emit an event or update state
-    }
-
-    /// @inheritdoc ERC165
-    /// @dev This function signals that this contract supports the IIBCCallbacks interface.
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165) returns (bool) {
-        return interfaceId == type(IIBCCallbacks).interfaceId || super.supportsInterface(interfaceId);
     }
 }
