@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 import { IIBCCallbacks } from "../interfaces/IIBCCallbacks.sol";
 
 import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
