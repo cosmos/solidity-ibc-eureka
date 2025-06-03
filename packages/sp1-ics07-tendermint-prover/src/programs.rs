@@ -73,32 +73,24 @@ impl MisbehaviourProgram {
 }
 
 impl SP1Program for UpdateClientProgram {
-    // const ELF: &'static [u8] =
-    //     include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client");
     fn elf(&self) -> &[u8] {
         self.0.as_slice()
     }
 }
 
 impl SP1Program for MembershipProgram {
-    // const ELF: &'static [u8] =
-    //     include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership");
     fn elf(&self) -> &[u8] {
         self.0.as_slice()
     }
 }
 
 impl SP1Program for UpdateClientAndMembershipProgram {
-    // const ELF: &'static [u8] =
-    //     include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership");
     fn elf(&self) -> &[u8] {
         self.0.as_slice()
     }
 }
 
 impl SP1Program for MisbehaviourProgram {
-    // const ELF: &'static [u8] =
-    //     include_bytes!("../../../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour");
     fn elf(&self) -> &[u8] {
         self.0.as_slice()
     }

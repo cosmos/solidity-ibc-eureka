@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 import "forge-std/console.sol";
 import { SP1ICS07TendermintTest } from "./SP1ICS07TendermintTest.sol";
 import { IMisbehaviourMsgs } from "../../contracts/light-clients/msgs/IMisbehaviourMsgs.sol";
-import { SP1Verifier } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 struct SP1ICS07MisbehaviourFixtureJson {

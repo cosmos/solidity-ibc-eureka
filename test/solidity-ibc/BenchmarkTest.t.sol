@@ -123,7 +123,7 @@ contract BenchmarkTest is FixtureTest {
         console.log("Send packet gas used: ", sendGasUsed);
 
         // Step 2: Timeout
-        vm.warp(timeoutFixture.packet.timeoutTimestamp + 45);
+        vm.warp(timeoutFixture.packet.timeoutTimestamp + 180);
         (bool success,) = address(ics26Router).call(timeoutFixture.msg);
         console.log("Multicall timeout gas used: ", vm.lastCallGas().gasTotalUsed);
         console.log("Multicall timeout msg size: ", timeoutFixture.msg.length);
