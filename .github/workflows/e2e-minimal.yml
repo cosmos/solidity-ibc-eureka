@@ -24,7 +24,7 @@ env:
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: minimal
   E2E_PRIVATE_CLUSTER: true
-  ETH_LIGHT_CLIENT_TAG: ${{ inputs.eth-light-client-tag }}
+  E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.eth-light-client-tag }}
 permissions:
   contents: read
 

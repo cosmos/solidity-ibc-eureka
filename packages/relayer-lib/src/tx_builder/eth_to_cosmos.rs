@@ -485,11 +485,12 @@ where
 
         // If we have update clients, we do a final check to make sure the target chain
         // has caught up to update's signature slot
-        if let Some(latest_signature_slot) =
-            headers.last().map(|h| h.consensus_update.signature_slot)
-        {
-            self.wait_for_cosmos_chain_to_catch_up(&ethereum_client_state, latest_signature_slot)
-                .await?;
+        if let Some(last_header) = headers.last() {
+            self.wait_for_cosmos_chain_to_catch_up(
+                &ethereum_client_state,
+                last_header.consensus_update.signature_slot,
+            )
+            .await?;
         }
 
         let initial_period = ethereum_client_state
@@ -685,11 +686,12 @@ where
 
         // If we have update clients, we do a final check to make sure the target chain
         // has caught up to update's signature slot
-        if let Some(latest_signature_slot) =
-            headers.last().map(|h| h.consensus_update.signature_slot)
-        {
-            self.wait_for_cosmos_chain_to_catch_up(&ethereum_client_state, latest_signature_slot)
-                .await?;
+        if let Some(last_header) = headers.last() {
+            self.wait_for_cosmos_chain_to_catch_up(
+                &ethereum_client_state,
+                last_header.consensus_update.signature_slot,
+            )
+            .await?;
         }
 
         let proof_slot = headers

@@ -85,10 +85,10 @@ const (
 	// EnvKeyE2EProofType is the environment variable name to configure the proof type. (groth16|plonk)
 	// A randomly selected proof type is used if not set.
 	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
-	// EnvKeyEthLightClientTag is the environment variable name to configure the eth light client version.
+	// EnvKeyE2EWasmLightClientTag is the environment variable name to configure the eth light client version.
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
-	EnvKeyEthLightClientTag = "ETH_LIGHT_CLIENT_TAG"
+	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
