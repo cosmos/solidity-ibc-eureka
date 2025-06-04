@@ -1,6 +1,15 @@
 name: e2e-full
 on:
   workflow_dispatch:
+    inputs:
+      wasm-eth-light-client-tag:
+        description: 'Wasm Eth light client release tag'
+        type: choice
+        required: true
+        default: 'local'
+        options:
+          - local
+          - cw-ics08-wasm-eth-v1.2.0
   schedule:
     - cron: '0 0 */3 * *'  # Run every 3 days at midnight UTC
 
@@ -14,6 +23,7 @@ env:
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
   E2E_PRIVATE_CLUSTER: true
+  E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
 permissions:
   contents: read
 
