@@ -81,8 +81,9 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
 - [Just](https://just.systems/man/en/)
-- [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
+- [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install) (_Note: Homebrew installations of rust may fail here_)
 - [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
+- [Natlint](https://docs.rs/crate/natlint/latest)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
