@@ -483,15 +483,13 @@ where
             ..Default::default()
         };
 
-        let latest_signature_slot = headers.last().map(|h| h.consensus_update.signature_slot);
-        if !headers.is_empty() {
-            // Final check to make sure the target chain's calculated slot is greater than our latest
-            // update's signature slot
-            self.wait_for_cosmos_chain_to_catch_up(
-                &ethereum_client_state,
-                latest_signature_slot.unwrap(),
-            )
-            .await?;
+        // If we have update clients, we do a final check to make sure the target chain
+        // has caught up to update's signature slot
+        if let Some(latest_signature_slot) =
+            headers.last().map(|h| h.consensus_update.signature_slot)
+        {
+            self.wait_for_cosmos_chain_to_catch_up(&ethereum_client_state, latest_signature_slot)
+                .await?;
         }
 
         let initial_period = ethereum_client_state
@@ -685,40 +683,14 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        // Final check to make sure the target chain's calculated slot is greater than our latest
-        // update's signature slot
-        let latest_signature_slot = headers.last().map(|h| h.consensus_update.signature_slot);
-        if !headers.is_empty() {
-            // Final check to make sure the target chain's calculated slot is greater than our latest
-            // update's signature slot
-            self.wait_for_cosmos_chain_to_catch_up(
-                &ethereum_client_state,
-                latest_signature_slot.unwrap(),
-            )
-            .await?;
+        // If we have update clients, we do a final check to make sure the target chain
+        // has caught up to update's signature slot
+        if let Some(latest_signature_slot) =
+            headers.last().map(|h| h.consensus_update.signature_slot)
+        {
+            self.wait_for_cosmos_chain_to_catch_up(&ethereum_client_state, latest_signature_slot)
+                .await?;
         }
-
-        wait_for_condition(
-            Duration::from_secs(15 * 60),
-            Duration::from_secs(5),
-            || async {
-                if headers.is_empty() {
-                    return Ok(true);
-                }
-
-                let latests_tm_block = self.tm_client.latest_block().await?;
-                let latest_onchain_timestamp = latests_tm_block.block.header.time.unix_timestamp();
-                let calculated_slot = ethereum_client_state
-                    .compute_slot_at_timestamp(latest_onchain_timestamp.try_into().unwrap())
-                    .unwrap();
-                tracing::debug!(
-                    "Waiting for target chain to catch up to slot {}",
-                    calculated_slot
-                );
-                Ok(calculated_slot > latest_signature_slot.unwrap())
-            },
-        )
-        .await?;
 
         let proof_slot = headers
             .last()
