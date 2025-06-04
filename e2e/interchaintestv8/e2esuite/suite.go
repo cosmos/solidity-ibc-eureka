@@ -40,7 +40,7 @@ type TestSuite struct {
 	// proposalIDs keeps track of the active proposal ID for cosmos chains
 	proposalIDs map[string]uint64
 	// EthLightClientTag decides which version of the eth light client to use.
-	// empty string means it will use the local binary in the repo, unless running in mock mode
+	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EthLightClientTag string
 }

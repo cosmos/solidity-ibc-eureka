@@ -3,10 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       eth-light-client-tag:
-        description: 'Optional eth light client release tag override'
-        required: false
+        description: 'Eth light client release tag'
         type: choice
+        required: true
+        default: 'local'
         options:
+          - local
           - cw-ics08-wasm-eth-v1.2.0
   schedule:
     - cron: '0 0 */3 * *'  # Run every 3 days at midnight UTC

@@ -67,6 +67,8 @@ const (
 	EnvValueProofType_Groth16 = "groth16"
 	// EnvValueProofType_Plonk is the proof type for Plonk.
 	EnvValueProofType_Plonk = "plonk"
+	// EnvValueEthLightClientTag_Local is the value to set to use the local Wasm light client binary.
+	EnvValueEthLightClientTag_Local = "local"
 
 	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
 	EthTestnetTypePoW = "pow"
@@ -84,7 +86,7 @@ const (
 	// A randomly selected proof type is used if not set.
 	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
 	// EnvKeyEthLightClientTag is the environment variable name to configure the eth light client version.
-	// Empty string means it will use the local binary in the repo, unless running in mock mode
+	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyEthLightClientTag = "ETH_LIGHT_CLIENT_TAG"
 
