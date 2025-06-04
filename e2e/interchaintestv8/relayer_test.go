@@ -41,6 +41,7 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics20transfer"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
@@ -1347,7 +1348,10 @@ func (s *RelayerTestSuite) Test_HistoricalUpdateClientToCosmos() {
 
 			relayTxBodyBz = resp.Tx
 
-			relayerUpdateSlot = s.GetRelayUpdateSlot(simd, resp.Tx)
+			relayerUpdateSlot, err = relayer.GetRelayUpdateSlotForWasmClient(resp.Tx)
+			if err != nil {
+				return false, fmt.Errorf("failed to get relayer update slot: %w", err)
+			}
 			isPeriodChange := relayerUpdateSlot%(ethClientState.EpochsPerSyncCommitteePeriod*ethClientState.SlotsPerEpoch) == 0
 
 			if isPeriodChange {
