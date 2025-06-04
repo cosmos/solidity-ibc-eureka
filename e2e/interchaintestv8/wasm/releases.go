@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	releaseAPI              = "https://api.github.com/repos/cosmos/solidity-ibc-eureka/releases"
-	ethLightClientTagPrefix = "cw-ics08-wasm-eth-"
+	releaseAPI                  = "https://api.github.com/repos/cosmos/solidity-ibc-eureka/releases"
+	wasmEthLightClientTagPrefix = "cw-ics08-wasm-eth-"
 )
 
 type Release struct {
@@ -23,26 +23,26 @@ func (r Release) BaseDownloadURL() string {
 }
 
 func GetLatestEthLightClientRelease() (Release, error) {
-	releases, err := GetAllEthLightClientReleases()
+	releases, err := GetAllWasmEthLightClientReleases()
 	if err != nil {
 		return Release{}, err
 	}
 
 	var latestRelease Release
 	for _, release := range releases {
-		if strings.HasPrefix(release.TagName, ethLightClientTagPrefix) {
+		if strings.HasPrefix(release.TagName, wasmEthLightClientTagPrefix) {
 			latestRelease = release
 			break
 		}
 	}
 	if latestRelease.TagName == "" {
-		return Release{}, errors.New("no release found with tag prefix " + ethLightClientTagPrefix)
+		return Release{}, errors.New("no release found with tag prefix " + wasmEthLightClientTagPrefix)
 	}
 
 	return latestRelease, nil
 }
 
-func GetAllEthLightClientReleases() ([]Release, error) {
+func GetAllWasmEthLightClientReleases() ([]Release, error) {
 	resp, err := http.Get(releaseAPI)
 	if err != nil {
 		return nil, err
@@ -59,10 +59,10 @@ func GetAllEthLightClientReleases() ([]Release, error) {
 		return nil, err
 	}
 
-	// Filter releases to include only those with the ethLightClientTagPrefix
+	// Filter releases to include only those with the eth wasm light client tag prefix
 	var filteredReleases []Release
 	for _, release := range allReleases {
-		if strings.HasPrefix(release.TagName, ethLightClientTagPrefix) {
+		if strings.HasPrefix(release.TagName, wasmEthLightClientTagPrefix) {
 			filteredReleases = append(filteredReleases, release)
 		}
 	}
@@ -79,14 +79,14 @@ func GetAllEthLightClientReleasesFromVersion(version string) ([]Release, error) 
 		return nil, errors.New("invalid version format: " + version)
 	}
 
-	releases, err := GetAllEthLightClientReleases()
+	releases, err := GetAllWasmEthLightClientReleases()
 	if err != nil {
 		return nil, err
 	}
 
 	var filteredReleases []Release
 	for _, release := range releases {
-		releaseSemver := strings.TrimPrefix(release.TagName, ethLightClientTagPrefix)
+		releaseSemver := strings.TrimPrefix(release.TagName, wasmEthLightClientTagPrefix)
 		if !semver.IsValid(releaseSemver) {
 			return nil, errors.New("invalid semver tag in release: " + release.TagName)
 		}

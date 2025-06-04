@@ -34,7 +34,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	s.Require().Equal(s.ethTestnetType, testvalues.EthTestnetTypePoS, "Invalid Ethereum testnet type")
 
 	// If it is empty or set to "local", we use the local Wasm light client binary
-	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueEthLightClientTag_Local {
+	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
 		s.T().Log("Using local Wasm light client binary")
 		file, err := wasm.GetLocalWasmEthLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm light client binary")
@@ -43,7 +43,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 
 	// Otherwise, we download the Wasm light client binary from the GitHub release of the given tag
 	s.T().Logf("Downloading Wasm light client binary for tag %s", s.WasmLightClientTag)
-	file, err := wasm.DownloadEthLightClientRelease(wasm.Release{
+	file, err := wasm.DownloadWasmEthLightClientRelease(wasm.Release{
 		TagName: s.WasmLightClientTag,
 	})
 	s.Require().NoError(err, "Failed to download Wasm light client binary from release")

@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	basePath                 = "e2e/interchaintestv8/wasm/"
-	dummyLightClientFileName = "cw_dummy_light_client.wasm.gz"
-	ethLightClientFileName   = "cw_ics08_wasm_eth.wasm.gz"
+	basePath                   = "e2e/interchaintestv8/wasm/"
+	dummyLightClientFileName   = "cw_dummy_light_client.wasm.gz"
+	wasmEthLightClientFileName = "cw_ics08_wasm_eth.wasm.gz"
 )
 
 func GetWasmDummyLightClient() (*os.File, error) {
@@ -18,11 +18,11 @@ func GetWasmDummyLightClient() (*os.File, error) {
 }
 
 func GetLocalWasmEthLightClient() (*os.File, error) {
-	return os.Open(basePath + ethLightClientFileName)
+	return os.Open(basePath + wasmEthLightClientFileName)
 }
 
-func DownloadEthLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL(), ethLightClientFileName)
+func DownloadWasmEthLightClientRelease(release Release) (*os.File, error) {
+	downloadUrl := fmt.Sprintf("%s/%s", release.BaseDownloadURL(), wasmEthLightClientFileName)
 
 	resp, err := http.Get(downloadUrl) //nolint:gosec
 	if err != nil {
