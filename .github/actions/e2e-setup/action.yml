@@ -25,7 +25,7 @@ runs:
         path: |
           ~/.cargo/bin/relayer
           ~/.cargo/bin/operator
-          ./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
+          ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
     - name: Install SP1 toolchain
