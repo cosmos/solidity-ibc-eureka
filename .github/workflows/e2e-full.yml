@@ -30,7 +30,7 @@ env:
   ETH_TESTNET_TYPE: pos
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
-  E2E_PROOF_TYPE: ${{ inputs.proof-type }}
+  E2E_PROOF_TYPE: ${{ inputs.proof-type || 'groth16' }}
   E2E_PRIVATE_CLUSTER: true
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
 permissions:
