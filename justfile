@@ -35,7 +35,12 @@ build-cw-ics08-wasm-eth:
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
 build-relayer-image:
-    docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
+    docker build -t eureka-relayer:local -f programs/relayer/Dockerfile .
+
+[group('run')]
+run-relayer-container sp1-program-version:
+	@echo "Running the relayer container..."
+	./scripts/start-relayer-container.sh {{ sp1-program-version }}
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
