@@ -41,7 +41,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     /// @dev This function is meant to be called by the initializer of the contract that inherits this.
     /// @param authority The address of the AccessManager contract
     function __ICS02Client_init(address authority) internal onlyInitializing {
-	__AccessManaged_init(authority);
+        __AccessManaged_init(authority);
     }
 
     /// @inheritdoc IICS02Client
@@ -93,7 +93,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         address client
     )
         external
-	restricted
+        restricted
         returns (string memory)
     {
         require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
@@ -144,7 +144,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         address client
     )
         external
-	restricted
+        restricted
     {
         getClient(clientId); // Ensure subject client exists
 

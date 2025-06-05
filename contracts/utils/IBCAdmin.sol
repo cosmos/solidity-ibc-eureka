@@ -18,13 +18,7 @@ import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializab
 /// should be set later by the timelocked admin.
 /// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the timelocked
 /// admin
-contract IBCAdmin is
-    IIBCAdminErrors,
-    IIBCAdmin,
-    UUPSUpgradeable,
-    Initializable,
-    ContextUpgradeable
-{
+contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable, ContextUpgradeable {
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
@@ -37,15 +31,14 @@ contract IBCAdmin is
 
     /// @notice ERC-7201 slot for the IBCUUPSUpgradeable storage
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCAdmin")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant IBCADMIN_STORAGE_SLOT =
-        0xe6e017e6d032847d14d3fdd5f3faaa2f9e83c12c4889c3b8ac9728003f643a00;
+    bytes32 private constant IBCADMIN_STORAGE_SLOT = 0xe6e017e6d032847d14d3fdd5f3faaa2f9e83c12c4889c3b8ac9728003f643a00;
 
     /// @notice This funtion initializes the timelockedAdmin, and the govAdmin should be set by the timelockedAdmin
     /// later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     function initialize(address timelockedAdmin) external initializer {
-	__Context_init();
+        __Context_init();
         _getIBCAdminStorage().timelockedAdmin = timelockedAdmin;
     }
 

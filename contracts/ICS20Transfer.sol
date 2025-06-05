@@ -99,8 +99,8 @@ contract ICS20Transfer is
     }
 
     function initializeV2(address authority) external reinitializer(2) {
-	__AccessManaged_init(authority);
-	// we don't need to do anything else here, since the storage is already initialized
+        __AccessManaged_init(authority);
+        // we don't need to do anything else here, since the storage is already initialized
     }
 
     /// @inheritdoc IIBCPausable
