@@ -21,6 +21,7 @@ env:
   FOUNDRY_PROFILE: ci
   ETH_TESTNET_TYPE: pow
   SP1_PROVER: mock
+  E2E_PROOF_TYPE: groth16
 permissions:
   contents: read
 

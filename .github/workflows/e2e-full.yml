@@ -10,6 +10,14 @@ on:
         options:
           - local
           - cw-ics08-wasm-eth-v1.2.0
+      proof-type:
+        description: 'Proof type'
+        type: choice
+        required: true
+        default: 'groth16'
+        options:
+          - groth16
+          - plonk
   schedule:
     - cron: '0 0 */3 * *'  # Run every 3 days at midnight UTC
 
@@ -22,6 +30,7 @@ env:
   ETH_TESTNET_TYPE: pos
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
+  E2E_PROOF_TYPE: ${{ inputs.proof-type }}
   E2E_PRIVATE_CLUSTER: true
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
 permissions:
