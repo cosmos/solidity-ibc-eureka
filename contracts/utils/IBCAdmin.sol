@@ -8,8 +8,8 @@ import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/Acces
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 
-/// @title IBC Admin Upgradeable
-/// @notice This contract is an contract for tracking the admins of IBC contracts.
+/// @title IBC Admin
+/// @notice This contract is a contract for tracking the admins of IBC contracts.
 /// @dev This contract is developed with OpenZeppelin's UUPS upgradeable proxy pattern.
 /// @dev This contract is meant to own AccessManager which is used to control access to IBC contracts.
 /// @dev This contract manages two roles: the timelocked admin, and the governance admin. The timelocked admin
@@ -18,7 +18,7 @@ import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializab
 /// should be set later by the timelocked admin.
 /// @dev We recommend using `openzeppelin-contracts/contracts/governance/TimelockController.sol` for the timelocked
 /// admin
-contract IBCAdminUpgradeable is
+contract IBCAdmin is
     IIBCAdminErrors,
     IIBCAdmin,
     UUPSUpgradeable,
@@ -30,7 +30,7 @@ contract IBCAdminUpgradeable is
     /// upgradeable contracts.
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     /// @param govAdmin The governance admin address
-    struct IBCAdminUpgradeableStorage {
+    struct IBCAdminStorage {
         address timelockedAdmin;
         address govAdmin;
     }
@@ -46,28 +46,28 @@ contract IBCAdminUpgradeable is
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     function initialize(address timelockedAdmin) external initializer {
 	__Context_init();
-        _getIBCAdminUpgradeableStorage().timelockedAdmin = timelockedAdmin;
+        _getIBCAdminStorage().timelockedAdmin = timelockedAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
     function getTimelockedAdmin() external view returns (address) {
-        return _getIBCAdminUpgradeableStorage().timelockedAdmin;
+        return _getIBCAdminStorage().timelockedAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
     function getGovAdmin() external view returns (address) {
-        return _getIBCAdminUpgradeableStorage().govAdmin;
+        return _getIBCAdminStorage().govAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
     function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
-        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
+        IBCAdminStorage storage $ = _getIBCAdminStorage();
         $.timelockedAdmin = newTimelockedAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
-        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
+        IBCAdminStorage storage $ = _getIBCAdminStorage();
         $.govAdmin = newGovAdmin;
     }
 
@@ -77,7 +77,7 @@ contract IBCAdminUpgradeable is
 
     /// @notice Returns the storage of the IBCUUPSUpgradeable contract
     /// @return $ The storage of the IBCUUPSUpgradeable contract
-    function _getIBCAdminUpgradeableStorage() internal pure returns (IBCAdminUpgradeableStorage storage $) {
+    function _getIBCAdminStorage() internal pure returns (IBCAdminStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             $.slot := IBCADMIN_STORAGE_SLOT
@@ -86,7 +86,7 @@ contract IBCAdminUpgradeable is
 
     /// @notice Modifier to check if the caller is an admin
     modifier onlyAdmin() {
-        IBCAdminUpgradeableStorage storage $ = _getIBCAdminUpgradeableStorage();
+        IBCAdminStorage storage $ = _getIBCAdminStorage();
         require(_msgSender() == $.timelockedAdmin || _msgSender() == $.govAdmin, Unauthorized());
         _;
     }
