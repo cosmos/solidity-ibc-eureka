@@ -29,6 +29,7 @@ import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/Upgradea
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import { IIBCPausable } from "./interfaces/IIBCPausable.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 
 using SafeERC20 for IERC20;
 
@@ -82,14 +83,18 @@ contract ICS20Transfer is
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
-        address permit2
+        address permit2,
+        address authority
     )
         public
-        initializer
+        reinitializer(2)
     {
+        require(_getInitializedVersion() == 0, InvalidInitialization());
+
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __Pausable_init();
+        __AccessManaged_init(authority);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         $._ics26 = IICS26Router(ics26Router);
@@ -98,9 +103,13 @@ contract ICS20Transfer is
         $._permit2 = ISignatureTransfer(permit2);
     }
 
-    function initializeV2(address authority) external reinitializer(2) {
+    /// @inheritdoc IICS20Transfer
+    function initializeV2() external reinitializer(2) {
+        require(_getInitializedVersion() == 1, InvalidInitialization());
+
+        address ics26_ = address(_getICS20TransferStorage()._ics26);
+        address authority = IAccessManaged(ics26_).authority();
         __AccessManaged_init(authority);
-        // we don't need to do anything else here, since the storage is already initialized
     }
 
     /// @inheritdoc IIBCPausable
@@ -482,7 +491,11 @@ contract ICS20Transfer is
         IEscrow escrow = $._escrows[clientId];
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
-                address(new BeaconProxy(address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this)))))
+                address(
+                    new BeaconProxy(
+                        address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this), authority()))
+                    )
+                )
             );
             $._escrows[clientId] = escrow;
         }

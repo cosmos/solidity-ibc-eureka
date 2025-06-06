@@ -78,18 +78,25 @@ interface IICS20Transfer {
     function getPermit2() external view returns (address);
 
     /// @notice Initializes the contract instead of a constructor
-    /// @dev Meant to be called only once from the proxy
+    /// @dev This initializes the contract to the latest version from an empty state
     /// @param ics26Router The ICS26Router contract address
     /// @param escrowLogic The address of the Escrow logic contract
     /// @param ibcERC20Logic The address of the IBCERC20 logic contract
     /// @param permit2 The address of the permit2 contract
-    function initialize(address ics26Router, address escrowLogic, address ibcERC20Logic, address permit2) external;
+    /// @param authority The address of the AccessManager contract
+    function initialize(
+        address ics26Router,
+        address escrowLogic,
+        address ibcERC20Logic,
+        address permit2,
+        address authority
+    )
+        external;
 
     /// @notice Initializes the contract with a AccessManager authority
-    /// @dev Meant to be called only once from the proxy
-    /// @dev Must be called after the initial `initialize` call
-    /// @param authority The address of the AccessManager contract
-    function initializeV2(address authority) external;
+    /// @dev This initializes the contract to the latest version from a previous version
+    /// @dev Requires ICS26Router to have been initialized to the latest version
+    function initializeV2() external;
 
     /// @notice Upgrades the implementation of the escrow beacon contract
     /// @dev The caller must be the ICS26Router admin

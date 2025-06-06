@@ -40,7 +40,7 @@ interface IICS26Router {
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
 
     /// @notice Initializes the contract instead of a constructor
-    /// @dev This initializes the contract to the latest version from an empty state.
+    /// @dev This initializes the contract to the latest version from an empty state
     /// @dev Meant to be called only once from the proxy
     /// @param authority The address of the AccessManager contract
     function initialize(address authority) external;

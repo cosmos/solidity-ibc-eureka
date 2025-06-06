@@ -25,11 +25,13 @@ interface IEscrow {
     function ics20() external view returns (address);
 
     /// @notice Initializes the IBCERC20 contract
-    /// @dev This function is meant to be called by a proxy
+    /// @dev This initializes the contract to the latest version from an empty state
     /// @param ics20_ The ICS20 contract address, can send funds from the escrow
-    function initialize(address ics20_) external;
+    /// @param authority The address of the AccessManager contract
+    function initialize(address ics20_, address authority) external;
 
     /// @notice Reinitializes the RateLimit contract
-    /// @dev This can only be called once after the initial initialization
+    /// @dev This initializes the contract to the latest version from a previous version
+    /// @dev Requires ICS20Transfer to have been initialized to the latest version
     function initializeV2() external;
 }

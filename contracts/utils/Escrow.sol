@@ -34,8 +34,11 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     }
 
     /// @inheritdoc IEscrow
-    function initialize(address ics20_) external initializer {
+    function initialize(address ics20_, address authority) external reinitializer(2) {
+        require(_getInitializedVersion() == 0, InvalidInitialization());
+
         __Context_init();
+        __RateLimit_init(authority);
 
         EscrowStorage storage $ = _getEscrowStorage();
         $._ics20 = ics20_;
@@ -43,6 +46,8 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
 
     /// @inheritdoc IEscrow
     function initializeV2() external reinitializer(2) {
+        require(_getInitializedVersion() == 1, InvalidInitialization());
+
         address authority = IAccessManaged(_getEscrowStorage()._ics20).authority();
         __RateLimit_init(authority);
     }
