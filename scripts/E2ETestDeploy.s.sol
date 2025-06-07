@@ -9,6 +9,7 @@ pragma solidity ^0.8.28;
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
+
 import { IICS07TendermintMsgs } from "../contracts/light-clients/msgs/IICS07TendermintMsgs.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
@@ -24,6 +25,7 @@ import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
+import { IBCAdmin } from "../contracts/utils/IBCAdmin.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
@@ -47,10 +49,16 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address verifierMock = address(new SP1MockVerifier());
 
         // Deploy IBC Eureka with proxy
+	address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
+
+	ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
+	    ibcAdminLogic,
+	    abi.encodeCall(IBCAdmin.initialize, (msg.sender))
+	);
 
         ERC1967Proxy routerProxy = deployProxiedICS26Router(
             ics26RouterLogic,

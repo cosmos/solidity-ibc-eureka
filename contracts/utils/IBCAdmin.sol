@@ -2,8 +2,10 @@
 pragma solidity ^0.8.28;
 
 import { IIBCAdminErrors } from "../errors/IIBCAdminErrors.sol";
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IIBCAdmin } from "../interfaces/IIBCAdmin.sol";
+import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
@@ -24,9 +26,11 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// upgradeable contracts.
     /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
     /// @param govAdmin The governance admin address
+    /// @param accessManager The address of the AccessManager contract, which this contract is an admin of
     struct IBCAdminStorage {
-        address timelockedAdmin;
-        address govAdmin;
+        address _timelockedAdmin;
+        address _govAdmin;
+        IAccessManager _accessManager;
     }
 
     /// @notice ERC-7201 slot for the IBCUUPSUpgradeable storage
@@ -36,32 +40,47 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// @notice This funtion initializes the timelockedAdmin, and the govAdmin should be set by the timelockedAdmin
     /// later
     /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
-    /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
-    function initialize(address timelockedAdmin) external initializer {
+    /// @param timelockedAdmin_ The timelocked admin address, assumed to be timelocked
+    /// @param accessManager_ The address of the AccessManager contract, which this contract is an admin of
+    function initialize(address timelockedAdmin_, address accessManager_) external initializer {
         __Context_init();
-        _getIBCAdminStorage().timelockedAdmin = timelockedAdmin;
+
+        IBCAdminStorage storage $ = _getIBCAdminStorage();
+        $._timelockedAdmin = timelockedAdmin_;
+        $._accessManager = IAccessManager(accessManager_);
     }
 
     /// @inheritdoc IIBCAdmin
-    function getTimelockedAdmin() external view returns (address) {
-        return _getIBCAdminStorage().timelockedAdmin;
+    function timelockedAdmin() external view returns (address) {
+        return _getIBCAdminStorage()._timelockedAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
-    function getGovAdmin() external view returns (address) {
-        return _getIBCAdminStorage().govAdmin;
+    function govAdmin() external view returns (address) {
+        return _getIBCAdminStorage()._govAdmin;
+    }
+
+    /// @inheritdoc IIBCAdmin
+    function accessManager() external view returns (address) {
+        return address(_getIBCAdminStorage()._accessManager);
     }
 
     /// @inheritdoc IIBCAdmin
     function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
         IBCAdminStorage storage $ = _getIBCAdminStorage();
-        $.timelockedAdmin = newTimelockedAdmin;
+        $._timelockedAdmin = newTimelockedAdmin;
     }
 
     /// @inheritdoc IIBCAdmin
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
         IBCAdminStorage storage $ = _getIBCAdminStorage();
-        $.govAdmin = newGovAdmin;
+        $._govAdmin = newGovAdmin;
+    }
+
+    /// @inheritdoc IIBCAdmin
+    function setAccessManager(address newAccessManager) external onlyAdmin {
+        IBCAdminStorage storage $ = _getIBCAdminStorage();
+        $._accessManager = IAccessManager(newAccessManager);
     }
 
     /// @inheritdoc UUPSUpgradeable
@@ -80,7 +99,7 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// @notice Modifier to check if the caller is an admin
     modifier onlyAdmin() {
         IBCAdminStorage storage $ = _getIBCAdminStorage();
-        require(_msgSender() == $.timelockedAdmin || _msgSender() == $.govAdmin, Unauthorized());
+        require(_msgSender() == $._timelockedAdmin || _msgSender() == $._govAdmin, Unauthorized());
         _;
     }
 }
