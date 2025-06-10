@@ -19,17 +19,14 @@ abstract contract DeployProxiedICS20Transfer {
         address[] memory unpausers,
         address tokenOperator,
         address permit2
-    ) public returns (ERC1967Proxy) {
+    )
+        public
+        returns (ERC1967Proxy)
+    {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             implementation,
             abi.encodeCall(
-                ICS20Transfer.initialize,
-                (
-                    ics26Router,
-                    escrowImplementation,
-                    ibcERC20Implementation,
-                    permit2
-                )
+                ICS20Transfer.initialize, (ics26Router, escrowImplementation, ibcERC20Implementation, permit2)
             )
         );
 
