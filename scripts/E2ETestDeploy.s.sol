@@ -18,6 +18,7 @@ import { TestERC20 } from "../test/solidity-ibc/mocks/TestERC20.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerWithRoles.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
@@ -27,7 +28,7 @@ import { IBCAdmin } from "../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -65,13 +66,34 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs {
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             ics20TransferLogic,
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
             )
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
         ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
         TestERC20 erc20 = new TestERC20();
+
+        // Wire up the IBCAdmin and access control
+        accessManagerSetTargetRoles(
+            accessManager,
+            address(routerProxy),
+            address(transferProxy),
+            true,
+        );
+
+        accessManagerSetRoles(
+            accessManager,
+            address(ibcAdminProxy),
+            new address[](0),
+            new address[](0),
+            new address[](0),
+            msg.sender,
+            msg.sender,
+            msg.sender
+        );
+
         // Wire Transfer app
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
 
