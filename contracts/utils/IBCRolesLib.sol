@@ -27,4 +27,7 @@ library IBCRolesLib {
 
     /// @notice Can set custom port ids and client ids in ICS26Router.
     uint64 public constant ID_CUSTOMIZER_ROLE = 6;
+
+    /// @notice Can set custom ERC20 contracts for IBC denoms in ICS20Transfer.
+    uint64 public constant ERC20_CUSTOMIZER_ROLE = 7;
 }

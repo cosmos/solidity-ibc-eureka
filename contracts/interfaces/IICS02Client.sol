@@ -5,38 +5,9 @@ import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
 import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 import { ILightClient } from "./ILightClient.sol";
 
-/// @title ICS02 Light Client Router Interface
-/// @notice Interface for the IBC Eureka light client router
-interface IICS02Client {
-    /// @notice Returns the counterparty client information given the client identifier.
-    /// @param clientId The client identifier
-    /// @return The counterparty client information
-    function getCounterparty(string calldata clientId)
-        external
-        view
-        returns (IICS02ClientMsgs.CounterpartyInfo memory);
-
-    /// @notice Returns the address of the client contract given the client identifier.
-    /// @param clientId The client identifier
-    /// @return The address of the client contract
-    function getClient(string calldata clientId) external view returns (ILightClient);
-
-    /// @notice Returns the next client sequence number.
-    /// @dev This function can be used to determine when to stop iterating over clients.
-    /// @return The next client sequence number
-    function getNextClientSeq() external view returns (uint256);
-
-    /// @notice Adds a client to the client router.
-    /// @param counterpartyInfo The counterparty client information
-    /// @param client The address of the client contract
-    /// @return The client identifier
-    function addClient(
-        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
-        address client
-    )
-        external
-        returns (string memory);
-
+/// @title ICS02 Client Access Controlled Interface
+/// @notice Interface for the access controlled functions of the IBC Eureka light client router
+interface IICS02ClientAccessControlled {
     /// @notice Adds a client to the client router.
     /// @dev Only a caller with `CLIENT_ID_CUSTOMIZER_ROLE` can call this function.
     /// @param clientId The custom client identifier
@@ -74,6 +45,39 @@ interface IICS02Client {
         address client
     )
         external;
+}
+
+/// @title ICS02 Light Client Router Interface
+/// @notice Interface for the IBC Eureka light client router
+interface IICS02Client is IICS02ClientAccessControlled {
+    /// @notice Returns the counterparty client information given the client identifier.
+    /// @param clientId The client identifier
+    /// @return The counterparty client information
+    function getCounterparty(string calldata clientId)
+        external
+        view
+        returns (IICS02ClientMsgs.CounterpartyInfo memory);
+
+    /// @notice Returns the address of the client contract given the client identifier.
+    /// @param clientId The client identifier
+    /// @return The address of the client contract
+    function getClient(string calldata clientId) external view returns (ILightClient);
+
+    /// @notice Returns the next client sequence number.
+    /// @dev This function can be used to determine when to stop iterating over clients.
+    /// @return The next client sequence number
+    function getNextClientSeq() external view returns (uint256);
+
+    /// @notice Adds a client to the client router.
+    /// @param counterpartyInfo The counterparty client information
+    /// @param client The address of the client contract
+    /// @return The client identifier
+    function addClient(
+        IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
+        address client
+    )
+        external
+        returns (string memory);
 
     /// @notice Submits misbehaviour to the client with the given client identifier.
     /// @param clientId The client identifier

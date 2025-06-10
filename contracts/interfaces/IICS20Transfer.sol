@@ -4,27 +4,9 @@ pragma solidity ^0.8.28;
 import { IICS20TransferMsgs } from "../msgs/IICS20TransferMsgs.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
-/// @title IICS20Transfer
-/// @notice Interface for the ICS20 Transfer module
-interface IICS20Transfer {
-    /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
-    /// @param msg_ The message for sending a transfer
-    /// @return sequence The sequence number of the packet created
-    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external returns (uint64 sequence);
-
-    /// @notice Send a permit2 transfer by constructing a message and calling IICS26Router.sendPacket
-    /// @param msg_ The message for sending a transfer
-    /// @param permit The permit data
-    /// @param signature The signature of the permit data
-    /// @return sequence The sequence number of the packet created
-    function sendTransferWithPermit2(
-        IICS20TransferMsgs.SendTransferMsg calldata msg_,
-        ISignatureTransfer.PermitTransferFrom calldata permit,
-        bytes calldata signature
-    )
-        external
-        returns (uint64 sequence);
-
+/// @title ICS20 Transfer Access Controlled Interface
+/// @notice Interface for the access controlled functions of the ICS20 Transfer module
+interface IICS20TransferAccessControlled {
     /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket with the provided sender
     /// @dev This is a permissioned function requiring the `DELEGATE_SENDER_ROLE`
     /// @dev Useful for contracts that need to refund the tokens to a sender.
@@ -45,6 +27,38 @@ interface IICS20Transfer {
     /// @param denom The IBC denom
     /// @param token The address of the custom ERC20 contract
     function setCustomERC20(string calldata denom, address token) external;
+
+    /// @notice Upgrades the implementation of the escrow beacon contract
+    /// @dev The caller must be the ICS26Router admin
+    /// @param newEscrowLogic The address of the new escrow logic contract
+    function upgradeEscrowTo(address newEscrowLogic) external;
+
+    /// @notice Upgrades the implementation of the ibcERC20 beacon contract
+    /// @dev The caller must be the ICS26Router admin
+    /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
+    function upgradeIBCERC20To(address newIbcERC20Logic) external;
+}
+
+/// @title IICS20Transfer
+/// @notice Interface for the ICS20 Transfer module
+interface IICS20Transfer is IICS20TransferAccessControlled {
+    /// @notice Send a transfer by constructing a message and calling IICS26Router.sendPacket
+    /// @param msg_ The message for sending a transfer
+    /// @return sequence The sequence number of the packet created
+    function sendTransfer(IICS20TransferMsgs.SendTransferMsg calldata msg_) external returns (uint64 sequence);
+
+    /// @notice Send a permit2 transfer by constructing a message and calling IICS26Router.sendPacket
+    /// @param msg_ The message for sending a transfer
+    /// @param permit The permit data
+    /// @param signature The signature of the permit data
+    /// @return sequence The sequence number of the packet created
+    function sendTransferWithPermit2(
+        IICS20TransferMsgs.SendTransferMsg calldata msg_,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata signature
+    )
+        external
+        returns (uint64 sequence);
 
     /// @notice Retrieve the escrow contract address
     /// @param clientId The client identifier
@@ -97,16 +111,6 @@ interface IICS20Transfer {
     /// @dev This initializes the contract to the latest version from a previous version
     /// @dev Requires ICS26Router to have been initialized to the latest version
     function initializeV2() external;
-
-    /// @notice Upgrades the implementation of the escrow beacon contract
-    /// @dev The caller must be the ICS26Router admin
-    /// @param newEscrowLogic The address of the new escrow logic contract
-    function upgradeEscrowTo(address newEscrowLogic) external;
-
-    /// @notice Upgrades the implementation of the ibcERC20 beacon contract
-    /// @dev The caller must be the ICS26Router admin
-    /// @param newIbcERC20Logic The address of the new ibcERC20 logic contract
-    function upgradeIBCERC20To(address newIbcERC20Logic) external;
 
     // --------------------- Events --------------------- //
 
