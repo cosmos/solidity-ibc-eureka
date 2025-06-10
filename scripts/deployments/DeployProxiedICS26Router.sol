@@ -13,21 +13,22 @@ abstract contract DeployProxiedICS26Router {
         address portCustomizer,
         address clientIdCustomizer,
         address[] memory relayers
-    ) public returns (ERC1967Proxy) {
+    )
+        public
+        returns (ERC1967Proxy)
+    {
         require(msg.sender == timeLockAdmin, "sender must be timeLockAdmin");
 
-        ERC1967Proxy routerProxy = new ERC1967Proxy(
-            implementation,
-            abi.encodeCall(ICS26Router.initialize, (timeLockAdmin))
-        );
+        ERC1967Proxy routerProxy =
+            new ERC1967Proxy(implementation, abi.encodeCall(ICS26Router.initialize, (timeLockAdmin)));
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
 
         for (uint256 i = 0; i < relayers.length; i++) {
             ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayers[i]);
         }
-         ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer);
-         ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), clientIdCustomizer);
+        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), portCustomizer);
+        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), clientIdCustomizer);
 
         return routerProxy;
     }

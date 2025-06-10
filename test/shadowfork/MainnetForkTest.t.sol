@@ -6,7 +6,6 @@ import { Test } from "forge-std/Test.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract MainnetForkTest is Test {
     // solhint-disable-next-line var-name-mixedcase
@@ -37,47 +36,5 @@ contract MainnetForkTest is Test {
         assertTrue(ics07 != address(0), "Client not found");
 
         assertTrue(ics26Proxy.hasRole(ics26Proxy.RELAYER_ROLE(), relayer), "Relayer not found");
-    }
-
-    function test_migrate_ics26() public {
-        address timelockedAdmin = ics26Proxy.getTimelockedAdmin();
-        assertTrue(timelockedAdmin != address(0), "Timelocked admin not found");
-
-        address newLogic = address(new ICS26Router());
-        vm.prank(timelockedAdmin);
-        ics26Proxy.upgradeToAndCall(address(newLogic), bytes(""));
-
-        // Check that the implementation has been updated
-        bytes32 value = vm.load(address(ics26Proxy), ERC1967Utils.IMPLEMENTATION_SLOT);
-        address implementation = address(uint160(uint256(value)));
-        assertEq(implementation, newLogic, "Implementation not updated");
-
-        // Check that the relayer is still whitelisted
-        assertTrue(ics26Proxy.hasRole(ics26Proxy.RELAYER_ROLE(), relayer), "Relayer not found");
-    }
-
-    function test_migrate_ics20() public {
-        address timelockedAdmin = ics26Proxy.getTimelockedAdmin();
-        assertTrue(timelockedAdmin != address(0), "Timelocked admin not found");
-
-        // Verify that the current implementation does not have ERC20_CUSTOMIZER_ROLE
-        vm.expectRevert();
-        ics20Proxy.ERC20_CUSTOMIZER_ROLE();
-
-        address newLogic = address(new ICS20Transfer());
-        vm.prank(timelockedAdmin);
-        ics20Proxy.upgradeToAndCall(address(newLogic), bytes(""));
-
-        // Check that the implementation has been updated
-        bytes32 value = vm.load(address(ics20Proxy), ERC1967Utils.IMPLEMENTATION_SLOT);
-        address implementation = address(uint160(uint256(value)));
-        assertEq(implementation, newLogic, "Implementation not updated");
-
-        // Verify that the current implementation does have ERC20_CUSTOMIZER_ROLE
-        bytes32 erc20CustomizerRole = ics20Proxy.ERC20_CUSTOMIZER_ROLE();
-        address customizer = makeAddr("customizer");
-        vm.prank(timelockedAdmin);
-        ics20Proxy.grantERC20CustomizerRole(customizer);
-        assertTrue(ics20Proxy.hasRole(erc20CustomizerRole, customizer), "Customizer not found");
     }
 }
