@@ -26,6 +26,7 @@ import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1Verifi
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { IBCAdmin } from "../contracts/utils/IBCAdmin.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
@@ -55,7 +56,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender)));
+        AccessManager accessManager = new AccessManager();
+
+        ERC1967Proxy ibcAdminProxy =
+            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
         ERC1967Proxy routerProxy =
             deployProxiedICS26Router(ics26RouterLogic, msg.sender, msg.sender, msg.sender, publicRelayers);
