@@ -9,6 +9,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+import { IBCRolesLib } from "./IBCRolesLib.sol";
 
 /// @title IBC Admin
 /// @notice This contract is a contract for tracking the admins of IBC contracts.
@@ -68,13 +69,19 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// @inheritdoc IIBCAdmin
     function setTimelockedAdmin(address newTimelockedAdmin) external onlyAdmin {
         IBCAdminStorage storage $ = _getIBCAdminStorage();
+        $._accessManager.revokeRole(IBCRolesLib.ADMIN_ROLE, $._timelockedAdmin);
         $._timelockedAdmin = newTimelockedAdmin;
+        $._accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, newTimelockedAdmin, 0);
     }
 
     /// @inheritdoc IIBCAdmin
     function setGovAdmin(address newGovAdmin) external onlyAdmin {
         IBCAdminStorage storage $ = _getIBCAdminStorage();
+        if ($._govAdmin != address(0)) {
+            $._accessManager.revokeRole(IBCRolesLib.ADMIN_ROLE, $._govAdmin);
+        }
         $._govAdmin = newGovAdmin;
+        $._accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, newGovAdmin, 0);
     }
 
     /// @inheritdoc IIBCAdmin
