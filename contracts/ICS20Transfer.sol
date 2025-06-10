@@ -9,7 +9,7 @@ import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
+import { IICS20Transfer, IICS20TransferAccessControlled } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
@@ -204,7 +204,7 @@ contract ICS20Transfer is
         return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
-    /// @inheritdoc IICS20Transfer
+    /// @inheritdoc IICS20TransferAccessControlled
     function sendTransferWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address sender
@@ -276,7 +276,7 @@ contract ICS20Transfer is
         );
     }
 
-    /// @inheritdoc IICS20Transfer
+    /// @inheritdoc IICS20TransferAccessControlled
     function setCustomERC20(string calldata denom, address token) external restricted {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyExists(denom));
@@ -516,12 +516,12 @@ contract ICS20Transfer is
     function _authorizeUpgrade(address) internal override restricted { }
     // solhint-disable-previous-line no-empty-blocks
 
-    /// @inheritdoc IICS20Transfer
+    /// @inheritdoc IICS20TransferAccessControlled
     function upgradeEscrowTo(address newEscrowLogic) external restricted {
         _getICS20TransferStorage()._escrowBeacon.upgradeTo(newEscrowLogic);
     }
 
-    /// @inheritdoc IICS20Transfer
+    /// @inheritdoc IICS20TransferAccessControlled
     function upgradeIBCERC20To(address newIBCERC20Logic) external restricted {
         _getICS20TransferStorage()._ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
     }

@@ -8,7 +8,7 @@ import { IIBCAppCallbacks } from "./msgs/IIBCAppCallbacks.sol";
 
 import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
-import { IICS26Router } from "./interfaces/IICS26Router.sol";
+import { IICS26Router, IICS26RouterAccessControlled } from "./interfaces/IICS26Router.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -88,7 +88,7 @@ contract ICS26Router is
         _addIBCApp(portId, app);
     }
 
-    /// @inheritdoc IICS26Router
+    /// @inheritdoc IICS26RouterAccessControlled
     function addIBCApp(string calldata portId, address app) external nonReentrant restricted {
         require(bytes(portId).length != 0, IBCInvalidPortIdentifier(portId));
         (bool isAddress,) = Strings.tryParseAddress(portId);
@@ -141,7 +141,7 @@ contract ICS26Router is
         return sequence;
     }
 
-    /// @inheritdoc IICS26Router
+    /// @inheritdoc IICS26RouterAccessControlled
     function recvPacket(IICS26RouterMsgs.MsgRecvPacket calldata msg_) external nonReentrant restricted {
         // TODO: Support multi-payload packets (#93)
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
@@ -201,7 +201,7 @@ contract ICS26Router is
         emit WriteAcknowledgement(msg_.packet.destClient, msg_.packet.sequence, msg_.packet, acks);
     }
 
-    /// @inheritdoc IICS26Router
+    /// @inheritdoc IICS26RouterAccessControlled
     function ackPacket(IICS26RouterMsgs.MsgAckPacket calldata msg_) external nonReentrant restricted {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());
@@ -250,7 +250,7 @@ contract ICS26Router is
         emit AckPacket(msg_.packet.sourceClient, msg_.packet.sequence, msg_.packet, msg_.acknowledgement);
     }
 
-    /// @inheritdoc IICS26Router
+    /// @inheritdoc IICS26RouterAccessControlled
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg_) external nonReentrant restricted {
         // TODO: Support multi-payload packets #93
         require(msg_.packet.payloads.length == 1, IBCMultiPayloadPacketNotSupported());

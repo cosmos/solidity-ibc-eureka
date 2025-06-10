@@ -5,7 +5,7 @@ import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
 import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
-import { IICS02Client } from "../interfaces/IICS02Client.sol";
+import { IICS02Client, IICS02ClientAccessControlled } from "../interfaces/IICS02Client.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -86,7 +86,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         return clientId;
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function addClient(
         string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
@@ -123,7 +123,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         emit ICS02ClientAdded(clientId, counterpartyInfo, client);
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function updateClient(
         string calldata clientId,
         bytes calldata updateMsg
@@ -137,7 +137,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         return result;
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function migrateClient(
         string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
