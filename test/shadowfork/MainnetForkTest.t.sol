@@ -6,7 +6,6 @@ import { Test } from "forge-std/Test.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
-import { ERC1967Utils } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract MainnetForkTest is Test {
     // solhint-disable-next-line var-name-mixedcase
