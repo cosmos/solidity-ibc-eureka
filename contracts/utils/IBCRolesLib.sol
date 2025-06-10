@@ -27,5 +27,4 @@ library IBCRolesLib {
 
     /// @notice Can set custom port ids and client ids in ICS26Router.
     uint64 public constant ID_CUSTOMIZER_ROLE = 6;
-    
 }
