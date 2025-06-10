@@ -11,7 +11,7 @@
   via_ir = true # This is needed because of the `sp1-ics07-tendermint` contract
   optimizer_runs = 10_000
   out = "out"
-  script = "script"
+  script = "scripts"
   solc = "0.8.28"
   src = "contracts"
   test = "test"
