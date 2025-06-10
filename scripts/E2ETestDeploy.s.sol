@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 /*
@@ -20,8 +20,6 @@ import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
-import { DeployProxiedICS20Transfer } from "./deployments/DeployProxiedICS20Transfer.sol";
-import { DeployProxiedICS26Router } from "./deployments/DeployProxiedICS26Router.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -29,7 +27,7 @@ import { IBCAdmin } from "../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
-contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router, DeployProxiedICS20Transfer {
+contract E2ETestDeploy is Script, IICS07TendermintMsgs {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
@@ -56,23 +54,19 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        AccessManager accessManager = new AccessManager();
+        AccessManager accessManager = new AccessManager(msg.sender);
 
         ERC1967Proxy ibcAdminProxy =
             new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
         ERC1967Proxy routerProxy =
-            deployProxiedICS26Router(ics26RouterLogic, msg.sender, msg.sender, msg.sender, publicRelayers);
+            new ERC1967Proxy(ics26RouterLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
 
-        ERC1967Proxy transferProxy = deployProxiedICS20Transfer(
+        ERC1967Proxy transferProxy = new ERC1967Proxy(
             ics20TransferLogic,
-            address(routerProxy),
-            escrowLogic,
-            ibcERC20Logic,
-            new address[](0),
-            new address[](0),
-            address(0),
-            address(0)
+            abi.encodeCall(
+                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+            )
         );
 
         ICS26Router ics26Router = ICS26Router(address(routerProxy));
