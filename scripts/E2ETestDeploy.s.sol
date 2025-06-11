@@ -80,7 +80,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             accessManager,
             address(routerProxy),
             address(transferProxy),
-            true,
+            true
         );
 
         accessManagerSetRoles(
