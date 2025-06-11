@@ -7,56 +7,42 @@ import { Test } from "forge-std/Test.sol";
 
 import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
-import { IAccessControl } from "@openzeppelin-contracts/access/AccessControl.sol";
+import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract EscrowTest is Test {
     address public rateLimiter = makeAddr("rateLimiter");
+
     Escrow public escrow;
+    AccessManager public accessManager;
 
     function setUp() public {
         // setup code here
         address _escrowLogic = address(new Escrow());
         address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
+        accessManager = new AccessManager(address(this));
 
-        BeaconProxy escrowProxy = new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this))));
+        BeaconProxy escrowProxy = new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), address(accessManager))));
         escrow = Escrow(address(escrowProxy));
         assert(escrow.ics20() == address(this));
 
-        // Have admin approval for next call
-        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
         // Set rate limiter role
-        escrow.grantRateLimiterRole(rateLimiter);
-        assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), rateLimiter));
-    }
-
-    function test_success_setRateLimiterRole() public {
-        address newRateLimiter = makeAddr("newRateLimiter");
-
-        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
-        escrow.grantRateLimiterRole(newRateLimiter);
-        assertTrue(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
-
-        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(true));
-        escrow.revokeRateLimiterRole(newRateLimiter);
-        assertFalse(escrow.hasRole(escrow.RATE_LIMITER_ROLE(), newRateLimiter));
-    }
-
-    function test_failure_setRateLimiterRole() public {
-        address newRateLimiter = makeAddr("newRateLimiter");
-
-        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
-        vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
-        escrow.grantRateLimiterRole(newRateLimiter);
-
-        vm.mockCall(address(this), IICS20Transfer.isTokenOperator.selector, abi.encode(false));
-        vm.expectRevert(abi.encodeWithSelector(IEscrowErrors.EscrowUnauthorized.selector, address(this)));
-        escrow.revokeRateLimiterRole(rateLimiter);
+        accessManager.setTargetFunctionRole(
+            address(escrow),
+            IBCRolesLib.rateLimiterSelectors(),
+            IBCRolesLib.RATE_LIMITER_ROLE
+        );
+        accessManager.grantRole(IBCRolesLib.RATE_LIMITER_ROLE, rateLimiter, 0);
+        (bool hasRole, uint32 execDelay) = accessManager.hasRole(IBCRolesLib.RATE_LIMITER_ROLE, rateLimiter);
+        assertTrue(hasRole, "Rate limiter role not granted");
+        assertEq(execDelay, 0, "Rate limiter role needs 0 delay");
     }
 
     function test_success_setRateLimit() public {
@@ -72,11 +58,7 @@ contract EscrowTest is Test {
         address mockToken = makeAddr("mockToken");
         uint256 rateLimit = 10_000;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), escrow.RATE_LIMITER_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
         escrow.setRateLimit(mockToken, rateLimit);
         assertEq(escrow.getRateLimit(mockToken), 0);
     }

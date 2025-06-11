@@ -13,7 +13,6 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";

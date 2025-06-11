@@ -211,6 +211,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         accessManager.grantRole(
             IBCRolesLib.DELEGATE_SENDER_ROLE, sender, 0
         );
+        accessManager.setTargetFunctionRole(
+            address(ics20Transfer),
+            IBCRolesLib.delegateSenderSelectors(),
+            IBCRolesLib.DELEGATE_SENDER_ROLE
+        );
 
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =
             _getDefaultPacket();
