@@ -13,6 +13,8 @@ import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
+import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -24,6 +26,8 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
@@ -31,19 +35,32 @@ contract ICS26RouterTest is Test {
     TestHelper public testHelper = new TestHelper();
 
     address public relayer = makeAddr("relayer");
+    address public idCustomizer = makeAddr("idCustomizer");
     address public mockClient = makeAddr("mockClient");
 
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
+
+        AccessManager accessManager = new AccessManager(address(this));
 
         ERC1967Proxy routerProxy =
             new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
 
         ics26Router = ICS26Router(address(routerProxy));
 
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), relayer);
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
+        accessManager.setTargetFunctionRole(
+            address(ics26Router),
+            IBCRolesLib.ics26RelayerSelectors(),
+            IBCRolesLib.RELAYER_ROLE
+        );
+        accessManager.setTargetFunctionRole(
+            address(ics26Router),
+            IBCRolesLib.ics26IdCustomizerSelectors(),
+            IBCRolesLib.ID_CUSTOMIZER_ROLE
+        );
+
+        accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);
 
         ics26Router.addClient(
             IICS02ClientMsgs.CounterpartyInfo("42-dummy-01", testHelper.COSMOS_MERKLE_PREFIX()), mockClient
@@ -66,6 +83,7 @@ contract ICS26RouterTest is Test {
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
 
         assertEq(mockApp, address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
@@ -78,6 +96,12 @@ contract ICS26RouterTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidPortIdentifier.selector, mockAppStr));
         ics26Router.addIBCApp(mockAppStr, mockApp);
 
+        // unauthorized
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+
         // reuse of the same port
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
         vm.expectRevert(
@@ -87,8 +111,8 @@ contract ICS26RouterTest is Test {
     }
 
     function test_unauthorizedSender() public {
-        ICS20Transfer ics20Transfer = new ICS20Transfer();
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        address mockApp = makeAddr("mockApp");
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
 
         address unauthorizedSender = makeAddr("unauthorizedSender");
 
@@ -128,20 +152,16 @@ contract ICS26RouterTest is Test {
 
     function test_RecvPacketWithFailedMembershipVerification() public {
         string memory counterpartyID = "42-dummy-01";
-        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, true);
-        string memory clientIdentifier = ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
+        bytes memory errorMsg = "Membership verification failed";
+
+        vm.mockCallRevert(
+            mockClient,
+            ILightClient.verifyMembership.selector,
+            errorMsg
         );
 
-        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
-        ERC1967Proxy transferProxy = new ERC1967Proxy(
-            address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(ics26Router), escrowLogic, ibcERC20Logic, address(0)))
-        );
-        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        address mockIcs20 = makeAddr("mockIcs20");
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockIcs20));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -154,7 +174,7 @@ contract ICS26RouterTest is Test {
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceClient: counterpartyID,
-            destClient: clientIdentifier,
+            destClient: testHelper.FIRST_CLIENT_ID(),
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
         });
@@ -165,21 +185,17 @@ contract ICS26RouterTest is Test {
             proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: 0 }) // doesn't matter
          });
 
-        vm.expectRevert(abi.encodeWithSelector(DummyLightClient.MembershipShouldFail.selector));
+        vm.expectRevert(errorMsg);
         vm.prank(relayer);
         ics26Router.recvPacket(msgRecvPacket);
     }
 
     function test_RecvPacketWithErrorAck() public {
         string memory counterpartyID = "42-dummy-01";
-        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        string memory clientIdentifier = ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
-        );
 
-        // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
-        ICS20Transfer ics20Transfer = new ICS20Transfer();
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        // We add an unusable ICS20Transfer app to the router
+        address mockIcs20 = makeAddr("mockIcs20");
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockIcs20));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -192,7 +208,7 @@ contract ICS26RouterTest is Test {
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceClient: counterpartyID,
-            destClient: clientIdentifier,
+            destClient: testHelper.FIRST_CLIENT_ID(),
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
         });
@@ -214,12 +230,14 @@ contract ICS26RouterTest is Test {
 
     function test_RecvPacketWithOOG() public {
         string memory counterpartyID = "42-dummy-01";
-        DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        string memory clientIdentifier = ics26Router.addClient(
-            IICS02ClientMsgs.CounterpartyInfo(counterpartyID, testHelper.COSMOS_MERKLE_PREFIX()), address(lightClient)
+
+        vm.mockCall(
+            mockClient,
+            ILightClient.verifyMembership.selector,
+            abi.encode(true) // simulate successful membership verification
         );
 
-        // We add an unusable ICS20Transfer app to the router (not wrapped in a proxy)
+        // We add a mock application that will run out of gas
         MockApplication mockApp = new MockApplication();
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockApp));
 
@@ -234,7 +252,7 @@ contract ICS26RouterTest is Test {
         IICS26RouterMsgs.Packet memory packet = IICS26RouterMsgs.Packet({
             sequence: 1,
             sourceClient: counterpartyID,
-            destClient: clientIdentifier,
+            destClient: testHelper.FIRST_CLIENT_ID(),
             timeoutTimestamp: uint64(block.timestamp + 1000),
             payloads: payloads
         });
