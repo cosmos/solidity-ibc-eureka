@@ -208,37 +208,37 @@ test-abigen:
 	@echo "Running abigen tests..."
 	cd packages/go-abigen && go test -v ./...
 
-# Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
+# Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
 test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
-# Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka TestDeploy_Groth16`
+# Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka Test_Deploy`
 [group('test')]
 test-e2e-eureka testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaTestSuite/{{testname}}
 
-# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer TestRelayerInfo`
+# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer Test_RelayerInfo`
 [group('test')]
 test-e2e-relayer testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithRelayerTestSuite/{{testname}}
 
-# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer TestRelayerInfo`
+# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer Test_RelayerInfo`
 [group('test')]
 test-e2e-cosmos-relayer testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithCosmosRelayerTestSuite/{{testname}}
 
-# Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 TestDeploy_Groth16`
+# Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
 test-e2e-sp1-ics07 testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
-# Run any e2e test in the MultichainTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+# Run any e2e test in the MultichainTestSuite. For example, `just test-e2e-multichain Test_Deploy`
 [group('test')]
 test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
