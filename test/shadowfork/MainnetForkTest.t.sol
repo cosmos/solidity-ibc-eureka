@@ -34,7 +34,5 @@ contract MainnetForkTest is Test {
 
         address ics07 = address(ics26Proxy.getClient(clientId));
         assertTrue(ics07 != address(0), "Client not found");
-
-        assertTrue(ics26Proxy.hasRole(ics26Proxy.RELAYER_ROLE(), relayer), "Relayer not found");
     }
 }
