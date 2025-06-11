@@ -44,8 +44,9 @@ contract ICS26RouterTest is Test {
 
         AccessManager accessManager = new AccessManager(address(this));
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ics26Router = ICS26Router(address(routerProxy));
 
@@ -199,11 +200,7 @@ contract ICS26RouterTest is Test {
         vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockIcs20);
 
-        vm.mockCallRevert(
-            mockIcs20,
-            IIBCApp.onRecvPacket.selector,
-            bytes("mockErr")
-        );
+        vm.mockCallRevert(mockIcs20, IIBCApp.onRecvPacket.selector, bytes("mockErr"));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({

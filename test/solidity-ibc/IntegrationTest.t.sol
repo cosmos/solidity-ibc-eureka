@@ -84,16 +84,19 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(address(this));
 
-        ERC1967Proxy ibcAdminProxy =
-            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager))));
+        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
+            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
+        );
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
             )
         );
 
