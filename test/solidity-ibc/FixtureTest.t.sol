@@ -70,12 +70,16 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         ERC1967Proxy ibcAdminProxy =
             new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager)))
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============

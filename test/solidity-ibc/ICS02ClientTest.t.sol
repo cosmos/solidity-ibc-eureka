@@ -41,20 +41,17 @@ contract ICS02ClientTest is Test {
 
         accessManager = new AccessManager(address(this));
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ics02Client = ICS02ClientUpgradeable(address(routerProxy));
 
         accessManager.setTargetFunctionRole(
-            address(ics02Client),
-            IBCRolesLib.ics26IdCustomizerSelectors(),
-            IBCRolesLib.ID_CUSTOMIZER_ROLE
+            address(ics02Client), IBCRolesLib.ics26IdCustomizerSelectors(), IBCRolesLib.ID_CUSTOMIZER_ROLE
         );
         accessManager.setTargetFunctionRole(
-            address(ics02Client),
-            IBCRolesLib.ics26RelayerSelectors(),
-            IBCRolesLib.RELAYER_ROLE
+            address(ics02Client), IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE
         );
 
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);

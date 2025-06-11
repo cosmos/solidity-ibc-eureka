@@ -29,15 +29,14 @@ contract EscrowTest is Test {
         address escrowBeacon = address(new UpgradeableBeacon(_escrowLogic, address(this)));
         accessManager = new AccessManager(address(this));
 
-        BeaconProxy escrowProxy = new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), address(accessManager))));
+        BeaconProxy escrowProxy =
+            new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), address(accessManager))));
         escrow = Escrow(address(escrowProxy));
         assert(escrow.ics20() == address(this));
 
         // Set rate limiter role
         accessManager.setTargetFunctionRole(
-            address(escrow),
-            IBCRolesLib.rateLimiterSelectors(),
-            IBCRolesLib.RATE_LIMITER_ROLE
+            address(escrow), IBCRolesLib.rateLimiterSelectors(), IBCRolesLib.RATE_LIMITER_ROLE
         );
         accessManager.grantRole(IBCRolesLib.RATE_LIMITER_ROLE, rateLimiter, 0);
         (bool hasRole, uint32 execDelay) = accessManager.hasRole(IBCRolesLib.RATE_LIMITER_ROLE, rateLimiter);

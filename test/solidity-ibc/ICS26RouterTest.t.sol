@@ -49,14 +49,10 @@ contract ICS26RouterTest is Test {
         ics26Router = ICS26Router(address(routerProxy));
 
         accessManager.setTargetFunctionRole(
-            address(ics26Router),
-            IBCRolesLib.ics26RelayerSelectors(),
-            IBCRolesLib.RELAYER_ROLE
+            address(ics26Router), IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE
         );
         accessManager.setTargetFunctionRole(
-            address(ics26Router),
-            IBCRolesLib.ics26IdCustomizerSelectors(),
-            IBCRolesLib.ID_CUSTOMIZER_ROLE
+            address(ics26Router), IBCRolesLib.ics26IdCustomizerSelectors(), IBCRolesLib.ID_CUSTOMIZER_ROLE
         );
 
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
@@ -154,11 +150,7 @@ contract ICS26RouterTest is Test {
         string memory counterpartyID = "42-dummy-01";
         bytes memory errorMsg = "Membership verification failed";
 
-        vm.mockCallRevert(
-            mockClient,
-            ILightClient.verifyMembership.selector,
-            errorMsg
-        );
+        vm.mockCallRevert(mockClient, ILightClient.verifyMembership.selector, errorMsg);
 
         address mockIcs20 = makeAddr("mockIcs20");
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockIcs20));

@@ -51,7 +51,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         accessManager = new AccessManager(address(this));
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(this), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager)))
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(this), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
+            )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
@@ -208,13 +211,9 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address customSender = makeAddr("customSender");
 
         // give permission to the delegate sender
-        accessManager.grantRole(
-            IBCRolesLib.DELEGATE_SENDER_ROLE, sender, 0
-        );
+        accessManager.grantRole(IBCRolesLib.DELEGATE_SENDER_ROLE, sender, 0);
         accessManager.setTargetFunctionRole(
-            address(ics20Transfer),
-            IBCRolesLib.delegateSenderSelectors(),
-            IBCRolesLib.DELEGATE_SENDER_ROLE
+            address(ics20Transfer), IBCRolesLib.delegateSenderSelectors(), IBCRolesLib.DELEGATE_SENDER_ROLE
         );
 
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =

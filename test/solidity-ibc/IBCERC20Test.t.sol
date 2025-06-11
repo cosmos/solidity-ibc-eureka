@@ -28,7 +28,13 @@ contract IBCERC20Test is Test {
 
         accessManager = new AccessManager(address(this));
 
-        escrow = Escrow(address(new BeaconProxy(escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), address(accessManager))))));
+        escrow = Escrow(
+            address(
+                new BeaconProxy(
+                    escrowBeacon, abi.encodeCall(Escrow.initialize, (address(this), address(accessManager)))
+                )
+            )
+        );
 
         IBCERC20 _ibcERC20Logic = new IBCERC20();
         address ibcERC20Beacon = address(new UpgradeableBeacon(address(_ibcERC20Logic), address(this)));
