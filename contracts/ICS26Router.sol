@@ -57,9 +57,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function initialize(address authority) external reinitializer(2) {
-        require(_getInitializedVersion() == 0, InvalidInitialization());
-
+    function initialize(address authority) external onlyVersion(0) reinitializer(2) {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __IBCStore_init();
@@ -67,8 +65,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function initializeV2(address authority) external reinitializer(2) {
-        require(_getInitializedVersion() == 1, InvalidInitialization());
+    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
         require(ICS26AdminsDeprecated.isAdmin(_msgSender()), IBCUnauthorizedSender(_msgSender()));
 
         ICS26AdminsDeprecated.__IBCUUPSUpgradeable_deinit();
@@ -308,4 +305,10 @@ contract ICS26Router is
     /// @inheritdoc UUPSUpgradeable
     function _authorizeUpgrade(address) internal override restricted { }
     // solhint-disable-previous-line no-empty-blocks
+
+    /// @notice Modifier to check if the initialization version matches the expected version
+    modifier onlyVersion(uint256 version) {
+        require(_getInitializedVersion() == version, InvalidInitialization());
+        _;
+    }
 }

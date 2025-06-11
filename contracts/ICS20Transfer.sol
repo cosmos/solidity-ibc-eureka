@@ -87,10 +87,9 @@ contract ICS20Transfer is
         address authority
     )
         public
+        onlyVersion(0)
         reinitializer(2)
     {
-        require(_getInitializedVersion() == 0, InvalidInitialization());
-
         __ReentrancyGuardTransient_init();
         __Multicall_init();
         __Pausable_init();
@@ -104,9 +103,7 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function initializeV2() external reinitializer(2) {
-        require(_getInitializedVersion() == 1, InvalidInitialization());
-
+    function initializeV2() external onlyVersion(1) reinitializer(2) {
         address ics26_ = address(_getICS20TransferStorage()._ics26);
         address authority = IAccessManaged(ics26_).authority();
         __AccessManaged_init(authority);
@@ -541,6 +538,12 @@ contract ICS20Transfer is
     /// @notice Modifier to check if the caller is the ICS26Router contract
     modifier onlyRouter() {
         require(_msgSender() == address(_getICS26Router()), ICS20Unauthorized(_msgSender()));
+        _;
+    }
+
+    /// @notice Modifier to check if the initialization version matches the expected version
+    modifier onlyVersion(uint256 version) {
+        require(_getInitializedVersion() == version, InvalidInitialization());
         _;
     }
 }
