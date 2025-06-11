@@ -12,7 +12,7 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
-import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IIBCAdminErrors } from "../../contracts/errors/IIBCAdminErrors.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
@@ -114,7 +114,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
@@ -137,7 +137,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
 
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
@@ -207,7 +207,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
 
         // Try to call a paused function
         IICS20TransferMsgs.SendTransferMsg memory sendMsg;
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         ics20Transfer.sendTransfer(sendMsg);
 
         vm.prank(ics20Unpauser);
@@ -216,7 +216,10 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
     }
 
     function test_failure_pauseAndUnpause() public {
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.pause();
         assert(!ics20Transfer.paused());
 
@@ -224,12 +227,13 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics20Transfer.pause();
         assert(ics20Transfer.paused());
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
         vm.prank(ics20Pauser);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, ics20Pauser));
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
     }
@@ -247,7 +251,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeEscrowTo(address(newLogic));
     }
 
@@ -264,7 +268,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20Unauthorized.selector, unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeIBCERC20To(address(newLogic));
     }
 }
