@@ -76,12 +76,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         TestERC20 erc20 = new TestERC20();
 
         // Wire up the IBCAdmin and access control
-        accessManagerSetTargetRoles(
-            accessManager,
-            address(routerProxy),
-            address(transferProxy),
-            true
-        );
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
         accessManagerSetRoles(
             accessManager,

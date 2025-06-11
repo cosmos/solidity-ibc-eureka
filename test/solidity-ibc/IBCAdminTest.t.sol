@@ -62,12 +62,16 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ERC1967Proxy ibcAdminProxy =
             new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager)))
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============
@@ -75,12 +79,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics20Transfer = ICS20Transfer(address(transferProxy));
         ibcAdmin = IBCAdmin(address(ibcAdminProxy));
 
-        accessManagerSetTargetRoles(
-            accessManager,
-            address(routerProxy),
-            address(transferProxy),
-            false
-        );
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), false);
 
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
         accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
@@ -182,7 +181,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
 
         ibcAdmin.setTimelockedAdmin(newTimelockedAdmin);
         assertEq(ibcAdmin.timelockedAdmin(), newTimelockedAdmin);
-        (bool oldHasRole, ) = accessManager.hasRole(accessManager.ADMIN_ROLE(), address(this));
+        (bool oldHasRole,) = accessManager.hasRole(accessManager.ADMIN_ROLE(), address(this));
         assertFalse(oldHasRole);
         (hasRole, execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), newTimelockedAdmin);
         assert(hasRole);
