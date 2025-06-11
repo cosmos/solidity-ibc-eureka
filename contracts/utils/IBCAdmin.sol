@@ -24,9 +24,9 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// @notice Storage of the IBCUUPSUpgradeable contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
     /// upgradeable contracts.
-    /// @param timelockedAdmin The timelocked admin address, assumed to be timelocked
-    /// @param govAdmin The governance admin address
-    /// @param accessManager The address of the AccessManager contract, which this contract is an admin of
+    /// @param _timelockedAdmin The timelocked admin address, assumed to be timelocked
+    /// @param _govAdmin The governance admin address
+    /// @param _accessManager The address of the AccessManager contract, which this contract is an admin of
     struct IBCAdminStorage {
         address _timelockedAdmin;
         address _govAdmin;
@@ -37,11 +37,7 @@ contract IBCAdmin is IIBCAdminErrors, IIBCAdmin, UUPSUpgradeable, Initializable,
     /// @dev keccak256(abi.encode(uint256(keccak256("ibc.storage.IBCAdmin")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant IBCADMIN_STORAGE_SLOT = 0xe6e017e6d032847d14d3fdd5f3faaa2f9e83c12c4889c3b8ac9728003f643a00;
 
-    /// @notice This funtion initializes the timelockedAdmin, and the govAdmin should be set by the timelockedAdmin
-    /// later
-    /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
-    /// @param timelockedAdmin_ The timelocked admin address, assumed to be timelocked
-    /// @param accessManager_ The address of the AccessManager contract, which this contract is an admin of
+    /// @inheritdoc IIBCAdmin
     function initialize(address timelockedAdmin_, address accessManager_) external initializer {
         __Context_init();
 

@@ -23,11 +23,11 @@ interface IIBCAdmin {
     /// @param newGovAdmin The new governance admin address
     function setGovAdmin(address newGovAdmin) external;
     /// @notice Sets the access manager address
+    /// @param newAccessManager The new access manager address
     /// @dev Either admin can set the access manager address.
     /// @dev The access manager is used to control access to IBC contracts.
     function setAccessManager(address newAccessManager) external;
     /// @notice This funtion initializes the timelockedAdmin, and the accessManager
-    /// @dev It makes sense to have the timelockedAdmin not be timelocked until the govAdmin is set
     /// @param timelockedAdmin_ The timelocked admin address, assumed to be timelocked
     /// @param accessManager_ The address of the AccessManager contract, which this contract is an admin of
     function initialize(address timelockedAdmin_, address accessManager_) external;

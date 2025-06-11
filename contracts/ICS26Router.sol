@@ -306,6 +306,7 @@ contract ICS26Router is
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Modifier to check if the initialization version matches the expected version
+    /// @param version The expected current version of the contract
     modifier onlyVersion(uint256 version) {
         require(_getInitializedVersion() == version, InvalidInitialization());
         _;
