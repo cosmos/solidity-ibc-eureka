@@ -13,6 +13,7 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+import { IIBCAdminErrors } from "../../contracts/errors/IIBCAdminErrors.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -166,7 +167,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         address govAdmin = makeAddr("govAdmin");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
         ibcAdmin.setGovAdmin(govAdmin);
         (bool hasRole,) = accessManager.hasRole(accessManager.ADMIN_ROLE(), govAdmin);
         assertFalse(hasRole);
@@ -192,7 +193,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         address newTimelockedAdmin = makeAddr("newTimelockedAdmin");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
         ibcAdmin.setTimelockedAdmin(newTimelockedAdmin);
         (bool hasRole, uint32 execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), newTimelockedAdmin);
         assertFalse(hasRole);
