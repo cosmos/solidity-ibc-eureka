@@ -113,6 +113,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
         accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
