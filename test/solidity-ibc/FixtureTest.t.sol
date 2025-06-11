@@ -88,6 +88,9 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         ibcAdmin = IBCAdmin(address(ibcAdminProxy));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+
+        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {

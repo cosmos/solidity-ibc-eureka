@@ -94,11 +94,11 @@ contract ICS02ClientTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCClientAlreadyExists.selector, customClientId));
         ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
 
-        vm.stopPrank();
         // unauthorized id customizer
+        vm.stopPrank();
         address unauthorized = makeAddr("unauthorized");
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
     }
 
