@@ -101,7 +101,7 @@ jobs:
         run: forge coverage --report lcov
 
       - name: Remove the test directory from the coverage report
-        run: lcov --remove lcov.info "test/**" -o lcov.info
+        run: lcov --remove lcov.info "test/**" "scripts/**" -o lcov.info
 
       - uses: codecov/codecov-action@v4
         with:

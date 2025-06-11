@@ -52,13 +52,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
-        ERC1967Proxy routerProxy = deployProxiedICS26Router(
-            ics26RouterLogic,
-            msg.sender,
-            msg.sender,
-            msg.sender,
-            publicRelayers
-        );
+        ERC1967Proxy routerProxy =
+            deployProxiedICS26Router(ics26RouterLogic, msg.sender, msg.sender, msg.sender, publicRelayers);
 
         ERC1967Proxy transferProxy = deployProxiedICS20Transfer(
             ics20TransferLogic,
