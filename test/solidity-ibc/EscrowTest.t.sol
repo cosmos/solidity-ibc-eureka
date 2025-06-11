@@ -7,7 +7,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { IEscrowErrors } from "../../contracts/errors/IEscrowErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
-import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 
@@ -54,10 +54,12 @@ contract EscrowTest is Test {
     }
 
     function test_failure_setRateLimit() public {
+        address unauthorized = makeAddr("unauthorized");
         address mockToken = makeAddr("mockToken");
         uint256 rateLimit = 10_000;
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         escrow.setRateLimit(mockToken, rateLimit);
         assertEq(escrow.getRateLimit(mockToken), 0);
     }
