@@ -10,7 +10,7 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 
 import { IICS02Client } from "../../contracts/interfaces/IICS02Client.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
-import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IICS02ClientErrors } from "../../contracts/errors/IICS02ClientErrors.sol";
 
 import { ICS02ClientUpgradeable } from "../../contracts/utils/ICS02ClientUpgradeable.sol";
@@ -81,23 +81,23 @@ contract ICS02ClientTest is Test {
     }
 
     function test_failure_customClientId() public {
+        vm.startPrank(idCustomizer);
         // client id is not custom (starts with "client-")
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(clientIdentifier, merklePrefix);
         vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCInvalidClientId.selector, clientIdentifier));
-        vm.prank(idCustomizer);
         ics02Client.addClient(clientIdentifier, counterpartyInfo, lightClient);
 
         // reuse of client id
         string memory customClientId = "custom-client-id";
         ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
         vm.expectRevert(abi.encodeWithSelector(IICS02ClientErrors.IBCClientAlreadyExists.selector, customClientId));
-        vm.prank(idCustomizer);
         ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
 
+        vm.stopPrank();
         // unauthorized id customizer
         address unauthorized = makeAddr("unauthorized");
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vm.prank(unauthorized);
         ics02Client.addClient(customClientId, counterpartyInfo, lightClient);
     }
@@ -111,7 +111,7 @@ contract ICS02ClientTest is Test {
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, randomPrefix);
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics02Client.migrateClient(clientIdentifier, counterpartyInfo, newLightClient);
         vm.stopPrank();
 
@@ -149,7 +149,7 @@ contract ICS02ClientTest is Test {
         address unauthorized = makeAddr("unauthorized");
         bytes memory updateMsg = "testUpdateMsg";
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vm.prank(unauthorized);
         ics02Client.updateClient(clientIdentifier, updateMsg);
     }
