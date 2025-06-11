@@ -85,7 +85,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         accessManager = new AccessManager(address(this));
 
         ERC1967Proxy ibcAdminProxy =
-            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
+            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager))));
 
         ERC1967Proxy routerProxy =
             new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
