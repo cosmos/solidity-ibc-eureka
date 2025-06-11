@@ -74,8 +74,10 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         vm.startPrank(msg.sender);
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
         accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
+        accessManager.grantRole(IBCRolesLib.ERC20_CUSTOMIZER_ROLE, msg.sender, 0);
 
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         vm.stopPrank();
     }
 
