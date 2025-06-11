@@ -14,7 +14,8 @@ import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { ILightClient } from "../../contracts/interfaces/ILightClient.sol";
-import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
+import { IIBCApp } from "../../contracts/interfaces/IIBCApp.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -44,7 +45,7 @@ contract ICS26RouterTest is Test {
         AccessManager accessManager = new AccessManager(address(this));
 
         ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
+            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
 
         ics26Router = ICS26Router(address(routerProxy));
 
@@ -89,17 +90,20 @@ contract ICS26RouterTest is Test {
         address mockApp = makeAddr("mockApp");
         // port is an address
         string memory mockAppStr = Strings.toHexString(mockApp);
+        vm.prank(idCustomizer);
         vm.expectRevert(abi.encodeWithSelector(IICS26RouterErrors.IBCInvalidPortIdentifier.selector, mockAppStr));
         ics26Router.addIBCApp(mockAppStr, mockApp);
 
         // unauthorized
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManager.AccessManagerUnauthorizedCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
 
         // reuse of the same port
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+        vm.prank(idCustomizer);
         vm.expectRevert(
             abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID)
         );
@@ -108,6 +112,7 @@ contract ICS26RouterTest is Test {
 
     function test_unauthorizedSender() public {
         address mockApp = makeAddr("mockApp");
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
 
         address unauthorizedSender = makeAddr("unauthorizedSender");
@@ -124,6 +129,7 @@ contract ICS26RouterTest is Test {
         address mockApp = makeAddr("mockApp");
         string memory mockPort = "mockport";
 
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(mockPort, mockApp);
 
         uint64 timeoutTimestamp = uint64(block.timestamp + 2 days);
@@ -153,6 +159,7 @@ contract ICS26RouterTest is Test {
         vm.mockCallRevert(mockClient, ILightClient.verifyMembership.selector, errorMsg);
 
         address mockIcs20 = makeAddr("mockIcs20");
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockIcs20));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
@@ -185,9 +192,18 @@ contract ICS26RouterTest is Test {
     function test_RecvPacketWithErrorAck() public {
         string memory counterpartyID = "42-dummy-01";
 
+        vm.mockCall(mockClient, ILightClient.verifyMembership.selector, abi.encode(true));
+
         // We add an unusable ICS20Transfer app to the router
         address mockIcs20 = makeAddr("mockIcs20");
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockIcs20));
+        vm.prank(idCustomizer);
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockIcs20);
+
+        vm.mockCallRevert(
+            mockIcs20,
+            IIBCApp.onRecvPacket.selector,
+            bytes("mockErr")
+        );
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
         payloads[0] = IICS26RouterMsgs.Payload({
@@ -231,6 +247,7 @@ contract ICS26RouterTest is Test {
 
         // We add a mock application that will run out of gas
         MockApplication mockApp = new MockApplication();
+        vm.prank(idCustomizer);
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(mockApp));
 
         IICS26RouterMsgs.Payload[] memory payloads = new IICS26RouterMsgs.Payload[](1);
