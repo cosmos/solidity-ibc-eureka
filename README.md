@@ -75,7 +75,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 |    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
 
 
-## Requirements
+## Build Requirements
 
 - [Rust](https://rustup.rs/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
@@ -83,7 +83,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - [Just](https://just.systems/man/en/)
 - [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install) (_Note: Homebrew installations of rust may fail here_)
 - [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
-- [Natlint](https://docs.rs/crate/natlint/latest)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
@@ -126,6 +125,11 @@ just test-foundry test_success_sendTransfer
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
 It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
+
+### Requirements
+
+- [Go](https://go.dev/doc/install)
+- [Docker](https://docs.docker.com/get-docker/)
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
@@ -172,12 +176,20 @@ There are five test suites in the `e2e/interchaintestv8` directory:
         just test-e2e-multichain $TEST_NAME
         ```
 
-## Linting
+## Development
+
+You may need these additional tools to develop on this project:
+
+- [Natlint](https://docs.rs/crate/natlint/latest)
+- [Abigen](https://geth.ethereum.org/docs/tools/abigen)
+- [golanci-lint](https://golangci-lint.run/welcome/install/#local-installation)
+- [jq](https://jqlang.org/)
+- [GNU Parallel](https://www.gnu.org/software/parallel/)
 
 Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
 
 ```sh
-just lint-all
+just lint
 ```
 
 ## End to End Benchmarks
