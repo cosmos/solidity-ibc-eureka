@@ -6,7 +6,6 @@ import { IIBCAdmin } from "../interfaces/IIBCAdmin.sol";
 import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";
 
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import { IBCRolesLib } from "./IBCRolesLib.sol";

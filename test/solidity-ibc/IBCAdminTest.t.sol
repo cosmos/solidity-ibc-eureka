@@ -8,10 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
-import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 
-import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
-import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IIBCAdminErrors } from "../../contracts/errors/IIBCAdminErrors.sol";
 

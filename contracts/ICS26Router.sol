@@ -18,7 +18,6 @@ import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
 import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
-import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ICS26AdminsDeprecated } from "./utils/ICS26AdminsDeprecated.sol";
 

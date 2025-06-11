@@ -7,7 +7,6 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IIBCERC20Errors } from "../../contracts/errors/IIBCERC20Errors.sol";
-import { IICS20Transfer } from "../../contracts/interfaces/IICS20Transfer.sol";
 
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";

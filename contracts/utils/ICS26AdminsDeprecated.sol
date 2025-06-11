@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
-
 /// @title ICS26AdminsDeprecated
 /// @notice This contract is a library for removing the deprecated and deleted IBCUUPSUpgradeable contract.
 /// @dev This library will be deleted in the next release.
