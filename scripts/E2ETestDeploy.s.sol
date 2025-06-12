@@ -63,7 +63,13 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             ics20TransferLogic,
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), address(new Escrow()), address(new IBCERC20()), address(0), address(accessManager))
+                (
+                    address(routerProxy),
+                    address(new Escrow()),
+                    address(new IBCERC20()),
+                    address(0),
+                    address(accessManager)
+                )
             )
         );
 
