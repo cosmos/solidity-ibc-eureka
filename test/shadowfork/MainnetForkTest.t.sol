@@ -6,15 +6,24 @@ import { Test } from "forge-std/Test.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
+import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { IBCAdmin } from "../../contracts/utils/IBCAdmin.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
-contract MainnetForkTest is Test {
+import { IIBCUUPSUpgradeable } from "./utils/v2.0.0/IIBCUUPSUpgradeable.sol";
+import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
+
+contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
     // solhint-disable-next-line var-name-mixedcase
     string public ETH_RPC_URL = vm.envString("ETH_RPC_URL");
 
     string public clientId = "cosmoshub-0";
 
     // WARNING: As the mainnet contracts may not be up to date, some interface functions may not work as expected
-    // In this case, you should make the calls manually instead of casting to the interface
+    // In this case, you should add the necessary interfaces to the `./utils/vX.Y.Z/` directory
 
     ICS26Router public ics26Proxy = ICS26Router(0x3aF134307D5Ee90faa2ba9Cdba14ba66414CF1A7);
     ICS20Transfer public ics20Proxy = ICS20Transfer(0xa348CfE719B63151F228e3C30EB424BA5a983012);
@@ -34,5 +43,45 @@ contract MainnetForkTest is Test {
 
         address ics07 = address(ics26Proxy.getClient(clientId));
         assertTrue(ics07 != address(0), "Client not found");
+    }
+
+    function test_success_upgradeAll() public {
+        address timelockedAdmin = IIBCUUPSUpgradeable(address(ics26Proxy)).getTimelockedAdmin();
+
+        address ibcAdminLogic = address(new IBCAdmin());
+        address escrowLogic = address(new Escrow());
+        address ibcERC20Logic = address(new IBCERC20());
+        ICS26Router ics26RouterLogic = new ICS26Router();
+        ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+
+        AccessManager accessManager = new AccessManager(timelockedAdmin);
+
+        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
+            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
+        );
+
+        vm.startPrank(timelockedAdmin);
+        // Grant basic roles
+        accessManagerSetTargetRoles(
+            accessManager,
+            address(ics26Proxy),
+            address(ics20Proxy),
+            false
+        );
+        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdminProxy), 0);
+        accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
+
+        // Upgrade all the contracts (ics20 must be upgraded first)
+        ics20Proxy.upgradeToAndCall(address(ics20TransferLogic), abi.encodeCall(ICS20Transfer.initializeV2, address(accessManager)));
+
+        ics26Proxy.upgradeToAndCall(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initializeV2, (address(accessManager)))
+        );
+
+        ics20Proxy.upgradeEscrowTo(escrowLogic);
+        ics20Proxy.upgradeIBCERC20To(ibcERC20Logic);
+
+        Escrow(ics20Proxy.getEscrow(clientId)).initializeV2(); // can be called by anyone, but only once
+        vm.stopPrank();
     }
 }
