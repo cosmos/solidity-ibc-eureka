@@ -62,17 +62,14 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
 
         vm.startPrank(timelockedAdmin);
         // Grant basic roles
-        accessManagerSetTargetRoles(
-            accessManager,
-            address(ics26Proxy),
-            address(ics20Proxy),
-            false
-        );
+        accessManagerSetTargetRoles(accessManager, address(ics26Proxy), address(ics20Proxy), false);
         accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdminProxy), 0);
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
 
         // Upgrade all the contracts (ics20 must be upgraded first)
-        ics20Proxy.upgradeToAndCall(address(ics20TransferLogic), abi.encodeCall(ICS20Transfer.initializeV2, address(accessManager)));
+        ics20Proxy.upgradeToAndCall(
+            address(ics20TransferLogic), abi.encodeCall(ICS20Transfer.initializeV2, address(accessManager))
+        );
 
         ics26Proxy.upgradeToAndCall(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initializeV2, (address(accessManager)))
