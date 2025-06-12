@@ -139,6 +139,29 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
+    function test_success_ibcAdmin_upgrade() public {
+        // ============== Step 4: Migrate the contracts ==============
+        DummyInitializable newLogic = new DummyInitializable();
+
+        ibcAdmin.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+    }
+
+    function test_failure_ibcAdmin_upgrade() public {
+        // Case 1: Revert on failed initialization
+        ErroneousInitializable erroneousLogic = new ErroneousInitializable();
+
+        vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
+        ibcAdmin.upgradeToAndCall(address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+
+        // Case 2: Revert on unauthorized upgrade
+        DummyInitializable newLogic = new DummyInitializable();
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
+        ibcAdmin.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+    }
+
     function test_success_setGovAdmin() public {
         address govAdmin = makeAddr("govAdmin");
 
