@@ -27,7 +27,7 @@ Misbehavior is defined as the submission of two conflicting—but individually v
 - [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
 - [Docker](https://docs.docker.com/get-docker/)
 
-We use the [`cosmwasm/optimizer`](https://github.com/CosmWasm/optimizer) Docker image to build the CosmWasm contracts. Ensure you have Docker installed and running.
+We use the [`cosmwasm/optimizer`](https://github.com/CosmWasm/optimizer) Docker image to build the `CosmWasm` contracts. Ensure you have Docker installed and running.
 
 ```bash
 just build-cw-ics08-wasm-eth
