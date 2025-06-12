@@ -102,8 +102,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
-        json.serialize("erc20", Strings.toHexString(address(erc20)));
+        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
-        return json;
+        return finalJson;
     }
 }
