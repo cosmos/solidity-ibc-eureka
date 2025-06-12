@@ -44,3 +44,13 @@ library ICS26AdminsDeprecated {
         }
     }
 }
+
+/// @title IDeprecatedIBCUUPSUpgradeable
+/// @notice This interface is used to interact with the deprecated IBCUUPSUpgradeable contract.
+/// @dev This interface will be deleted in the next release.
+interface IDeprecatedIBCUUPSUpgradeable {
+    /// @notice Checks if the given account is an admin
+    /// @param account The address to check
+    /// @return bool True if the account is an admin, false otherwise
+    function isAdmin(address account) external view returns (bool);
+}

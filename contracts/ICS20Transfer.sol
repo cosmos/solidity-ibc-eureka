@@ -14,6 +14,7 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
+import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -103,9 +104,10 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc IICS20Transfer
-    function initializeV2() external onlyVersion(1) reinitializer(2) {
+    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
         address ics26_ = address(_getICS20TransferStorage()._ics26);
-        address authority = IAccessManaged(ics26_).authority();
+        require(IDeprecatedIBCUUPSUpgradeable(ics26_).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
+
         __AccessManaged_init(authority);
     }
 
