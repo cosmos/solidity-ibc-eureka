@@ -175,7 +175,13 @@
   {
     "type": "function",
     "name": "initializeV2",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },

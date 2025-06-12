@@ -33,8 +33,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
-    address[] public publicRelayers = [address(0)];
-
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
@@ -104,9 +102,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
         json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
         json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
-        // TODO: resolve finalJson vs json
-        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
+        json.serialize("erc20", Strings.toHexString(address(erc20)));
 
-        return finalJson;
+        return json;
     }
 }
