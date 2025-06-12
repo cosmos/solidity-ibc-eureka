@@ -31,15 +31,9 @@ abstract contract DeployAccessManagerWithRoles {
 
         // Add admin role for upgradeable contracts
         // This is actually a no-op since if no role is set, the admin role is assumed
-        accessManager.setTargetFunctionRole(
-            ics20, IBCRolesLib.beaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE
-        );
-        accessManager.setTargetFunctionRole(
-            ics20, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE
-        );
-        accessManager.setTargetFunctionRole(
-            ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE
-        );
+        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.beaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
 
         if (pubRelay) {
             accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE);
