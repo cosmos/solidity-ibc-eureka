@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     cli::config::ServerConfig,
     event::{AttestorData, Event, MonitoringData},
@@ -9,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use warp::Filter;
 
-const CONCURRENCY_LIMIT: usize = 8;
+const CONCURRENCY_LIMIT: usize = 24;
 
 pub struct Server {
     port: u16,
@@ -25,9 +27,9 @@ impl Server {
         att: impl DummyAttestor,
         mon: impl DummyMonitorer,
     ) -> Result<(), anyhow::Error> {
-        let (tx_mon, rx_mon) = mpsc::channel::<String>(16);
-        let (tx_att, rx_att) = mpsc::channel::<String>(16);
-        let (tx, rx) = mpsc::channel::<Event>(16);
+        let (tx_mon, rx_mon) = mpsc::channel::<String>(1_000);
+        let (tx_att, rx_att) = mpsc::channel::<String>(1_000);
+        let (tx, rx) = mpsc::channel::<Event>(1_000);
 
         let (tx_mon_clone, tx_att_clone) = (tx.clone(), tx.clone());
         let port = self.port;
@@ -40,8 +42,14 @@ impl Server {
         let stream = ReceiverStream::new(rx);
         stream
             .map(async |event| match event {
-                Event::Monitoring(_) => tracing::info!("monitoring event occured"),
-                Event::Attestor(_) => tracing::info!("attestor event occured"),
+                Event::Monitoring(_) => {
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    tracing::info!("monitoring event occured")
+                }
+                Event::Attestor(_) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tracing::info!("attestor event occured")
+                }
             })
             .buffer_unordered(CONCURRENCY_LIMIT)
             .for_each(|_| async {
