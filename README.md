@@ -63,8 +63,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 | `ICS26Router.sol` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
 | `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
-| `ICS27Controller.sol` | IBC interchain accounts controller. | ❌ |
-| `ICS27Host.sol` | IBC interchain accounts host. | ❌ |
+| `ICS27GMP.sol` | IBC General Message Passing via Interchain Accounts. | ⏳ |
 
 ### SP1 Programs for the Light Client
 
