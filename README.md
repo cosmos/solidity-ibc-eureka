@@ -280,6 +280,7 @@ The IBC contracts use `AccessControl` to manage roles and permissions and allow 
 | `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
 | `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
 | `DELEGATE_SENDER_ROLE` | `ICS20Transfer.sol` | Has permission to call `sendTransferWithSender` |
+| `ERC20_CUSTOMIZER_ROLE` | `ICS20Transfer.sol` | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
 | `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
 | `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
 | `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
