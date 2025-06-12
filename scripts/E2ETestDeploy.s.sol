@@ -48,8 +48,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
         // Deploy IBC Eureka with proxy
         address ibcAdminLogic = address(new IBCAdmin());
-        address escrowLogic = address(new Escrow());
-        address ibcERC20Logic = address(new IBCERC20());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
@@ -65,13 +63,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             ics20TransferLogic,
             abi.encodeCall(
                 ICS20Transfer.initialize,
-                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+                (address(routerProxy), address(new Escrow()), address(new IBCERC20()), address(0), address(accessManager))
             )
         );
-
-        ICS26Router ics26Router = ICS26Router(address(routerProxy));
-        ICS20Transfer ics20Transfer = ICS20Transfer(address(transferProxy));
-        TestERC20 erc20 = new TestERC20();
 
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
@@ -88,9 +82,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         );
 
         // Wire Transfer app
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
 
         // Mint some tokens
+        TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
 
         vm.stopBroadcast();
@@ -99,9 +94,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("verifierPlonk", Strings.toHexString(address(verifierPlonk)));
         json.serialize("verifierGroth16", Strings.toHexString(address(verifierGroth16)));
         json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
-        json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
-        json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
-        json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
+        json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
+        json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
         json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return json;
