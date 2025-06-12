@@ -16,16 +16,17 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
 
-- [IBC in Solidity     ](#ibc-in-solidity-----)
+- [IBC in Solidity      ](#ibc-in-solidity------)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
     - [Contracts](#contracts)
     - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
-  - [Requirements](#requirements)
+  - [Build Requirements](#build-requirements)
   - [Unit Testing](#unit-testing)
   - [End to End Testing](#end-to-end-testing)
+    - [Requirements](#requirements)
     - [Running the tests](#running-the-tests)
-  - [Linting](#linting)
+  - [Development](#development)
   - [End to End Benchmarks](#end-to-end-benchmarks)
     - [Single Packet Benchmarks](#single-packet-benchmarks)
     - [Aggregated Packet Benchmarks](#aggregated-packet-benchmarks)
@@ -51,7 +52,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `relayer/`: Contains the relayer implementation.
     - `operator/`: Contains the operator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
-    - `cw-ics08-wasm-eth/`: Contains the (WIP) CosmWasm 08-wasm light client for Ethereum
+    - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
     - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 
@@ -62,8 +63,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 | `ICS26Router.sol` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
 | `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC transfer implementation. | ✅ |
 | `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
-| `ICS27Controller.sol` | IBC interchain accounts controller. | ❌ |
-| `ICS27Host.sol` | IBC interchain accounts host. | ❌ |
+| `ICS27GMP.sol` | IBC General Message Passing via Interchain Accounts. | ⏳ |
 
 ### SP1 Programs for the Light Client
 
@@ -75,7 +75,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 |    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
 
 
-## Requirements
+## Build Requirements
 
 - [Rust](https://rustup.rs/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
@@ -83,7 +83,6 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - [Just](https://just.systems/man/en/)
 - [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install) (_Note: Homebrew installations of rust may fail here_)
 - [Protobuf compiler](https://grpc.io/docs/protoc-installation/)
-- [Natlint](https://docs.rs/crate/natlint/latest)
 
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
@@ -126,6 +125,11 @@ just test-foundry test_success_sendTransfer
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library. 
 It spins up a local Ethereum and a Tendermint network and runs the tests found in [`e2e/interchaintestv8/ibc_eureka_test.go`](e2e/interchaintestv8/ibc_eureka_test.go). 
 Some of the tests use the prover network to generate the proofs, so you need to provide your SP1 network private key to `.env` for these tests to pass.
+
+### Requirements
+
+- [Go](https://go.dev/doc/install)
+- [Docker](https://docs.docker.com/get-docker/)
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
@@ -172,12 +176,20 @@ There are five test suites in the `e2e/interchaintestv8` directory:
         just test-e2e-multichain $TEST_NAME
         ```
 
-## Linting
+## Development
+
+You may need these additional tools to develop on this project:
+
+- [Natlint](https://docs.rs/crate/natlint/latest)
+- [Abigen](https://geth.ethereum.org/docs/tools/abigen)
+- [golanci-lint](https://golangci-lint.run/welcome/install/#local-installation)
+- [jq](https://jqlang.org/)
+- [GNU Parallel](https://www.gnu.org/software/parallel/)
 
 Before committing, you should lint your code to ensure it follows the style guide. You can do this by running the following command:
 
 ```sh
-just lint-all
+just lint
 ```
 
 ## End to End Benchmarks
@@ -268,6 +280,7 @@ The IBC contracts use `AccessControl` to manage roles and permissions and allow 
 | `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
 | `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
 | `DELEGATE_SENDER_ROLE` | `ICS20Transfer.sol` | Has permission to call `sendTransferWithSender` |
+| `ERC20_CUSTOMIZER_ROLE` | `ICS20Transfer.sol` | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
 | `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
 | `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
 | `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
