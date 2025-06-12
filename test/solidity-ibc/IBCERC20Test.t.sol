@@ -53,6 +53,7 @@ contract IBCERC20Test is Test {
         assertEq(ibcERC20.name(), "full/denom/path/test");
         assertEq(ibcERC20.symbol(), "full/denom/path/test");
         assertEq(ibcERC20.fullDenomPath(), "full/denom/path/test");
+        assertEq(ibcERC20.decimals(), 18);
         assertEq(0, ibcERC20.totalSupply());
     }
 
