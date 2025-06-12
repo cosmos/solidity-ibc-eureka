@@ -198,6 +198,22 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         assertEq(execDelay, 0);
     }
 
+    function test_success_setAccessManager() public {
+        address newAccessManager = makeAddr("newAccessManager");
+
+        ibcAdmin.setAccessManager(newAccessManager);
+        assertEq(ibcAdmin.accessManager(), newAccessManager);
+    }
+
+    function test_failure_setAccessManager() public {
+        address unauthorized = makeAddr("unauthorized");
+        address newAccessManager = makeAddr("newAccessManager");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
+        ibcAdmin.setAccessManager(newAccessManager);
+    }
+
     function test_success_pauseAndUnpause() public {
         vm.prank(ics20Pauser);
         ics20Transfer.pause();
