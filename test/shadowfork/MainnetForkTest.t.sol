@@ -8,7 +8,6 @@ import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
