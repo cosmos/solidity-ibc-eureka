@@ -23,8 +23,8 @@ library ICS26AdminsDeprecated {
     /// @notice This function deinitializes the IBCUUPSUpgradeable contract as it is deprecated
     function __IBCUUPSUpgradeable_deinit() internal {
         IBCUUPSUpgradeableStorage storage $ = _getIBCUUPSUpgradeableStorage();
-        $.timelockedAdmin = address(0);
-        $.govAdmin = address(0);
+        delete $.timelockedAdmin;
+        delete $.govAdmin;
     }
 
     /// @notice Checks if the given account is an admin
