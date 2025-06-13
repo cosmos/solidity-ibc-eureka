@@ -59,17 +59,22 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypePoW:
 		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icethereum.DefaultEthereumAnvilChainConfig("ethereum")})
 	case testvalues.EthTestnetTypePoS:
-		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		kurtosisEthChain, err := chainconfig.SpinUpKurtosisEthPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisEthChain.RPC, &kurtosisEthChain.BeaconApiClient, kurtosisEthChain.Faucet)
 		s.Require().NoError(err)
 		s.T().Cleanup(func() {
 			ctx := context.Background()
 			if s.T().Failed() {
-				_ = kurtosisChain.DumpLogs(ctx)
+				_ = kurtosisEthChain.DumpLogs(ctx)
 			}
-			kurtosisChain.Destroy(ctx)
+			kurtosisEthChain.Destroy(ctx)
 		})
+	case testvalues.EthTestnetTypeOptimism:
+		kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		s.Require().NoError(err)
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.RPC, nil, kurtosisOptimismChain.Faucet)
+
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:

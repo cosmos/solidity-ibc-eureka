@@ -244,6 +244,7 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:
@@ -256,3 +257,19 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Spike related recipes below:
+
+run-optimism:
+	kurtosis run github.com/ethpandaops/optimism-package@1.2.0 --enclave local-optimism --args-file ./network-config.yaml
+
+teardown-optimism:
+	kurtosis enclave stop local-optimism
+	kurtosis enclave rm local-optimism
+
+# Run any e2e test in the L2TestSuite. For example, `just test-e2e-l2 Test_Deploy`
+[group('test')]
+test-e2e-l2 testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2TestSuite/{{testname}}
+

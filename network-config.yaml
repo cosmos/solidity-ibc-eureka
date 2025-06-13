@@ -1,0 +1,8 @@
+optimism_package:
+  chains: # you can define multiple L2s, which will be deployed against the same L1 as a single Superchain
+    - participants: # each participant is a node in the network. here we've defined two, one running op-geth and one running op-reth
+          - el_type: op-geth # this node will be the sequencer since it's first in the list
+          - el_type: op-reth
+      network_params:
+        name: rollup-1 # can be anything as long as it is unique
+        network_id: 12345 # can be anything as long as it is unique
