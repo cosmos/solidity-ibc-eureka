@@ -1,0 +1,10 @@
+
+# Build the relayer using `cargo build`
+dev:
+	cargo run -- start -c dev.json
+
+trigger-attestor:
+	curl localhost:3000/l2	
+
+trigger-monitorer:
+	curl localhost:3000/monitoring
