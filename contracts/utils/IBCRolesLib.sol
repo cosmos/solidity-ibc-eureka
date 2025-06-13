@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IICS26RouterAccessControlled } from "../interfaces/IICS26Router.sol";
 import { IICS02ClientAccessControlled } from "../interfaces/IICS02Client.sol";
 import { IICS20TransferAccessControlled } from "../interfaces/IICS20Transfer.sol";
-import { IIBCPausable } from "../interfaces/IIBCPausable.sol";
+import { IPausable } from "../interfaces/IPausable.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
@@ -78,7 +78,7 @@ library IBCRolesLib {
     /// @return An array of function selectors that can be called by the PAUSER_ROLE.
     function pauserSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory pauserFunctions = new bytes4[](1);
-        pauserFunctions[0] = IIBCPausable.pause.selector;
+        pauserFunctions[0] = IPausable.pause.selector;
         return pauserFunctions;
     }
 
@@ -86,7 +86,7 @@ library IBCRolesLib {
     /// @return An array of function selectors that can be called by the UNPAUSER_ROLE.
     function unpauserSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory unpauserFunctions = new bytes4[](1);
-        unpauserFunctions[0] = IIBCPausable.unpause.selector;
+        unpauserFunctions[0] = IPausable.unpause.selector;
         return unpauserFunctions;
     }
 

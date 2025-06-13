@@ -15,7 +15,7 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
 import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
-import { IIBCPausable } from "./interfaces/IIBCPausable.sol";
+import { IPausable } from "./interfaces/IPausable.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -39,7 +39,7 @@ contract ICS20Transfer is
     IICS20Errors,
     IICS20Transfer,
     IIBCApp,
-    IIBCPausable,
+    IPausable,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable,
     UUPSUpgradeable,
@@ -110,12 +110,12 @@ contract ICS20Transfer is
         __AccessManaged_init(authority);
     }
 
-    /// @inheritdoc IIBCPausable
+    /// @inheritdoc IPausable
     function pause() external restricted {
         _pause();
     }
 
-    /// @inheritdoc IIBCPausable
+    /// @inheritdoc IPausable
     function unpause() external restricted {
         _unpause();
     }

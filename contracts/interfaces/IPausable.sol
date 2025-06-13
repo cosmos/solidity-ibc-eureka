@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IIBCPausable
-/// @notice Interface for pausable IBC contracts for internal use.
-interface IIBCPausable {
+/// @title IPausable
+/// @notice Interface for pausable contracts for internal use.
+interface IPausable {
     /// @notice Pauses the contract
     /// @dev This call is restricted
     function pause() external;
