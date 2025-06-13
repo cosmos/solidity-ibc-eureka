@@ -359,7 +359,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         Escrow escrow = Escrow(ics20Transfer.getEscrow(clientIdentifier));
         uint256 dailyLimit = escrow.getDailyUsage(address(receivedERC20));
         assertEq(dailyLimit, 0); // 0 before rate limit has been set
-        // TODO: remove this once rate limit perms are resolved
+        // TODO: remove this once rate limit perms are resolved (#559)
         // escrow.grantRateLimiterRole(address(this));
         escrow.setRateLimit(address(receivedERC20), defaultAmount - 1);
 
