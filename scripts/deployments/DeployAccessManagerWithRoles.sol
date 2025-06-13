@@ -27,7 +27,7 @@ abstract contract DeployAccessManagerWithRoles {
         accessManager.setTargetFunctionRole(
             ics20, IBCRolesLib.delegateSenderSelectors(), IBCRolesLib.DELEGATE_SENDER_ROLE
         );
-        // TODO: fix rate limiter role
+        // TODO: fix rate limiter role (#559)
 
         // Add admin role for upgradeable contracts
         // This is actually a no-op since if no role is set, the admin role is assumed
