@@ -20,7 +20,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/holiman/uint256 v1.3.2
-	github.com/kurtosis-tech/kurtosis/api/golang v1.5.0
+	github.com/kurtosis-tech/kurtosis/api/golang v1.8.1
 	github.com/rs/zerolog v1.34.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.3.0
 	github.com/stretchr/testify v1.10.0
