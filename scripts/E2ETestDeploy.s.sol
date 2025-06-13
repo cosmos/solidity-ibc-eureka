@@ -72,13 +72,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
         accessManagerSetRoles(
-            accessManager,
-            new address[](0),
-            new address[](0),
-            new address[](0),
-            msg.sender,
-            msg.sender,
-            msg.sender
+            accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
 
         // Wire Transfer app
