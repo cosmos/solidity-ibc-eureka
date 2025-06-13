@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use crate::{
-    cli::config::ServerConfig,
     event::{AttestorData, Event, MonitoringData},
     workflow::{DummyAttestor, DummyMonitorer},
 };
@@ -9,35 +8,32 @@ use crate::{
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use warp::Filter;
 
 const CONCURRENCY_LIMIT: usize = 24;
 
-pub struct Server {
-    port: u16,
-}
+pub struct Server;
 
 impl Server {
-    pub fn new(config: ServerConfig) -> Self {
-        Server { port: config.port }
+    pub fn new() -> Self {
+        Server {}
     }
 
     pub async fn start(
         &self,
         att: impl DummyAttestor,
         mon: impl DummyMonitorer,
+        rx_monitoring_traffic: mpsc::Receiver<String>,
+        rx_attestor_traffic: mpsc::Receiver<String>,
     ) -> Result<(), anyhow::Error> {
-        let (tx_mon, rx_mon) = mpsc::channel::<String>(1_000);
-        let (tx_att, rx_att) = mpsc::channel::<String>(1_000);
         let (tx, rx) = mpsc::channel::<Event>(1_000);
 
         let (tx_mon_clone, tx_att_clone) = (tx.clone(), tx.clone());
-        let port = self.port;
-        tokio::spawn(async move { start_dev_server(tx_mon, tx_att, port).await });
-        tokio::spawn(
-            async move { start_monitoring_service(mon, tx_mon_clone.clone(), rx_mon).await },
-        );
-        tokio::spawn(async move { start_att_service(att, tx_att_clone.clone(), rx_att).await });
+        tokio::spawn(async move {
+            start_monitoring_service(mon, tx_mon_clone.clone(), rx_monitoring_traffic).await
+        });
+        tokio::spawn(async move {
+            start_att_service(att, tx_att_clone.clone(), rx_attestor_traffic).await
+        });
 
         let stream = ReceiverStream::new(rx);
         stream
@@ -87,41 +83,4 @@ async fn start_att_service(
             let _ = tx.send(Event::Attestor(AttestorData)).await;
         }
     }
-}
-
-async fn start_dev_server(
-    tx_mon: mpsc::Sender<String>,
-    tx_att: mpsc::Sender<String>,
-    port: u16,
-) -> Result<(), anyhow::Error> {
-    let send_mon = warp::any().map(move || tx_mon.clone());
-    let monitoring = warp::path("monitoring")
-        .and(warp::get())
-        .and(send_mon.clone())
-        .and_then(async |tx: mpsc::Sender<String>| {
-            let _ = tx.send("foo".into()).await;
-
-            Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
-            "message": "monitoring event created",
-            })))
-        });
-
-    let send_att = warp::any().map(move || tx_att.clone());
-    let l2 = warp::path("l2")
-        .and(warp::get())
-        .and(send_att.clone())
-        .and_then(async |tx: mpsc::Sender<String>| {
-            let _ = tx.send("bar".into()).await;
-
-            Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
-                "layer": "2",
-                "message": "L2 endpoint up and running",
-            })))
-        });
-    let routes = monitoring.or(l2);
-
-    let address = format!("0.0.0.0:{port}");
-    tracing::info!("listening on {address}");
-    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
-    Ok(())
 }
