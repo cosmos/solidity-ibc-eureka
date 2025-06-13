@@ -34,14 +34,12 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
 import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
-import { IBCAdmin } from "../../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessManagerWithRoles {
     using Strings for string;
 
-    IBCAdmin public ibcAdmin;
     AccessManager public accessManager;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
@@ -75,7 +73,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         // ============ Step 1: Deploy the logic contracts ==============
         permit2 = ISignatureTransfer(deployPermit2());
         lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -83,10 +80,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(address(this));
-
-        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
-            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
-        );
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
@@ -103,7 +96,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
-        ibcAdmin = IBCAdmin(address(ibcAdminProxy));
         erc20 = new TestERC20();
         erc20AddressStr = Strings.toHexString(address(erc20));
 
@@ -114,8 +106,6 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
-
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
 
         vm.expectEmit();

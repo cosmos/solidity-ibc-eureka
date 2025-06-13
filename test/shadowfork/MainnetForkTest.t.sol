@@ -8,7 +8,6 @@ import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { IBCAdmin } from "../../contracts/utils/IBCAdmin.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
@@ -48,7 +47,6 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
     function test_success_upgradeAll() public {
         address timelockedAdmin = IIBCUUPSUpgradeable(address(ics26Proxy)).getTimelockedAdmin();
 
-        address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -56,14 +54,9 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
 
         AccessManager accessManager = new AccessManager(timelockedAdmin);
 
-        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
-            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
-        );
-
         vm.startPrank(timelockedAdmin);
         // Grant basic roles
         accessManagerSetTargetRoles(accessManager, address(ics26Proxy), address(ics20Proxy), false);
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdminProxy), 0);
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
 
         // Upgrade all the contracts (ics20 must be upgraded first)

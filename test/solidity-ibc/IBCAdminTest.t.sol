@@ -10,7 +10,6 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
-import { IIBCAdminErrors } from "../../contracts/errors/IIBCAdminErrors.sol";
 
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
@@ -23,14 +22,12 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
-import { IBCAdmin } from "../../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
-    IBCAdmin public ibcAdmin;
     AccessManager public accessManager;
 
     address public customizer = makeAddr("customizer");
@@ -47,7 +44,6 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
-        address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -55,10 +51,6 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(address(this));
-
-        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
-            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
-        );
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
@@ -75,12 +67,10 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
-        ibcAdmin = IBCAdmin(address(ibcAdminProxy));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), false);
 
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, customizer, 0);
         accessManager.grantRole(IBCRolesLib.PAUSER_ROLE, ics20Pauser, 0);
         accessManager.grantRole(IBCRolesLib.UNPAUSER_ROLE, ics20Unpauser, 0);
@@ -137,104 +127,6 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
-    }
-
-    function test_success_ibcAdmin_upgrade() public {
-        // ============== Step 4: Migrate the contracts ==============
-        DummyInitializable newLogic = new DummyInitializable();
-
-        ibcAdmin.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
-    }
-
-    function test_failure_ibcAdmin_upgrade() public {
-        // Case 1: Revert on failed initialization
-        ErroneousInitializable erroneousLogic = new ErroneousInitializable();
-
-        vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
-        ibcAdmin.upgradeToAndCall(address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
-
-        // Case 2: Revert on unauthorized upgrade
-        DummyInitializable newLogic = new DummyInitializable();
-
-        address unauthorized = makeAddr("unauthorized");
-        vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
-        ibcAdmin.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
-    }
-
-    function test_success_setGovAdmin() public {
-        address govAdmin = makeAddr("govAdmin");
-
-        ibcAdmin.setGovAdmin(govAdmin);
-        assertEq(ibcAdmin.govAdmin(), govAdmin);
-        (bool hasRole, uint32 execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), govAdmin);
-        assert(hasRole);
-        assertEq(execDelay, 0);
-
-        // Have the govAdmin change the govAdmin
-        address newGovAdmin = makeAddr("newGovAdmin");
-        vm.prank(govAdmin);
-        ibcAdmin.setGovAdmin(newGovAdmin);
-        assertEq(ibcAdmin.govAdmin(), newGovAdmin);
-        (hasRole, execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), newGovAdmin);
-        (bool oldHasRole,) = accessManager.hasRole(accessManager.ADMIN_ROLE(), govAdmin);
-        assertFalse(oldHasRole);
-        assert(hasRole);
-        assertEq(execDelay, 0);
-    }
-
-    function test_failure_setGovAdmin() public {
-        address unauthorized = makeAddr("unauthorized");
-        address govAdmin = makeAddr("govAdmin");
-
-        vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
-        ibcAdmin.setGovAdmin(govAdmin);
-        (bool hasRole,) = accessManager.hasRole(accessManager.ADMIN_ROLE(), govAdmin);
-        assertFalse(hasRole);
-    }
-
-    function test_success_setTimelockedAdmin() public {
-        (bool hasRole, uint32 execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), address(this));
-        assert(hasRole);
-        assertEq(execDelay, 0);
-        address newTimelockedAdmin = makeAddr("newTimelockedAdmin");
-
-        ibcAdmin.setTimelockedAdmin(newTimelockedAdmin);
-        assertEq(ibcAdmin.timelockedAdmin(), newTimelockedAdmin);
-        (bool oldHasRole,) = accessManager.hasRole(accessManager.ADMIN_ROLE(), address(this));
-        assertFalse(oldHasRole);
-        (hasRole, execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), newTimelockedAdmin);
-        assert(hasRole);
-        assertEq(execDelay, 0);
-    }
-
-    function test_failure_setTimelockedAdmin() public {
-        address unauthorized = makeAddr("unauthorized");
-        address newTimelockedAdmin = makeAddr("newTimelockedAdmin");
-
-        vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
-        ibcAdmin.setTimelockedAdmin(newTimelockedAdmin);
-        (bool hasRole, uint32 execDelay) = accessManager.hasRole(accessManager.ADMIN_ROLE(), newTimelockedAdmin);
-        assertFalse(hasRole);
-        assertEq(execDelay, 0);
-    }
-
-    function test_success_setAccessManager() public {
-        address newAccessManager = makeAddr("newAccessManager");
-
-        ibcAdmin.setAccessManager(newAccessManager);
-        assertEq(ibcAdmin.accessManager(), newAccessManager);
-    }
-
-    function test_failure_setAccessManager() public {
-        address unauthorized = makeAddr("unauthorized");
-        address newAccessManager = makeAddr("newAccessManager");
-
-        vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(IIBCAdminErrors.Unauthorized.selector));
-        ibcAdmin.setAccessManager(newAccessManager);
     }
 
     function test_success_pauseAndUnpause() public {

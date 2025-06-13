@@ -26,12 +26,10 @@ import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy
 import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
 import { RelayerHelper } from "../../../contracts/utils/RelayerHelper.sol";
 import { DeployAccessManagerWithRoles } from "../../../scripts/deployments/DeployAccessManagerWithRoles.sol";
-import { IBCAdmin } from "../../../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../../contracts/utils/IBCRolesLib.sol";
 
 contract IbcImpl is Test, DeployAccessManagerWithRoles {
-    IBCAdmin public immutable ibcAdmin;
     AccessManager public immutable accessManager;
     ICS26Router public immutable ics26Router;
     ICS20Transfer public immutable ics20Transfer;
@@ -43,7 +41,6 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
     constructor(address permit2) {
         // ============ Step 1: Deploy the logic contracts ==============
-        address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -51,9 +48,6 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(msg.sender);
-
-        ERC1967Proxy ibcAdminProxy =
-            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
@@ -67,7 +61,6 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
             )
         );
 
-        ibcAdmin = IBCAdmin(address(ibcAdminProxy));
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
         relayerHelper = new RelayerHelper(address(ics26Router));
@@ -75,7 +68,6 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         // ============== Step 3: Wire up the contracts ==============
         vm.startPrank(msg.sender);
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
         accessManager.grantRole(IBCRolesLib.ERC20_CUSTOMIZER_ROLE, msg.sender, 0);
 

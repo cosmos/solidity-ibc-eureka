@@ -42,7 +42,6 @@ abstract contract DeployAccessManagerWithRoles {
 
     function accessManagerSetRoles(
         IAccessManager accessManager,
-        address ibcAdminContract,
         address[] memory relayers,
         address[] memory pausers,
         address[] memory unpausers,
@@ -52,8 +51,6 @@ abstract contract DeployAccessManagerWithRoles {
     )
         public
     {
-        require(ibcAdminContract != address(0), "IBC Admin contract cannot be zero");
-
         for (uint256 i = 0; i < relayers.length; i++) {
             accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayers[i], 0);
         }
@@ -63,7 +60,6 @@ abstract contract DeployAccessManagerWithRoles {
         for (uint256 i = 0; i < unpausers.length; i++) {
             accessManager.grantRole(IBCRolesLib.UNPAUSER_ROLE, unpausers[i], 0);
         }
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, ibcAdminContract, 0);
         if (idCustomizer != address(0)) {
             accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);
         }

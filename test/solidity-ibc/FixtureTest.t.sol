@@ -18,7 +18,6 @@ import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1Verifi
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
-import { IBCAdmin } from "../../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
@@ -27,7 +26,6 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
-    IBCAdmin public ibcAdmin;
     AccessManager public accessManager;
 
     string public customClientId = "cosmoshub-1";
@@ -58,7 +56,6 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
 
     function setUp() public {
         // ============ Step 1: Deploy the logic contracts ==============
-        address ibcAdminLogic = address(new IBCAdmin());
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
         ICS26Router ics26RouterLogic = new ICS26Router();
@@ -66,10 +63,6 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(address(this));
-
-        ERC1967Proxy ibcAdminProxy = new ERC1967Proxy(
-            ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (address(this), address(accessManager)))
-        );
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
@@ -86,11 +79,9 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
-        ibcAdmin = IBCAdmin(address(ibcAdminProxy));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
-        accessManager.grantRole(IBCRolesLib.ADMIN_ROLE, address(ibcAdmin), 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
     }
 

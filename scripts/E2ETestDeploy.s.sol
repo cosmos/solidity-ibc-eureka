@@ -24,7 +24,6 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { IBCAdmin } from "../contracts/utils/IBCAdmin.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -47,14 +46,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address verifierMock = address(new SP1MockVerifier());
 
         // Deploy IBC Eureka with proxy
-        address ibcAdminLogic = address(new IBCAdmin());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
 
         AccessManager accessManager = new AccessManager(msg.sender);
-
-        ERC1967Proxy ibcAdminProxy =
-            new ERC1967Proxy(ibcAdminLogic, abi.encodeCall(IBCAdmin.initialize, (msg.sender, address(accessManager))));
 
         ERC1967Proxy routerProxy =
             new ERC1967Proxy(ics26RouterLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
@@ -78,7 +73,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
         accessManagerSetRoles(
             accessManager,
-            address(ibcAdminProxy),
             new address[](0),
             new address[](0),
             new address[](0),
