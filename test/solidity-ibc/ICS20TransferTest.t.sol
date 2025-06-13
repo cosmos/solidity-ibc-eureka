@@ -25,6 +25,8 @@ import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
+import { CallbackReceiver } from "./mocks/CallbackReceiver.sol";
+import { IIBCCallbacks } from "../../contracts/interfaces/IIBCCallbacks.sol";
 
 contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     ICS20Transfer public ics20Transfer;
@@ -249,6 +251,39 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         assertEq(sequence, 42);
     }
 
+    function test_success_onAcknowledgementPacket() public {
+        // override sender
+        sender = address(new CallbackReceiver());
+        senderStr = Strings.toHexString(sender);
+
+        (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
+
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
+
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory callbackMsg = IIBCAppCallbacks
+            .OnAcknowledgementPacketCallback({
+            sourceClient: packet.sourceClient,
+            destinationClient: packet.destClient,
+            sequence: packet.sequence,
+            payload: packet.payloads[0],
+            acknowledgement: ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON,
+            relayer: makeAddr("relayer")
+        });
+
+        // Test success ack with callback
+        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onAckPacket, (true, callbackMsg)));
+        ics20Transfer.onAcknowledgementPacket(callbackMsg);
+
+        // Test error ack with callback
+        address escrowAddress = address(uint160(uint256(someAddress)));
+        callbackMsg.acknowledgement = abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK);
+        vm.mockCall(escrowAddress, Escrow.recvCallback.selector, bytes(""));
+        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onAckPacket, (false, callbackMsg)));
+        ics20Transfer.onAcknowledgementPacket(callbackMsg);
+    }
+
     function test_failure_onAcknowledgementPacket() public {
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory defaultPacketData) =
             _getDefaultPacket();
@@ -328,6 +363,32 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // reset sender
         defaultPacketData.sender = senderStr;
         packet.payloads[0].value = abi.encode(defaultPacketData);
+    }
+
+    function test_success_onTimeoutPacket() public {
+        // override sender
+        sender = address(new CallbackReceiver());
+        senderStr = Strings.toHexString(sender);
+
+        (IICS26RouterMsgs.Packet memory packet,) = _getDefaultPacket();
+
+        // cheat the escrow mapping to not error on finding the escrow
+        bytes32 someAddress = keccak256("someAddress");
+        vm.store(address(ics20Transfer), _getEscrowMappingSlot(packet.sourceClient), someAddress);
+
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory callbackMsg = IIBCAppCallbacks.OnTimeoutPacketCallback({
+            sourceClient: packet.sourceClient,
+            destinationClient: packet.destClient,
+            sequence: packet.sequence,
+            payload: packet.payloads[0],
+            relayer: makeAddr("relayer")
+        });
+
+        // Test success timeout with callback
+        address escrowAddress = address(uint160(uint256(someAddress)));
+        vm.mockCall(escrowAddress, Escrow.recvCallback.selector, bytes(""));
+        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onTimeoutPacket, (callbackMsg)));
+        ics20Transfer.onTimeoutPacket(callbackMsg);
     }
 
     function test_failure_onTimeoutPacket() public {
