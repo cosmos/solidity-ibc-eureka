@@ -25,8 +25,12 @@ import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
 import { RelayerHelper } from "../../../contracts/utils/RelayerHelper.sol";
+import { DeployAccessManagerWithRoles } from "../../../scripts/deployments/DeployAccessManagerWithRoles.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../../contracts/utils/IBCRolesLib.sol";
 
-contract IbcImpl is Test {
+contract IbcImpl is Test, DeployAccessManagerWithRoles {
+    AccessManager public immutable accessManager;
     ICS26Router public immutable ics26Router;
     ICS20Transfer public immutable ics20Transfer;
     RelayerHelper public immutable relayerHelper;
@@ -43,13 +47,17 @@ contract IbcImpl is Test {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (msg.sender)));
+        accessManager = new AccessManager(msg.sender);
+
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, permit2, address(accessManager))
             )
         );
 
@@ -59,12 +67,11 @@ contract IbcImpl is Test {
 
         // ============== Step 3: Wire up the contracts ==============
         vm.startPrank(msg.sender);
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), msg.sender);
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), msg.sender);
-        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
+        accessManager.grantRole(IBCRolesLib.ERC20_CUSTOMIZER_ROLE, msg.sender, 0);
 
-        ics20Transfer.grantERC20CustomizerRole(msg.sender);
+        ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         vm.stopPrank();
     }
 

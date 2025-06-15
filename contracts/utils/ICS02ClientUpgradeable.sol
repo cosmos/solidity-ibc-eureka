@@ -5,11 +5,11 @@ import { IICS02ClientMsgs } from "../msgs/IICS02ClientMsgs.sol";
 import { ILightClientMsgs } from "../msgs/ILightClientMsgs.sol";
 
 import { IICS02ClientErrors } from "../errors/IICS02ClientErrors.sol";
-import { IICS02Client } from "../interfaces/IICS02Client.sol";
+import { IICS02Client, IICS02ClientAccessControlled } from "../interfaces/IICS02Client.sol";
 import { ILightClient } from "../interfaces/ILightClient.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { AccessControlUpgradeable } from "@openzeppelin-upgradeable/access/AccessControlUpgradeable.sol";
+import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 
 /// @title ICS02 Client Router
@@ -18,7 +18,7 @@ import { IBCIdentifiers } from "../utils/IBCIdentifiers.sol";
 /// @dev Each client is identified by a unique identifier, hash of which also serves as the role identifier
 /// @dev The light client migrator role is granted to whoever called `addClient` for the client, and can be revoked (not
 /// transferred)
-abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, AccessControlUpgradeable {
+abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, AccessManagedUpgradeable {
     /// @notice Storage of the ICS02Client contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the
     /// @dev risk of storage collisions when using with upgradeable contracts.
@@ -37,20 +37,12 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
     bytes32 private constant ICS02CLIENT_STORAGE_SLOT =
         0x515a8336edcaab4ae6524d41223c1782132890f89189ba6632107a7b5a449600;
 
-    /// @notice Prefix for the light client migrator roles
-    /// @dev The role identifier is driven in _getLightClientMigratorRole
-    string private constant MIGRATOR_ROLE_PREFIX = "LIGHT_CLIENT_MIGRATOR_ROLE_";
-
-    /// @inheritdoc IICS02Client
-    bytes32 public constant CLIENT_ID_CUSTOMIZER_ROLE = keccak256("CLIENT_ID_CUSTOMIZER_ROLE");
-
-    /// @inheritdoc IICS02Client
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-
-    /// @dev This function has no initialization logic
-    // natlint-disable-next-line
-    function __ICS02Client_init_unchained() internal onlyInitializing { }
-    // solhint-disable-previous-line no-empty-blocks
+    /// @notice This function initializes the ICS02Client contract
+    /// @dev This function is meant to be called by the initializer of the contract that inherits this.
+    /// @param authority The address of the AccessManager contract
+    function __ICS02Client_init(address authority) internal onlyInitializing {
+        __AccessManaged_init(authority);
+    }
 
     /// @inheritdoc IICS02Client
     function getNextClientSeq() external view returns (uint256) {
@@ -94,14 +86,14 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         return clientId;
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function addClient(
         string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
         external
-        onlyRole(CLIENT_ID_CUSTOMIZER_ROLE)
+        restricted
         returns (string memory)
     {
         require(bytes(clientId).length != 0, IBCInvalidClientId(clientId));
@@ -129,18 +121,15 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         $.counterpartyInfos[clientId] = counterpartyInfo;
 
         emit ICS02ClientAdded(clientId, counterpartyInfo, client);
-
-        bytes32 role = getLightClientMigratorRole(clientId);
-        require(_grantRole(role, _msgSender()), Unreachable());
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function updateClient(
         string calldata clientId,
         bytes calldata updateMsg
     )
         external
-        onlyRelayer
+        restricted
         returns (ILightClientMsgs.UpdateResult)
     {
         ILightClientMsgs.UpdateResult result = getClient(clientId).updateClient(updateMsg);
@@ -148,14 +137,14 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         return result;
     }
 
-    /// @inheritdoc IICS02Client
+    /// @inheritdoc IICS02ClientAccessControlled
     function migrateClient(
         string calldata clientId,
         IICS02ClientMsgs.CounterpartyInfo calldata counterpartyInfo,
         address client
     )
         external
-        onlyRole(getLightClientMigratorRole(clientId))
+        restricted
     {
         getClient(clientId); // Ensure subject client exists
 
@@ -179,18 +168,5 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         assembly {
             $.slot := ICS02CLIENT_STORAGE_SLOT
         }
-    }
-
-    /// @inheritdoc IICS02Client
-    function getLightClientMigratorRole(string memory clientId) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(MIGRATOR_ROLE_PREFIX, clientId));
-    }
-
-    /// @notice Modifier to check if the caller has the relayer role or the relayer role is public
-    modifier onlyRelayer() {
-        if (!hasRole(RELAYER_ROLE, address(0))) {
-            _checkRole(RELAYER_ROLE);
-        }
-        _;
     }
 }

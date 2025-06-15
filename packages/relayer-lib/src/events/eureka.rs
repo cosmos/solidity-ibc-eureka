@@ -64,24 +64,7 @@ impl TryFrom<&Log> for EurekaEventWithHeight {
             routerEvents::TimeoutPacket(_) => {
                 Err(anyhow::anyhow!("TimeoutPacket event is not used"))
             }
-            routerEvents::Noop(_) => Err(anyhow::anyhow!("Noop event")),
-            routerEvents::IBCAppAdded(_) => Err(anyhow::anyhow!("IBCAppAdded event")),
-            routerEvents::IBCAppRecvPacketCallbackError(_) => {
-                Err(anyhow::anyhow!("IBCAppRecvPacketCallbackError event"))
-            }
-            routerEvents::ICS02ClientAdded(_) => Err(anyhow::anyhow!("ICS02ClientAdded event")),
-            routerEvents::Initialized(_) => Err(anyhow::anyhow!("Initialized event")),
-            routerEvents::Upgraded(_) => Err(anyhow::anyhow!("Upgraded event")),
-            routerEvents::RoleGranted(_)
-            | routerEvents::RoleRevoked(_)
-            | routerEvents::RoleAdminChanged(_) => Err(anyhow::anyhow!("Role events are not used")),
-            routerEvents::ICS02ClientMigrated(_) => {
-                Err(anyhow::anyhow!("ICS02ClientMigrated event"))
-            }
-            routerEvents::ICS02ClientUpdated(_) => Err(anyhow::anyhow!("ICS02ClientUpdated event")),
-            routerEvents::ICS02MisbehaviourSubmitted(_) => {
-                Err(anyhow::anyhow!("ICS02MisbehaviourSubmitted event"))
-            }
+            _ => Err(anyhow::anyhow!("Unwanted event type: {:?}", sol_event.data)),
         }?;
 
         Ok(Self {

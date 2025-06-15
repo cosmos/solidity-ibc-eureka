@@ -12,7 +12,7 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+import { IICS26Router, IICS26RouterAccessControlled } from "../../contracts/interfaces/IICS26Router.sol";
 import { IICS26RouterErrors } from "../../contracts/errors/IICS26RouterErrors.sol";
 import { IRateLimitErrors } from "../../contracts/errors/IRateLimitErrors.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
@@ -33,10 +33,14 @@ import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
+import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
-contract IntegrationTest is Test, DeployPermit2, PermitSignature {
+contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessManagerWithRoles {
     using Strings for string;
 
+    AccessManager public accessManager;
     ICS26Router public ics26Router;
     DummyLightClient public lightClient;
     string public clientIdentifier;
@@ -75,13 +79,17 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
+        accessManager = new AccessManager(address(this));
+
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
             abi.encodeCall(
-                ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2))
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
             )
         );
 
@@ -97,16 +105,13 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
             ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), address(lightClient));
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
 
         vm.expectEmit();
         emit IICS26Router.IBCAppAdded(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
         assertEq(address(ics20Transfer), address(ics26Router.getIBCApp(ICS20Lib.DEFAULT_PORT_ID)));
-
-        ics20Transfer.grantTokenOperatorRole(address(this));
 
         (defaultSender, defaultSenderKey) = makeAddrAndKey("sender");
         defaultSenderStr = Strings.toHexString(defaultSender);
@@ -148,7 +153,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         bytes[] memory multicallData = new bytes[](2);
         multicallData[0] = abi.encodeCall(
-            IICS26Router.recvPacket,
+            IICS26RouterAccessControlled.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: recvPacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
@@ -156,7 +161,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
              })
         );
         multicallData[1] = abi.encodeCall(
-            IICS26Router.recvPacket,
+            IICS26RouterAccessControlled.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: recvPacket2,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
@@ -211,7 +216,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
 
         bytes[] memory multicallData = new bytes[](2);
         multicallData[0] = abi.encodeCall(
-            IICS26Router.recvPacket,
+            IICS26RouterAccessControlled.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: receivePacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
@@ -219,7 +224,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
              })
         );
         multicallData[1] = abi.encodeCall(
-            IICS26Router.recvPacket,
+            IICS26RouterAccessControlled.recvPacket,
             IICS26RouterMsgs.MsgRecvPacket({
                 packet: invalidPacket,
                 proofCommitment: bytes("doesntmatter"), // dummy client will accept
@@ -344,7 +349,8 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature {
         Escrow escrow = Escrow(ics20Transfer.getEscrow(clientIdentifier));
         uint256 dailyLimit = escrow.getDailyUsage(address(receivedERC20));
         assertEq(dailyLimit, 0); // 0 before rate limit has been set
-        escrow.grantRateLimiterRole(address(this));
+        // TODO: remove this once rate limit perms are resolved (#559)
+        // escrow.grantRateLimiterRole(address(this));
         escrow.setRateLimit(address(receivedERC20), defaultAmount - 1);
 
         // receive again, should hit rate limit and write error ack

@@ -245,16 +245,16 @@ Ideally, the Security Council should mirror the validators of the counterparty C
 
 ### Security Council and Governance Admin
 
-Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCUUPSUpgradeable.sol`](./contracts/utils/IBCUUPSUpgradeable.sol). This contract is inherited by [`ICS26Router.sol`](./contracts/ICS26Router.sol), which maintains:
+Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCAdmin.sol`](./contracts/utils/IBCAdmin.sol). This contract maintains:
 
 - **`timelockedAdmin`** (Security Council)
 - **`govAdmin`** (Governance Admin)
 
-Other IBC contracts that require administrative access or upgradability should reference `ICS26Router` to retrieve the current admin. For example, see its implementation in [`ICS20Transfer.sol`](https://github.com/cosmos/solidity-ibc-eureka/blob/1db4d38d00f7935e2aa4564b7026182a4c095ef1/contracts/ICS20Transfer.sol#L487-L492).
+Other IBC contracts that require access control or upgradability should reference [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) which is owned by `IBCAdmin.sol`.
 
 #### Admin Powers and Restrictions
 
-Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `IBCUUPSUpgradeable` contract, both admins will eventually have **equal authority**, including the ability to:
+Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `IBCAdmin.sol` contract, both admins will eventually have **equal authority**, including the ability to:
 
 - Assign or modify the other admin.
 - Manage roles on IBC contracts.
@@ -262,7 +262,7 @@ Until **govAdmin** is implemented, the **Security Council** remains the sole adm
 
 #### Key Distinction Between Admins
 
-Once the **govAdmin** is set, the Security Council must **apply a timelock** to itself. This ensures that after delegation, the Security Council only retains power in cases where IBC light clients are **frozen**—effectively making **govAdmin** the primary administrator in normal conditions.
+The Security Council must **apply a timelock** to itself. This ensures that after delegation, the Security Council only retains power in cases where IBC light clients are **frozen**—effectively making **govAdmin** the primary administrator in normal conditions.
 
 > [!WARNING]
 > - The timelock on the **Security Council** is **not** enforced within the IBC contracts but should be self-enforced.
@@ -272,22 +272,19 @@ Once the **govAdmin** is set, the Security Council must **apply a timelock** to 
 
 ### Roles and Permissions
 
-The IBC contracts use `AccessControl` to manage roles and permissions and allow the admins to reassign roles. The roles are:
+The IBC contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) to manage roles and permissions and allow the admins to reassign roles. All the roles are defined in [`IBCRolesLib.sol`](./contracts/utils/IBCRolesLib.sol):
 
-| **Role Name** | **Contract** | **Description** |
+| **Role Name** | **Role Id** | **Description** |
 |:---:|:---:|:---:|
-| `PAUSER_ROLE` | `ICS20Transfer.sol` | Can pause the contract. |
-| `UNPAUSER_ROLE` | `ICS20Transfer.sol` | Can unpause the contract. |
-| `TOKEN_OPERATOR_ROLE` | `ICS20Transfer.sol` | Has permission to grant and revoke rate limiter and metadata customizer roles |
-| `DELEGATE_SENDER_ROLE` | `ICS20Transfer.sol` | Has permission to call `sendTransferWithSender` |
-| `ERC20_CUSTOMIZER_ROLE` | `ICS20Transfer.sol` | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
-| `RATE_LIMITER_ROLE` | `Escrow.sol` | Can set withdrawal rate limits per `ERC20` token. |
-| `METADATA_CUSTOMIZER_ROLE` | `IBCERC20.sol` | Can set custom `ERC20` metadata to this contract. |
-| `PROOF_SUBMITTER_ROLE` | `SP1ICS07Tendermint.sol` | Whitelisted proof submitter addresses. Anyone can submit if `address(0)` has this role. |
-| `RELAYER_ROLE` | `ICS26Router.sol` | Whitelisted relayer addresses. Anyone can relay if `address(0)` has this role. |
-| `PORT_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom port ids for applications. |
-| `CLIENT_ID_CUSTOMIZER_ROLE` | `ICS26Router.sol` | Can set custom light client ids for applications. |
-| `LIGHT_CLIENT_MIGRATOR_ROLE_{client_id}` | `ICS26Router.sol` | Can migrate the light client identified by `client_id`. Creator of the light client has this role by default. |
+| `ADMIN_ROLE` | 0 | Can grant and set target functions for all roles. |
+| `RELAYER_ROLE` | 1 | Whitelisted relayer addresses. |
+| `PAUSER_ROLE` | 2 | Can pause the `ICS20Transfer` contract. |
+| `UNPAUSER_ROLE` | 3 | Can unpause the `ICS20Transfer` contract. |
+| `DELEGATE_SENDER_ROLE` | 4 | Has permission to call `sendTransferWithSender`. |
+| `RATE_LIMITER_ROLE` | 5 | Can set withdrawal rate limits per `ERC20` token. |
+| `ID_CUSTOMIZER_ROLE` | 6 | Can set custom client and port ids for applications. |
+| `ERC20_CUSTOMIZER_ROLE` | 7 | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
+| `PUBLIC_ROLE` | `type(uint64).max` | A role that everyone has by default. |
 
 ## License
 
