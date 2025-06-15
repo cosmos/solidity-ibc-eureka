@@ -130,6 +130,8 @@ Some of the tests use the prover network to generate the proofs, so you need to 
 
 - [Go](https://go.dev/doc/install)
 - [Docker](https://docs.docker.com/get-docker/)
+- [Kurtosis](https://docs.kurtosis.com/install/)
+    - The version of this needs to be the exact same as the `github.com/kurtosis-tech/kurtosis/api/golang` dependency in e2e `go.mod`
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 * Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
