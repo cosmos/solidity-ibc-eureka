@@ -2827,16 +2827,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "futures",
- "prost",
  "serde",
  "serde_json",
  "tokio",
- "tokio-stream",
  "tonic-build",
  "tracing",
  "tracing-subscriber",
- "warp",
 ]
 
 [[package]]
