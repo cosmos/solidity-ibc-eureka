@@ -28,7 +28,7 @@ func (h *MinHeap) Pop() interface{} {
 
 func (h *MinHeap) Peak() time.Time {
 	if h.Len() == 0 {
-		return time.Now().Add(time.Duration(time.Now().Year()))
+		return time.Now()
 	}
 	return (*h)[0].TimeStamp
 }

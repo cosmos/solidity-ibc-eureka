@@ -1,8 +1,10 @@
 package eventloop
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -12,7 +14,7 @@ import (
 
 type EventLoop struct {
 	DataRotation       time.Duration
-	AttastationStorage map[int64]attastator.L2State
+	AttastationStorage map[int64][]attastator.L2State
 	timeToHeight       *MinHeap
 	mu                 sync.Mutex
 }
@@ -22,7 +24,7 @@ func New(rotation time.Duration) *EventLoop {
 		DataRotation:       rotation,
 		timeToHeight:       NewMinHeap(nil),
 		mu:                 sync.Mutex{},
-		AttastationStorage: make(map[int64]attastator.L2State),
+		AttastationStorage: make(map[int64][]attastator.L2State),
 	}
 }
 
@@ -35,16 +37,17 @@ func (e *EventLoop) Start(ctx context.Context, attInterval, monitorIntarval time
 		defer tkrAtt.Stop()
 		defer tkrMon.Stop()
 
-	Loop:
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-tkrAtt.C:
+				// fmt.Printf("Querying: ")
 				state := attastator.QueryL2()
+				// fmt.Printf("Got back: %s\n", state.StateRoot)
 				if state.Err != nil {
 					fmt.Printf("Error From Attastator: %v\n", state.Err)
-					continue Loop
+					continue
 				}
 				e.StoreL2State(state)
 			case <-tkrMon.C:
@@ -61,8 +64,9 @@ func (e *EventLoop) StoreL2State(state attastator.L2State) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.AttastationStorage[state.Height] = state
-	e.timeToHeight.Push(HeightTs{TimeStamp: state.TimeStamp, Height: state.Height})
+	// fmt.Printf("Before Data Add: %v\n\n", e.AttastationStorage)
+	e.AttastationStorage[state.Height] = append(e.AttastationStorage[state.Height], state)
+	heap.Push(e.timeToHeight, HeightTs{TimeStamp: state.TimeStamp, Height: state.Height})
 }
 
 func (e *EventLoop) DataRotationService(ctx context.Context) {
@@ -75,14 +79,59 @@ func (e *EventLoop) DataRotationService(ctx context.Context) {
 				return
 			case <-tkr.C:
 				e.mu.Lock()
-				for ts := e.timeToHeight.Peak(); time.Since(ts) >= e.DataRotation; {
-					top := e.timeToHeight.Pop().(HeightTs)
-					delete(e.AttastationStorage, top.Height)
+				for ts := e.timeToHeight.Peak(); time.Since(ts) >= e.DataRotation; ts = e.timeToHeight.Peak() {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
+					top := heap.Pop(e.timeToHeight).(HeightTs)
+					recents := make([]attastator.L2State, 0)
+					for _, st := range e.AttastationStorage[top.Height] {
+						if time.Since(st.TimeStamp) >= e.DataRotation {
+							fmt.Printf("Discarding: %s\n", st.StateRoot)
+							continue
+						}
+						recents = append(recents, st)
+					}
+					if len(recents) == 0 {
+						delete(e.AttastationStorage, top.Height)
+					} else {
+						e.AttastationStorage[top.Height] = recents
+					}
 				}
 				e.mu.Unlock()
 			}
 		}
 	}()
+}
+
+func (e *EventLoop) L2State(h int64) []attastator.L2State {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	ret := slices.Clone(e.AttastationStorage[h])
+	return ret
+}
+
+// For testing
+func (e *EventLoop) DumpData() []attastator.L2State {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	ret := make([]attastator.L2State, 0)
+	for _, v := range e.AttastationStorage {
+		ret = append(ret, v...)
+	}
+	slices.SortFunc(ret, func(a, b attastator.L2State) int {
+		cmp := a.TimeStamp.Compare(b.TimeStamp)
+		if cmp != 0 {
+			return cmp
+		}
+		if a.Height < b.Height {
+			return -1
+		}
+		return 1
+	})
+	return ret
 }
 
 // func Start(ctx context.Context, attServers []*attastator.Server, workers int) {

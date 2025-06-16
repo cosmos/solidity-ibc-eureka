@@ -49,6 +49,7 @@ func (s *Server) Start(ctx context.Context) {
 }
 
 func (s *Server) QueryL2() (state L2State) {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	defer func() {
 		if r := recover(); r != nil {
 			state.Err = fmt.Errorf("panic: %v", r)
@@ -56,21 +57,25 @@ func (s *Server) QueryL2() (state L2State) {
 	}()
 
 	// Simulate Query to L2 and attastation
-	busyLoop := rand.Int63n(20000000000)
+	busyLoop := rnd.Int63n(10000000000)
 
 	cnt := int64(0)
 	// Simulate Long running attastation Process
 	for range busyLoop {
 		cnt++
 	}
-	if busyLoop < 10000000000 {
+	if busyLoop < 3000000000 {
 		panic("AAAAAAA")
 	}
 
+	s.mu.Lock()
+	h := s.MonotonicHeight
+	s.mu.Unlock()
+
 	state = L2State{
-		Height:    s.MonotonicHeight,
+		Height:    h,
 		StateRoot: RandString(32),
-		Signature: RandomBytes(64),
+		Signature: RandomBytes(5),
 		TimeStamp: time.Now(),
 		Err:       nil,
 	}
