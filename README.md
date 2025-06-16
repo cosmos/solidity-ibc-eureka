@@ -130,9 +130,10 @@ Some of the tests use the prover network to generate the proofs, so you need to 
 
 - [Go](https://go.dev/doc/install)
 - [Docker](https://docs.docker.com/get-docker/)
+- [Kurtosis](https://docs.kurtosis.com/install/)
+    - Needs to be the same version as `github.com/kurtosis-tech/kurtosis/api/golang` dependency in e2e [`go.mod`](./e2e/interchaintestv8/go.mod) file.
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
-* Installed the `sp1-ics07-tendermint` operator binary (see instructions above)
 * Set up an .env file (see the instructions in the `.env.example` file)
 * If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just generate-abi`
 
