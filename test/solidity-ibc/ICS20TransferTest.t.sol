@@ -12,7 +12,7 @@ import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
-import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
+import { IIBCCallbacks } from "../../contracts/interfaces/IIBCCallbacks.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
@@ -26,12 +26,14 @@ import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTr
 import { DeployPermit2 } from "@uniswap/permit2/test/utils/DeployPermit2.sol";
 import { PermitSignature } from "./utils/PermitSignature.sol";
 import { CallbackReceiver } from "./mocks/CallbackReceiver.sol";
-import { IIBCCallbacks } from "../../contracts/interfaces/IIBCCallbacks.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     ICS20Transfer public ics20Transfer;
     TestERC20 public erc20;
     ISignatureTransfer public permit2;
+    AccessManager public accessManager;
 
     address public sender;
     string public senderStr;
@@ -48,9 +50,13 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address ibcERC20Logic = address(new IBCERC20());
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
+        accessManager = new AccessManager(address(this));
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(this), escrowLogic, ibcERC20Logic, address(permit2)))
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(this), escrowLogic, ibcERC20Logic, address(permit2), address(accessManager))
+            )
         );
 
         ics20Transfer = ICS20Transfer(address(transferProxy));
@@ -207,8 +213,10 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         address customSender = makeAddr("customSender");
 
         // give permission to the delegate sender
-        vm.mockCall(address(this), IIBCUUPSUpgradeable.isAdmin.selector, abi.encode(true));
-        ics20Transfer.grantDelegateSenderRole(sender);
+        accessManager.grantRole(IBCRolesLib.DELEGATE_SENDER_ROLE, sender, 0);
+        accessManager.setTargetFunctionRole(
+            address(ics20Transfer), IBCRolesLib.delegateSenderSelectors(), IBCRolesLib.DELEGATE_SENDER_ROLE
+        );
 
         (IICS26RouterMsgs.Packet memory packet, IICS20TransferMsgs.FungibleTokenPacketData memory expPacketData) =
             _getDefaultPacket();

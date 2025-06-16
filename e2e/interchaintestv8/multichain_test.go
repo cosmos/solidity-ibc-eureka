@@ -531,10 +531,6 @@ func (s *MultichainTestSuite) Test_Deploy() {
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
-		hasRole, err := s.ics26Contract.HasRole(nil, testvalues.PortCustomizerRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
-		s.Require().NoError(err)
-		s.Require().True(hasRole)
-
 		transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))

@@ -9,7 +9,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 contract DummyInitializable is Initializable, UUPSUpgradeable {
     string public constant TEST_VALUE = "lol";
 
-    function initializeV2() public reinitializer(2) { }
+    function initializeV2() public reinitializer(3) { }
 
     function _authorizeUpgrade(address) internal override { }
 
@@ -21,7 +21,7 @@ contract DummyInitializable is Initializable, UUPSUpgradeable {
 contract ErroneousInitializable is Initializable, UUPSUpgradeable {
     error InitializeFailed();
 
-    function initializeV2() public reinitializer(2) {
+    function initializeV2() public reinitializer(3) {
         revert InitializeFailed();
     }
 
