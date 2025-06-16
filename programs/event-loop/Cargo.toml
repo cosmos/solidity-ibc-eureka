@@ -1,0 +1,22 @@
+[package]
+name = "event-loop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+
+tokio            = { workspace = true, features = ["full"] }
+
+tracing            = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true }
+clap               = { workspace = true, features = ["derive"] }
+anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
+
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }
