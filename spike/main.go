@@ -16,6 +16,7 @@ func main() {
 
 	eventLoop := eventloop.New(blockTime * 5)
 	eventLoop.Start(ctx, time.Second, time.Second*3, attastator)
+	eventLoop.DataRotationService(ctx)
 
 	time.Sleep(time.Second * 20)
 	cancel()

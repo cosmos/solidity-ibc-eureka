@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-type Server struct {
+// L2Proxy is used to simulate connection to a L2 full node.
+type L2Proxy struct {
 	MonotonicHeight int64
 	BlockTime       time.Duration
 	mu              sync.Mutex
@@ -23,15 +24,15 @@ type L2State struct {
 	Err       error
 }
 
-func New(blockTime time.Duration, initialHeight int64) *Server {
-	return &Server{
+func New(blockTime time.Duration, initialHeight int64) *L2Proxy {
+	return &L2Proxy{
 		MonotonicHeight: initialHeight,
 		BlockTime:       blockTime,
 		mu:              sync.Mutex{},
 	}
 }
 
-func (s *Server) Start(ctx context.Context) {
+func (s *L2Proxy) Start(ctx context.Context) {
 	tkr := time.NewTicker(s.BlockTime)
 	go func() {
 		defer tkr.Stop()
@@ -48,7 +49,7 @@ func (s *Server) Start(ctx context.Context) {
 	}()
 }
 
-func (s *Server) QueryL2() (state L2State) {
+func (s *L2Proxy) QueryL2() (state L2State) {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	defer func() {
 		if r := recover(); r != nil {

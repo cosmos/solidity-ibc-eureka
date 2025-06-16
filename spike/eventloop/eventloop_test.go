@@ -20,6 +20,7 @@ func TestEventLoop(t *testing.T) {
 	att.Start(ctx)
 
 	loop.Start(ctx, time.Second, time.Second*4, att)
+	loop.DataRotationService(ctx)
 
 	tk := time.After(time.Second * 50)
 	dump := time.NewTicker(time.Second * 4)
@@ -42,6 +43,6 @@ Loop:
 func pretty(t *testing.T, data []attastator.L2State) {
 	t.Helper()
 	for _, d := range data {
-		fmt.Printf("Height: %d  Root: %q TimeStamp: %s\n", d.Height, d.StateRoot, d.TimeStamp.String())
+		fmt.Printf("Height: %d  Root: %q TimeStamp: %s\n", d.Height, d.StateRoot, d.TimeStamp.Format("15:04:05"))
 	}
 }
