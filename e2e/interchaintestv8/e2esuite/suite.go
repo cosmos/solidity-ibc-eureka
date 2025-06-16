@@ -73,8 +73,8 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	case testvalues.EthTestnetTypeOptimism:
 		kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.RPC, nil, kurtosisOptimismChain.Faucet)
-
+		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ConsensusRPC, nil, kurtosisOptimismChain.Faucet)
+		s.Require().NoError(err)
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:

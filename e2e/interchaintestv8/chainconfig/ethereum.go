@@ -9,9 +9,11 @@ import (
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 )
 
 const (
@@ -101,6 +103,9 @@ func SpinUpKurtosisEthPoS(ctx context.Context) (EthKurtosisChain, error) {
 	}
 
 	kurtosisEnclave, err := spinUpKurtosisEnclave(ctx, "ethereum-pos-testnet", ethereumPackageId, ethNetworkParams)
+	if err != nil {
+		return EthKurtosisChain{}, fmt.Errorf("failed to spin up Kurtosis enclave: %w", err)
+	}
 
 	// exeuctionCtx is the service context (kurtosis concept) for the execution node that allows us to get the public ports
 	executionCtx, err := kurtosisEnclave.enclaveCtx.GetServiceContext(executionService)
@@ -159,7 +164,6 @@ func SpinUpKurtosisEthPoS(ctx context.Context) (EthKurtosisChain, error) {
 		executionService: executionService,
 		consensusService: consensusService,
 	}, nil
-
 }
 
 func (e EthKurtosisChain) DumpLogs(ctx context.Context) error {

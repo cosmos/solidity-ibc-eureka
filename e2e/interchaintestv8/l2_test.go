@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
-
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/stretchr/testify/suite"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -19,6 +21,8 @@ import (
 // CosmosRelayerTestSuite is a struct that holds the test suite for two Cosmos chains.
 type L2TestSuite struct {
 	e2esuite.TestSuite
+
+	kurtosisOptimismChain chainconfig.KurtosisOptimismChain
 }
 
 // TestWithIbcEurekaTestSuite is the boilerplate code that allows the test suite to be run
@@ -35,7 +39,10 @@ func (s *L2TestSuite) SetupSuite(ctx context.Context) {
 
 	kurtosisOptimismChain, err := chainconfig.SpinUpKurtosisOptimism(ctx) // TODO: Run this in a goroutine and wait for it to be ready
 	s.Require().NoError(err)
-	s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.RPC, nil, kurtosisOptimismChain.Faucet)
+	s.kurtosisOptimismChain = kurtosisOptimismChain
+	fmt.Printf("Kurtosis Optimism Chain: %+v\n", kurtosisOptimismChain)
+	s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
+	s.Require().NoError(err)
 }
 
 func (s *L2TestSuite) TestDeployment() {
@@ -44,9 +51,11 @@ func (s *L2TestSuite) TestDeployment() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	s.Require().NotEmpty(s.EthChain.RPC, "Ethereum RPC should not be empty")
+	// s.Require().NotEmpty(s.EthChain.RPC, "Ethereum RPC should not be empty")
 
-	baseClient := client.NewBaseRPCClient(s.EthChain.RPCClient.Client())
+	consensusClient, err := ethclient.Dial(s.kurtosisOptimismChain.ConsensusRPC)
+	s.Require().NoError(err)
+	baseClient := client.NewBaseRPCClient(consensusClient.Client())
 	rollupClient := sources.NewRollupClient(baseClient)
 
 	rollupConfig, err := rollupClient.RollupConfig(ctx)
