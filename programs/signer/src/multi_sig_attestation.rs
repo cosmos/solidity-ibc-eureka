@@ -3,14 +3,6 @@ use secp256k1::ecdsa::Signature;
 use secp256k1::PublicKey;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum MultiSigAttestorError {
-    #[error("No attestations provided for multi sig")]
-    NoAttestations,
-    #[error("Data signed by attestors differs: {0:?}")]
-    InconsistentData(Vec<(PublicKey, AttestationData)>),
-}
-
 /// A multi-signature attestation, collecting N individual attestations on the same data.
 /// Ensures all attestations refer to identical state and preserves public keys and signatures in order.
 #[derive(Debug)]
@@ -65,6 +57,14 @@ impl MultiSigAttestation {
             signatures,
         })
     }
+}
+
+#[derive(Error, Debug)]
+pub enum MultiSigAttestorError {
+    #[error("No attestations provided for multi sig")]
+    NoAttestations,
+    #[error("Data signed by attestors differs: {0:?}")]
+    InconsistentData(Vec<(PublicKey, AttestationData)>),
 }
 
 #[cfg(test)]
