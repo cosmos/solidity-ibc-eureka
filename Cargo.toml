@@ -13,7 +13,8 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
-    "programs/event-loop"
+    "programs/event-loop",
+    "programs/signer"
 ]
 resolver = "2"
 

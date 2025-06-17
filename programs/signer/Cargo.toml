@@ -1,0 +1,15 @@
+[package]
+name = "signer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+secp256k1 = { version = "0.31.0", default-features = false, features = ["hashes", "std"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+secp256k1 = { version = "0.31.0", features = ["global-context", "rand"] }
+
