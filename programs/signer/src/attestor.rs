@@ -23,6 +23,16 @@ impl AttestationData {
         ]
         .concat()
     }
+
+    #[cfg(test)]
+    pub fn test_new(chain_id: u64) -> Self {
+        Self {
+            chain_id,
+            height: 0,
+            state_root: [0].into(),
+            timestamp: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
