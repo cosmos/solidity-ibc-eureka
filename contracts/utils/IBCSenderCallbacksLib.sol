@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IIBCAppCallbacks } from "../msgs/IIBCAppCallbacks.sol";
 import { IIBCSenderCallbacks } from "../interfaces/IIBCSenderCallbacks.sol";
 
-import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC165Checker.sol";
 
 /// @title IBC Callbacks Library
 /// @notice This library provides utility functions for IBC Apps to make callbacks to sender contracts.
