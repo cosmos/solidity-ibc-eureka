@@ -8,7 +8,7 @@ import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC16
 
 /// @title IBC Callbacks Library
 /// @notice This library provides utility functions for IBC Apps to make callbacks to sender contracts.
-library IBCCallbacksLib {
+library IBCSenderCallbacksLib {
     /// @notice Checks if the given address implements the IIBCSenderCallbacks interface.
     /// @param sender The address to check
     /// @return bool True if the address implements IIBCSenderCallbacks, false otherwise

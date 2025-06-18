@@ -28,7 +28,7 @@ import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
-import { IBCCallbacksLib } from "./utils/IBCCallbacksLib.sol";
+import { IBCSenderCallbacksLib } from "./utils/IBCSenderCallbacksLib.sol";
 import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
@@ -375,10 +375,10 @@ contract ICS20Transfer is
         if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
             // if the acknowledgement is an error, we must refund the tokens to the sender
             address sender = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
-            IBCCallbacksLib.ackPacketCallback(sender, false, msg_);
+            IBCSenderCallbacksLib.ackPacketCallback(sender, false, msg_);
         } else {
             address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
-            IBCCallbacksLib.ackPacketCallback(sender, true, msg_);
+            IBCSenderCallbacksLib.ackPacketCallback(sender, true, msg_);
         }
     }
 
@@ -392,7 +392,7 @@ contract ICS20Transfer is
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
         address sender = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
-        IBCCallbacksLib.timeoutPacketCallback(sender, msg_);
+        IBCSenderCallbacksLib.timeoutPacketCallback(sender, msg_);
     }
 
     /// @notice Refund the tokens to the sender
