@@ -14,21 +14,15 @@ abstract contract DeployProxiedICS27GMP {
         address implementation,
         address ics26Router,
         address accountImplementation
-    ) public returns (ERC1967Proxy) {
-        ERC1967Proxy gmpProxy = new ERC1967Proxy(
-            implementation,
-            abi.encodeCall(
-                ICS27GMP.initialize,
-                (
-                    ics26Router,
-                    accountImplementation
-                )
-            )
-        );
+    )
+        public
+        returns (ERC1967Proxy)
+    {
+        ERC1967Proxy gmpProxy =
+            new ERC1967Proxy(implementation, abi.encodeCall(ICS27GMP.initialize, (ics26Router, accountImplementation)));
 
         console.log("Deployed ICS27GMP at address: ", address(gmpProxy));
 
         return gmpProxy;
     }
 }
-
