@@ -30,7 +30,8 @@ interface IICS27GMP {
     /// @dev Meant to be called only once from the proxy
     /// @param ics26_ The ICS26Router contract address
     /// @param accountLogic The address of the ICS27Account logic contract
-    function initialize(address ics26_, address accountLogic) external;
+    /// @param authority The address of the AccessManager contract
+    function initialize(address ics26_, address accountLogic, address authority) external;
 
     /// @notice Upgrades the implementation of the account beacon contract
     /// @dev The caller must be the ICS26Router admin
