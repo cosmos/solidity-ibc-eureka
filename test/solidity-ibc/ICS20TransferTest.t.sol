@@ -259,7 +259,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         assertEq(sequence, 42);
     }
 
-    function test_success_onAcknowledgementPacket() public {
+    function test_success_onAcknowledgementPacketCallback() public {
         // override sender
         sender = address(new CallbackReceiver());
         senderStr = Strings.toHexString(sender);
@@ -373,7 +373,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         packet.payloads[0].value = abi.encode(defaultPacketData);
     }
 
-    function test_success_onTimeoutPacket() public {
+    function test_success_onTimeoutPacketCallback() public {
         // override sender
         sender = address(new CallbackReceiver());
         senderStr = Strings.toHexString(sender);
