@@ -17,6 +17,7 @@ soljson-latest.js
 config.json
 scripts/ethgenesis/client_state.json
 scripts/ethgenesis/consensus_state.json
+go.work
 
 # broadcasts
 !broadcast

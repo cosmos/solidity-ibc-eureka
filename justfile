@@ -244,6 +244,17 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the L2TestSuite. For example, `just test-e2e-l2 Test_Deploy`
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+# Run any e2e test in the L2ArbitrumTestSuite. For example, `just test-e2e-l2-arbitrum Test_Deploy`
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]
@@ -266,10 +277,4 @@ run-optimism:
 teardown-optimism:
 	kurtosis enclave stop local-optimism
 	kurtosis enclave rm local-optimism
-
-# Run any e2e test in the L2TestSuite. For example, `just test-e2e-l2 Test_Deploy`
-[group('test')]
-test-e2e-l2 testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2TestSuite/{{testname}}
 

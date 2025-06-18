@@ -142,3 +142,11 @@ func SpinUpKurtosisOptimism(ctx context.Context) (KurtosisOptimismChain, error) 
 		kurtosisEnclave:  kurtosisEnclave,
 	}, nil // Implement the logic to spin up the chain
 }
+
+func (e KurtosisOptimismChain) DumpLogs(ctx context.Context) error {
+	return e.kurtosisEnclave.DumpLogs(ctx, e.executionService)
+}
+
+func (e KurtosisOptimismChain) Destroy(ctx context.Context) {
+	e.kurtosisEnclave.Destroy(ctx)
+}
