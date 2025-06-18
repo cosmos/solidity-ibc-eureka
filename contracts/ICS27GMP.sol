@@ -18,7 +18,9 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Create2 } from "@openzeppelin-contracts/utils/Create2.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS27Lib } from "./utils/ICS27Lib.sol";
+import { IBCSenderCallbacksLib } from "./utils/IBCSenderCallbacksLib.sol";
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
 /// @title ICS27 General Message Passing
@@ -146,12 +148,26 @@ contract ICS27GMP is
         external
         nonReentrant
         onlyRouter
-    { }
-    // solhint-disable-previous-line no-empty-blocks
+    {
+        IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
+
+        (bool success, address sender) = Strings.tryParseAddress(packetData.sender);
+        require(success, ICS27InvalidSender(packetData.sender));
+
+        IBCSenderCallbacksLib.ackPacketCallback(
+            sender, keccak256(msg_.acknowledgement) != ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK, msg_
+        );
+    }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external nonReentrant onlyRouter { }
-    // solhint-disable-previous-line no-empty-blocks
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external nonReentrant onlyRouter {
+        IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
+
+        (bool success, address sender) = Strings.tryParseAddress(packetData.sender);
+        require(success, ICS27InvalidSender(packetData.sender));
+
+        IBCSenderCallbacksLib.timeoutPacketCallback(sender, msg_);
+    }
 
     /// @notice Creates or retrieves an account contract for the given account identifier
     /// @param accountId The account identifier

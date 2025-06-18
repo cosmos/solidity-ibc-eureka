@@ -31,4 +31,8 @@ interface IICS27Errors {
     /// @notice Invalid receiver
     /// @param receiver The receiver address of the contract call
     error ICS27InvalidReceiver(string receiver);
+
+    /// @notice Invalid sender
+    /// @param sender The sender of the packet
+    error ICS27InvalidSender(string sender);
 }
