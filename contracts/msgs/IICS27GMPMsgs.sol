@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title ICS27 GMP Messages
+/// @notice Interface defining ICS27 GMP Messages
 interface IICS27GMPMsgs {
     /// @notice Message for sending a GMP packet
     /// @param sourceClient The source client identifier

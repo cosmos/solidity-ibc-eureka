@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+/// @title IICS27Errors
+/// @notice Interface for ICS27 errors
 interface IICS27Errors {
     /// @notice Invalid address
     /// @param addr Address of the sender or receiver

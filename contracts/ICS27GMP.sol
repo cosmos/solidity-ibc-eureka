@@ -50,6 +50,7 @@ contract ICS27GMP is
     bytes32 private constant ICS27GMP_STORAGE_SLOT = 0xe73deb02cd654f25b90ec94b434589ea350a706e2446d278b41c3a86dc8f4500;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -190,6 +191,7 @@ contract ICS27GMP is
     }
 
     /// @notice Returns the storage of the ICS27GMP contract
+    /// @return $ The storage of the ICS27GMP contract
     function _getICS27GMPStorage() private pure returns (ICS27GMPStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
