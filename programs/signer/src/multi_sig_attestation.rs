@@ -7,10 +7,7 @@ use thiserror::Error;
 /// Ensures all attestations refer to identical state and preserves public keys and signatures in order.
 #[derive(Debug)]
 pub struct MultiSigAttestation {
-    pub chain_id: u64,
-    pub height: u64,
-    pub state_root: Vec<u8>,
-    pub timestamp: u64,
+    pub attestation_data: AttestationData,
     pub pubkeys: Vec<PublicKey>,
     pub signatures: Vec<Signature>,
 }
@@ -24,6 +21,7 @@ impl MultiSigAttestation {
         }
 
         let first = &attestations[0];
+
         let chain_id = first.data.chain_id;
         let height = first.data.height;
         let state_root = first.data.state_root.clone();
@@ -49,10 +47,12 @@ impl MultiSigAttestation {
         }
 
         Ok(MultiSigAttestation {
-            chain_id,
-            height,
-            state_root,
-            timestamp,
+            attestation_data: AttestationData {
+                chain_id,
+                height,
+                state_root,
+                timestamp,
+            },
             pubkeys,
             signatures,
         })

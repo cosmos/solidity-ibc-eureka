@@ -14,7 +14,7 @@ pub struct AttestationData {
 }
 
 impl AttestationData {
-    fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         [
             &self.chain_id.to_ne_bytes(),
             &self.height.to_ne_bytes(),

@@ -7,9 +7,9 @@ repository.workspace = true
 keywords.workspace = true
 
 [dependencies]
-secp256k1 = { version = "0.31.0", default-features = false, features = ["hashes", "std"] }
+secp256k1 = { version = "0.31.0", default-features = false, features = ["global-context", "hashes", "std"] }
 thiserror.workspace = true
 
 [dev-dependencies]
-secp256k1 = { version = "0.31.0", features = ["global-context", "rand"] }
+secp256k1 = { version = "0.31.0", features = ["rand"] }
 
