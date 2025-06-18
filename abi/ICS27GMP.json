@@ -19,6 +19,19 @@
   },
   {
     "type": "function",
+    "name": "authority",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getAccountBeacon",
     "inputs": [],
     "outputs": [
@@ -92,10 +105,28 @@
         "name": "accountLogic",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isConsumingScheduledOp",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -394,6 +425,19 @@
   },
   {
     "type": "function",
+    "name": "setAuthority",
+    "inputs": [
+      {
+        "name": "newAuthority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "upgradeAccountTo",
     "inputs": [
       {
@@ -425,6 +469,19 @@
   },
   {
     "type": "event",
+    "name": "AuthorityUpdated",
+    "inputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -448,6 +505,44 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessManagedInvalidAuthority",
+    "inputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AccessManagedRequiredDelay",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delay",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AccessManagedUnauthorized",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
