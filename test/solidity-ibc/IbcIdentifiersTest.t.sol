@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { IBCIdentifiers } from "../../contracts/utils/IBCIdentifiers.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 contract IBCIdentifiersTest is Test {
     struct ValidateCustomIBCIdentifierTestCase {
