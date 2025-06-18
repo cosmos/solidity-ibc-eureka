@@ -9,7 +9,7 @@ members = [
     "packages/relayer-lib",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
-    "packages/signer",
+    "packages/attestor-multi-sig",
 
     "programs/relayer",
     "programs/operator",
