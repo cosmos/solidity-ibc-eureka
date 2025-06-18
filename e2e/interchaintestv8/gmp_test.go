@@ -572,7 +572,6 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofTy
 		s.Require().NotNil(resp.Balance)
 		s.Require().Equal(testAmount[0].Denom, resp.Balance.Denom)
 		s.Require().Equal(testAmount[0].Amount.Int64(), resp.Balance.Amount.Int64())
-
 	}))
 
 	var sendTxHash []byte
