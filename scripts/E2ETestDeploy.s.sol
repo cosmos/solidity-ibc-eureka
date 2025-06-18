@@ -73,11 +73,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
-        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(
-            ics27GmpLogic,
-            address(routerProxy),
-            accountLogic
-        );
+        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(ics27GmpLogic, address(routerProxy), accountLogic);
 
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
