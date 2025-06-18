@@ -10,7 +10,6 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 import { IICS27Account } from "./interfaces/IICS27Account.sol";
 import { IICS27Errors } from "./errors/IICS27Errors.sol";
-import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -20,6 +19,7 @@ import { Create2 } from "@openzeppelin-contracts/utils/Create2.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { ICS27Lib } from "./utils/ICS27Lib.sol";
+import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
 /// @title ICS27 General Message Passing
 /// @notice This contract is the implementation of the ics27-2 IBC specification for general message passing.
@@ -29,6 +29,7 @@ contract ICS27GMP is
     IIBCApp,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable,
+    AccessManagedUpgradeable,
     UUPSUpgradeable
 {
     /// @notice Storage of the ICS27GMP contract
@@ -54,9 +55,10 @@ contract ICS27GMP is
     }
 
     /// @inheritdoc IICS27GMP
-    function initialize(address ics26_, address accountLogic) external initializer {
+    function initialize(address ics26_, address accountLogic, address authority) external initializer {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
+        __AccessManaged_init(authority);
 
         ICS27GMPStorage storage $ = _getICS27GMPStorage();
         $._ics26 = IICS26Router(ics26_);
@@ -196,25 +198,18 @@ contract ICS27GMP is
     }
 
     /// @inheritdoc IICS27GMP
-    function upgradeAccountTo(address newEscrowLogic) external onlyAdmin {
+    function upgradeAccountTo(address newEscrowLogic) external restricted {
         _getICS27GMPStorage()._accountBeacon.upgradeTo(newEscrowLogic);
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override onlyAdmin { }
+    function _authorizeUpgrade(address) internal override restricted { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @notice Modifier to check if the caller is the ICS26Router contract
     modifier onlyRouter() {
         address router = address(_getICS27GMPStorage()._ics26);
         require(_msgSender() == router, ICS27Unauthorized(router, _msgSender()));
-        _;
-    }
-
-    /// @notice Modifier to check if the caller is an admin via the ICS26Router contract
-    modifier onlyAdmin() {
-        address router = address(_getICS27GMPStorage()._ics26);
-        require(IIBCUUPSUpgradeable(router).isAdmin(_msgSender()), ICS27Unauthorized(router, _msgSender()));
         _;
     }
 }
