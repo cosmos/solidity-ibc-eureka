@@ -12,7 +12,7 @@ import { IICS20Errors } from "../../contracts/errors/IICS20Errors.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IERC20Errors } from "@openzeppelin-contracts/interfaces/draft-IERC6093.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
-import { IIBCCallbacks } from "../../contracts/interfaces/IIBCCallbacks.sol";
+import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
@@ -281,14 +281,14 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         });
 
         // Test success ack with callback
-        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onAckPacket, (true, callbackMsg)));
+        vm.expectCall(sender, abi.encodeCall(IIBCSenderCallbacks.onAckPacket, (true, callbackMsg)));
         ics20Transfer.onAcknowledgementPacket(callbackMsg);
 
         // Test error ack with callback
         address escrowAddress = address(uint160(uint256(someAddress)));
         callbackMsg.acknowledgement = abi.encodePacked(ICS24Host.UNIVERSAL_ERROR_ACK);
         vm.mockCall(escrowAddress, Escrow.recvCallback.selector, bytes(""));
-        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onAckPacket, (false, callbackMsg)));
+        vm.expectCall(sender, abi.encodeCall(IIBCSenderCallbacks.onAckPacket, (false, callbackMsg)));
         ics20Transfer.onAcknowledgementPacket(callbackMsg);
     }
 
@@ -395,7 +395,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         // Test success timeout with callback
         address escrowAddress = address(uint160(uint256(someAddress)));
         vm.mockCall(escrowAddress, Escrow.recvCallback.selector, bytes(""));
-        vm.expectCall(sender, abi.encodeCall(IIBCCallbacks.onTimeoutPacket, (callbackMsg)));
+        vm.expectCall(sender, abi.encodeCall(IIBCSenderCallbacks.onTimeoutPacket, (callbackMsg)));
         ics20Transfer.onTimeoutPacket(callbackMsg);
     }
 
