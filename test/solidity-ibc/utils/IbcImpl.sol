@@ -70,7 +70,9 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
         ERC1967Proxy gmpProxy = new ERC1967Proxy(
             address(ics27GmpLogic),
-            abi.encodeCall(ICS27GMP.initialize, (address(routerProxy), address(ics27AccountLogic)))
+            abi.encodeCall(
+                ICS27GMP.initialize, (address(routerProxy), address(ics27AccountLogic), address(accessManager))
+            )
         );
 
         ics26Router = ICS26Router(address(routerProxy));
