@@ -77,7 +77,12 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
             )
         );
 
-        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(ics27GmpLogic, address(routerProxy), address(new ICS27Account()));
+        ERC1967Proxy gmpProxy = new ERC1967Proxy(
+            ics27GmpLogic,
+            abi.encodeCall(
+                ICS27GMP.initialize, (address(routerProxy), address(new ICS27Account()), address(accessManager))
+            )
+        );
 
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
@@ -110,11 +115,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployProxiedICS26Router
         json.serialize("verifierPlonk", Strings.toHexString(address(verifierPlonk)));
         json.serialize("verifierGroth16", Strings.toHexString(address(verifierGroth16)));
         json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
-        json.serialize("ics26Router", Strings.toHexString(address(ics26Router)));
-        json.serialize("ics20Transfer", Strings.toHexString(address(ics20Transfer)));
-        json.serialize("ics27Gmp", Strings.toHexString(address(ics27Gmp)));
-        json.serialize("ibcERC20Logic", Strings.toHexString(address(ibcERC20Logic)));
-        // TODO: resolve finalJson vs json
+        json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
+        json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
+        json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
         string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
 
         return finalJson;
