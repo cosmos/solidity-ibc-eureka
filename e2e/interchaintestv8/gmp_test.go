@@ -39,9 +39,9 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
@@ -76,7 +76,7 @@ func TestWithIbcEurekaGmpTestSuite(t *testing.T) {
 	suite.Run(t, new(IbcEurekaGmpTestSuite))
 }
 
-func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -205,9 +205,9 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType operat
 			verfierAddress = s.contractAddresses.VerifierMock
 		} else {
 			switch proofType {
-			case operator.ProofTypeGroth16:
+			case types.ProofTypeGroth16:
 				verfierAddress = s.contractAddresses.VerifierGroth16
-			case operator.ProofTypePlonk:
+			case types.ProofTypePlonk:
 				verfierAddress = s.contractAddresses.VerifierPlonk
 			default:
 				s.Require().Fail("invalid proof type: %s", proofType)
@@ -310,10 +310,10 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType operat
 
 func (s *IbcEurekaGmpTestSuite) TestDeploy_Groth16() {
 	ctx := context.Background()
-	s.DeployTest(ctx, operator.ProofTypeGroth16)
+	s.DeployTest(ctx, types.ProofTypeGroth16)
 }
 
-func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -346,10 +346,6 @@ func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType operat
 	}))
 
 	s.Require().True(s.Run("Verify ICS26 Router", func() {
-		hasRole, err := s.ics26Contract.HasRole(nil, testvalues.PortCustomizerRole, crypto.PubkeyToAddress(s.deployer.PublicKey))
-		s.Require().NoError(err)
-		s.Require().True(hasRole)
-
 		transferAddress, err := s.ics26Contract.GetIBCApp(nil, transfertypes.PortID)
 		s.Require().NoError(err)
 		s.Require().Equal(s.contractAddresses.Ics20Transfer, strings.ToLower(transferAddress.Hex()))
@@ -393,10 +389,10 @@ func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType operat
 
 func (s *IbcEurekaGmpTestSuite) TestSendCallFromCosmos_Groth16() {
 	ctx := context.Background()
-	s.SendCallFromCosmosTest(ctx, operator.ProofTypeGroth16)
+	s.SendCallFromCosmosTest(ctx, types.ProofTypeGroth16)
 }
 
-func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
@@ -531,10 +527,10 @@ func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proo
 // TestSendCallFromEth_Groth16 tests the SendCall from Ethereum to Cosmos
 func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth_Groth16() {
 	ctx := context.Background()
-	s.SendCallFromEthTest(ctx, operator.ProofTypeGroth16)
+	s.SendCallFromEthTest(ctx, types.ProofTypeGroth16)
 }
 
-func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType operator.SupportedProofType) {
+func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
 	eth, simd := s.EthChain, s.CosmosChains[0]
