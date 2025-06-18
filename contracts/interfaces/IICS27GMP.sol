@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
 
+/// @title ICS27 General Message Passing (GMP) Interface
+/// @notice Interface for the ICS27 General Message Passing (GMP) contract
 interface IICS27GMP {
     /// @notice The address of the ICS26Router contract
     /// @return The address of the ICS26Router contract

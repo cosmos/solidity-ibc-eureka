@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @title IICS27Account
+/// @notice Interface for ICS27 Accounts to implement
 interface IICS27Account {
     /// @notice This is a wrapper around openzeppelin's `Address.sendValue`.
     /// @dev This function can only be called by self.
+    /// @param recipient The address to send the value to
+    /// @param amount The amount of wei to send
     function sendValue(address payable recipient, uint256 amount) external;
 
     /// @notice Performs a Solidity function call using a low level `call`.

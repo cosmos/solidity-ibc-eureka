@@ -7,6 +7,8 @@ import { IICS27Account } from "../interfaces/IICS27Account.sol";
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { Address } from "@openzeppelin-contracts/utils/Address.sol";
 
+/// @title ICS27Account
+/// @notice This contract is the implementation of the ICS27 Account, which is used to make the GMP calls
 contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     /// @notice Storage of the ICS27Account contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -23,6 +25,7 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
         0x319583b012a10c350515da7d8fdefe3c302490627bf79c0be5b739020ce32c00;
 
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
+    // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
     }
@@ -69,6 +72,7 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     }
 
     /// @notice Returns the storage of the ICS27Account contract
+    /// @return $ The storage of the ICS27Account contract
     function _getICS27AccountStorage() private pure returns (ICS27AccountStorage storage $) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -76,12 +80,14 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
         }
     }
 
+    /// @notice Modifier to restrict access to the ICS27 contract
     modifier onlyICS27() {
         address ics27_ = _getICS27AccountStorage()._ics27;
         require(_msgSender() == ics27_, ICS27Unauthorized(ics27_, _msgSender()));
         _;
     }
 
+    /// @notice Modifier to restrict access to this contract
     modifier onlySelf() {
         require(_msgSender() == address(this), ICS27Unauthorized(address(this), _msgSender()));
         _;
