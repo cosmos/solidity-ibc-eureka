@@ -49,7 +49,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address verifierMock = address(new SP1MockVerifier());
 
         // Deploy IBC Eureka with proxy
-        address accountLogic = address(new ICS27Account());
         address ics26RouterLogic = address(new ICS26Router());
         address ics20TransferLogic = address(new ICS20Transfer());
         address ics27GmpLogic = address(new ICS27GMP());
@@ -73,7 +72,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
-        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(ics27GmpLogic, address(routerProxy), accountLogic);
+        ERC1967Proxy gmpProxy = deployProxiedICS27GMP(ics27GmpLogic, address(routerProxy), address(new ICS27Account()));
 
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
