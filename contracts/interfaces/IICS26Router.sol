@@ -4,34 +4,13 @@ pragma solidity ^0.8.28;
 import { IICS26RouterMsgs } from "../msgs/IICS26RouterMsgs.sol";
 import { IIBCApp } from "./IIBCApp.sol";
 
-/// @title ICS26 Router Interface
-/// @notice Interface for the IBC Eureka Core Router
-interface IICS26Router {
-    /// @notice The role identifier for the port customizer role
-    /// @dev The port identifier role is used to add IBC applications with custom port identifiers
-    /// @return The role identifier
-    function PORT_CUSTOMIZER_ROLE() external view returns (bytes32);
-
-    /// @notice Returns the address of the IBC application given the port identifier
-    /// @param portId The port identifier
-    /// @return The address of the IBC application contract
-    function getIBCApp(string calldata portId) external view returns (IIBCApp);
-
+/// @title ICS26 Router Restricted Interface
+/// @notice Interface for the access controlled functions of the IBC Eureka Core Router
+interface IICS26RouterAccessControlled {
     /// @notice Adds an IBC application to the router
-    /// @dev The port identifier is the address of the IBC application contract.
-    /// @param app The address of the IBC application contract
-    function addIBCApp(address app) external;
-
-    /// @notice Adds an IBC application to the router
-    /// @dev Can only be called by `PORT_CUSTOMIZER_ROLE`.
     /// @param portId The custom port identifier.
     /// @param app The address of the IBC application contract
     function addIBCApp(string calldata portId, address app) external;
-
-    /// @notice Sends a packet
-    /// @param msg The message for sending packets
-    /// @return The sequence number of the packet
-    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg) external returns (uint64);
 
     /// @notice Receives a packet
     /// @param msg The message for receiving packets
@@ -44,11 +23,37 @@ interface IICS26Router {
     /// @notice Timeouts a packet
     /// @param msg The message for timing out packets
     function timeoutPacket(IICS26RouterMsgs.MsgTimeoutPacket calldata msg) external;
+}
+
+/// @title ICS26 Router Interface
+/// @notice Interface for the IBC Eureka Core Router
+interface IICS26Router is IICS26RouterAccessControlled {
+    /// @notice Returns the address of the IBC application given the port identifier
+    /// @param portId The port identifier
+    /// @return The address of the IBC application contract
+    function getIBCApp(string calldata portId) external view returns (IIBCApp);
+
+    /// @notice Adds an IBC application to the router
+    /// @dev The port identifier is the address of the IBC application contract.
+    /// @param app The address of the IBC application contract
+    function addIBCApp(address app) external;
+
+    /// @notice Sends a packet
+    /// @param msg The message for sending packets
+    /// @return The sequence number of the packet
+    function sendPacket(IICS26RouterMsgs.MsgSendPacket calldata msg) external returns (uint64);
 
     /// @notice Initializes the contract instead of a constructor
+    /// @dev This initializes the contract to the latest version from an empty state
     /// @dev Meant to be called only once from the proxy
-    /// @param timelockedAdmin The address of the timelocked admin for IBCUUPSUpgradeable
-    function initialize(address timelockedAdmin) external;
+    /// @param authority The address of the AccessManager contract
+    function initialize(address authority) external;
+
+    /// @notice Reinitializes the contract to upgrade it
+    /// @dev This initializes the contract to the latest version from a previous version
+    /// @dev Meant to be called only once from the proxy
+    /// @param authority The address of the AccessManager contract
+    function initializeV2(address authority) external;
 
     // --------------------- Events --------------------- //
 

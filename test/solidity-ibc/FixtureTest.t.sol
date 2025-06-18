@@ -14,15 +14,19 @@ import { IICS07TendermintMsgs } from "../../contracts/light-clients/msgs/IICS07T
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { IBCERC20 } from "../../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../../contracts/utils/Escrow.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
+import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
 
-abstract contract FixtureTest is Test, IICS07TendermintMsgs {
+abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     ICS26Router public ics26Router;
     SP1ICS07Tendermint public sp1ICS07Tendermint;
     ICS20Transfer public ics20Transfer;
+    AccessManager public accessManager;
 
     string public customClientId = "cosmoshub-1";
     string public counterpartyId = "08-wasm-0";
@@ -58,21 +62,27 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs {
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(this))));
+        accessManager = new AccessManager(address(this));
+
+        ERC1967Proxy routerProxy = new ERC1967Proxy(
+            address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
+        );
 
         ERC1967Proxy transferProxy = new ERC1967Proxy(
             address(ics20TransferLogic),
-            abi.encodeCall(ICS20Transfer.initialize, (address(routerProxy), escrowLogic, ibcERC20Logic, address(0)))
+            abi.encodeCall(
+                ICS20Transfer.initialize,
+                (address(routerProxy), escrowLogic, ibcERC20Logic, address(0), address(accessManager))
+            )
         );
 
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
-        ics26Router.grantRole(ics26Router.RELAYER_ROLE(), address(0)); // anyone can relay packets
-        ics26Router.grantRole(ics26Router.PORT_CUSTOMIZER_ROLE(), address(this));
-        ics26Router.grantRole(ics26Router.CLIENT_ID_CUSTOMIZER_ROLE(), address(this));
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+
+        accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
     }
 
     function loadInitialFixture(string memory fixtureFileName) internal returns (Fixture memory) {

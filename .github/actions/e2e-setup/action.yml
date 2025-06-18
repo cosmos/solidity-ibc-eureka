@@ -25,7 +25,7 @@ runs:
         path: |
           ~/.cargo/bin/relayer
           ~/.cargo/bin/operator
-          ./target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
+          ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
 
     - name: Install SP1 toolchain
@@ -64,7 +64,7 @@ runs:
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
         sudo apt update
-        sudo apt install kurtosis-cli=1.5.0 # Must match the kurtosis library version we use in the e2e tests
+        sudo apt install kurtosis-cli=1.8.1 # Must match the kurtosis library version we use in the e2e tests
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH

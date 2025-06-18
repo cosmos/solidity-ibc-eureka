@@ -8,10 +8,10 @@
     "@uniswap/permit2": "github:Uniswap/permit2"
   },
   "devDependencies": {
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.6",
     "solhint": "^5.1.0",
-    "@defi-wonderland/natspec-smells": "^1.1.6"
+    "quicktype": "^23.2.6"
   },
   "keywords": [
     "blockchain",

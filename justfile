@@ -18,11 +18,11 @@ build-operator:
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
-  @echo "Building SP1 programs in 'target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
-  ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
+  @echo "Building SP1 programs in 'programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
+  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
@@ -83,6 +83,9 @@ lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
 	cargo clippy --all-targets --all-features -- -D warnings
+	cd programs/sp1-programs && cargo fmt --all -- --check
+	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+
 
 # Generate the (non-bytecode) ABI files for the contracts
 [group('generate')]
@@ -126,7 +129,7 @@ generate-fixtures-wasm: clean-foundry install-relayer
 [group('generate')]
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
-	quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go --top-level GeneratedTypes
+	bun quicktype --src-lang schema --lang go --just-types-and-package --package ethereum --src ethereum_types_schema.json --out e2e/interchaintestv8/types/ethereum/types.gen.go --top-level GeneratedTypes
 	rm ethereum_types_schema.json
 	sed -i.bak 's/int64/uint64/g' e2e/interchaintestv8/types/ethereum/types.gen.go # quicktype generates int64 instead of uint64 :(
 	rm -f e2e/interchaintestv8/types/ethereum/types.gen.go.bak # this is to be linux and mac compatible (coming from the sed command)
@@ -209,37 +212,37 @@ test-abigen:
 	@echo "Running abigen tests..."
 	cd packages/go-abigen && go test -v ./...
 
-# Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16`
+# Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
 test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
-# Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka TestDeploy_Groth16`
+# Run any e2e test in the IbcEurekaTestSuite. For example, `just test-e2e-eureka Test_Deploy`
 [group('test')]
 test-e2e-eureka testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaTestSuite/{{testname}}
 
-# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer TestRelayerInfo`
+# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer Test_RelayerInfo`
 [group('test')]
 test-e2e-relayer testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithRelayerTestSuite/{{testname}}
 
-# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer TestRelayerInfo`
+# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer Test_RelayerInfo`
 [group('test')]
 test-e2e-cosmos-relayer testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithCosmosRelayerTestSuite/{{testname}}
 
-# Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 TestDeploy_Groth16`
+# Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
 test-e2e-sp1-ics07 testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithSP1ICS07TendermintTestSuite/{{testname}}
 
-# Run any e2e test in the MultichainTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+# Run any e2e test in the MultichainTestSuite. For example, `just test-e2e-multichain Test_Deploy`
 [group('test')]
 test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
@@ -262,3 +265,4 @@ clean-foundry:
 clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
+	cd programs/sp1-programs && cargo clean

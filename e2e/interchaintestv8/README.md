@@ -24,8 +24,8 @@ To run the tests locally, run the following commands from the repo root:
 just test-e2e $TEST_SUITE_FN/$TEST_NAME
 
 # For example, to run the `TestDeploy` test, you would run:
-just test-e2e TestWithIbcEurekaTestSuite/TestDeploy_Groth16
+just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy
 
 # Altneratively:
-just test-e2e-eureka TestDeploy_Groth16
+just test-e2e-eureka Test_Deploy
 ```

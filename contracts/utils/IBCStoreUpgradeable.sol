@@ -27,7 +27,7 @@ abstract contract IBCStoreUpgradeable is IIBCStore, IICS24HostErrors, Initializa
 
     /// @dev This function has no initialization logic
     // natlint-disable-next-line
-    function __IBCStoreUpgradeable_init() internal onlyInitializing { }
+    function __IBCStore_init() internal onlyInitializing { }
     // solhint-disable-previous-line no-empty-blocks
 
     /// @inheritdoc IIBCStore

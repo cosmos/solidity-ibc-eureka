@@ -9,12 +9,13 @@ import { IICS20Errors } from "./errors/IICS20Errors.sol";
 import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IICS20Transfer } from "./interfaces/IICS20Transfer.sol";
+import { IICS20Transfer, IICS20TransferAccessControlled } from "./interfaces/IICS20Transfer.sol";
 import { IICS26Router } from "./interfaces/IICS26Router.sol";
-import { IIBCUUPSUpgradeable } from "./interfaces/IIBCUUPSUpgradeable.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
+import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
+import { IPausable } from "./interfaces/IPausable.sol";
 
 import { ReentrancyGuardTransientUpgradeable } from
     "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
@@ -25,9 +26,11 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { IBCPausableUpgradeable } from "./utils/IBCPausableUpgradeable.sol";
 import { BeaconProxy } from "@openzeppelin-contracts/proxy/beacon/BeaconProxy.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { IBCSenderCallbacksLib } from "./utils/IBCSenderCallbacksLib.sol";
+import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
+import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
 using SafeERC20 for IERC20;
 
@@ -37,10 +40,12 @@ contract ICS20Transfer is
     IICS20Errors,
     IICS20Transfer,
     IIBCApp,
+    IPausable,
     ReentrancyGuardTransientUpgradeable,
     MulticallUpgradeable,
     UUPSUpgradeable,
-    IBCPausableUpgradeable
+    AccessManagedUpgradeable,
+    PausableUpgradeable
 {
     /// @notice Storage of the ICS20Transfer contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -68,15 +73,6 @@ contract ICS20Transfer is
     bytes32 private constant ICS20TRANSFER_STORAGE_SLOT =
         0x823f7a8ea9ae6df0eb03ec5e1682d7a2839417ad8a91774118e6acf2e8d2f800;
 
-    /// @inheritdoc IICS20Transfer
-    bytes32 public constant DELEGATE_SENDER_ROLE = keccak256("DELEGATE_SENDER_ROLE");
-
-    /// @inheritdoc IICS20Transfer
-    bytes32 public constant TOKEN_OPERATOR_ROLE = keccak256("TOKEN_OPERATOR_ROLE");
-
-    /// @inheritdoc IICS20Transfer
-    bytes32 public constant ERC20_CUSTOMIZER_ROLE = keccak256("ERC20_CUSTOMIZER_ROLE");
-
     /// @dev This contract is meant to be deployed by a proxy, so the constructor is not used
     // natlint-disable-next-line MissingNotice
     constructor() {
@@ -88,20 +84,41 @@ contract ICS20Transfer is
         address ics26Router,
         address escrowLogic,
         address ibcERC20Logic,
-        address permit2
+        address permit2,
+        address authority
     )
         public
-        initializer
+        onlyVersion(0)
+        reinitializer(2)
     {
         __ReentrancyGuardTransient_init();
         __Multicall_init();
-        __IBCPausable_init();
+        __Pausable_init();
+        __AccessManaged_init(authority);
 
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         $._ics26 = IICS26Router(ics26Router);
         $._ibcERC20Beacon = new UpgradeableBeacon(ibcERC20Logic, address(this));
         $._escrowBeacon = new UpgradeableBeacon(escrowLogic, address(this));
         $._permit2 = ISignatureTransfer(permit2);
+    }
+
+    /// @inheritdoc IICS20Transfer
+    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
+        address ics26_ = address(_getICS20TransferStorage()._ics26);
+        require(IDeprecatedIBCUUPSUpgradeable(ics26_).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
+
+        __AccessManaged_init(authority);
+    }
+
+    /// @inheritdoc IPausable
+    function pause() external restricted {
+        _pause();
+    }
+
+    /// @inheritdoc IPausable
+    function unpause() external restricted {
+        _unpause();
     }
 
     /// @inheritdoc IICS20Transfer
@@ -139,11 +156,6 @@ contract ICS20Transfer is
         address contractAddress = address(_getICS20TransferStorage()._ibcERC20Contracts[denom]);
         require(contractAddress != address(0), ICS20DenomNotFound(denom));
         return contractAddress;
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function isTokenOperator(address account) external view returns (bool) {
-        return hasRole(TOKEN_OPERATOR_ROLE, account);
     }
 
     /// @inheritdoc IICS20Transfer
@@ -191,7 +203,7 @@ contract ICS20Transfer is
         return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
     }
 
-    /// @inheritdoc IICS20Transfer
+    /// @inheritdoc IICS20TransferAccessControlled
     function sendTransferWithSender(
         IICS20TransferMsgs.SendTransferMsg calldata msg_,
         address sender
@@ -199,7 +211,7 @@ contract ICS20Transfer is
         external
         whenNotPaused
         nonReentrant
-        onlyRole(DELEGATE_SENDER_ROLE)
+        restricted
         returns (uint64)
     {
         require(msg_.amount > 0, IICS20Errors.ICS20InvalidAmount(0));
@@ -263,8 +275,8 @@ contract ICS20Transfer is
         );
     }
 
-    /// @inheritdoc IICS20Transfer
-    function setCustomERC20(string calldata denom, address token) external onlyRole(ERC20_CUSTOMIZER_ROLE) {
+    /// @inheritdoc IICS20TransferAccessControlled
+    function setCustomERC20(string calldata denom, address token) external restricted {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         require(address($._ibcERC20Contracts[denom]) == address(0), IICS20Errors.ICS20DenomAlreadyExists(denom));
         require(
@@ -357,11 +369,16 @@ contract ICS20Transfer is
         nonReentrant
         whenNotPaused
     {
-        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
-            IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
-                abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
+        IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
+            abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
 
-            _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        if (keccak256(msg_.acknowledgement) == ICS24Host.KECCAK256_UNIVERSAL_ERROR_ACK) {
+            // if the acknowledgement is an error, we must refund the tokens to the sender
+            (, address sender) = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+            IBCSenderCallbacksLib.ackPacketCallback(sender, false, msg_);
+        } else {
+            address sender = ICS20Lib.mustHexStringToAddress(packetData.sender);
+            IBCSenderCallbacksLib.ackPacketCallback(sender, true, msg_);
         }
     }
 
@@ -374,19 +391,23 @@ contract ICS20Transfer is
     {
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData =
             abi.decode(msg_.payload.value, (IICS20TransferMsgs.FungibleTokenPacketData));
-        _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        (, address sender) = _refundTokens(msg_.payload.sourcePort, msg_.sourceClient, packetData);
+        IBCSenderCallbacksLib.timeoutPacketCallback(sender, msg_);
     }
 
     /// @notice Refund the tokens to the sender
     /// @param sourcePort The source port of the packet
     /// @param sourceClient The source client of the packet
     /// @param packetData The packet data
+    /// @return The address of the erc20 contract that was refunded
+    /// @return The address that received the refunded tokens, i.e. sender of the packet
     function _refundTokens(
         string calldata sourcePort,
         string calldata sourceClient,
         IICS20TransferMsgs.FungibleTokenPacketData memory packetData
     )
         private
+        returns (address, address)
     {
         ICS20TransferStorage storage $ = _getICS20TransferStorage();
         IEscrow escrow = $._escrows[sourceClient];
@@ -417,6 +438,7 @@ contract ICS20Transfer is
         }
 
         escrow.send(IERC20(erc20Address), refundee, packetData.amount);
+        return (erc20Address, refundee);
     }
 
     /// @notice Transfer tokens from sender to receiver
@@ -478,7 +500,11 @@ contract ICS20Transfer is
         IEscrow escrow = $._escrows[clientId];
         if (address(escrow) == address(0)) {
             escrow = IEscrow(
-                address(new BeaconProxy(address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this)))))
+                address(
+                    new BeaconProxy(
+                        address($._escrowBeacon), abi.encodeCall(IEscrow.initialize, (address(this), authority()))
+                    )
+                )
             );
             $._escrows[clientId] = escrow;
         }
@@ -496,55 +522,17 @@ contract ICS20Transfer is
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override onlyAdmin { }
+    function _authorizeUpgrade(address) internal override restricted { }
     // solhint-disable-previous-line no-empty-blocks
 
-    /// @inheritdoc IBCPausableUpgradeable
-    function _authorizeSetPauser(address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc IBCPausableUpgradeable
-    function _authorizeSetUnpauser(address) internal view override onlyAdmin { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc IICS20Transfer
-    function upgradeEscrowTo(address newEscrowLogic) external onlyAdmin {
+    /// @inheritdoc IICS20TransferAccessControlled
+    function upgradeEscrowTo(address newEscrowLogic) external restricted {
         _getICS20TransferStorage()._escrowBeacon.upgradeTo(newEscrowLogic);
     }
 
-    /// @inheritdoc IICS20Transfer
-    function upgradeIBCERC20To(address newIBCERC20Logic) external onlyAdmin {
+    /// @inheritdoc IICS20TransferAccessControlled
+    function upgradeIBCERC20To(address newIBCERC20Logic) external restricted {
         _getICS20TransferStorage()._ibcERC20Beacon.upgradeTo(newIBCERC20Logic);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function grantDelegateSenderRole(address account) external onlyAdmin {
-        _grantRole(DELEGATE_SENDER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function revokeDelegateSenderRole(address account) external onlyAdmin {
-        _revokeRole(DELEGATE_SENDER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function grantTokenOperatorRole(address account) external onlyAdmin {
-        _grantRole(TOKEN_OPERATOR_ROLE, account);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function revokeTokenOperatorRole(address account) external onlyAdmin {
-        _revokeRole(TOKEN_OPERATOR_ROLE, account);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function grantERC20CustomizerRole(address account) external onlyAdmin {
-        _grantRole(ERC20_CUSTOMIZER_ROLE, account);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function revokeERC20CustomizerRole(address account) external onlyAdmin {
-        _revokeRole(ERC20_CUSTOMIZER_ROLE, account);
     }
 
     /// @notice Returns the ICS26Router contract
@@ -565,10 +553,10 @@ contract ICS20Transfer is
         _;
     }
 
-    /// @notice Modifier to check if the caller is an admin via the ICS26Router contract
-    modifier onlyAdmin() {
-        address ics26Router = address(_getICS26Router());
-        require(IIBCUUPSUpgradeable(ics26Router).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
+    /// @notice Modifier to check if the initialization version matches the expected version
+    /// @param version The expected current version of the contract
+    modifier onlyVersion(uint256 version) {
+        require(_getInitializedVersion() == version, InvalidInitialization());
         _;
     }
 }
