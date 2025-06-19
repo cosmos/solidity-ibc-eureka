@@ -1,14 +1,15 @@
 package chainconfig
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"time"
+)
+
+const (
+	nitroTestnodeDir = "nitro-testnode"
 )
 
 type TestnodeArbitrumChain struct {
@@ -21,92 +22,39 @@ type TestnodeArbitrumChain struct {
 	projectName string
 }
 
-func dockerComposeDown(ctx context.Context, dir string) {
-	downCmd := exec.CommandContext(ctx, "docker-compose", "down", "-v")
-	downCmd.Dir = dir
-	downCmd.Stdout = os.Stdout
-	downCmd.Stderr = os.Stderr
-	_ = downCmd.Run()
-}
-
-func cleanupExistingProjects(ctx context.Context) {
-	// Find all containers with names containing 'nitro-testnode'
-	psCmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--filter", "name=nitro-testnode", "--format", "{{.Names}}")
-	var out bytes.Buffer
-	psCmd.Stdout = &out
-	psCmd.Stderr = os.Stderr
-	_ = psCmd.Run()
-
-	containerNames := strings.Fields(out.String())
-	if len(containerNames) == 0 {
-		return
-	}
-
-	fmt.Printf("Found existing nitro-testnode containers: %v\n", containerNames)
-
-	// Stop all containers
-	stopArgs := append([]string{"stop"}, containerNames...)
-	stopCmd := exec.CommandContext(ctx, "docker", stopArgs...)
-	stopCmd.Stdout = os.Stdout
-	stopCmd.Stderr = os.Stderr
-	_ = stopCmd.Run()
-
-	// Remove all containers
-	rmArgs := append([]string{"rm"}, containerNames...)
-	rmCmd := exec.CommandContext(ctx, "docker", rmArgs...)
-	rmCmd.Stdout = os.Stdout
-	rmCmd.Stderr = os.Stderr
-	_ = rmCmd.Run()
-
-	// Clean up any orphaned volumes
-	volumeCmd := exec.CommandContext(ctx, "docker", "volume", "prune", "-f", "--filter", "label=com.docker.compose.project")
-	volumeCmd.Stdout = os.Stdout
-	volumeCmd.Stderr = os.Stderr
-	_ = volumeCmd.Run()
-
-	fmt.Println("Cleaned up existing nitro-testnode projects")
-}
-
 func SpinUpTestnodeArbitrum(ctx context.Context) (TestnodeArbitrumChain, error) {
-	// Clean up any existing nitro-testnode Docker Compose projects first
-	cleanupExistingProjects(ctx)
+	// Check if the directory already exists
+	if _, err := os.Stat("nitro-testnode"); os.IsNotExist(err) {
+		// Clone the nitro-testnode repository
+		cloneCmd := exec.CommandContext(ctx, "git", "clone", "-b", "release", "--recurse-submodules",
+			"https://github.com/OffchainLabs/nitro-testnode.git")
+		cloneCmd.Stdout = os.Stdout
+		cloneCmd.Stderr = os.Stderr
 
-	// Create a temporary directory for the testnode
-	tempDir, err := os.MkdirTemp("", "nitro-testnode-*")
-	if err != nil {
-		return TestnodeArbitrumChain{}, fmt.Errorf("failed to create temp directory: %w", err)
-	}
+		if err := cloneCmd.Run(); err != nil {
+			return TestnodeArbitrumChain{}, fmt.Errorf("failed to clone nitro-testnode: %w", err)
+		}
 
-	// Generate a unique project name
-	projectName := fmt.Sprintf("nitro-testnode-%d", time.Now().Unix())
+		if err := os.Chdir(nitroTestnodeDir); err != nil {
+			return TestnodeArbitrumChain{}, fmt.Errorf("failed to change to testnode directory: %w", err)
+		}
+	} else {
+		// Directory exists, pull latest changes
+		if err := os.Chdir(nitroTestnodeDir); err != nil {
+			return TestnodeArbitrumChain{}, fmt.Errorf("failed to change to testnode directory: %w", err)
+		}
 
-	// Clone the nitro-testnode repository
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", "-b", "release", "--recurse-submodules",
-		"https://github.com/OffchainLabs/nitro-testnode.git", tempDir)
-	cloneCmd.Stdout = os.Stdout
-	cloneCmd.Stderr = os.Stderr
+		pullCmd := exec.CommandContext(ctx, "git", "pull", "origin", "release")
+		pullCmd.Stdout = os.Stdout
+		pullCmd.Stderr = os.Stderr
 
-	if err := cloneCmd.Run(); err != nil {
-		os.RemoveAll(tempDir)
-		return TestnodeArbitrumChain{}, fmt.Errorf("failed to clone nitro-testnode: %w", err)
-	}
-
-	// Change to the testnode directory
-	if err := os.Chdir(tempDir); err != nil {
-		os.RemoveAll(tempDir)
-		return TestnodeArbitrumChain{}, fmt.Errorf("failed to change to testnode directory: %w", err)
-	}
-
-	// Make the test-node.bash script executable
-	scriptPath := filepath.Join(tempDir, "test-node.bash")
-	if err := os.Chmod(scriptPath, 0755); err != nil {
-		dockerComposeDown(ctx, tempDir)
-		os.RemoveAll(tempDir)
-		return TestnodeArbitrumChain{}, fmt.Errorf("failed to make script executable: %w", err)
+		if err := pullCmd.Run(); err != nil {
+			return TestnodeArbitrumChain{}, fmt.Errorf("failed to pull latest changes: %w", err)
+		}
 	}
 
 	// Always bring down any previous docker-compose project before starting
-	dockerComposeDown(ctx, tempDir)
+	dockerComposeDown(ctx, nitroTestnodeDir)
 
 	// Start the testnode with docker-compose - print output in real-time
 	fmt.Println("Starting test-node.bash...")
@@ -126,21 +74,19 @@ expect eof
 `
 
 	// Write the expect script to a temporary file
-	expectScriptPath := filepath.Join(tempDir, "run-testnode.exp")
-	if err := os.WriteFile(expectScriptPath, []byte(expectScript), 0755); err != nil {
-		dockerComposeDown(ctx, tempDir)
-		os.RemoveAll(tempDir)
+	scriptPath := "./run-testnode.exp"
+	if err := os.WriteFile(scriptPath, []byte(expectScript), 0755); err != nil {
+		dockerComposeDown(ctx, nitroTestnodeDir)
 		return TestnodeArbitrumChain{}, fmt.Errorf("failed to write expect script: %w", err)
 	}
 
-	startCmd := exec.CommandContext(ctx, expectScriptPath)
+	startCmd := exec.CommandContext(ctx, scriptPath)
 	startCmd.Stdout = os.Stdout
 	startCmd.Stderr = os.Stderr
 
 	if err := startCmd.Run(); err != nil {
 		fmt.Printf("test-node.bash failed with error: %v\n", err)
-		dockerComposeDown(ctx, tempDir)
-		os.RemoveAll(tempDir)
+		dockerComposeDown(ctx, nitroTestnodeDir)
 		return TestnodeArbitrumChain{}, fmt.Errorf("failed to start testnode: %w", err)
 	}
 
@@ -149,53 +95,30 @@ expect eof
 	// Wait a bit for services to start up
 	time.Sleep(15 * time.Second)
 
-	// Get the RPC URL from the sequencer service (L2 endpoint)
-	// The sequencer is the main L2 endpoint that doesn't require authentication
-	rpcURL := fmt.Sprintf("http://localhost:8547")
+	// TODO: Not entierly sure which one is the correct one to use for execution and consensus here
+	consensusRPC := "http://localhost:8547"
+	executionRPC := "http://localhost:8547"
 
 	// Verify the service is running by checking if we can connect
 	// We'll use a simple curl command to test the connection
 	testCmd := exec.CommandContext(ctx, "curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
-		"-d", `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}`, rpcURL)
+		"-d", `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}`, consensusRPC)
 
 	if err := testCmd.Run(); err != nil {
-		dockerComposeDown(ctx, tempDir)
-		os.RemoveAll(tempDir)
+		dockerComposeDown(ctx, nitroTestnodeDir)
 		return TestnodeArbitrumChain{}, fmt.Errorf("failed to verify RPC connection: %w", err)
 	}
 
 	return TestnodeArbitrumChain{
-		ExecutionRPC: rpcURL,
-		ConsensusRPC: rpcURL, // Same as ExecutionRPC for Arbitrum testnode
-		projectDir:   tempDir,
-		projectName:  projectName,
+		ExecutionRPC: executionRPC,
+		ConsensusRPC: consensusRPC, // Same as ExecutionRPC for Arbitrum testnode
+		projectDir:   nitroTestnodeDir,
+		projectName:  nitroTestnodeDir,
 	}, nil
 }
 
 func (e TestnodeArbitrumChain) Destroy(ctx context.Context) {
-	if e.projectDir == "" {
-		return
-	}
-
-	// Change to the project directory
-	if err := os.Chdir(e.projectDir); err != nil {
-		fmt.Printf("Warning: failed to change to project directory: %v\n", err)
-		return
-	}
-
-	// Stop and remove the docker-compose project
-	downCmd := exec.CommandContext(ctx, "docker-compose", "down", "-v")
-	downCmd.Stdout = os.Stdout
-	downCmd.Stderr = os.Stderr
-
-	if err := downCmd.Run(); err != nil {
-		fmt.Printf("Warning: failed to stop docker-compose: %v\n", err)
-	}
-
-	// Clean up the temporary directory
-	if err := os.RemoveAll(e.projectDir); err != nil {
-		fmt.Printf("Warning: failed to remove temp directory: %v\n", err)
-	}
+	dockerComposeDown(ctx, nitroTestnodeDir)
 }
 
 func (e TestnodeArbitrumChain) DumpLogs(ctx context.Context) error {
@@ -229,4 +152,12 @@ func (e TestnodeArbitrumChain) DumpLogs(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func dockerComposeDown(ctx context.Context, dir string) {
+	downCmd := exec.CommandContext(ctx, "docker-compose", "down", "-v")
+	downCmd.Dir = dir
+	downCmd.Stdout = os.Stdout
+	downCmd.Stderr = os.Stderr
+	_ = downCmd.Run()
 }

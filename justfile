@@ -244,17 +244,6 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
-# Run any e2e test in the L2TestSuite. For example, `just test-e2e-l2 Test_Deploy`
-[group('test')]
-test-e2e-l2-optimism testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
-
-# Run any e2e test in the L2ArbitrumTestSuite. For example, `just test-e2e-l2-arbitrum Test_Deploy`
-[group('test')]
-test-e2e-l2-arbitrum testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]
@@ -278,3 +267,31 @@ teardown-optimism:
 	kurtosis enclave stop local-optimism
 	kurtosis enclave rm local-optimism
 
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker-compose down || true
+	./test-node.bash --init --no-simple --detach
+
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
+
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}

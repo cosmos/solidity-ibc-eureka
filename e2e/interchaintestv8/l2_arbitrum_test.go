@@ -38,6 +38,10 @@ func (s *L2ArbitrumTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(err)
 	s.arbitrumChain = arbitrumChain
 	fmt.Printf("Arbitrum Testnode Chain: %+v\n", arbitrumChain)
+
+	s.T().Cleanup(func() {
+		s.arbitrumChain.Destroy(ctx)
+	})
 }
 
 func (s *L2ArbitrumTestSuite) TestDeployment() {

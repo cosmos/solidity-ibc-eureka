@@ -18,6 +18,7 @@ config.json
 scripts/ethgenesis/client_state.json
 scripts/ethgenesis/consensus_state.json
 go.work
+nitro-testnode
 
 # broadcasts
 !broadcast
