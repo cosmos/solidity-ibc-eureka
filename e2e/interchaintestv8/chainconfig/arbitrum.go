@@ -1,11 +1,13 @@
 package chainconfig
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -27,7 +29,48 @@ func dockerComposeDown(ctx context.Context, dir string) {
 	_ = downCmd.Run()
 }
 
+func cleanupExistingProjects(ctx context.Context) {
+	// Find all containers with names containing 'nitro-testnode'
+	psCmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--filter", "name=nitro-testnode", "--format", "{{.Names}}")
+	var out bytes.Buffer
+	psCmd.Stdout = &out
+	psCmd.Stderr = os.Stderr
+	_ = psCmd.Run()
+
+	containerNames := strings.Fields(out.String())
+	if len(containerNames) == 0 {
+		return
+	}
+
+	fmt.Printf("Found existing nitro-testnode containers: %v\n", containerNames)
+
+	// Stop all containers
+	stopArgs := append([]string{"stop"}, containerNames...)
+	stopCmd := exec.CommandContext(ctx, "docker", stopArgs...)
+	stopCmd.Stdout = os.Stdout
+	stopCmd.Stderr = os.Stderr
+	_ = stopCmd.Run()
+
+	// Remove all containers
+	rmArgs := append([]string{"rm"}, containerNames...)
+	rmCmd := exec.CommandContext(ctx, "docker", rmArgs...)
+	rmCmd.Stdout = os.Stdout
+	rmCmd.Stderr = os.Stderr
+	_ = rmCmd.Run()
+
+	// Clean up any orphaned volumes
+	volumeCmd := exec.CommandContext(ctx, "docker", "volume", "prune", "-f", "--filter", "label=com.docker.compose.project")
+	volumeCmd.Stdout = os.Stdout
+	volumeCmd.Stderr = os.Stderr
+	_ = volumeCmd.Run()
+
+	fmt.Println("Cleaned up existing nitro-testnode projects")
+}
+
 func SpinUpTestnodeArbitrum(ctx context.Context) (TestnodeArbitrumChain, error) {
+	// Clean up any existing nitro-testnode Docker Compose projects first
+	cleanupExistingProjects(ctx)
+
 	// Create a temporary directory for the testnode
 	tempDir, err := os.MkdirTemp("", "nitro-testnode-*")
 	if err != nil {
