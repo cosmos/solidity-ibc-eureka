@@ -283,6 +283,6 @@ trigger-attestor:
 trigger-monitorer:
 	curl localhost:3000/monitoring
 
-noder-reader-dev:
+node-reader-dev:
 	cargo run --manifest-path programs/l2-node-reader/Cargo.toml
 
