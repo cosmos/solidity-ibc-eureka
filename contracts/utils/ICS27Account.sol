@@ -44,25 +44,27 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     }
 
     /// @inheritdoc IICS27Account
-    function functionCall(address target, bytes memory data) external onlyICS27 returns (bytes memory) {
+    function functionCall(address target, bytes calldata data) external onlyICS27 returns (bytes memory) {
         return Address.functionCall(target, data);
     }
 
     /// @inheritdoc IICS27Account
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    )
-        external
-        onlySelf
-        returns (bytes memory)
-    {
+    function execute(address target, bytes calldata data, uint256 value) external onlySelf returns (bytes memory) {
         return Address.functionCallWithValue(target, data, value);
     }
 
     /// @inheritdoc IICS27Account
-    function functionDelegateCall(address target, bytes calldata data) external onlySelf returns (bytes memory) {
+    function executeBatch(Call[] calldata calls) external onlySelf returns (bytes[] memory) {
+        bytes[] memory results = new bytes[](calls.length);
+        for (uint256 i = 0; i < calls.length; i++) {
+            Call calldata call = calls[i];
+            results[i] = Address.functionCallWithValue(call.target, call.data, call.value);
+        }
+        return results;
+    }
+
+    /// @inheritdoc IICS27Account
+    function delegateExecute(address target, bytes calldata data) external onlySelf returns (bytes memory) {
         return Address.functionDelegateCall(target, data);
     }
 
