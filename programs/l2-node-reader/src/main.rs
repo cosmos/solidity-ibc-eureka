@@ -6,6 +6,8 @@ use l2_adapter::{
 };
 use tokio::time::interval;
 
+const URL: &str = "http://127.0.0.1:49461";
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt().init();
@@ -13,9 +15,7 @@ async fn main() {
     let mut finalized_ticker = interval(Duration::from_secs(5));
     let mut unfinalized_ticker = interval(Duration::from_secs(3));
 
-    let conf = OpConsensusClientConfig {
-        url: "http://127.0.0.1:49461".into(),
-    };
+    let conf = OpConsensusClientConfig { url: URL.into() };
     let client = OpConsensusClient::from_config(&conf);
 
     loop {
