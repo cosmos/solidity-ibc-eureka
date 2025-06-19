@@ -4,6 +4,16 @@ pragma solidity ^0.8.28;
 /// @title IICS27Account
 /// @notice Interface for ICS27 Accounts to implement
 interface IICS27Account {
+    /// @notice Call struct for the `executeBatch` function.
+    /// @param target The target address to call
+    /// @param data The data to send to the target address
+    /// @param value The value to send to the target address
+    struct Call {
+        address target;
+        bytes data;
+        uint256 value;
+    }
+
     /// @notice This is a wrapper around openzeppelin's `Address.sendValue`.
     /// @dev This function can only be called by self.
     /// @param recipient The address to send the value to
@@ -16,7 +26,7 @@ interface IICS27Account {
     /// @param target The target address to call
     /// @param data The data to send to the target address
     /// @return result The result of the call
-    function functionCall(address target, bytes memory data) external returns (bytes memory result);
+    function functionCall(address target, bytes calldata data) external returns (bytes memory result);
 
     /// @notice Performs a Solidity function call using a low level `call`.
     /// @dev This is a wrapper around openzeppelin's `Address.functionCallWithValue`.
@@ -25,13 +35,14 @@ interface IICS27Account {
     /// @param data The data to send to the target address
     /// @param value The value to send to the target address
     /// @return result The result of the call
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    )
-        external
-        returns (bytes memory result);
+    function execute(address target, bytes calldata data, uint256 value) external returns (bytes memory result);
+
+    /// @notice Performs multiple Solidity function calls using a low level `call`.
+    /// @dev This is a wrapper around openzeppelin's `Address.functionCallWithValue`.
+    /// @dev This function can only be called by self.
+    /// @param calls The array of `Call` structs to execute
+    /// @return results The array of results from the calls
+    function executeBatch(Call[] calldata calls) external returns (bytes[] memory results);
 
     /// @notice Performs a Solidity function call using a low level `delegatecall`.
     /// @dev This is a wrapper around openzeppelin's `Address.functionDelegateCall`.
@@ -39,7 +50,7 @@ interface IICS27Account {
     /// @param target The target address to call
     /// @param data The data to send to the target address
     /// @return result The result of the call
-    function functionDelegateCall(address target, bytes calldata data) external returns (bytes memory result);
+    function delegateExecute(address target, bytes calldata data) external returns (bytes memory result);
 
     /// @notice Get the ICS27 contract address
     /// @return The ICS27 contract address
