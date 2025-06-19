@@ -273,3 +273,16 @@ test-e2e-l2 testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithL2TestSuite/{{testname}}
 
+
+event-loop-dev:
+	cargo run --manifest-path programs/event-loop/Cargo.toml -- start -c programs/event-loop/dev.json
+
+trigger-attestor:
+	curl localhost:3000/l2	
+
+trigger-monitorer:
+	curl localhost:3000/monitoring
+
+noder-reader-dev:
+	cargo run --manifest-path programs/l2-node-reader/Cargo.toml
+

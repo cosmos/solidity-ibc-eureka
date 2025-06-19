@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use alloy_rpc_client::{ClientBuilder, ReqwestClient};
+use serde_json::Value;
 
 mod config;
 mod header;
@@ -13,7 +14,8 @@ use crate::{
     l2_adapter_client::{L2Adapter, L2AdapterClientError},
 };
 
-struct SyncState(HashMap<&'static str, SyncHeader>);
+// Owned key type required by `Deserialize` macro
+struct SyncState(HashMap<String, SyncHeader>);
 
 #[derive(Debug)]
 pub struct OpConsensusClient {
@@ -27,7 +29,13 @@ impl OpConsensusClient {
     }
 
     async fn get_sync_state(&self) -> Result<SyncState, L2AdapterClientError> {
-        Ok(SyncState(HashMap::new()))
+        let sync_state: HashMap<String, SyncHeader> = self
+            .client
+            .request_noparams("optimism_syncStatus")
+            .await
+            .map_err(|e| L2AdapterClientError::FinalizedBlockError(e.to_string()))?;
+
+        Ok(SyncState(sync_state))
     }
 }
 

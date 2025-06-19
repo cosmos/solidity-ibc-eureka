@@ -1,17 +1,17 @@
 use alloy::primitives::FixedBytes;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(super) struct SequenceNumber(u64);
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(super) struct L1Origin {
     hash: FixedBytes<32>,
     #[serde(rename = "number")]
     height: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(super) struct SyncHeader {
     pub(super) hash: FixedBytes<32>,
     #[serde(rename = "number")]

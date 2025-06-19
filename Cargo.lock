@@ -4128,6 +4128,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "l2-node-reader"
+version = "0.1.0"
+dependencies = [
+ "l2-adapter",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
