@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { IICS27AccountMsgs } from "../msgs/IICS27AccountMsgs.sol";
+
 /// @title IICS27Account
 /// @notice Interface for ICS27 Accounts to implement
 interface IICS27Account {
-    /// @notice Call struct for the `executeBatch` function.
-    /// @param target The target address to call
-    /// @param data The data to send to the target address
-    /// @param value The value to send to the target address
-    struct Call {
-        address target;
-        bytes data;
-        uint256 value;
-    }
+    /// @notice Get the ICS27 contract address
+    /// @return The ICS27 contract address
+    function ics27() external view returns (address);
 
     /// @notice This is a wrapper around openzeppelin's `Address.sendValue`.
     /// @dev This function can only be called by self.
@@ -42,7 +38,7 @@ interface IICS27Account {
     /// @dev This function can only be called by self.
     /// @param calls The array of `Call` structs to execute
     /// @return results The array of results from the calls
-    function executeBatch(Call[] calldata calls) external returns (bytes[] memory results);
+    function executeBatch(IICS27AccountMsgs.Call[] calldata calls) external returns (bytes[] memory results);
 
     /// @notice Performs a Solidity function call using a low level `delegatecall`.
     /// @dev This is a wrapper around openzeppelin's `Address.functionDelegateCall`.
@@ -51,10 +47,6 @@ interface IICS27Account {
     /// @param data The data to send to the target address
     /// @return result The result of the call
     function delegateExecute(address target, bytes calldata data) external returns (bytes memory result);
-
-    /// @notice Get the ICS27 contract address
-    /// @return The ICS27 contract address
-    function ics27() external view returns (address);
 
     /// @notice Initializes the ICS27Account contract
     /// @dev This function is meant to be called by a proxy

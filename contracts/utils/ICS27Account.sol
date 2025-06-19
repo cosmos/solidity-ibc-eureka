@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { IICS27AccountMsgs } from "../msgs/IICS27AccountMsgs.sol";
+
 import { IICS27Errors } from "../errors/IICS27Errors.sol";
 import { IICS27Account } from "../interfaces/IICS27Account.sol";
 
@@ -39,6 +41,11 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     }
 
     /// @inheritdoc IICS27Account
+    function ics27() external view returns (address) {
+        return _getICS27AccountStorage()._ics27;
+    }
+
+    /// @inheritdoc IICS27Account
     function sendValue(address payable recipient, uint256 amount) external onlySelf {
         Address.sendValue(recipient, amount);
     }
@@ -54,10 +61,10 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     }
 
     /// @inheritdoc IICS27Account
-    function executeBatch(Call[] calldata calls) external onlySelf returns (bytes[] memory) {
+    function executeBatch(IICS27AccountMsgs.Call[] calldata calls) external onlySelf returns (bytes[] memory) {
         bytes[] memory results = new bytes[](calls.length);
         for (uint256 i = 0; i < calls.length; i++) {
-            Call calldata call = calls[i];
+            IICS27AccountMsgs.Call calldata call = calls[i];
             results[i] = Address.functionCallWithValue(call.target, call.data, call.value);
         }
         return results;
@@ -66,11 +73,6 @@ contract ICS27Account is IICS27Errors, IICS27Account, ContextUpgradeable {
     /// @inheritdoc IICS27Account
     function delegateExecute(address target, bytes calldata data) external onlySelf returns (bytes memory) {
         return Address.functionDelegateCall(target, data);
-    }
-
-    /// @inheritdoc IICS27Account
-    function ics27() external view returns (address) {
-        return _getICS27AccountStorage()._ics27;
     }
 
     /// @notice Returns the storage of the ICS27Account contract
