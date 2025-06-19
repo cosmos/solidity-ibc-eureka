@@ -41,6 +41,11 @@ func (s *L2OptimismTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().NoError(err)
 	s.kurtosisOptimismChain = kurtosisOptimismChain
 	fmt.Printf("Kurtosis Optimism Chain: %+v\n", kurtosisOptimismChain)
+
+	s.T().Cleanup(func() {
+		s.kurtosisOptimismChain.Destroy(ctx)
+	})
+
 	// s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ExecutionRPC, nil, kurtosisOptimismChain.Faucet)
 	// s.Require().NoError(err)
 }
