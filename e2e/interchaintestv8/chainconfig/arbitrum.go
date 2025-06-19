@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"time"
 )
 
 const (
@@ -15,11 +14,6 @@ const (
 type TestnodeArbitrumChain struct {
 	ExecutionRPC string
 	ConsensusRPC string
-	// Faucet       *ecdsa.PrivateKey // Ignore for now!
-
-	// Internal fields for cleanup
-	projectDir  string
-	projectName string
 }
 
 func SpinUpTestnodeArbitrum(ctx context.Context) (TestnodeArbitrumChain, error) {
@@ -92,28 +86,13 @@ expect eof
 
 	fmt.Println("test-node.bash completed successfully")
 
-	// Wait a bit for services to start up
-	time.Sleep(15 * time.Second)
-
 	// TODO: Not entierly sure which one is the correct one to use for execution and consensus here
 	consensusRPC := "http://localhost:8547"
 	executionRPC := "http://localhost:8547"
 
-	// Verify the service is running by checking if we can connect
-	// We'll use a simple curl command to test the connection
-	testCmd := exec.CommandContext(ctx, "curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
-		"-d", `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}`, consensusRPC)
-
-	if err := testCmd.Run(); err != nil {
-		dockerComposeDown(ctx, nitroTestnodeDir)
-		return TestnodeArbitrumChain{}, fmt.Errorf("failed to verify RPC connection: %w", err)
-	}
-
 	return TestnodeArbitrumChain{
 		ExecutionRPC: executionRPC,
 		ConsensusRPC: consensusRPC, // Same as ExecutionRPC for Arbitrum testnode
-		projectDir:   nitroTestnodeDir,
-		projectName:  nitroTestnodeDir,
 	}, nil
 }
 
@@ -122,16 +101,10 @@ func (e TestnodeArbitrumChain) Destroy(ctx context.Context) {
 }
 
 func (e TestnodeArbitrumChain) DumpLogs(ctx context.Context) error {
-	if e.projectDir == "" {
-		return fmt.Errorf("no project directory available")
-	}
-
-	// Change to the project directory
-	if err := os.Chdir(e.projectDir); err != nil {
+	if err := os.Chdir(nitroTestnodeDir); err != nil {
 		return fmt.Errorf("failed to change to project directory: %w", err)
 	}
 
-	// Get logs from the geth service
 	fmt.Println("=== Geth Service Logs ===")
 	gethCmd := exec.CommandContext(ctx, "docker-compose", "logs", "geth")
 	gethCmd.Stdout = os.Stdout
@@ -141,7 +114,6 @@ func (e TestnodeArbitrumChain) DumpLogs(ctx context.Context) error {
 		fmt.Printf("Warning: failed to get geth logs: %v\n", err)
 	}
 
-	// Get logs from the sequencer service
 	fmt.Println("\n=== Sequencer Service Logs ===")
 	sequencerCmd := exec.CommandContext(ctx, "docker-compose", "logs", "sequencer")
 	sequencerCmd.Stdout = os.Stdout
