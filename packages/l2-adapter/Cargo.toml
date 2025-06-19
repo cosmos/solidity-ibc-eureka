@@ -7,7 +7,7 @@ repository.workspace = true
 keywords.workspace = true
 
 [dependencies]
-alloy = { workspace = true, default-features = false, features = ["consensus"] }
+alloy = { workspace = true, default-features = false, features = ["consensus", "serde"] }
 alloy-rpc-client = { workspace = true, default-features = false, features = ["reqwest"] }
 serde            = { workspace = true, default-features = false, features = ["derive"] }
 thiserror        = { workspace = true, default-features = false }

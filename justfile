@@ -281,6 +281,10 @@ run-arbitrum:
 	docker-compose down || true
 	./test-node.bash --init --no-simple --detach
 
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
 
 event-loop-dev:
 	cargo run --manifest-path programs/event-loop/Cargo.toml -- start -c programs/event-loop/dev.json
@@ -294,10 +298,6 @@ trigger-monitorer:
 node-reader-dev:
 	cargo run --manifest-path programs/l2-node-reader/Cargo.toml
 
-teardown-arbitrum:
-	#!/bin/bash
-	cd e2e/interchaintestv8/nitro-testnode
-	docker-compose down || true
 
 [group('test')]
 test-e2e-l2-optimism testname:

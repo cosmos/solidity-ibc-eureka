@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use alloy_rpc_client::{ClientBuilder, ReqwestClient};
-use serde_json::Value;
 
 mod config;
 mod header;
