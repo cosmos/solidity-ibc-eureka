@@ -267,11 +267,19 @@ teardown-optimism:
 	kurtosis enclave stop local-optimism
 	kurtosis enclave rm local-optimism
 
-# Run any e2e test in the L2TestSuite. For example, `just test-e2e-l2 Test_Deploy`
-[group('test')]
-test-e2e-l2 testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithL2TestSuite/{{testname}}
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker-compose down || true
+	./test-node.bash --init --no-simple --detach
 
 
 event-loop-dev:
@@ -286,3 +294,17 @@ trigger-monitorer:
 node-reader-dev:
 	cargo run --manifest-path programs/l2-node-reader/Cargo.toml
 
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker-compose down || true
+
+[group('test')]
+test-e2e-l2-optimism testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2OptimismTestSuite/{{testname}}
+
+[group('test')]
+test-e2e-l2-arbitrum testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithL2ArbitrumTestSuite/{{testname}}
