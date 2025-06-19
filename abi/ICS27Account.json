@@ -6,7 +6,7 @@
   },
   {
     "type": "function",
-    "name": "functionCall",
+    "name": "delegateExecute",
     "inputs": [
       {
         "name": "target",
@@ -30,7 +30,7 @@
   },
   {
     "type": "function",
-    "name": "functionCallWithValue",
+    "name": "execute",
     "inputs": [
       {
         "name": "target",
@@ -59,7 +59,43 @@
   },
   {
     "type": "function",
-    "name": "functionDelegateCall",
+    "name": "executeBatch",
+    "inputs": [
+      {
+        "name": "calls",
+        "type": "tuple[]",
+        "internalType": "struct IICS27AccountMsgs.Call[]",
+        "components": [
+          {
+            "name": "target",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "data",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "value",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "functionCall",
     "inputs": [
       {
         "name": "target",
@@ -187,6 +223,17 @@
     "inputs": [
       {
         "name": "receiver",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ICS27InvalidSender",
+    "inputs": [
+      {
+        "name": "sender",
         "type": "string",
         "internalType": "string"
       }

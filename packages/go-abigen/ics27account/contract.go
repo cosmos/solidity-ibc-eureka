@@ -29,9 +29,16 @@ var (
 	_ = abi.ConvertType
 )
 
+// IICS27AccountMsgsCall is an auto generated low-level Go binding around an user-defined struct.
+type IICS27AccountMsgsCall struct {
+	Target common.Address
+	Data   []byte
+	Value  *big.Int
+}
+
 // ContractMetaData contains all meta data concerning the Contract contract.
 var ContractMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"functionCall\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"functionCallWithValue\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"functionDelegateCall\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ics27\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics27_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendValue\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"addresspayable\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS27InvalidAddress\",\"inputs\":[{\"name\":\"addr\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27InvalidPort\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27InvalidReceiver\",\"inputs\":[{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27Unauthorized\",\"inputs\":[{\"name\":\"expected\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS27UnexpectedEncoding\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27UnexpectedVersion\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"delegateExecute\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"execute\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeBatch\",\"inputs\":[{\"name\":\"calls\",\"type\":\"tuple[]\",\"internalType\":\"structIICS27AccountMsgs.Call[]\",\"components\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"functionCall\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ics27\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"ics27_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"sendValue\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"addresspayable\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"FailedCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ICS27InvalidAddress\",\"inputs\":[{\"name\":\"addr\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27InvalidPort\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27InvalidReceiver\",\"inputs\":[{\"name\":\"receiver\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27InvalidSender\",\"inputs\":[{\"name\":\"sender\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27Unauthorized\",\"inputs\":[{\"name\":\"expected\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ICS27UnexpectedEncoding\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"actual\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"ICS27UnexpectedVersion\",\"inputs\":[{\"name\":\"expected\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"version\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]}]",
 }
 
 // ContractABI is the input ABI used to generate the binding from.
@@ -211,6 +218,69 @@ func (_Contract *ContractCallerSession) Ics27() (common.Address, error) {
 	return _Contract.Contract.Ics27(&_Contract.CallOpts)
 }
 
+// DelegateExecute is a paid mutator transaction binding the contract method 0xb10cc728.
+//
+// Solidity: function delegateExecute(address target, bytes data) returns(bytes)
+func (_Contract *ContractTransactor) DelegateExecute(opts *bind.TransactOpts, target common.Address, data []byte) (*types.Transaction, error) {
+	return _Contract.contract.Transact(opts, "delegateExecute", target, data)
+}
+
+// DelegateExecute is a paid mutator transaction binding the contract method 0xb10cc728.
+//
+// Solidity: function delegateExecute(address target, bytes data) returns(bytes)
+func (_Contract *ContractSession) DelegateExecute(target common.Address, data []byte) (*types.Transaction, error) {
+	return _Contract.Contract.DelegateExecute(&_Contract.TransactOpts, target, data)
+}
+
+// DelegateExecute is a paid mutator transaction binding the contract method 0xb10cc728.
+//
+// Solidity: function delegateExecute(address target, bytes data) returns(bytes)
+func (_Contract *ContractTransactorSession) DelegateExecute(target common.Address, data []byte) (*types.Transaction, error) {
+	return _Contract.Contract.DelegateExecute(&_Contract.TransactOpts, target, data)
+}
+
+// Execute is a paid mutator transaction binding the contract method 0xa04a0908.
+//
+// Solidity: function execute(address target, bytes data, uint256 value) returns(bytes)
+func (_Contract *ContractTransactor) Execute(opts *bind.TransactOpts, target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
+	return _Contract.contract.Transact(opts, "execute", target, data, value)
+}
+
+// Execute is a paid mutator transaction binding the contract method 0xa04a0908.
+//
+// Solidity: function execute(address target, bytes data, uint256 value) returns(bytes)
+func (_Contract *ContractSession) Execute(target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
+	return _Contract.Contract.Execute(&_Contract.TransactOpts, target, data, value)
+}
+
+// Execute is a paid mutator transaction binding the contract method 0xa04a0908.
+//
+// Solidity: function execute(address target, bytes data, uint256 value) returns(bytes)
+func (_Contract *ContractTransactorSession) Execute(target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
+	return _Contract.Contract.Execute(&_Contract.TransactOpts, target, data, value)
+}
+
+// ExecuteBatch is a paid mutator transaction binding the contract method 0x8a89b44b.
+//
+// Solidity: function executeBatch((address,bytes,uint256)[] calls) returns(bytes[])
+func (_Contract *ContractTransactor) ExecuteBatch(opts *bind.TransactOpts, calls []IICS27AccountMsgsCall) (*types.Transaction, error) {
+	return _Contract.contract.Transact(opts, "executeBatch", calls)
+}
+
+// ExecuteBatch is a paid mutator transaction binding the contract method 0x8a89b44b.
+//
+// Solidity: function executeBatch((address,bytes,uint256)[] calls) returns(bytes[])
+func (_Contract *ContractSession) ExecuteBatch(calls []IICS27AccountMsgsCall) (*types.Transaction, error) {
+	return _Contract.Contract.ExecuteBatch(&_Contract.TransactOpts, calls)
+}
+
+// ExecuteBatch is a paid mutator transaction binding the contract method 0x8a89b44b.
+//
+// Solidity: function executeBatch((address,bytes,uint256)[] calls) returns(bytes[])
+func (_Contract *ContractTransactorSession) ExecuteBatch(calls []IICS27AccountMsgsCall) (*types.Transaction, error) {
+	return _Contract.Contract.ExecuteBatch(&_Contract.TransactOpts, calls)
+}
+
 // FunctionCall is a paid mutator transaction binding the contract method 0xa0b5ffb0.
 //
 // Solidity: function functionCall(address target, bytes data) returns(bytes)
@@ -230,48 +300,6 @@ func (_Contract *ContractSession) FunctionCall(target common.Address, data []byt
 // Solidity: function functionCall(address target, bytes data) returns(bytes)
 func (_Contract *ContractTransactorSession) FunctionCall(target common.Address, data []byte) (*types.Transaction, error) {
 	return _Contract.Contract.FunctionCall(&_Contract.TransactOpts, target, data)
-}
-
-// FunctionCallWithValue is a paid mutator transaction binding the contract method 0x2a011594.
-//
-// Solidity: function functionCallWithValue(address target, bytes data, uint256 value) returns(bytes)
-func (_Contract *ContractTransactor) FunctionCallWithValue(opts *bind.TransactOpts, target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	return _Contract.contract.Transact(opts, "functionCallWithValue", target, data, value)
-}
-
-// FunctionCallWithValue is a paid mutator transaction binding the contract method 0x2a011594.
-//
-// Solidity: function functionCallWithValue(address target, bytes data, uint256 value) returns(bytes)
-func (_Contract *ContractSession) FunctionCallWithValue(target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	return _Contract.Contract.FunctionCallWithValue(&_Contract.TransactOpts, target, data, value)
-}
-
-// FunctionCallWithValue is a paid mutator transaction binding the contract method 0x2a011594.
-//
-// Solidity: function functionCallWithValue(address target, bytes data, uint256 value) returns(bytes)
-func (_Contract *ContractTransactorSession) FunctionCallWithValue(target common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	return _Contract.Contract.FunctionCallWithValue(&_Contract.TransactOpts, target, data, value)
-}
-
-// FunctionDelegateCall is a paid mutator transaction binding the contract method 0xee33b7e2.
-//
-// Solidity: function functionDelegateCall(address target, bytes data) returns(bytes)
-func (_Contract *ContractTransactor) FunctionDelegateCall(opts *bind.TransactOpts, target common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.contract.Transact(opts, "functionDelegateCall", target, data)
-}
-
-// FunctionDelegateCall is a paid mutator transaction binding the contract method 0xee33b7e2.
-//
-// Solidity: function functionDelegateCall(address target, bytes data) returns(bytes)
-func (_Contract *ContractSession) FunctionDelegateCall(target common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.Contract.FunctionDelegateCall(&_Contract.TransactOpts, target, data)
-}
-
-// FunctionDelegateCall is a paid mutator transaction binding the contract method 0xee33b7e2.
-//
-// Solidity: function functionDelegateCall(address target, bytes data) returns(bytes)
-func (_Contract *ContractTransactorSession) FunctionDelegateCall(target common.Address, data []byte) (*types.Transaction, error) {
-	return _Contract.Contract.FunctionDelegateCall(&_Contract.TransactOpts, target, data)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xc4d66de8.

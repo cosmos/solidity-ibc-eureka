@@ -626,6 +626,17 @@
   },
   {
     "type": "error",
+    "name": "ICS27InvalidSender",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ICS27Unauthorized",
     "inputs": [
       {
