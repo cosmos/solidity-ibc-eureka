@@ -75,6 +75,25 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisOptimismChain.ConsensusRPC, nil, kurtosisOptimismChain.Faucet)
 		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			ctx := context.Background()
+			if s.T().Failed() {
+				_ = kurtosisOptimismChain.DumpLogs(ctx)
+			}
+			kurtosisOptimismChain.Destroy(ctx)
+		})
+	case testvalues.EthTestnetTypeArbitrum:
+		arbitrumChain, err := chainconfig.SpinUpTestnodeArbitrum(ctx) // TODO: Run this in a goroutine and wait for it to be ready
+		s.Require().NoError(err)
+		s.EthChain, err = ethereum.NewEthereum(ctx, arbitrumChain.ExecutionRPC, nil, nil) // No faucet for Arbitrum testnode yet
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			ctx := context.Background()
+			if s.T().Failed() {
+				_ = arbitrumChain.DumpLogs(ctx)
+			}
+			arbitrumChain.Destroy(ctx)
+		})
 	case testvalues.EthTestnetTypeNone:
 		// Do nothing
 	default:

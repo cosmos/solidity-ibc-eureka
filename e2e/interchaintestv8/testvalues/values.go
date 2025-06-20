@@ -76,6 +76,8 @@ const (
 	EthTestnetTypePoS = "pos"
 	// EthTestnetTypeOptimism is the Ethereum testnet type for using the Optimism chain.
 	EthTestnetTypeOptimism = "optimism"
+	// EthTestnetTypeArbitrum is the Ethereum testnet type for using the Arbitrum testnode.
+	EthTestnetTypeArbitrum = "arbitrum"
 	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
 	EthTestnetTypeNone = "none"
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
