@@ -158,7 +158,7 @@ pub fn evm_ics26_commitment_path(ibc_path: &[u8], slot: U256) -> U256 {
 mod test {
     use crate::{
         header::Header,
-        test_utils::fixtures::{self, get_packet_proof, InitialState, RelayerMessages},
+        test_utils::fixtures::{self, get_packet_paths, InitialState, RelayerMessages},
         update::update_consensus_state,
     };
 
@@ -206,7 +206,7 @@ mod test {
 
         let packet = recv_msgs[0].packet.clone().unwrap();
         let storage_proof = recv_msgs[0].proof_commitment.clone();
-        let (path, value) = get_packet_proof(packet);
+        let (path, value, _) = get_packet_paths(packet);
 
         verify_membership(
             trusted_consensus_state,
@@ -255,7 +255,7 @@ mod test {
 
         let packet = timeout_msgs[0].packet.clone().unwrap();
         let storage_proof = timeout_msgs[0].proof_unreceived.clone();
-        let (path, _) = get_packet_proof(packet);
+        let (_, _, path) = get_packet_paths(packet);
 
         verify_non_membership(
             trusted_consensus_state,

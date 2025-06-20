@@ -280,7 +280,7 @@ mod tests {
             error::EthereumIBCError,
             header::{ActiveSyncCommittee, Header},
             test_utils::fixtures::{
-                self, get_packet_proof, InitialState, RelayerMessages, StepsFixture,
+                self, get_packet_paths, InitialState, RelayerMessages, StepsFixture,
             },
         };
         use ethereum_types::consensus::{
@@ -387,7 +387,7 @@ mod tests {
             // Verify memebership
             let packet = recv_msgs[0].packet.clone().unwrap();
             let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value) = get_packet_proof(packet);
+            let (path, value, _) = get_packet_paths(packet);
 
             let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {
@@ -708,7 +708,7 @@ mod tests {
             // Verify memebership
             let packet = recv_msgs[0].packet.clone().unwrap();
             let storage_proof = recv_msgs[0].proof_commitment.clone();
-            let (path, value) = get_packet_proof(packet);
+            let (path, value, _) = get_packet_paths(packet);
 
             let query_verify_membership_msg = SudoMsg::VerifyMembership(VerifyMembershipMsg {
                 height: Height {

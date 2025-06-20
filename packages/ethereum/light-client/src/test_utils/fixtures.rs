@@ -101,9 +101,13 @@ impl RelayerMessages {
 /// # Returns
 /// A tuple with the commitment path and value
 #[must_use]
-pub fn get_packet_proof(packet: Packet) -> (Vec<u8>, Vec<u8>) {
+pub fn get_packet_paths(packet: Packet) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     let ics26_packet: IICS26RouterMsgs::Packet = packet.into();
-    (ics26_packet.commitment_path(), ics26_packet.commitment())
+    (
+        ics26_packet.commitment_path(),
+        ics26_packet.commitment(),
+        ics26_packet.receipt_commitment_path(),
+    )
 }
 
 impl StepsFixture {
