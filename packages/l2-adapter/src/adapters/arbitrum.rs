@@ -1,5 +1,6 @@
-use alloy::consensus::Header as EthHeader;
-use alloy_rpc_client::{ClientBuilder, ReqwestClient};
+use alloy::{consensus::Header as EthHeader, eips::BlockNumberOrTag};
+use alloy_network::Ethereum;
+use alloy_provider::{Provider, RootProvider};
 
 mod config;
 
@@ -21,12 +22,12 @@ enum PeekKind {
 
 #[derive(Debug)]
 pub struct ArbitrumClient {
-    client: ReqwestClient,
+    client: RootProvider,
 }
 
 impl ArbitrumClient {
     pub fn from_config(config: &ArbitrumClientConfig) -> Self {
-        let client: ReqwestClient = ClientBuilder::default().http(config.url.parse().unwrap());
+        let client = RootProvider::<Ethereum>::new_http(config.url.parse().unwrap());
         Self { client }
     }
 
@@ -35,14 +36,23 @@ impl ArbitrumClient {
         peek_kind: &PeekKind,
     ) -> Result<EthHeader, L2AdapterClientError> {
         let kind = match peek_kind {
-            PeekKind::Finalized => "finalized",
-            PeekKind::Latest => "latest",
+            PeekKind::Finalized => BlockNumberOrTag::Finalized,
+            PeekKind::Latest => BlockNumberOrTag::Latest,
         };
 
-        self.client
-            .request("eth_getBlockByNumber", (kind, false))
+        let block = self
+            .client
+            .get_block_by_number(kind)
             .await
-            .map_err(|e| L2AdapterClientError::FinalizedBlockError(e.to_string()))
+            .map_err(|e| L2AdapterClientError::FinalizedBlockError(e.to_string()))?
+            .ok_or_else(|| {
+                L2AdapterClientError::FinalizedBlockError(format!(
+                    "no Arbitrum block of kind {} found",
+                    kind.to_string()
+                ))
+            })?;
+
+        Ok(block.header.into())
     }
 }
 

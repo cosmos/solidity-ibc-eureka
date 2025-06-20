@@ -4122,6 +4122,8 @@ name = "l2-adapter"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "alloy-network",
+ "alloy-provider",
  "alloy-rpc-client",
  "serde",
  "thiserror 2.0.12",
