@@ -214,7 +214,6 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
-                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
@@ -815,7 +814,6 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
-                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,
@@ -924,7 +922,6 @@ mod tests {
             let consensus_state = EthConsensusState {
                 slot: 42,
                 state_root: B256::from([0; 32]),
-                storage_root: B256::from([0; 32]),
                 timestamp: 0,
                 current_sync_committee: SummarizedSyncCommittee::default(),
                 next_sync_committee: None,

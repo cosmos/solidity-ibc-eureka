@@ -3,8 +3,8 @@
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
-use ethereum_light_client::membership::evm_ics26_commitment_path;
-use ethereum_types::execution::storage_proof::StorageProof;
+use ethereum_light_client::membership::{evm_ics26_commitment_path, MembershipProof};
+use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
 use futures::future;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -219,6 +219,10 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         revision_number: 0,
         revision_height: proof_slot,
     };
+
+    let account_proof =
+        get_account_proof(eth_client, ibc_contrct_address, proof_block_number).await?;
+
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
@@ -235,7 +239,11 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
             anyhow::bail!("Membership value is empty")
         }
 
-        msg.proof_commitment = serde_json::to_vec(&storage_proof)?;
+        let membership_proof = MembershipProof {
+            account_proof: account_proof.clone(),
+            storage_proof,
+        };
+        msg.proof_commitment = serde_json::to_vec(&membership_proof)?;
         msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
@@ -257,7 +265,11 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
             anyhow::bail!("Membership value is empty")
         }
 
-        msg.proof_acked = serde_json::to_vec(&storage_proof)?;
+        let membership_proof = MembershipProof {
+            account_proof: account_proof.clone(),
+            storage_proof,
+        };
+        msg.proof_acked = serde_json::to_vec(&membership_proof)?;
         msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
@@ -278,7 +290,12 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
         if !storage_proof.value.is_zero() {
             anyhow::bail!("Non-Membership value is empty")
         }
-        msg.proof_unreceived = serde_json::to_vec(&storage_proof)?;
+
+        let membership_proof = MembershipProof {
+            account_proof: account_proof.clone(),
+            storage_proof,
+        };
+        msg.proof_unreceived = serde_json::to_vec(&membership_proof)?;
         msg.proof_height = Some(proof_slot_height);
         anyhow::Ok(())
     }))
@@ -308,6 +325,21 @@ async fn get_commitment_proof<P: Provider + Clone>(
         key: storage_proof.key.as_b256(),
         value: storage_proof.value,
         proof: storage_proof.proof.clone(),
+    })
+}
+
+async fn get_account_proof<P: Provider + Clone>(
+    eth_client: &EthApiClient<P>,
+    ibc_contrct_address: &str,
+    block_number: u64,
+) -> Result<AccountProof> {
+    let proof = eth_client
+        .get_proof(ibc_contrct_address, vec![], format!("0x{:x}", block_number))
+        .await?;
+
+    Ok(AccountProof {
+        proof: proof.account_proof,
+        storage_root: proof.storage_hash,
     })
 }
 

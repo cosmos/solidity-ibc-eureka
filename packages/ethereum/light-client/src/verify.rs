@@ -2,7 +2,6 @@
 
 use alloy_primitives::B256;
 
-use ethereum_trie_db::trie_db::verify_account_storage_root;
 use ethereum_types::consensus::{
     bls::{BlsPublicKey, BlsSignature},
     domain::{compute_domain, DomainType},
@@ -111,17 +110,7 @@ pub fn verify_header<V: BlsVerify>(
         );
     }
 
-    verify_account_storage_root(
-        header
-            .consensus_update
-            .finalized_header
-            .execution
-            .state_root,
-        client_state.ibc_contract_address,
-        &header.account_update.account_proof.proof,
-        header.account_update.account_proof.storage_root,
-    )
-    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
+    Ok(())
 }
 
 /// Verifies if the light client `update` is valid.

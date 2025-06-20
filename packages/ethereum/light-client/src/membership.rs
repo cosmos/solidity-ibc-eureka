@@ -43,6 +43,8 @@ pub fn verify_membership(
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))?;
 
     // Verify the storage proof
+    let verified_storage_root = membership_proof.account_proof.storage_root;
+
     check_commitment_path(
         &path,
         client_state.ibc_commitment_slot,
@@ -59,7 +61,7 @@ pub fn verify_membership(
 
     let rlp_value = alloy_rlp::encode_fixed_size(&membership_proof.storage_proof.value);
     verify_storage_inclusion_proof(
-        &trusted_consensus_state.storage_root,
+        &verified_storage_root,
         &membership_proof.storage_proof.key,
         &rlp_value,
         membership_proof.storage_proof.proof.iter(),
@@ -90,6 +92,8 @@ pub fn verify_non_membership(
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))?;
 
     // Verify the storage proof
+    let verified_storage_root = membership_proof.account_proof.storage_root;
+
     check_commitment_path(
         &path,
         client_state.ibc_commitment_slot,
@@ -105,7 +109,7 @@ pub fn verify_non_membership(
     );
 
     verify_storage_exclusion_proof(
-        &trusted_consensus_state.storage_root,
+        &verified_storage_root,
         &membership_proof.storage_proof.key,
         membership_proof.storage_proof.proof.iter(),
     )
@@ -234,10 +238,6 @@ mod test {
 
         let consensus_state: ConsensusState = ConsensusState {
             slot: 0,
-            storage_root: B256::from_hex(
-                "0xe488caae2c0464e311e4a2df82bc74885fa81778d04131db6af3a451110a5eb5",
-            )
-            .unwrap(),
             state_root: FixedBytes::default(),
             timestamp: 0,
             current_sync_committee: SummarizedSyncCommittee::default(),
@@ -292,10 +292,6 @@ mod test {
 
         let consensus_state: ConsensusState = ConsensusState {
             slot: 0,
-            storage_root: B256::from_hex(
-                "0x8fce1302ff9ebea6343badec86e9814151872067d2dd47de08ec83e9bc7d22b3",
-            )
-            .unwrap(),
             state_root: FixedBytes::default(),
             timestamp: 0,
             current_sync_committee: SummarizedSyncCommittee::default(),
