@@ -334,7 +334,7 @@ async fn get_account_proof<P: Provider + Clone>(
     block_number: u64,
 ) -> Result<AccountProof> {
     let proof = eth_client
-        .get_proof(ibc_contrct_address, vec![], format!("0x{:x}", block_number))
+        .get_proof(ibc_contrct_address, vec![], format!("0x{block_number:x}"))
         .await?;
 
     Ok(AccountProof {

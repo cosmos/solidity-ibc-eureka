@@ -230,7 +230,7 @@ where
 
             let active_sync_committee = ActiveSyncCommittee::Next(previous_next_sync_committee);
             let header = Header {
-                active_sync_committee: active_sync_committee,
+                active_sync_committee,
                 consensus_update: update,
                 trusted_slot: latest_trusted_slot,
             };
