@@ -2,10 +2,22 @@
 //! storage trie.
 
 use alloy_primitives::{keccak256, Keccak256, U256};
-use ethereum_trie_db::trie_db::{verify_storage_exclusion_proof, verify_storage_inclusion_proof};
-use ethereum_types::execution::storage_proof::StorageProof;
+use ethereum_trie_db::trie_db::{
+    verify_account_storage_root, verify_storage_exclusion_proof, verify_storage_inclusion_proof,
+};
+use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
+use serde::{Deserialize, Serialize};
 
 use crate::{client_state::ClientState, consensus_state::ConsensusState, error::EthereumIBCError};
+
+/// The membership proof for the (non-)membership of a key in the execution state root.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default)]
+pub struct MembershipProof {
+    /// The inclusion proof of the contract's storage root in the account trie.
+    pub account_proof: AccountProof,
+    /// The inclusion/exculsion proof in the contract's storage trie.
+    pub storage_proof: StorageProof,
+}
 
 /// Verifies the membership of a key in the storage trie.
 /// # Errors
@@ -18,29 +30,39 @@ pub fn verify_membership(
     path: Vec<Vec<u8>>,
     raw_value: Vec<u8>,
 ) -> Result<(), EthereumIBCError> {
-    let storage_proof: StorageProof = serde_json::from_slice(proof.as_slice())
+    let membership_proof: MembershipProof = serde_json::from_slice(proof.as_slice())
         .map_err(|_| EthereumIBCError::StorageProofDecode)?;
 
+    // Verify the account proof first
+    verify_account_storage_root(
+        trusted_consensus_state.state_root,
+        client_state.ibc_contract_address,
+        &membership_proof.account_proof.proof,
+        membership_proof.account_proof.storage_root,
+    )
+    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))?;
+
+    // Verify the storage proof
     check_commitment_path(
         &path,
         client_state.ibc_commitment_slot,
-        storage_proof.key.into(),
+        membership_proof.storage_proof.key.into(),
     )?;
 
     ensure!(
-        storage_proof.value.to_be_bytes_vec() == raw_value,
+        membership_proof.storage_proof.value.to_be_bytes_vec() == raw_value,
         EthereumIBCError::StoredValueMistmatch {
             expected: raw_value,
-            actual: storage_proof.value.to_be_bytes_vec(),
+            actual: membership_proof.storage_proof.value.to_be_bytes_vec(),
         }
     );
 
-    let rlp_value = alloy_rlp::encode_fixed_size(&storage_proof.value);
+    let rlp_value = alloy_rlp::encode_fixed_size(&membership_proof.storage_proof.value);
     verify_storage_inclusion_proof(
         &trusted_consensus_state.storage_root,
-        &storage_proof.key,
+        &membership_proof.storage_proof.key,
         &rlp_value,
-        storage_proof.proof.iter(),
+        membership_proof.storage_proof.proof.iter(),
     )
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
@@ -55,27 +77,37 @@ pub fn verify_non_membership(
     proof: Vec<u8>,
     path: Vec<Vec<u8>>,
 ) -> Result<(), EthereumIBCError> {
-    let storage_proof: StorageProof = serde_json::from_slice(proof.as_slice())
+    let membership_proof: MembershipProof = serde_json::from_slice(proof.as_slice())
         .map_err(|_| EthereumIBCError::StorageProofDecode)?;
 
+    // Verify the account proof first
+    verify_account_storage_root(
+        trusted_consensus_state.state_root,
+        client_state.ibc_contract_address,
+        &membership_proof.account_proof.proof,
+        membership_proof.account_proof.storage_root,
+    )
+    .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))?;
+
+    // Verify the storage proof
     check_commitment_path(
         &path,
         client_state.ibc_commitment_slot,
-        storage_proof.key.into(),
+        membership_proof.storage_proof.key.into(),
     )?;
 
     ensure!(
-        storage_proof.value.is_zero(),
+        membership_proof.storage_proof.value.is_zero(),
         EthereumIBCError::StoredValueMistmatch {
             expected: vec![0],
-            actual: storage_proof.value.to_be_bytes_vec(),
+            actual: membership_proof.storage_proof.value.to_be_bytes_vec(),
         }
     );
 
     verify_storage_exclusion_proof(
         &trusted_consensus_state.storage_root,
-        &storage_proof.key,
-        storage_proof.proof.iter(),
+        &membership_proof.storage_proof.key,
+        membership_proof.storage_proof.proof.iter(),
     )
     .map_err(|err| EthereumIBCError::VerifyStorageProof(err.to_string()))
 }
