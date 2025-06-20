@@ -219,13 +219,13 @@ where
             if update_period == latest_period {
                 tracing::debug!(
                     "Skipping header with same sync committee period for slot {}",
-                    latest_trusted_slot
+                    update_finalized_slot
                 );
                 continue;
             }
 
             let previous_next_sync_committee = self
-                .get_sync_commitee_for_finalized_slot(latest_trusted_slot)
+                .get_sync_commitee_for_finalized_slot(update_finalized_slot)
                 .await?;
 
             let active_sync_committee = ActiveSyncCommittee::Next(previous_next_sync_committee);
