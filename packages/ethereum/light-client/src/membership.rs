@@ -220,7 +220,7 @@ mod test {
 
     #[test]
     fn test_verify_non_membership() {
-        let fixture: fixtures::StepsFixture = fixtures::load("Test_TimeoutPacketFromEth");
+        let fixture: fixtures::StepsFixture = fixtures::load("Test_TimeoutPacketFromCosmos");
 
         let initial_state: InitialState = fixture.get_data_at_step(0);
 
