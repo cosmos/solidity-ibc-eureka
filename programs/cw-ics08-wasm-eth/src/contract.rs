@@ -339,7 +339,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -440,7 +440,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -535,7 +535,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
             assert_eq!(1, update_client_msgs.len()); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs
@@ -660,7 +660,7 @@ mod tests {
 
             // Verify client message
             let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-            let (update_client_msgs, recv_msgs, _) = relayer_messages.get_sdk_msgs();
+            let (update_client_msgs, recv_msgs, _, _) = relayer_messages.get_sdk_msgs();
             assert!(update_client_msgs.len() >= 2); // just to make sure
             assert_eq!(1, recv_msgs.len()); // just to make sure
             let client_msgs = update_client_msgs

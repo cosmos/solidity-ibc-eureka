@@ -399,7 +399,7 @@ mod test {
         let consensus_state = initial_state.consensus_state;
 
         let relayer_messages: RelayerMessages = fixture.get_data_at_step(1);
-        let (update_client_msgs, _, _) = relayer_messages.get_sdk_msgs();
+        let (update_client_msgs, _, _, _) = relayer_messages.get_sdk_msgs();
         assert!(!update_client_msgs.is_empty());
         let headers = update_client_msgs
             .iter()
