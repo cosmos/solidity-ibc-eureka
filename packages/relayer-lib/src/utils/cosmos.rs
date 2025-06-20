@@ -201,7 +201,7 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     timeout_msgs: &mut [MsgTimeout],
     eth_client: &EthApiClient<P>,
     beacon_api_client: &BeaconApiClient,
-    ibc_contrct_address: &str,
+    ibc_contract_address: &str,
     ibc_contract_slot: U256,
     proof_slot: u64,
 ) -> Result<()> {
@@ -221,15 +221,15 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     };
 
     let account_proof =
-        get_account_proof(eth_client, ibc_contrct_address, proof_block_number).await?;
+        get_account_proof(eth_client, ibc_contract_address, proof_block_number).await?;
 
     // recv messages
     future::try_join_all(recv_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
         let commitment_path = packet.commitment_path();
-        let storage_proof = get_commitment_proof(
+        let storage_proof = get_storage_proof(
             eth_client,
-            ibc_contrct_address,
+            ibc_contract_address,
             proof_block_number,
             commitment_path,
             ibc_contract_slot,
@@ -253,9 +253,9 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
-        let storage_proof = get_commitment_proof(
+        let storage_proof = get_storage_proof(
             eth_client,
-            ibc_contrct_address,
+            ibc_contract_address,
             proof_block_number,
             ack_path,
             ibc_contract_slot,
@@ -279,9 +279,9 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     future::try_join_all(timeout_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
         let receipt_path = packet.receipt_commitment_path();
-        let storage_proof = get_commitment_proof(
+        let storage_proof = get_storage_proof(
             eth_client,
-            ibc_contrct_address,
+            ibc_contract_address,
             proof_block_number,
             receipt_path,
             ibc_contract_slot,
@@ -304,9 +304,9 @@ pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     Ok(())
 }
 
-async fn get_commitment_proof<P: Provider + Clone>(
+async fn get_storage_proof<P: Provider + Clone>(
     eth_client: &EthApiClient<P>,
-    ibc_contrct_address: &str,
+    ibc_contract_address: &str,
     block_number: u64,
     path: Vec<u8>,
     slot: U256,
@@ -317,7 +317,7 @@ async fn get_commitment_proof<P: Provider + Clone>(
     let block_hex = format!("0x{block_number:x}");
 
     let proof = eth_client
-        .get_proof(ibc_contrct_address, vec![storage_key_hex], block_hex)
+        .get_proof(ibc_contract_address, vec![storage_key_hex], block_hex)
         .await?;
     let storage_proof = proof.storage_proof.first().unwrap();
 
@@ -330,11 +330,11 @@ async fn get_commitment_proof<P: Provider + Clone>(
 
 async fn get_account_proof<P: Provider + Clone>(
     eth_client: &EthApiClient<P>,
-    ibc_contrct_address: &str,
+    ibc_contract_address: &str,
     block_number: u64,
 ) -> Result<AccountProof> {
     let proof = eth_client
-        .get_proof(ibc_contrct_address, vec![], format!("0x{block_number:x}"))
+        .get_proof(ibc_contract_address, vec![], format!("0x{block_number:x}"))
         .await?;
 
     Ok(AccountProof {
