@@ -101,7 +101,7 @@ pub mod v1_2_0 {
         let mut consensus_state_value = serde_json::to_value(&consensus_state).unwrap();
         consensus_state_value.as_object_mut().unwrap().insert(
             "storage_root".to_string(),
-            serde_json::to_value(&consensus_state.state_root).unwrap(),
+            serde_json::to_value(consensus_state.state_root).unwrap(),
         );
 
         let consensus_state_bz: Vec<u8> = serde_json::to_vec(&consensus_state_value).unwrap();
@@ -179,8 +179,6 @@ pub mod v1_2_0 {
             })
             .map(|msg| msg.data)
             .collect::<Vec<_>>();
-
-        let mut env = mock_env();
 
         for header_bz in client_msgs {
             let header: Header = serde_json::from_slice(&header_bz).unwrap();
