@@ -1,0 +1,70 @@
+package dockerutil_test
+
+import (
+	"context"
+	"testing"
+
+	volumetypes "github.com/docker/docker/api/types/volume"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
+
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-relayer-api/dockerutil"
+)
+
+func TestFileRetriever(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping due to short mode")
+	}
+
+	t.Parallel()
+
+	docker, err := dockerutil.DockerSetup(t.Name())
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	v, err := docker.Client.VolumeCreate(ctx, volumetypes.CreateOptions{
+		Labels: map[string]string{dockerutil.RunLabel: t.Name()},
+	})
+	require.NoError(t, err)
+
+	img := dockerutil.NewImage(
+		zaptest.NewLogger(t),
+		docker.Client,
+		docker.NetworkID,
+		t.Name(),
+		"busybox", "stable",
+	)
+
+	res := img.Run(
+		ctx,
+		[]string{"sh", "-c", "chmod 0700 /mnt/test && printf 'hello world' > /mnt/test/hello.txt"},
+		dockerutil.ContainerOptions{
+			Binds: []string{v.Name + ":/mnt/test"},
+			User:  dockerutil.GetRootUserString(),
+		},
+	)
+	require.NoError(t, res.Err)
+	res = img.Run(
+		ctx,
+		[]string{"sh", "-c", "mkdir -p /mnt/test/foo/bar/ && printf 'test' > /mnt/test/foo/bar/baz.txt"},
+		dockerutil.ContainerOptions{
+			Binds: []string{v.Name + ":/mnt/test"},
+			User:  dockerutil.GetRootUserString(),
+		},
+	)
+	require.NoError(t, res.Err)
+
+	fr := dockerutil.NewFileRetriever(zaptest.NewLogger(t), docker.Client, t.Name())
+
+	t.Run("top-level file", func(t *testing.T) {
+		b, err := fr.SingleFileContent(ctx, v.Name, "hello.txt")
+		require.NoError(t, err)
+		require.Equal(t, "hello world", string(b))
+	})
+
+	t.Run("nested file", func(t *testing.T) {
+		b, err := fr.SingleFileContent(ctx, v.Name, "foo/bar/baz.txt")
+		require.NoError(t, err)
+		require.Equal(t, "test", string(b))
+	})
+}

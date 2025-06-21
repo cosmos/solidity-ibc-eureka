@@ -1,0 +1,13 @@
+{
+  "server": {
+    "log_level": "{{ .LogLevel }}",
+    "address": "{{ .Address }}",
+    "port": {{ .Port }}
+  },
+  "modules": [
+    {{- range $index, $module := .Modules }}
+    {{- if $index }},{{ end }}
+    {{ $module.ToJSON }}
+    {{- end }}
+  ]
+}
