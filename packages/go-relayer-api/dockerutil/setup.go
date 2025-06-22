@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -309,9 +308,11 @@ func PruneNetworksWithRetry(ctx context.Context, cli *client.Client, runLabelVal
 		return fmt.Errorf("failed to prune networks: %w", err)
 	}
 
-	if len(deleted) > 0 {
-		return fmt.Errorf("pruned %d networks: %s", len(deleted), strings.Join(deleted, ", "))
-	}
+	_ = deleted
+	// if len(deleted) > 0 {
+	// 	// TODO: Log this.
+	// 	// fmt.Printf("pruned %d networks: %s", len(deleted), strings.Join(deleted, ", "))
+	// }
 
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-relayer-api/config"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-relayer-api/dockerutil"
-	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
@@ -70,7 +70,14 @@ func SpinUpRelayerApiContainer(ctx context.Context, log *zap.Logger, docker dock
 		nat.Port(relayerPort):           {},
 		nat.Port(relayerPrometheusPort): {},
 	}
-	if err := containerLifecycle.CreateContainer(ctx, docker.RunLabelValue, docker.NetworkID, image, portMap, "", []string{}, []mount.Mount{}, "", cmd, env, []string{}); err != nil {
+	v, err := docker.Client.VolumeCreate(ctx, volume.CreateOptions{
+		Labels: map[string]string{dockerutil.RunLabel: docker.RunLabelValue},
+	})
+	if err != nil {
+		return RelayerApiContainer{}, fmt.Errorf("failed to create volume: %w", err)
+	}
+	volumeBinds := []string{fmt.Sprintf("%s:%s", v.Name, "/relayer")}
+	if err := containerLifecycle.CreateContainer(ctx, docker.RunLabelValue, docker.NetworkID, image, portMap, volumeBinds, nil, "", cmd, env, []string{}); err != nil {
 		return RelayerApiContainer{}, fmt.Errorf("failed to create container: %w", err)
 	}
 
@@ -78,7 +85,7 @@ func SpinUpRelayerApiContainer(ctx context.Context, log *zap.Logger, docker dock
 	if err != nil {
 		return RelayerApiContainer{}, fmt.Errorf("failed to generate config file: %w", err)
 	}
-	if err := dockerutil.NewFileWriter(log, docker.Client, docker.RunLabelValue).WriteFile(ctx, "relayer-api", "/relayer/relayer.json", []byte(json)); err != nil {
+	if err := dockerutil.NewFileWriter(log, docker.Client, docker.RunLabelValue).WriteFile(ctx, v.Name, "/relayer.json", []byte(json)); err != nil {
 		return RelayerApiContainer{}, fmt.Errorf("failed to write config file: %w", err)
 	}
 
