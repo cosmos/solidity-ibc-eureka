@@ -1,0 +1,15 @@
+[package]
+name = "attestor-multi-sig"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+secp256k1 = { workspace = true, features = ["global-context", "hashes", "std"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+secp256k1 = { workspace = true, features = ["rand"] }
+

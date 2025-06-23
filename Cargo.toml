@@ -10,6 +10,7 @@ members = [
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
      "packages/l2-adapter",
+    "packages/attestor-multi-sig",
 
     "programs/relayer",
     "programs/operator",
@@ -49,9 +50,10 @@ prost           = { version = "0.13", default-features = false }
 subtle-encoding = { version = "0.5", default-features = false }
 schemars        = { version = "0.8", default-features = false }
 
-sha2 = { version = "0.10", default-features = false }
-sha3 = { version = "0.10", default-features = false }
-rand = { version = "0.9", default-features = false }
+secp256k1 = { version = "0.31.0", default-features = false }
+sha2      = { version = "0.10", default-features = false }
+sha3      = { version = "0.10", default-features = false }
+rand      = { version = "0.9", default-features = false }
 
 tokio            = { version = "1.0", default-features = false }
 tonic            = { version = "0.13", default-features = false }

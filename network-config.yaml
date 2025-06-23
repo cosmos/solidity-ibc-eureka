@@ -11,3 +11,5 @@ optimism_package:
               # Expose RPC endpoints documented here:
               # https://docs.optimism.io/operators/node-operators/json-rpc
               OP_NODE_CONDUCTOR_ENABLED: "true"
+      network_params:
+        network_id: 12345
