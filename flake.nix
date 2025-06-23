@@ -28,6 +28,9 @@
             inputs.solc.overlay
           ];
         };
+        rust = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
+        };
       in
       {
         devShell = pkgs.mkShell {
@@ -45,7 +48,7 @@
             go
             jq
             parallel
-            rust-bin.stable.latest.default
+            rust
             protobuf
             buf
             protoc-gen-go
@@ -59,6 +62,7 @@
           ];
 
           shellHook = ''
+            export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
             if [ -z "$(which cargo-prove)" ]; then
               echo "SP1 toolchain is not installed. This is recommended to generate risc-v elfs. To install, please follow the instructions at"
               echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
