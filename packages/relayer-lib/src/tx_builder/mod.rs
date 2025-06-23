@@ -2,7 +2,6 @@
 //! This interface is used to generate proofs and submit transactions to a chain.
 
 pub mod cosmos_to_cosmos;
-#[cfg(feature = "sp1-toolchain")]
 pub mod cosmos_to_eth;
 pub mod eth_to_cosmos;
 mod r#trait;
