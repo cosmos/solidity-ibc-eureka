@@ -13,6 +13,7 @@ import (
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -24,12 +25,15 @@ func TestNewImage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
-	t.Parallel()
 
-	docker, err := DockerSetup(t.Name())
+	ctx := context.Background()
+	logger := zaptest.NewLogger(t)
+
+	docker, err := DockerSetup(ctx, logger, t.Name())
 	require.NoError(t, err, "failed to set up docker client and network")
 	t.Cleanup(func() {
-		if err := docker.Cleanup(); err != nil {
+		ctx := context.Background()
+		if err := docker.Cleanup(ctx, true); err != nil {
 			t.Logf("failed to clean up docker resources: %v", err)
 		}
 	})
@@ -55,13 +59,13 @@ func TestImage_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
-	t.Parallel()
-
 	ctx := context.Background()
-	docker, err := DockerSetup(t.Name())
+	logger := zaptest.NewLogger(t)
+	docker, err := DockerSetup(ctx, logger, t.Name())
 	require.NoError(t, err, "failed to set up docker client and network")
 	t.Cleanup(func() {
-		if err := docker.Cleanup(); err != nil {
+		ctx := context.Background()
+		if err := docker.Cleanup(ctx, true); err != nil {
 			t.Logf("failed to clean up docker resources: %v", err)
 		}
 	})
@@ -144,10 +148,10 @@ func TestContainer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
-	t.Parallel()
 
 	ctx := context.Background()
-	docker, err := DockerSetup(t.Name())
+	logger := zaptest.NewLogger(t)
+	docker, err := DockerSetup(ctx, logger, t.Name())
 	require.NoError(t, err, "failed to set up docker client and network")
 	image := NewImage(zap.NewNop(), docker.Client, docker.NetworkID, t.Name(), testDockerImage, testDockerTag)
 

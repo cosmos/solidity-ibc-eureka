@@ -29,11 +29,12 @@ type ContainerLifecycle struct {
 	preStartListeners Listeners
 }
 
+// TODO: Put this under the Docker struct!
 func NewContainerLifecycle(log *zap.Logger, client *dockerclient.Client, containerName string) *ContainerLifecycle {
 	return &ContainerLifecycle{
 		log:           log,
 		client:        client,
-		containerName: containerName,
+		containerName: SanitizeContainerName(containerName),
 	}
 }
 

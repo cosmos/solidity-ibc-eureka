@@ -79,6 +79,7 @@ func CondenseHostName(name string) string {
 }
 
 var validContainerCharsRE = regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
+var validLabelCharsRE = regexp.MustCompile(`[^a-zA-z0-9_-]`)
 
 // SanitizeContainerName returns name with any
 // invalid characters replaced with underscores.
@@ -86,4 +87,8 @@ var validContainerCharsRE = regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
 // invalid characters too.
 func SanitizeContainerName(name string) string {
 	return validContainerCharsRE.ReplaceAllLiteralString(name, "_")
+}
+
+func SanitizeLabelValue(name string) string {
+	return validLabelCharsRE.ReplaceAllLiteralString(name, "_")
 }

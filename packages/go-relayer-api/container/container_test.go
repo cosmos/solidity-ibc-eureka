@@ -9,16 +9,26 @@ import (
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-relayer-api/dockerutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestSpinUpRelayerApiContainer(t *testing.T) {
-	docker, err := dockerutil.DockerSetup(t.Name())
+	ctx := context.Background()
+	logger := zaptest.NewLogger(t)
+	docker, err := dockerutil.DockerSetup(ctx, logger, t.Name())
 	require.NoError(t, err, "failed to set up docker client and network")
-	// t.Cleanup(func() {
-	// 	if err := docker.Cleanup(); err != nil {
-	// 		t.Logf("failed to clean up docker resources: %v", err)
-	// 	}
-	// })
+
+	// Verify that there are no remaining containers or volumes
+	containers, err := docker.Containers(ctx)
+	require.NoError(t, err, "failed to list containers")
+	require.Empty(t, containers, "expected no containers to be running")
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		if err := docker.Cleanup(ctx, true); err != nil {
+			t.Logf("failed to clean up docker resources: %v", err)
+		}
+	})
 
 	relayer, err := container.SpinUpRelayerApiContainer(context.Background(), zap.NewNop(), docker, "v0.5.0", config.NewConfig(config.CreateCosmosCosmosModules(config.CosmosToCosmosConfigInfo{
 		ChainAID:    "cosmos-1",
@@ -29,7 +39,5 @@ func TestSpinUpRelayerApiContainer(t *testing.T) {
 		ChainBUser:  "cosmos-2",
 	})), []string{"v1.2.0"})
 	require.NoError(t, err)
-
-	err = relayer.Kill()
-	require.NoError(t, err)
+	require.NotNil(t, relayer)
 }

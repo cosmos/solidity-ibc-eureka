@@ -29,31 +29,6 @@ type RelayerApiContainer struct {
 
 func SpinUpRelayerApiContainer(ctx context.Context, log *zap.Logger, docker dockerutil.Docker, tag string, config config.Config, sp1ProgramVersions []string) (RelayerApiContainer, error) {
 	containerLifecycle := dockerutil.NewContainerLifecycle(log, docker.Client, fmt.Sprintf("%s-%s", docker.RunLabelValue, "relayer-api"))
-
-	/*
-			            - sh
-		            - /docker_entrypoint.sh
-		            - start
-		            - --config
-		            - /relayer/relayer.json
-		          env:
-		            {{- if eq .Values.prover.type "network" }}
-		            - name: NETWORK_PRIVATE_KEY
-		              valueFrom:
-		                secretKeyRef:
-		                  name: "{{ template "helm.fullname" . }}-sp1-private-key"
-		                  key: NETWORK_PRIVATE_KEY
-		            {{- end }}
-		            - name: SP1_PROVER
-		              value: "{{ .Values.prover.type }}"
-		            - name: SP1_PROGRAM_VERSIONS
-		              value: '{{ join " " .Values.prover.program_versions }}'
-		            - name: RUST_BACKTRACE
-		              value: "1"
-		          ports:
-		            - containerPort: 3000
-		            - containerPort: 9000
-	*/
 	cmd := []string{
 		"sh",
 		"/docker_entrypoint.sh",
@@ -104,8 +79,7 @@ func SpinUpRelayerApiContainer(ctx context.Context, log *zap.Logger, docker dock
 	if len(ports) == 0 || ports[0] == "" {
 		return RelayerApiContainer{}, errors.New("failed to get host port")
 	}
-	addr := fmt.Sprintf("localhost:%s", ports[0])
-
+	addr := ports[0]
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return RelayerApiContainer{}, fmt.Errorf("failed to create grpc client: %w", err)
@@ -129,6 +103,36 @@ func (r *RelayerApiContainer) GetCreateClientTx(ctx context.Context, srcChainID 
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 	return createClientResponse.Tx, nil
+}
+
+func (r *RelayerApiContainer) GetRelayTx(ctx context.Context, srcChainID string, dstChainID string, srcClientID string, dstClientID string, sourceTxHashes ...[]byte) ([]byte, error) {
+	relayTxRequest := &RelayByTxRequest{
+		SrcChain:    srcChainID,
+		DstChain:    dstChainID,
+		SrcClientId: srcClientID,
+		DstClientId: dstClientID,
+		SourceTxIds: sourceTxHashes,
+	}
+	relayTxResponse, err := r.relayerServiceClient.RelayByTx(ctx, relayTxRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to relay tx: %w", err)
+	}
+	return relayTxResponse.Tx, nil
+}
+
+func (r *RelayerApiContainer) GetRelayTimeoutTx(ctx context.Context, srcChainID string, dstChainID string, srcClientID string, dstClientID string, timeoutTxHashses ...[]byte) ([]byte, error) {
+	relayTimeoutRequest := &RelayByTxRequest{
+		SrcChain:     srcChainID,
+		DstChain:     dstChainID,
+		SrcClientId:  srcClientID,
+		DstClientId:  dstClientID,
+		TimeoutTxIds: timeoutTxHashses,
+	}
+	relayTimeoutResponse, err := r.relayerServiceClient.RelayByTx(ctx, relayTimeoutRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to relay timeout: %w", err)
+	}
+	return relayTimeoutResponse.Tx, nil
 }
 
 // Kill stops and removes the container

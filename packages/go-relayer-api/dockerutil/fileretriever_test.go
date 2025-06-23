@@ -16,12 +16,12 @@ func TestFileRetriever(t *testing.T) {
 		t.Skip("skipping due to short mode")
 	}
 
-	t.Parallel()
+	ctx := context.Background()
+	logger := zaptest.NewLogger(t)
 
-	docker, err := dockerutil.DockerSetup(t.Name())
+	docker, err := dockerutil.DockerSetup(ctx, logger, t.Name())
 	require.NoError(t, err)
 
-	ctx := context.Background()
 	v, err := docker.Client.VolumeCreate(ctx, volumetypes.CreateOptions{
 		Labels: map[string]string{dockerutil.RunLabel: t.Name()},
 	})
