@@ -99,9 +99,16 @@ jobs:
           merge-multiple: true
 
       - name: Get docker tag
+        # First check if the tag ends in v.X.Y.Z+ and use that, otherwise use the whole tag and
          # remove all `/` or `+` characters from the docker tag and replace them with a -.
          # this ensures the docker tag is valid.
-        run: echo "DOCKER_TAG=$(echo $GIT_TAG | sed 's/[^a-zA-Z0-9\.]/-/g')" >> $GITHUB_ENV
+        run: |
+          if [[ "$GIT_TAG" =~ (v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            DOCKER_TAG="${BASH_REMATCH[1]}"
+          else
+            DOCKER_TAG=$(echo "$GIT_TAG" | sed 's/[^a-zA-Z0-9\.]/-/g')
+          fi
+          echo "DOCKER_TAG=$(echo $GIT_TAG | sed 's/[^a-zA-Z0-9\.]/-/g')" >> $GITHUB_ENV
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
