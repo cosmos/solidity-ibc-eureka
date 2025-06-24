@@ -3616,6 +3616,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "clap",
+ "futures",
+ "ibc-eureka-relayer-lib",
+ "ibc-eureka-utils",
+ "prometheus",
+ "prost",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover",
+ "sp1-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-rpc",
+ "tokio",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tonic-reflection",
+ "tracing",
+ "tracing-subscriber",
+ "warp",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
@@ -6485,34 +6513,6 @@ checksum = "4f5fd57c80058a56cf5c777ab8a126398ece8e442983605d280a44ce79d0edef"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "solidity-ibc-eureka-relayer"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "clap",
- "futures",
- "ibc-eureka-relayer-lib",
- "ibc-eureka-utils",
- "prometheus",
- "prost",
- "serde",
- "serde_json",
- "sp1-ics07-tendermint-prover",
- "sp1-prover",
- "sp1-sdk",
- "tendermint",
- "tendermint-rpc",
- "tokio",
- "tonic 0.13.1",
- "tonic-build",
- "tonic-reflection",
- "tracing",
- "tracing-subscriber",
- "warp",
 ]
 
 [[package]]

@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use prometheus::{Encoder, TextEncoder};
-use solidity_ibc_eureka_relayer::{
+use ibc_eureka_relayer::{
     cli::{
         cmd::{Commands, RelayerCli},
         config::RelayerConfig,
@@ -13,6 +12,7 @@ use solidity_ibc_eureka_relayer::{
         eth_to_cosmos::EthToCosmosRelayerModule,
     },
 };
+use prometheus::{Encoder, TextEncoder};
 use warp::Filter;
 
 #[tokio::main]
