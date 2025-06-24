@@ -2695,10 +2695,10 @@ dependencies = [
 [[package]]
 name = "ethereum-apis"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "reqwest 0.12.20",
  "serde",
  "serde_json",
@@ -2752,19 +2752,19 @@ dependencies = [
 [[package]]
 name = "ethereum-light-client"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-primitives 1.2.1",
  "alloy-rlp",
- "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "hex",
  "schemars 0.8.22",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.12",
- "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
 ]
 
 [[package]]
@@ -2805,7 +2805,7 @@ dependencies = [
 [[package]]
 name = "ethereum-trie-db"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-primitives 1.2.1",
  "hash-db",
@@ -2849,13 +2849,13 @@ dependencies = [
 [[package]]
 name = "ethereum-types"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-primitives 1.2.1",
  "schemars 0.8.22",
  "serde",
  "serde_with",
- "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "tree_hash_derive 0.10.0",
 ]
 
@@ -3697,6 +3697,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "clap",
+ "futures",
+ "ibc-eureka-relayer-lib 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "prometheus",
+ "prost",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "sp1-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-rpc",
+ "tokio",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tonic-reflection",
+ "tracing",
+ "tracing-subscriber",
+ "warp",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
@@ -3729,26 +3758,26 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
- "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "futures",
  "futures-timer",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "ics23",
  "prost",
  "serde",
  "serde_json",
- "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -3799,7 +3828,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-solidity-types"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 1.2.1",
@@ -3843,7 +3872,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-utils"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-network",
  "alloy-signer-local",
@@ -3854,7 +3883,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
@@ -6695,43 +6724,14 @@ dependencies = [
  "anyhow",
  "clap",
  "futures",
+ "ibc-eureka-relayer",
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "prometheus",
  "prost",
  "serde",
  "serde_json",
- "solidity-ibc-eureka-relayer 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
  "sp1-ics07-tendermint-prover 0.1.0",
- "sp1-prover",
- "sp1-sdk",
- "tendermint",
- "tendermint-rpc",
- "tokio",
- "tonic 0.13.1",
- "tonic-build",
- "tonic-reflection",
- "tracing",
- "tracing-subscriber",
- "warp",
-]
-
-[[package]]
-name = "solidity-ibc-eureka-relayer"
-version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
-dependencies = [
- "alloy",
- "anyhow",
- "clap",
- "futures",
- "ibc-eureka-relayer-lib 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
- "prometheus",
- "prost",
- "serde",
- "serde_json",
- "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
  "sp1-prover",
  "sp1-sdk",
  "tendermint",
@@ -6947,12 +6947,12 @@ dependencies = [
 [[package]]
 name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-sol-types 1.2.1",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "sp1-prover",
@@ -8142,7 +8142,7 @@ dependencies = [
 [[package]]
 name = "tree_hash"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=relayer-v0.6.0#f91f024741f6c91dea8bdf722a16905cc4fb2dd4"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=c95412ebbb5d5de5181c4711189291b549da57e8#c95412ebbb5d5de5181c4711189291b549da57e8"
 dependencies = [
  "alloy-primitives 1.2.1",
  "sha2 0.10.9",

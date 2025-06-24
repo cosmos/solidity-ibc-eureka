@@ -7,7 +7,6 @@
 use crate::api::relayer_service_server::RelayerService;
 
 use super::eth_to_cosmos::EthToCosmosRelayerModule;
-// use solidity_ibc_eureka_relayer_wasm_v1_2;
 
 /// The `EthToCosmosRelayerCompatModule` struct defines the Ethereum to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
