@@ -1,6 +1,7 @@
 //! Defines Ethereum to Cosmos backwards compatible relayer module.
+//!
 //! The module defined in [`eth_to_cosmos`](crate::modules::eth_to_cosmos) is not backwards
-//! compatible with the CosmWasm Ethereum Light Client v1.2.0, so this module is provided
+//! compatible with the `CosmWasm` Ethereum Light Client v1.2.0, so this module is provided
 //! for backwards compatibility. And will be removed in the future.
 
 use crate::api::relayer_service_server::RelayerService;
