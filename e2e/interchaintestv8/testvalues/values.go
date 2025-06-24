@@ -24,6 +24,9 @@ const (
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
 
+	// FaucetSolBalance is the amount of SOL to give to the faucet account.
+	FaucetSolBalance int64 = 1_000_000
+
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
 	// EnvKeyEthRPC Ethereum RPC URL.
@@ -103,6 +106,8 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+	// SolanaLedgerDir is the path to the Solana ledger directory.
+	SolanaLedgerDir = "test-ledger"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
