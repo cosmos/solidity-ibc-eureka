@@ -21,12 +21,12 @@ use crate::{
     core::modules::RelayerModule,
 };
 
-/// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
+/// The `EthToCosmosRelayerModule` struct defines the Ethereum to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosRelayerModule;
 
-/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
+/// The `EthereumToCosmosRelayerModuleService` defines the relayer service from Ethereum to Cosmos.
 struct EthToCosmosRelayerModuleService {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
@@ -41,7 +41,7 @@ enum EthToCosmosTxBuilder {
     Mock(eth_to_cosmos::MockTxBuilder<RootProvider>),
 }
 
-/// The configuration for the Cosmos to Cosmos relayer module.
+/// The configuration for the Ethereum to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosConfig {

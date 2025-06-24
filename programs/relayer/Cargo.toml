@@ -36,3 +36,7 @@ sp1-prover = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
+
+# TODO: Remove this dependency once eth-lc v1.2.0 is discontinued
+# ibc-eureka-relayer-lib-wasm-v1_2 = { package = "ibc-eureka-relayer-lib", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "relayer-v0.6.0", default-features = true }
+solidity-ibc-eureka-relayer-wasm-v1_2 = { package = "solidity-ibc-eureka-relayer", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "relayer-v0.6.0", default-features = true }
