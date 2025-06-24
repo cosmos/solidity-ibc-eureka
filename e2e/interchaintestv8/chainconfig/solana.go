@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -14,19 +15,10 @@ import (
 // Once it does, we can migrate to using the agave docker image instead of local agave instance.
 // <https://github.com/anza-xyz/agave/issues/2627>
 
-var (
-	SolanaConfig = solanaConfig{
-		FaucetSolBalance: testvalues.FaucetSolBalance,
-	}
-)
-
-type solanaConfig struct {
-	FaucetSolBalance int64
-}
-
 type SolanaLocalnetChain struct {
 	OsProcess *os.Process
 	RPCClient *rpc.Client
+	Faucet    *solana.Wallet
 }
 
 func binaryPath() string {
@@ -34,15 +26,18 @@ func binaryPath() string {
 }
 
 func StartLocalnet(context.Context) (SolanaLocalnetChain, error) {
-	cmd := exec.Command(binaryPath(), "--reset")
+	solanaChain := SolanaLocalnetChain{}
+	solanaChain.Faucet = solana.NewWallet()
+
+	cmd := exec.Command(binaryPath(), "--reset", "--mint", solanaChain.Faucet.PublicKey().String(), "--ledger", testvalues.SolanaLedgerDir)
 	if err := cmd.Start(); err != nil {
 		return SolanaLocalnetChain{}, err
 	}
 
-	return SolanaLocalnetChain{
-		OsProcess: cmd.Process,
-		RPCClient: rpc.New(rpc.LocalNet.RPC),
-	}, nil
+	solanaChain.OsProcess = cmd.Process
+	solanaChain.RPCClient = rpc.New(rpc.LocalNet.RPC)
+
+	return solanaChain, nil
 }
 
 func (s SolanaLocalnetChain) Destroy() error {

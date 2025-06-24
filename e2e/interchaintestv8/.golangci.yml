@@ -73,6 +73,7 @@ formatters:
         - blank
         - dot
         - prefix(github.com/ethereum/go-ethereum)
+        - prefix(github.com/gagliardetto/solana-go)
         - prefix(cosmossdk.io)
         - prefix(github.com/cosmos/cosmos-sdk)
         - prefix(github.com/cometbft/cometbft)

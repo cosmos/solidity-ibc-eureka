@@ -24,8 +24,8 @@ const (
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
 
-	// FaucetSolBalance is the amount of SOL to give to the faucet account.
-	FaucetSolBalance int64 = 1_000_000
+	// InitialSolBalance is the default amount of SOL to give a new user
+	InitialSolBalance uint64 = 1_000_000
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
@@ -92,6 +92,13 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
+
+	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
+	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
+	// SolanaTestnetType_Localnet is the Solana testnet type for using a local testnet.
+	SolanaTestnetType_Localnet = "localnet"
+	// SolanaTestnetType_None is the Solana testnet type for using no chain.
+	SolanaTestnetType_None = "none"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
