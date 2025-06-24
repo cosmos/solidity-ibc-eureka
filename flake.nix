@@ -55,6 +55,7 @@
             protoc-gen-go-grpc
             quicktype
             inputs.natlint.packages.${system}.default
+            anchor
           ];
 
           NIX_LD_LIBRARY_PATH = with pkgs.buildPackages; lib.makeLibraryPath [
