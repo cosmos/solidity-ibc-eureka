@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
