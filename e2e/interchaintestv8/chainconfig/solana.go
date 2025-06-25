@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -33,6 +34,9 @@ func StartLocalnet(context.Context) (SolanaLocalnetChain, error) {
 	if err := cmd.Start(); err != nil {
 		return SolanaLocalnetChain{}, err
 	}
+
+	// Wait for the Solana localnet to start
+	time.Sleep(6 * time.Second)
 
 	solanaChain.OsProcess = cmd.Process
 	solanaChain.RPCClient = rpc.New(rpc.LocalNet.RPC)

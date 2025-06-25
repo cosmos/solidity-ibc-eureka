@@ -6,6 +6,8 @@ import (
 
 	"github.com/holiman/uint256"
 
+	"github.com/gagliardetto/solana-go"
+
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"cosmossdk.io/math"
@@ -25,7 +27,7 @@ const (
 	TransferAmount int64 = 1_000_000_000
 
 	// InitialSolBalance is the default amount of SOL to give a new user
-	InitialSolBalance uint64 = 1_000_000
+	InitialSolBalance uint64 = solana.LAMPORTS_PER_SOL * 1
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"

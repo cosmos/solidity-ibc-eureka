@@ -90,7 +90,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		})
 		s.SolanaChain, err = solana.NewLocalnetSolana(solChain.Faucet)
 		s.Require().NoError(err)
-	case testvalues.SolanaTestnetType_None:
+	case testvalues.SolanaTestnetType_None, "":
 		// Do nothing
 	default:
 		s.T().Fatalf("Unknown Solana testnet type: %s", solanaTestnetType)
