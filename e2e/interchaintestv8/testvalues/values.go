@@ -6,9 +6,9 @@ import (
 
 	"github.com/holiman/uint256"
 
-	"github.com/gagliardetto/solana-go"
-
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/gagliardetto/solana-go"
 
 	"cosmossdk.io/math"
 
