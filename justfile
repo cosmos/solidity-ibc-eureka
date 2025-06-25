@@ -286,6 +286,19 @@ teardown-arbitrum:
 	cd e2e/interchaintestv8/nitro-testnode
 	docker-compose down || true
 
+event-loop-dev:
+	cargo run --manifest-path programs/event-loop/Cargo.toml -- start -c programs/event-loop/dev.json
+
+trigger-attestor:
+	curl localhost:3000/l2	
+
+trigger-monitorer:
+	curl localhost:3000/monitoring
+
+node-reader-dev:
+	cargo run --manifest-path programs/l2-node-reader/Cargo.toml
+
+
 [group('test')]
 test-e2e-l2-optimism testname:
 	@echo "Running {{testname}} test..."
