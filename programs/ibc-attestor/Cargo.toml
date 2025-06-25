@@ -1,0 +1,30 @@
+[package]
+name = "ibc-attestor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[features]
+default = ["sol"]
+sol = []
+op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
+arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
+
+
+[dependencies]
+alloy 			= { workspace = true, default-features = false, features = ["consensus", "serde", "eips"], optional = true }
+alloy-primitives   	= { workspace = true, default-features = false }
+alloy-rpc-client	= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
+alloy-network   	= { workspace = true, default-features = false, optional = true }
+alloy-provider  	= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
+
+serde           	= { workspace = true, default-features = false, features = ["derive"] }
+
+thiserror        	= { workspace = true, default-features = false }
+
+tokio 			= { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+tracing 		= { workspace = true }
+tracing-subscriber 	= { workspace = true, default-features = true }

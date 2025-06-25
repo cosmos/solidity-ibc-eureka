@@ -8,9 +8,9 @@ mod header;
 pub use config::OpConsensusClientConfig;
 
 use crate::{
-    adapters::optimism::header::SyncHeader,
+    adapter_client::{Adapter, AdapterError},
+    adapter_impls::optimism::header::SyncHeader,
     header::Header,
-    l2_adapter_client::{L2Adapter, L2AdapterClientError},
 };
 
 // Owned key type required by `Deserialize` macro
@@ -27,19 +27,19 @@ impl OpConsensusClient {
         Self { client }
     }
 
-    async fn get_sync_state(&self) -> Result<SyncState, L2AdapterClientError> {
+    async fn get_sync_state(&self) -> Result<SyncState, AdapterError> {
         let sync_state: HashMap<String, SyncHeader> = self
             .client
             .request_noparams("optimism_syncStatus")
             .await
-            .map_err(|e| L2AdapterClientError::FinalizedBlockError(e.to_string()))?;
+            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?;
 
         Ok(SyncState(sync_state))
     }
 }
 
-impl L2Adapter for OpConsensusClient {
-    async fn get_latest_finalized_block(&self) -> Result<Header, L2AdapterClientError> {
+impl Adapter for OpConsensusClient {
+    async fn get_latest_finalized_block(&self) -> Result<Header, AdapterError> {
         let state = self.get_sync_state().await?;
 
         state
@@ -48,11 +48,11 @@ impl L2Adapter for OpConsensusClient {
             .map(|sync_header| {
                 Header::new(sync_header.height, sync_header.hash, sync_header.timestamp)
             })
-            .ok_or(L2AdapterClientError::FinalizedBlockError(
+            .ok_or(AdapterError::FinalizedBlockError(
                 "response received but no finalized L2 found in response".into(),
             ))
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<Header, L2AdapterClientError> {
+    async fn get_latest_unfinalized_block(&self) -> Result<Header, AdapterError> {
         let state = self.get_sync_state().await?;
 
         state
@@ -61,7 +61,7 @@ impl L2Adapter for OpConsensusClient {
             .map(|sync_header| {
                 Header::new(sync_header.height, sync_header.hash, sync_header.timestamp)
             })
-            .ok_or(L2AdapterClientError::UnfinalizedBlockError(
+            .ok_or(AdapterError::UnfinalizedBlockError(
                 "response received but no unfinalized L2 found in response".into(),
             ))
     }

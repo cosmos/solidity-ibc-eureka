@@ -1,4 +1,4 @@
-use alloy::primitives::FixedBytes;
+use alloy_primitives::FixedBytes;
 
 #[derive(Debug)]
 pub struct Header {

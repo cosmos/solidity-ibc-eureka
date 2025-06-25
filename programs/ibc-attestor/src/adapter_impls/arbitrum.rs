@@ -7,8 +7,8 @@ mod config;
 pub use config::ArbitrumClientConfig;
 
 use crate::{
+    adapter_client::{Adapter, AdapterError},
     header::Header,
-    l2_adapter_client::{L2Adapter, L2AdapterClientError},
 };
 
 /// Relevant chain peek options. For their Arbitrum
@@ -31,10 +31,7 @@ impl ArbitrumClient {
         Self { client }
     }
 
-    async fn get_block_by_number(
-        &self,
-        peek_kind: &PeekKind,
-    ) -> Result<EthHeader, L2AdapterClientError> {
+    async fn get_block_by_number(&self, peek_kind: &PeekKind) -> Result<EthHeader, AdapterError> {
         let kind = match peek_kind {
             PeekKind::Finalized => BlockNumberOrTag::Finalized,
             PeekKind::Latest => BlockNumberOrTag::Latest,
@@ -44,9 +41,9 @@ impl ArbitrumClient {
             .client
             .get_block_by_number(kind)
             .await
-            .map_err(|e| L2AdapterClientError::FinalizedBlockError(e.to_string()))?
+            .map_err(|e| AdapterError::FinalizedBlockError(e.to_string()))?
             .ok_or_else(|| {
-                L2AdapterClientError::FinalizedBlockError(format!(
+                AdapterError::FinalizedBlockError(format!(
                     "no Arbitrum block of kind {} found",
                     kind.to_string()
                 ))
@@ -56,8 +53,8 @@ impl ArbitrumClient {
     }
 }
 
-impl L2Adapter for ArbitrumClient {
-    async fn get_latest_finalized_block(&self) -> Result<Header, L2AdapterClientError> {
+impl Adapter for ArbitrumClient {
+    async fn get_latest_finalized_block(&self) -> Result<Header, AdapterError> {
         let header = self.get_block_by_number(&PeekKind::Finalized).await?;
 
         Ok(Header::new(
@@ -66,7 +63,7 @@ impl L2Adapter for ArbitrumClient {
             header.timestamp,
         ))
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<Header, L2AdapterClientError> {
+    async fn get_latest_unfinalized_block(&self) -> Result<Header, AdapterError> {
         let header = self.get_block_by_number(&PeekKind::Latest).await?;
 
         Ok(Header::new(
