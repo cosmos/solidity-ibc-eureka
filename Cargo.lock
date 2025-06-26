@@ -3616,6 +3616,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "futures",
+ "prometheus",
+ "prost",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tonic-reflection",
+ "tracing",
+ "tracing-subscriber",
+ "warp",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
