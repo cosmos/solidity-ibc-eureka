@@ -6,7 +6,7 @@ members = [
     "packages/ethereum/apis",
     "packages/ethereum/tree_hash",
     "packages/solidity",
-    "packages/relayer-lib",
+    "packages/relayer/lib",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
 
@@ -25,7 +25,7 @@ keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solid
 
 [workspace.dependencies]
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
-ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
+ibc-eureka-relayer-lib             = { path = "packages/relayer/lib", default-features = false }
 ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
