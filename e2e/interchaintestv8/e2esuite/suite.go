@@ -20,6 +20,7 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
@@ -33,6 +34,7 @@ type TestSuite struct {
 	ethTestnetType string
 	CosmosChains   []*cosmos.CosmosChain
 	CosmosUsers    []ibc.Wallet
+	SolanaChain    solana.Solana
 	dockerClient   *dockerclient.Client
 	network        string
 	logger         *zap.Logger
@@ -74,6 +76,24 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 		// Do nothing
 	default:
 		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
+	}
+
+	solanaTestnetType := os.Getenv(testvalues.EnvKeySolanaTestnetType)
+	switch solanaTestnetType {
+	case testvalues.SolanaTestnetType_Localnet:
+		solChain, err := chainconfig.StartLocalnet(ctx)
+		s.Require().NoError(err)
+		s.T().Cleanup(func() {
+			if err := solChain.Destroy(); err != nil {
+				s.T().Logf("Failed to destroy Solana localnet: %v", err)
+			}
+		})
+		s.SolanaChain, err = solana.NewLocalnetSolana(solChain.Faucet)
+		s.Require().NoError(err)
+	case testvalues.SolanaTestnetType_None, "":
+		// Do nothing
+	default:
+		s.T().Fatalf("Unknown Solana testnet type: %s", solanaTestnetType)
 	}
 
 	s.logger = zaptest.NewLogger(s.T())
