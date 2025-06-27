@@ -3636,6 +3636,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-eth-to-cosmos"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ethereum-apis",
+ "ethereum-light-client 0.1.0",
+ "ethereum-types 0.1.0",
+ "futures",
+ "futures-timer",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "ics23",
+ "prost",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover",
+ "sp1-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [

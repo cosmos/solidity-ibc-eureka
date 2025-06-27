@@ -8,6 +8,7 @@ members = [
     "packages/solidity",
     "packages/relayer/lib",
     "packages/relayer/core",
+    "packages/relayer/modules/eth-to-cosmos",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
 

@@ -1,0 +1,41 @@
+[package]
+name       = "ibc-eureka-relayer-eth-to-cosmos"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+ibc-eureka-relayer-lib             = { path = "packages/relayer/lib", default-features = false }
+ibc-eureka-relayer-core            = { path = "packages/relayer/core", default-features = false }
+
+ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
+ibc-eureka-utils          = { workspace = true, optional = true }
+
+ethereum-apis = { workspace = true }
+ethereum-light-client = { workspace = true }
+ethereum-types = { workspace = true }
+
+serde      = { workspace = true, features = ["derive"] }
+prost      = { workspace = true, features = ["std"] }
+serde_json = { workspace = true }
+
+async-trait   = { workspace = true }
+anyhow        = { workspace = true, features = ["std"] }
+futures       = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+tracing       = { workspace = true, default-features = true }
+
+tendermint     = { workspace = true, features = ["std"] }
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+tendermint-light-client-verifier = { workspace = true }
+
+ibc-proto-eureka          = { workspace = true }
+ibc-core-host-types       = { workspace = true }
+ibc-core-commitment-types = { workspace = true }
+ics23                     = { workspace = true }
+
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+
+sp1-sdk = { workspace = true, default-features = true }
+sp1-prover = { workspace = true }
