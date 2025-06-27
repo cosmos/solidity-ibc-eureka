@@ -77,7 +77,6 @@ impl Aggregator for AggregatorService {
             self.attestor_clients.len()
         );
 
-        // Aggregate the results
         // HashMap<height, HashMap<signature, count>>
         let mut sig_counts: HashMap<u64, HashMap<Vec<u8>, usize>> = HashMap::new();
         for attestation in all_attestations {
