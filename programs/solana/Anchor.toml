@@ -1,5 +1,4 @@
 [toolchain]
-package_manager = "yarn"
 
 [features]
 resolution = true
@@ -16,4 +15,4 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run jest --preset ts-jest"
+test = "cargo test"
