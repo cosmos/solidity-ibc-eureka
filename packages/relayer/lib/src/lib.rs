@@ -15,4 +15,4 @@ pub mod chain;
 pub mod events;
 pub mod listener;
 pub mod tx_builder;
-mod utils;
+pub mod utils;

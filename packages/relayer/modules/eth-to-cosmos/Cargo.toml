@@ -6,11 +6,10 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-relayer-lib             = { path = "packages/relayer/lib", default-features = false }
-ibc-eureka-relayer-core            = { path = "packages/relayer/core", default-features = false }
-
+ibc-eureka-relayer-lib    = { workspace = true, default-features = false }
+ibc-eureka-relayer-core   = { workspace = true, default-features = false }
 ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
-ibc-eureka-utils          = { workspace = true, optional = true }
+ibc-eureka-utils          = { workspace = true }
 
 ethereum-apis = { workspace = true }
 ethereum-light-client = { workspace = true }

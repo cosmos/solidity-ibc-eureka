@@ -28,6 +28,7 @@ use crate::events::{EurekaEvent, EurekaEventWithHeight};
 /// - `dst_packet_seqs` - The list of dest packet sequences to filter. If empty, no filtering.
 /// - `signer_address` - The signer address.
 /// - `now` - The current time.
+#[must_use]
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,
@@ -66,6 +67,7 @@ pub fn target_events_to_timeout_msgs(
 /// - `signer_address` - The signer address.
 /// - `now` - The current time.
 #[allow(clippy::too_many_arguments)]
+#[must_use]
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,
@@ -130,6 +132,8 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
 /// # Errors
 /// Returns an error a proof cannot be generated for any of the provided messages.
+/// # Panics
+/// Panics if the provided messages do not contain a valid packet.
 pub async fn inject_tendermint_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
@@ -194,6 +198,11 @@ pub async fn inject_tendermint_proofs(
     Ok(())
 }
 
+/// Generates and injects Ethereum proofs for rec, ack and timeout messages.
+/// # Errors
+/// Returns an error if a proof cannot be generated for any of the provided messages.
+/// # Panics
+/// Panics if the provided messages do not contain a valid packet.
 #[allow(clippy::too_many_arguments)]
 pub async fn inject_ethereum_proofs<P: Provider + Clone>(
     recv_msgs: &mut [MsgRecvPacket],
@@ -311,6 +320,7 @@ async fn get_commitment_proof<P: Provider + Clone>(
     })
 }
 
+/// Injects mock proofs into the provided messages for testing purposes.
 pub fn inject_mock_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],

@@ -37,6 +37,7 @@ use crate::events::{EurekaEvent, EurekaEventWithHeight};
 /// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
 /// - `target_height`: The target height for the proofs.
 /// - `now`: The current time.
+#[must_use]
 pub fn target_events_to_timeout_msgs(
     target_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,
@@ -77,6 +78,7 @@ pub fn target_events_to_timeout_msgs(
 /// - `dst_packet_seqs`: The list of dest packet sequences to filter by. If empty, no filtering.
 /// - `target_height`: The target height for the proofs.
 /// - `now`: The current time.
+#[must_use]
 pub fn src_events_to_recv_and_ack_msgs(
     src_events: Vec<EurekaEventWithHeight>,
     src_client_id: &str,

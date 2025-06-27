@@ -7,6 +7,9 @@ use std::time::{Duration, Instant};
 /// Retries an operation until the condition is met or a timeout occurs.
 ///
 /// The basic version just checks for a boolean condition.
+///
+/// # Errors
+/// If the condition is not met within the timeout, an error is returned.
 pub async fn wait_for_condition<F, Fut>(
     timeout: Duration,
     interval: Duration,
