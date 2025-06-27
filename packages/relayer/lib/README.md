@@ -1,4 +1,4 @@
 # `relayer-lib`
 
-This crate implements event handling, chain listeners and tx builders used by the relayer services.
+This crate implements utilities for event handling, chain listeners, and useful traits to used by the relayer modules.
 

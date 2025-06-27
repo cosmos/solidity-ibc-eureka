@@ -5,16 +5,11 @@ edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
-[features]
-default = ["sp1-toolchain"]
-# sp1-toolchain requires sp1 toolchain to be installed to build
-sp1-toolchain = ["dep:sp1-ics07-tendermint-prover", "dep:ibc-eureka-utils"]
-
 [dependencies]
 ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
-ibc-eureka-utils          = { workspace = true, optional = true }
+ibc-eureka-utils          = { workspace = true }
 
-sp1-ics07-tendermint-prover   = { workspace = true, optional = true }
+sp1-ics07-tendermint-prover   = { workspace = true }
 
 ethereum-apis = { workspace = true }
 ethereum-light-client = { workspace = true }
