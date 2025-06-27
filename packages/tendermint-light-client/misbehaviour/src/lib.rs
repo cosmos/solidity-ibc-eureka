@@ -1,6 +1,6 @@
-//! The crate that contains the types and utilities for `sp1-ics07-tendermint-update-client`
+//! The crate that contains the types and utilities for `tendermint-light-client-update-client`
 //! program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 use ibc_client_tendermint::client_state::{
     check_for_misbehaviour_on_misbehavior, verify_misbehaviour,
@@ -10,8 +10,8 @@ use ibc_core_host_types::identifiers::{ChainId, ClientId};
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::ClientState, IMisbehaviourMsgs::MisbehaviourOutput,
 };
-use sp1_ics07_tendermint_update_client::types::validation::ClientValidationCtx;
 use std::time::Duration;
+use tendermint_light_client_update_client::types::validation::ClientValidationCtx;
 use tendermint_light_client_verifier::options::Options;
 use tendermint_light_client_verifier::ProdVerifier;
 

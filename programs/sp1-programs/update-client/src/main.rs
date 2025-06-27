@@ -17,7 +17,7 @@ use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
-use sp1_ics07_tendermint_update_client::update_client;
+use tendermint_light_client_update_client::update_client;
 
 /// The main function of the program.
 ///

@@ -1548,6 +1548,7 @@ dependencies = [
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp1-zkvm",
+ "tendermint-light-client-membership",
 ]
 
 [[package]]
@@ -1562,8 +1563,8 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
- "sp1-ics07-tendermint-update-client",
  "sp1-zkvm",
+ "tendermint-light-client-misbehaviour",
  "tendermint-light-client-verifier",
 ]
 
@@ -1576,9 +1577,8 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp1-ics07-tendermint-membership",
- "sp1-ics07-tendermint-update-client",
  "sp1-zkvm",
+ "tendermint-light-client-uc-and-membership",
 ]
 
 [[package]]
@@ -1594,6 +1594,7 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
  "sp1-zkvm",
+ "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
 ]
 
@@ -1725,6 +1726,50 @@ dependencies = [
  "tendermint-proto",
  "time",
  "zeroize",
+]
+
+[[package]]
+name = "tendermint-light-client-membership"
+version = "0.1.0"
+dependencies = [
+ "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types",
+]
+
+[[package]]
+name = "tendermint-light-client-misbehaviour"
+version = "0.1.0"
+dependencies = [
+ "ibc-client-tendermint",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
+ "sha2 0.10.8",
+ "tendermint-light-client-update-client",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "tendermint-light-client-uc-and-membership"
+version = "0.1.0"
+dependencies = [
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types",
+ "tendermint-light-client-membership",
+ "tendermint-light-client-update-client",
+]
+
+[[package]]
+name = "tendermint-light-client-update-client"
+version = "0.1.0"
+dependencies = [
+ "ibc-client-tendermint",
+ "ibc-core-client",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types",
+ "ibc-primitives",
+ "sha2 0.10.8",
+ "tendermint-light-client-verifier",
 ]
 
 [[package]]

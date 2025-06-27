@@ -13,7 +13,7 @@ use alloy_sol_types::SolValue;
 use ibc_proto::Protobuf;
 
 use ibc_eureka_solidity_types::msgs::IMembershipMsgs::KVPair;
-use sp1_ics07_tendermint_membership::membership;
+use tendermint_light_client_membership::membership;
 
 use ibc_core_commitment_types::merkle::MerkleProof;
 

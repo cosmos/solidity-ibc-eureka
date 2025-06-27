@@ -36,6 +36,11 @@ ethereum-types                     = { path = "packages/ethereum/types", default
 ethereum-apis                      = { path = "packages/ethereum/apis", default-features = false }
 tree_hash                          = { path = "packages/ethereum/tree_hash", default-features = false }
 
+tendermint-light-client-update-client     = { path = "packages/tendermint-light-client/update-client", default-features = false }
+tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }
+tendermint-light-client-misbehaviour      = { path = "packages/tendermint-light-client/misbehaviour", default-features = false }
+tendermint-light-client-uc-and-membership = { path = "packages/tendermint-light-client/uc-and-membership", default-features = false }
+
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
@@ -85,6 +90,7 @@ ibc-core-host-types         = { version = "0.57", default-features = false }
 ibc-core-client-types       = { version = "0.57", default-features = false }
 ibc-core-commitment-types   = { version = "0.57", default-features = false }
 ibc-client-tendermint-types = { version = "0.57", default-features = false }
+ibc-primitives              = { version = "0.57", default-features = false }
 
 alloy                  = { version = "1.0", default-features = false }
 alloy-contract         = { version = "1.0", default-features = false }
@@ -124,4 +130,3 @@ milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b
 smallvec      = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
-
