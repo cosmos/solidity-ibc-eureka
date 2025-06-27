@@ -3,21 +3,19 @@ use clap::{Parser, Subcommand};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-use crate::{
+use sig_aggregator::{
     aggregator::AggregatorService,
     attestor::run_attestor_server,
     config::Config,
-    rpc::{aggregator_server::AggregatorServer, AggregateRequest, AggregatorClient},
+    rpc::{aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient},
 };
 
-pub mod rpc {
-    tonic::include_proto!("aggregator");
-}
+// use crate::{
+//     aggregator::AggregatorService,
+//     attestor::run_attestor_server,
+//     config::Config,
+// };
 
-mod attestor;
-mod aggregator;
-mod config;
-mod error;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

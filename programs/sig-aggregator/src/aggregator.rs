@@ -6,7 +6,7 @@ use crate::{
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::{Aggregator, AggregatorServer},
+        aggregator_server::{Aggregator},
         attestor_client::AttestorClient,
         AggregateRequest, AggregateResponse, Attestation, QueryRequest,
     },

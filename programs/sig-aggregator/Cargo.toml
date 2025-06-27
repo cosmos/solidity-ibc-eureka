@@ -1,22 +1,26 @@
 [package]
 name = "sig-aggregator"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-tonic = "0.13"
-prost = "0.14"
-serde = { version = "1.0", features = ["derive"] }
+tonic = { workspace = true, default-features = true }
+prost = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
+
 toml = "0.8"
-anyhow = "1.0"
-thiserror = "2.0"
-rand = "0.9"
-clap = { version = "4.4", features = ["derive"] }
-futures = "0.3"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-hex = "0.4"
+anyhow = { workspace = true, default-features = true }
+thiserror = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+clap = { workspace = true, default-features = true }
+futures = { workspace = true }
+tracing = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
 
 [build-dependencies]
-tonic-build = "0.13"
+tonic-build = { workspace = true, default-features = true }
