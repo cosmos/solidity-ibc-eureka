@@ -17,10 +17,6 @@ pub struct OperatorCli {
 /// The subcommands for the operator.
 #[derive(Clone, Parser)]
 pub enum Commands {
-    /// The subcommand to run the operator.
-    Start(operator::Args),
-    /// The subcommand to produce the `genesis.json` file.
-    Genesis(genesis::Args),
     /// The subcommand to produce the fixtures for testing.
     Fixtures(fixtures::Cmd),
 }
@@ -49,61 +45,6 @@ pub enum OutputPath {
     Stdout,
     /// Write the output to a file.
     File(String),
-}
-
-/// The cli interface for the genesis command.
-pub mod genesis {
-    use super::Parser;
-
-    /// The arguments for the `genesis` executable.
-    #[derive(Parser, Clone)]
-    pub struct Args {
-        /// Trusted block height. [default: latest]
-        #[clap(long)]
-        pub trusted_block: Option<u64>,
-
-        /// Genesis path. If not provided, the output will be written to stdout.
-        #[clap(long, short = 'o', value_parser = super::parse_output_path, default_value = "-")]
-        pub output_path: super::OutputPath,
-
-        /// Trust options
-        #[clap(flatten)]
-        pub trust_options: super::TrustOptions,
-
-        /// The proof type
-        /// Supported proof types: groth16, plonk.
-        #[clap(long, short = 'p', value_parser = super::parse_proof_type, default_value = "plonk")]
-        pub proof_type: super::SupportedZkAlgorithm,
-
-        /// The paths to the ELF files.
-        #[clap(flatten)]
-        pub elf_paths: super::SP1ELFPaths,
-    }
-}
-
-/// The cli interface for the operator.
-pub mod operator {
-    use super::Parser;
-
-    /// Command line arguments for the operator.
-    #[derive(Parser, Clone)]
-    pub struct Args {
-        /// Run update-client only once and then exit.
-        #[clap(long)]
-        pub only_once: bool,
-
-        /// Running with a private cluster or not
-        /// If true, the operator will use the private cluster configuration.
-        #[clap(long, default_value = "false")]
-        pub private_cluster: bool,
-
-        /// Path to the update client ELF file.
-        #[clap(
-            long,
-            default_value = "programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client"
-        )]
-        pub update_client_path: String,
-    }
 }
 
 /// The cli interface for the fixtures.

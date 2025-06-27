@@ -13,7 +13,6 @@ alloy-sol-types  = { workspace = true, features = ["json"] }
 alloy-contract   = { workspace = true, optional = true }
 alloy-primitives = { workspace = true }
 
-serde     = { workspace = true }
 hex       = { workspace = true, optional = true }
 time      = { workspace = true }
 sha2      = { workspace = true }

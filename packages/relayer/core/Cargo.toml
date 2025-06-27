@@ -1,0 +1,21 @@
+[package]
+name       = "ibc-eureka-relayer-core"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+tonic            = { workspace = true, default-features = true }
+tonic-reflection = { workspace = true, default-features = true }
+
+prometheus         = { workspace = true, default-features = true }
+tracing            = { workspace = true, default-features = true }
+anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
+
+serde      = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+prost      = { workspace = true, default-features = true }
+
+[build-dependencies]
+tonic-build = { workspace = true, default-features = true }

@@ -1,6 +1,5 @@
 //! Contains the runner for the genesis command.
 
-use crate::cli::command::{genesis::Args, OutputPath};
 use alloy::sol_types::SolValue;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ConsensusState as SolConsensusState, SupportedZkAlgorithm,
@@ -11,7 +10,6 @@ use sp1_ics07_tendermint_prover::programs::{
     UpdateClientProgram,
 };
 use sp1_sdk::{utils::setup_logger, HashableKey};
-use std::path::PathBuf;
 use tendermint_light_client_verifier::types::{LightBlock, TrustThreshold};
 use tendermint_rpc::HttpClient;
 
@@ -91,51 +89,4 @@ impl SP1ICS07TendermintGenesis {
             misbehaviour_vkey: misbehaviour.get_vkey().bytes32(),
         })
     }
-}
-
-/// Creates the `genesis.json` file for the `SP1ICS07Tendermint` contract.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-pub async fn run(args: Args) -> anyhow::Result<()> {
-    let tm_rpc_client = HttpClient::from_env();
-
-    let trusted_light_block = tm_rpc_client.get_light_block(args.trusted_block).await?;
-    if args.trusted_block.is_none() {
-        tracing::info!(
-            "Latest block height: {}",
-            trusted_light_block.height().value()
-        );
-    }
-
-    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
-    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
-    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
-    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
-    let update_client_program = UpdateClientProgram::new(update_client_elf);
-    let membership_program = MembershipProgram::new(membership_elf);
-    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
-    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
-
-    let genesis = SP1ICS07TendermintGenesis::from_env(
-        &trusted_light_block,
-        args.trust_options.trusting_period,
-        args.trust_options.trust_level,
-        args.proof_type,
-        &update_client_program,
-        &membership_program,
-        &uc_and_membership_program,
-        &misbehaviour_program,
-    )
-    .await?;
-
-    match args.output_path {
-        OutputPath::File(path) => {
-            // Save the proof data to the file path.
-            std::fs::write(PathBuf::from(path), serde_json::to_string_pretty(&genesis)?)?;
-        }
-        OutputPath::Stdout => {
-            println!("{}", serde_json::to_string_pretty(&genesis)?);
-        }
-    }
-
-    Ok(())
 }

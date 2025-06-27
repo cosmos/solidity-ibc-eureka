@@ -2,4 +2,3 @@
 
 pub mod fixtures;
 pub mod genesis;
-pub mod operator;

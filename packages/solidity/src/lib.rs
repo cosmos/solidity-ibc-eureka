@@ -1,6 +1,6 @@
-//! Solidity types for solidity-ibc-eureka
+//! Solidity types for `solidity-ibc-eureka`
 
-#![deny(clippy::nursery, clippy::pedantic, warnings)]
+#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 pub mod ics26;
 pub mod msgs;
