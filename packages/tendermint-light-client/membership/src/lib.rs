@@ -1,5 +1,5 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 use ibc_eureka_solidity_types::msgs::IMembershipMsgs::{KVPair, MembershipOutput};
 
