@@ -1,4 +1,5 @@
-//! TODO: Change
+//! Contains the core traits and types used to build the relayer binary and modules.
+
 #![deny(
     clippy::nursery,
     clippy::pedantic,

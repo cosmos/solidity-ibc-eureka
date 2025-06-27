@@ -1,5 +1,3 @@
-//! Library for handling relayer actions.
-
 #![doc = include_str!("../README.md")]
 #![deny(
     clippy::nursery,
