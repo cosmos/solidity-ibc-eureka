@@ -19,8 +19,8 @@ fn test_initialize() {
 
     let tx = program
         .request()
-        .accounts(ibc_eureka::accounts::Initialize {})
-        .args(ibc_eureka::instruction::Initialize {})
+        .accounts(ics07_tendermint::accounts::Initialize {})
+        .args(ics07_tendermint::instruction::Initialize {})
         .send()
         .expect("");
 
