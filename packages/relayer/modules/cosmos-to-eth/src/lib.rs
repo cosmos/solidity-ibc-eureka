@@ -16,7 +16,7 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    tx_builder::{cosmos_to_eth::TxBuilder, TxBuilderService},
+    tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_ics07_tendermint_prover::programs::{
@@ -28,6 +28,7 @@ use sp1_sdk::{Prover, ProverClient};
 use tendermint::Hash;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
+use tx_builder::TxBuilder;
 
 use ibc_eureka_relayer_core::{
     api::{self, relayer_service_server::RelayerService},

@@ -19,7 +19,7 @@ use alloy::{
 use ibc_eureka_relayer_lib::{
     events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
-    tx_builder::{eth_to_cosmos, TxBuilderService},
+    tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint::Hash;
@@ -47,8 +47,8 @@ struct EthToCosmosRelayerModuleService {
 }
 
 enum EthToCosmosTxBuilder {
-    Real(eth_to_cosmos::TxBuilder<RootProvider>),
-    Mock(eth_to_cosmos::MockTxBuilder<RootProvider>),
+    Real(tx_builder::TxBuilder<RootProvider>),
+    Mock(tx_builder::MockTxBuilder<RootProvider>),
 }
 
 /// The configuration for the Cosmos to Cosmos relayer module.
@@ -83,13 +83,13 @@ impl EthToCosmosRelayerModuleService {
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
         let tx_builder = if config.mock {
-            EthToCosmosTxBuilder::Mock(eth_to_cosmos::MockTxBuilder::new(
+            EthToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
                 config.ics26_address,
                 provider,
                 config.signer_address,
             ))
         } else {
-            EthToCosmosTxBuilder::Real(eth_to_cosmos::TxBuilder::new(
+            EthToCosmosTxBuilder::Real(tx_builder::TxBuilder::new(
                 config.ics26_address,
                 provider,
                 config.eth_beacon_api_url,

@@ -1,3 +1,5 @@
+//! Defines the [`TxBuilderService`] trait for building transactions
+
 use crate::chain::Chain;
 use anyhow::Result;
 use std::collections::HashMap;

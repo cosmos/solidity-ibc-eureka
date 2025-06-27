@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
-    tx_builder::{cosmos_to_cosmos, TxBuilderService},
+    tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint::Hash;
@@ -39,7 +39,7 @@ struct CosmosToCosmosRelayerModuleService {
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Cosmos to Cosmos.
-    pub tx_builder: cosmos_to_cosmos::TxBuilder,
+    pub tx_builder: tx_builder::TxBuilder,
 }
 
 /// The configuration for the Cosmos to Cosmos relayer module.
@@ -63,7 +63,7 @@ impl CosmosToCosmosRelayerModuleService {
         let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
         let tx_builder =
-            cosmos_to_cosmos::TxBuilder::new(src_client, target_client, config.signer_address);
+            tx_builder::TxBuilder::new(src_client, target_client, config.signer_address);
 
         Self {
             src_listener,

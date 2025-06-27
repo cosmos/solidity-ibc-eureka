@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use ibc_eureka_relayer::cli::cmd::{Commands, RelayerCli};
+use ibc_eureka_relayer::cli::{Commands, RelayerCli};
 use ibc_eureka_relayer_core::{builder::RelayerBuilder, config::RelayerConfig};
 use ibc_eureka_relayer_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
 use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
