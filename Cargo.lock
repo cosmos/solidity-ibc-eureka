@@ -3631,6 +3631,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-cosmos-to-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ibc-core-host-types",
+ "ibc-eureka-relayer-core",
+ "ibc-eureka-relayer-lib",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover",
+ "sp1-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-eth-to-cosmos"
 version = "0.1.0"
 dependencies = [

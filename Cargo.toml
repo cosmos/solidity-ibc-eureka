@@ -9,6 +9,7 @@ members = [
     "packages/relayer/lib",
     "packages/relayer/core",
     "packages/relayer/modules/eth-to-cosmos",
+    "packages/relayer/modules/cosmos-to-eth",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
 
@@ -29,6 +30,8 @@ keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solid
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib             = { path = "packages/relayer/lib", default-features = false }
 ibc-eureka-relayer-core            = { path = "packages/relayer/core", default-features = false }
+ibc-eureka-relayer-eth-to-cosmos   = { path = "packages/relayer/modules/eth-to-cosmos", default-features = false }
+ibc-eureka-relayer-cosmos-to-eth   = { path = "packages/relayer/modules/cosmos-to-eth", default-features = false }
 ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
