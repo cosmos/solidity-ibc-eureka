@@ -11,7 +11,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 
-use sp1_ics07_tendermint_uc_and_membership::update_client_and_membership;
+use tendermint_light_client_uc_and_membership::update_client_and_membership;
 
 use ibc_client_tendermint_types::Header;
 use ibc_core_commitment_types::merkle::MerkleProof;

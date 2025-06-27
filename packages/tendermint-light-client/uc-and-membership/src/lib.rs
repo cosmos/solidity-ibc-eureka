@@ -1,4 +1,4 @@
-//! The crate that contains the types and utilities for `sp1-ics07-tendermint-membership` program.
+//! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
 
 use ibc_client_tendermint_types::{ConsensusState, Header};
@@ -26,14 +26,14 @@ pub fn update_client_and_membership(
         .try_into()
         .unwrap();
 
-    let uc_output = sp1_ics07_tendermint_update_client::update_client(
+    let uc_output = tendermint_light_client_update_client::update_client(
         client_state,
         trusted_consensus_state,
         proposed_header,
         time,
     );
 
-    let mem_output = sp1_ics07_tendermint_membership::membership(app_hash, request_iter);
+    let mem_output = tendermint_light_client_membership::membership(app_hash, request_iter);
 
     UcAndMembershipOutput {
         updateClientOutput: uc_output,
