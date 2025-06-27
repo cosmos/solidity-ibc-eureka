@@ -8,6 +8,4 @@ license     = { workspace = true }
 
 [dependencies]
 ibc-core-commitment-types     = { workspace = true }
-alloy-sol-types               = { workspace = true }
 ibc-eureka-solidity-types     = { workspace = true }
-ibc-proto                     = { workspace = true }

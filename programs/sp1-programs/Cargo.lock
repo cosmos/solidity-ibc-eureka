@@ -1732,23 +1732,17 @@ dependencies = [
 name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tendermint-light-client-misbehaviour"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "ibc-client-tendermint",
- "ibc-core-client",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
- "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
@@ -1758,11 +1752,9 @@ dependencies = [
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "ibc-client-tendermint-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
 ]
@@ -1771,13 +1763,11 @@ dependencies = [
 name = "tendermint-light-client-update-client"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "ibc-client-tendermint",
  "ibc-core-client",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
  "tendermint-light-client-verifier",
 ]
