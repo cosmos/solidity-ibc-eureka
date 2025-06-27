@@ -1,12 +1,17 @@
 [package]
-name       = "solidity-ibc-eureka-relayer"
+name       = "ibc-eureka-relayer"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-relayer-lib      = { workspace = true, default-features = true }
+ibc-eureka-relayer-lib              = { workspace = true, default-features = false }
+ibc-eureka-relayer-core             = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-cosmos    = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-eth    = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-cosmos = { workspace = true, default-features = false }
+
 sp1-ics07-tendermint-prover = { workspace = true }
 
 tokio            = { workspace = true, default-features = true }
@@ -33,6 +38,3 @@ ibc-eureka-utils = { workspace = true }
 
 sp1-sdk    = { workspace = true, default-features = true }
 sp1-prover = { workspace = true }
-
-[build-dependencies]
-tonic-build = { workspace = true, default-features = true }
