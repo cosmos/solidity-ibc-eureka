@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package aggregator;
+
+// The Attestor service definition.
+service Attestor {
+  // Queries attestations from an attestor.
+  rpc QueryAttestations(QueryRequest) returns (AttestationsResponse);
+}
+
+// The Aggregator service definition.
+service Aggregator {
+  // Queries the aggregator for an aggregated attestation.
+  rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
+}
+
+message Attestation {
+  uint64 height = 1;
+  bytes signature = 2; // 32 bytes
+}
+
+message QueryRequest {
+  uint64 min_height = 1;
+}
+
+message AttestationsResponse {
+  repeated Attestation attestations = 1;
+}
+
+message AggregateRequest {
+  uint64 min_height = 1;
+}
+
+message AggregateResponse {
+  optional Attestation attestation = 1;
+}
