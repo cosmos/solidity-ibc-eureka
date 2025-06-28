@@ -10,13 +10,6 @@ use sig_aggregator::{
     rpc::{aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient},
 };
 
-// use crate::{
-//     aggregator::AggregatorService,
-//     attestor::run_attestor_server,
-//     config::Config,
-// };
-
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {

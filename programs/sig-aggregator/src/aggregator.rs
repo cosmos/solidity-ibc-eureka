@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use tokio::sync::mpsc;
+use tokio::time::{timeout, Duration};
 use tonic::{transport::Channel, Request, Response, Status};
 
 use crate::{
@@ -41,6 +42,8 @@ impl Aggregator for AggregatorService {
         &self,
         request: Request<AggregateRequest>,
     ) -> Result<Response<AggregateResponse>, Status> {
+        const ATTESTOR_QUERY_TIMEOUT: Duration = Duration::from_secs(5); // Define timeout duration
+
         let min_height = request.into_inner().min_height;
 
         let (tx, mut rx) = mpsc::channel(self.attestor_clients.len());
@@ -60,17 +63,31 @@ impl Aggregator for AggregatorService {
 
         let mut all_attestations = Vec::new();
         let mut responses_received = 0;
-        while let Some(result) = rx.recv().await {
-            responses_received += 1;
-            match result {
-                Ok(response) => {
-                    all_attestations.extend(response.into_inner().attestations);
-                }
-                Err(e) => {
-                    tracing::warn!("An attestor query failed: {}", e);
+        let collection_result = timeout(ATTESTOR_QUERY_TIMEOUT, async {
+            while let Some(result) = rx.recv().await {
+                responses_received += 1;
+                match result {
+                    Ok(response) => {
+                        all_attestations.extend(response.into_inner().attestations);
+                    }
+                    Err(e) => {
+                        tracing::warn!("An attestor query failed: {}", e);
+                    }
                 }
             }
+        }).await;
+
+        match collection_result {
+            Ok(_) => {
+                // The channel closed before the timeout, meaning all tasks completed/failed.
+                tracing::info!("Attestor collection completed before timeout.");
+            }
+            Err(_) => {
+                // The timeout occurred. We stop waiting for more responses.
+                tracing::warn!("Attestor collection timed out after {:?}", ATTESTOR_QUERY_TIMEOUT);
+            }
         }
+        
         tracing::info!(
             "Received responses from {} of {} attestors",
             responses_received,
