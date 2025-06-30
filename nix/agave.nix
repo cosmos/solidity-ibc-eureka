@@ -7,7 +7,6 @@
 , openssl
 , zlib
 , protobuf
-, rustfmt
 , perl
 , hidapi
 , rust-bin
@@ -84,7 +83,6 @@ let
     nativeBuildInputs = [
       pkg-config
       protobuf
-      rustfmt
       perl
     ];
 
