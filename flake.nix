@@ -73,7 +73,6 @@
               openssl.dev
               pkg-config
               solana-agave
-              anchor
               protobuf
             ];
             shellHook = ''

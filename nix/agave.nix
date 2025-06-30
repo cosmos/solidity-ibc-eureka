@@ -145,7 +145,6 @@ let
     set -euo pipefail
 
     readonly REAL_ANCHOR="${anchor}/bin/anchor"
-    readonly PLATFORM_TOOLS_VERSION="${versions.platformTools}"
     readonly AGAVE_PATH="${agave}"
     readonly RUST_NIGHTLY_PATH="${rustNightly}"
 
@@ -166,18 +165,6 @@ let
       export PATH="$AGAVE_PATH/bin/rust/bin:$PATH"
       export RUSTC="$AGAVE_PATH/bin/rust/bin/rustc"
       export CARGO="$AGAVE_PATH/bin/rust/bin/cargo"
-
-      # Setup cache symlinks for cargo-build-sbf
-      local cache_dir="$HOME/.cache/solana/$PLATFORM_TOOLS_VERSION/platform-tools"
-      mkdir -p "$cache_dir"
-
-      # Use atomic operations for cache setup
-      {
-        rm -rf "$cache_dir/rust" "$cache_dir/llvm"
-        ln -sf "$AGAVE_PATH/bin/rust" "$cache_dir/rust"
-        ln -sf "$AGAVE_PATH/bin/llvm" "$cache_dir/llvm"
-        echo "$PLATFORM_TOOLS_VERSION" > "$cache_dir/.version"
-      } 2>/dev/null || true
     }
 
     setup_nightly() {
@@ -283,7 +270,7 @@ EOF
 in
 symlinkJoin {
   name = "agave-with-toolchain-${versions.agave}";
-  paths = [ agave anchorNix ];
+  paths = [ agave anchorNix anchor ];
 
   passthru = {
     inherit agave rustNightly;
