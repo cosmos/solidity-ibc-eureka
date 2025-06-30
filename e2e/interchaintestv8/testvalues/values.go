@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/gagliardetto/solana-go"
+
 	"cosmossdk.io/math"
 
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
@@ -23,6 +25,9 @@ const (
 
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
+
+	// InitialSolBalance is the default amount of SOL to give a new user
+	InitialSolBalance uint64 = solana.LAMPORTS_PER_SOL * 1
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
@@ -90,6 +95,13 @@ const (
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
 
+	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
+	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
+	// SolanaTestnetType_Localnet is the Solana testnet type for using a local testnet.
+	SolanaTestnetType_Localnet = "localnet"
+	// SolanaTestnetType_None is the Solana testnet type for using no chain.
+	SolanaTestnetType_None = "none"
+
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
 	Sp1GenesisFilePath = "scripts/genesis.json"
@@ -103,6 +115,8 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+	// SolanaLedgerDir is the path to the Solana ledger directory.
+	SolanaLedgerDir = "test-ledger"
 
 	// IbcCommitmentSlotHex is the storage slot in the IBC solidity contract for the IBC commitments.
 	IbcCommitmentSlotHex = ics26router.IbcStoreStorageSlot
