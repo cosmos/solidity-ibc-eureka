@@ -28,6 +28,7 @@ pub struct MockAttestor {
     should_fail: bool,
     // To simulate latency
     delay_ms: u64,
+    pub_key: Vec<u8>,
 }
 
 impl MockAttestor {
@@ -49,6 +50,7 @@ impl MockAttestor {
             store: Arc::new(Mutex::new(store)),
             should_fail,
             delay_ms,
+            pub_key: [0u8; 65].to_vec(),
         }
     }
 }
@@ -75,6 +77,7 @@ impl Attestor for MockAttestor {
             .map(|(&height, signature)| Attestation {
                 height,
                 signature: signature.clone(),
+                pubkey: self.pub_key.clone(),
             })
             .collect();
 

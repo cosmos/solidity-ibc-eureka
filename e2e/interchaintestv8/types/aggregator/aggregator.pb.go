@@ -120,6 +120,7 @@ func (x *QueryRequest) GetMinHeight() uint64 {
 type AttestationsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Attestations  []*Attestation         `protobuf:"bytes,1,rep,name=attestations,proto3" json:"attestations,omitempty"`
+	Pubkey        []byte                 `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"` // 65 bytes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,6 +158,13 @@ func (*AttestationsResponse) Descriptor() ([]byte, []int) {
 func (x *AttestationsResponse) GetAttestations() []*Attestation {
 	if x != nil {
 		return x.Attestations
+	}
+	return nil
+}
+
+func (x *AttestationsResponse) GetPubkey() []byte {
+	if x != nil {
+		return x.Pubkey
 	}
 	return nil
 }
@@ -208,6 +216,7 @@ func (x *AggregateRequest) GetMinHeight() uint64 {
 type AggregateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Attestation   *Attestation           `protobuf:"bytes,1,opt,name=attestation,proto3,oneof" json:"attestation,omitempty"`
+	Pubkey        []byte                 `protobuf:"bytes,2,opt,name=pubkey,proto3" json:"pubkey,omitempty"` // 65 bytes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -249,6 +258,13 @@ func (x *AggregateResponse) GetAttestation() *Attestation {
 	return nil
 }
 
+func (x *AggregateResponse) GetPubkey() []byte {
+	if x != nil {
+		return x.Pubkey
+	}
+	return nil
+}
+
 var File_aggregator_aggregator_proto protoreflect.FileDescriptor
 
 const file_aggregator_aggregator_proto_rawDesc = "" +
@@ -260,14 +276,16 @@ const file_aggregator_aggregator_proto_rawDesc = "" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"-\n" +
 	"\fQueryRequest\x12\x1d\n" +
 	"\n" +
-	"min_height\x18\x01 \x01(\x04R\tminHeight\"S\n" +
+	"min_height\x18\x01 \x01(\x04R\tminHeight\"k\n" +
 	"\x14AttestationsResponse\x12;\n" +
-	"\fattestations\x18\x01 \x03(\v2\x17.aggregator.AttestationR\fattestations\"1\n" +
+	"\fattestations\x18\x01 \x03(\v2\x17.aggregator.AttestationR\fattestations\x12\x16\n" +
+	"\x06pubkey\x18\x02 \x01(\fR\x06pubkey\"1\n" +
 	"\x10AggregateRequest\x12\x1d\n" +
 	"\n" +
-	"min_height\x18\x01 \x01(\x04R\tminHeight\"c\n" +
+	"min_height\x18\x01 \x01(\x04R\tminHeight\"{\n" +
 	"\x11AggregateResponse\x12>\n" +
-	"\vattestation\x18\x01 \x01(\v2\x17.aggregator.AttestationH\x00R\vattestation\x88\x01\x01B\x0e\n" +
+	"\vattestation\x18\x01 \x01(\v2\x17.aggregator.AttestationH\x00R\vattestation\x88\x01\x01\x12\x16\n" +
+	"\x06pubkey\x18\x02 \x01(\fR\x06pubkeyB\x0e\n" +
 	"\f_attestation2[\n" +
 	"\bAttestor\x12O\n" +
 	"\x11QueryAttestations\x12\x18.aggregator.QueryRequest\x1a .aggregator.AttestationsResponse2d\n" +

@@ -19,6 +19,7 @@ service Aggregator {
 message Attestation {
   uint64 height = 1;
   bytes signature = 2; // 32 bytes
+  bytes pubkey = 3; // 65 bytes
 }
 
 message QueryRequest {

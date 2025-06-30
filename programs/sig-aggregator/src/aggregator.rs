@@ -19,30 +19,6 @@ pub struct AggregatorService {
     attestor_clients: Vec<AttestorClient<Channel>>,
 }
 
-// #[derive(Debug)]
-// pub struct ChainHeader {
-//     pub chain_id: u64,
-//     pub height: u64,
-//     pub state_root: Vec<u8>,
-//     pub timestamp: u64,
-// }
-
-// #[derive(Debug)]
-// pub struct AttestationData {
-//     pub data: ChainHeader,
-//     pub signature: Signature,
-//     pub pubkey: PublicKey,
-// }
-
-// /// A multi-signature attestation, collecting N individual attestations on the same data.
-// /// Ensures all attestations refer to identical state and preserves public keys and signatures in order.
-// #[derive(Debug)]
-// pub struct MultiSigAttestation {
-//     pub chain_header: ChainHeader,
-//     pub pubkeys: Vec<PublicKey>,
-//     pub signatures: Vec<Signature>,
-// }
-
 impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
@@ -104,13 +80,13 @@ impl Aggregator for AggregatorService {
             tracing::warn!("Attestor collection timed out after {:?}. Error: {:?}", ATTESTOR_QUERY_TIMEOUT, e);
         }
         
-        // HashMap<height, HashMap<signature, count>>
-        let mut sig_counts: HashMap<u64, HashMap<Vec<u8>, usize>> = HashMap::new();
+        // HashMap<height, HashMap<(signature, pubKey), count>>
+        let mut sig_counts: HashMap<u64, HashMap<(Vec<u8>, Vec<u8>), usize>> = HashMap::new();
         for attestation in all_attestations {
             *sig_counts
                 .entry(attestation.height)
                 .or_default()
-                .entry(attestation.signature)
+                .entry((attestation.signature, attestation.pubkey))
                 .or_default() += 1;
         }
 
@@ -118,9 +94,13 @@ impl Aggregator for AggregatorService {
         let best_attestation = sig_counts
             .into_iter()
             .flat_map(|(height, sig_map)| {
-                sig_map.into_iter().filter_map(move |(signature, count)| {
+                sig_map.into_iter().filter_map(move |(data, count)| {
                     if count >= self.config.quorum_threshold {
-                        Some(Attestation { height, signature })
+                        Some(Attestation { 
+                            height, 
+                            signature: data.0,
+                            pubkey: data.1,
+                        })
                     } else {
                         None
                     }
@@ -177,3 +157,27 @@ pub struct MultiSigAttestation {
     
     
 */
+
+// #[derive(Debug)]
+// pub struct ChainHeader {
+//     pub chain_id: u64,
+//     pub height: u64,
+//     pub state_root: Vec<u8>,
+//     pub timestamp: u64,
+// }
+
+// #[derive(Debug)]
+// pub struct AttestationData {
+//     pub data: ChainHeader,
+//     pub signature: Signature,
+//     pub pubkey: PublicKey,
+// }
+
+// /// A multi-signature attestation, collecting N individual attestations on the same data.
+// /// Ensures all attestations refer to identical state and preserves public keys and signatures in order.
+// #[derive(Debug)]
+// pub struct MultiSigAttestation {
+//     pub chain_header: ChainHeader,
+//     pub pubkeys: Vec<PublicKey>,
+//     pub signatures: Vec<Signature>,
+// }
