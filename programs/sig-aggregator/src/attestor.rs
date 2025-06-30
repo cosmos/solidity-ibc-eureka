@@ -10,6 +10,7 @@ use crate::rpc::{
 };
 
 // A mock signature is just a height repeated 4 times inside a 32-byte array.
+// Which represent a digest, i.e. serialized chain header.
 fn mock_signature(height: u64) -> Vec<u8> {
     let mut sig = [0u8; 32];
     let height_bytes = height.to_be_bytes();

@@ -19,6 +19,30 @@ pub struct AggregatorService {
     attestor_clients: Vec<AttestorClient<Channel>>,
 }
 
+// #[derive(Debug)]
+// pub struct ChainHeader {
+//     pub chain_id: u64,
+//     pub height: u64,
+//     pub state_root: Vec<u8>,
+//     pub timestamp: u64,
+// }
+
+// #[derive(Debug)]
+// pub struct AttestationData {
+//     pub data: ChainHeader,
+//     pub signature: Signature,
+//     pub pubkey: PublicKey,
+// }
+
+// /// A multi-signature attestation, collecting N individual attestations on the same data.
+// /// Ensures all attestations refer to identical state and preserves public keys and signatures in order.
+// #[derive(Debug)]
+// pub struct MultiSigAttestation {
+//     pub chain_header: ChainHeader,
+//     pub pubkeys: Vec<PublicKey>,
+//     pub signatures: Vec<Signature>,
+// }
+
 impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
@@ -42,7 +66,7 @@ impl Aggregator for AggregatorService {
         &self,
         request: Request<AggregateRequest>,
     ) -> Result<Response<AggregateResponse>, Status> {
-        const ATTESTOR_QUERY_TIMEOUT: Duration = Duration::from_secs(5); // Define timeout duration
+        const ATTESTOR_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 
         let min_height = request.into_inner().min_height;
 
@@ -58,9 +82,8 @@ impl Aggregator for AggregatorService {
                 }
             });
         }
-        // Drop the original sender to close the channel when all clones are dropped.
         drop(tx);
-
+        
         let mut all_attestations = Vec::new();
         let mut responses_received = 0;
         let collection_result = timeout(ATTESTOR_QUERY_TIMEOUT, async {
@@ -76,24 +99,11 @@ impl Aggregator for AggregatorService {
                 }
             }
         }).await;
-
-        match collection_result {
-            Ok(_) => {
-                // The channel closed before the timeout, meaning all tasks completed/failed.
-                tracing::info!("Attestor collection completed before timeout.");
-            }
-            Err(_) => {
-                // The timeout occurred. We stop waiting for more responses.
-                tracing::warn!("Attestor collection timed out after {:?}", ATTESTOR_QUERY_TIMEOUT);
-            }
+        
+        if let Err(e) = collection_result {
+            tracing::warn!("Attestor collection timed out after {:?}. Error: {:?}", ATTESTOR_QUERY_TIMEOUT, e);
         }
         
-        tracing::info!(
-            "Received responses from {} of {} attestors",
-            responses_received,
-            self.attestor_clients.len()
-        );
-
         // HashMap<height, HashMap<signature, count>>
         let mut sig_counts: HashMap<u64, HashMap<Vec<u8>, usize>> = HashMap::new();
         for attestation in all_attestations {
@@ -133,3 +143,37 @@ impl Aggregator for AggregatorService {
         }))
     }
 }
+
+// let (sk, pk) = generate_keypair(&mut rand::rng());
+// let msg = Message::from_digest([0; 32]);
+
+// let mut att = AttestationData{
+//     data: ChainHeader{
+//         chain_id: 0,
+//         height: 0,
+//         state_root: Vec::new(),
+//         timestamp: 100,
+//     },
+//     signature: sk.sign_ecdsa(msg),
+//     pubkey: pk,
+// };
+
+// att.signature.serialize_compact(); // u8; 64
+// att.pubkey.serialize_uncompressed(); // u8; 65
+
+/*
+
+
+
+use secp256k1::PublicKey;
+use secp256k1::ecdsa::Signature;
+
+#[derive(Debug)]
+pub struct MultiSigAttestation {
+    pub attestation_data: AttestationData,
+    pub pubkeys: Vec<PublicKey>,
+    pub signatures: Vec<Signature>,
+    }
+    
+    
+*/
