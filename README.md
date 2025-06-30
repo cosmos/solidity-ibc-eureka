@@ -103,6 +103,20 @@ just install-relayer
 > ```sh
 > nix develop
 > ```
+>
+> For Solana development, use the dedicated Solana devshell:
+>
+> ```sh
+> nix develop .#solana
+> ```
+>
+> The Solana devshell includes:
+> - Solana Agave toolchain (v2.2.17)
+> - Anchor framework
+> - Custom `anchor-nix` wrapper to execute anchor commands
+> - Rustc and cargo forks of solana for sbf compilation
+> - All Solana CLI tools (solana, solana-keygen, solana-test-validator, etc.)
+When using the Solana devshell, use `anchor-nix build` and `anchor-nix test` instead of the regular `anchor` for nix compatibility wrapper.
 
 ## Unit Testing
 
