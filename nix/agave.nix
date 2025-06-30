@@ -31,7 +31,7 @@
 }:
 
 let
-  # Create nightly toolchain from rust-bin
+  # Create nightly toolchain from rust-bin (used for IDL generation)
   rustNightly = rust-bin.nightly.latest.default.override {
     extensions = [ "rust-src" ];
   };
@@ -264,7 +264,7 @@ let
         ;;
 
       *)
-        echo "anchor-nix: Optimized Anchor wrapper for Nix environments"
+        echo "anchor-nix: Anchor wrapper for Nix environments"
         echo ""
         echo "Usage:"
         echo "  anchor-nix build [options]  - Build program with Solana toolchain, generate IDL with nightly"
