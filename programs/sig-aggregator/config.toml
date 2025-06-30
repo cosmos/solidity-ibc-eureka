@@ -1,4 +1,5 @@
 listen_addr = "127.0.0.1:50060"
+attestor_query_timeout_ms = 5000
 quorum_threshold = 3
 attestor_endpoints = [
     "http://127.0.0.1:50051",

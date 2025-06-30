@@ -8,6 +8,7 @@ pub struct Config {
     pub attestor_endpoints: Vec<String>,
     pub quorum_threshold: usize,
     pub listen_addr: String,
+    pub attestor_query_timeout_ms: u64,
 }
 
 impl Config {

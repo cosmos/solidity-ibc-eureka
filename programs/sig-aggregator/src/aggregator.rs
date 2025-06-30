@@ -42,8 +42,6 @@ impl Aggregator for AggregatorService {
         &self,
         request: Request<AggregateRequest>,
     ) -> Result<Response<AggregateResponse>, Status> {
-        const ATTESTOR_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
-
         let min_height = request.into_inner().min_height;
 
         let (tx, mut rx) = mpsc::channel(self.attestor_clients.len());
@@ -62,7 +60,8 @@ impl Aggregator for AggregatorService {
         
         let mut all_attestations = Vec::new();
         let mut responses_received = 0;
-        let collection_result = timeout(ATTESTOR_QUERY_TIMEOUT, async {
+        let attestor_query_timeout = Duration::from_millis(self.config.attestor_query_timeout_ms);
+        let collection_result = timeout(attestor_query_timeout, async {
             while let Some(result) = rx.recv().await {
                 responses_received += 1;
                 match result {
@@ -77,7 +76,7 @@ impl Aggregator for AggregatorService {
         }).await;
         
         if let Err(e) = collection_result {
-            tracing::warn!("Attestor collection timed out after {:?}. Error: {:?}", ATTESTOR_QUERY_TIMEOUT, e);
+            tracing::warn!("Attestor collection timed out after {:?}. Error: {:?}", attestor_query_timeout, e);
         }
         
         // HashMap<height, HashMap<(signature, pubKey), count>>
@@ -246,6 +245,7 @@ mod tests {
             ],
             quorum_threshold: 3,
             listen_addr: "127.0.0.1:50060".to_string(), // Not used in this test
+            attestor_query_timeout_ms: 5000,
         };
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
