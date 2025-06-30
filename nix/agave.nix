@@ -19,14 +19,14 @@
     "solana-bench-tps"
     "solana-faucet"
     "solana-gossip"
-    "agave-install"
     "solana-keygen"
-    "agave-ledger-tool"
     "solana-log-analyzer"
     "solana-net-shaper"
-    "agave-validator"
     "solana-test-validator"
     "solana-genesis"
+    "agave-ledger-tool"
+    "agave-install"
+    "agave-validator"
   ]
 }:
 
@@ -214,6 +214,7 @@ let
         # First, build with Solana toolchain
         echo "📦 Building program with Solana/Agave toolchain..."
         setup_solana
+
         "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${@:2}"
         BUILD_RESULT=$?
 
