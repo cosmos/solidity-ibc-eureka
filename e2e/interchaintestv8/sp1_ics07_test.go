@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -32,6 +33,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
@@ -52,10 +54,15 @@ type SP1ICS07TendermintTestSuite struct {
 	// Whether to generate fixtures for the solidity tests
 	generateFixtures bool
 
+	// Addresses of the deployed contracts
+	contractAddresses ethereum.DeployedContracts
+
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 	// The SP1ICS07Tendermint contract
 	contract *sp1ics07tendermint.Contract
+	// The ICS26 router contract, needed for the relayer to pass proofs
+	ics26Contract *ics26router.Contract
 
 	// The relayer API (only used for deployment at the moment)
 	RelayerClient relayertypes.RelayerServiceClient
@@ -109,6 +116,16 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
+	s.Require().True(s.Run("Deploy IBC contracts", func() {
+		stdout, err := eth.ForgeScript(s.key, testvalues.E2EDeployScriptPath)
+		s.Require().NoError(err)
+
+		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
+		s.Require().NoError(err)
+		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
+		s.Require().NoError(err)
+	}))
+
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
@@ -127,7 +144,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				EthChainID:     eth.ChainID.String(),
 				CosmosChainID:  simd.Config().ChainID,
 				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   "0x0000000000000000000000000000000000000000", // permissionless proof submission
+				ICS26Address:   s.contractAddresses.Ics26Router,
 				EthRPC:         eth.RPC,
 				BeaconAPI:      beaconAPI,
 				SP1Config:      sp1Config,
