@@ -68,3 +68,9 @@ runs:
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+
+    - name: Setup Solana
+      shell: bash
+      run: |
+        sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.14/install)"
+        echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
