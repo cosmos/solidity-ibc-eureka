@@ -164,7 +164,7 @@ let
 
     case "$1" in
       build)
-        echo "🔨 Building Solana program with optimized toolchain setup..."
+        echo "🔨 Building Solana program with solana toolchain setup..."
 
         # First, build the program with Solana toolchain (no IDL)
         echo "📦 Building program with Solana/Agave toolchain..."
@@ -177,7 +177,7 @@ let
           # Check if any program has idl-build feature
           echo "🔍 Checking for IDL build feature..."
           HAS_IDL_BUILD=false
-          
+
           # Find all Cargo.toml files in programs directory
           for cargo_toml in programs/*/Cargo.toml; do
             if [[ -f "$cargo_toml" ]] && grep -q "idl-build" "$cargo_toml"; then
@@ -186,7 +186,7 @@ let
               break
             fi
           done
-          
+
           if [[ "$HAS_IDL_BUILD" == "true" ]]; then
             # If idl-build feature found, generate IDL with nightly toolchain
             echo "📝 Generating IDL with nightly toolchain..."
@@ -218,12 +218,12 @@ let
         setup_solana
         "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${@:2}"
         BUILD_RESULT=$?
-        
+
         if [[ $BUILD_RESULT -eq 0 ]]; then
           # Check if any program has idl-build feature
           echo "🔍 Checking for IDL build feature..."
           HAS_IDL_BUILD=false
-          
+
           # Find all Cargo.toml files in programs directory
           for cargo_toml in programs/*/Cargo.toml; do
             if [[ -f "$cargo_toml" ]] && grep -q "idl-build" "$cargo_toml"; then
@@ -232,28 +232,27 @@ let
               break
             fi
           done
-          
-          # Switch to nightly for IDL (if needed) and tests
+
+          # Switch to nightly for IDL
           setup_nightly
-          
+
           if [[ "$HAS_IDL_BUILD" == "true" ]]; then
             echo "📝 Generating IDL with nightly toolchain..."
             "$REAL_ANCHOR" idl build "''${@:2}"
             IDL_RESULT=$?
-            
+
             if [[ $IDL_RESULT -ne 0 ]]; then
               echo "⚠️  IDL generation failed"
               exit $IDL_RESULT
             fi
           else
             echo "ℹ️  Skipping IDL generation (no idl-build feature found)"
-          fi
-          
+
           # Run tests with nightly toolchain
           echo "🧪 Running tests with nightly toolchain..."
           "$REAL_ANCHOR" test --skip-build "''${@:2}"
           TEST_RESULT=$?
-          
+
           if [[ $TEST_RESULT -eq 0 ]]; then
             echo "✅ All tests passed!"
           else
@@ -277,7 +276,6 @@ let
         echo "  - Fast, deterministic builds with Solana/Agave toolchain"
         echo "  - IDL generation with Rust nightly toolchain"
         echo ""
-        echo "For other Anchor commands, use the regular 'anchor' command."
         exit 1
         ;;
     esac
