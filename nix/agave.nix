@@ -35,7 +35,6 @@ let
   inherit (lib) optionals;
   inherit (stdenv) hostPlatform isLinux;
 
-  # Version management
   versions = {
     agave = "2.2.17";
     platformTools = "v1.48";
@@ -46,7 +45,6 @@ let
     extensions = [ "rust-src" ];
   };
 
-  # Platform-specific configuration
   platformConfig = {
     x86_64-darwin = {
       archive = "platform-tools-osx-x86_64.tar.bz2";
@@ -136,7 +134,7 @@ let
       description = "Solana runtime and toolchain";
       homepage = "https://github.com/anza-xyz/agave";
       license = licenses.asl20;
-      maintainers = with maintainers; [ ];
+      maintainers = with maintainers; [ vaporif ];
       platforms = platforms.unix;
     };
   };
