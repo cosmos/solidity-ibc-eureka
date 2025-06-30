@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::{transport::Server, Request, Response, Status};
+use rand::Rng;
 
 use crate::rpc::{
     attestor_server::{Attestor, AttestorServer},
@@ -46,11 +47,14 @@ impl MockAttestor {
             store.insert(110, mock_signature(110));
         }
 
+        let mut pub_key = [0u8; 65];
+        rand::rng().fill(&mut pub_key[..]);
+
         Self {
             store: Arc::new(Mutex::new(store)),
             should_fail,
             delay_ms,
-            pub_key: [0u8; 65].to_vec(),
+            pub_key: pub_key.to_vec(),
         }
     }
 }

@@ -81,33 +81,41 @@ impl Aggregator for AggregatorService {
         }
         
         // HashMap<height, HashMap<(signature, pubKey), count>>
-        let mut sig_counts: HashMap<u64, HashMap<(Vec<u8>, Vec<u8>), usize>> = HashMap::new();
+        let mut sig_counts: HashMap<u64, HashMap<Vec<u8>, (usize, Vec<u8>)>> = HashMap::new();
+        // let mut sig_to_pubkey: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         for attestation in all_attestations {
-            *sig_counts
-                .entry(attestation.height)
-                .or_default()
-                .entry((attestation.signature, attestation.pubkey))
-                .or_default() += 1;
+            let inner_map = sig_counts.entry(attestation.height).or_default();
+            let entry = inner_map.entry(attestation.signature.clone());
+            match entry {
+                std::collections::hash_map::Entry::Occupied(mut o) => {
+                    o.get_mut().0 += 1;
+                }
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    v.insert((1, attestation.pubkey.clone()));
+                }
+            }
         }
 
         // Find the highest height with a quorum
         let best_attestation = sig_counts
             .into_iter()
             .flat_map(|(height, sig_map)| {
-                sig_map.into_iter().filter_map(move |(data, count)| {
+                sig_map.into_iter().filter_map({
+                move |(signature, (count, pubkey))| {
                     if count >= self.config.quorum_threshold {
                         Some(Attestation { 
                             height, 
-                            signature: data.0,
-                            pubkey: data.1,
+                            pubkey,
+                            signature,
                         })
                     } else {
                         None
                     }
+                }
                 })
             })
             .max_by_key(|a| a.height);
-
+        
         if let Some(attestation) = &best_attestation {
             tracing::info!(
                 "Found quorum for height {}: signature 0x{}",
@@ -181,3 +189,81 @@ pub struct MultiSigAttestation {
 //     pub pubkeys: Vec<PublicKey>,
 //     pub signatures: Vec<Signature>,
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        attestor::MockAttestor,
+        config::Config,
+        rpc::attestor_server::{AttestorServer},
+    };
+    use std::net::SocketAddr;
+    use tokio::net::TcpListener;
+    use tonic::transport::Server;
+
+    // Helper to spin up a mock attestor server on a random available port.
+    // Returns the address it's listening on.
+    async fn setup_attestor_server(should_fail: bool, delay_ms: u64) -> anyhow::Result<SocketAddr> {
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let addr = listener.local_addr()?;
+        let attestor = MockAttestor::new(should_fail, delay_ms);
+
+        tokio::spawn(async move {
+            Server::builder()
+                .add_service(AttestorServer::new(attestor))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                .await
+        });
+
+        Ok(addr)
+    }
+
+    fn get_mock_signature(height: u64) -> Vec<u8> {
+        let mut sig = [0u8; 32];
+        let height_bytes = height.to_be_bytes();
+        for i in 0..4 {
+            sig[i * 8..(i + 1) * 8].copy_from_slice(&height_bytes);
+        }
+        sig.to_vec()
+    }
+
+    #[tokio::test]
+    async fn test_get_aggregate_attestation_quorum_met() {
+        // 1. Setup: Create 3 successful attestors and 1 failing attestor.
+        let attestor_addr_1 = setup_attestor_server(false, 0).await.unwrap();
+        let attestor_addr_2 = setup_attestor_server(false, 0).await.unwrap();
+        let attestor_addr_3 = setup_attestor_server(false, 0).await.unwrap();
+        let attestor_addr_4 = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
+
+        // 2. Setup: Create AggregatorService
+        let config = Config {
+            attestor_endpoints: vec![
+                format!("http://{}", attestor_addr_1),
+                format!("http://{}", attestor_addr_2),
+                format!("http://{}", attestor_addr_3),
+                format!("http://{}", attestor_addr_4),
+            ],
+            quorum_threshold: 3,
+            listen_addr: "127.0.0.1:50060".to_string(), // Not used in this test
+        };
+
+        let aggregator_service = AggregatorService::from_config(config).await.unwrap();
+
+        // 3. Execute: Query for an aggregated attestation
+        let request = Request::new(AggregateRequest { min_height: 100 });
+        let response = aggregator_service
+            .get_aggregate_attestation(request)
+            .await
+            .unwrap();
+
+        // 4. Assert: Check the response
+        let attestation = response.into_inner().attestation.unwrap();
+
+        // From `MockAttestor::new`, the highest height all 3 successful attestors agree on is 110.
+        assert_eq!(attestation.height, 110);
+        assert_eq!(attestation.signature, get_mock_signature(110));
+        assert_eq!(attestation.pubkey.len(), 65);
+        assert!(attestation.pubkey.iter().any(|&b| b != 0));
+    }
+}

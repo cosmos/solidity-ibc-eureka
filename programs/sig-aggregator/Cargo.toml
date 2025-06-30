@@ -10,7 +10,7 @@ license = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 tonic = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
-serde = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["derive"] }
 
 toml = "0.8"
 anyhow = { workspace = true, default-features = true }
@@ -24,3 +24,6 @@ hex = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
+
+[dev-dependencies]
+tokio-stream = "0.1"
