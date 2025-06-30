@@ -94,6 +94,7 @@ let
     ];
 
     postPatch = ''
+      # Fetch-perf-libs are not required for build and are skipped on non-Linux anyway
       substituteInPlace scripts/cargo-install-all.sh \
         --replace './fetch-perf-libs.sh' 'echo "Skipping fetch-perf-libs in Nix build"'
 
