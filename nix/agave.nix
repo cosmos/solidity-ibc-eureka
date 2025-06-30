@@ -63,7 +63,7 @@ let
     sha256 = "18nh745djcnkbs0jz7bkaqrlwkbi5x28xdnr2lkgrpybwmdfg06s";
   };
 
-  # Base agave package
+  # Agave package bundled with Solana CLI & programs & toolchain & platporm tools
   agave = rustPlatform.buildRustPackage rec {
     pname = "agave";
     version = agave-version;
