@@ -1,6 +1,7 @@
 { lib
 , stdenv
 , fetchFromGitHub
+, symlinkJoin
 , fetchurl
 , rustPlatform
 , pkg-config
@@ -145,13 +146,11 @@ let
     #!${stdenv.shell}
     set -euo pipefail
 
-    # Store the original anchor path
     readonly REAL_ANCHOR="${anchor}/bin/anchor"
     readonly PLATFORM_TOOLS_VERSION="${versions.platformTools}"
     readonly AGAVE_PATH="${agave}"
     readonly RUST_NIGHTLY_PATH="${rustNightly}"
 
-    # Function to clean PATH of rust toolchains
     clean_rust_from_path() {
       echo "$PATH" | tr ':' '\n' | \
         grep -v "rust-bin" | \
@@ -160,7 +159,6 @@ let
         tr '\n' ':'
     }
 
-    # Function to setup Solana toolchain
     setup_solana() {
       # Clean PATH of any rust toolchains
       export PATH=$(clean_rust_from_path)
@@ -174,7 +172,7 @@ let
       # Setup cache symlinks for cargo-build-sbf
       local cache_dir="$HOME/.cache/solana/$PLATFORM_TOOLS_VERSION/platform-tools"
       mkdir -p "$cache_dir"
-      
+
       # Use atomic operations for cache setup
       {
         rm -rf "$cache_dir/rust" "$cache_dir/llvm"
@@ -184,7 +182,6 @@ let
       } 2>/dev/null || true
     }
 
-    # Function to setup nightly toolchain
     setup_nightly() {
       # Clean PATH including agave
       export PATH=$(clean_rust_from_path | sed "s|$AGAVE_PATH||g")
@@ -192,7 +189,6 @@ let
       # Unset Agave-specific environment variables
       unset RUSTC CARGO SBF_SDK_PATH || true
 
-      # Add rust nightly to PATH
       export PATH="$RUST_NIGHTLY_PATH/bin:$PATH"
     }
 
@@ -287,36 +283,14 @@ EOF
   '';
 
 in
-# Final derivation
-stdenv.mkDerivation {
-  pname = "agave-with-toolchain";
-  version = versions.agave;
-
-  dontUnpack = true;
-  dontBuild = true;
-
-  installPhase = ''
-    runHook preInstall
-
-    # Create output directory structure
-    mkdir -p $out/bin
-
-    # Copy everything from agave
-    cp -a ${agave}/* $out/
-
-    # Make bin directory writable
-    chmod u+w $out/bin
-
-    # Add the wrapper scripts
-    cp -f ${anchorNix}/bin/* $out/bin/
-    chmod 755 $out/bin/*
-
-    runHook postInstall
-  '';
+symlinkJoin {
+  name = "agave-with-toolchain-${versions.agave}";
+  paths = [ agave anchorNix ];
 
   passthru = {
     inherit agave rustNightly;
-    unwrapped = agave;
+    sbfSdk = sbfSdk;
+    platformTools = platformTools;
   };
 
   meta = agave.meta // {
