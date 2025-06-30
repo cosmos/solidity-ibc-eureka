@@ -31,13 +31,19 @@
 }:
 
 let
+  inherit (lib) optionals;
+  inherit (stdenv) hostPlatform isLinux;
+
+  # Version management
+  versions = {
+    agave = "2.2.17";
+    platformTools = "v1.48";
+  };
+
   # Create nightly toolchain from rust-bin (used for IDL generation)
   rustNightly = rust-bin.nightly.latest.default.override {
     extensions = [ "rust-src" ];
   };
-
-  platformToolsVersion = "v1.48";
-  agave-version = "2.2.17";
 
   # Platform-specific configuration
   platformConfig = {
@@ -59,37 +65,36 @@ let
     };
   };
 
-  currentPlatform = platformConfig.${stdenv.hostPlatform.system} or
-    (throw "Unsupported platform: ${stdenv.hostPlatform.system}");
+  currentPlatform = platformConfig.${hostPlatform.system} or
+    (throw "Unsupported platform: ${hostPlatform.system}");
 
   platformTools = fetchurl {
-    url = "https://github.com/anza-xyz/platform-tools/releases/download/${platformToolsVersion}/${currentPlatform.archive}";
+    url = "https://github.com/anza-xyz/platform-tools/releases/download/${versions.platformTools}/${currentPlatform.archive}";
     inherit (currentPlatform) sha256;
   };
 
-
   # Download SBF SDK from Agave releases
   sbfSdk = fetchurl {
-    url = "https://github.com/anza-xyz/agave/releases/download/v${agave-version}/sbf-sdk.tar.bz2";
+    url = "https://github.com/anza-xyz/agave/releases/download/v${versions.agave}/sbf-sdk.tar.bz2";
     sha256 = "18nh745djcnkbs0jz7bkaqrlwkbi5x28xdnr2lkgrpybwmdfg06s";
   };
 
-  # Agave package bundled with Solana CLI & programs & toolchain & platporm tools
-  agave = rustPlatform.buildRustPackage rec {
+  # Agave package bundled with Solana CLI & programs & toolchain & platform tools
+  agave = rustPlatform.buildRustPackage {
     pname = "agave";
-    version = agave-version;
+    version = versions.agave;
 
     src = fetchFromGitHub {
       owner = "anza-xyz";
       repo = "agave";
-      rev = "v${version}";
+      rev = "v${versions.agave}";
       hash = "sha256-Xbv00cfl40EctQhjIcysnkVze6aP5z2SKpzA2hWn54o=";
       fetchSubmodules = true;
     };
 
     cargoHash = "sha256-DEMbBkQPpeChmk9VtHq7asMrl5cgLYqNC/vGwrmdz3A=";
 
-    cargoBuildFlags = builtins.map (n: "--bin=${n}") solanaPkgs;
+    cargoBuildFlags = map (n: "--bin=${n}") solanaPkgs;
 
     nativeBuildInputs = [
       pkg-config
@@ -100,22 +105,17 @@ let
     buildInputs = [
       openssl
       zlib
-    ] ++ lib.optionals stdenv.isLinux [
-      hidapi
-    ];
+    ] ++ optionals isLinux [ hidapi ];
 
+    # Removed patches that don't exist - functionality is handled in postPatch
     postPatch = ''
-      # Fetch-perf-libs are not required for build and are skipped on non-Linux anyway
       substituteInPlace scripts/cargo-install-all.sh \
-        --replace './fetch-perf-libs.sh' 'echo "Skipping fetch-perf-libs in Nix build"'
-
-      substituteInPlace scripts/cargo-install-all.sh \
-        --replace '"$cargo" $maybeRustVersion install' 'echo "Skipping cargo install"'
+        --replace-fail './fetch-perf-libs.sh' 'echo "Skipping fetch-perf-libs in Nix build"' \
+        --replace-fail '"$cargo" $maybeRustVersion install' 'echo "Skipping cargo install"'
     '';
 
     postInstall = ''
       # Extract platform-tools
-      mkdir -p $out/bin
       tar -xjf ${platformTools} -C $out/bin/
 
       # Extract SBF SDK
@@ -130,192 +130,197 @@ let
     '';
 
     doCheck = false;
+
+    meta = with lib; {
+      description = "Solana runtime and toolchain";
+      homepage = "https://github.com/anza-xyz/agave";
+      license = licenses.asl20;
+      maintainers = with maintainers; [ ];
+      platforms = platforms.unix;
+    };
   };
 
   # Anchor-nix wrapper script that handles toolchain switching
   anchorNix = writeShellScriptBin "anchor-nix" ''
-    #!/usr/bin/env bash
+    #!${stdenv.shell}
+    set -euo pipefail
 
     # Store the original anchor path
-    REAL_ANCHOR="${anchor}/bin/anchor"
+    readonly REAL_ANCHOR="${anchor}/bin/anchor"
+    readonly PLATFORM_TOOLS_VERSION="${versions.platformTools}"
+    readonly AGAVE_PATH="${agave}"
+    readonly RUST_NIGHTLY_PATH="${rustNightly}"
+
+    # Function to clean PATH of rust toolchains
+    clean_rust_from_path() {
+      echo "$PATH" | tr ':' '\n' | \
+        grep -v "rust-bin" | \
+        grep -v ".cargo/bin" | \
+        grep -v "rustup" | \
+        tr '\n' ':'
+    }
 
     # Function to setup Solana toolchain
     setup_solana() {
       # Clean PATH of any rust toolchains
-      export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "rust-bin" | grep -v ".cargo/bin" | grep -v "rustup" | tr '\n' ':')
+      export PATH=$(clean_rust_from_path)
 
       # Set up Agave environment
-      export SBF_SDK_PATH="${agave}/sbf-sdk"
-      export PATH="${agave}/bin/rust/bin:$PATH"
-      export RUSTC="${agave}/bin/rust/bin/rustc"
-      export CARGO="${agave}/bin/rust/bin/cargo"
+      export SBF_SDK_PATH="$AGAVE_PATH/sbf-sdk"
+      export PATH="$AGAVE_PATH/bin/rust/bin:$PATH"
+      export RUSTC="$AGAVE_PATH/bin/rust/bin/rustc"
+      export CARGO="$AGAVE_PATH/bin/rust/bin/cargo"
 
       # Setup cache symlinks for cargo-build-sbf
-      PLATFORM_TOOLS_VERSION="${platformToolsVersion}"
-      CACHE_DIR="$HOME/.cache/solana/$PLATFORM_TOOLS_VERSION/platform-tools"
-      mkdir -p "$CACHE_DIR"
-      rm -rf "$CACHE_DIR/rust" "$CACHE_DIR/llvm" 2>/dev/null
-      ln -sf "${agave}/bin/rust" "$CACHE_DIR/rust"
-      ln -sf "${agave}/bin/llvm" "$CACHE_DIR/llvm"
-      echo "$PLATFORM_TOOLS_VERSION" > "$CACHE_DIR/.version"
+      local cache_dir="$HOME/.cache/solana/$PLATFORM_TOOLS_VERSION/platform-tools"
+      mkdir -p "$cache_dir"
+      
+      # Use atomic operations for cache setup
+      {
+        rm -rf "$cache_dir/rust" "$cache_dir/llvm"
+        ln -sf "$AGAVE_PATH/bin/rust" "$cache_dir/rust"
+        ln -sf "$AGAVE_PATH/bin/llvm" "$cache_dir/llvm"
+        echo "$PLATFORM_TOOLS_VERSION" > "$cache_dir/.version"
+      } 2>/dev/null || true
     }
 
     # Function to setup nightly toolchain
     setup_nightly() {
-      # Clean PATH of any rust toolchains including agave
-      export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "rust-bin" | grep -v ".cargo/bin" | grep -v "rustup" | grep -v "${agave}" | tr '\n' ':')
+      # Clean PATH including agave
+      export PATH=$(clean_rust_from_path | sed "s|$AGAVE_PATH||g")
 
       # Unset Agave-specific environment variables
-      unset RUSTC CARGO SBF_SDK_PATH
+      unset RUSTC CARGO SBF_SDK_PATH || true
 
       # Add rust nightly to PATH
-      export PATH="${rustNightly}/bin:$PATH"
+      export PATH="$RUST_NIGHTLY_PATH/bin:$PATH"
     }
 
-    case "$1" in
-      build)
-        echo "🔨 Building Solana program with solana toolchain setup..."
+    has_idl_build_feature() {
+      find programs -name "Cargo.toml" -type f 2>/dev/null | \
+        xargs grep -l "idl-build" 2>/dev/null | \
+        head -n1
+    }
 
-        # First, build the program with Solana toolchain (no IDL)
-        echo "📦 Building program with Solana/Agave toolchain..."
-        setup_solana
-        "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${@:2}"
+    run_build() {
+      local extra_args=("$@")
 
-        BUILD_RESULT=$?
+      echo "🔨 Building Solana program with solana toolchain setup..."
+      echo "📦 Building program with Solana/Agave toolchain..."
 
-        if [[ $BUILD_RESULT -eq 0 ]]; then
-          # Check if any program has idl-build feature
-          echo "🔍 Checking for IDL build feature..."
-          HAS_IDL_BUILD=false
+      setup_solana
 
-          # Find all Cargo.toml files in programs directory
-          for cargo_toml in programs/*/Cargo.toml; do
-            if [[ -f "$cargo_toml" ]] && grep -q "idl-build" "$cargo_toml"; then
-              HAS_IDL_BUILD=true
-              echo "   Found idl-build feature in $cargo_toml"
-              break
-            fi
-          done
+      if ! "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${extra_args[@]}"; then
+        echo "❌ Program build failed"
+        return 1
+      fi
 
-          if [[ "$HAS_IDL_BUILD" == "true" ]]; then
-            # If idl-build feature found, generate IDL with nightly toolchain
-            echo "📝 Generating IDL with nightly toolchain..."
-            setup_nightly
-            cargo build --features=idl-build
-            IDL_RESULT=$?
+      echo "🔍 Checking for IDL build feature..."
+      if cargo_toml=$(has_idl_build_feature); then
+        echo "   Found idl-build feature in $cargo_toml"
+        echo "📝 Generating IDL with nightly toolchain..."
 
-            if [[ $IDL_RESULT -eq 0 ]]; then
-              echo "✅ Build complete: program built with Solana toolchain, IDL generated with nightly"
-            else
-              echo "⚠️  Program built successfully, but IDL generation failed"
-              exit $IDL_RESULT
-            fi
-          else
-            echo "ℹ️  Skipping IDL generation (no idl-build feature found in Cargo.toml)"
-            echo "✅ Build complete: program built with Solana toolchain"
-          fi
-        else
-          echo "❌ Program build failed"
-          exit $BUILD_RESULT
+        setup_nightly
+
+        if ! cargo build --features=idl-build; then
+          echo "⚠️  Program built successfully, but IDL generation failed"
+          return 1
         fi
+
+        echo "✅ Build complete: program built with Solana toolchain, IDL generated with nightly"
+      else
+        echo "ℹ️  Skipping IDL generation (no idl-build feature found in Cargo.toml)"
+        echo "✅ Build complete: program built with Solana toolchain"
+      fi
+    }
+
+    # Function to run tests
+    run_test() {
+      local extra_args=("$@")
+
+      echo "🧪 Testing Solana program with optimized toolchain setup..."
+
+      # Build first
+      if ! run_build "''${extra_args[@]}"; then
+        return 1
+      fi
+
+      setup_nightly
+
+      echo "🧪 Running tests with nightly toolchain..."
+      if ! "$REAL_ANCHOR" test --skip-build "''${extra_args[@]}"; then
+        echo "❌ Tests failed"
+        return 1
+      fi
+
+      echo "✅ All tests passed!"
+    }
+
+    # Main command dispatcher
+    case "''${1:-}" in
+      build)
+        shift
+        run_build "$@"
         ;;
 
       test)
-        echo "🧪 Testing Solana program with optimized toolchain setup..."
-
-        # First, build with Solana toolchain
-        echo "📦 Building program with Solana/Agave toolchain..."
-        setup_solana
-
-        "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${@:2}"
-        BUILD_RESULT=$?
-
-        if [[ $BUILD_RESULT -eq 0 ]]; then
-          # Check if any program has idl-build feature
-          echo "🔍 Checking for IDL build feature..."
-          HAS_IDL_BUILD=false
-
-          # Find all Cargo.toml files in programs directory
-          for cargo_toml in programs/*/Cargo.toml; do
-            if [[ -f "$cargo_toml" ]] && grep -q "idl-build" "$cargo_toml"; then
-              HAS_IDL_BUILD=true
-              echo "   Found idl-build feature in $cargo_toml"
-              break
-            fi
-          done
-
-          # Switch to nightly for IDL
-          setup_nightly
-
-          if [[ "$HAS_IDL_BUILD" == "true" ]]; then
-            echo "📝 Generating IDL with nightly toolchain..."
-            "$REAL_ANCHOR" idl build "''${@:2}"
-            IDL_RESULT=$?
-
-            if [[ $IDL_RESULT -ne 0 ]]; then
-              echo "⚠️  IDL generation failed"
-              exit $IDL_RESULT
-            fi
-          else
-            echo "ℹ️  Skipping IDL generation (no idl-build feature found)"
-          fi
-
-          # Run tests with nightly toolchain
-          echo "🧪 Running tests with nightly toolchain..."
-          "$REAL_ANCHOR" test --skip-build "''${@:2}"
-          TEST_RESULT=$?
-
-          if [[ $TEST_RESULT -eq 0 ]]; then
-            echo "✅ All tests passed!"
-          else
-            echo "❌ Tests failed"
-            exit $TEST_RESULT
-          fi
-        else
-          echo "❌ Program build failed"
-          exit $BUILD_RESULT
-        fi
+        shift
+        run_test "$@"
         ;;
 
       *)
-        echo "anchor-nix: Anchor wrapper for Nix environments"
-        echo ""
-        echo "Usage:"
-        echo "  anchor-nix build [options]  - Build program with Solana toolchain, generate IDL with nightly"
-        echo "  anchor-nix test [options]   - Build and test program with optimized toolchain setup"
-        echo ""
-        echo "This wrapper automatically handles toolchain switching to provide:"
-        echo "  - Fast, deterministic builds with Solana/Agave toolchain"
-        echo "  - IDL generation with Rust nightly toolchain"
-        echo ""
+        cat <<EOF
+anchor-nix: Anchor wrapper for Nix environments
+
+Usage:
+  anchor-nix build [options]  - Build program with Solana toolchain, generate IDL with nightly
+  anchor-nix test [options]   - Build and test program with optimized toolchain setup
+
+This wrapper automatically handles toolchain switching to provide:
+  - Fast, deterministic builds with Solana/Agave toolchain
+  - IDL generation with Rust nightly toolchain
+
+EOF
         exit 1
         ;;
     esac
   '';
 
 in
-# Combine everything into a single package
+# Final derivation
 stdenv.mkDerivation {
   pname = "agave-with-toolchain";
-  version = agave-version;
+  version = versions.agave;
 
   dontUnpack = true;
   dontBuild = true;
 
   installPhase = ''
+    runHook preInstall
+
+    # Create output directory structure
     mkdir -p $out/bin
 
-    # Copy all binaries from agave
-    cp -r ${agave}/bin/* $out/bin/
+    # Copy everything from agave
+    cp -a ${agave}/* $out/
 
-    # Copy other directories from agave
-    cp -r ${agave}/sbf-sdk $out/
+    # Make bin directory writable
+    chmod u+w $out/bin
 
     # Add the wrapper scripts
-    cp ${anchorNix}/bin/* $out/bin/
+    cp -f ${anchorNix}/bin/* $out/bin/
+    chmod 755 $out/bin/*
+
+    runHook postInstall
   '';
 
+  passthru = {
+    inherit agave rustNightly;
+    unwrapped = agave;
+  };
+
   meta = agave.meta // {
-    description = "Solana programs & tooling";
+    description = "Solana programs & tooling with Anchor wrapper";
+    mainProgram = "anchor-nix";
   };
 }
