@@ -39,23 +39,34 @@ let
   platformToolsVersion = "v1.48";
   agave-version = "2.2.17";
 
-  # Determine platform-tools archive based on system
-  platformToolsArchive =
-    if stdenv.isDarwin && stdenv.isx86_64 then "platform-tools-osx-x86_64.tar.bz2"
-    else if stdenv.isDarwin && stdenv.isAarch64 then "platform-tools-osx-aarch64.tar.bz2"
-    else if stdenv.isLinux && stdenv.isx86_64 then "platform-tools-linux-x86_64.tar.bz2"
-    else if stdenv.isLinux && stdenv.isAarch64 then "platform-tools-linux-aarch64.tar.bz2"
-    else throw "Unsupported platform for Solana platform-tools";
+  # Platform-specific configuration
+  platformConfig = {
+    x86_64-darwin = {
+      archive = "platform-tools-osx-x86_64.tar.bz2";
+      sha256 = "sha256-0qik6gpvcq2rav1qy43n5vjipfa3m756p452y0fikir4cl5fvd5w=";
+    };
+    aarch64-darwin = {
+      archive = "platform-tools-osx-aarch64.tar.bz2";
+      sha256 = "sha256-eZ5M/O444icVXIP7IpT5b5SoQ9QuAcA1n7cSjiIW0t0=";
+    };
+    x86_64-linux = {
+      archive = "platform-tools-linux-x86_64.tar.bz2";
+      sha256 = "sha256-vHeOPs7B7WptUJ/mVvyt7ue+MqfqAsbwAHM+xlN/tgQ=";
+    };
+    aarch64-linux = {
+      archive = "platform-tools-linux-aarch64.tar.bz2";
+      sha256 = "sha256-1wkh3vry4sc83ia8zfbv6yb6d7ygqsy88r1nj13y5fgp48i05imf=";
+    };
+  };
+
+  currentPlatform = platformConfig.${stdenv.hostPlatform.system} or
+    (throw "Unsupported platform: ${stdenv.hostPlatform.system}");
 
   platformTools = fetchurl {
-    url = "https://github.com/anza-xyz/platform-tools/releases/download/${platformToolsVersion}/${platformToolsArchive}";
-    sha256 =
-      if stdenv.isDarwin && stdenv.isx86_64 then "sha256-0qik6gpvcq2rav1qy43n5vjipfa3m756p452y0fikir4cl5fvd5w="
-      else if stdenv.isDarwin && stdenv.isAarch64 then "sha256-eZ5M/O444icVXIP7IpT5b5SoQ9QuAcA1n7cSjiIW0t0="
-      else if stdenv.isLinux && stdenv.isx86_64 then "sha256-vHeOPs7B7WptUJ/mVvyt7ue+MqfqAsbwAHM+xlN/tgQ="
-      else if stdenv.isLinux && stdenv.isAarch64 then "sha256-1wkh3vry4sc83ia8zfbv6yb6d7ygqsy88r1nj13y5fgp48i05imf="
-      else throw "No hash for platform";
+    url = "https://github.com/anza-xyz/platform-tools/releases/download/${platformToolsVersion}/${currentPlatform.archive}";
+    inherit (currentPlatform) sha256;
   };
+
 
   # Download SBF SDK from Agave releases
   sbfSdk = fetchurl {
@@ -247,6 +258,7 @@ let
             fi
           else
             echo "ℹ️  Skipping IDL generation (no idl-build feature found)"
+          fi
 
           # Run tests with nightly toolchain
           echo "🧪 Running tests with nightly toolchain..."
