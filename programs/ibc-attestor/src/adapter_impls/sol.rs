@@ -5,10 +5,8 @@ use solana_sdk::pubkey::Pubkey;
 mod account_state;
 mod config;
 
-use crate::{
-    adapter_client::{Adapter, AdapterError, Signable},
-    adapter_impls::sol::account_state::AccountState,
-};
+use crate::adapter_client::{Adapter, AdapterError, Signable};
+pub use account_state::AccountState;
 
 use config::SolanaClientConfig;
 

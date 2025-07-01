@@ -20,13 +20,17 @@ alloy-rpc-client		= { workspace = true, default-features = false, features = ["r
 alloy-network			= { workspace = true, default-features = false, optional = true }
 alloy-provider			= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
 
+borsh				= { workspace = true, default-features = false, features = ["derive"] }
 serde				= { workspace = true, default-features = false, features = ["derive"] }
+secp256k1			= { workspace = true, default-features = false, features = ["hashes", "global-context"] }
 
 solana-client			= { workspace = true, default-features = false, optional = true }
 solana-commitment-config	= { workspace = true, default-features = false, optional = true }
 solana-sdk			= { workspace = true, default-features = false, optional = true }
 
 thiserror			= { workspace = true, default-features = false }
+indexmap			= { workspace = true, default-features = false }
+
 
 tokio				= { workspace = true, features = ["rt-multi-thread", "macros"] }
 

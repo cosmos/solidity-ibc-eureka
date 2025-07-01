@@ -1,7 +1,14 @@
 use std::future::Future;
 use thiserror::Error;
 
-pub trait Signable: Sync + Send {}
+pub trait Signable: Sync + Send + borsh::BorshSerialize + borsh::BorshDeserialize {
+    fn bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let _ = self.serialize(&mut buf).unwrap();
+        buf
+    }
+    fn height(&self) -> u64;
+}
 
 pub trait Adapter: Sync + Send {
     fn get_latest_finalized_block(
