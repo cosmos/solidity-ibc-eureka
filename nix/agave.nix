@@ -67,7 +67,7 @@ let
   currentPlatform = platformConfig.${hostPlatform.system} or
     (throw "Unsupported platform: ${hostPlatform.system}");
 
-  platformTools = fetchurl {
+  platformToolsArchive = fetchurl {
     url = "https://github.com/anza-xyz/platform-tools/releases/download/${versions.platformTools}/${currentPlatform.archive}";
     inherit (currentPlatform) sha256;
   };
@@ -88,13 +88,17 @@ let
     unpackPhase = ''
       mkdir -p $out
       tar -xjf $src -C $out
-    '';
 
-    installPhase = ''
-      # SDK is already extracted to $out
-      # The SBF SDK expects platform-tools to be in dependencies/platform-tools
-      mkdir -p $out/sbf-sdk/dependencies
-      ln -sf ${agave}/bin $out/sbf-sdk/dependencies/platform-tools
+      # Create symlink to platform tools
+      mkdir -p $out/dependencies
+      ln -s ${platformTools} $out/dependencies/platform-tools
+
+      # Extract scripts from agave/platform-tools-sdk/sbf/scripts/
+      if [ -d "${agave.src}/platform-tools-sdk/sbf/scripts" ]; then
+        mkdir -p $out/scripts
+        cp -r ${agave.src}/platform-tools-sdk/sbf/scripts/* $out/scripts/
+        chmod +x $out/scripts/*.sh 2>/dev/null || true
+      fi
     '';
 
     meta = with lib; {
@@ -106,8 +110,30 @@ let
     };
   };
 
+  platformTools = stdenv.mkDerivation {
+    pname = "platformTools";
+    version = versions.platformTools;
 
-  # Agave package bundled with Solana CLI & programs & toolchain & platform tools
+    src = platformToolsArchive;
+
+    unpackPhase = ''
+      mkdir -p $out
+      tar -xjf $src -C $out
+
+      # ldb-argdumper in this package will point to a dangling link
+      # we're only building not debugging so safe to just ignore
+      find $out -type l ! -exec test -e {} \; -delete 2>/dev/null || true
+    '';
+
+    meta = with lib; {
+      description = "Solana platform tools for building on-chain programs";
+      homepage = "https://github.com/anza-xyz/platformTools";
+      license = licenses.asl20;
+      maintainers = with maintainers; [ vaporif ];
+      platforms = platforms.unix;
+    };
+  };
+
   agave = rustPlatform.buildRustPackage {
     pname = "agave";
     version = versions.agave;
@@ -135,25 +161,16 @@ let
       zlib
     ] ++ optionals isLinux [ hidapi ];
 
-    # Removed patches that don't exist - functionality is handled in postPatch
     postPatch = ''
       substituteInPlace scripts/cargo-install-all.sh \
         --replace-fail './fetch-perf-libs.sh' 'echo "Skipping fetch-perf-libs in Nix build"' \
         --replace-fail '"$cargo" $maybeRustVersion install' 'echo "Skipping cargo install"'
     '';
 
-    postInstall = ''
-      # Extract platform-tools
-      tar -xjf ${platformTools} -C $out/bin/
-
-      # Remove broken symlinks
-      find $out/bin -type l ! -exec test -e {} \; -delete 2>/dev/null || true
-    '';
-
     doCheck = false;
 
     meta = with lib; {
-      description = "Solana runtime and toolchain";
+      description = "Solana cli and programs";
       homepage = "https://github.com/anza-xyz/agave";
       license = licenses.asl20;
       maintainers = with maintainers; [ vaporif ];
@@ -161,17 +178,26 @@ let
     };
   };
 
-  # Anchor-nix wrapper script that handles toolchain switching
+  # Anchor-nix wrapper script
+  #
+  # Why we need this wrapper:
+  # 1. Anchor CLI requires different Rust toolchains for different operations:
+  #    - Building Solana programs: Requires the specific Solana/Agave Rust toolchain
+  #      that is forked and maintained by Solana
+  #    - Generating IDLs: Requires Rust nightly
+  #    - Tests: Requires Rust nightly
+  # 2. The wrapper intelligently switches between toolchains:
+  #    - Strips existing Rust paths from PATH to avoid conflicts
+  #    - Sets up the correct toolchain for each operation
+  #    - No need to add rustup shims
+  #    - Handles the complexity of toolchain management transparently
+  #
   anchorNix = writeShellScriptBin "anchor-nix" ''
     #!${stdenv.shell}
     set -euo pipefail
 
     readonly REAL_ANCHOR="${anchor}/bin/anchor"
-    readonly AGAVE_PATH="${agave}"
-    readonly RUST_NIGHTLY_PATH="${rustNightly}"
-    
-    # Export SBF SDK path for all operations
-    export SBF_SDK_PATH="${sbfSdk}/sbf-sdk"
+    export SBF_SDK_PATH="${sbfSdk}"
 
     clean_rust_from_path() {
       echo "$PATH" | tr ':' '\n' | \
@@ -182,23 +208,19 @@ let
     }
 
     setup_solana() {
-      # Clean PATH of any rust toolchains
       export PATH=$(clean_rust_from_path)
 
-      # Set up Agave environment
-      export PATH="$AGAVE_PATH/bin/rust/bin:$PATH"
-      export RUSTC="$AGAVE_PATH/bin/rust/bin/rustc"
-      export CARGO="$AGAVE_PATH/bin/rust/bin/cargo"
+      export PATH="${platformTools}/rust/bin:$PATH"
+      export RUSTC="${platformTools}/rust/bin/rustc"
+      export CARGO="${platformTools}/rust/bin/cargo"
     }
 
     setup_nightly() {
-      # Clean PATH including agave
-      export PATH=$(clean_rust_from_path | sed "s|$AGAVE_PATH||g")
+      export PATH=$(clean_rust_from_path | sed "s|${platformTools}||g")
 
-      # Unset Agave-specific environment variables
-      unset RUSTC CARGO SBF_SDK_PATH || true
+      unset RUSTC CARGO || true
 
-      export PATH="$RUST_NIGHTLY_PATH/bin:$PATH"
+      export PATH="${rustNightly}/bin:$PATH"
     }
 
     has_idl_build_feature() {
@@ -213,7 +235,7 @@ let
       echo "🔨 Building Solana program with solana toolchain setup..."
       echo "📦 Building program with Solana/Agave toolchain..."
 
-      setup_solana
+       setup_solana
 
       if ! "$REAL_ANCHOR" build --no-idl -- --no-rustup-override --skip-tools-install "''${extra_args[@]}"; then
         echo "❌ Program build failed"
@@ -243,9 +265,8 @@ let
     run_test() {
       local extra_args=("$@")
 
-      echo "🧪 Testing Solana program with optimized toolchain setup..."
+      echo "🧪 Testing Solana program..."
 
-      # Build first
       if ! run_build "''${extra_args[@]}"; then
         return 1
       fi
@@ -253,12 +274,7 @@ let
       setup_nightly
 
       echo "🧪 Running tests with nightly toolchain..."
-      if ! "$REAL_ANCHOR" test --skip-build "''${extra_args[@]}"; then
-        echo "❌ Tests failed"
-        return 1
-      fi
-
-      echo "✅ All tests passed!"
+      "$REAL_ANCHOR" test --skip-build "''${extra_args[@]}"
     }
 
     # Main command dispatcher
@@ -294,10 +310,10 @@ EOF
 in
 symlinkJoin {
   name = "agave-with-toolchain-${versions.agave}";
-  paths = [ agave sbfSdk anchorNix anchor ];
+  paths = [ agave anchorNix anchor ];
 
   passthru = {
-    inherit agave sbfSdk rustNightly;
+    inherit agave rustNightly;
   };
 
   meta = agave.meta // {
