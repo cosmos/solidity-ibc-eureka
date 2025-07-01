@@ -55,7 +55,8 @@ type SP1ICS07TendermintTestSuite struct {
 	generateFixtures bool
 
 	// Addresses of the deployed contracts
-	contractAddresses ethereum.DeployedContracts
+	sp1Ics07Address ethcommon.Address
+	ics26Address    ethcommon.Address
 
 	// The private key of a test account
 	key *ecdsa.PrivateKey
@@ -120,9 +121,10 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		stdout, err := eth.ForgeScript(s.key, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
 
-		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
+		contractAddresses, err := ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
-		s.ics26Contract, err = ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
+		s.ics26Address = ethcommon.HexToAddress(contractAddresses.Ics26Router)
+		s.ics26Contract, err = ics26router.NewContract(s.ics26Address, eth.RPCClient)
 		s.Require().NoError(err)
 	}))
 
@@ -144,7 +146,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				EthChainID:     eth.ChainID.String(),
 				CosmosChainID:  simd.Config().ChainID,
 				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   s.contractAddresses.Ics26Router,
+				ICS26Address:   s.ics26Address.Hex(),
 				EthRPC:         eth.RPC,
 				BeaconAPI:      beaconAPI,
 				SP1Config:      sp1Config,
@@ -222,12 +224,27 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.Require().NotEmpty(receipt.ContractAddress.Hex())
-
-			err = os.Setenv(testvalues.EnvKeyContractAddress, receipt.ContractAddress.Hex())
-			s.Require().NoError(err)
+			s.sp1Ics07Address = receipt.ContractAddress
 
 			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
 			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Add client and counterparty on EVM", func() {
+			counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+				ClientId:     testvalues.FirstWasmClientID,
+				MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+			}
+			tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.key, eth), testvalues.CustomClientID, counterpartyInfo, s.sp1Ics07Address)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+
+			event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.CustomClientID, event.ClientId)
+			s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 		}))
 	}))
 }
@@ -289,7 +306,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, proo
 
 		initialHeight := clientState.LatestHeight.RevisionHeight
 
-		s.Require().NoError(operator.StartOperator("--only-once")) // This should detect the proof type
+		s.UpdateClient(ctx)
 
 		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
@@ -797,17 +814,48 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n
 
 // UpdateClient updates the SP1ICS07Tendermint client and returns the new height
 func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clienttypes.Height {
-	var latestHeight sp1ics07tendermint.IICS02ClientMsgsHeight
-	s.Require().True(s.Run("Update client", func() {
-		s.Require().NoError(operator.StartOperator("--only-once"))
-		var err error
-		updatedClientState, err := s.contract.ClientState(nil)
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		latestHeight = updatedClientState.LatestHeight
+		s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+		initialHeight = clientState.LatestHeight.RevisionHeight
 	}))
 
-	return clienttypes.Height{
-		RevisionNumber: latestHeight.RevisionNumber,
-		RevisionHeight: latestHeight.RevisionHeight,
-	}
+	var finalHeight sp1ics07tendermint.IICS02ClientMsgsHeight
+	s.Require().True(s.Run("Update the client on Ethereum", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(s.ics26Address, resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.key, 5_000_000, &s.ics26Address, updateTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			clientState, err := s.contract.ClientState(nil)
+			s.Require().NoError(err)
+			s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+			finalHeight = clientState.LatestHeight
+			s.Require().Greater(finalHeight.RevisionHeight, initialHeight)
+		}))
+	}))
+
+	return clienttypes.NewHeight(finalHeight.RevisionNumber, finalHeight.RevisionHeight)
 }

@@ -46,8 +46,6 @@ const (
 	EnvKeyGenerateWasmFixtures = "GENERATE_WASM_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
-	// Address of the SP1ICS07Tendermint contract for operator.
-	EnvKeyContractAddress = "CONTRACT_ADDRESS"
 
 	// Log level for the Rust logger.
 	EnvValueRustLog_Info = "info"
