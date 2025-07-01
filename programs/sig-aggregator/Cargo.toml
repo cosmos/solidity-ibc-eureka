@@ -7,7 +7,7 @@ license = { workspace = true }
 
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = ["derive"] }
