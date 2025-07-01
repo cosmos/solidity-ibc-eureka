@@ -14,6 +14,7 @@ members = [
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
     "programs/solana/programs/ics07-tendermint",
+    "programs/solana/tests",
 ]
 resolver = "2"
 
@@ -131,3 +132,14 @@ milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b
 smallvec      = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+
+[profile.solana-release]
+inherits = "release"
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.solana-release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
