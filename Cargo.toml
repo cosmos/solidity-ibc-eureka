@@ -13,7 +13,8 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
-    "programs/sig-aggregator",
+    "programs/sig-aggregator", 
+    "programs/attestor",
 ]
 resolver = "2"
 
