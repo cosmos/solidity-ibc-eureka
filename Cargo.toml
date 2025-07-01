@@ -13,6 +13,7 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
+    "programs/solana/programs/ics07-tendermint",
 ]
 resolver = "2"
 
