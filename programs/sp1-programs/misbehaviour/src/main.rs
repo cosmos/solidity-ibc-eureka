@@ -15,7 +15,7 @@ use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
     ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
-use sp1_ics07_tendermint_misbehaviour::check_for_misbehaviour;
+use tendermint_light_client_misbehaviour::check_for_misbehaviour;
 
 /// The main function of the program.
 ///
