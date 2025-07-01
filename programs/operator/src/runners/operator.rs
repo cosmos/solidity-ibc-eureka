@@ -17,7 +17,11 @@ use tendermint_rpc::HttpClient;
 
 /// Runs the update client program in a loop.
 /// If the `only_once` flag is set, the program will only run once.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::cognitive_complexity
+)]
 pub async fn run(args: Args) -> anyhow::Result<()> {
     setup_logger();
     if dotenv::dotenv().is_err() {

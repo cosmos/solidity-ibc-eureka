@@ -27,7 +27,7 @@ build-sp1-programs:
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
 build-cw-ics08-wasm-eth:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 

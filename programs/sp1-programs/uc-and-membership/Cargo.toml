@@ -11,11 +11,11 @@ name = "sp1-ics07-tendermint-uc-and-membership"
 test = false
 
 [dependencies]
+tendermint-light-client-uc-and-membership = { workspace = true }
+
 sp1-zkvm                           = { workspace = true, default-features = true }
 ibc-core-commitment-types          = { workspace = true }
 ibc-client-tendermint-types        = { workspace = true }
 alloy-sol-types                    = { workspace = true }
 ibc-eureka-solidity-types          = { workspace = true }
-sp1-ics07-tendermint-update-client = { workspace = true }
-sp1-ics07-tendermint-membership    = { workspace = true }
 ibc-proto                          = { workspace = true }
