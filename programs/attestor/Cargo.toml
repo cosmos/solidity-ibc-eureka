@@ -20,3 +20,6 @@ thiserror = { workspace = true, default-features = true }
 
 [dev-dependencies]
 secp256k1 = { workspace = true, features = ["rand"] }
+tempdir = "0.3"
+assert_cmd = "2.0"
+predicates = "3.0"

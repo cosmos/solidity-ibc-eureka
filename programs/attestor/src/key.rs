@@ -1,3 +1,4 @@
+use std::io::{self, Write};
 use anyhow::{Context, Result};
 use secp256k1::{generate_keypair, rand, PublicKey, Secp256k1, SecretKey};
 use std::{
@@ -62,13 +63,28 @@ fn read_public_key() -> Result<PublicKey> {
 
 /// Generates a new key pair, stores it, and prints the public key.
 pub fn generate_and_store_key_pair() -> Result<()> {
+    let key_path = get_key_path()?;
+
+    // Check if the key file already exists
+    if key_path.exists() {
+        println!("A key file already exists at {:?}.", key_path);
+        print!("Do you want to overwrite it? Type 'yes' to confirm: ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if input.trim() != "yes" {
+            println!("Aborted. The existing key was not overwritten.");
+            return Ok(());
+        }
+    }
+
     let (secret_key, public_key) = generate_keypair(&mut rand::rng());
-    let key_path = store_secret_key(&secret_key)?;
+    store_secret_key(&secret_key)?;
     println!("New key pair generated and stored successfully at {:?}", key_path);
     println!("Public key (uncompressed): {}", public_key);
     Ok(())
 }
-
 /// Reads the public key from storage and prints it.
 pub fn show_public_key() -> Result<()> {
     let public_key = read_public_key()?;
