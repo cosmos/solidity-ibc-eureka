@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use secp256k1::{generate_keypair, rand::{self}, PublicKey, Secp256k1, SecretKey};
+use secp256k1::{generate_keypair, rand, PublicKey, Secp256k1, SecretKey};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -30,7 +30,7 @@ fn get_key_path() -> Result<PathBuf> {
 }
 
 /// Stores the secret key in the configuration directory.
-fn store_secret_key(secret_key: &SecretKey) -> Result<()> {
+fn store_secret_key(secret_key: &SecretKey) -> Result<PathBuf> {
     let config_dir = get_config_dir()?;
     fs::create_dir_all(&config_dir)
         .with_context(|| format!("Failed to create config directory at {:?}", config_dir))?;
@@ -38,7 +38,7 @@ fn store_secret_key(secret_key: &SecretKey) -> Result<()> {
     let key_path = get_key_path()?;
     fs::write(&key_path, secret_key.secret_bytes())
         .with_context(|| format!("Failed to write key to {:?}", key_path))?;
-    Ok(())
+    Ok(key_path)
 }
 
 /// Reads the secret key from the configuration directory.
@@ -63,8 +63,8 @@ fn read_public_key() -> Result<PublicKey> {
 /// Generates a new key pair, stores it, and prints the public key.
 pub fn generate_and_store_key_pair() -> Result<()> {
     let (secret_key, public_key) = generate_keypair(&mut rand::rng());
-    store_secret_key(&secret_key)?;
-    println!("New key pair generated and stored successfully.");
+    let key_path = store_secret_key(&secret_key)?;
+    println!("New key pair generated and stored successfully at {:?}", key_path);
     println!("Public key (uncompressed): {}", public_key);
     Ok(())
 }

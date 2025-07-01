@@ -10,7 +10,12 @@ keywords.workspace = true
 anyhow = { workspace = true, default-features = true }
 clap = { workspace = true, features = ["derive"] }
 dirs = "6.0.0"
-secp256k1 = { workspace = true, features = ["global-context", "hashes", "std"]}
+secp256k1 = { workspace = true, features = [
+    "global-context",
+    "hashes",
+    "std",
+    "rand",
+] }
 thiserror = { workspace = true, default-features = true }
 
 [dev-dependencies]
