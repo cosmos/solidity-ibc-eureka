@@ -9,10 +9,18 @@ members = [
     "packages/relayer-lib",
     "packages/sp1-ics07-tendermint-prover",
     "packages/utils",
+    "packages/tendermint-light-client/update-client",
+    "packages/tendermint-light-client/membership",
+    "packages/tendermint-light-client/misbehaviour",
+    "packages/tendermint-light-client/uc-and-membership",
 
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
+    "programs/sp1-programs/update-client",
+    "programs/sp1-programs/membership",
+    "programs/sp1-programs/misbehaviour",
+    "programs/sp1-programs/uc-and-membership",
     "programs/solana/programs/ics07-tendermint",
     "programs/solana/tests",
 ]
@@ -108,6 +116,7 @@ alloy-rpc-types-eth    = { version = "1.0", default-features = false }
 
 sp1-sdk    = { version = "5.0", default-features = false }
 sp1-prover = { version = "5.0", default-features = false }
+sp1-zkvm   = { version = "5.0", default-features = false }
 
 cosmwasm-schema = { version = "2.2", default-features = false }
 cosmwasm-std    = { version = "2.2", default-features = false }
