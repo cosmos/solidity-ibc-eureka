@@ -7,24 +7,28 @@ repository.workspace = true
 keywords.workspace = true
 
 [features]
-default = ["sol"]
-sol = []
+default = ["op", "arbitrum", "sol"]
+sol = ["dep:solana-client", "dep:solana-commitment-config", "dep:solana-sdk", ]
 op = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 arbitrum = [ "dep:alloy", "dep:alloy-rpc-client", "dep:alloy-network", "dep:alloy-provider" ]
 
 
 [dependencies]
-alloy 			= { workspace = true, default-features = false, features = ["consensus", "serde", "eips"], optional = true }
-alloy-primitives   	= { workspace = true, default-features = false }
-alloy-rpc-client	= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
-alloy-network   	= { workspace = true, default-features = false, optional = true }
-alloy-provider  	= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
+alloy				= { workspace = true, default-features = false, features = ["consensus", "serde", "eips"], optional = true }
+alloy-primitives		= { workspace = true, default-features = false }
+alloy-rpc-client		= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
+alloy-network			= { workspace = true, default-features = false, optional = true }
+alloy-provider			= { workspace = true, default-features = false, features = ["reqwest"], optional = true }
 
-serde           	= { workspace = true, default-features = false, features = ["derive"] }
+serde				= { workspace = true, default-features = false, features = ["derive"] }
 
-thiserror        	= { workspace = true, default-features = false }
+solana-client			= { workspace = true, default-features = false, optional = true }
+solana-commitment-config	= { workspace = true, default-features = false, optional = true }
+solana-sdk			= { workspace = true, default-features = false, optional = true }
 
-tokio 			= { workspace = true, features = ["rt-multi-thread", "macros"] }
+thiserror			= { workspace = true, default-features = false }
 
-tracing 		= { workspace = true }
-tracing-subscriber 	= { workspace = true, default-features = true }
+tokio				= { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+tracing				= { workspace = true }
+tracing-subscriber		= { workspace = true, default-features = true }

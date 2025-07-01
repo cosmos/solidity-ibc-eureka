@@ -7,7 +7,7 @@ mod config;
 pub use config::ArbitrumClientConfig;
 
 use crate::{
-    adapter_client::{Adapter, AdapterError},
+    adapter_client::{Adapter, AdapterError, Signable},
     header::Header,
 };
 
@@ -54,7 +54,7 @@ impl ArbitrumClient {
 }
 
 impl Adapter for ArbitrumClient {
-    async fn get_latest_finalized_block(&self) -> Result<Header, AdapterError> {
+    async fn get_latest_finalized_block(&self) -> Result<impl Signable, AdapterError> {
         let header = self.get_block_by_number(&PeekKind::Finalized).await?;
 
         Ok(Header::new(
@@ -63,7 +63,7 @@ impl Adapter for ArbitrumClient {
             header.timestamp,
         ))
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<Header, AdapterError> {
+    async fn get_latest_unfinalized_block(&self) -> Result<impl Signable, AdapterError> {
         let header = self.get_block_by_number(&PeekKind::Latest).await?;
 
         Ok(Header::new(

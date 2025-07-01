@@ -1,16 +1,16 @@
 use std::future::Future;
 use thiserror::Error;
 
-use crate::header::Header;
+pub trait Signable: Sync + Send {}
 
 pub trait Adapter: Sync + Send {
     fn get_latest_finalized_block(
         &self,
-    ) -> impl Future<Output = Result<Header, AdapterError>> + Send;
+    ) -> impl Future<Output = Result<impl Signable, AdapterError>> + Send;
 
     fn get_latest_unfinalized_block(
         &self,
-    ) -> impl Future<Output = Result<Header, AdapterError>> + Send;
+    ) -> impl Future<Output = Result<impl Signable, AdapterError>> + Send;
 }
 
 #[derive(Debug, Error)]

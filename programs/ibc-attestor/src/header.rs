@@ -1,5 +1,7 @@
 use alloy_primitives::FixedBytes;
 
+use crate::adapter_client::Signable;
+
 #[derive(Debug)]
 pub struct Header {
     height: u64,
@@ -16,3 +18,5 @@ impl Header {
         }
     }
 }
+
+impl Signable for Header {}
