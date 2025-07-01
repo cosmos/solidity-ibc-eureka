@@ -1,6 +1,12 @@
-//! The crate that contains the types and utilities for `sp1-ics07-tendermint-update-client`
+//! The crate that contains the types and utilities for `tendermint-light-client-update-client`
 //! program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 pub mod types;
 
