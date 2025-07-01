@@ -72,11 +72,40 @@ let
     inherit (currentPlatform) sha256;
   };
 
-  # Download SBF SDK from Agave releases
-  sbfSdk = fetchurl {
+  # Download SBF SDK archive from Agave releases
+  sbfSdkArchive = fetchurl {
     url = "https://github.com/anza-xyz/agave/releases/download/v${versions.agave}/sbf-sdk.tar.bz2";
     sha256 = "18nh745djcnkbs0jz7bkaqrlwkbi5x28xdnr2lkgrpybwmdfg06s";
   };
+
+  # SBF SDK derivation
+  sbfSdk = stdenv.mkDerivation {
+    pname = "sbf-sdk";
+    version = versions.agave;
+
+    src = sbfSdkArchive;
+
+    unpackPhase = ''
+      mkdir -p $out
+      tar -xjf $src -C $out
+    '';
+
+    installPhase = ''
+      # SDK is already extracted to $out
+      # The SBF SDK expects platform-tools to be in dependencies/platform-tools
+      mkdir -p $out/sbf-sdk/dependencies
+      ln -sf ${agave}/bin $out/sbf-sdk/dependencies/platform-tools
+    '';
+
+    meta = with lib; {
+      description = "Solana BPF SDK for building on-chain programs";
+      homepage = "https://github.com/anza-xyz/agave";
+      license = licenses.asl20;
+      maintainers = with maintainers; [ vaporif ];
+      platforms = platforms.unix;
+    };
+  };
+
 
   # Agave package bundled with Solana CLI & programs & toolchain & platform tools
   agave = rustPlatform.buildRustPackage {
@@ -117,13 +146,6 @@ let
       # Extract platform-tools
       tar -xjf ${platformTools} -C $out/bin/
 
-      # Extract SBF SDK
-      tar -xjf ${sbfSdk} -C $out/
-
-      # The SBF SDK expects platform-tools to be in dependencies/platform-tools
-      mkdir -p $out/sbf-sdk/dependencies
-      ln -sf $out/bin $out/sbf-sdk/dependencies/platform-tools
-
       # Remove broken symlinks
       find $out/bin -type l ! -exec test -e {} \; -delete 2>/dev/null || true
     '';
@@ -147,6 +169,9 @@ let
     readonly REAL_ANCHOR="${anchor}/bin/anchor"
     readonly AGAVE_PATH="${agave}"
     readonly RUST_NIGHTLY_PATH="${rustNightly}"
+    
+    # Export SBF SDK path for all operations
+    export SBF_SDK_PATH="${sbfSdk}/sbf-sdk"
 
     clean_rust_from_path() {
       echo "$PATH" | tr ':' '\n' | \
@@ -161,7 +186,6 @@ let
       export PATH=$(clean_rust_from_path)
 
       # Set up Agave environment
-      export SBF_SDK_PATH="$AGAVE_PATH/sbf-sdk"
       export PATH="$AGAVE_PATH/bin/rust/bin:$PATH"
       export RUSTC="$AGAVE_PATH/bin/rust/bin/rustc"
       export CARGO="$AGAVE_PATH/bin/rust/bin/cargo"
@@ -270,12 +294,10 @@ EOF
 in
 symlinkJoin {
   name = "agave-with-toolchain-${versions.agave}";
-  paths = [ agave anchorNix anchor ];
+  paths = [ agave sbfSdk anchorNix anchor ];
 
   passthru = {
-    inherit agave rustNightly;
-    sbfSdk = sbfSdk;
-    platformTools = platformTools;
+    inherit agave sbfSdk rustNightly;
   };
 
   meta = agave.meta // {
