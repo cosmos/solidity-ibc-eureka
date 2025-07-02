@@ -1,6 +1,6 @@
+use crate::common::with_initialized_client;
 use anchor_client::solana_sdk::signer::Signer;
 use ics07_tendermint::MembershipMsg;
-use crate::common::with_initialized_client;
 
 #[test]
 fn test_verify_membership() {
@@ -20,7 +20,7 @@ fn test_verify_membership() {
                 client_data: client_data.pubkey(),
             })
             .args(ics07_tendermint::instruction::VerifyMembership {
-                _msg: membership_msg,
+                msg: membership_msg,
             })
             .send()?;
 

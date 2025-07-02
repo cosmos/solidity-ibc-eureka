@@ -14,6 +14,7 @@ pub struct SolanaClientState {
     pub chain_id: String,
     /// Trust level fraction
     pub trust_level_numerator: u64,
+    /// Trust level denominator
     pub trust_level_denominator: u64,
     /// Trusting period in seconds
     pub trusting_period: u64,
@@ -33,11 +34,8 @@ impl ClientStateInfo for SolanaClientState {
     }
 
     fn trust_level(&self) -> TrustThreshold {
-        TrustThreshold::new(
-            self.trust_level_numerator,
-            self.trust_level_denominator,
-        )
-        .expect("Invalid trust level")
+        TrustThreshold::new(self.trust_level_numerator, self.trust_level_denominator)
+            .expect("Invalid trust level")
     }
 
     fn trusting_period(&self) -> u64 {

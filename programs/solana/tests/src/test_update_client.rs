@@ -1,6 +1,6 @@
+use crate::common::with_initialized_client;
 use anchor_client::solana_sdk::signer::Signer;
 use ics07_tendermint::UpdateClientMsg;
-use crate::common::with_initialized_client;
 
 #[test]
 fn test_update_client() {
@@ -14,7 +14,7 @@ fn test_update_client() {
             .accounts(ics07_tendermint::accounts::UpdateClient {
                 client_data: client_data.pubkey(),
             })
-            .args(ics07_tendermint::instruction::UpdateClient { _msg: update_msg })
+            .args(ics07_tendermint::instruction::UpdateClient { msg: update_msg })
             .send()?;
 
         println!("✅ Update client successful: {}", update_result);

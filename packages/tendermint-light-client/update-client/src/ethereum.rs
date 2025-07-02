@@ -1,6 +1,6 @@
 //! Ethereum-specific implementations for the update client
 
-use crate::{ClientStateInfo, UpdateClientOutputInfo, update_client_generic};
+use crate::{update_client_core, ClientStateInfo, UpdateClientOutputInfo};
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_client_types::Height;
 use ibc_eureka_solidity_types::msgs::{
@@ -31,7 +31,7 @@ impl UpdateClientOutputInfo<ClientState> for UpdateClientOutput {
         trusted_height: Height,
         new_height: Height,
     ) -> Self {
-        UpdateClientOutput {
+        Self {
             clientState: client_state,
             trustedConsensusState: trusted_consensus_state.into(),
             newConsensusState: new_consensus_state.into(),

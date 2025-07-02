@@ -1,6 +1,6 @@
+use crate::common::with_initialized_client;
 use anchor_client::solana_sdk::signer::Signer;
 use ics07_tendermint::MisbehaviourMsg;
-use crate::common::with_initialized_client;
 
 #[test]
 fn test_submit_misbehaviour() {
@@ -17,7 +17,7 @@ fn test_submit_misbehaviour() {
                 client_data: client_data.pubkey(),
             })
             .args(ics07_tendermint::instruction::SubmitMisbehaviour {
-                _msg: misbehaviour_msg,
+                msg: misbehaviour_msg,
             })
             .send()?;
 

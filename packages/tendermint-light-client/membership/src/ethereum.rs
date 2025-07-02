@@ -1,6 +1,6 @@
 //! Ethereum-specific implementations for membership verification
 
-use crate::{KVPairInfo, MembershipOutputInfo, membership_generic};
+use crate::{membership_core, KVPairInfo, MembershipOutputInfo};
 use ibc_core_commitment_types::merkle::{MerklePath, MerkleProof};
 use ibc_eureka_solidity_types::msgs::IMembershipMsgs::{KVPair, MembershipOutput};
 
