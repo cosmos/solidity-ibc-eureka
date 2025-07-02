@@ -125,6 +125,7 @@ pub mod ics07_tendermint {
         let header: Header = borsh::BorshDeserialize::try_from_slice(&msg.client_message)
             .map_err(|_| error!(ErrorCode::InvalidHeader))?;
 
+        // TODO: duplication
         let client_state = SolanaClientState {
             chain_id: client_data.client_state.chain_id.clone(),
             trust_level_numerator: client_data.client_state.trust_level_numerator,
@@ -162,13 +163,17 @@ pub mod ics07_tendermint {
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
         let input = SolanaUpdateClientInput {
+            client_id: client_data.client_id,
             client_state,
             trusted_consensus_state,
             proposed_header: header.clone(),
-            time: current_time,
         };
 
-        let output = update_client(input);
+        let output = tendermint_light_client_update_client::update_client(
+            client_state,
+            trusted_consensus_state,
+            current_time,
+        );
 
         client_data.client_state.latest_height = output.new_client_state.latest_height;
         client_data.consensus_state.timestamp = output.new_consensus_state.timestamp.nanoseconds();

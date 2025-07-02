@@ -43,19 +43,6 @@ impl ClientStateInfo for SolanaClientState {
     }
 }
 
-/// Input for the update-client program on Solana
-#[derive(Clone, Debug)]
-pub struct SolanaUpdateClientInput {
-    /// The client ID
-    pub client_id: ClientId,
-    /// The client state
-    pub client_state: SolanaClientState,
-    /// The trusted consensus state
-    pub trusted_consensus_state: ConsensusState,
-    /// The proposed header
-    pub proposed_header: Vec<u8>,
-}
-
 /// Output for the update-client program on Solana
 #[derive(Clone, Debug)]
 pub struct SolanaUpdateClientOutput {
