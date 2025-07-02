@@ -51,5 +51,5 @@ pub fn update_client(
     proposed_header: Header,
     time: u128,
 ) -> UpdateClientOutput {
-    update_client_generic(client_state, trusted_consensus_state, proposed_header, time)
+    update_client_core(client_state, trusted_consensus_state, proposed_header, time)
 }

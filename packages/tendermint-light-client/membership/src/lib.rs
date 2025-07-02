@@ -14,6 +14,12 @@ mod ethereum;
 #[cfg(feature = "ethereum")]
 pub use ethereum::*;
 
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
 /// Trait for abstracting key-value pair information across different platforms
 pub trait KVPairInfo: Clone {
     /// Convert to merkle path and value
@@ -28,9 +34,9 @@ pub trait MembershipOutputInfo<K> {
     fn from_verified_kvpairs(app_hash: [u8; 32], kvpairs: Vec<K>) -> Self;
 }
 
-/// Core membership verification logic - generic over platform types
+/// Core membership verification logic
 #[allow(clippy::missing_panics_doc, dead_code)]
-pub fn membership_generic<K, O>(
+fn membership_core<K, O>(
     app_hash: [u8; 32],
     request_iter: impl Iterator<Item = (K, MerkleProof)>,
 ) -> O

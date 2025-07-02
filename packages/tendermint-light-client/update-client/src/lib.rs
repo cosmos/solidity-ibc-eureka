@@ -20,6 +20,12 @@ mod ethereum;
 #[cfg(feature = "ethereum")]
 pub use ethereum::*;
 
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
 /// Trait for abstracting client state information across different platforms
 pub trait ClientStateInfo {
     /// Get the chain ID
@@ -43,9 +49,9 @@ pub trait UpdateClientOutputInfo<CS> {
     ) -> Self;
 }
 
-/// Core update client logic - generic over platform types
+/// Core update client logic
 #[allow(clippy::missing_panics_doc)]
-pub fn update_client_generic<CS, O>(
+pub fn update_client_core<CS, O>(
     client_state: CS,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,

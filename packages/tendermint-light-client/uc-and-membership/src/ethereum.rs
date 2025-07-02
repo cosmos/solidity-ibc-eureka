@@ -13,7 +13,7 @@ use ibc_eureka_solidity_types::msgs::{
 impl UcAndMembershipOutputInfo<ClientState, KVPair> for UcAndMembershipOutput {
     type UpdateClientOutput = UpdateClientOutput;
     type MembershipOutput = MembershipOutput;
-    
+
     fn from_results(
         uc_output: Self::UpdateClientOutput,
         membership_output: Self::MembershipOutput,

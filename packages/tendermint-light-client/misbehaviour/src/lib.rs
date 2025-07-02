@@ -19,6 +19,12 @@ mod ethereum;
 #[cfg(feature = "ethereum")]
 pub use ethereum::*;
 
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
 /// Trait for constructing platform-specific misbehaviour outputs
 pub trait MisbehaviourOutputInfo<CS> {
     /// Create output indicating misbehaviour was found

@@ -12,13 +12,19 @@ mod ethereum;
 #[cfg(feature = "ethereum")]
 pub use ethereum::*;
 
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
 /// Trait for constructing platform-specific UC and membership outputs
 pub trait UcAndMembershipOutputInfo<CS, K> {
     /// The update client output type
     type UpdateClientOutput: UpdateClientOutputInfo<CS>;
     /// The membership output type
     type MembershipOutput: MembershipOutputInfo<K>;
-    
+
     /// Create output from both verification results
     fn from_results(
         uc_output: Self::UpdateClientOutput,
@@ -26,7 +32,7 @@ pub trait UcAndMembershipOutputInfo<CS, K> {
     ) -> Self;
 }
 
-/// Core update client and membership logic - generic over platform types
+/// Core update client and membership logic
 #[allow(clippy::missing_panics_doc, dead_code)]
 fn update_client_and_membership_core<CS, K, O>(
     client_state: CS,

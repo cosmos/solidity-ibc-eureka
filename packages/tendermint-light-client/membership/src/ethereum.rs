@@ -30,5 +30,5 @@ pub fn membership(
     app_hash: [u8; 32],
     request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
 ) -> MembershipOutput {
-    membership_generic(app_hash, request_iter)
+    membership_core(app_hash, request_iter)
 }

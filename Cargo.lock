@@ -4913,6 +4913,17 @@ name = "ics07-tendermint"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "borsh 0.10.4",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-core-host-types",
+ "ibc-primitives",
+ "solana-program",
+ "tendermint-light-client-membership",
+ "tendermint-light-client-misbehaviour",
+ "tendermint-light-client-uc-and-membership",
+ "tendermint-light-client-update-client",
 ]
 
 [[package]]
