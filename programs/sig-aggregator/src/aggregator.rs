@@ -1,11 +1,6 @@
-use std::collections::HashMap;
-use tokio::sync::mpsc;
-use tokio::time::{timeout, Duration};
+use tokio::{time::{timeout, Duration}, sync::{RwLock, mpsc}};
 use tonic::{transport::Channel, Request, Response, Status};
-use tokio::sync::RwLock;
-use std::sync::Arc;
-
-
+use std::{sync::Arc, collections::HashMap};
 use crate::{
     config::Config,
     error::AggregatorError,
