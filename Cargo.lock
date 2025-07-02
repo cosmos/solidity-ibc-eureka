@@ -4089,6 +4089,7 @@ dependencies = [
  "borsh",
  "clap",
  "indexmap 2.10.0",
+ "prost",
  "secp256k1 0.31.1",
  "serde",
  "serde_json",
@@ -4098,6 +4099,9 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "toml",
+ "tonic 0.13.1",
+ "tonic-build",
+ "tonic-reflection",
  "tracing",
  "tracing-subscriber",
 ]

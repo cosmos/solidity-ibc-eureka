@@ -25,11 +25,11 @@ async fn main() -> Result<(), anyhow::Error> {
             #[cfg(feature = "sol")]
             {
                 let adapter = SolanaClient::from_config(config.solana);
-                let hs = AttestationStore::new(adapter.block_time_ms());
-                let attestor = AttestorService::new(adapter, signer);
+                let att_store = AttestationStore::new(adapter.block_time_ms());
+                let attestor = AttestorService::new(adapter, signer, att_store);
 
-                let server = Server;
-                let _ = server.start(attestor, hs).await;
+                let server = Server::new();
+                let _ = server.start(attestor, config.server).await;
             }
 
             Ok(())
