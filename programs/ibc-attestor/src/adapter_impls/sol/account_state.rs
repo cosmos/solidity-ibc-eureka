@@ -1,6 +1,6 @@
 use crate::adapter_client::Signable;
 
-#[derive(Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
+#[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
 pub struct AccountState {
     pub(super) slot: u64,
     pub(super) data: Vec<u8>,

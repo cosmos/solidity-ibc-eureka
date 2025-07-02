@@ -1,8 +1,4 @@
-use serde::Deserialize;
-use solana_sdk::pubkey::Pubkey;
+use std::{fs, path::Path};
 
-#[derive(Debug, Deserialize)]
-pub struct SolanaClientConfig {
-    pub url: String,
-    pub account_key: Pubkey,
-}
+use serde::Deserialize;
+use thiserror::Error;

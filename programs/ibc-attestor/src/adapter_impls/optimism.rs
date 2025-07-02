@@ -65,4 +65,7 @@ impl Adapter for OpConsensusClient {
                 "response received but no unfinalized L2 found in response".into(),
             ))
     }
+    fn block_time_ms(&self) -> u64 {
+        15_000
+    }
 }

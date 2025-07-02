@@ -72,4 +72,7 @@ impl Adapter for ArbitrumClient {
             header.timestamp,
         ))
     }
+    fn block_time_ms(&self) -> u64 {
+        15_000
+    }
 }

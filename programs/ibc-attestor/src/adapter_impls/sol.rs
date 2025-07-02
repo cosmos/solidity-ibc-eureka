@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
@@ -6,9 +8,9 @@ mod account_state;
 mod config;
 
 use crate::adapter_client::{Adapter, AdapterError, Signable};
-pub use account_state::AccountState;
+use crate::cli::SolanaClientConfig;
 
-use config::SolanaClientConfig;
+pub use account_state::AccountState;
 
 ///
 /// Relevant chain peek options. For their Solana
@@ -28,7 +30,7 @@ pub struct SolanaClient {
 impl SolanaClient {
     pub fn from_config(config: SolanaClientConfig) -> Self {
         let client = RpcClient::new(config.url);
-        let account_key = config.account_key;
+        let account_key = Pubkey::from_str(&config.account_key).unwrap();
         Self {
             client,
             account_key,
@@ -78,5 +80,9 @@ impl Adapter for SolanaClient {
             .await?;
 
         Ok(account_state)
+    }
+    #[inline]
+    fn block_time_ms(&self) -> u64 {
+        400
     }
 }

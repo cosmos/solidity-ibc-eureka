@@ -1,12 +1,11 @@
+use std::fs;
+
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;
 use secp256k1::SecretKey;
 
+use crate::cli::SignerConfig;
 use crate::{adapter_client::Signable, attestation::Attestation};
-
-pub struct SignerConfig {
-    skey: SecretKey,
-}
 
 pub struct Signer {
     skey: SecretKey,
@@ -14,7 +13,9 @@ pub struct Signer {
 
 impl Signer {
     pub fn from_config(config: SignerConfig) -> Self {
-        Self { skey: config.skey }
+        let bytes = fs::read(&config.secret_key).unwrap();
+        let skey = SecretKey::from_byte_array(bytes.try_into().unwrap()).unwrap();
+        Self { skey }
     }
 
     pub fn sign(&self, signable_data: impl Signable) -> Attestation {

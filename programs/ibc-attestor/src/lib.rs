@@ -1,8 +1,10 @@
 pub mod adapter_client;
 pub mod attestation;
 pub mod attestor;
+pub mod cli;
 pub mod header;
 pub mod height_store;
+pub mod server;
 pub mod signer;
 
 mod adapter_impls;
