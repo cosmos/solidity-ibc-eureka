@@ -25,17 +25,17 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
-ibc-eureka-solidity-types           = { path = "packages/solidity", default-features = false }
-ibc-eureka-relayer-lib              = { path = "packages/relayer-lib", default-features = false }
-ibc-eureka-utils                    = { path = "packages/utils", default-features = false }
-sp1-ics07-tendermint-prover         = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
-sp1-ics07-tendermint-update-client  = { path = "programs/sp1-programs/update-client", default-features = false }
-sp1-ics07-tendermint-membership     = { path = "programs/sp1-programs/membership", default-features = false }
-ethereum-trie-db                    = { path = "packages/ethereum/trie-db", default-features = false }
-ethereum-light-client               = { path = "packages/ethereum/light-client", default-features = false }
-ethereum-types                      = { path = "packages/ethereum/types", default-features = false }
-ethereum-apis                       = { path = "packages/ethereum/apis", default-features = false }
-tree_hash                           = { path = "packages/ethereum/tree_hash", default-features = false }
+ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
+ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
+ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
+sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
+sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
+sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
+ethereum-trie-db                   = { path = "packages/ethereum/trie-db", default-features = false }
+ethereum-light-client              = { path = "packages/ethereum/light-client", default-features = false }
+ethereum-types                     = { path = "packages/ethereum/types", default-features = false }
+ethereum-apis                      = { path = "packages/ethereum/apis", default-features = false }
+tree_hash                          = { path = "packages/ethereum/tree_hash", default-features = false }
 
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
