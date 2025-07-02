@@ -1,6 +1,6 @@
+//! An in-memory implementation of a [Attestation]
+//! store.
 use std::collections::VecDeque;
-
-use indexmap::IndexMap;
 
 use crate::attestation::Attestation;
 
@@ -12,6 +12,9 @@ pub struct AttestationStore {
 const NINTEY_SECS: u64 = 90_000;
 
 impl AttestationStore {
+    /// Create a new store with a dynamic capacity
+    /// that is determined by how many blocks can
+    /// be created within 90 seconds.
     pub fn new(block_time_ms: u64) -> Self {
         let max_entries = NINTEY_SECS / block_time_ms;
 
@@ -21,7 +24,9 @@ impl AttestationStore {
         }
     }
 
-    /// Add a new attestation to a specific height
+    /// Add a new attestation at a specific height. Assumes
+    /// monotonically increasing heights. Skips duplicate
+    /// heights.
     pub fn push(&mut self, height: u64, value: Attestation) {
         if self.store.back().is_some_and(|(h, _)| h == &height) {
             tracing::debug!("value at this height already in store");

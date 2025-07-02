@@ -17,6 +17,29 @@ use crate::{
     signer::Signer,
 };
 
+/// Provides read access to and fetches and signs new data for
+/// the attestation store.
+///
+/// The [AttestorService] is composed of three parts:
+/// - A generic [Adapter] client that fetches [Signable] data
+/// - A concrete [Signer] that uses the `sepc256k1` aglo for
+/// cryptographic signatures
+/// - An internally mutable instance of the [AttestationStore]
+///
+/// The relationship between these components is as follows:
+/// - The service when run in a loop should update its store
+/// using [Attestor::update_attestation_store]. The frequency of these updates
+/// should be determined by [Attestor::update_frequency].
+/// - Once raw data has been retrieved the service uses the [Signer]
+/// to make the data cryptographically verifiable by a given light
+/// client in the future.
+/// - The signed data is stored in the [AttestationStore] and made
+/// accessible via the [Attestor::attestations_from_height] method.
+///
+/// These methods use internal types before converting them into
+/// RPC generated types in the [AttestationService] trait implementation.
+/// *Note*: This RPC auto-generated trait uses the [Arc<Self>] option to
+/// make it possible to share the [AttestorService] across threads.
 pub struct AttestorService<A: Adapter> {
     adapter: A,
     signer: Signer,
@@ -45,7 +68,7 @@ where
         }
     }
 
-    async fn get_latest_finalized_signable<'a>(
+    async fn _get_latest_finalized_signable<'a>(
         &'a self,
     ) -> Result<impl Signable + 'a, AdapterError> {
         self.adapter.get_latest_finalized_block().await
