@@ -52,19 +52,6 @@ func binaryPath() string {
 	return "operator"
 }
 
-// StartOperator is a function that runs the operator
-func StartOperator(args ...string) error {
-	args = append([]string{"start"}, args...)
-	isPrivateCluster := os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
-	if isPrivateCluster {
-		args = append(args, "--private-cluster")
-	}
-	cmd := exec.Command(binaryPath(), args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 // MembershipProof is a function that generates a membership proof and returns the proof height and proof
 func MembershipProof(trusted_height uint64, paths string, writeFixtureName string, args ...string) (*sp1ics07tendermint.IICS02ClientMsgsHeight, []byte, error) {
 	args = append([]string{"fixtures", "membership", "--trusted-block", strconv.FormatUint(trusted_height, 10), "--key-paths", paths}, args...)
