@@ -1,4 +1,4 @@
-use tokio::{time::{timeout, Duration}, sync::{RwLock, mpsc}};
+use tokio::{time::{timeout, Duration}, sync::{RwLock, Mutex, mpsc}};
 use tonic::{transport::Channel, Request, Response, Status};
 use std::{sync::Arc, collections::HashMap};
 use crate::{
@@ -20,7 +20,7 @@ type Pubkey = FixedBytes<65>;
 #[derive(Debug)]
 pub struct AggregatorService {
     config: Config,
-    attestor_clients: Vec<AttestorClient<Channel>>,
+    attestor_clients: Vec<Arc<Mutex<AttestorClient<Channel>>>>,
     cached_height: Arc<RwLock<AggregateResponse>>,
 }
 
@@ -31,7 +31,7 @@ impl AggregatorService {
             let client = AttestorClient::connect(endpoint.clone())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
-            attestor_clients.push(client);
+            attestor_clients.push(Arc::new(Mutex::new(client)));
         }
         Ok(Self {
             config,
@@ -63,9 +63,11 @@ impl Aggregator for AggregatorService {
 
         let (tx, mut rx) = mpsc::channel(self.attestor_clients.len());
 
-        for mut client in self.attestor_clients.clone() {
+        for client_ref in &self.attestor_clients {
+            let client_arc = Arc::clone(client_ref);
             let tx = tx.clone();
             tokio::spawn(async move {
+                let mut client = client_arc.lock().await;
                 let request = tonic::Request::new(QueryRequest { min_height });
                 let result = client.query_attestations(request).await;
                 if let Err(e) = tx.send(result).await {
