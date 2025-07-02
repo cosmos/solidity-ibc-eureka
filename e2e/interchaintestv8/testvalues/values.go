@@ -120,10 +120,10 @@ const (
 	ParameterKey_Sp1Verifier = "sp1_verifier"
 	// Zk algorithm parameter key for the relayer's sp1 light client creation.
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
+	// The role manager address parameter key for the relayer's sp1 light client creation.
+	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
-	//
-	ParameterKey_RoleManager = "role_manager"
 )
 
 var (
