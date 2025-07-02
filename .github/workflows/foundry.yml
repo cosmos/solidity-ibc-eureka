@@ -2,7 +2,6 @@ name: foundry
 
 env:
   API_KEY_ALCHEMY: ${{ secrets.API_KEY_ALCHEMY }}
-  ETH_RPC_URL: ${{ env.ETH_RPC_URL }}
   FOUNDRY_PROFILE: ci
 
 on:
