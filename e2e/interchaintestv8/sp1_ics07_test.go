@@ -210,6 +210,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				Parameters: map[string]string{
 					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
+					testvalues.ParameterKey_RoleManager: ethcommon.Address{}.Hex(),
 				},
 			})
 			s.Require().NoError(err)

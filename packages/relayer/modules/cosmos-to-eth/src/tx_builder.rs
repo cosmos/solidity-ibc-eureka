@@ -122,6 +122,8 @@ where
 const SP1_VERIFIER: &str = "sp1_verifier";
 /// The key for the zk algorithm in the parameters map.
 const ZK_ALGORITHM: &str = "zk_algorithm";
+/// The key for the role manager in the parameters map.
+const ROLE_MANAGER: &str = "role_manager";
 
 #[async_trait::async_trait]
 impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
@@ -211,7 +213,7 @@ where
         // Check if parameters only include correct keys
         parameters
             .keys()
-            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM].contains(&k.as_str()))
+            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM, ROLE_MANAGER].contains(&k.as_str()))
             .map_or(Ok(()), |param| {
                 Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}` and `{ZK_ALGORITHM}` are allowed"))
             })?;
@@ -223,6 +225,11 @@ where
             latest_light_block.height().value()
         );
 
+        let role_admin = parameters
+            .get(ROLE_MANAGER)
+            .map_or(Ok(Address::ZERO), |a| {
+                Address::from_str(a.as_str()).map_err(|e| anyhow::anyhow!(e))
+            })?;
         let sp1_verifier = Address::from_str(
             parameters
                 .get(SP1_VERIFIER)
@@ -278,7 +285,7 @@ where
             sp1_verifier,
             client_state.abi_encode().into(),
             consensus_state_hash,
-            *self.ics26_router.address(),
+            role_admin,
         )
         .calldata()
         .to_vec())
