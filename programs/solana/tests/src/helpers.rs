@@ -127,7 +127,6 @@ pub fn initialize_contract(
         .program
         .request()
         .args(ics07_tendermint::instruction::Initialize {
-            chain_id: client_state.chain_id.clone(),
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
         })

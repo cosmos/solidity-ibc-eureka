@@ -101,13 +101,9 @@ pub mod ics07_tendermint {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        chain_id: String,
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // Ensure the chain_id matches the client_state.chain_id
-        require_eq!(chain_id, client_state.chain_id, ErrorCode::ConstraintSeeds);
-
         let client_data = &mut ctx.accounts.client_data;
         client_data.client_state = client_state;
         client_data.consensus_state = consensus_state;
