@@ -7,3 +7,4 @@ edition = "2021"
 [dependencies]
 anchor-client = "0.31.1"
 ics07-tendermint = { version = "0.1.0", path = "../programs/ics07-tendermint" }
+solana-system-interface = "1.0.0"

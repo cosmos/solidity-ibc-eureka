@@ -56,11 +56,20 @@ pub struct ClientData {
 }
 
 #[derive(Accounts)]
+#[instruction(chain_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = payer, space = 8 + 1000)]
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 1000,
+        seeds = [b"client", chain_id.as_bytes()],
+        bump
+    )]
     pub client_data: Account<'info, ClientData>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -92,9 +101,13 @@ pub mod ics07_tendermint {
 
     pub fn initialize(
         ctx: Context<Initialize>,
+        chain_id: String,
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
+        // Ensure the chain_id matches the client_state.chain_id
+        require_eq!(chain_id, client_state.chain_id, ErrorCode::ConstraintSeeds);
+
         let client_data = &mut ctx.accounts.client_data;
         client_data.client_state = client_state;
         client_data.consensus_state = consensus_state;
@@ -102,18 +115,12 @@ pub mod ics07_tendermint {
         Ok(())
     }
 
-    pub fn update_client(
-        ctx: Context<UpdateClient>,
-        _msg: UpdateClientMsg,
-    ) -> Result<()> {
+    pub fn update_client(ctx: Context<UpdateClient>, _msg: UpdateClientMsg) -> Result<()> {
         let _client_data = &mut ctx.accounts.client_data;
         Ok(())
     }
 
-    pub fn verify_membership(
-        ctx: Context<VerifyMembership>,
-        _msg: MembershipMsg,
-    ) -> Result<()> {
+    pub fn verify_membership(ctx: Context<VerifyMembership>, _msg: MembershipMsg) -> Result<()> {
         let _client_data = &ctx.accounts.client_data;
         Ok(())
     }
