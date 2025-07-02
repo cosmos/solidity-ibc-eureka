@@ -836,7 +836,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clientty
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
-			s.Require().Equal(s.ics26Address, resp.Address)
+			s.Require().Equal(s.ics26Address.String(), resp.Address)
 
 			updateTxBodyBz = resp.Tx
 		}))
