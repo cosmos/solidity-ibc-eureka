@@ -327,6 +327,7 @@ pub mod ics07_tendermint {
         let header_2: Header = borsh::BorshDeserialize::try_from_slice(&msg.header_2)
             .map_err(|_| error!(ErrorCode::InvalidHeader))?;
 
+        // TODO: duplication
         let client_state = SolanaClientState {
             chain_id: client_data.client_state.chain_id.clone(),
             trust_level_numerator: client_data.client_state.trust_level_numerator,
@@ -375,7 +376,12 @@ pub mod ics07_tendermint {
             time: current_time,
         };
 
-        let output = check_for_misbehaviour(input);
+        let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
+            client_state,
+            &misbehaviour,
+            trusted_consensus_state.clone(),
+            trusted_consensus_state.clone(),
+        );
 
         if output.misbehaviour_detected {
             client_data.frozen = true;
