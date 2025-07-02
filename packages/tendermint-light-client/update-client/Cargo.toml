@@ -6,11 +6,20 @@ edition     = { workspace = true }
 repository  = { workspace = true }
 license     = { workspace = true }
 
+[features]
+default = ["ethereum"]
+ethereum = ["dep:ibc-eureka-solidity-types"]
+solana = []
+
 [dependencies]
-ibc-eureka-solidity-types        = { workspace = true }
+# Ethereum-specific dependencies
+ibc-eureka-solidity-types        = { workspace = true, optional = true }
+
+# Shared dependencies
 tendermint-light-client-verifier = { workspace = true }
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }
 ibc-core-host-types              = { workspace = true }
 ibc-core-client                  = { workspace = true }
+ibc-core-client-types            = { workspace = true }
 ibc-primitives                   = { workspace = true }
 sha2                             = { workspace = true }

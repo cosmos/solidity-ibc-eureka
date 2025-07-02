@@ -11,7 +11,7 @@ name = "sp1-ics07-tendermint-misbehaviour"
 test = false
 
 [dependencies]
-tendermint-light-client-misbehaviour = { workspace = true }
+tendermint-light-client-misbehaviour = { workspace = true, features = ["ethereum"] }
 
 sp1-zkvm                           = { workspace = true, default-features = true }
 ibc-eureka-solidity-types          = { workspace = true }

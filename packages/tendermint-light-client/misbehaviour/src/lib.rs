@@ -7,27 +7,52 @@ use ibc_client_tendermint::client_state::{
 };
 use ibc_client_tendermint::types::{ConsensusState, Misbehaviour, TENDERMINT_CLIENT_TYPE};
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use ibc_eureka_solidity_types::msgs::{
-    IICS07TendermintMsgs::ClientState, IMisbehaviourMsgs::MisbehaviourOutput,
-};
 use std::time::Duration;
 use tendermint_light_client_update_client::types::validation::ClientValidationCtx;
+use tendermint_light_client_update_client::ClientStateInfo;
 use tendermint_light_client_verifier::options::Options;
 use tendermint_light_client_verifier::ProdVerifier;
 
-/// The main function of the program without the zkVM wrapper.
-#[allow(clippy::missing_panics_doc)]
-#[must_use]
-pub fn check_for_misbehaviour(
-    client_state: ClientState,
+#[cfg(feature = "ethereum")]
+mod ethereum;
+
+#[cfg(feature = "ethereum")]
+pub use ethereum::*;
+
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
+/// Trait for constructing platform-specific misbehaviour outputs
+pub trait MisbehaviourOutputInfo<CS> {
+    /// Create output indicating misbehaviour was found
+    fn from_misbehaviour_check(
+        client_state: CS,
+        misbehaviour: &Misbehaviour,
+        trusted_consensus_state_1: ConsensusState,
+        trusted_consensus_state_2: ConsensusState,
+        time: u128,
+    ) -> Self;
+}
+
+/// Core misbehaviour checking logic - generic over platform types
+#[allow(clippy::missing_panics_doc, dead_code)]
+fn check_for_misbehaviour_core<CS, O>(
+    client_state: CS,
     misbehaviour: &Misbehaviour,
     trusted_consensus_state_1: ConsensusState,
     trusted_consensus_state_2: ConsensusState,
     time: u128,
-) -> MisbehaviourOutput {
+) -> O
+where
+    CS: ClientStateInfo,
+    O: MisbehaviourOutputInfo<CS>,
+{
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     assert_eq!(
-        client_state.chainId,
+        client_state.chain_id(),
         misbehaviour
             .header1()
             .signed_header
@@ -53,8 +78,8 @@ pub fn check_for_misbehaviour(
     );
 
     let options = Options {
-        trust_threshold: client_state.trustLevel.clone().into(),
-        trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
+        trust_threshold: client_state.trust_level(),
+        trusting_period: Duration::from_secs(client_state.trusting_period()),
         clock_drift: Duration::from_secs(15),
     };
 
@@ -63,7 +88,7 @@ pub fn check_for_misbehaviour(
         &ctx,
         misbehaviour,
         &client_id,
-        &ChainId::new(&client_state.chainId).unwrap(),
+        &ChainId::new(client_state.chain_id()).unwrap(),
         &options,
         &ProdVerifier::default(),
     )
@@ -79,12 +104,11 @@ pub fn check_for_misbehaviour(
     // The prover takes in the trusted headers as an input but does not maintain its own internal state
     // Thus, the verifier must ensure that the trusted headers that were used in the proof are trusted consensus
     // states stored in its own internal state before it can accept the misbehaviour proof as valid.
-    MisbehaviourOutput {
-        clientState: client_state,
-        trustedHeight1: misbehaviour.header1().trusted_height.into(),
-        trustedHeight2: misbehaviour.header2().trusted_height.into(),
-        trustedConsensusState1: trusted_consensus_state_1.into(),
-        trustedConsensusState2: trusted_consensus_state_2.into(),
+    O::from_misbehaviour_check(
+        client_state,
+        misbehaviour,
+        trusted_consensus_state_1,
+        trusted_consensus_state_2,
         time,
-    }
+    )
 }

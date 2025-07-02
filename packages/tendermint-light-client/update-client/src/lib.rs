@@ -10,27 +10,62 @@ use ibc_client_tendermint::{
     client_state::verify_header,
     types::{ConsensusState, Header, TENDERMINT_CLIENT_TYPE},
 };
+use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use ibc_eureka_solidity_types::msgs::{
-    IICS07TendermintMsgs::ClientState, IUpdateClientMsgs::UpdateClientOutput,
-};
+use tendermint_light_client_verifier::{options::Options, ProdVerifier, types::TrustThreshold};
 
-use tendermint_light_client_verifier::{options::Options, ProdVerifier};
+#[cfg(feature = "ethereum")]
+mod ethereum;
 
-/// The main function of the program without the zkVM wrapper.
+#[cfg(feature = "ethereum")]
+pub use ethereum::*;
+
+#[cfg(feature = "solana")]
+mod solana;
+
+#[cfg(feature = "solana")]
+pub use solana::*;
+
+/// Trait for abstracting client state information across different platforms
+pub trait ClientStateInfo {
+    /// Get the chain ID
+    fn chain_id(&self) -> &str;
+    /// Get the trust threshold
+    fn trust_level(&self) -> TrustThreshold;
+    /// Get the trusting period in seconds
+    fn trusting_period(&self) -> u64;
+}
+
+/// Trait for constructing platform-specific outputs
+pub trait UpdateClientOutputInfo<CS> {
+    /// Create output from verification results
+    fn from_verification(
+        client_state: CS,
+        trusted_consensus_state: ConsensusState,
+        new_consensus_state: ConsensusState,
+        time: u128,
+        trusted_height: Height,
+        new_height: Height,
+    ) -> Self;
+}
+
+/// Core update client logic
 #[allow(clippy::missing_panics_doc)]
-#[must_use]
-pub fn update_client(
-    client_state: ClientState,
+pub fn update_client_core<CS, O>(
+    client_state: CS,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
     time: u128,
-) -> UpdateClientOutput {
+) -> O
+where
+    CS: ClientStateInfo,
+    O: UpdateClientOutputInfo<CS>,
+{
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
-    let chain_id = ChainId::from_str(&client_state.chainId).unwrap();
+    let chain_id = ChainId::from_str(client_state.chain_id()).unwrap();
     let options = Options {
-        trust_threshold: client_state.trustLevel.clone().into(),
-        trusting_period: Duration::from_secs(client_state.trustingPeriod.into()),
+        trust_threshold: client_state.trust_level(),
+        trusting_period: Duration::from_secs(client_state.trusting_period()),
         clock_drift: Duration::from_secs(15),
     };
 
@@ -52,16 +87,16 @@ pub fn update_client(
     )
     .unwrap();
 
-    let trusted_height = proposed_header.trusted_height.into();
-    let new_height = proposed_header.height().into();
+    let trusted_height = proposed_header.trusted_height;
+    let new_height = proposed_header.height();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
-    UpdateClientOutput {
-        clientState: client_state,
-        trustedConsensusState: trusted_consensus_state.into(),
-        newConsensusState: new_consensus_state.into(),
+    O::from_verification(
+        client_state,
+        trusted_consensus_state,
+        new_consensus_state,
         time,
-        trustedHeight: trusted_height,
-        newHeight: new_height,
-    }
+        trusted_height,
+        new_height,
+    )
 }

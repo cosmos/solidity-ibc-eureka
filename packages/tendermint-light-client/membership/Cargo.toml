@@ -6,6 +6,15 @@ edition     = { workspace = true }
 repository  = { workspace = true }
 license     = { workspace = true }
 
+[features]
+default = ["ethereum"]
+ethereum = ["dep:ibc-eureka-solidity-types"]
+solana = []
+
 [dependencies]
+# Ethereum-specific dependencies
+ibc-eureka-solidity-types     = { workspace = true, optional = true }
+
+# Shared dependencies
 ibc-core-commitment-types     = { workspace = true }
-ibc-eureka-solidity-types     = { workspace = true }
+ibc-core-host-types     = { workspace = true }
