@@ -51,8 +51,6 @@ const (
 	EnvKeyGenerateWasmFixtures = "GENERATE_WASM_FIXTURES"
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
-	// Address of the SP1ICS07Tendermint contract for operator.
-	EnvKeyContractAddress = "CONTRACT_ADDRESS"
 
 	// Log level for the Rust logger.
 	EnvValueRustLog_Info = "info"
@@ -132,10 +130,12 @@ const (
 	// We must use a client ID of the form `type-n` due to the issue above.
 	CustomClientID = "cosmoshub-1"
 
-	// Sp1 verifier address parameter key for the relaye's sp1 light client creation.
+	// Sp1 verifier address parameter key for the relayer's sp1 light client creation.
 	ParameterKey_Sp1Verifier = "sp1_verifier"
 	// Zk algorithm parameter key for the relayer's sp1 light client creation.
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
+	// The role manager address parameter key for the relayer's sp1 light client creation.
+	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
 )
