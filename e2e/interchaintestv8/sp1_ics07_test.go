@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -32,6 +33,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
+	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/sp1ics07tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
@@ -52,10 +54,16 @@ type SP1ICS07TendermintTestSuite struct {
 	// Whether to generate fixtures for the solidity tests
 	generateFixtures bool
 
+	// Addresses of the deployed contracts
+	sp1Ics07Address ethcommon.Address
+	ics26Address    ethcommon.Address
+
 	// The private key of a test account
 	key *ecdsa.PrivateKey
 	// The SP1ICS07Tendermint contract
 	contract *sp1ics07tendermint.Contract
+	// The ICS26 router contract, needed for the relayer to pass proofs
+	ics26Contract *ics26router.Contract
 
 	// The relayer API (only used for deployment at the moment)
 	RelayerClient relayertypes.RelayerServiceClient
@@ -109,6 +117,17 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		s.generateFixtures = os.Getenv(testvalues.EnvKeyGenerateSolidityFixtures) == testvalues.EnvValueGenerateFixtures_True
 	}))
 
+	s.Require().True(s.Run("Deploy IBC contracts", func() {
+		stdout, err := eth.ForgeScript(s.key, testvalues.E2EDeployScriptPath)
+		s.Require().NoError(err)
+
+		contractAddresses, err := ethereum.GetEthContractsFromDeployOutput(string(stdout))
+		s.Require().NoError(err)
+		s.ics26Address = ethcommon.HexToAddress(contractAddresses.Ics26Router)
+		s.ics26Contract, err = ics26router.NewContract(s.ics26Address, eth.RPCClient)
+		s.Require().NoError(err)
+	}))
+
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		beaconAPI := ""
@@ -127,7 +146,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				EthChainID:     eth.ChainID.String(),
 				CosmosChainID:  simd.Config().ChainID,
 				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   "0x0000000000000000000000000000000000000000", // permissionless proof submission
+				ICS26Address:   s.ics26Address.Hex(),
 				EthRPC:         eth.RPC,
 				BeaconAPI:      beaconAPI,
 				SP1Config:      sp1Config,
@@ -191,6 +210,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				Parameters: map[string]string{
 					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
+					testvalues.ParameterKey_RoleManager: ethcommon.Address{}.Hex(),
 				},
 			})
 			s.Require().NoError(err)
@@ -205,12 +225,27 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status, fmt.Sprintf("Tx failed: %+v", receipt))
 			s.Require().NotEmpty(receipt.ContractAddress.Hex())
-
-			err = os.Setenv(testvalues.EnvKeyContractAddress, receipt.ContractAddress.Hex())
-			s.Require().NoError(err)
+			s.sp1Ics07Address = receipt.ContractAddress
 
 			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
 			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Add client and counterparty on EVM", func() {
+			counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+				ClientId:     testvalues.FirstWasmClientID,
+				MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+			}
+			tx, err := s.ics26Contract.AddClient(s.GetTransactOpts(s.key, eth), testvalues.CustomClientID, counterpartyInfo, s.sp1Ics07Address)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+
+			event, err := e2esuite.GetEvmEvent(receipt, s.ics26Contract.ParseICS02ClientAdded)
+			s.Require().NoError(err)
+			s.Require().Equal(testvalues.CustomClientID, event.ClientId)
+			s.Require().Equal(testvalues.FirstWasmClientID, event.CounterpartyInfo.ClientId)
 		}))
 	}))
 }
@@ -272,7 +307,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, proo
 
 		initialHeight := clientState.LatestHeight.RevisionHeight
 
-		s.Require().NoError(operator.StartOperator("--only-once")) // This should detect the proof type
+		s.UpdateClient(ctx)
 
 		clientState, err = s.contract.ClientState(nil)
 		s.Require().NoError(err)
@@ -780,17 +815,48 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n
 
 // UpdateClient updates the SP1ICS07Tendermint client and returns the new height
 func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clienttypes.Height {
-	var latestHeight sp1ics07tendermint.IICS02ClientMsgsHeight
-	s.Require().True(s.Run("Update client", func() {
-		s.Require().NoError(operator.StartOperator("--only-once"))
-		var err error
-		updatedClientState, err := s.contract.ClientState(nil)
+	eth, simd := s.EthChain, s.CosmosChains[0]
+
+	var initialHeight uint64
+	s.Require().True(s.Run("Get the initial height", func() {
+		clientState, err := s.contract.ClientState(nil)
 		s.Require().NoError(err)
-		latestHeight = updatedClientState.LatestHeight
+		s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+		initialHeight = clientState.LatestHeight.RevisionHeight
 	}))
 
-	return clienttypes.Height{
-		RevisionNumber: latestHeight.RevisionNumber,
-		RevisionHeight: latestHeight.RevisionHeight,
-	}
+	var finalHeight sp1ics07tendermint.IICS02ClientMsgsHeight
+	s.Require().True(s.Run("Update the client on Ethereum", func() {
+		var updateTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+				SrcChain:    simd.Config().ChainID,
+				DstChain:    eth.ChainID.String(),
+				DstClientId: testvalues.CustomClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Equal(s.ics26Address.String(), resp.Address)
+
+			updateTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx", func() {
+			receipt, err := eth.BroadcastTx(ctx, s.key, 5_000_000, &s.ics26Address, updateTxBodyBz)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify the client state is updated", func() {
+			clientState, err := s.contract.ClientState(nil)
+			s.Require().NoError(err)
+			s.Require().NotZero(clientState.LatestHeight.RevisionHeight)
+
+			finalHeight = clientState.LatestHeight
+			s.Require().Greater(finalHeight.RevisionHeight, initialHeight)
+		}))
+	}))
+
+	return clienttypes.NewHeight(finalHeight.RevisionNumber, finalHeight.RevisionHeight)
 }
