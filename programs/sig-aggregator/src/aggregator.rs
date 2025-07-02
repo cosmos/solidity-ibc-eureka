@@ -10,6 +10,12 @@ use crate::{
         AggregateRequest, AggregateResponse, QueryRequest, SigPubkeyPair,
     },
 };
+use alloy_primitives::{FixedBytes};
+
+type Height = u64;
+type State = FixedBytes<32>;
+type Signature = FixedBytes<32>;
+type Pubkey = FixedBytes<65>;
 
 #[derive(Debug)]
 pub struct AggregatorService {
@@ -39,8 +45,6 @@ impl AggregatorService {
     }
 }
 
-// TODO: 1. FIx len data
-// TODO: Proof that we don't need RwLock here.
 
 #[tonic::async_trait]
 impl Aggregator for AggregatorService {
@@ -83,7 +87,7 @@ impl Aggregator for AggregatorService {
         //  Height: 102
         //      State: 0x5678...
         //          Sign_PK: [(SigAtt_A, PK_Att_A), (SigAtt_B, PK_Att_B), (SigAtt_C, PK_Att_C), (SigAtt_D, PK_Att_D), (SigAtt_E, PK_Att_E)]
-        let mut height_to_state: HashMap<u64, HashMap<Vec<u8>, Vec<(Vec<u8>, Vec<u8>)>>> = HashMap::new();
+        let mut height_to_state: HashMap<Height, HashMap<State, Vec<(Signature, Pubkey)>>> = HashMap::new();
         
         let collection_result = timeout(attestor_query_timeout, async {
             while let Some(result) = rx.recv().await {
@@ -94,9 +98,9 @@ impl Aggregator for AggregatorService {
                         for attestation in attestations.attestations {
                             let state_map = height_to_state.entry(attestation.height).or_default();
                             state_map
-                                .entry(attestation.state)
+                                .entry(State::from_slice(&attestation.state))
                                 .or_default()
-                                .push((attestation.signature, attestations.pubkey.clone()));
+                                .push((Signature::from_slice(&attestation.signature), Pubkey::from_slice(&attestations.pubkey.clone())));
                         }
                     }
                     Err(e) => {
@@ -133,10 +137,10 @@ impl Aggregator for AggregatorService {
 
                 let candidate = AggregateResponse {
                     height: *height,
-                    state: state.clone(),
+                    state: state.to_vec(),
                     sig_pubkey_pairs: sig_pks
                         .iter()
-                        .map(|(sig, pubkey)| SigPubkeyPair { sig: sig.clone(), pubkey: pubkey.clone() })
+                        .map(|(sig, pubkey)| SigPubkeyPair { sig: sig.to_vec(), pubkey: pubkey.to_vec() })
                         .collect(),
                 };
                 let mut cached_height = self.cached_height.write().await;

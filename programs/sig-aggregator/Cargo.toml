@@ -12,8 +12,8 @@ tonic = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = ["derive"] }
 tokio-stream = "0.1"
-
 toml = "0.8"
+alloy-primitives = { workspace = true, default-features = true }
 anyhow = { workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
