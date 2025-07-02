@@ -245,18 +245,7 @@ pub mod ics07_tendermint {
                 .unwrap(),
         };
 
-        let request = create_membership_verification_request(kv_pair, proof);
-
-        let input = SolanaMembershipInput {
-            client_state,
-            consensus_state,
-            height: msg.height,
-            delay_time_period: msg.delay_time_period,
-            delay_block_period: msg.delay_block_period,
-            request,
-        };
-
-        let output = membership(input);
+        let output = tendermint_light_client_membership::membership(kv_pair, proof);
 
         require!(output.success, ErrorCode::VerificationFailed);
 

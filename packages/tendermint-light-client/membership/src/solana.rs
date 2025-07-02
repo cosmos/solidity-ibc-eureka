@@ -29,17 +29,6 @@ impl KVPairInfo for SolanaKVPair {
     }
 }
 
-/// Input for the membership program on Solana
-#[derive(Clone, Debug)]
-pub struct SolanaMembershipInput {
-    /// The app hash (consensus state root)
-    pub app_hash: [u8; 32],
-    /// List of key-value pairs to verify
-    pub kv_pairs: Vec<SolanaKVPair>,
-    /// Merkle proofs for each key-value pair
-    pub merkle_proofs: Vec<Vec<u8>>,
-}
-
 /// Output for the membership program on Solana
 #[derive(Clone, Debug)]
 pub struct SolanaMembershipOutput {
