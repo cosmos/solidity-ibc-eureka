@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_aggregate_attestation_quorum_met() {
+    async fn get_aggregate_attestation_quorum_met() {
         let _ = tracing_subscriber::fmt::try_init();
 
         // 1. Setup: Create 3 successful attestors and 1 failing attestor.
