@@ -55,19 +55,21 @@ impl MisbehaviourOutputInfo<SolanaClientState> for SolanaMisbehaviourOutput {
         _trusted_consensus_state_2: ConsensusState,
         time: u128,
     ) -> Self {
+        let header1 = misbehaviour.header1();
+        let header2 = misbehaviour.header2();
         // Check if headers have same height (double sign) or time violation
-        let misbehaviour_type = if misbehaviour.header1.height() == misbehaviour.header2.height() {
+        let misbehaviour_type = if header1.height() == header2.height() {
             Some(MisbehaviourType::DoubleSign)
-        } else if misbehaviour.header1.signed_header.header.time >= misbehaviour.header2.signed_header.header.time {
+        } else if header1.signed_header.header.time >= header2.signed_header.header.time {
             Some(MisbehaviourType::TimeMonotonicityViolation)
         } else {
             None
         };
 
         let misbehaviour_detected = misbehaviour_type.is_some();
-        
+
         // Freeze the client at the misbehaviour height if detected
-        let misbehaviour_height = misbehaviour.header1.height();
+        let misbehaviour_height = header1.height();
         if misbehaviour_detected {
             client_state.frozen_height = Some(misbehaviour_height.revision_height());
         }
@@ -88,14 +90,20 @@ pub fn is_client_frozen(client_state: &SolanaClientState) -> bool {
 }
 
 /// Check for misbehaviour in the provided headers
-pub fn check_for_misbehaviour(input: SolanaMisbehaviourInput) -> SolanaMisbehaviourOutput {
+pub fn check_for_misbehaviour(
+    client_state: SolanaClientState,
+    misbehaviour: &Misbehaviour,
+    trusted_consensus_state_1: ConsensusState,
+    trusted_consensus_state_2: ConsensusState,
+    time: u128,
+) -> SolanaMisbehaviourOutput {
     use crate::check_for_misbehaviour_core;
-    
+
     check_for_misbehaviour_core(
-        input.client_state,
-        input.misbehaviour,
-        input.trusted_consensus_state_1,
-        input.trusted_consensus_state_2,
-        input.time,
+        client_state,
+        misbehaviour,
+        trusted_consensus_state_1,
+        trusted_consensus_state_2,
+        time,
     )
 }

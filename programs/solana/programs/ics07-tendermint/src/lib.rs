@@ -307,16 +307,7 @@ pub mod ics07_tendermint {
 
         let request = create_non_membership_verification_request(kv_pair, proof);
 
-        let input = SolanaMembershipInput {
-            client_state,
-            consensus_state,
-            height: msg.height,
-            delay_time_period: msg.delay_time_period,
-            delay_block_period: msg.delay_block_period,
-            request,
-        };
-
-        let output = membership(input);
+        let output = tendermint_light_client_membership::membership(input);
 
         require!(output.success, ErrorCode::VerificationFailed);
 
@@ -366,14 +357,13 @@ pub mod ics07_tendermint {
                 .unwrap(),
         };
 
-        let misbehaviour = ibc_client_tendermint::types::Misbehaviour {
-            client_id: msg
-                .client_id
-                .parse()
-                .map_err(|_| error!(ErrorCode::InvalidClientId))?,
-            header1: header_1,
-            header2: header_2,
-        };
+        let client_id = msg
+            .client_id
+            .parse()
+            .map_err(|_| error!(ErrorCode::InvalidClientId))?;
+
+        let misbehaviour =
+            ibc_client_tendermint::types::Misbehaviour::new(client_id, header1, header2);
 
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
