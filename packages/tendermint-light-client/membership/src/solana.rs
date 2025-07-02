@@ -1,8 +1,9 @@
 //! Solana-specific types and implementations for membership program
 
 use ibc_core_commitment_types::merkle::{MerklePath, MerkleProof};
+use ibc_core_host_types::path::PathBytes;
 
-use crate::{KVPairInfo, MembershipOutputInfo, membership_core};
+use crate::{membership_core, KVPairInfo, MembershipOutputInfo};
 
 /// Solana-specific key-value pair for membership/non-membership proofs
 #[derive(Clone, Debug)]
@@ -17,9 +18,8 @@ impl KVPairInfo for SolanaKVPair {
     fn into_merkle_path_and_value(self) -> (MerklePath, Vec<u8>) {
         // Parse the path bytes into a MerklePath
         // The path format should follow IBC path conventions
-        let path_str = String::from_utf8_lossy(&self.path);
-        let merkle_path = MerklePath::new(vec![path_str.into_owned()])
-            .expect("Invalid merkle path");
+        let path = PathBytes::from_bytes(self.path);
+        let merkle_path = MerklePath::new(vec![path]);
 
         (merkle_path, self.value)
     }
@@ -59,18 +59,17 @@ impl MembershipOutputInfo<SolanaKVPair> for SolanaMembershipOutput {
 }
 
 /// Helper to create a membership proof request
-pub fn create_membership_request(
-    path: Vec<u8>,
-    value: Vec<u8>,
-) -> SolanaKVPair {
+#[must_use]
+pub const fn create_membership_request(path: Vec<u8>, value: Vec<u8>) -> SolanaKVPair {
     SolanaKVPair { path, value }
 }
 
 /// Helper to create a non-membership proof request
-pub fn create_non_membership_request(path: Vec<u8>) -> SolanaKVPair {
-    SolanaKVPair { 
-        path, 
-        value: vec![] 
+#[must_use]
+pub const fn create_non_membership_request(path: Vec<u8>) -> SolanaKVPair {
+    SolanaKVPair {
+        path,
+        value: vec![],
     }
 }
 
@@ -83,4 +82,3 @@ pub fn membership(
 ) -> SolanaMembershipOutput {
     membership_core(app_hash, request_iter)
 }
-

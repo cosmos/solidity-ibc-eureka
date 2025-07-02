@@ -17,3 +17,4 @@ ibc-eureka-solidity-types     = { workspace = true, optional = true }
 
 # Shared dependencies
 ibc-core-commitment-types     = { workspace = true }
+ibc-core-host-types     = { workspace = true }

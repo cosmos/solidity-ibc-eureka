@@ -11524,6 +11524,7 @@ name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
  "ibc-core-commitment-types",
+ "ibc-core-host-types",
  "ibc-eureka-solidity-types 0.1.0",
 ]
 
