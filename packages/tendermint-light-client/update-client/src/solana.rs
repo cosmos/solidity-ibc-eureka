@@ -104,10 +104,7 @@ impl From<TmClientState> for SolanaClientState {
             unbonding_period: tm_state.unbonding_period.as_secs(),
             max_clock_drift: tm_state.max_clock_drift.as_secs(),
             latest_height: tm_state.latest_height,
-            frozen_height: tm_state
-                .frozen_height
-                .map(|h| h.revision_height())
-                .unwrap_or(0),
+            frozen_height: tm_state.frozen_height.unwrap_or(0),
         }
     }
 }

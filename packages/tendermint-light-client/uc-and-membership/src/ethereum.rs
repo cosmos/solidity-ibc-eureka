@@ -1,13 +1,13 @@
 //! Ethereum-specific implementations for combined update client and membership
 
-use crate::{UcAndMembershipOutputInfo, update_client_and_membership_core};
+use crate::{update_client_and_membership_core, UcAndMembershipOutputInfo};
 use ibc_client_tendermint_types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::ClientState,
     IMembershipMsgs::{KVPair, MembershipOutput},
-    IUpdateClientMsgs::UpdateClientOutput,
     IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
+    IUpdateClientMsgs::UpdateClientOutput,
 };
 
 impl UcAndMembershipOutputInfo<ClientState, KVPair> for UcAndMembershipOutput {
@@ -18,7 +18,7 @@ impl UcAndMembershipOutputInfo<ClientState, KVPair> for UcAndMembershipOutput {
         uc_output: Self::UpdateClientOutput,
         membership_output: Self::MembershipOutput,
     ) -> Self {
-        UcAndMembershipOutput {
+        Self {
             updateClientOutput: uc_output,
             kvPairs: membership_output.kvPairs,
         }

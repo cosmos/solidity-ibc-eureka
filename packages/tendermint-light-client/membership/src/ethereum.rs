@@ -16,7 +16,7 @@ impl KVPairInfo for KVPair {
 
 impl MembershipOutputInfo<KVPair> for MembershipOutput {
     fn from_verified_kvpairs(app_hash: [u8; 32], kvpairs: Vec<KVPair>) -> Self {
-        MembershipOutput {
+        Self {
             commitmentRoot: app_hash.into(),
             kvPairs: kvpairs,
         }
