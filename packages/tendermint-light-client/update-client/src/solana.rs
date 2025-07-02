@@ -2,7 +2,6 @@
 
 use ibc_client_tendermint::types::{ClientState as TmClientState, ConsensusState};
 use ibc_core_client_types::Height;
-use ibc_core_host_types::identifiers::ClientId;
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 use crate::{ClientStateInfo, UpdateClientOutputInfo};
@@ -73,6 +72,7 @@ impl UpdateClientOutputInfo<SolanaClientState> for SolanaUpdateClientOutput {
             client_state,
             trusted_consensus_state,
             new_consensus_state,
+            // TODO: make time generic?
             time: time as u64,
             trusted_height,
             new_height,
@@ -91,7 +91,7 @@ impl From<TmClientState> for SolanaClientState {
             unbonding_period: tm_state.unbonding_period.as_secs(),
             max_clock_drift: tm_state.max_clock_drift.as_secs(),
             latest_height: tm_state.latest_height,
-            frozen_height: tm_state.frozen_height.unwrap_or(0),
+            frozen_height: tm_state.frozen_height.map_or(0, |h| h.revision_height()),
         }
     }
 }
