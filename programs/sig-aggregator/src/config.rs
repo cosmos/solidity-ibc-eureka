@@ -1,13 +1,13 @@
 use anyhow::Result;
 use serde::{Deserialize};
-use std::fs;
-use std::path::Path;
+use url::Url;
+use std::{fs, net::SocketAddr, path::Path};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub attestor_endpoints: Vec<String>,
+    pub attestor_endpoints: Vec<Url>,
     pub quorum_threshold: usize,
-    pub listen_addr: String,
+    pub listen_addr: SocketAddr,
     pub attestor_query_timeout_ms: u64,
 }
 

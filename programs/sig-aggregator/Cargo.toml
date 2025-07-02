@@ -9,6 +9,7 @@ license = { workspace = true }
 [dependencies]
 toml         = "0.8"
 tokio-stream = "0.1"
+url          = { version = "2", features = ["serde"] }
 tokio        = { workspace = true, features = ["full"] }
 
 tonic = { workspace = true, default-features = true }

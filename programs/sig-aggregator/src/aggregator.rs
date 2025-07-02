@@ -28,7 +28,7 @@ impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
         for endpoint in &config.attestor_endpoints {
-            let client = AttestorClient::connect(endpoint.clone())
+            let client = AttestorClient::connect(endpoint.to_string())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
             attestor_clients.push(Arc::new(Mutex::new(client)));
@@ -166,6 +166,7 @@ mod tests {
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
     use tonic::transport::Server;
+    use url::Url;
     use tokio_stream;
 
     // Helper to spin up a mock attestor server on a random available port.
@@ -199,13 +200,13 @@ mod tests {
         // 2. Setup: Create AggregatorService
         let config = Config {
             attestor_endpoints: vec![
-                format!("http://{}", addr_1),
-                format!("http://{}", addr_2),
-                format!("http://{}", addr_3),
-                format!("http://{}", addr_4),
+                Url::parse(&format!("http://{}", addr_1)).unwrap(),
+                Url::parse(&format!("http://{}", addr_2)).unwrap(),
+                Url::parse(&format!("http://{}", addr_3)).unwrap(),
+                Url::parse(&format!("http://{}", addr_4)).unwrap(),
             ],
             quorum_threshold: 3,
-            listen_addr: "127.0.0.1:50060".to_string(), // Not used in this test
+            listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
             attestor_query_timeout_ms: 5000,
         };
 

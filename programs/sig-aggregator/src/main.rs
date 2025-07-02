@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Aggregator { config } => {
             let config = Config::load(config)?;
-            let listen_addr = config.listen_addr.parse()?;
+            let listen_addr = config.listen_addr;
             let aggregator_service = AggregatorService::from_config(config).await?;
 
             tracing::info!("Aggregator service listening on {}", listen_addr);
