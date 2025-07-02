@@ -1,4 +1,4 @@
-use crate::{attestor::Attestor, height_store::AttestationStore};
+use crate::{attestation_store::AttestationStore, attestor::Attestor};
 
 pub struct Server;
 

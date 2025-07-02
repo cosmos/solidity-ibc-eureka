@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use crate::{
     adapter_client::{Adapter, AdapterError, Signable},
     attestation::Attestation,
-    height_store::AttestationStore,
+    attestation_store::AttestationStore,
     signer::Signer,
 };
 

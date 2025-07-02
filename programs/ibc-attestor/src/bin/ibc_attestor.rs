@@ -1,9 +1,9 @@
 use clap::Parser;
 use ibc_attestor::{
     adapter_client::Adapter,
+    attestation_store::AttestationStore,
     attestor::AttestorService,
     cli::{AttestorCli, AttestorConfig, Commands},
-    height_store::AttestationStore,
     server::Server,
     signer::Signer,
     SolanaClient,
