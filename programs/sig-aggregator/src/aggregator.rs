@@ -157,7 +157,7 @@ impl Aggregator for AggregatorService {
 mod tests {
     use super::*;
     use crate::{
-        attestor::MockAttestor,
+        mock_attestor::MockAttestor,
         config::Config,
         rpc::attestor_server::{AttestorServer},
     };

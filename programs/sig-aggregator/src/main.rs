@@ -5,7 +5,6 @@ use tracing_subscriber::FmtSubscriber;
 
 use sig_aggregator::{
     aggregator::AggregatorService,
-    attestor::run_attestor_server,
     config::Config,
     rpc::{aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient},
 };
@@ -19,15 +18,6 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Run an attestor instance
-    Attestor {
-        #[arg(long, default_value = "127.0.0.1:50051")]
-        addr: String,
-        #[arg(long)]
-        fail: bool,
-        #[arg(long, default_value_t = 0)]
-        delay_ms: u64,
-    },
     /// Run the aggregator service
     Aggregator {
         #[arg(long, default_value = "config.toml")]
@@ -52,13 +42,6 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Attestor {
-            addr,
-            fail,
-            delay_ms,
-        } => {
-            run_attestor_server(addr, fail, delay_ms).await?;
-        }
         Commands::Aggregator { config } => {
             let config = Config::load(config)?;
             let listen_addr = config.listen_addr.parse()?;
