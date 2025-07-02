@@ -39,6 +39,8 @@ impl AttestationStore {
         self.store.iter().filter(move |(k, _)| k >= &height)
     }
 
+    /// Returns a an [IndexMap] that contains all attestations
+    /// in insertion order from a given `height`
     pub fn attestations_from_height(&self, height: u64) -> IndexMap<u64, Attestation> {
         let mut heights = IndexMap::new();
         for (h, v) in self.range_from(height) {
