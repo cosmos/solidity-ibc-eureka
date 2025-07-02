@@ -71,7 +71,7 @@ impl MisbehaviourOutputInfo<SolanaClientState> for SolanaMisbehaviourOutput {
         // Freeze the client at the misbehaviour height if detected
         let misbehaviour_height = header1.height();
         if misbehaviour_detected {
-            client_state.frozen_height = Some(misbehaviour_height.revision_height());
+            client_state.frozen_height = misbehaviour_height.revision_height();
         }
 
         Self {
