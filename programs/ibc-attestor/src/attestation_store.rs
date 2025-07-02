@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use indexmap::IndexMap;
+
 use crate::attestation::Attestation;
 
 pub struct AttestationStore {
@@ -33,12 +35,16 @@ impl AttestationStore {
         self.store.push_back((height, value));
     }
 
-    /// Get an iterator over all attestations from a given height
-    pub fn range_from<'a>(
-        &'a self,
-        height: u64,
-    ) -> impl Iterator<Item = &'a (u64, Attestation)> + 'a {
+    fn range_from<'a>(&'a self, height: u64) -> impl Iterator<Item = &'a (u64, Attestation)> + 'a {
         self.store.iter().filter(move |(k, _)| k >= &height)
+    }
+
+    pub fn attestations_from_height(&self, height: u64) -> IndexMap<u64, Attestation> {
+        let mut heights = IndexMap::new();
+        for (h, v) in self.range_from(height) {
+            heights.insert(h.clone(), v.clone());
+        }
+        heights
     }
 }
 
@@ -101,7 +107,7 @@ mod push {
 }
 
 #[cfg(test)]
-mod range_from {
+mod attestations_from_height {
     use super::*;
 
     #[test]
@@ -115,9 +121,27 @@ mod range_from {
             };
             store.push(i, att);
         }
-        let range = store.range_from(0);
+        let range = store.attestations_from_height(0);
 
-        assert_eq!(range.count(), 10);
+        assert_eq!(range.len(), 10);
+    }
+
+    #[test]
+    fn preserves_order() {
+        let mut store = AttestationStore::new(9_000);
+
+        for i in 1..=10 {
+            let att = Attestation {
+                signature: [0; 64],
+                data: Vec::new(),
+            };
+            store.push(i, att);
+        }
+        let range = store.attestations_from_height(0);
+
+        for (actual, expected) in range.keys().zip(1..=10) {
+            assert_eq!(actual, &expected);
+        }
     }
 
     #[test]
@@ -131,9 +155,9 @@ mod range_from {
             };
             store.push(i, att);
         }
-        let range = store.range_from(6);
+        let range = store.attestations_from_height(6);
 
-        assert_eq!(range.count(), 5);
+        assert_eq!(range.len(), 5);
     }
 
     #[test]
@@ -147,9 +171,9 @@ mod range_from {
             };
             store.push(i, att);
         }
-        let range = store.range_from(10);
+        let range = store.attestations_from_height(10);
 
-        assert_eq!(range.count(), 1);
+        assert_eq!(range.len(), 1);
     }
 
     #[test]
@@ -163,8 +187,8 @@ mod range_from {
             };
             store.push(i, att);
         }
-        let range = store.range_from(11);
+        let range = store.attestations_from_height(11);
 
-        assert_eq!(range.count(), 0);
+        assert_eq!(range.len(), 0);
     }
 }

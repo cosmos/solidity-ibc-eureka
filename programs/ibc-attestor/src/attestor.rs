@@ -1,10 +1,7 @@
 use std::{future::Future, time::Duration};
 
-use indexmap::IndexMap;
-
 use crate::{
     adapter_client::{Adapter, AdapterError, Signable},
-    attestation::Attestation,
     attestation_store::AttestationStore,
     signer::Signer,
 };
@@ -21,12 +18,6 @@ pub trait Attestor: Send + Sync + 'static {
         &self,
         store: &mut AttestationStore,
     ) -> impl Future<Output = ()> + Send;
-
-    fn attestations_from_height(
-        &self,
-        height: u64,
-        store: &AttestationStore,
-    ) -> IndexMap<u64, Attestation>;
 }
 
 impl<A> AttestorService<A>
@@ -64,17 +55,5 @@ where
         let store_at_height = to_sign.height();
         let signed = self.signer.sign(to_sign);
         store.push(store_at_height, signed);
-    }
-
-    fn attestations_from_height(
-        &self,
-        height: u64,
-        store: &AttestationStore,
-    ) -> IndexMap<u64, Attestation> {
-        let mut heights = IndexMap::new();
-        for (h, v) in store.range_from(height) {
-            heights.insert(h.clone(), v.clone());
-        }
-        heights
     }
 }
