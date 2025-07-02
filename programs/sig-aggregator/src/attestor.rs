@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::{transport::Server, Request, Response, Status};
@@ -24,7 +23,7 @@ fn mock_signature(height: u64) -> Vec<u8> {
 #[derive(Debug, Default)]
 pub struct MockAttestor {
     // Using BTreeMap to keep heights sorted.
-    store: Arc<Mutex<BTreeMap<u64, Vec<u8>>>>,
+    store: BTreeMap<u64, (Vec<u8>, Vec<u8>)>,
     // To simulate failures
     should_fail: bool,
     // To simulate latency
@@ -40,18 +39,18 @@ impl MockAttestor {
             // Let's create some forks/disagreements.
             // Attestors that don't fail will agree on height 100, but disagree on 105.
             let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(height, mock_signature(height));
+            store.insert(height, (mock_signature(height), mock_signature(height)));
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110, mock_signature(110));
+            store.insert(110,(mock_signature(110), mock_signature(110)));
         }
 
         let mut pub_key = [0u8; 65];
         rand::rng().fill(&mut pub_key[..]);
 
         Self {
-            store: Arc::new(Mutex::new(store)),
+            store,
             should_fail,
             delay_ms,
             pub_key: pub_key.to_vec(),
@@ -74,18 +73,27 @@ impl Attestor for MockAttestor {
         }
 
         let min_height = request.into_inner().min_height;
-        let store = self.store.lock().unwrap();
+        let store = self.store.clone();
 
         let attestations = store
             .range(min_height..)
-            .map(|(&height, signature)| Attestation {
+            .map(|(&height, (state, signature))| Attestation {
                 height,
+                state: state.clone(),
                 signature: signature.clone(),
-                pubkey: self.pub_key.clone(),
             })
             .collect();
 
-        Ok(Response::new(AttestationsResponse { attestations }))
+        Ok(Response::new(AttestationsResponse {
+            pubkey: self.pub_key.clone(),
+            attestations,
+        }))
+    }
+}
+
+impl MockAttestor {
+    pub fn get_pubkey(&self) -> Vec<u8> {
+        self.pub_key.clone()
     }
 }
 

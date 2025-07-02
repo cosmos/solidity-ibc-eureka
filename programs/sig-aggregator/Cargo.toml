@@ -11,12 +11,13 @@ tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true, default-features = true }
 prost = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = ["derive"] }
+tokio-stream = "0.1"
 
 toml = "0.8"
 anyhow = { workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-clap = { workspace = true, default-features = true }
+clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }
@@ -24,6 +25,3 @@ hex = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
-
-[dev-dependencies]
-tokio-stream = "0.1"

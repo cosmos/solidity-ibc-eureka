@@ -80,19 +80,13 @@ async fn main() -> Result<()> {
             let request = tonic::Request::new(AggregateRequest { min_height });
 
             let response = client.get_aggregate_attestation(request).await?;
-
-            if let Some(attestation) = response.into_inner().attestation {
-                println!(
-                    "Received aggregated attestation:\n  Height: {}\n  Signature: 0x{}",
-                    attestation.height,
-                    hex::encode(attestation.signature)
-                );
-            } else {
-                println!(
-                    "Aggregator did not find an attestation with quorum for height >= {}",
-                    min_height
-                );
-            }
+            let aggregate_response = response.into_inner();
+            println!(
+                "Received aggregated attestation:\n  Height: {}\n  State: 0x{}\n Signature: {:?}",
+                aggregate_response.height,
+                hex::encode(aggregate_response.state),
+                aggregate_response.sig_pubkey_pairs
+            );
         }
     }
 
