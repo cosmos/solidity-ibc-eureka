@@ -1,13 +1,15 @@
 use anyhow::Result;
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
 use clap::Parser;
 use sig_aggregator::{
     aggregator::AggregatorService,
     config::Config,
-    rpc::{aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient},
+    rpc::{
+        aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient,
+    },
     cli::{Cli, Commands},
 };
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<()> {

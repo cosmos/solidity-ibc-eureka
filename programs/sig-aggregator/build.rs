@@ -8,7 +8,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_descriptor_set_path(&descriptor_path)
         .build_server(true)
         .compile_protos(
-            &["../../proto/aggregator/aggregator.proto", "../../proto/aggregator/attestor.proto"], 
+            &[
+                "../../proto/aggregator/aggregator.proto", 
+                "../../proto/aggregator/attestor.proto",
+            ], 
             &["../../proto/aggregator"])?;
     Ok(())
 }

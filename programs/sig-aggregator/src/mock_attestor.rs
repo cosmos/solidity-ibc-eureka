@@ -43,7 +43,7 @@ impl MockAttestor {
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110,(mock_signature(110), mock_signature(110)));
+            store.insert(110, (mock_signature(110), mock_signature(110)));
         }
 
         let mut pub_key = [0u8; 65];

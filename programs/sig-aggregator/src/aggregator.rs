@@ -1,17 +1,19 @@
-use futures::{stream::FuturesUnordered, StreamExt};
-use tokio::{time::{timeout, Duration}, sync::{RwLock, Mutex}};
-use tonic::{transport::Channel, Request, Response, Status};
-use std::{sync::Arc, collections::HashMap};
 use crate::{
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::Aggregator,
-        attestor_client::AttestorClient,
-        AggregateRequest, AggregateResponse, QueryRequest, SigPubkeyPair,
+        aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, 
+        AggregateResponse, QueryRequest, SigPubkeyPair,
     },
 };
-use alloy_primitives::{FixedBytes};
+use alloy_primitives::FixedBytes;
+use futures::{stream::FuturesUnordered, StreamExt};
+use std::{sync::Arc, collections::HashMap};
+use tokio::{
+    time::{timeout, Duration}, 
+    sync::{RwLock, Mutex},
+};
+use tonic::{transport::Channel, Request, Response, Status};
 
 type Height = u64;
 type State = FixedBytes<32>;
@@ -72,9 +74,9 @@ impl Aggregator for AggregatorService {
             let req = Request::new(QueryRequest { min_height });
             futs.push(async move {
                 match timeout(timeout_ms, client.query_attestations(req)).await {
-                    Ok(Ok(resp))    => Ok(resp.into_inner()),
+                    Ok(Ok(resp)) => Ok(resp.into_inner()),
                     Ok(Err(status)) => Err(status),
-                    Err(_)          => Err(Status::deadline_exceeded("attestor RPC timed out")),
+                    Err(_) => Err(Status::deadline_exceeded("attestor RPC timed out")),
                 }
             });
         }
@@ -100,7 +102,10 @@ impl Aggregator for AggregatorService {
                         state_map
                             .entry(State::from_slice(&attestations.state))
                             .or_default()
-                            .push((Signature::from_slice(&attestations.signature), Pubkey::from_slice(&att_resp.pubkey)));
+                            .push((
+                                Signature::from_slice(&attestations.signature), 
+                                Pubkey::from_slice(&att_resp.pubkey)
+                            ));
                     }
                 }
                 Err(e) => {
@@ -115,10 +120,15 @@ impl Aggregator for AggregatorService {
         }
     
         let mut cached_height = self.cached_height.write().await;
-        update_cached_height(&height_to_state, &mut cached_height, self.config.quorum_threshold);
+        update_cached_height(
+            &height_to_state, 
+            &mut cached_height, 
+            self.config.quorum_threshold,
+        );
         if cached_height.height < min_height {
             return Err(Status::not_found(format!(
-                "No valid attestation found for height >= {}", min_height
+                "No valid attestation found for height >= {}",
+                min_height
             )));
         }
 
@@ -135,7 +145,11 @@ fn update_cached_height(
         // If we have more than one state at this height, raise some monitoring warning.
         if state_map.keys().len() > 1 {
             // TODO: Decide how to raise multiple states for a height.
-            println!("multiple [{}] state found for height {}", state_map.keys().len(), height);
+            println!(
+                "multiple [{}] state found for height {}", 
+                state_map.keys().len(), 
+                height
+            );
         }
         if *height <= cached_agg.height {
             continue;
@@ -150,7 +164,10 @@ fn update_cached_height(
             cached_agg.state = state.to_vec();
             cached_agg.sig_pubkey_pairs = sig_to_pks
                 .iter()
-                .map(|(sig, pubkey)| SigPubkeyPair {sig: sig.to_vec(), pubkey: pubkey.to_vec()})
+                .map(|(sig, pubkey)| SigPubkeyPair {
+                    sig: sig.to_vec(), 
+                    pubkey: pubkey.to_vec(),
+                })
                 .collect();
         }
     }
@@ -160,19 +177,20 @@ fn update_cached_height(
 mod e2e_tests {
     use super::*;
     use crate::{
-        mock_attestor::MockAttestor,
-        config::Config,
-        rpc::attestor_server::{AttestorServer},
+        config::Config, mock_attestor::MockAttestor, rpc::attestor_server::{AttestorServer},
     };
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
+    use tokio_stream;
     use tonic::transport::Server;
     use url::Url;
-    use tokio_stream;
 
     // Helper to spin up a mock attestor server on a random available port.
     // Returns the address it's listening on.
-    async fn setup_attestor_server(should_fail: bool, delay_ms: u64) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
+    async fn setup_attestor_server(
+        should_fail: bool, 
+        delay_ms: u64,
+    ) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let addr = listener.local_addr()?;
         let attestor = MockAttestor::new(should_fail, delay_ms);
@@ -304,8 +322,10 @@ mod tests {
         states.insert(
             st,
             vec![
-                (Signature::from_slice(&fill_bytes::<32>(0x01)),
-                 Pubkey::from_slice(&fill_bytes::<65>(0x02))),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(0x01)),
+                    Pubkey::from_slice(&fill_bytes::<65>(0x02)),
+                ),
             ],
         );
         height_to_state.insert(100, states);
@@ -329,8 +349,14 @@ mod tests {
         states.insert(
             st,
             vec![
-                (Signature::from_slice(&fill_bytes::<32>(0x11)), Pubkey::from_slice(&fill_bytes::<65>(0x21))),
-                (Signature::from_slice(&fill_bytes::<32>(0x12)), Pubkey::from_slice(&fill_bytes::<65>(0x22))),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(0x11)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(0x21)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(0x12)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(0x22)),
+                ),
             ],
         );
         height_to_state.insert(123, states);
@@ -362,9 +388,18 @@ mod tests {
         s120.insert(
             st120,
             vec![
-                (Signature::from_slice(&fill_bytes::<32>(1)), Pubkey::from_slice(&fill_bytes::<65>(2))),
-                (Signature::from_slice(&fill_bytes::<32>(3)), Pubkey::from_slice(&fill_bytes::<65>(4))),
-                (Signature::from_slice(&fill_bytes::<32>(5)), Pubkey::from_slice(&fill_bytes::<65>(6))),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(1)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(2)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(3)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(4)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(5)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(6)),
+                ),
             ],
         );
         height_to_state.insert(120, s120);
@@ -375,9 +410,18 @@ mod tests {
         s200.insert(
             st200,
             vec![
-                (Signature::from_slice(&fill_bytes::<32>(1)), Pubkey::from_slice(&fill_bytes::<65>(2))),
-                (Signature::from_slice(&fill_bytes::<32>(3)), Pubkey::from_slice(&fill_bytes::<65>(4))),
-                (Signature::from_slice(&fill_bytes::<32>(5)), Pubkey::from_slice(&fill_bytes::<65>(6))),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(1)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(2)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(3)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(4)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(5)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(6)),
+                ),
             ],
         );
         height_to_state.insert(200, s200);
@@ -388,9 +432,18 @@ mod tests {
         s150.insert(
             st150,
             vec![
-                (Signature::from_slice(&fill_bytes::<32>(9)), Pubkey::from_slice(&fill_bytes::<65>(10))),
-                (Signature::from_slice(&fill_bytes::<32>(11)), Pubkey::from_slice(&fill_bytes::<65>(12))),
-                (Signature::from_slice(&fill_bytes::<32>(13)), Pubkey::from_slice(&fill_bytes::<65>(14))),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(9)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(10)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(11)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(12)),
+                ),
+                (
+                    Signature::from_slice(&fill_bytes::<32>(13)), 
+                    Pubkey::from_slice(&fill_bytes::<65>(14)),
+                ),
             ],
         );
         height_to_state.insert(150, s150);
