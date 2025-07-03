@@ -46,22 +46,15 @@ async fn main() -> Result<(), anyhow::Error> {
             let attestor_dir = home.join(".ibc-attestor");
             let key_home = attestor_dir.join("ibc-attestor.pem");
 
-            match (attestor_dir.exists(), key_home.exists()) {
-                (true, true) => {
-                    return Err(anyhow::anyhow!("key pair already found; aborting"));
-                }
-                (false, false) => {
-                    fs::create_dir_all(&attestor_dir).unwrap();
-                    fs::write(&key_home, "").unwrap();
-                }
-                (true, false) => {
-                    fs::write(&key_home, "").unwrap();
-                }
-                _file_cannot_exist_without_parent_dir => (),
+            if !attestor_dir.exists() {
+                fs::create_dir_all(&attestor_dir).unwrap();
             }
 
             match cmd {
                 KeyCommands::Generate => {
+                    if attestor_dir.exists() && key_home.exists() {
+                        return Err(anyhow::anyhow!("key pair already found; aborting"));
+                    }
                     generate_secret_key(&key_home)
                         .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
                     println!("key successfully saved to {}", key_home.to_str().unwrap());
@@ -82,7 +75,7 @@ async fn main() -> Result<(), anyhow::Error> {
                             key_home.to_str().unwrap()
                         )
                     })?;
-                    println!("public key:\n{}", pkey);
+                    println!("public key as hex string:\n{}", pkey);
 
                     Ok(())
                 }
