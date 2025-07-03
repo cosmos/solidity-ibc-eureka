@@ -265,7 +265,6 @@ mod e2e_tests {
         // 4. Assert: Can not reach quorum due to timeouts
         assert!(response.is_err());
         let status = response.unwrap_err();
-        tracing::error!("Expected error: {:?}", status);
         assert_eq!(status.code(), tonic::Code::Unavailable);
         assert_eq!(status.message(), "cannot reach quorum");
     }
