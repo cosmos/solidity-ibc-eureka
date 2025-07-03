@@ -33,7 +33,6 @@ use ibc_eureka_relayer_core::{
 
 /// The `EthToCosmosRelayerModule` struct defines the Ethereum to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosRelayerModule;
 
 /// The `EthereumToCosmosRelayerModuleService` defines the relayer service from Ethereum to Cosmos.
@@ -53,7 +52,6 @@ enum EthToCosmosTxBuilder {
 
 /// The configuration for the Ethereum to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
 pub struct EthToCosmosConfig {
     /// The ICS26 address.
     pub ics26_address: Address,

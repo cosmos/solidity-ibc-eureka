@@ -28,7 +28,6 @@ use ibc_eureka_relayer_core::{
 
 /// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub struct CosmosToCosmosRelayerModule;
 
 /// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
@@ -44,7 +43,6 @@ struct CosmosToCosmosRelayerModuleService {
 
 /// The configuration for the Cosmos to Cosmos relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
 pub struct CosmosToCosmosConfig {
     /// The source tendermint RPC URL.
     pub src_rpc_url: String,
