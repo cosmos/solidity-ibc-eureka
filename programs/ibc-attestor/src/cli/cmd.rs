@@ -14,12 +14,20 @@ pub struct AttestorCli {
 #[derive(Clone, Debug, Parser)]
 pub enum Commands {
     /// The subcommand to run the attestor.
-    Start(start::Args),
+    #[command(subcommand)]
+    Server(server::ServerKind),
 }
 
 /// The arguments for the start subcommand.
-pub mod start {
+pub mod server {
     use super::Parser;
+
+    /// The subcommands for the attestor.
+    #[derive(Clone, Debug, Parser)]
+    pub enum ServerKind {
+        /// The subcommand to run the solana attestor
+        Solana(Args),
+    }
 
     /// The arguments for the start subcommand.
     #[derive(Clone, Debug, Parser)]
