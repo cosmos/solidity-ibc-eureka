@@ -16,9 +16,9 @@ pub enum Commands {
     },
     /// Run a relayer client to query the aggregator
     Relayer {
-        #[arg(long, default_value = "http://127.0.0.1:50060")]
+        #[arg(long)]
         aggregator_addr: String,
-        #[arg(long, default_value_t = 100)]
+        #[arg(long)]
         min_height: u64,
     },
 }
