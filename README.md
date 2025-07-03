@@ -99,43 +99,25 @@ just install-operator
 just install-relayer
 ```
 
+> [!TIP]
+> Nix users can enter a development shell with all the necessary dependencies by running:
+>
+> ```sh
+> nix develop
+> ```
+
 ### Solana Requirements
 
-For Solana development, you can use either Nix (recommended) or install Anchor directly.
-
-#### Using Nix (Recommended)
-
-Enter the Solana development shell:
-
-```sh
-nix develop .#solana
-```
-
-Then navigate to the Solana programs directory and use anchor-nix commands:
-
-```sh
-cd programs/solana
-anchor-nix build
-anchor-nix test
-anchor-nix deploy
-```
-
-Alternatively, you can use the just commands which handle this for you:
-
-```sh
-just build-solana-nix
-just test-solana-nix
-just deploy-solana-nix
-```
-
-#### Without Nix
+- [Rust](https://rustup.rs/)
+- [Anchor](https://www.anchor-lang.com/docs/installation)
+- [Agave](https://www.anchor-lang.com/docs/installation)
+- [Just](https://just.systems/man/en/)
 
 If you have Anchor installed locally, you can use the standard commands:
 
 ```sh
 just build-solana
 just test-solana
-just deploy-solana
 ```
 
 Or directly:
@@ -147,21 +129,21 @@ anchor test
 anchor deploy
 ```
 
-### Using Nix
-
 > [!TIP]
-> Nix users can enter a development shell with all the necessary dependencies by running:
+> Nix users can enter a solana development shell with all the necessary dependencies by running:
 >
 > ```sh
-> nix develop
+> nix develop .#solana
 > ```
 >
-> The Solana devshell (`.#solana`) includes:
-> - Solana Agave toolchain (v2.2.17)
-> - Anchor framework
-> - Custom `anchor-nix` wrapper to execute anchor commands
-> - Rustc and cargo forks of solana for sbf compilation
-> - All Solana CLI tools (solana, solana-keygen, solana-test-validator, etc.)
+> Then navigate to the Solana programs directory and use anchor-nix commands:
+> 
+> ```sh
+> cd programs/solana
+> anchor-nix build
+> anchor-nix test
+> anchor-nix deploy
+> ```
 
 ## Unit Testing
 

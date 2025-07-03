@@ -24,29 +24,11 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
-# Build the Solana Anchor program with Nix
-[group('build')]
-build-solana-nix:
-  @echo "Building Solana Anchor program with Nix..."
-  nix develop .#solana -c bash -c "cd programs/solana && anchor-nix build"
-
-# Build the Solana Anchor program without Nix
+# Build the Solana Anchor program (without nix)
 [group('build')]
 build-solana:
   @echo "Building Solana Anchor program..."
   cd programs/solana && anchor build
-
-# Deploy the Solana Anchor program with Nix
-[group('deploy')]
-deploy-solana-nix:
-  @echo "Deploying Solana Anchor program with Nix..."
-  nix develop .#solana -c bash -c "cd programs/solana && anchor-nix deploy"
-
-# Deploy the Solana Anchor program without Nix
-[group('deploy')]
-deploy-solana:
-  @echo "Deploying Solana Anchor program..."
-  cd programs/solana && anchor deploy
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
@@ -274,13 +256,7 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Anchor tests with Nix
-[group('test')]
-test-solana-nix:
-	@echo "Running Solana Anchor tests with Nix..."
-	nix develop .#solana -c bash -c "cd programs/solana && anchor-nix test"
-
-# Run the Solana Anchor tests without Nix
+# Run the Solana Anchor tests (without nix)
 [group('test')]
 test-solana:
 	@echo "Running Solana Anchor tests..."
