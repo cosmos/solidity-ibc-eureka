@@ -1,36 +1,14 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-
+use clap::Parser;
 use sig_aggregator::{
     aggregator::AggregatorService,
     config::Config,
     rpc::{aggregator_server::AggregatorServer, AggregateRequest, aggregator_client::AggregatorClient},
+    cli::{Cli, Commands},
 };
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    /// Run the aggregator service
-    Aggregator {
-        #[arg(long, default_value = "config.toml")]
-        config: String,
-    },
-    /// Run a relayer client to query the aggregator
-    Relayer {
-        #[arg(long, default_value = "http://127.0.0.1:50060")]
-        aggregator_addr: String,
-        #[arg(long, default_value_t = 100)]
-        min_height: u64,
-    },
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
