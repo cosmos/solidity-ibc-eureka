@@ -1,0 +1,32 @@
+[package]
+name       = "ibc-eureka-relayer-cosmos-to-eth"
+version    = { workspace = true }
+edition    = { workspace = true }
+repository = { workspace = true }
+license    = { workspace = true }
+
+[dependencies]
+ibc-eureka-relayer-lib    = { workspace = true, default-features = false }
+ibc-eureka-relayer-core   = { workspace = true, default-features = false }
+ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
+ibc-eureka-utils          = { workspace = true }
+
+sp1-ics07-tendermint-prover   = { workspace = true }
+
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+tonic         = { workspace = true, default-features = true }
+async-trait   = { workspace = true }
+anyhow        = { workspace = true, features = ["std"] }
+tracing       = { workspace = true, default-features = true }
+
+tendermint     = { workspace = true, features = ["std"] }
+tendermint-rpc = { workspace = true, features = ["http-client"] }
+
+ibc-core-host-types = { workspace = true }
+
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+
+sp1-sdk = { workspace = true, default-features = true }
+sp1-prover = { workspace = true }

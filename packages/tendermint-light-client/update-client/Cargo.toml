@@ -1,0 +1,16 @@
+[package]
+name        = "tendermint-light-client-update-client"
+description = "Update client program for tendermint-light-client"
+version     = { workspace = true }
+edition     = { workspace = true }
+repository  = { workspace = true }
+license     = { workspace = true }
+
+[dependencies]
+ibc-eureka-solidity-types        = { workspace = true }
+tendermint-light-client-verifier = { workspace = true }
+ibc-client-tendermint            = { workspace = true, features = ["serde"] }
+ibc-core-host-types              = { workspace = true }
+ibc-core-client                  = { workspace = true }
+ibc-primitives                   = { workspace = true }
+sha2                             = { workspace = true }
