@@ -1,8 +1,14 @@
 use pem::parse as parse_pem;
 use pkcs8::PrivateKeyInfo;
-use sec1::{der::Decode, EcPrivateKey};
-use secp256k1::{PublicKey, SecretKey};
+use secp256k1::{rand, PublicKey, SecretKey, SECP256K1};
 use std::{fs, path::Path};
+
+use pkcs8::{ObjectIdentifier, SecretDocument};
+use sec1::{
+    der::Decode,
+    pem::{LineEnding, PemLabel},
+    EcParameters, EcPrivateKey,
+};
 
 /// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a `SecretKey`.
 ///
@@ -39,9 +45,36 @@ pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, 
     Ok(SecretKey::from_byte_array(arr).map_err(|e| anyhow::anyhow!("{e}"))?)
 }
 
+pub fn generate_secret_key<P: AsRef<Path>>(path: &P) -> Result<(), anyhow::Error> {
+    let (secret_key, _) = SECP256K1.generate_keypair(&mut rand::rng());
+
+    let ec_priv = EcPrivateKey {
+        private_key: &secret_key.secret_bytes(),
+        parameters: Some(EcParameters::NamedCurve(
+            ObjectIdentifier::new("1.3.132.0.10").unwrap(),
+        )),
+        public_key: None,
+    };
+
+    let secret_doc = SecretDocument::encode_msg(&ec_priv).expect("DER encoding failed");
+    let pem_str = secret_doc
+        .to_pem(EcPrivateKey::PEM_LABEL, LineEnding::default())
+        .expect("PEM encoding failed");
+
+    fs::write(path, pem_str.as_str()).expect("Failed to write PEM file");
+    Ok(())
+}
+
 /// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a String.
 pub fn read_private_pem_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyhow::Error> {
     Ok(fs::read_to_string(path)?)
+}
+
+/// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a String.
+pub fn read_public_key_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyhow::Error> {
+    let secret = read_private_pem_to_secret(&path)?;
+    let pkey = secret.public_key(SECP256K1);
+    Ok(pkey.to_string())
 }
 
 /// Parse a compressed (33-byte) public key from a byte slice.
@@ -51,6 +84,45 @@ pub fn read_private_pem_to_string<P: AsRef<Path>>(path: P) -> Result<String, any
 /// or not a valid public key encoding.
 pub fn parse_public_key(bytes: &[u8]) -> Result<PublicKey, anyhow::Error> {
     PublicKey::from_slice(bytes).map_err(|e| e.into())
+}
+
+#[cfg(test)]
+mod generate_and_read_keys {
+
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn succeeds() {
+        let tmp = env::temp_dir().join("sec1_random_key.pem");
+        generate_secret_key(&tmp).unwrap();
+        let key = read_private_pem_to_secret(&tmp);
+        assert!(key.is_ok());
+        let key = read_private_pem_to_string(&tmp);
+        assert!(key.is_ok());
+        let key = read_public_key_to_string(&tmp);
+        assert!(key.is_ok());
+    }
+
+    #[test]
+    fn is_random() {
+        let mut tmps = Vec::new();
+        for i in 0..3 {
+            let tmp = env::temp_dir().join(format!("sec1_random_key_{i}.pem"));
+            tmps.push(tmp);
+        }
+
+        let keys: HashSet<String> = tmps
+            .iter()
+            .map(|t| {
+                generate_secret_key(t).unwrap();
+                read_private_pem_to_string(t).unwrap()
+            })
+            .collect();
+
+        assert_eq!(keys.len(), 3);
+    }
 }
 
 #[cfg(test)]
