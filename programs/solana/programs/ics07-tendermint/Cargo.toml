@@ -21,10 +21,10 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 solana-program = "2.2.1"
 
-tendermint-light-client-update-client = { workspace = true, default-features = false, features = ["solana"] }
-tendermint-light-client-membership = { workspace = true, default-features = false, features = ["solana"] }
-tendermint-light-client-misbehaviour = { workspace = true, default-features = false, features = ["solana"] }
-tendermint-light-client-uc-and-membership = { workspace = true, default-features = false, features = ["solana"] }
+tendermint-light-client-update-client = { workspace = true, default-features = false }
+tendermint-light-client-membership = { workspace = true, default-features = false }
+tendermint-light-client-misbehaviour = { workspace = true, default-features = false }
+tendermint-light-client-uc-and-membership = { workspace = true, default-features = false }
 
 # TODO:cleanup
 ibc-client-tendermint = { workspace = true }

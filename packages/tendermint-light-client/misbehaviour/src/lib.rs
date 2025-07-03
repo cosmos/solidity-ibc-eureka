@@ -1,58 +1,72 @@
-//! The crate that contains the types and utilities for `tendermint-light-client-update-client`
+//! The crate that contains the types and utilities for `tendermint-light-client-misbehaviour`
 //! program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 use ibc_client_tendermint::client_state::{
     check_for_misbehaviour_on_misbehavior, verify_misbehaviour,
 };
-use ibc_client_tendermint::types::{ConsensusState, Misbehaviour, TENDERMINT_CLIENT_TYPE};
+use ibc_client_tendermint::types::{ConsensusState, Header, Misbehaviour, TENDERMINT_CLIENT_TYPE};
+use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
+use tendermint_light_client_verifier::{options::Options, types::TrustThreshold, ProdVerifier};
+
+// Import validation context from update-client crate
 use tendermint_light_client_update_client::types::validation::ClientValidationCtx;
-use tendermint_light_client_update_client::ClientStateInfo;
-use tendermint_light_client_verifier::options::Options;
-use tendermint_light_client_verifier::ProdVerifier;
 
-#[cfg(feature = "ethereum")]
-mod ethereum;
-
-#[cfg(feature = "ethereum")]
-pub use ethereum::*;
-
-#[cfg(feature = "solana")]
-mod solana;
-
-#[cfg(feature = "solana")]
-pub use solana::*;
-
-/// Trait for constructing platform-specific misbehaviour outputs
-pub trait MisbehaviourOutputInfo<CS> {
-    /// Create output indicating misbehaviour was found
-    fn from_misbehaviour_check(
-        client_state: CS,
-        misbehaviour: &Misbehaviour,
-        trusted_consensus_state_1: ConsensusState,
-        trusted_consensus_state_2: ConsensusState,
-        time: u128,
-    ) -> Self;
+/// Platform-agnostic client state for misbehaviour detection
+#[derive(Clone, Debug)]
+pub struct ClientState {
+    /// Chain ID
+    pub chain_id: String,
+    /// Trust level numerator
+    pub trust_level_numerator: u64,
+    /// Trust level denominator  
+    pub trust_level_denominator: u64,
+    /// Trusting period in seconds
+    pub trusting_period_seconds: u64,
+    /// Unbonding period in seconds
+    pub unbonding_period_seconds: u64,
+    /// Max clock drift in seconds
+    pub max_clock_drift_seconds: u64,
+    /// Frozen height (None if not frozen)
+    pub frozen_height: Option<Height>,
+    /// Latest height
+    pub latest_height: Height,
 }
 
-/// Core misbehaviour checking logic - generic over platform types
-#[allow(clippy::missing_panics_doc, dead_code)]
-fn check_for_misbehaviour_core<CS, O>(
-    client_state: CS,
-    misbehaviour: &Misbehaviour,
-    trusted_consensus_state_1: ConsensusState,
-    trusted_consensus_state_2: ConsensusState,
-    time: u128,
-) -> O
-where
-    CS: ClientStateInfo,
-    O: MisbehaviourOutputInfo<CS>,
-{
+/// Output from misbehaviour verification
+#[derive(Clone, Debug)]
+pub struct MisbehaviourOutput {
+    /// The height at which the client should be frozen
+    pub frozen_height: Height,
+}
+
+/// Verify misbehaviour in tendermint headers
+///
+/// # Panics
+/// Panics if misbehaviour verification fails or no misbehaviour is detected
+#[allow(clippy::missing_panics_doc)]
+#[must_use]
+pub fn verify_misbehaviour(
+    client_state: ClientState,
+    header_1: Header,
+    header_2: Header,
+) -> MisbehaviourOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
+    let chain_id = ChainId::from_str(&client_state.chain_id).unwrap();
+    
+    // Create Misbehaviour from headers
+    let misbehaviour = Misbehaviour::new(header_1.clone(), header_2.clone());
+    
     assert_eq!(
-        client_state.chain_id(),
+        client_state.chain_id,
         misbehaviour
             .header1()
             .signed_header
@@ -61,54 +75,62 @@ where
             .to_string()
     ); // header2 is checked by `verify_misbehaviour`
 
-    // Insert the two trusted consensus states into the trusted consensus state map that exists in the ClientValidationContext that is expected by verifyMisbehaviour
-    // Since we are mocking the existence of prior trusted consensus states, we are only filling in the two consensus states that are passed in into the map
-    let mut ctx = ClientValidationCtx::new(time);
+    // Create context and insert consensus states from headers
+    let mut ctx = ClientValidationCtx::new(0); // Time doesn't matter for misbehaviour
+    
+    // Insert consensus state for header1's trusted height
+    let cs1 = ConsensusState::from(header_1.clone());
     ctx.insert_trusted_consensus_state(
         client_id.clone(),
         misbehaviour.header1().trusted_height.revision_number(),
         misbehaviour.header1().trusted_height.revision_height(),
-        &trusted_consensus_state_1,
+        &cs1,
     );
+    
+    // Insert consensus state for header2's trusted height
+    let cs2 = ConsensusState::from(header_2.clone());
     ctx.insert_trusted_consensus_state(
         client_id.clone(),
         misbehaviour.header2().trusted_height.revision_number(),
         misbehaviour.header2().trusted_height.revision_height(),
-        &trusted_consensus_state_2,
+        &cs2,
     );
 
+    let trust_threshold = TrustThreshold::new(
+        client_state.trust_level_numerator,
+        client_state.trust_level_denominator,
+    )
+    .unwrap();
+    
     let options = Options {
-        trust_threshold: client_state.trust_level(),
-        trusting_period: Duration::from_secs(client_state.trusting_period()),
-        clock_drift: Duration::from_secs(15),
+        trust_threshold,
+        trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
+        clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
     };
 
-    // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states
+    // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid
     verify_misbehaviour::<_, sha2::Sha256>(
         &ctx,
-        misbehaviour,
+        &misbehaviour,
         &client_id,
-        &ChainId::new(client_state.chain_id()).unwrap(),
+        &chain_id,
         &options,
         &ProdVerifier::default(),
     )
     .unwrap();
 
-    // Call into ibc-rs check_for_misbehaviour_on_misbehaviour method to ensure that the misbehaviour is valid
-    // i.e. the headers are same height but different commits, or headers are not monotonically increasing in time
+    // Check for actual misbehaviour
     let is_misbehaviour =
         check_for_misbehaviour_on_misbehavior(misbehaviour.header1(), misbehaviour.header2())
             .unwrap();
     assert!(is_misbehaviour, "Misbehaviour is not detected");
 
-    // The prover takes in the trusted headers as an input but does not maintain its own internal state
-    // Thus, the verifier must ensure that the trusted headers that were used in the proof are trusted consensus
-    // states stored in its own internal state before it can accept the misbehaviour proof as valid.
-    O::from_misbehaviour_check(
-        client_state,
-        misbehaviour,
-        trusted_consensus_state_1,
-        trusted_consensus_state_2,
-        time,
-    )
+    // Return the height at which to freeze the client
+    // Use the minimum height of the two headers
+    let frozen_height = std::cmp::min(
+        misbehaviour.header1().height(),
+        misbehaviour.header2().height(),
+    );
+    
+    MisbehaviourOutput { frozen_height }
 }

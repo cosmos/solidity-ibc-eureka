@@ -6,19 +6,14 @@
 use anchor_lang::prelude::*;
 
 // FIXME:remove ed25519-consensus dep
+//
 use ibc_client_tendermint::types::{ConsensusState as TmConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
+use ibc_core_client_types::Height;
 use ibc_primitives::prelude::*;
-use tendermint_light_client_membership::solana::{
-    create_membership_verification_request, create_non_membership_verification_request, membership,
-    SolanaKVPair, SolanaMembershipInput,
-};
-use tendermint_light_client_misbehaviour::solana::{
-    check_for_misbehaviour, SolanaMisbehaviourInput,
-};
-use tendermint_light_client_update_client::solana::{
-    update_client, SolanaClientState, SolanaUpdateClientInput,
-};
+use tendermint_light_client_membership::{KVPair, MembershipOutput};
+use tendermint_light_client_misbehaviour::{ClientState as TmClientState, MisbehaviourOutput};
+use tendermint_light_client_update_client::{ClientState as UpdateClientState, ConsensusState as UpdateConsensusState, UpdateClientOutput};
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
@@ -34,11 +29,69 @@ pub struct ClientState {
     pub latest_height: u64,
 }
 
+impl From<ClientState> for UpdateClientState {
+    fn from(cs: ClientState) -> Self {
+        UpdateClientState {
+            chain_id: cs.chain_id,
+            trust_level_numerator: cs.trust_level_numerator,
+            trust_level_denominator: cs.trust_level_denominator,
+            trusting_period_seconds: cs.trusting_period,
+            unbonding_period_seconds: cs.unbonding_period,
+            max_clock_drift_seconds: cs.max_clock_drift,
+            frozen_height: if cs.frozen_height > 0 {
+                Some(Height::new(0, cs.frozen_height).unwrap())
+            } else {
+                None
+            },
+            latest_height: Height::new(0, cs.latest_height).unwrap(),
+        }
+    }
+}
+
+impl From<ClientState> for TmClientState {
+    fn from(cs: ClientState) -> Self {
+        TmClientState {
+            chain_id: cs.chain_id,
+            trust_level_numerator: cs.trust_level_numerator,
+            trust_level_denominator: cs.trust_level_denominator,
+            trusting_period_seconds: cs.trusting_period,
+            unbonding_period_seconds: cs.unbonding_period,
+            max_clock_drift_seconds: cs.max_clock_drift,
+            frozen_height: if cs.frozen_height > 0 {
+                Some(Height::new(0, cs.frozen_height).unwrap())
+            } else {
+                None
+            },
+            latest_height: Height::new(0, cs.latest_height).unwrap(),
+        }
+    }
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct ConsensusState {
     pub timestamp: u64,
     pub root: [u8; 32],
     pub next_validators_hash: [u8; 32],
+}
+
+impl From<ConsensusState> for UpdateConsensusState {
+    fn from(cs: ConsensusState) -> Self {
+        UpdateConsensusState {
+            timestamp_nanos: cs.timestamp,
+            app_hash: cs.root,
+            next_validators_hash: cs.next_validators_hash,
+        }
+    }
+}
+
+impl From<UpdateConsensusState> for ConsensusState {
+    fn from(cs: UpdateConsensusState) -> Self {
+        ConsensusState {
+            timestamp: cs.timestamp_nanos,
+            root: cs.app_hash,
+            next_validators_hash: cs.next_validators_hash,
+        }
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -125,70 +178,21 @@ pub mod ics07_tendermint {
         let header: Header = borsh::BorshDeserialize::try_from_slice(&msg.client_message)
             .map_err(|_| error!(ErrorCode::InvalidHeader))?;
 
-        // TODO: duplication
-        let client_state = SolanaClientState {
-            chain_id: client_data.client_state.chain_id.clone(),
-            trust_level_numerator: client_data.client_state.trust_level_numerator,
-            trust_level_denominator: client_data.client_state.trust_level_denominator,
-            trusting_period: client_data.client_state.trusting_period as i64,
-            unbonding_period: client_data.client_state.unbonding_period as i64,
-            max_clock_drift: client_data.client_state.max_clock_drift,
-            latest_height: client_data.client_state.latest_height,
-            frozen_height: if client_data.frozen {
-                Some(client_data.client_state.latest_height)
-            } else {
-                None
-            },
-        };
-
-        let trusted_consensus_state = TmConsensusState {
-            timestamp: ibc_primitives::Timestamp::from_nanoseconds(
-                client_data.consensus_state.timestamp,
-            )
-            .unwrap(),
-            root: client_data
-                .consensus_state
-                .root
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            next_validators_hash: client_data
-                .consensus_state
-                .next_validators_hash
-                .to_vec()
-                .try_into()
-                .unwrap(),
-        };
+        let client_state: UpdateClientState = client_data.client_state.clone().into();
+        let trusted_consensus_state: UpdateConsensusState = client_data.consensus_state.clone().into();
 
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-        let input = SolanaUpdateClientInput {
-            client_id: client_data.client_id,
+        let output = tendermint_light_client_update_client::verify_header_update(
             client_state,
             trusted_consensus_state,
-            proposed_header: header.clone(),
-        };
-
-        let output = tendermint_light_client_update_client::update_client(
-            client_state,
-            trusted_consensus_state,
+            header,
             current_time,
         );
 
-        client_data.client_state.latest_height = output.new_client_state.latest_height;
-        client_data.consensus_state.timestamp = output.new_consensus_state.timestamp.nanoseconds();
-        client_data.consensus_state.root = output
-            .new_consensus_state
-            .root
-            .as_bytes()
-            .try_into()
-            .unwrap();
-        client_data.consensus_state.next_validators_hash = output
-            .new_consensus_state
-            .next_validators_hash
-            .as_bytes()
-            .try_into()
-            .unwrap();
+        client_data.client_state.latest_height = output.new_client_state.latest_height.revision_height();
+        let new_consensus_state: ConsensusState = output.new_consensus_state.into();
+        client_data.consensus_state = new_consensus_state;
 
         Ok(())
     }
@@ -206,48 +210,13 @@ pub mod ics07_tendermint {
         let proof: MerkleProof = borsh::BorshDeserialize::try_from_slice(&msg.proof)
             .map_err(|_| error!(ErrorCode::InvalidProof))?;
 
-        let kv_pair = SolanaKVPair {
-            key: msg.path,
-            value: msg.value,
-        };
+        let kv_pair = KVPair::new(msg.path, msg.value);
+        let app_hash = client_data.consensus_state.root;
 
-        let client_state = SolanaClientState {
-            chain_id: client_data.client_state.chain_id.clone(),
-            trust_level_numerator: client_data.client_state.trust_level_numerator,
-            trust_level_denominator: client_data.client_state.trust_level_denominator,
-            trusting_period: client_data.client_state.trusting_period as i64,
-            unbonding_period: client_data.client_state.unbonding_period as i64,
-            max_clock_drift: client_data.client_state.max_clock_drift,
-            latest_height: client_data.client_state.latest_height,
-            frozen_height: if client_data.frozen {
-                Some(client_data.client_state.latest_height)
-            } else {
-                None
-            },
-        };
-
-        let consensus_state = TmConsensusState {
-            timestamp: ibc_primitives::Timestamp::from_nanoseconds(
-                client_data.consensus_state.timestamp,
-            )
-            .unwrap(),
-            root: client_data
-                .consensus_state
-                .root
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            next_validators_hash: client_data
-                .consensus_state
-                .next_validators_hash
-                .to_vec()
-                .try_into()
-                .unwrap(),
-        };
-
-        let output = tendermint_light_client_membership::membership(kv_pair, proof);
-
-        require!(output.success, ErrorCode::VerificationFailed);
+        let _output = tendermint_light_client_membership::verify_membership(
+            app_hash,
+            vec![(kv_pair, proof)],
+        );
 
         Ok(())
     }
@@ -263,53 +232,18 @@ pub mod ics07_tendermint {
         require!(
             msg.height <= client_data.client_state.latest_height,
             ErrorCode::InvalidHeight
-        )
-        .map_err(|_| error!(ErrorCode::InvalidProof))?;
+        );
 
-        let kv_pair = SolanaKVPair {
-            key: msg.path,
-            value: vec![],
-        };
+        let proof: MerkleProof = borsh::BorshDeserialize::try_from_slice(&msg.proof)
+            .map_err(|_| error!(ErrorCode::InvalidProof))?;
 
-        let client_state = SolanaClientState {
-            chain_id: client_data.client_state.chain_id.clone(),
-            trust_level_numerator: client_data.client_state.trust_level_numerator,
-            trust_level_denominator: client_data.client_state.trust_level_denominator,
-            trusting_period: client_data.client_state.trusting_period as i64,
-            unbonding_period: client_data.client_state.unbonding_period as i64,
-            max_clock_drift: client_data.client_state.max_clock_drift,
-            latest_height: client_data.client_state.latest_height,
-            frozen_height: if client_data.frozen {
-                Some(client_data.client_state.latest_height)
-            } else {
-                None
-            },
-        };
+        let kv_pair = KVPair::non_membership(msg.path);
+        let app_hash = client_data.consensus_state.root;
 
-        let consensus_state = TmConsensusState {
-            timestamp: ibc_primitives::Timestamp::from_nanoseconds(
-                client_data.consensus_state.timestamp,
-            )
-            .unwrap(),
-            root: client_data
-                .consensus_state
-                .root
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            next_validators_hash: client_data
-                .consensus_state
-                .next_validators_hash
-                .to_vec()
-                .try_into()
-                .unwrap(),
-        };
-
-        let request = create_non_membership_verification_request(kv_pair, proof);
-
-        let output = tendermint_light_client_membership::membership(input);
-
-        require!(output.success, ErrorCode::VerificationFailed);
+        let _output = tendermint_light_client_membership::verify_membership(
+            app_hash,
+            vec![(kv_pair, proof)],
+        );
 
         Ok(())
     }
@@ -327,63 +261,38 @@ pub mod ics07_tendermint {
         let header_2: Header = borsh::BorshDeserialize::try_from_slice(&msg.header_2)
             .map_err(|_| error!(ErrorCode::InvalidHeader))?;
 
-        // TODO: duplication
-        let client_state = SolanaClientState {
-            chain_id: client_data.client_state.chain_id.clone(),
-            trust_level_numerator: client_data.client_state.trust_level_numerator,
-            trust_level_denominator: client_data.client_state.trust_level_denominator,
-            trusting_period: client_data.client_state.trusting_period as i64,
-            unbonding_period: client_data.client_state.unbonding_period as i64,
-            max_clock_drift: client_data.client_state.max_clock_drift,
-            latest_height: client_data.client_state.latest_height,
-            frozen_height: None,
-        };
+        let client_state: TmClientState = client_data.client_state.clone().into();
 
-        let trusted_consensus_state = TmConsensusState {
-            timestamp: ibc_primitives::Timestamp::from_nanoseconds(
-                client_data.consensus_state.timestamp,
-            )
-            .unwrap(),
-            root: client_data
-                .consensus_state
-                .root
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            next_validators_hash: client_data
-                .consensus_state
-                .next_validators_hash
-                .to_vec()
-                .try_into()
-                .unwrap(),
-        };
-
-        let client_id = msg
-            .client_id
-            .parse()
-            .map_err(|_| error!(ErrorCode::InvalidClientId))?;
-
-        let misbehaviour =
-            ibc_client_tendermint::types::Misbehaviour::new(client_id, header1, header2);
-
-        let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
-
-        let input = SolanaMisbehaviourInput {
+        let output = tendermint_light_client_misbehaviour::verify_misbehaviour(
             client_state,
-            misbehaviour: &misbehaviour,
-            trusted_consensus_state_1: trusted_consensus_state.clone(),
-            trusted_consensus_state_2: trusted_consensus_state,
-            time: current_time,
-        };
-
-        let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
-            client_state,
-            &misbehaviour,
-            trusted_consensus_state.clone(),
-            trusted_consensus_state.clone(),
+            header_1,
+            header_2,
         );
 
-        if output.misbehaviour_detected {
+        // Freeze the client at the frozen height
+        client_data.frozen = true;
+        client_data.client_state.frozen_height = output.frozen_height.revision_height();
+
+        Ok(())
+    }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Client is frozen")]
+    ClientFrozen,
+    #[msg("Client is already frozen")]
+    ClientAlreadyFrozen,
+    #[msg("Invalid header")]
+    InvalidHeader,
+    #[msg("Invalid height")]
+    InvalidHeight,
+    #[msg("Invalid proof")]
+    InvalidProof,
+    #[msg("Invalid client ID")]
+    InvalidClientId,
+    #[msg("Verification failed")]
+    VerificationFailed,
             client_data.frozen = true;
             client_data.client_state.frozen_height = client_data.client_state.latest_height;
         }

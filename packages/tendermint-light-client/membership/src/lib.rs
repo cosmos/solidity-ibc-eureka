@@ -7,48 +7,64 @@ use ibc_core_commitment_types::{
     proto::ics23::HostFunctionsManager,
     specs::ProofSpecs,
 };
+use ibc_core_host_types::path::PathBytes;
 
-#[cfg(feature = "ethereum")]
-mod ethereum;
+/// Platform-agnostic key-value pair for membership/non-membership proofs
+#[derive(Clone, Debug)]
+pub struct KVPair {
+    /// Storage path as raw bytes
+    pub path: Vec<u8>,
+    /// Value (empty for non-membership proofs)
+    pub value: Vec<u8>,
+}
 
-#[cfg(feature = "ethereum")]
-pub use ethereum::*;
+impl KVPair {
+    /// Create a new key-value pair
+    #[must_use]
+    pub const fn new(path: Vec<u8>, value: Vec<u8>) -> Self {
+        Self { path, value }
+    }
 
-#[cfg(feature = "solana")]
-mod solana;
+    /// Create a non-membership proof request
+    #[must_use]
+    pub const fn non_membership(path: Vec<u8>) -> Self {
+        Self { path, value: vec![] }
+    }
 
-#[cfg(feature = "solana")]
-pub use solana::*;
-
-/// Trait for abstracting key-value pair information across different platforms
-pub trait KVPairInfo: Clone {
-    /// Convert to merkle path and value
-    fn into_merkle_path_and_value(self) -> (MerklePath, Vec<u8>);
     /// Check if this is a non-membership proof (empty value)
-    fn is_non_membership(&self) -> bool;
+    #[must_use]
+    pub fn is_non_membership(&self) -> bool {
+        self.value.is_empty()
+    }
 }
 
-/// Trait for constructing platform-specific membership outputs
-pub trait MembershipOutputInfo<K> {
-    /// Create output from verified key-value pairs
-    fn from_verified_kvpairs(app_hash: [u8; 32], kvpairs: Vec<K>) -> Self;
+/// Platform-agnostic output for membership verification
+#[derive(Clone, Debug)]
+pub struct MembershipOutput {
+    /// The commitment root (app hash) that was verified
+    pub commitment_root: [u8; 32],
+    /// The verified key-value pairs
+    pub verified_kv_pairs: Vec<KVPair>,
 }
 
-/// Core membership verification logic
-#[allow(clippy::missing_panics_doc, dead_code)]
-fn membership_core<K, O>(
+/// Verify membership and non-membership proofs
+///
+/// # Panics
+/// Panics if proof verification fails
+#[allow(clippy::missing_panics_doc)]
+#[must_use]
+pub fn verify_membership(
     app_hash: [u8; 32],
-    request_iter: impl Iterator<Item = (K, MerkleProof)>,
-) -> O
-where
-    K: KVPairInfo,
-    O: MembershipOutputInfo<K>,
-{
+    requests: Vec<(KVPair, MerkleProof)>,
+) -> MembershipOutput {
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
 
-    let kv_pairs = request_iter
+    let verified_kv_pairs = requests
+        .into_iter()
         .map(|(kv_pair, merkle_proof)| {
-            let (merkle_path, value) = kv_pair.clone().into_merkle_path_and_value();
+            // Convert path bytes to MerklePath
+            let path = PathBytes::from_bytes(kv_pair.path.clone());
+            let merkle_path = MerklePath::new(vec![path]);
 
             if kv_pair.is_non_membership() {
                 merkle_proof
@@ -64,7 +80,7 @@ where
                         &ProofSpecs::cosmos(),
                         commitment_root.clone().into(),
                         merkle_path,
-                        value,
+                        kv_pair.value.clone(),
                         0,
                     )
                     .unwrap();
@@ -74,5 +90,8 @@ where
         })
         .collect();
 
-    O::from_verified_kvpairs(app_hash, kv_pairs)
+    MembershipOutput {
+        commitment_root: app_hash,
+        verified_kv_pairs,
+    }
 }
