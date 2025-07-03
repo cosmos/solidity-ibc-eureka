@@ -29,7 +29,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     tracing_subscriber::fmt::fmt()
                         .with_max_level(config.server.log_level())
                         .init();
-                    let signer = Signer::from_config(config.signer);
+                    let signer = Signer::from_config(config.signer.unwrap_or_default());
 
                     let adapter = SolanaClient::from_config(config.solana);
                     let att_store = AttestationStore::new(adapter.block_time_ms());

@@ -1,5 +1,6 @@
 use std::fs;
 
+use key_utils::read_private_pem_to_secret;
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;
 use secp256k1::SecretKey;
@@ -15,9 +16,8 @@ pub struct Signer {
 
 impl Signer {
     pub fn from_config(config: SignerConfig) -> Self {
-        let bytes = fs::read(&config.secret_key).unwrap();
-        // TODO: Implement key parsing in the key management tool
-        let skey = SecretKey::from_byte_array(bytes.try_into().unwrap()).unwrap();
+        println!("{}", config.secret_key);
+        let skey = read_private_pem_to_secret(config.secret_key).unwrap();
         Self { skey }
     }
 
