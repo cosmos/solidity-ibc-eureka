@@ -15,13 +15,14 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
-
 - [IBC in Solidity      ](#ibc-in-solidity------)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
     - [Contracts](#contracts)
     - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
   - [Build Requirements](#build-requirements)
+    - [Ethereum Requirements](#ethereum-requirements)
+    - [Solana Requirements](#solana-requirements)
   - [Unit Testing](#unit-testing)
   - [End to End Testing](#end-to-end-testing)
     - [Requirements](#requirements)
