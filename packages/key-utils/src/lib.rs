@@ -16,7 +16,7 @@ use std::{fs, path::Path};
 /// - ASN.1 decoding errors if the DER is malformed or the wrong type
 /// - Key-length validation if the inner scalar isn’t exactly 32 bytes
 /// - `secp256k1` range errors if the scalar is invalid
-pub fn read_private_key_pem<P: AsRef<Path>>(path: P) -> Result<SecretKey, anyhow::Error> {
+pub fn read_private_pem_to_secret<P: AsRef<Path>>(path: P) -> Result<SecretKey, anyhow::Error> {
     let pem_str = fs::read_to_string(path)?;
     let pem = parse_pem(&pem_str)?;
 
@@ -37,6 +37,11 @@ pub fn read_private_key_pem<P: AsRef<Path>>(path: P) -> Result<SecretKey, anyhow
         .map_err(|_| anyhow::anyhow!("SEC1 privateKey OCTET STRING must be 32 bytes"))?;
 
     Ok(SecretKey::from_byte_array(arr).map_err(|e| anyhow::anyhow!("{e}"))?)
+}
+
+/// Read a secp256k1 private key from PEM (PKCS#8 or SEC1) and return a String.
+pub fn read_private_pem_to_string<P: AsRef<Path>>(path: P) -> Result<String, anyhow::Error> {
+    Ok(fs::read_to_string(path)?)
 }
 
 /// Parse a compressed (33-byte) public key from a byte slice.
@@ -87,14 +92,14 @@ mod read_private_key_pem {
     fn succeeds_on_valid_key() {
         let tmp = create_random_private_key();
         // prove that read_private_key_pem successfully parses a valid key
-        assert!(read_private_key_pem(&tmp).is_ok());
+        assert!(read_private_pem_to_secret(&tmp).is_ok());
     }
 
     #[test]
     fn fails_on_missing_file() {
         let tmp = env::temp_dir().join("not_a_key.pem");
         fs::write(&tmp, "this is not PEM").unwrap();
-        assert!(read_private_key_pem(&tmp).is_err());
+        assert!(read_private_pem_to_secret(&tmp).is_err());
     }
 
     #[test]
@@ -106,7 +111,7 @@ MFECAQAwBQYDK2VwBCIEIw==
 -----END EC PRIVATE KEY-----";
         let tmp = env::temp_dir().join("short_key.pem");
         fs::write(&tmp, bad_pem).unwrap();
-        let err = read_private_key_pem(&tmp);
+        let err = read_private_pem_to_secret(&tmp);
         assert!(err.is_err());
     }
 }
