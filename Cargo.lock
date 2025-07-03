@@ -4089,6 +4089,7 @@ dependencies = [
  "borsh",
  "clap",
  "indexmap 2.10.0",
+ "key-utils",
  "prost",
  "secp256k1 0.31.1",
  "serde",

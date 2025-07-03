@@ -1,13 +1,20 @@
+use std::{env, fs, path::PathBuf};
+
 use clap::Parser;
 use ibc_attestor::{
     adapter_client::Adapter,
     attestation_store::AttestationStore,
     attestor::AttestorService,
-    cli::{server::ServerKind, AttestorCli, AttestorConfig, Commands},
+    cli::{
+        key::{self, KeyCommands},
+        server::ServerKind,
+        AttestorCli, AttestorConfig, Commands,
+    },
     server::Server,
     signer::Signer,
     SolanaClient,
 };
+use key_utils::{generate_secret_key, read_private_pem_to_string, read_public_key_to_string};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -33,6 +40,53 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
             }
             Ok(())
+        }
+        Commands::Key(cmd) => {
+            let home = env::var("HOME").map(PathBuf::from).unwrap();
+            let attestor_dir = home.join(".ibc-attestor");
+            let key_home = attestor_dir.join("ibc-attestor.pem");
+
+            match (attestor_dir.exists(), key_home.exists()) {
+                (true, true) => {
+                    return Err(anyhow::anyhow!("key pair already found; aborting"));
+                }
+                (false, false) => {
+                    fs::create_dir_all(&attestor_dir).unwrap();
+                    fs::write(&key_home, "").unwrap();
+                }
+                (true, false) => {
+                    fs::write(&key_home, "").unwrap();
+                }
+                _file_cannot_exist_without_parent_dir => (),
+            }
+
+            match cmd {
+                KeyCommands::Generate => {
+                    generate_secret_key(&key_home)
+                        .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
+                    println!("key successfully saved to {}", key_home.to_str().unwrap());
+                    Ok(())
+                }
+                KeyCommands::Show => {
+                    let skey = read_private_pem_to_string(&key_home).map_err(|_| {
+                        anyhow::anyhow!(
+                            "no key found at {}, please run `ibc_attestor key generate`",
+                            key_home.to_str().unwrap()
+                        )
+                    })?;
+                    println!("secret key:\n{}", skey);
+
+                    let pkey = read_public_key_to_string(&key_home).map_err(|_| {
+                        anyhow::anyhow!(
+                            "no key found at {}, please run `ibc_attestor key generate`",
+                            key_home.to_str().unwrap()
+                        )
+                    })?;
+                    println!("public key:\n{}", pkey);
+
+                    Ok(())
+                }
+            }
         }
     }
 }
