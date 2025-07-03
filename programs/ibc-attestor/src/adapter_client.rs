@@ -2,7 +2,7 @@ use std::{fmt::Debug, future::Future};
 use thiserror::Error;
 
 pub trait Signable: Sync + Send + borsh::BorshSerialize + borsh::BorshDeserialize + Debug {
-    fn bytes(&self) -> Vec<u8> {
+    fn to_encoded_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         let _ = self.serialize(&mut buf).unwrap();
         buf

@@ -12,8 +12,7 @@ use crate::{
         attestation_service_server::AttestationService, AttestationEntry,
         AttestationsFromHeightRequest, AttestationsFromHeightResponse,
     },
-    attestation::Attestation,
-    attestation_store::AttestationStore,
+    attestation_store::{Attestation, AttestationStore},
     signer::Signer,
 };
 
@@ -38,8 +37,6 @@ use crate::{
 ///
 /// These methods use internal types before converting them into
 /// RPC generated types in the [AttestationService] trait implementation.
-/// *Note*: This RPC auto-generated trait uses the [Arc<Self>] option to
-/// make it possible to share the [AttestorService] across threads.
 pub struct AttestorService<A: Adapter> {
     adapter: A,
     signer: Signer,
@@ -95,11 +92,13 @@ where
         let store_at_height = to_sign.height();
         let signed = self.signer.sign(to_sign);
 
+        // Unwrap acceptable because poisoned lock is a critical
+        // issue
         let mut store = self.store.lock().unwrap();
         store.push(store_at_height, signed);
     }
 
-    /// Returns a an [IndexMap] that contains all attestations
+    /// Returns a vector of (height, [Attestation]) that contains all attestations
     /// in insertion order from a given `height`
     fn attestations_from_height(&self, height: u64) -> Vec<(u64, Attestation)> {
         let store = self.store.lock().unwrap();
@@ -107,6 +106,8 @@ where
     }
 }
 
+/// *Note*: This RPC auto-generated trait uses the [Arc<Self>] option to
+/// make it possible to share the [AttestorService] across threads.
 #[tonic::async_trait]
 impl<A> AttestationService for Arc<AttestorService<A>>
 where

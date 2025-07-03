@@ -7,10 +7,10 @@ mod header;
 
 pub use config::OpConsensusClientConfig;
 
+use super::header::Header;
 use crate::{
     adapter_client::{Adapter, AdapterError},
     adapter_impls::optimism::header::SyncHeader,
-    header::Header,
 };
 
 // Owned key type required by `Deserialize` macro

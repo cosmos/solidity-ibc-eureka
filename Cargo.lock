@@ -4102,6 +4102,7 @@ dependencies = [
  "tonic 0.13.1",
  "tonic-build",
  "tonic-reflection",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]
@@ -10505,6 +10506,7 @@ dependencies = [
  "tower 0.5.2",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

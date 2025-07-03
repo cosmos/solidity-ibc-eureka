@@ -39,6 +39,7 @@ clap				= { workspace = true, default-features = false, features = ["derive"] }
 
 
 tokio				= { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower-http			= { workspace = true, features = ["trace"] }
 tonic            		= { workspace = true, default-features = true }
 tonic-reflection 		= { workspace = true, default-features = true }
 prost      			= { workspace = true, default-features = true }

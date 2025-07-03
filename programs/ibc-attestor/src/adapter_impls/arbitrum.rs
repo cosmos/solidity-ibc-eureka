@@ -6,10 +6,8 @@ mod config;
 
 pub use config::ArbitrumClientConfig;
 
-use crate::{
-    adapter_client::{Adapter, AdapterError, Signable},
-    header::Header,
-};
+use super::header::Header;
+use crate::adapter_client::{Adapter, AdapterError, Signable};
 
 /// Relevant chain peek options. For their Arbitrum
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
