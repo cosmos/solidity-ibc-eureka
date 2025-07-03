@@ -12,7 +12,8 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
-    "programs/ibc-attestor"
+    "programs/ibc-attestor" ,
+    "packages/key-utils"
 ]
 resolver = "2"
 
@@ -24,6 +25,7 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
+key-utils                          = { path = "packages/key-utils", default-features = false }
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
 ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
@@ -52,6 +54,9 @@ sha2      = { version = "0.10", default-features = false }
 sha3      = { version = "0.10", default-features = false }
 secp256k1 = { version = "0.31.1", default-features = false }
 rand      = { version = "0.9", default-features = false }
+pem       = { version = "3.0.5", default-features = false }
+pkcs8     = { version = "0.10.2", default-features = false }
+sec1      = { version = "0.7.3", default-features = false }
 
 tokio            = { version = "1.0", default-features = false }
 tower-http       = { version = "0.6.6", default-features = false }
