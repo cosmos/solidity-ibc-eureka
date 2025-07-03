@@ -138,7 +138,7 @@ fn update_cached_height(
             println!("multiple [{}] state found for height {}", state_map.keys().len(), height);
         }
         if *height <= cached_agg.height {
-            continue; // Skip heights lower than the cached height
+            continue;
         }
         
         for (state, sig_to_pks) in state_map.iter() {
