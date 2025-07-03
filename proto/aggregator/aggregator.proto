@@ -2,42 +2,10 @@ syntax = "proto3";
 
 package aggregator;
 
-option go_package = "types/aggregator";
-
-// The Attestor service definition.
-service Attestor {
-  // Queries attestations from an attestor.
-  rpc QueryAttestations(QueryRequest) returns (AttestationsResponse);
-}
-
 // The Aggregator service definition.
 service Aggregator {
   // Queries the aggregator for an aggregated attestation.
   rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
-}
-
-// Attestation is a signature of a state at a specific height.
-message Attestation {
-  // The height of the state.
-  uint64 height = 1;
-  // The state being attested to.
-  bytes state = 2; // 32 bytes
-  // The signature of the state and height.
-  bytes signature = 3;
-}
-
-// QueryRequest is a request to query attestations.
-message QueryRequest {
-  // The minimum height to query attestations from.
-  uint64 min_height = 1;
-}
-
-// AttestationsResponse is a response from an attestor.
-message AttestationsResponse {
-  // The public key of the attestor.
-  bytes pubkey = 1; // 65 bytes
-  // A list of attestations.
-  repeated Attestation attestations = 2;
 }
 
 // AggregateRequest is a request to the aggregator.

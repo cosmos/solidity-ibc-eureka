@@ -7,6 +7,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .file_descriptor_set_path(&descriptor_path)
         .build_server(true)
-        .compile_protos(&["../../proto/aggregator/aggregator.proto"], &["../../proto/aggregator"])?;
+        .compile_protos(
+            &["../../proto/aggregator/aggregator.proto", "../../proto/aggregator/attestor.proto"], 
+            &["../../proto/aggregator"])?;
     Ok(())
 }

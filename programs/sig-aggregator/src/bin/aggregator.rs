@@ -9,7 +9,6 @@ use sig_aggregator::{
     cli::{Cli, Commands},
 };
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let subscriber = FmtSubscriber::builder()
