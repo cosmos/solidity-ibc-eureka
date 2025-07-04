@@ -1,18 +1,19 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
-#![deny(
-    missing_docs,
-    clippy::nursery,
-    clippy::pedantic,
-    warnings,
-    unused_crate_dependencies
-)]
+#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
-use ibc_client_tendermint_types::{ConsensusState, Header};
+use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_eureka_solidity_types::msgs::{
-    IICS07TendermintMsgs::ClientState, IMembershipMsgs::KVPair,
-    IUpdateClientAndMembershipMsgs::UcAndMembershipOutput,
-};
+use tendermint_light_client_membership::{KVPair, MembershipOutput};
+use tendermint_light_client_update_client::{ClientState, TrustThreshold, UpdateClientOutput};
+
+/// Output from combined update client and membership verification
+#[derive(Clone, Debug)]
+pub struct UcAndMembershipOutput {
+    /// Output from update client verification
+    pub update_output: UpdateClientOutput,
+    /// Output from membership verification
+    pub membership_output: MembershipOutput,
+}
 
 /// The main function of the program without the zkVM wrapper.
 #[allow(clippy::missing_panics_doc)]
@@ -42,7 +43,7 @@ pub fn update_client_and_membership(
     let mem_output = tendermint_light_client_membership::membership(app_hash, request_iter);
 
     UcAndMembershipOutput {
-        updateClientOutput: uc_output,
-        kvPairs: mem_output.kvPairs,
+        update_output: uc_output,
+        membership_output: mem_output,
     }
 }

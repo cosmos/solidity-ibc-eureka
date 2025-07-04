@@ -888,6 +888,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "serde",
  "sha2 0.10.8",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -1732,6 +1733,7 @@ name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
  "ibc-core-commitment-types",
+ "ibc-core-host-types",
  "ibc-eureka-solidity-types",
 ]
 
@@ -1764,6 +1766,7 @@ version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
  "ibc-core-client",
+ "ibc-core-client-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
