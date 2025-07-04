@@ -11,3 +11,8 @@ ibc-core-commitment-types             = { workspace = true }
 ibc-client-tendermint                 = { workspace = true }
 tendermint-light-client-update-client = { workspace = true }
 tendermint-light-client-membership    = { workspace = true }
+thiserror                             = { workspace = true, optional = true }
+
+[features]
+default = ["thiserror", "tendermint-light-client-update-client/default", "tendermint-light-client-membership/default"]
+panic = ["tendermint-light-client-update-client/panic", "tendermint-light-client-membership/panic"]

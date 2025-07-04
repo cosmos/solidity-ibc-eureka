@@ -9,3 +9,8 @@ license     = { workspace = true }
 [dependencies]
 ibc-core-commitment-types     = { workspace = true }
 ibc-core-host-types           = { workspace = true }
+thiserror                     = { workspace = true, optional = true }
+
+[features]
+default = ["thiserror"]
+panic = []

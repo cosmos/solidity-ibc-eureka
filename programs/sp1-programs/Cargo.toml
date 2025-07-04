@@ -32,10 +32,10 @@ ibc-proto                   = { version = "0.51", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 alloy-sol-types        = { version = "1.0", default-features = false }
 
-tendermint-light-client-membership        = { path = "../../packages/tendermint-light-client/membership", default-features = false }
-tendermint-light-client-misbehaviour      = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
-tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
-tendermint-light-client-update-client     = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
+tendermint-light-client-membership        = { path = "../../packages/tendermint-light-client/membership", default-features = false, features = ["panic"] }
+tendermint-light-client-misbehaviour      = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false, features = ["panic"] }
+tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false, features = ["panic"] }
+tendermint-light-client-update-client     = { path = "../../packages/tendermint-light-client/update-client", default-features = false, features = ["panic"] }
 
 [patch.crates-io]
 sha2-v0-9-9         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }

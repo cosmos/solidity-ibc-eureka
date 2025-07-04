@@ -14,3 +14,8 @@ ibc-core-client                  = { workspace = true }
 ibc-core-client-types            = { workspace = true }
 ibc-primitives                   = { workspace = true }
 sha2                             = { workspace = true }
+thiserror                        = { workspace = true, optional = true }
+
+[features]
+default = ["thiserror"]
+panic = []

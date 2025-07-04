@@ -1,4 +1,14 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
+//!
+//! This crate provides dual APIs for native and zkVM environments:
+//!
+//! - **Native**: Returns `Result<T, E>` for proper error handling and composability
+//! - **zkVM**: Returns `T` directly, panics on error to avoid Result overhead (~50-100 cycles)
+//!
+//! In zkVM, Result types generate unnecessary constraints even when immediately unwrapped.
+//! Since proofs either succeed or fail entirely, error recovery is meaningless and wasteful.
+//!
+//! Use `--features panic` for zkVM builds to get optimal performance.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 use ibc_core_commitment_types::{
@@ -41,7 +51,20 @@ pub struct MembershipOutput {
     pub kv_pairs: Vec<KVPair>,
 }
 
-/// IBC membership verification
+/// Error type for membership verification (only used when panic feature is not enabled)
+#[cfg(not(feature = "panic"))]
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum MembershipError {
+    /// Non-membership verification failed
+    #[error("non-membership verification failed: {0}")]
+    NonMembershipVerificationFailed(#[source] ibc_core_commitment_types::error::CommitmentError),
+    /// Membership verification failed
+    #[error("membership verification failed: {0}")]
+    MembershipVerificationFailed(#[source] ibc_core_commitment_types::error::CommitmentError),
+}
+
+/// IBC membership verification - panic version
+#[cfg(feature = "panic")]
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn membership(
@@ -82,5 +105,127 @@ pub fn membership(
     MembershipOutput {
         commitment_root: app_hash,
         kv_pairs,
+    }
+}
+
+/// IBC membership verification - non-panic version
+#[cfg(not(feature = "panic"))]
+#[must_use]
+pub fn membership(
+    app_hash: [u8; 32],
+    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
+) -> Result<MembershipOutput, MembershipError> {
+    let commitment_root = CommitmentRoot::from_bytes(&app_hash);
+
+    let kv_pairs = request_iter
+        .map(|(kv_pair, merkle_proof)| {
+            let path = PathBytes::from_bytes(kv_pair.path.clone());
+            let merkle_path = MerklePath::new(vec![path]);
+
+            if kv_pair.is_non_membership() {
+                merkle_proof
+                    .verify_non_membership::<HostFunctionsManager>(
+                        &ProofSpecs::cosmos(),
+                        commitment_root.clone().into(),
+                        merkle_path,
+                    )
+                    .map_err(MembershipError::NonMembershipVerificationFailed)?;
+            } else {
+                merkle_proof
+                    .verify_membership::<HostFunctionsManager>(
+                        &ProofSpecs::cosmos(),
+                        commitment_root.clone().into(),
+                        merkle_path,
+                        kv_pair.value.clone(),
+                        0,
+                    )
+                    .map_err(MembershipError::MembershipVerificationFailed)?;
+            }
+
+            Ok(kv_pair)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(MembershipOutput {
+        commitment_root: app_hash,
+        kv_pairs,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ibc_core_commitment_types::merkle::MerkleProof;
+
+    fn dummy_merkle_proof() -> MerkleProof {
+        MerkleProof {
+            proofs: vec![],
+        }
+    }
+
+    #[test]
+    fn test_panic_and_non_panic_modes_fail_with_invalid_merkle_proof() {
+        let app_hash = [1u8; 32];
+        let kv_pairs = vec![
+            (
+                KVPair::new(b"key1".to_vec(), b"value1".to_vec()),
+                dummy_merkle_proof(),
+            ),
+        ];
+
+        #[cfg(feature = "panic")]
+        {
+            let result = std::panic::catch_unwind(|| {
+                membership(app_hash, kv_pairs.into_iter())
+            });
+            assert!(result.is_err(), "Expected panic for invalid proof");
+        }
+
+        #[cfg(not(feature = "panic"))]
+        {
+            let result = membership(app_hash, kv_pairs.into_iter());
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_panic_and_non_panic_modes_fail_non_membership_with_invalid_proof() {
+        let app_hash = [2u8; 32];
+        let kv_pairs = vec![
+            (
+                KVPair::new(b"key1".to_vec(), vec![]), // empty value = non-membership
+                dummy_merkle_proof(),
+            ),
+        ];
+
+        #[cfg(feature = "panic")]
+        {
+            // This will panic due to invalid proof
+            let result = std::panic::catch_unwind(|| {
+                membership(app_hash, kv_pairs.into_iter())
+            });
+            assert!(result.is_err(), "Expected panic for invalid proof");
+        }
+
+        #[cfg(not(feature = "panic"))]
+        {
+            let result = membership(app_hash, kv_pairs.into_iter());
+            assert!(result.is_err());
+            match result {
+                Err(MembershipError::NonMembershipVerificationFailed(_)) => {
+                    // Expected error
+                }
+                _ => panic!("Unexpected error type"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_kv_pair_is_non_membership() {
+        let membership_kv = KVPair::new(b"key".to_vec(), b"value".to_vec());
+        assert!(!membership_kv.is_non_membership());
+
+        let non_membership_kv = KVPair::new(b"key".to_vec(), vec![]);
+        assert!(non_membership_kv.is_non_membership());
     }
 }
