@@ -52,7 +52,6 @@ pub fn membership(
 
     let kv_pairs = request_iter
         .map(|(kv_pair, merkle_proof)| {
-            // Convert path bytes to MerklePath
             let path = PathBytes::from_bytes(kv_pair.path.clone());
             let merkle_path = MerklePath::new(vec![path]);
 
