@@ -1,4 +1,4 @@
-use anchor_client::solana_sdk::{signer::Signer, system_program};
+use anchor_client::solana_sdk::{signer::Signer, system_program, pubkey::Pubkey};
 use crate::common::{setup_test_environment, create_client, load_program_or_fail, create_test_client_state, create_test_consensus_state};
 
 #[test]
@@ -20,11 +20,22 @@ fn test_initialize() {
     let client_state = create_test_client_state();
     let consensus_state = create_test_consensus_state();
 
+    // Calculate the consensus state store PDA
+    let (consensus_state_store, _bump) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_data.pubkey().as_ref(),
+            &0u64.to_le_bytes(),
+        ],
+        &program_id,
+    );
+
     println!("🚀 Testing initialize function");
     let init_result = program
         .request()
         .accounts(ics07_tendermint::accounts::Initialize {
             client_data: client_data.pubkey(),
+            consensus_state_store,
             payer: payer.pubkey(),
             system_program: system_program::id(),
         })

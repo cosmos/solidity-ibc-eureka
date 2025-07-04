@@ -113,7 +113,7 @@ pub fn check_for_misbehaviour(
     let options = Options {
         trust_threshold,
         trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
-        clock_drift: Duration::from_secs(15),
+        clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
     };
 
     // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states

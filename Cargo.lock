@@ -4920,6 +4920,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2 0.10.9",
  "solana-program",
  "tendermint",
  "tendermint-light-client-membership",
@@ -11528,6 +11529,7 @@ version = "0.1.0"
 dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -11540,6 +11542,7 @@ dependencies = [
  "sha2 0.10.9",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -11547,9 +11550,11 @@ name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-core-commitment-types",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -11563,6 +11568,7 @@ dependencies = [
  "ibc-primitives",
  "sha2 0.10.9",
  "tendermint-light-client-verifier",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

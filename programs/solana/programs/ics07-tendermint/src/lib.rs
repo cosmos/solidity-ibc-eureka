@@ -9,18 +9,20 @@ use anchor_lang::Result;
 // FIXME:remove ed25519-consensus dep
 //
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header, Misbehaviour};
-use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
-use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
+use ibc_core_client_types::Height;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use ibc_core_commitment_types::merkle::MerkleProof;
-use ibc_core_client_types::Height;
 use ibc_primitives::prelude::*;
+use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
+use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
+use sha2::{Digest, Sha256};
+use tendermint::hash::Algorithm;
+use tendermint::{Hash, Time};
 use tendermint_light_client_membership::KVPair;
+use tendermint_light_client_misbehaviour;
 use tendermint_light_client_misbehaviour::ClientState as TmClientState;
 use tendermint_light_client_update_client::{ClientState as UpdateClientState, TrustThreshold};
-use tendermint::{Time, Hash};
-use tendermint::hash::Algorithm;
 use time::OffsetDateTime;
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
@@ -98,11 +100,8 @@ impl From<ConsensusState> for IbcConsensusState {
         IbcConsensusState {
             timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
             root: CommitmentRoot::from_bytes(&cs.root),
-            next_validators_hash: Hash::from_bytes(
-                Algorithm::Sha256,
-                &cs.next_validators_hash,
-            )
-            .expect("invalid hash"),
+            next_validators_hash: Hash::from_bytes(Algorithm::Sha256, &cs.next_validators_hash)
+                .expect("invalid hash"),
         }
     }
 }
@@ -111,8 +110,15 @@ impl From<IbcConsensusState> for ConsensusState {
     fn from(cs: IbcConsensusState) -> Self {
         ConsensusState {
             timestamp: cs.timestamp.unix_timestamp_nanos() as u64,
-            root: cs.root.into_vec().try_into().expect("root must be 32 bytes"),
-            next_validators_hash: cs.next_validators_hash.as_bytes().try_into()
+            root: cs
+                .root
+                .into_vec()
+                .try_into()
+                .expect("root must be 32 bytes"),
+            next_validators_hash: cs
+                .next_validators_hash
+                .as_bytes()
+                .try_into()
                 .expect("hash must be 32 bytes"),
         }
     }
@@ -140,8 +146,7 @@ pub struct MisbehaviourMsg {
 }
 
 fn deserialize_header(bytes: &[u8]) -> Result<Header> {
-    <Header as Protobuf<RawHeader>>::decode_vec(bytes)
-        .map_err(|_| error!(ErrorCode::InvalidHeader))
+    <Header as Protobuf<RawHeader>>::decode_vec(bytes).map_err(|_| error!(ErrorCode::InvalidHeader))
 }
 
 fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {
@@ -162,35 +167,76 @@ pub struct ClientData {
     pub frozen: bool,
 }
 
+#[account]
+pub struct ConsensusStateStore {
+    pub height: u64,
+    pub consensus_state: ConsensusState,
+}
+
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(init, payer = payer, space = 8 + 1000)]
     pub client_data: Account<'info, ClientData>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 8 + 8 + 32 + 32, // discriminator + height + timestamp + root + next_validators_hash
+        seeds = [b"consensus_state", client_data.key().as_ref(), &0u64.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+#[instruction(msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {
     #[account(mut)]
     pub client_data: Account<'info, ClientData>,
+    #[account(
+        init_if_needed,
+        payer = payer,
+        space = 8 + 8 + 8 + 32 + 32,
+        seeds = [b"consensus_state", client_data.key().as_ref(), &client_data.client_state.latest_height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct VerifyMembership<'info> {
     pub client_data: Account<'info, ClientData>,
+    /// Consensus state at the proof height
+    pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
 pub struct VerifyNonMembership<'info> {
     pub client_data: Account<'info, ClientData>,
+    /// Consensus state at the proof height
+    pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
+#[instruction(msg: MisbehaviourMsg)]
 pub struct SubmitMisbehaviour<'info> {
     #[account(mut)]
     pub client_data: Account<'info, ClientData>,
+    /// Consensus state at the trusted height of header 1
+    pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
+    /// Consensus state at the trusted height of header 2
+    pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
+}
+
+#[derive(Accounts)]
+pub struct GetConsensusStateHash<'info> {
+    pub client_data: Account<'info, ClientData>,
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
 }
 
 #[program]
@@ -203,9 +249,14 @@ pub mod ics07_tendermint {
         consensus_state: ConsensusState,
     ) -> Result<()> {
         let client_data = &mut ctx.accounts.client_data;
-        client_data.client_state = client_state;
-        client_data.consensus_state = consensus_state;
+        client_data.client_state = client_state.clone();
+        client_data.consensus_state = consensus_state.clone();
         client_data.frozen = false;
+
+        let consensus_state_store = &mut ctx.accounts.consensus_state_store;
+        consensus_state_store.height = client_state.latest_height;
+        consensus_state_store.consensus_state = consensus_state;
+
         Ok(())
     }
 
@@ -214,7 +265,6 @@ pub mod ics07_tendermint {
 
         require!(!client_data.frozen, ErrorCode::ClientFrozen);
 
-        // Deserialize the header from Protobuf
         let header = deserialize_header(&msg.client_message)?;
 
         let client_state: UpdateClientState = client_data.client_state.clone().into();
@@ -222,42 +272,78 @@ pub mod ics07_tendermint {
 
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-        // Call the light client update function
         let output = tendermint_light_client_update_client::update_client(
             client_state,
-            trusted_consensus_state,
+            &trusted_consensus_state,
             header,
             current_time,
-        );
+        )
+        .map_err(|e| {
+            msg!("Update client failed: {:?}", e);
+            error!(ErrorCode::UpdateClientFailed)
+        })?;
 
-        client_data.client_state.latest_height = output.new_client_state.latest_height.revision_height();
-        let new_consensus_state: ConsensusState = output.new_consensus_state.into();
-        client_data.consensus_state = new_consensus_state;
+        client_data.client_state.latest_height =
+            output.new_client_state.latest_height.revision_height();
+        let new_consensus_state: ConsensusState = output.new_consensus_state.clone().into();
+        client_data.consensus_state = new_consensus_state.clone();
+
+        let consensus_state_store = &mut ctx.accounts.consensus_state_store;
+        consensus_state_store.height = output.new_client_state.latest_height.revision_height();
+        consensus_state_store.consensus_state = new_consensus_state;
 
         Ok(())
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
         let client_data = &ctx.accounts.client_data;
+        let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
         require!(!client_data.frozen, ErrorCode::ClientFrozen);
+
+        // Verify that the consensus state is for the requested height
+        require!(
+            consensus_state_store.height == msg.height,
+            ErrorCode::InvalidHeight
+        );
 
         require!(
             msg.height <= client_data.client_state.latest_height,
             ErrorCode::InvalidHeight
         );
 
+        // Check delay period if specified
+        if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
+            let current_timestamp = Clock::get()?.unix_timestamp as u64;
+            let current_height = client_data.client_state.latest_height;
+
+            let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
+            let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);
+            let blocks_elapsed = current_height.saturating_sub(msg.height);
+
+            require!(
+                time_elapsed >= msg.delay_time_period,
+                ErrorCode::InsufficientTimeDelay
+            );
+            require!(
+                blocks_elapsed >= msg.delay_block_period,
+                ErrorCode::InsufficientBlockDelay
+            );
+        }
+
         let proof = deserialize_merkle_proof(&msg.proof)?;
-
         let kv_pair = KVPair::new(msg.path, msg.value);
-        let app_hash = client_data.consensus_state.root;
+        let app_hash = consensus_state_store.consensus_state.root;
 
-        // Verify membership - this will panic internally if verification fails
-        // If the function returns successfully, the proof is valid
-        let _output = tendermint_light_client_membership::membership(
+        // Verify membership
+        tendermint_light_client_membership::membership(
             app_hash,
             vec![(kv_pair, proof)].into_iter(),
-        );
+        )
+        .map_err(|e| {
+            msg!("Membership verification failed: {:?}", e);
+            error!(ErrorCode::MembershipVerificationFailed)
+        })?;
 
         Ok(())
     }
@@ -267,28 +353,57 @@ pub mod ics07_tendermint {
         msg: MembershipMsg,
     ) -> Result<()> {
         let client_data = &ctx.accounts.client_data;
+        let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
         require!(!client_data.frozen, ErrorCode::ClientFrozen);
+
+        // Verify that the consensus state is for the requested height
+        require!(
+            consensus_state_store.height == msg.height,
+            ErrorCode::InvalidHeight
+        );
 
         require!(
             msg.height <= client_data.client_state.latest_height,
             ErrorCode::InvalidHeight
         );
 
-        // Deserialize the proof from Protobuf
+        // Check delay period if specified
+        if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
+            let current_timestamp = Clock::get()?.unix_timestamp as u64;
+            let current_height = client_data.client_state.latest_height;
+
+            let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
+            let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);
+            let blocks_elapsed = current_height.saturating_sub(msg.height);
+
+            require!(
+                time_elapsed >= msg.delay_time_period,
+                ErrorCode::InsufficientTimeDelay
+            );
+            require!(
+                blocks_elapsed >= msg.delay_block_period,
+                ErrorCode::InsufficientBlockDelay
+            );
+        }
+
         let proof = deserialize_merkle_proof(&msg.proof)?;
 
-        // For non-membership, the value should be empty
-        let kv_pair = KVPair::new(msg.path, vec![]);
-        let app_hash = client_data.consensus_state.root;
+        // For non-membership, the value must be empty
+        require!(msg.value.is_empty(), ErrorCode::InvalidValue);
 
-        // Verify non-membership (absence of the key)
-        // Verify membership - this will panic internally if verification fails
-        // If the function returns successfully, the proof is valid
-        let _output = tendermint_light_client_membership::membership(
+        let kv_pair = KVPair::new(msg.path, vec![]);
+        let app_hash = consensus_state_store.consensus_state.root;
+
+        // Verify non-membership
+        tendermint_light_client_membership::membership(
             app_hash,
             vec![(kv_pair, proof)].into_iter(),
-        );
+        )
+        .map_err(|e| {
+            msg!("Non-membership verification failed: {:?}", e);
+            error!(ErrorCode::NonMembershipVerificationFailed)
+        })?;
 
         Ok(())
     }
@@ -304,11 +419,19 @@ pub mod ics07_tendermint {
         let misbehaviour = deserialize_misbehaviour(&msg.misbehaviour)?;
         let client_state: TmClientState = client_data.client_state.clone().into();
 
-        // NOTE: Naive implementation as we'use the current consensus state as the trusted state
-        // In a production implementation, you would need to store historical consensus states
-        // and retrieve the ones corresponding to the trusted heights
-        let trusted_consensus_state_1: IbcConsensusState = client_data.consensus_state.clone().into();
-        let trusted_consensus_state_2: IbcConsensusState = client_data.consensus_state.clone().into();
+        // Get the trusted consensus states from the stored accounts
+        let trusted_consensus_state_1: IbcConsensusState = ctx
+            .accounts
+            .trusted_consensus_state_1
+            .consensus_state
+            .clone()
+            .into();
+        let trusted_consensus_state_2: IbcConsensusState = ctx
+            .accounts
+            .trusted_consensus_state_2
+            .consensus_state
+            .clone()
+            .into();
 
         // Get current time for verification
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
@@ -320,6 +443,22 @@ pub mod ics07_tendermint {
             trusted_consensus_state_1,
             trusted_consensus_state_2,
             current_time,
+        )
+        .map_err(|e| {
+            msg!("Misbehaviour check failed: {:?}", e);
+            error!(ErrorCode::MisbehaviourFailed)
+        })?;
+
+        // Verify that the trusted heights match the stored consensus states
+        require!(
+            ctx.accounts.trusted_consensus_state_1.height
+                == output.trusted_height_1.revision_height(),
+            ErrorCode::InvalidHeight
+        );
+        require!(
+            ctx.accounts.trusted_consensus_state_2.height
+                == output.trusted_height_2.revision_height(),
+            ErrorCode::InvalidHeight
         );
 
         // If we reach here, misbehaviour was detected
@@ -327,12 +466,49 @@ pub mod ics07_tendermint {
         client_data.frozen = true;
         client_data.client_state.frozen_height = client_data.client_state.latest_height;
 
-        msg!("Misbehaviour detected at heights {:?} and {:?}",
+        msg!(
+            "Misbehaviour detected at heights {:?} and {:?}",
             output.trusted_height_1,
             output.trusted_height_2
         );
 
         Ok(())
+    }
+
+    pub fn get_consensus_state_hash(
+        ctx: Context<GetConsensusStateHash>,
+        revision_height: u64,
+    ) -> Result<[u8; 32]> {
+        let consensus_state_store = &ctx.accounts.consensus_state_store;
+
+        // Verify that the stored height matches the requested height
+        require!(
+            consensus_state_store.height == revision_height,
+            ErrorCode::InvalidHeight
+        );
+
+        // Create a hasher and hash the consensus state fields
+        let mut hasher = Sha256::new();
+
+        // Hash the timestamp (8 bytes)
+        hasher.update(
+            &consensus_state_store
+                .consensus_state
+                .timestamp
+                .to_le_bytes(),
+        );
+
+        // Hash the root (32 bytes)
+        hasher.update(&consensus_state_store.consensus_state.root);
+
+        // Hash the next validators hash (32 bytes)
+        hasher.update(&consensus_state_store.consensus_state.next_validators_hash);
+
+        // Get the final hash
+        let hash_result = hasher.finalize();
+        let hash_bytes: [u8; 32] = hash_result.into();
+
+        Ok(hash_bytes)
     }
 }
 
@@ -348,8 +524,20 @@ pub enum ErrorCode {
     InvalidHeight,
     #[msg("Invalid proof")]
     InvalidProof,
-    #[msg("Invalid client ID")]
-    InvalidClientId,
+    #[msg("Update client failed")]
+    UpdateClientFailed,
+    #[msg("Misbehaviour check failed")]
+    MisbehaviourFailed,
     #[msg("Verification failed")]
     VerificationFailed,
+    #[msg("Membership verification failed")]
+    MembershipVerificationFailed,
+    #[msg("Non-membership verification failed")]
+    NonMembershipVerificationFailed,
+    #[msg("Insufficient time delay")]
+    InsufficientTimeDelay,
+    #[msg("Insufficient block delay")]
+    InsufficientBlockDelay,
+    #[msg("Invalid value for non-membership proof")]
+    InvalidValue,
 }

@@ -15,3 +15,6 @@ mod test_verify_non_membership;
 
 #[cfg(test)]
 mod test_submit_misbehaviour;
+
+#[cfg(test)]
+mod test_get_consensus_state_hash;
