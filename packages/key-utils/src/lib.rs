@@ -88,8 +88,8 @@ pub fn parse_public_key(bytes: &[u8]) -> Result<PublicKey, anyhow::Error> {
 
 #[cfg(test)]
 mod generate_and_read_keys {
-
     use std::collections::HashSet;
+    use std::env;
 
     use super::*;
 
