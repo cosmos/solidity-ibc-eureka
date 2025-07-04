@@ -32,6 +32,9 @@ ibc-core-client-types = { workspace = true }
 ibc-core-host-types = { workspace = true }
 ibc-core-commitment-types = { workspace = true }
 ibc-primitives = { workspace = true }
+ibc-proto = { workspace = true, default-features = false }
+tendermint = { workspace = true, default-features = false }
+time = { workspace = true, default-features = false, features = ["macros"] }
 
 # Serialization
 borsh = "1.5"
