@@ -9,7 +9,7 @@ use ibc_core_commitment_types::{
 };
 use ibc_core_host_types::path::PathBytes;
 
-/// Platform-agnostic key-value pair for membership/non-membership proofs
+/// Key-value pair for membership/non-membership proofs
 #[derive(Clone, Debug)]
 pub struct KVPair {
     /// Storage path as raw bytes
@@ -32,7 +32,7 @@ impl KVPair {
     }
 }
 
-/// Platform-agnostic output for membership verification
+/// Output for membership verification
 #[derive(Clone, Debug)]
 pub struct MembershipOutput {
     /// The commitment root (app hash) that was verified
@@ -41,7 +41,7 @@ pub struct MembershipOutput {
     pub kv_pairs: Vec<KVPair>,
 }
 
-/// The main function of the program without the zkVM wrapper.
+/// IBC membership verification
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn membership(
@@ -52,7 +52,6 @@ pub fn membership(
 
     let kv_pairs = request_iter
         .map(|(kv_pair, merkle_proof)| {
-            // Convert path bytes to MerklePath
             let path = PathBytes::from_bytes(kv_pair.path.clone());
             let merkle_path = MerklePath::new(vec![path]);
 
