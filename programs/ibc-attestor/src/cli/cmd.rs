@@ -3,7 +3,12 @@ use clap::{command, Parser};
 
 /// The command line interface for the attestor.
 #[derive(Clone, Debug, Parser)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "ibc-attestor",
+    version,
+    about = "IBC Attestor - Blockchain state attestation service",
+    long_about = "A service for generating cryptographic attestations of blockchain state.\nSupports key management and running attestation servers."
+)]
 pub struct AttestorCli {
     /// The subcommand to run.
     #[command(subcommand)]
