@@ -9,9 +9,17 @@ use std::{
 use thiserror::Error;
 use tracing::Level;
 
-const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
+pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
         .map(|home| home.join(".ibc-attestor/ibc-attestor.pem"))
+        .unwrap()
+});
+
+const IBC_ATTESTOR_FILE: &str = "ibc-attestor.pem";
+
+pub const IBC_ATTESTOR_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
+    env::home_dir()
+        .map(|home| home.join(&*IBC_ATTESTOR_DIR).join(IBC_ATTESTOR_FILE))
         .unwrap()
 });
 

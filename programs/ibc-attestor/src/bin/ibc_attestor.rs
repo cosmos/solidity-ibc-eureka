@@ -5,7 +5,10 @@ use ibc_attestor::{
     adapter_client::Adapter,
     attestation_store::AttestationStore,
     attestor::AttestorService,
-    cli::{key::KeyCommands, server::ServerKind, AttestorCli, AttestorConfig, Commands},
+    cli::{
+        key::KeyCommands, server::ServerKind, AttestorCli, AttestorConfig, Commands,
+        IBC_ATTESTOR_DIR, IBC_ATTESTOR_PATH,
+    },
     server::Server,
     signer::Signer,
     SolanaClient,
@@ -36,37 +39,36 @@ async fn main() -> Result<(), anyhow::Error> {
             Ok(())
         }
         Commands::Key(cmd) => {
-            let home = env::var("HOME").map(PathBuf::from).unwrap();
-            let attestor_dir = home.join(".ibc-attestor");
-            let key_home = attestor_dir.join("ibc-attestor.pem");
-
-            if !attestor_dir.exists() {
-                fs::create_dir_all(&attestor_dir).unwrap();
+            if !IBC_ATTESTOR_DIR.exists() {
+                fs::create_dir_all(&*IBC_ATTESTOR_DIR).unwrap();
             }
 
             match cmd {
                 KeyCommands::Generate => {
-                    if attestor_dir.exists() && key_home.exists() {
+                    if IBC_ATTESTOR_DIR.exists() && IBC_ATTESTOR_PATH.exists() {
                         return Err(anyhow::anyhow!("key pair already found; aborting"));
                     }
-                    generate_secret_key(&key_home)
+                    generate_secret_key(&*IBC_ATTESTOR_PATH)
                         .map_err(|e| anyhow::anyhow!("unable to generate key {e}"))?;
-                    println!("key successfully saved to {}", key_home.to_str().unwrap());
+                    println!(
+                        "key successfully saved to {}",
+                        IBC_ATTESTOR_PATH.to_str().unwrap()
+                    );
                     Ok(())
                 }
                 KeyCommands::Show => {
-                    let skey = read_private_pem_to_string(&key_home).map_err(|_| {
+                    let skey = read_private_pem_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
                         anyhow::anyhow!(
                             "no key found at {}, please run `ibc_attestor key generate`",
-                            key_home.to_str().unwrap()
+                            IBC_ATTESTOR_PATH.to_str().unwrap()
                         )
                     })?;
                     println!("secret key:\n{}", skey);
 
-                    let pkey = read_public_key_to_string(&key_home).map_err(|_| {
+                    let pkey = read_public_key_to_string(&*IBC_ATTESTOR_PATH).map_err(|_| {
                         anyhow::anyhow!(
                             "no key found at {}, please run `ibc_attestor key generate`",
-                            key_home.to_str().unwrap()
+                            IBC_ATTESTOR_PATH.to_str().unwrap()
                         )
                     })?;
                     println!("public key as hex string:\n{}", pkey);
