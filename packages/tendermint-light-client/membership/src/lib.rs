@@ -53,14 +53,14 @@ pub struct MembershipOutput {
 
 /// Error type for membership verification (only used when panic feature is not enabled)
 #[cfg(not(feature = "panic"))]
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum MembershipError {
     /// Non-membership verification failed
-    #[error("non-membership verification failed: {0}")]
-    NonMembershipVerificationFailed(#[source] ibc_core_commitment_types::error::CommitmentError),
+    #[error("non-membership verification failed")]
+    NonMembershipVerificationFailed,
     /// Membership verification failed
-    #[error("membership verification failed: {0}")]
-    MembershipVerificationFailed(#[source] ibc_core_commitment_types::error::CommitmentError),
+    #[error("membership verification failed")]
+    MembershipVerificationFailed,
 }
 
 /// IBC membership verification - panic version
@@ -129,7 +129,7 @@ pub fn membership(
                         commitment_root.clone().into(),
                         merkle_path,
                     )
-                    .map_err(MembershipError::NonMembershipVerificationFailed)?;
+                    .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
             } else {
                 merkle_proof
                     .verify_membership::<HostFunctionsManager>(
@@ -139,7 +139,7 @@ pub fn membership(
                         kv_pair.value.clone(),
                         0,
                     )
-                    .map_err(MembershipError::MembershipVerificationFailed)?;
+                    .map_err(|_| MembershipError::MembershipVerificationFailed)?;
             }
 
             Ok(kv_pair)
@@ -212,7 +212,7 @@ mod tests {
             let result = membership(app_hash, kv_pairs.into_iter());
             assert!(result.is_err());
             match result {
-                Err(MembershipError::NonMembershipVerificationFailed(_)) => {
+                Err(MembershipError::NonMembershipVerificationFailed) => {
                     // Expected error
                 }
                 _ => panic!("Unexpected error type"),

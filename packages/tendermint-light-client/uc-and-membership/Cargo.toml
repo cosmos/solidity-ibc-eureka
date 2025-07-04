@@ -13,6 +13,9 @@ tendermint-light-client-update-client = { workspace = true }
 tendermint-light-client-membership    = { workspace = true }
 thiserror                             = { workspace = true, optional = true }
 
+[dev-dependencies]
+ibc-core-client-types = { workspace = true }
+
 [features]
 default = ["thiserror", "tendermint-light-client-update-client/default", "tendermint-light-client-membership/default"]
 panic = ["tendermint-light-client-update-client/panic", "tendermint-light-client-membership/panic"]
