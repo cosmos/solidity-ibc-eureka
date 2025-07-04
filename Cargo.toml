@@ -13,6 +13,7 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
+    "programs/sig-aggregator",
 ]
 resolver = "2"
 
@@ -39,16 +40,19 @@ tree_hash                          = { path = "packages/ethereum/tree_hash", def
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_cbor      = { version = "0.11", default-features = false }
-serde_with      = { version = "3.11", default-features = false }
+serde_with      = { version = "3.14", default-features = false }
+toml            = { version = "0.8.23", default-features = false }
 hex             = { version = "0.4", default-features = false }
 base64          = { version = "0.22", default-features = false }
 prost           = { version = "0.13", default-features = false }
 subtle-encoding = { version = "0.5", default-features = false }
 schemars        = { version = "0.8", default-features = false }
+url             = { version = "2", default-features = false}
 
-sha2 = { version = "0.10", default-features = false }
-sha3 = { version = "0.10", default-features = false }
-rand = { version = "0.9", default-features = false }
+secp256k1 = { version = "0.31.0", default-features = false }
+sha2      = { version = "0.10", default-features = false }
+sha3      = { version = "0.10", default-features = false }
+rand      = { version = "0.9", default-features = false }
 
 tokio            = { version = "1.0", default-features = false }
 tonic            = { version = "0.13", default-features = false }
@@ -120,8 +124,7 @@ rlp-derive         = { version = "0.2", default-features = false }
 primitive-types    = { version = "0.13", default-features = false }
 
 # test/dev-dependencies
-milagro_bls   = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false } # Only used for testing, not to be used in production!
-smallvec      = { version = "1.6.1", default-features = false }
-cw-ics08-wasm-eth-v1_2_0 = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+milagro_bls                  = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false }                                           # Only used for testing, not to be used in production!
+smallvec                     = { version = "1.6.1", default-features = false }
+cw-ics08-wasm-eth-v1_2_0     = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
-
