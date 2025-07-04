@@ -26,7 +26,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 ServerKind::Solana(args) => {
                     let config = AttestorConfig::from_file(args.config)?;
 
-                    let signer = Signer::from_config(config.signer.unwrap_or_default());
+                    let signer = Signer::from_config(config.signer.unwrap_or_default())?;
 
                     let adapter = SolanaClient::from_config(config.solana);
                     let att_store = AttestationStore::new(adapter.block_time_ms());
