@@ -4920,8 +4920,6 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sha2 0.10.9",
- "solana-program",
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",

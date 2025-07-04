@@ -8,6 +8,7 @@ use anchor_lang::Result;
 
 // FIXME:remove ed25519-consensus dep
 //
+use anchor_lang::solana_program::keccak::hash as keccak256;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header, Misbehaviour};
 use ibc_core_client_types::Height;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
@@ -16,9 +17,7 @@ use ibc_primitives::prelude::*;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
-use sha2::{Digest, Sha256};
-use tendermint::hash::Algorithm;
-use tendermint::{Hash, Time};
+use tendermint::Time;
 use tendermint_light_client_membership::KVPair;
 use tendermint_light_client_misbehaviour;
 use tendermint_light_client_misbehaviour::ClientState as TmClientState;
@@ -100,8 +99,9 @@ impl From<ConsensusState> for IbcConsensusState {
         IbcConsensusState {
             timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
             root: CommitmentRoot::from_bytes(&cs.root),
-            next_validators_hash: Hash::from_bytes(Algorithm::Sha256, &cs.next_validators_hash)
-                .expect("invalid hash"),
+            next_validators_hash: tendermint::Hash::Sha256(
+                cs.next_validators_hash.try_into().expect("invalid hash"),
+            ),
         }
     }
 }
@@ -158,6 +158,47 @@ fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {
 fn deserialize_misbehaviour(bytes: &[u8]) -> Result<Misbehaviour> {
     <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(bytes)
         .map_err(|_| error!(ErrorCode::InvalidHeader))
+}
+
+// Helper function to validate proof parameters
+fn validate_proof_params(
+    client_data: &ClientData,
+    consensus_state_store: &ConsensusStateStore,
+    msg: &MembershipMsg,
+) -> Result<()> {
+    require!(!client_data.frozen, ErrorCode::ClientFrozen);
+
+    // Verify that the consensus state is for the requested height
+    require!(
+        consensus_state_store.height == msg.height,
+        ErrorCode::InvalidHeight
+    );
+
+    require!(
+        msg.height <= client_data.client_state.latest_height,
+        ErrorCode::InvalidHeight
+    );
+
+    // Check delay period if specified
+    if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
+        let current_timestamp = Clock::get()?.unix_timestamp as u64;
+        let current_height = client_data.client_state.latest_height;
+
+        let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
+        let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);
+        let blocks_elapsed = current_height.saturating_sub(msg.height);
+
+        require!(
+            time_elapsed >= msg.delay_time_period,
+            ErrorCode::InsufficientTimeDelay
+        );
+        require!(
+            blocks_elapsed >= msg.delay_block_period,
+            ErrorCode::InsufficientBlockDelay
+        );
+    }
+
+    Ok(())
 }
 
 #[account]
@@ -248,6 +289,29 @@ pub mod ics07_tendermint {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
+        require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
+
+        require!(
+            client_state.trust_level_numerator > 0
+                && client_state.trust_level_numerator <= client_state.trust_level_denominator
+                && client_state.trust_level_denominator > 0,
+            ErrorCode::InvalidTrustLevel
+        );
+
+        require!(
+            client_state.trusting_period > 0
+                && client_state.unbonding_period > 0
+                && client_state.trusting_period < client_state.unbonding_period,
+            ErrorCode::InvalidPeriods
+        );
+
+        require!(
+            client_state.max_clock_drift > 0,
+            ErrorCode::InvalidMaxClockDrift
+        );
+
+        require!(client_state.latest_height > 0, ErrorCode::InvalidHeight);
+
         let client_data = &mut ctx.accounts.client_data;
         client_data.client_state = client_state.clone();
         client_data.consensus_state = consensus_state.clone();
@@ -299,43 +363,13 @@ pub mod ics07_tendermint {
         let client_data = &ctx.accounts.client_data;
         let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-        require!(!client_data.frozen, ErrorCode::ClientFrozen);
-
-        // Verify that the consensus state is for the requested height
-        require!(
-            consensus_state_store.height == msg.height,
-            ErrorCode::InvalidHeight
-        );
-
-        require!(
-            msg.height <= client_data.client_state.latest_height,
-            ErrorCode::InvalidHeight
-        );
-
-        // Check delay period if specified
-        if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
-            let current_timestamp = Clock::get()?.unix_timestamp as u64;
-            let current_height = client_data.client_state.latest_height;
-
-            let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
-            let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);
-            let blocks_elapsed = current_height.saturating_sub(msg.height);
-
-            require!(
-                time_elapsed >= msg.delay_time_period,
-                ErrorCode::InsufficientTimeDelay
-            );
-            require!(
-                blocks_elapsed >= msg.delay_block_period,
-                ErrorCode::InsufficientBlockDelay
-            );
-        }
+        // Validate common proof parameters
+        validate_proof_params(client_data, consensus_state_store, &msg)?;
 
         let proof = deserialize_merkle_proof(&msg.proof)?;
         let kv_pair = KVPair::new(msg.path, msg.value);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        // Verify membership
         tendermint_light_client_membership::membership(
             app_hash,
             vec![(kv_pair, proof)].into_iter(),
@@ -355,47 +389,15 @@ pub mod ics07_tendermint {
         let client_data = &ctx.accounts.client_data;
         let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-        require!(!client_data.frozen, ErrorCode::ClientFrozen);
-
-        // Verify that the consensus state is for the requested height
-        require!(
-            consensus_state_store.height == msg.height,
-            ErrorCode::InvalidHeight
-        );
-
-        require!(
-            msg.height <= client_data.client_state.latest_height,
-            ErrorCode::InvalidHeight
-        );
-
-        // Check delay period if specified
-        if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
-            let current_timestamp = Clock::get()?.unix_timestamp as u64;
-            let current_height = client_data.client_state.latest_height;
-
-            let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
-            let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);
-            let blocks_elapsed = current_height.saturating_sub(msg.height);
-
-            require!(
-                time_elapsed >= msg.delay_time_period,
-                ErrorCode::InsufficientTimeDelay
-            );
-            require!(
-                blocks_elapsed >= msg.delay_block_period,
-                ErrorCode::InsufficientBlockDelay
-            );
-        }
-
-        let proof = deserialize_merkle_proof(&msg.proof)?;
+        validate_proof_params(client_data, consensus_state_store, &msg)?;
 
         // For non-membership, the value must be empty
         require!(msg.value.is_empty(), ErrorCode::InvalidValue);
 
+        let proof = deserialize_merkle_proof(&msg.proof)?;
         let kv_pair = KVPair::new(msg.path, vec![]);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        // Verify non-membership
         tendermint_light_client_membership::membership(
             app_hash,
             vec![(kv_pair, proof)].into_iter(),
@@ -419,7 +421,6 @@ pub mod ics07_tendermint {
         let misbehaviour = deserialize_misbehaviour(&msg.misbehaviour)?;
         let client_state: TmClientState = client_data.client_state.clone().into();
 
-        // Get the trusted consensus states from the stored accounts
         let trusted_consensus_state_1: IbcConsensusState = ctx
             .accounts
             .trusted_consensus_state_1
@@ -433,10 +434,8 @@ pub mod ics07_tendermint {
             .clone()
             .into();
 
-        // Get current time for verification
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
-        // Call the misbehaviour verification function
         let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
             client_state,
             &misbehaviour,
@@ -449,7 +448,6 @@ pub mod ics07_tendermint {
             error!(ErrorCode::MisbehaviourFailed)
         })?;
 
-        // Verify that the trusted heights match the stored consensus states
         require!(
             ctx.accounts.trusted_consensus_state_1.height
                 == output.trusted_height_1.revision_height(),
@@ -481,32 +479,32 @@ pub mod ics07_tendermint {
     ) -> Result<[u8; 32]> {
         let consensus_state_store = &ctx.accounts.consensus_state_store;
 
-        // Verify that the stored height matches the requested height
         require!(
             consensus_state_store.height == revision_height,
             ErrorCode::InvalidHeight
         );
 
-        // Create a hasher and hash the consensus state fields
-        let mut hasher = Sha256::new();
+        // Optimized for Solana: Direct concatenation without unnecessary padding
+        // Total: 8 + 32 + 32 = 72 bytes
+        let mut data = Vec::with_capacity(72);
 
-        // Hash the timestamp (8 bytes)
-        hasher.update(
+        // Timestamp (8 bytes)
+        data.extend_from_slice(
             &consensus_state_store
                 .consensus_state
                 .timestamp
                 .to_le_bytes(),
         );
 
-        // Hash the root (32 bytes)
-        hasher.update(&consensus_state_store.consensus_state.root);
+        // Root (32 bytes)
+        data.extend_from_slice(&consensus_state_store.consensus_state.root);
 
-        // Hash the next validators hash (32 bytes)
-        hasher.update(&consensus_state_store.consensus_state.next_validators_hash);
+        // Next validators hash (32 bytes)
+        data.extend_from_slice(&consensus_state_store.consensus_state.next_validators_hash);
 
-        // Get the final hash
-        let hash_result = hasher.finalize();
-        let hash_bytes: [u8; 32] = hash_result.into();
+        // Native Solana syscall
+        let hash_result = keccak256(&data);
+        let hash_bytes: [u8; 32] = hash_result.to_bytes();
 
         Ok(hash_bytes)
     }
@@ -540,4 +538,14 @@ pub enum ErrorCode {
     InsufficientBlockDelay,
     #[msg("Invalid value for non-membership proof")]
     InvalidValue,
+    #[msg("Invalid chain ID")]
+    InvalidChainId,
+    #[msg("Invalid trust level")]
+    InvalidTrustLevel,
+    #[msg("Invalid periods: trusting period must be positive and less than unbonding period")]
+    InvalidPeriods,
+    #[msg("Invalid max clock drift")]
+    InvalidMaxClockDrift,
+    #[msg("Serialization error")]
+    SerializationError,
 }
