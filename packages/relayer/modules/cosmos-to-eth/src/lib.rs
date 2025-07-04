@@ -37,7 +37,6 @@ use ibc_eureka_relayer_core::{
 
 /// The `CosmosToEthRelayerModule` struct defines the Cosmos to Ethereum relayer module.
 #[derive(Clone, Copy, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthRelayerModule;
 
 /// The `CosmosToEthRelayerModuleService` defines the relayer service from Cosmos to Ethereum.
@@ -52,7 +51,6 @@ struct CosmosToEthRelayerModuleService {
 
 /// The configuration for the Cosmos to Ethereum relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
 pub struct CosmosToEthConfig {
     /// The tendermint RPC URL.
     pub tm_rpc_url: String,
