@@ -8,9 +8,10 @@ use anchor_lang::Result;
 
 // FIXME:remove ed25519-consensus dep
 //
-use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
+use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header, Misbehaviour};
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_core_client_types::Height;
@@ -135,8 +136,7 @@ pub struct MembershipMsg {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct MisbehaviourMsg {
     pub client_id: String,
-    pub header_1: Vec<u8>,
-    pub header_2: Vec<u8>,
+    pub misbehaviour: Vec<u8>, // Protobuf encoded Misbehaviour
 }
 
 fn deserialize_header(bytes: &[u8]) -> Result<Header> {
@@ -147,6 +147,12 @@ fn deserialize_header(bytes: &[u8]) -> Result<Header> {
 fn deserialize_merkle_proof(bytes: &[u8]) -> Result<MerkleProof> {
     <MerkleProof as Protobuf<RawMerkleProof>>::decode_vec(bytes)
         .map_err(|_| error!(ErrorCode::InvalidProof))
+}
+
+// Helper function to deserialize Misbehaviour from protobuf bytes
+fn deserialize_misbehaviour(bytes: &[u8]) -> Result<Misbehaviour> {
+    <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(bytes)
+        .map_err(|_| error!(ErrorCode::InvalidHeader))
 }
 
 #[account]
@@ -246,6 +252,8 @@ pub mod ics07_tendermint {
         let kv_pair = KVPair::new(msg.path, msg.value);
         let app_hash = client_data.consensus_state.root;
 
+        // Verify membership - this will panic internally if verification fails
+        // If the function returns successfully, the proof is valid
         let _output = tendermint_light_client_membership::membership(
             app_hash,
             vec![(kv_pair, proof)].into_iter(),
@@ -267,10 +275,20 @@ pub mod ics07_tendermint {
             ErrorCode::InvalidHeight
         );
 
-        // TODO: Implement proof deserialization and verification
-        // For now, just validate basic parameters
-        let _kv_pair = KVPair::new(msg.path, vec![]);
-        let _app_hash = client_data.consensus_state.root;
+        // Deserialize the proof from Protobuf
+        let proof = deserialize_merkle_proof(&msg.proof)?;
+
+        // For non-membership, the value should be empty
+        let kv_pair = KVPair::new(msg.path, vec![]);
+        let app_hash = client_data.consensus_state.root;
+
+        // Verify non-membership (absence of the key)
+        // Verify membership - this will panic internally if verification fails
+        // If the function returns successfully, the proof is valid
+        let _output = tendermint_light_client_membership::membership(
+            app_hash,
+            vec![(kv_pair, proof)].into_iter(),
+        );
 
         Ok(())
     }
@@ -283,30 +301,36 @@ pub mod ics07_tendermint {
 
         require!(!client_data.frozen, ErrorCode::ClientAlreadyFrozen);
 
-        // Deserialize headers from Protobuf
-        let header_1 = deserialize_header(&msg.header_1)?;
-        let header_2 = deserialize_header(&msg.header_2)?;
+        let misbehaviour = deserialize_misbehaviour(&msg.misbehaviour)?;
+        let client_state: TmClientState = client_data.client_state.clone().into();
 
-        // Get the client state for verification
-        let _client_state: TmClientState = client_data.client_state.clone().into();
-        
-        // For now, we'll do a simple check: if headers are at the same height,
-        // that's definitely misbehaviour
-        if header_1.signed_header.header.height == header_2.signed_header.header.height {
-            // Same height with different headers is misbehaviour
-            client_data.frozen = true;
-            client_data.client_state.frozen_height = client_data.client_state.latest_height;
-        } else {
-            // TODO: Implement full misbehaviour verification using the light client
-            // This would require:
-            // 1. Creating a Misbehaviour struct from the two headers
-            // 2. Getting trusted consensus states for both headers
-            // 3. Calling check_for_misbehaviour
-            
-            // For now, just freeze the client as a safety measure
-            client_data.frozen = true;
-            client_data.client_state.frozen_height = client_data.client_state.latest_height;
-        }
+        // NOTE: Naive implementation as we'use the current consensus state as the trusted state
+        // In a production implementation, you would need to store historical consensus states
+        // and retrieve the ones corresponding to the trusted heights
+        let trusted_consensus_state_1: IbcConsensusState = client_data.consensus_state.clone().into();
+        let trusted_consensus_state_2: IbcConsensusState = client_data.consensus_state.clone().into();
+
+        // Get current time for verification
+        let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
+
+        // Call the misbehaviour verification function
+        let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
+            client_state,
+            &misbehaviour,
+            trusted_consensus_state_1,
+            trusted_consensus_state_2,
+            current_time,
+        );
+
+        // If we reach here, misbehaviour was detected
+        // Freeze the client at the current height
+        client_data.frozen = true;
+        client_data.client_state.frozen_height = client_data.client_state.latest_height;
+
+        msg!("Misbehaviour detected at heights {:?} and {:?}",
+            output.trusted_height_1,
+            output.trusted_height_2
+        );
 
         Ok(())
     }
