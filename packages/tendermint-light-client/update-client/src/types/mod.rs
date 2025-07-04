@@ -1,3 +1,3 @@
-//! Containes types used in the program.
+//! Contains types used in the program.
 
 pub mod validation;
