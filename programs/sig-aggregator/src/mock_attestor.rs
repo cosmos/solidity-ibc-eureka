@@ -11,13 +11,13 @@ use crate::rpc::{
 
 // A mock signature is just a height repeated 4 times inside a 32-byte array.
 // Which represent a digest, i.e. serialized chain header.
-fn mock_signature(height: u64) -> Vec<u8> {
-    let mut sig = [0u8; 32];
+fn mock_bytes(height: u64, size: usize) -> Vec<u8> {
+    let mut sig = vec![0u8; size];
     let height_bytes = height.to_be_bytes();
     for i in 0..4 {
         sig[i * 8..(i + 1) * 8].copy_from_slice(&height_bytes);
     }
-    sig.to_vec()
+    sig
 }
 
 #[derive(Debug, Default)]
@@ -39,14 +39,14 @@ impl MockAttestor {
             // Let's create some forks/disagreements.
             // Attestors that don't fail will agree on height 100, but disagree on 105.
             let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(height, (mock_signature(height), mock_signature(height)));
+            store.insert(height, (mock_bytes(height, 32), mock_bytes(height, 64)));
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110, (mock_signature(110), mock_signature(110)));
+            store.insert(110, (mock_bytes(110, 32), mock_bytes(110, 64)));
         }
 
-        let mut pub_key = [0u8; 65];
+        let mut pub_key = [0u8; 33];
         rand::rng().fill(&mut pub_key[..]);
 
         Self {

@@ -1,25 +1,19 @@
 use crate::{
+    attestor_data::AttestatorData,
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, 
-        AggregateResponse, QueryRequest, SigPubkeyPair,
+        aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, AggregateResponse, QueryRequest
     },
 };
-use alloy_primitives::FixedBytes;
 use futures::{stream::FuturesUnordered, StreamExt};
-use std::{sync::Arc, collections::HashMap};
+use std::sync::Arc;
 use tokio::{
     time::{timeout, Duration}, 
     sync::{RwLock, Mutex},
 };
 use tonic::{transport::Channel, Request, Response, Status};
 
-type Height = u64;
-type State = FixedBytes<32>;
-type Signature = FixedBytes<32>;
-type Pubkey = FixedBytes<65>;
-type SignedStates = HashMap<State, Vec<(Signature, Pubkey)>>;
 
 #[derive(Debug)]
 pub struct AggregatorService {
@@ -81,54 +75,25 @@ impl Aggregator for AggregatorService {
             });
         }
 
-        //  HashMap<height, HashMap<State, Vec[(Signatures, pub_key)]>>
-        //  Height: 101
-        //      State: 0x1234... (32 bytes)
-        //          Sign_PK: [(SigAtt_A, PK_Att_A), (SigAtt_B, PK_Att_B)]
-        //      State: 0x9876...
-        //          Sign_PK: [(SigAtt_C, PK_Att_C), (SigAtt_D, PK_Att_D), (SigAtt_E, PK_Att_E)]
-        //  Height: 102
-        //      State: 0x5678...
-        //          Sign_PK: [(SigAtt_A, PK_Att_A), (SigAtt_B, PK_Att_B), (SigAtt_C, PK_Att_C), (SigAtt_D, PK_Att_D), (SigAtt_E, PK_Att_E)]
-        let mut height_to_state: HashMap<Height, SignedStates> = HashMap::new();
-        let mut failures = 0;
-        let total = self.attestor_clients.len();
-
+        let mut attestator_data = AttestatorData::new();
         while let Some(res) = futs.next().await {
             match res {
-                Ok(att_resp) => {
-                    for attestations in att_resp.attestations {
-                        let state_map = height_to_state.entry(attestations.height).or_default();
-                        state_map
-                            .entry(State::from_slice(&attestations.state))
-                            .or_default()
-                            .push((
-                                Signature::from_slice(&attestations.signature), 
-                                Pubkey::from_slice(&att_resp.pubkey)
-                            ));
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("An attestor query failed: {}", e);
-                    failures += 1;
-                    // if too many failures to reach quorum, abort
-                    if failures > total - self.config.quorum_threshold {
-                        return Err(Status::unavailable("cannot reach quorum"));
-                    }
-                }
+                Ok(att_resp) => attestator_data.insert(att_resp),
+                Err(e) => tracing::warn!("An attestor query failed: {}", e),
             }
         }
     
-        let mut cached_height = self.cached_height.write().await;
-        update_cached_height(
-            &height_to_state, 
-            &mut cached_height, 
-            self.config.quorum_threshold,
-        );
+        if let Some(agg_resp) = attestator_data.get_latest(self.config.quorum_threshold) {
+            let mut cached_height = self.cached_height.write().await;
+            if cached_height.height < agg_resp.height {
+                *cached_height = agg_resp;
+            }
+        }
+        
+        let cached_height = self.cached_height.read().await;
         if cached_height.height < min_height {
             return Err(Status::not_found(format!(
-                "No valid attestation found for height >= {}",
-                min_height
+                "No valid attestation found for height >= {min_height}",
             )));
         }
 
@@ -136,42 +101,6 @@ impl Aggregator for AggregatorService {
     }
 }
 
-fn update_cached_height(
-    height_to_state: &HashMap<Height, SignedStates>,
-    cached_agg: &mut AggregateResponse,
-    quorum: usize,
-) {
-    for (height, state_map) in height_to_state.iter() {
-        // If we have more than one state at this height, raise some monitoring warning.
-        if state_map.keys().len() > 1 {
-            // TODO: Decide how to raise multiple states for a height.
-            println!(
-                "multiple [{}] state found for height {}", 
-                state_map.keys().len(), 
-                height
-            );
-        }
-        if *height <= cached_agg.height {
-            continue;
-        }
-        
-        for (state, sig_to_pks) in state_map.iter() {
-            if sig_to_pks.len() < quorum {
-                continue;
-            }
-
-            cached_agg.height = *height;
-            cached_agg.state = state.to_vec();
-            cached_agg.sig_pubkey_pairs = sig_to_pks
-                .iter()
-                .map(|(sig, pubkey)| SigPubkeyPair {
-                    sig: sig.to_vec(), 
-                    pubkey: pubkey.to_vec(),
-                })
-                .collect();
-        }
-    }
-}
 
 #[cfg(test)]
 mod e2e_tests {
@@ -219,10 +148,10 @@ mod e2e_tests {
         // 2. Setup: Create AggregatorService
         let config = Config {
             attestor_endpoints: vec![
-                Url::parse(&format!("http://{}", addr_1)).unwrap(),
-                Url::parse(&format!("http://{}", addr_2)).unwrap(),
-                Url::parse(&format!("http://{}", addr_3)).unwrap(),
-                Url::parse(&format!("http://{}", addr_4)).unwrap(),
+                Url::parse(&format!("http://{addr_1}")).unwrap(),
+                Url::parse(&format!("http://{addr_2}")).unwrap(),
+                Url::parse(&format!("http://{addr_3}")).unwrap(),
+                Url::parse(&format!("http://{addr_4}")).unwrap(),
             ],
             quorum_threshold: 3,
             listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
@@ -262,10 +191,10 @@ mod e2e_tests {
         // 2. Setup: Create AggregatorService
         let config = Config {
             attestor_endpoints: vec![
-                Url::parse(&format!("http://{}", addr_1)).unwrap(),
-                Url::parse(&format!("http://{}", addr_2)).unwrap(),
-                Url::parse(&format!("http://{}", addr_3)).unwrap(),
-                Url::parse(&format!("http://{}", addr_4)).unwrap(),
+                Url::parse(&format!("http://{addr_1}")).unwrap(),
+                Url::parse(&format!("http://{addr_2}")).unwrap(),
+                Url::parse(&format!("http://{addr_3}")).unwrap(),
+                Url::parse(&format!("http://{addr_4}")).unwrap(),
             ],
             quorum_threshold: 3,
             listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
@@ -283,13 +212,15 @@ mod e2e_tests {
         // 4. Assert: Can not reach quorum due to timeouts
         assert!(response.is_err());
         let status = response.unwrap_err();
-        assert_eq!(status.code(), tonic::Code::Unavailable);
-        assert_eq!(status.message(), "cannot reach quorum");
+        assert_eq!(status.code(), tonic::Code::NotFound);
+        assert_eq!(status.message(), "No valid attestation found for height >= 100");
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::attestor_data::{PUBKEY_BYTE_LENGTH, STATE_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH};
+    use crate::rpc::{Attestation, AttestationsResponse};
 
     // Helper to build a FixedBytes-N vector filled with `b`
     fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
@@ -297,166 +228,144 @@ mod tests {
     }
 
     #[test]
-    fn returns_cached_if_no_states() {
-        let state = fill_bytes::<32>(0xAA);
-        let height_to_state: HashMap<Height, SignedStates> = HashMap::new();
-        let mut cached = AggregateResponse {
-            height: 42,
-            state: state.clone(),
-            sig_pubkey_pairs: vec![],
-        };
-        update_cached_height(&height_to_state, &mut cached, 1);
-
-        // Should not change the cached response
-        assert_eq!(cached.height, 42);
-        assert_eq!(cached.state, state);
-        assert_eq!(cached.sig_pubkey_pairs, vec![]);
-    }
-
-    #[test]
     fn ignores_states_below_quorum() {
         // We have a height 100 but only 1 signature < quorum 2
-        let mut height_to_state = HashMap::new();
-        let mut states = SignedStates::new();
-        let st = State::from_slice(&fill_bytes::<32>(1));
-        states.insert(
-            st,
-            vec![
-                (
-                    Signature::from_slice(&fill_bytes::<32>(0x01)),
-                    Pubkey::from_slice(&fill_bytes::<65>(0x02)),
-                ),
-            ],
-        );
-        height_to_state.insert(100, states);
+        let mut attestator_data = AttestatorData::new();
 
-        let mut cached = AggregateResponse {
-            height: 50,
-            state: fill_bytes::<32>(0xFF),
-            sig_pubkey_pairs: vec![],
-        };
-        update_cached_height(&height_to_state, &mut cached, 2); // Quorum 2
-        // Should still be the cached one
-        assert_eq!(cached.height, 50);
+        attestator_data.insert(AttestationsResponse {
+            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
+            attestations: vec![Attestation {
+                height: 100,
+                state: fill_bytes::<STATE_BYTE_LENGTH>(1),
+                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
+            }],
+        });
+
+        let latest = attestator_data.get_latest(2); // Quprum 2
+        assert!(latest.is_none(), "Should not return a state below quorum");
     }
 
     #[test]
     fn picks_single_height_meeting_quorum() {
-        let mut height_to_state = HashMap::new();
-        let mut states = SignedStates::new();
-        let st = State::from_slice(&fill_bytes::<32>(7));
-        // quorum = 2, so supply two signatures
-        states.insert(
-            st,
-            vec![
-                (
-                    Signature::from_slice(&fill_bytes::<32>(0x11)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(0x21)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(0x12)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(0x22)),
-                ),
+        let mut attestator_data = AttestatorData::new();
+        let state = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
+        attestator_data.insert(AttestationsResponse {
+            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
+            attestations: vec![
+                Attestation {
+                    height: 123,
+                    state: state.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+                },
             ],
-        );
-        height_to_state.insert(123, states);
+        });
+        
+        attestator_data.insert(AttestationsResponse {
+            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
+            attestations: vec![Attestation {
+                height: 123,
+                state: state.clone(),
+                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+            }],
+        });
 
-        let mut cached = AggregateResponse {
-            height: 100,
-            state: fill_bytes::<32>(0x00),
-            sig_pubkey_pairs: vec![],
-        };
-        update_cached_height(&height_to_state, &mut cached, 2); // Quorum 2
-
-        assert_eq!(cached.height, 123);
-        assert_eq!(cached.state, st.to_vec());
+        let latest = attestator_data.get_latest(2); // Quorum 2
+        assert!(latest.is_some(), "Should return a state meeting quorum");
+        let latest = latest.unwrap();
+        assert_eq!(latest.height, 123);
+        assert_eq!(latest.state, state);
         // Should have two SigPubkeyPair entries
-        assert_eq!(cached.sig_pubkey_pairs.len(), 2);
+        assert_eq!(latest.sig_pubkey_pairs.len(), 2);
         // Check that the pairs contain the pubkeys we inserted
-        let pubs: Vec<_> = cached.sig_pubkey_pairs.into_iter().map(|p| p.pubkey).collect();
-        assert!(pubs.contains(&fill_bytes::<65>(0x21)));
-        assert!(pubs.contains(&fill_bytes::<65>(0x22)));
+        let pubs: Vec<_> = latest.sig_pubkey_pairs.into_iter().map(|p| p.pubkey).collect();
+        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21)));
+        assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22)));
     }
 
     #[test]
     fn chooses_highest_height_when_multiple() {
-        let mut height_to_state = HashMap::new();
+        let mut attestator_data = AttestatorData::new();
+        let state120 = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
+        let state150 = fill_bytes::<STATE_BYTE_LENGTH>(0xBB);
+        let state200 = fill_bytes::<STATE_BYTE_LENGTH>(0xCC);
+        let pk_a = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xA);
+        let pk_b = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xB);
+        let pk_c = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xC);
 
-        // Height 120 meets quorum
-        let mut s120 = SignedStates::new();
-        let st120 = State::from_slice(&fill_bytes::<32>(0xAA));
-        s120.insert(
-            st120,
-            vec![
-                (
-                    Signature::from_slice(&fill_bytes::<32>(1)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(2)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(3)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(4)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(5)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(6)),
-                ),
+        attestator_data.insert(AttestationsResponse {
+            pubkey: pk_a.clone(),
+            attestations: vec![
+                Attestation {
+                    height: 120,
+                    state: state120.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(1),
+                },
+                Attestation {
+                    height: 150,
+                    state: state150.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(3),
+                },
+                Attestation {
+                    height: 200,
+                    state: state200.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
+                },
             ],
-        );
-        height_to_state.insert(120, s120);
+        });
         
-        // Height 200 meets quorum
-        let mut s200 = SignedStates::new();
-        let st200 = State::from_slice(&fill_bytes::<32>(0xAA));
-        s200.insert(
-            st200,
-            vec![
-                (
-                    Signature::from_slice(&fill_bytes::<32>(1)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(2)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(3)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(4)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(5)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(6)),
-                ),
+        attestator_data.insert(AttestationsResponse {
+            pubkey: pk_b.clone(),
+            attestations: vec![
+                Attestation {
+                    height: 120,
+                    state: state120.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(2),
+                },
+                Attestation {
+                    height: 150,
+                    state: state150.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(4),
+                },
+                Attestation {
+                    height: 200,
+                    state: state200.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(6),
+                },
             ],
-        );
-        height_to_state.insert(200, s200);
-
-        // Height 150 also meets quorum
-        let mut s150 = SignedStates::new();
-        let st150 = State::from_slice(&fill_bytes::<32>(0xBB));
-        s150.insert(
-            st150,
-            vec![
-                (
-                    Signature::from_slice(&fill_bytes::<32>(9)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(10)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(11)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(12)),
-                ),
-                (
-                    Signature::from_slice(&fill_bytes::<32>(13)), 
-                    Pubkey::from_slice(&fill_bytes::<65>(14)),
-                ),
+        });
+        
+        attestator_data.insert(AttestationsResponse {
+            pubkey: pk_c.clone(),
+            attestations: vec![
+                Attestation {
+                    height: 120,
+                    state: state120.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
+                },
+                Attestation {
+                    height: 150,
+                    state: state150.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(10),
+                },
+                Attestation {
+                    height: 200,
+                    state: state200.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(15),
+                },
             ],
-        );
-        height_to_state.insert(150, s150);
+        });
 
-        let mut cached = AggregateResponse {
-            height: 100,
-            state: fill_bytes::<32>(0x00),
-            sig_pubkey_pairs: vec![],
-        };
-        update_cached_height(&height_to_state, &mut cached, 3);
-
-        // Should pick height 200, not 150
-        assert_eq!(cached.height, 200);
-        assert_eq!(cached.state, st200.to_vec());
+        let latest = attestator_data.get_latest(2); // Quorum 2
+        assert!(latest.is_some(), "Should return a state meeting quorum");
+        let latest = latest.unwrap();
+        assert_eq!(latest.height, 200);
+        assert_eq!(latest.state, state200);
+        // Should have three SigPubkeyPair entries
+        assert_eq!(latest.sig_pubkey_pairs.len(), 3);
+        // Check that the pairs contain the pubkeys we inserted
+        let pks: Vec<_> = latest.sig_pubkey_pairs.into_iter().map(|p| p.pubkey).collect();
+        assert!(pks.contains(pk_a.as_ref()));
+        assert!(pks.contains(pk_b.as_ref()));
+        assert!(pks.contains(pk_c.as_ref()));
     }
 }
