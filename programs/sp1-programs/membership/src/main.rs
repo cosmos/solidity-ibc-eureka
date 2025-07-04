@@ -43,7 +43,7 @@ pub fn main() {
         (kv_pair, merkle_proof)
     });
 
-    let output = membership(app_hash, request_iter);
+    let output = membership(app_hash, request_iter).unwrap();
 
     // Convert output to Solidity format
     let sol_output = SolMembershipOutput {

@@ -33,7 +33,7 @@ impl TrustThreshold {
 
 impl From<TrustThreshold> for TmTrustThreshold {
     fn from(tt: TrustThreshold) -> Self {
-        TmTrustThreshold::new(tt.numerator, tt.denominator)
+        Self::new(tt.numerator, tt.denominator)
             .expect("trust threshold numerator must be less than or equal to denominator")
     }
 }
@@ -69,17 +69,38 @@ pub struct UpdateClientOutput {
     pub trusted_height: Height,
 }
 
+/// Error type for update client
+#[derive(Debug, thiserror::Error)]
+pub enum UpdateClientError {
+    /// Invalid client ID
+    #[error("invalid client ID")]
+    InvalidClientId,
+    /// Invalid chain ID
+    #[error("invalid chain ID: {0}")]
+    InvalidChainId(String),
+    /// Header verification failed
+    #[error("header verification failed")]
+    HeaderVerificationFailed,
+}
+
 /// IBC light client update client
-#[allow(clippy::missing_panics_doc)]
-#[must_use]
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The client ID cannot be created
+/// - The chain ID is invalid
+/// - Header verification fails
 pub fn update_client(
     client_state: ClientState,
-    trusted_consensus_state: ConsensusState,
+    trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
-) -> UpdateClientOutput {
-    let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
-    let chain_id = ChainId::from_str(&client_state.chain_id).unwrap();
+) -> Result<UpdateClientOutput, UpdateClientError> {
+    let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0)
+        .map_err(|_| UpdateClientError::InvalidClientId)?;
+    let chain_id = ChainId::from_str(&client_state.chain_id)
+        .map_err(|_| UpdateClientError::InvalidChainId(client_state.chain_id.clone()))?;
 
     let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
 
@@ -95,7 +116,7 @@ pub fn update_client(
         client_id.clone(),
         proposed_header.trusted_height.revision_number(),
         proposed_header.trusted_height.revision_height(),
-        &trusted_consensus_state,
+        trusted_consensus_state,
     );
 
     verify_header::<_, sha2::Sha256>(
@@ -106,18 +127,66 @@ pub fn update_client(
         &options,
         &ProdVerifier::default(),
     )
-    .unwrap();
+    .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
 
     let trusted_height = proposed_header.trusted_height;
     let new_height = proposed_header.height();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
-    UpdateClientOutput {
+    Ok(UpdateClientOutput {
         new_client_state: ClientState {
             latest_height: new_height,
             ..client_state
         },
         new_consensus_state,
         trusted_height,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_client_state() -> ClientState {
+        ClientState {
+            chain_id: "test-chain".to_string(),
+            trust_level: TrustThreshold::new(1, 3),
+            trusting_period_seconds: 3600,
+            unbonding_period_seconds: 7200,
+            max_clock_drift_seconds: 60,
+            frozen_height: None,
+            latest_height: Height::new(1, 100).unwrap(),
+        }
+    }
+
+
+    #[test]
+    fn test_trust_threshold_conversion() {
+        let tt = TrustThreshold::new(1, 3);
+        let tm_tt: TmTrustThreshold = tt.into();
+        assert_eq!(tm_tt.numerator(), 1);
+        assert_eq!(tm_tt.denominator(), 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "trust threshold numerator must be less than or equal to denominator")]
+    fn test_invalid_trust_threshold_panics() {
+        let tt = TrustThreshold::new(3, 1); // numerator > denominator
+        let _tm_tt: TmTrustThreshold = tt.into();
+    }
+
+
+    #[test]
+    fn test_client_state_fields() {
+        let client_state = test_client_state();
+        assert_eq!(client_state.chain_id, "test-chain");
+        assert_eq!(client_state.trust_level.numerator, 1);
+        assert_eq!(client_state.trust_level.denominator, 3);
+        assert_eq!(client_state.trusting_period_seconds, 3600);
+        assert_eq!(client_state.unbonding_period_seconds, 7200);
+        assert_eq!(client_state.max_clock_drift_seconds, 60);
+        assert!(client_state.frozen_height.is_none());
+        assert_eq!(client_state.latest_height.revision_number(), 1);
+        assert_eq!(client_state.latest_height.revision_height(), 100);
     }
 }

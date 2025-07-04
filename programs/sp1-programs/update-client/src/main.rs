@@ -72,7 +72,7 @@ pub fn main() {
     // input 4: time
     let time = u128::from_le_bytes(encoded_4.try_into().unwrap());
 
-    let output = update_client(client_state, trusted_consensus_state, proposed_header.clone(), time);
+    let output = update_client(client_state, trusted_consensus_state, proposed_header.clone(), time).unwrap();
 
     // Convert output to Solidity format
     let sol_output = SolUpdateClientOutput {

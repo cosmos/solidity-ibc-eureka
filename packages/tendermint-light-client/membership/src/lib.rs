@@ -1,5 +1,11 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,
@@ -41,13 +47,23 @@ pub struct MembershipOutput {
     pub kv_pairs: Vec<KVPair>,
 }
 
+/// Error type for membership verification
+#[derive(Debug, thiserror::Error)]
+pub enum MembershipError {
+    /// Non-membership verification failed
+    #[error("non-membership verification failed")]
+    NonMembershipVerificationFailed,
+    /// Membership verification failed
+    #[error("membership verification failed")]
+    MembershipVerificationFailed,
+}
+
 /// IBC membership verification
-#[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn membership(
     app_hash: [u8; 32],
     request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
-) -> MembershipOutput {
+) -> Result<MembershipOutput, MembershipError> {
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
 
     let kv_pairs = request_iter
@@ -62,7 +78,7 @@ pub fn membership(
                         commitment_root.clone().into(),
                         merkle_path,
                     )
-                    .unwrap();
+                    .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
             } else {
                 merkle_proof
                     .verify_membership::<HostFunctionsManager>(
@@ -72,15 +88,68 @@ pub fn membership(
                         kv_pair.value.clone(),
                         0,
                     )
-                    .unwrap();
+                    .map_err(|_| MembershipError::MembershipVerificationFailed)?;
             }
 
-            kv_pair
+            Ok(kv_pair)
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
-    MembershipOutput {
+    Ok(MembershipOutput {
         commitment_root: app_hash,
         kv_pairs,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ibc_core_commitment_types::merkle::MerkleProof;
+
+    fn dummy_merkle_proof() -> MerkleProof {
+        MerkleProof { proofs: vec![] }
+    }
+
+    #[test]
+    fn test_membership_verification_fails_with_invalid_merkle_proof() {
+        let app_hash = [1u8; 32];
+        let kv_pairs = vec![(
+            KVPair::new(b"key1".to_vec(), b"value1".to_vec()),
+            dummy_merkle_proof(),
+        )];
+
+        let result = membership(app_hash, kv_pairs.into_iter());
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(MembershipError::MembershipVerificationFailed)
+        ));
+    }
+
+    #[test]
+    fn test_non_membership_verification_fails_with_invalid_proof() {
+        let app_hash = [2u8; 32];
+        let kv_pairs = vec![(
+            KVPair::new(b"key1".to_vec(), vec![]), // empty value = non-membership
+            dummy_merkle_proof(),
+        )];
+
+        let result = membership(app_hash, kv_pairs.into_iter());
+        assert!(result.is_err());
+        match result {
+            Err(MembershipError::NonMembershipVerificationFailed) => {
+                // Expected error
+            }
+            _ => panic!("Unexpected error type"),
+        }
+    }
+
+    #[test]
+    fn test_kv_pair_is_non_membership() {
+        let membership_kv = KVPair::new(b"key".to_vec(), b"value".to_vec());
+        assert!(!membership_kv.is_non_membership());
+
+        let non_membership_kv = KVPair::new(b"key".to_vec(), vec![]);
+        assert!(non_membership_kv.is_non_membership());
     }
 }
