@@ -1,5 +1,3 @@
-use std::fs;
-
 use key_utils::read_private_pem_to_secret;
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;

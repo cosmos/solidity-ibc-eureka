@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::fs;
 
 use clap::Parser;
 use ibc_attestor::{
