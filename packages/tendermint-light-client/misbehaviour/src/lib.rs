@@ -62,9 +62,6 @@ pub enum MisbehaviourError {
     /// Chain ID mismatch
     #[error("chain ID mismatch: client state chain ID does not match misbehaviour header")]
     ChainIdMismatch,
-    /// Invalid trust threshold
-    #[error("invalid trust threshold: numerator must be less than or equal to denominator")]
-    InvalidTrustThreshold,
     /// Misbehaviour verification failed
     #[error("misbehaviour verification failed")]
     MisbehaviourVerificationFailed,
@@ -111,11 +108,7 @@ pub fn check_for_misbehaviour(
         &trusted_consensus_state_2,
     );
 
-    let trust_threshold: TmTrustThreshold = TmTrustThreshold::new(
-        client_state.trust_level.numerator,
-        client_state.trust_level.denominator,
-    )
-    .map_err(|_| MisbehaviourError::InvalidTrustThreshold)?;
+    let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
 
     let options = Options {
         trust_threshold,

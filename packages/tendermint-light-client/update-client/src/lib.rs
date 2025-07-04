@@ -72,9 +72,6 @@ pub struct UpdateClientOutput {
 /// Error type for update client
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateClientError {
-    /// Invalid trust threshold
-    #[error("invalid trust threshold: numerator must be less than or equal to denominator")]
-    InvalidTrustThreshold,
     /// Invalid client ID
     #[error("invalid client ID")]
     InvalidClientId,
@@ -91,7 +88,6 @@ pub enum UpdateClientError {
 /// # Errors
 ///
 /// This function will return an error if:
-/// - The trust threshold is invalid (numerator > denominator)
 /// - The client ID cannot be created
 /// - The chain ID is invalid
 /// - Header verification fails
@@ -106,11 +102,7 @@ pub fn update_client(
     let chain_id = ChainId::from_str(&client_state.chain_id)
         .map_err(|_| UpdateClientError::InvalidChainId(client_state.chain_id.clone()))?;
 
-    let trust_threshold: TmTrustThreshold = TmTrustThreshold::new(
-        client_state.trust_level.numerator,
-        client_state.trust_level.denominator,
-    )
-    .map_err(|_| UpdateClientError::InvalidTrustThreshold)?;
+    let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
 
     let options = Options {
         trust_threshold,
