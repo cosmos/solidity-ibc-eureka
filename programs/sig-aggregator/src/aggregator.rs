@@ -79,7 +79,7 @@ impl Aggregator for AggregatorService {
         while let Some(res) = futs.next().await {
             match res {
                 Ok(att_resp) => attestator_data.insert(att_resp),
-                Err(e) => tracing::warn!("An attestor query failed: {}", e),
+                Err(e) => tracing::error!("An attestor query failed: {}", e),
             }
         }
     
