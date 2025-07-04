@@ -246,7 +246,7 @@ Ideally, the Security Council should mirror the validators of the counterparty C
 
 ### Security Council and Governance Admin
 
-Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCAdmin.sol`](./contracts/utils/IBCAdmin.sol). This contract maintains:
+Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`ICS26AdminsDeprecated.sol`](./contracts/utils/ICS26AdminsDeprecated.sol) (a temporary library that will be removed in a future release). This contract maintains:
 
 - **`timelockedAdmin`** (Security Council)
 - **`govAdmin`** (Governance Admin)
