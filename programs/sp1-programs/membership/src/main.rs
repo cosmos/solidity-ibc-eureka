@@ -13,27 +13,9 @@ use alloy_sol_types::SolValue;
 use ibc_proto::Protobuf;
 
 use ibc_eureka_solidity_types::msgs::IMembershipMsgs::{KVPair as SolKVPair, MembershipOutput as SolMembershipOutput};
-use tendermint_light_client_membership::{KVPair, MembershipOutput};
+use tendermint_light_client_membership::{membership, KVPair};
 
 use ibc_core_commitment_types::merkle::MerkleProof;
-
-/// Convert from Solidity KVPair to core KVPair
-fn from_sol_kvpair(kv: SolKVPair) -> KVPair {
-    KVPair::new(kv.path.to_vec(), kv.value.to_vec())
-}
-
-/// Convert from core MembershipOutput to Solidity MembershipOutput
-fn to_sol_output(output: MembershipOutput) -> SolMembershipOutput {
-    SolMembershipOutput {
-        commitmentRoot: output.commitment_root.into(),
-        kvPairs: output.verified_kv_pairs.into_iter()
-            .map(|kv| SolKVPair {
-                path: kv.path.into(),
-                value: kv.value.into(),
-            })
-            .collect(),
-    }
-}
 
 /// The main function of the program.
 ///
@@ -48,21 +30,31 @@ pub fn main() {
     let request_len = u16::from_le_bytes(encoded_2.try_into().unwrap());
     assert!(request_len != 0);
 
-    let requests: Vec<_> = (0..request_len).map(|_| {
+    let request_iter = (0..request_len).map(|_| {
         // loop_encoded_1 is the key-value pair we want to verify the membership of
         let loop_encoded_1 = sp1_zkvm::io::read_vec();
         let sol_kv_pair = SolKVPair::abi_decode(&loop_encoded_1).unwrap();
-        let kv_pair = from_sol_kvpair(sol_kv_pair);
+        let kv_pair = KVPair::new(sol_kv_pair.path.to_vec(), sol_kv_pair.value.to_vec());
 
         // loop_encoded_2 is the Merkle proof of the key-value pair
         let loop_encoded_2 = sp1_zkvm::io::read_vec();
         let merkle_proof = MerkleProof::decode_vec(&loop_encoded_2).unwrap();
 
         (kv_pair, merkle_proof)
-    }).collect();
+    });
 
-    let output = tendermint_light_client_membership::verify_membership(app_hash, requests);
-    let sol_output = to_sol_output(output);
+    let output = membership(app_hash, request_iter);
+
+    // Convert output to Solidity format
+    let sol_output = SolMembershipOutput {
+        commitmentRoot: output.commitment_root.into(),
+        kvPairs: output.kv_pairs.into_iter()
+            .map(|kv| SolKVPair {
+                path: kv.path.into(),
+                value: kv.value.into(),
+            })
+            .collect(),
+    };
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
 }

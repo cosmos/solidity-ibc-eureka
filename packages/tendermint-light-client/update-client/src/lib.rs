@@ -6,21 +6,45 @@ pub mod types;
 
 use std::{str::FromStr, time::Duration};
 
-use ibc_client_tendermint::client_state::verify_header;
-use ibc_client_tendermint::types::{ConsensusState as TmConsensusState, Header, TENDERMINT_CLIENT_TYPE};
+use ibc_client_tendermint::{
+    client_state::verify_header,
+    types::{ConsensusState, Header, TENDERMINT_CLIENT_TYPE},
+};
 use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use tendermint_light_client_verifier::{options::Options, types::TrustThreshold, ProdVerifier};
+use tendermint_light_client_verifier::{options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier};
+
+/// Platform-agnostic trust threshold
+#[derive(Clone, Debug)]
+pub struct TrustThreshold {
+    /// Numerator of the fraction
+    pub numerator: u64,
+    /// Denominator of the fraction
+    pub denominator: u64,
+}
+
+impl TrustThreshold {
+    /// Create a new trust threshold
+    #[must_use]
+    pub const fn new(numerator: u64, denominator: u64) -> Self {
+        Self { numerator, denominator }
+    }
+}
+
+impl From<TrustThreshold> for TmTrustThreshold {
+    fn from(tt: TrustThreshold) -> Self {
+        TmTrustThreshold::new(tt.numerator, tt.denominator)
+            .expect("trust threshold numerator must be less than or equal to denominator")
+    }
+}
 
 /// Platform-agnostic client state
 #[derive(Clone, Debug)]
 pub struct ClientState {
     /// Chain ID
     pub chain_id: String,
-    /// Trust level numerator
-    pub trust_level_numerator: u64,
-    /// Trust level denominator
-    pub trust_level_denominator: u64,
+    /// Trust level
+    pub trust_level: TrustThreshold,
     /// Trusting period in seconds
     pub trusting_period_seconds: u64,
     /// Unbonding period in seconds
@@ -33,37 +57,6 @@ pub struct ClientState {
     pub latest_height: Height,
 }
 
-/// Platform-agnostic consensus state
-#[derive(Clone, Debug)]
-pub struct ConsensusState {
-    /// Timestamp in nanoseconds
-    pub timestamp_nanos: u128,
-    /// App hash
-    pub app_hash: [u8; 32],
-    /// Next validators hash
-    pub next_validators_hash: [u8; 32],
-}
-
-impl From<ConsensusState> for TmConsensusState {
-    fn from(cs: ConsensusState) -> Self {
-        TmConsensusState {
-            root: cs.app_hash.to_vec().try_into().expect("valid app hash"),
-            next_validators_hash: cs.next_validators_hash.into(),
-            timestamp: ibc_core_client_types::timestamp::Timestamp::from_nanoseconds(cs.timestamp_nanos)
-                .expect("valid timestamp"),
-        }
-    }
-}
-
-impl From<TmConsensusState> for ConsensusState {
-    fn from(cs: TmConsensusState) -> Self {
-        Self {
-            timestamp_nanos: cs.timestamp.nanoseconds(),
-            app_hash: cs.root.into_vec().try_into().expect("32 byte app hash"),
-            next_validators_hash: cs.next_validators_hash.as_bytes().try_into().expect("32 byte hash"),
-        }
-    }
-}
 
 /// Output from update client verification
 #[derive(Clone, Debug)]
@@ -76,26 +69,19 @@ pub struct UpdateClientOutput {
     pub trusted_height: Height,
 }
 
-/// Verify a tendermint header update
-///
-/// # Panics
-/// Panics if header verification fails
+/// The main function of the program without the zkVM wrapper.
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
-pub fn verify_header_update(
+pub fn update_client(
     client_state: ClientState,
     trusted_consensus_state: ConsensusState,
     proposed_header: Header,
-    current_timestamp_nanos: u128,
+    time: u128,
 ) -> UpdateClientOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     let chain_id = ChainId::from_str(&client_state.chain_id).unwrap();
     
-    let trust_threshold = TrustThreshold::new(
-        client_state.trust_level_numerator,
-        client_state.trust_level_denominator,
-    )
-    .unwrap();
+    let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
     
     let options = Options {
         trust_threshold,
@@ -103,16 +89,13 @@ pub fn verify_header_update(
         clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
     };
 
-    let mut ctx = types::validation::ClientValidationCtx::new(current_timestamp_nanos);
-    
-    // Convert our ConsensusState to tendermint ConsensusState
-    let tm_consensus_state: TmConsensusState = trusted_consensus_state.into();
+    let mut ctx = types::validation::ClientValidationCtx::new(time);
     
     ctx.insert_trusted_consensus_state(
         client_id.clone(),
         proposed_header.trusted_height.revision_number(),
         proposed_header.trusted_height.revision_height(),
-        &tm_consensus_state,
+        &trusted_consensus_state,
     );
 
     verify_header::<_, sha2::Sha256>(
@@ -127,7 +110,7 @@ pub fn verify_header_update(
 
     let trusted_height = proposed_header.trusted_height;
     let new_height = proposed_header.height();
-    let new_consensus_state: ConsensusState = TmConsensusState::from(proposed_header).into();
+    let new_consensus_state = ConsensusState::from(proposed_header);
 
     UpdateClientOutput {
         new_client_state: ClientState {

@@ -25,12 +25,6 @@ impl KVPair {
         Self { path, value }
     }
 
-    /// Create a non-membership proof request
-    #[must_use]
-    pub const fn non_membership(path: Vec<u8>) -> Self {
-        Self { path, value: vec![] }
-    }
-
     /// Check if this is a non-membership proof (empty value)
     #[must_use]
     pub fn is_non_membership(&self) -> bool {
@@ -44,23 +38,19 @@ pub struct MembershipOutput {
     /// The commitment root (app hash) that was verified
     pub commitment_root: [u8; 32],
     /// The verified key-value pairs
-    pub verified_kv_pairs: Vec<KVPair>,
+    pub kv_pairs: Vec<KVPair>,
 }
 
-/// Verify membership and non-membership proofs
-///
-/// # Panics
-/// Panics if proof verification fails
+/// The main function of the program without the zkVM wrapper.
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
-pub fn verify_membership(
+pub fn membership(
     app_hash: [u8; 32],
-    requests: Vec<(KVPair, MerkleProof)>,
+    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
 ) -> MembershipOutput {
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
 
-    let verified_kv_pairs = requests
-        .into_iter()
+    let kv_pairs = request_iter
         .map(|(kv_pair, merkle_proof)| {
             // Convert path bytes to MerklePath
             let path = PathBytes::from_bytes(kv_pair.path.clone());
@@ -92,6 +82,6 @@ pub fn verify_membership(
 
     MembershipOutput {
         commitment_root: app_hash,
-        verified_kv_pairs,
+        kv_pairs,
     }
 }

@@ -10,32 +10,43 @@
 sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
-use ibc_client_tendermint::types::{Header, Misbehaviour};
-use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, MisbehaviourOutput as SolMisbehaviourOutput,
+use ibc_client_tendermint::types::{ConsensusState, Misbehaviour};
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
+    IMisbehaviourMsgs::MisbehaviourOutput as SolMisbehaviourOutput,
 };
-use ibc_proto::{
-    ibc::lightclients::tendermint::v1::{Header as RawHeader, Misbehaviour as RawMisbehaviour}, 
-    Protobuf
-};
-use tendermint_light_client_misbehaviour::ClientState;
-use ibc_core_client_types::Height;
+use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
+use tendermint_light_client_misbehaviour::{check_for_misbehaviour, ClientState};
+use tendermint_light_client_update_client::TrustThreshold;
+use ibc_core_client_types::{Height, timestamp::Timestamp};
 
 /// Convert from Solidity ClientState to core ClientState
 fn from_sol_client_state(cs: SolClientState) -> ClientState {
     ClientState {
         chain_id: cs.chainId,
-        trust_level_numerator: cs.trustLevel.numerator,
-        trust_level_denominator: cs.trustLevel.denominator,
-        trusting_period_seconds: cs.trustingPeriod,
-        unbonding_period_seconds: cs.unbondingPeriod,
-        max_clock_drift_seconds: cs.maxClockDrift,
+        trust_level: TrustThreshold::new(
+            cs.trustLevel.numerator.into(),
+            cs.trustLevel.denominator.into(),
+        ),
+        trusting_period_seconds: cs.trustingPeriod.into(),
+        unbonding_period_seconds: cs.unbondingPeriod.into(),
+        max_clock_drift_seconds: cs.maxClockDrift.into(),
         frozen_height: if cs.frozenHeight.revisionHeight > 0 {
-            Some(Height::new(cs.frozenHeight.revisionNumber, cs.frozenHeight.revisionHeight).unwrap())
+            Some(Height::new(cs.frozenHeight.revisionNumber, cs.frozenHeight.revisionHeight).expect("valid frozen height"))
         } else {
             None
         },
-        latest_height: Height::new(cs.latestHeight.revisionNumber, cs.latestHeight.revisionHeight).unwrap(),
+        latest_height: Height::new(cs.latestHeight.revisionNumber, cs.latestHeight.revisionHeight).expect("valid latest height"),
+    }
+}
+
+/// Convert from Solidity ConsensusState to tendermint ConsensusState
+fn from_sol_consensus_state(cs: SolConsensusState) -> ConsensusState {
+    ConsensusState {
+        root: cs.root.to_vec().try_into().expect("valid app hash"),
+        next_validators_hash: cs.nextValidatorsHash.into(),
+        timestamp: Timestamp::from_nanoseconds(cs.timestamp.try_into().unwrap())
+            .expect("timestamp must be valid nanoseconds"),
     }
 }
 
@@ -46,27 +57,40 @@ fn from_sol_client_state(cs: SolClientState) -> ClientState {
 pub fn main() {
     let encoded_1 = sp1_zkvm::io::read_vec();
     let encoded_2 = sp1_zkvm::io::read_vec();
+    let encoded_3 = sp1_zkvm::io::read_vec();
+    let encoded_4 = sp1_zkvm::io::read_vec();
+    let encoded_5 = sp1_zkvm::io::read_vec();
 
     // input 1: client state
     let sol_client_state = SolClientState::abi_decode(&encoded_1).unwrap();
-    let client_state = from_sol_client_state(sol_client_state);
-    
+    let client_state = from_sol_client_state(sol_client_state.clone());
     // input 2: the misbehaviour evidence
     let misbehaviour = <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(&encoded_2).unwrap();
-    
-    // Extract headers from misbehaviour
-    let header_1 = misbehaviour.header1().clone();
-    let header_2 = misbehaviour.header2().clone();
+    // input 3: header 1 trusted consensus state
+    let sol_trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3).unwrap();
+    let trusted_consensus_state_1 = from_sol_consensus_state(sol_trusted_consensus_state_1.clone());
+    // input 4: header 2 trusted consensus state
+    let sol_trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4).unwrap();
+    let trusted_consensus_state_2 = from_sol_consensus_state(sol_trusted_consensus_state_2.clone());
+    // input 5: time
+    let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 
-    let output = tendermint_light_client_misbehaviour::verify_misbehaviour(
+    let output = check_for_misbehaviour(
         client_state,
-        header_1,
-        header_2,
+        &misbehaviour,
+        trusted_consensus_state_1,
+        trusted_consensus_state_2,
+        time,
     );
-    
-    // Convert to Solidity output format
+
+    // Convert output to Solidity format
     let sol_output = SolMisbehaviourOutput {
-        clientStateCommitment: vec![].into(), // Will be computed by the contract
+        clientState: sol_client_state,
+        trustedHeight1: output.trusted_height_1.into(),
+        trustedHeight2: output.trusted_height_2.into(),
+        trustedConsensusState1: sol_trusted_consensus_state_1.into(),
+        trustedConsensusState2: sol_trusted_consensus_state_2.into(),
+        time,
     };
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
