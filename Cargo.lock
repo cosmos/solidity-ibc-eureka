@@ -4914,7 +4914,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "borsh 1.5.7",
- "ibc-client-tendermint-types",
+ "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
@@ -11525,7 +11525,6 @@ version = "0.1.0"
 dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0",
 ]
 
 [[package]]
@@ -11533,8 +11532,8 @@ name = "tendermint-light-client-misbehaviour"
 version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0",
  "sha2 0.10.9",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
@@ -11544,9 +11543,8 @@ dependencies = [
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
- "ibc-client-tendermint-types",
+ "ibc-client-tendermint",
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types 0.1.0",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
 ]
@@ -11559,7 +11557,6 @@ dependencies = [
  "ibc-core-client",
  "ibc-core-client-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0",
  "ibc-primitives",
  "sha2 0.10.9",
  "tendermint-light-client-verifier",
