@@ -5,11 +5,7 @@ use ibc_attestor::{
     adapter_client::Adapter,
     attestation_store::AttestationStore,
     attestor::AttestorService,
-    cli::{
-        key::{self, KeyCommands},
-        server::ServerKind,
-        AttestorCli, AttestorConfig, Commands,
-    },
+    cli::{key::KeyCommands, server::ServerKind, AttestorCli, AttestorConfig, Commands},
     server::Server,
     signer::Signer,
     SolanaClient,
@@ -23,19 +19,17 @@ async fn main() -> Result<(), anyhow::Error> {
     match cli.command {
         Commands::Server(kind) => {
             match kind {
+                #[cfg(feature = "sol")]
                 ServerKind::Solana(args) => {
                     let config = AttestorConfig::from_file(args.config)?;
 
-                    tracing_subscriber::fmt::fmt()
-                        .with_max_level(config.server.log_level())
-                        .init();
                     let signer = Signer::from_config(config.signer.unwrap_or_default());
 
                     let adapter = SolanaClient::from_config(config.solana);
                     let att_store = AttestationStore::new(adapter.block_time_ms());
                     let attestor = AttestorService::new(adapter, signer, att_store);
 
-                    let server = Server::new();
+                    let server = Server::new(&config.server);
                     let _ = server.start(attestor, config.server).await;
                 }
             }

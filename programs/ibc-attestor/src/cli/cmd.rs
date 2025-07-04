@@ -29,6 +29,7 @@ pub mod server {
     /// The subcommands for the attestor.
     #[derive(Clone, Debug, Parser)]
     pub enum ServerKind {
+        #[cfg(feature = "sol")]
         /// The subcommand to run the solana attestor
         Solana(Args),
     }
