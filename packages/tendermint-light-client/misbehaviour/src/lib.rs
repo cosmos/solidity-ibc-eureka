@@ -13,7 +13,7 @@ use tendermint_light_client_update_client::types::validation::ClientValidationCt
 use tendermint_light_client_verifier::{options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier};
 pub use tendermint_light_client_update_client::TrustThreshold;
 
-/// Platform-agnostic client state for misbehaviour detection
+/// Client state for misbehaviour detection
 #[derive(Clone, Debug)]
 pub struct ClientState {
     /// Chain ID
@@ -50,7 +50,7 @@ pub struct MisbehaviourOutput {
     pub time: u128,
 }
 
-/// The main function of the program without the zkVM wrapper.
+/// IBC light client misbehaviour check.
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn check_for_misbehaviour(
@@ -91,7 +91,7 @@ pub fn check_for_misbehaviour(
     );
 
     let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
-    
+
     let options = Options {
         trust_threshold,
         trusting_period: Duration::from_secs(client_state.trusting_period_seconds),

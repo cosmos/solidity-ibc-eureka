@@ -14,7 +14,7 @@ use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
 use tendermint_light_client_verifier::{options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier};
 
-/// Platform-agnostic trust threshold
+/// Trust threshold
 #[derive(Clone, Debug)]
 pub struct TrustThreshold {
     /// Numerator of the fraction
@@ -38,7 +38,7 @@ impl From<TrustThreshold> for TmTrustThreshold {
     }
 }
 
-/// Platform-agnostic client state
+/// Client state
 #[derive(Clone, Debug)]
 pub struct ClientState {
     /// Chain ID
@@ -69,7 +69,7 @@ pub struct UpdateClientOutput {
     pub trusted_height: Height,
 }
 
-/// The main function of the program without the zkVM wrapper.
+/// IBC light client update client
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn update_client(
@@ -80,9 +80,9 @@ pub fn update_client(
 ) -> UpdateClientOutput {
     let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
     let chain_id = ChainId::from_str(&client_state.chain_id).unwrap();
-    
+
     let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
-    
+
     let options = Options {
         trust_threshold,
         trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
@@ -90,7 +90,7 @@ pub fn update_client(
     };
 
     let mut ctx = types::validation::ClientValidationCtx::new(time);
-    
+
     ctx.insert_trusted_consensus_state(
         client_id.clone(),
         proposed_header.trusted_height.revision_number(),

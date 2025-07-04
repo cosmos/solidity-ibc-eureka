@@ -15,7 +15,7 @@ pub struct UcAndMembershipOutput {
     pub membership_output: MembershipOutput,
 }
 
-/// The main function of the program without the zkVM wrapper.
+/// IBC light client combined update of client and membership verification
 #[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn update_client_and_membership(
