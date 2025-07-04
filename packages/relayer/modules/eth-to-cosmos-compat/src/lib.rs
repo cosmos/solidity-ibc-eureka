@@ -100,11 +100,8 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             .checksum;
 
         if checksum == V1_2_CHECKSUM {
+            tracing::info!("Using bacwards compatible relay_by_tx",);
             let inner = request.into_inner();
-            tracing::info!(
-                "Using bacwards compatible relay_by_tx for {}",
-                inner.dst_client_id
-            );
             let resp = self
                 .old_service
                 .relay_by_tx(Request::new(api_v1_2::RelayByTxRequest {
@@ -139,6 +136,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
         .map_err(|e| tonic::Status::internal(format!("Failed to decode checksum hex: {e}")))?;
 
         if checksum == V1_2_CHECKSUM {
+            tracing::info!("Using bacwards compatible create_client",);
             let inner = request.into_inner();
             let resp = self
                 .old_service
@@ -186,11 +184,8 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             .checksum;
 
         if checksum == V1_2_CHECKSUM {
+            tracing::info!("Using bacwards compatible update_client",);
             let inner = request.into_inner();
-            tracing::info!(
-                "Using bacwards compatible update_client for {}",
-                inner.dst_client_id
-            );
             let resp = self
                 .old_service
                 .update_client(Request::new(api_v1_2::UpdateClientRequest {
