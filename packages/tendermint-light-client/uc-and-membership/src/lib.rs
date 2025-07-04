@@ -4,7 +4,7 @@
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
 use tendermint_light_client_membership::{KVPair, MembershipOutput};
-use tendermint_light_client_update_client::{ClientState, TrustThreshold, UpdateClientOutput};
+use tendermint_light_client_update_client::{ClientState, UpdateClientOutput};
 
 /// Output from combined update client and membership verification
 #[derive(Clone, Debug)]
