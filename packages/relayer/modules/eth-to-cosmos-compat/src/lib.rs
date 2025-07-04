@@ -25,11 +25,18 @@ use prost::Message;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
-const V1_2_CHECKSUM: &[u8] = b"todo";
+/// The checksum for the v1.2 Ethereum wasm client
+const V1_2_CHECKSUM: &[u8] = &[
+    185, 46, 153, 4, 170, 178, 41, 41, 22, 80, 127, 13, 176, 75, 122, 182, 208, 36, 194, 253, 181,
+    122, 157, 82, 230, 114, 95, 105, 178, 230, 132, 193,
+];
 
-/// The `CosmosToEthCompatRelayerModule` struct defines the Cosmos to Ethereum backwards compatibility relayer module.
+/// The key for the checksum hex in the parameters map.
+const CHECKSUM_HEX: &str = "checksum_hex";
+
+/// The `EthToCosmosCompatRelayerModule` struct defines the Ethereum to Cosmos backwards compatibility relayer module.
 #[derive(Clone, Copy, Debug)]
-pub struct CosmosToEthCompatRelayerModule;
+pub struct EthToCosmosCompatRelayerModule;
 
 /// The `EthereumToCosmosCompatRelayerModuleService` defines backwards compatibility the relayer service from Ethereum to Cosmos.
 struct EthToCosmosCompatRelayerModuleService {
@@ -120,12 +127,35 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
             self.new_service.relay_by_tx(request).await
         }
     }
+
     #[tracing::instrument(skip_all)]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        self.new_service.create_client(request).await
+        let checksum = hex::decode(request.get_ref().parameters.get(CHECKSUM_HEX).ok_or_else(
+            || tonic::Status::internal("Checksum hex parameter is missing in request"),
+        )?)
+        .map_err(|e| tonic::Status::internal(format!("Failed to decode checksum hex: {e}")))?;
+
+        if checksum == V1_2_CHECKSUM {
+            let inner = request.into_inner();
+            let resp = self
+                .old_service
+                .create_client(Request::new(api_v1_2::CreateClientRequest {
+                    dst_chain: inner.dst_chain,
+                    src_chain: inner.src_chain,
+                    parameters: inner.parameters,
+                }))
+                .await?
+                .into_inner();
+            Ok(Response::new(api::CreateClientResponse {
+                tx: resp.tx,
+                address: resp.address,
+            }))
+        } else {
+            self.new_service.create_client(request).await
+        }
     }
 
     #[tracing::instrument(skip_all)]
@@ -181,7 +211,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for CosmosToEthCompatRelayerModule {
+impl RelayerModule for EthToCosmosCompatRelayerModule {
     fn name(&self) -> &'static str {
         "eth_to_cosmos_compat"
     }
