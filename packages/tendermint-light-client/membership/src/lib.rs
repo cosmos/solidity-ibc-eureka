@@ -1,5 +1,11 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-membership` program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,
@@ -62,7 +68,6 @@ pub fn membership(
 
     let kv_pairs = request_iter
         .map(|(kv_pair, merkle_proof)| {
-            // Convert path bytes to MerklePath
             let path = PathBytes::from_bytes(kv_pair.path.clone());
             let merkle_path = MerklePath::new(vec![path]);
 
@@ -102,35 +107,32 @@ mod tests {
     use ibc_core_commitment_types::merkle::MerkleProof;
 
     fn dummy_merkle_proof() -> MerkleProof {
-        MerkleProof {
-            proofs: vec![],
-        }
+        MerkleProof { proofs: vec![] }
     }
 
     #[test]
     fn test_membership_verification_fails_with_invalid_merkle_proof() {
         let app_hash = [1u8; 32];
-        let kv_pairs = vec![
-            (
-                KVPair::new(b"key1".to_vec(), b"value1".to_vec()),
-                dummy_merkle_proof(),
-            ),
-        ];
+        let kv_pairs = vec![(
+            KVPair::new(b"key1".to_vec(), b"value1".to_vec()),
+            dummy_merkle_proof(),
+        )];
 
         let result = membership(app_hash, kv_pairs.into_iter());
         assert!(result.is_err());
-        assert!(matches!(result, Err(MembershipError::MembershipVerificationFailed)));
+        assert!(matches!(
+            result,
+            Err(MembershipError::MembershipVerificationFailed)
+        ));
     }
 
     #[test]
     fn test_non_membership_verification_fails_with_invalid_proof() {
         let app_hash = [2u8; 32];
-        let kv_pairs = vec![
-            (
-                KVPair::new(b"key1".to_vec(), vec![]), // empty value = non-membership
-                dummy_merkle_proof(),
-            ),
-        ];
+        let kv_pairs = vec![(
+            KVPair::new(b"key1".to_vec(), vec![]), // empty value = non-membership
+            dummy_merkle_proof(),
+        )];
 
         let result = membership(app_hash, kv_pairs.into_iter());
         assert!(result.is_err());
