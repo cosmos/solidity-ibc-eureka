@@ -1,14 +1,4 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-uc-and-membership` program.
-//!
-//! This crate provides dual APIs for native and zkVM environments:
-//!
-//! - **Native**: Returns `Result<T, E>` for proper error handling and composability
-//! - **zkVM**: Returns `T` directly, panics on error to avoid Result overhead (~50-100 cycles)
-//!
-//! In zkVM, Result types generate unnecessary constraints even when immediately unwrapped.
-//! Since proofs either succeed or fail entirely, error recovery is meaningless and wasteful.
-//!
-//! Use `--features panic` for zkVM builds to get optimal performance.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 use ibc_client_tendermint::types::{ConsensusState, Header};
@@ -25,8 +15,7 @@ pub struct UcAndMembershipOutput {
     pub membership_output: MembershipOutput,
 }
 
-/// Error type for combined update client and membership (only used when panic feature is not enabled)
-#[cfg(not(feature = "panic"))]
+/// Error type for combined update client and membership
 #[derive(Debug, thiserror::Error)]
 pub enum UcAndMembershipError {
     /// Invalid app hash
@@ -40,46 +29,11 @@ pub enum UcAndMembershipError {
     Membership(#[from] tendermint_light_client_membership::MembershipError),
 }
 
-/// IBC light client combined update of client and membership verification - panic version
-#[cfg(feature = "panic")]
-#[allow(clippy::missing_panics_doc)]
+/// IBC light client combined update of client and membership verification
 #[must_use]
 pub fn update_client_and_membership(
     client_state: ClientState,
-    trusted_consensus_state: ConsensusState,
-    proposed_header: Header,
-    time: u128,
-    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
-) -> UcAndMembershipOutput {
-    let app_hash: [u8; 32] = proposed_header
-        .signed_header
-        .header()
-        .app_hash
-        .as_bytes()
-        .try_into()
-        .unwrap();
-
-    let uc_output = tendermint_light_client_update_client::update_client(
-        client_state,
-        trusted_consensus_state,
-        proposed_header,
-        time,
-    );
-
-    let mem_output = tendermint_light_client_membership::membership(app_hash, request_iter);
-
-    UcAndMembershipOutput {
-        update_output: uc_output,
-        membership_output: mem_output,
-    }
-}
-
-/// IBC light client combined update of client and membership verification - non-panic version
-#[cfg(not(feature = "panic"))]
-#[must_use]
-pub fn update_client_and_membership(
-    client_state: ClientState,
-    trusted_consensus_state: ConsensusState,
+    trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
     request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
@@ -122,8 +76,6 @@ mod tests {
     }
 
 
-    // Note: Full integration tests would require creating valid ConsensusState and Header objects,
-    // which have complex dependencies. Basic tests verify the structure is correct.
 
     #[test] 
     fn test_client_state_fields() {

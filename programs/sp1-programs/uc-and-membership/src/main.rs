@@ -99,7 +99,7 @@ pub fn main() {
         proposed_header,
         time,
         request_iter,
-    );
+    ).unwrap();
 
     // Convert output to Solidity format
     let sol_update_output = ibc_eureka_solidity_types::msgs::IUpdateClientMsgs::UpdateClientOutput {

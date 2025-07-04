@@ -1,15 +1,5 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-update-client`
 //! program.
-//!
-//! This crate provides dual APIs for native and zkVM environments:
-//!
-//! - **Native**: Returns `Result<T, E>` for proper error handling and composability
-//! - **zkVM**: Returns `T` directly, panics on error to avoid Result overhead (~50-100 cycles)
-//!
-//! In zkVM, Result types generate unnecessary constraints even when immediately unwrapped.
-//! Since proofs either succeed or fail entirely, error recovery is meaningless and wasteful.
-//!
-//! Use `--features panic` for zkVM builds to get optimal performance.
 #![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 
 pub mod types;
@@ -43,7 +33,7 @@ impl TrustThreshold {
 
 impl From<TrustThreshold> for TmTrustThreshold {
     fn from(tt: TrustThreshold) -> Self {
-        TmTrustThreshold::new(tt.numerator, tt.denominator)
+        Self::new(tt.numerator, tt.denominator)
             .expect("trust threshold numerator must be less than or equal to denominator")
     }
 }
@@ -79,8 +69,7 @@ pub struct UpdateClientOutput {
     pub trusted_height: Height,
 }
 
-/// Error type for update client (only used when panic feature is not enabled)
-#[cfg(not(feature = "panic"))]
+/// Error type for update client
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateClientError {
     /// Invalid trust threshold
@@ -97,66 +86,18 @@ pub enum UpdateClientError {
     HeaderVerificationFailed,
 }
 
-/// IBC light client update client - panic version
-#[cfg(feature = "panic")]
-#[allow(clippy::missing_panics_doc)]
-#[must_use]
+/// IBC light client update client
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The trust threshold is invalid (numerator > denominator)
+/// - The client ID cannot be created
+/// - The chain ID is invalid
+/// - Header verification fails
 pub fn update_client(
     client_state: ClientState,
-    trusted_consensus_state: ConsensusState,
-    proposed_header: Header,
-    time: u128,
-) -> UpdateClientOutput {
-    let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0).unwrap();
-    let chain_id = ChainId::from_str(&client_state.chain_id).unwrap();
-
-    let trust_threshold: TmTrustThreshold = client_state.trust_level.clone().into();
-
-    let options = Options {
-        trust_threshold,
-        trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
-        clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
-    };
-
-    let mut ctx = types::validation::ClientValidationCtx::new(time);
-
-    ctx.insert_trusted_consensus_state(
-        client_id.clone(),
-        proposed_header.trusted_height.revision_number(),
-        proposed_header.trusted_height.revision_height(),
-        &trusted_consensus_state,
-    );
-
-    verify_header::<_, sha2::Sha256>(
-        &ctx,
-        &proposed_header,
-        &client_id,
-        &chain_id,
-        &options,
-        &ProdVerifier::default(),
-    )
-    .unwrap();
-
-    let trusted_height = proposed_header.trusted_height;
-    let new_height = proposed_header.height();
-    let new_consensus_state = ConsensusState::from(proposed_header);
-
-    UpdateClientOutput {
-        new_client_state: ClientState {
-            latest_height: new_height,
-            ..client_state
-        },
-        new_consensus_state,
-        trusted_height,
-    }
-}
-
-/// IBC light client update client - non-panic version
-#[cfg(not(feature = "panic"))]
-#[must_use]
-pub fn update_client(
-    client_state: ClientState,
-    trusted_consensus_state: ConsensusState,
+    trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
@@ -183,7 +124,7 @@ pub fn update_client(
         client_id.clone(),
         proposed_header.trusted_height.revision_number(),
         proposed_header.trusted_height.revision_height(),
-        &trusted_consensus_state,
+        trusted_consensus_state,
     );
 
     verify_header::<_, sha2::Sha256>(
@@ -242,8 +183,6 @@ mod tests {
         let _tm_tt: TmTrustThreshold = tt.into();
     }
 
-    // Note: Full integration tests would require creating valid ConsensusState and Header objects,
-    // which have complex dependencies. These basic tests verify the error handling logic exists.
 
     #[test]
     fn test_client_state_fields() {

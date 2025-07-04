@@ -81,7 +81,7 @@ pub fn main() {
         trusted_consensus_state_1,
         trusted_consensus_state_2,
         time,
-    );
+    ).unwrap();
 
     // Convert output to Solidity format
     let sol_output = SolMisbehaviourOutput {
