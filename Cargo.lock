@@ -11644,7 +11644,13 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "anchor-client",
+ "hex",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics07-tendermint",
+ "prost",
+ "tendermint",
 ]
 
 [[package]]

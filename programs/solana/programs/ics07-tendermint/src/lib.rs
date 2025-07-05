@@ -363,7 +363,6 @@ pub mod ics07_tendermint {
         let client_data = &ctx.accounts.client_data;
         let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-        // Validate common proof parameters
         validate_proof_params(client_data, consensus_state_store, &msg)?;
 
         let proof = deserialize_merkle_proof(&msg.proof)?;

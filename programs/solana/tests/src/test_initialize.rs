@@ -20,12 +20,12 @@ fn test_initialize() {
     let client_state = create_test_client_state();
     let consensus_state = create_test_consensus_state();
 
-    // Calculate the consensus state store PDA
+    // Calculate the consensus state store PDA for initial height 1
     let (consensus_state_store, _bump) = Pubkey::find_program_address(
         &[
             b"consensus_state",
             client_data.pubkey().as_ref(),
-            &0u64.to_le_bytes(),
+            &1u64.to_le_bytes(), // Initial height is 1 in our test client state
         ],
         &program_id,
     );

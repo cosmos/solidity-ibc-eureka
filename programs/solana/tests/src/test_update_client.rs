@@ -1,4 +1,5 @@
 use crate::common::with_initialized_client;
+use crate::test_helpers::create_test_header_bytes;
 use anchor_client::solana_sdk::{signer::Signer, pubkey::Pubkey, system_program};
 use ics07_tendermint::UpdateClientMsg;
 
@@ -6,7 +7,7 @@ use ics07_tendermint::UpdateClientMsg;
 fn test_update_client() {
     with_initialized_client("update_client", |program, client_data| {
         let update_msg = UpdateClientMsg {
-            client_message: vec![1, 2, 3, 4, 5], // Mock client message
+            client_message: create_test_header_bytes(),
         };
 
         // Get the client's current state to calculate the consensus state PDA
@@ -23,13 +24,12 @@ fn test_update_client() {
             &program.id(),
         );
 
-        let payer = program.payer();
         let update_result = program
             .request()
             .accounts(ics07_tendermint::accounts::UpdateClient {
                 client_data: client_data.pubkey(),
                 consensus_state_store,
-                payer: payer.pubkey(),
+                payer: program.payer(),
                 system_program: system_program::id(),
             })
             .args(ics07_tendermint::instruction::UpdateClient { msg: update_msg })

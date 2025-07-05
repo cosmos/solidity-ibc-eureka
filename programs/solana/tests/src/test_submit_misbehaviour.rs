@@ -1,20 +1,20 @@
 use crate::common::with_initialized_client;
+use crate::test_helpers::create_test_misbehaviour_bytes;
 use anchor_client::solana_sdk::{signer::Signer, pubkey::Pubkey};
 use ics07_tendermint::MisbehaviourMsg;
 
 #[test]
 fn test_submit_misbehaviour() {
     with_initialized_client("submit_misbehaviour", |program, client_data| {
-        // Create a mock misbehaviour protobuf message
-        // In a real scenario, this would be a properly encoded Misbehaviour protobuf
+        // Create a properly encoded misbehaviour protobuf message
         let misbehaviour_msg = MisbehaviourMsg {
             client_id: "test-client-id".to_string(),
-            misbehaviour: vec![0; 100], // Mock protobuf encoded Misbehaviour
+            misbehaviour: create_test_misbehaviour_bytes(),
         };
 
         // Get the client's current state
         let client_account = program.account::<ics07_tendermint::ClientData>(client_data.pubkey())?;
-        let current_height = client_account.client_state.latest_height;
+        let _current_height = client_account.client_state.latest_height;
         
         // For testing, we'll use the same consensus state for both trusted states
         // In a real scenario, these would be different heights from the misbehaviour headers
@@ -22,7 +22,7 @@ fn test_submit_misbehaviour() {
             &[
                 b"consensus_state",
                 client_data.pubkey().as_ref(),
-                &0u64.to_le_bytes(), // Initial height
+                &1u64.to_le_bytes(), // Initial height from our test setup
             ],
             &program.id(),
         );
@@ -31,7 +31,7 @@ fn test_submit_misbehaviour() {
             &[
                 b"consensus_state",
                 client_data.pubkey().as_ref(),
-                &0u64.to_le_bytes(), // Same height for testing
+                &1u64.to_le_bytes(), // Same height for testing
             ],
             &program.id(),
         );
