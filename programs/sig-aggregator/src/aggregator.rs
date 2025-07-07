@@ -1,7 +1,7 @@
 use crate::{
-    attestor_data::AttestatorData, 
-    config::Config, 
-    error::AggregatorError, 
+    attestor_data::AttestatorData,
+    config::Config,
+    error::AggregatorError,
     rpc::{
         aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, AggregateResponse, QueryRequest
     }
