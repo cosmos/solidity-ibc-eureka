@@ -107,15 +107,31 @@ pub fn to_sol_consensus_state(cs: ConsensusState) -> SolConsensusState {
 
 /// Convert a tendermint `ClientState` to Solidity `ClientState` format
 #[must_use]
+/// # Panics
+/// Panics if the numerator/denominator don't fit in u8
 pub fn to_sol_client_state(cs: ClientState, zk_algo: SupportedZkAlgorithm) -> SolClientState {
     SolClientState {
         chainId: cs.chain_id,
         trustLevel: ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::TrustThreshold {
-            numerator: cs.trust_level.numerator.try_into().expect("numerator fits in u8"),
-            denominator: cs.trust_level.denominator.try_into().expect("denominator fits in u8"),
+            numerator: cs
+                .trust_level
+                .numerator
+                .try_into()
+                .expect("numerator fits in u8"),
+            denominator: cs
+                .trust_level
+                .denominator
+                .try_into()
+                .expect("denominator fits in u8"),
         },
-        trustingPeriod: cs.trusting_period_seconds.try_into().expect("trusting period fits in u32"),
-        unbondingPeriod: cs.unbonding_period_seconds.try_into().expect("unbonding period fits in u32"),
+        trustingPeriod: cs
+            .trusting_period_seconds
+            .try_into()
+            .expect("trusting period fits in u32"),
+        unbondingPeriod: cs
+            .unbonding_period_seconds
+            .try_into()
+            .expect("unbonding period fits in u32"),
         latestHeight: to_sol_height(cs.latest_height),
         isFrozen: cs.is_frozen,
         zkAlgorithm: zk_algo,
