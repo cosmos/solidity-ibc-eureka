@@ -19,7 +19,7 @@ use ibc_eureka_solidity_types::msgs::{
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use sp1_ics07_utils::{
-    to_sol_consensus_state, to_sol_height, to_tendermint_client_state,
+    to_sol_client_state, to_sol_consensus_state, to_sol_height, to_tendermint_client_state,
     to_tendermint_consensus_state,
 };
 use tendermint_light_client_update_client::update_client;
@@ -54,23 +54,8 @@ pub fn main() {
     .unwrap();
 
     // Convert output to Solidity format
-    let new_sol_client_state = SolClientState {
-        chainId: output.new_client_state.chain_id,
-        trustLevel: sol_client_state.trustLevel,
-        trustingPeriod: output
-            .new_client_state
-            .trusting_period_seconds
-            .try_into()
-            .unwrap(),
-        unbondingPeriod: output
-            .new_client_state
-            .unbonding_period_seconds
-            .try_into()
-            .unwrap(),
-        latestHeight: to_sol_height(output.new_client_state.latest_height),
-        isFrozen: output.new_client_state.is_frozen,
-        zkAlgorithm: sol_client_state.zkAlgorithm,
-    };
+    let new_height = output.new_client_state.latest_height;
+    let new_sol_client_state = to_sol_client_state(output.new_client_state, sol_client_state.zkAlgorithm);
 
     let sol_output = SolUpdateClientOutput {
         clientState: new_sol_client_state,
@@ -78,7 +63,7 @@ pub fn main() {
         newConsensusState: to_sol_consensus_state(output.new_consensus_state),
         time,
         trustedHeight: to_sol_height(output.trusted_height),
-        newHeight: to_sol_height(output.new_client_state.latest_height),
+        newHeight: to_sol_height(new_height),
     };
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());

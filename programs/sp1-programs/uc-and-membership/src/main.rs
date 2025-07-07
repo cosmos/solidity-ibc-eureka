@@ -12,7 +12,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_sol_types::SolValue;
 
 use sp1_ics07_utils::{
-    to_sol_consensus_state, to_sol_height, to_tendermint_client_state,
+    to_sol_client_state, to_sol_consensus_state, to_sol_height, to_tendermint_client_state,
     to_tendermint_consensus_state,
 };
 use tendermint_light_client_membership::KVPair;
@@ -80,25 +80,8 @@ pub fn main() {
     .unwrap();
 
     // Convert output to Solidity format
-    let new_sol_client_state = SolClientState {
-        chainId: output.update_output.new_client_state.chain_id,
-        trustLevel: sol_client_state.trustLevel,
-        trustingPeriod: output
-            .update_output
-            .new_client_state
-            .trusting_period_seconds
-            .try_into()
-            .unwrap(),
-        unbondingPeriod: output
-            .update_output
-            .new_client_state
-            .unbonding_period_seconds
-            .try_into()
-            .unwrap(),
-        latestHeight: to_sol_height(output.update_output.new_client_state.latest_height),
-        isFrozen: output.update_output.new_client_state.is_frozen,
-        zkAlgorithm: sol_client_state.zkAlgorithm,
-    };
+    let new_height = output.update_output.new_client_state.latest_height;
+    let new_sol_client_state = to_sol_client_state(output.update_output.new_client_state, sol_client_state.zkAlgorithm);
 
     let sol_update_output =
         ibc_eureka_solidity_types::msgs::IUpdateClientMsgs::UpdateClientOutput {
@@ -107,7 +90,7 @@ pub fn main() {
             newConsensusState: to_sol_consensus_state(output.update_output.new_consensus_state),
             time,
             trustedHeight: to_sol_height(output.update_output.trusted_height),
-            newHeight: to_sol_height(output.update_output.new_client_state.latest_height),
+            newHeight: to_sol_height(new_height),
         };
 
     let sol_output = SolUcAndMembershipOutput {
