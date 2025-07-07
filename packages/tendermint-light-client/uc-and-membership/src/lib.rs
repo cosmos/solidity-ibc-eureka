@@ -1,5 +1,11 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-uc-and-membership` program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
@@ -61,23 +67,21 @@ pub fn update_client_and_membership(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tendermint_light_client_update_client::TrustThreshold;
+    use tendermint_light_client_update_client::trustthreshold;
 
-    fn test_client_state() -> ClientState {
-        ClientState {
+    fn test_client_state() -> clientstate {
+        clientstate {
             chain_id: "test-chain".to_string(),
-            trust_level: TrustThreshold::new(1, 3),
+            trust_level: trustthreshold::new(1, 3),
             trusting_period_seconds: 3600,
             unbonding_period_seconds: 7200,
             max_clock_drift_seconds: 60,
-            frozen_height: None,
-            latest_height: ibc_core_client_types::Height::new(1, 100).unwrap(),
+            frozen_height: none,
+            latest_height: ibc_core_client_types::height::new(1, 100).unwrap(),
         }
     }
 
-
-
-    #[test] 
+    #[test]
     fn test_client_state_fields() {
         let client_state = test_client_state();
         assert_eq!(client_state.chain_id, "test-chain");
@@ -102,3 +106,4 @@ mod tests {
         assert!(non_membership_kv.is_non_membership());
     }
 }
+

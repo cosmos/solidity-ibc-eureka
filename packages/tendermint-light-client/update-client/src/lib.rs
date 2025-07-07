@@ -1,6 +1,12 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-update-client`
 //! program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 pub mod types;
 
@@ -12,7 +18,9 @@ use ibc_client_tendermint::{
 };
 use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use tendermint_light_client_verifier::{options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier};
+use tendermint_light_client_verifier::{
+    options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier,
+};
 
 /// Trust threshold
 #[derive(Clone, Debug)]
@@ -27,7 +35,10 @@ impl TrustThreshold {
     /// Create a new trust threshold
     #[must_use]
     pub const fn new(numerator: u64, denominator: u64) -> Self {
-        Self { numerator, denominator }
+        Self {
+            numerator,
+            denominator,
+        }
     }
 }
 
@@ -56,7 +67,6 @@ pub struct ClientState {
     /// Latest height
     pub latest_height: Height,
 }
-
 
 /// Output from update client verification
 #[derive(Clone, Debug)]
@@ -97,8 +107,8 @@ pub fn update_client(
     proposed_header: Header,
     time: u128,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
-    let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0)
-        .map_err(|_| UpdateClientError::InvalidClientId)?;
+    let client_id =
+        ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| UpdateClientError::InvalidClientId)?;
     let chain_id = ChainId::from_str(&client_state.chain_id)
         .map_err(|_| UpdateClientError::InvalidChainId(client_state.chain_id.clone()))?;
 
@@ -159,7 +169,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_trust_threshold_conversion() {
         let tt = TrustThreshold::new(1, 3);
@@ -169,12 +178,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "trust threshold numerator must be less than or equal to denominator")]
+    #[should_panic(
+        expected = "trust threshold numerator must be less than or equal to denominator"
+    )]
     fn test_invalid_trust_threshold_panics() {
         let tt = TrustThreshold::new(3, 1); // numerator > denominator
         let _tm_tt: TmTrustThreshold = tt.into();
     }
-
 
     #[test]
     fn test_client_state_fields() {
