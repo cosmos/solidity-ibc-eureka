@@ -1,7 +1,7 @@
 use crate::{
-    attestor_data::AttestatorData,
-    config::Config,
-    error::AggregatorError,
+    attestor_data::AttestatorData, 
+    config::Config, 
+    error::AggregatorError, 
     rpc::{
         aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
         AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
