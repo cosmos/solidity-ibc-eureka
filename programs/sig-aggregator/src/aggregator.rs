@@ -1,10 +1,10 @@
 use crate::{
-    attestor_data::AttestatorData,
-    config::Config,
-    error::AggregatorError,
+    attestor_data::AttestatorData, 
+    config::Config, 
+    error::AggregatorError, 
     rpc::{
         aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, AggregateResponse, QueryRequest
-    },
+    }
 };
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::sync::Arc;
@@ -106,34 +106,10 @@ impl Aggregator for AggregatorService {
 mod e2e_tests {
     use super::*;
     use crate::{
-        config::Config, mock_attestor::MockAttestor, rpc::attestor_server::{AttestorServer},
+        config::Config, 
+        mock_attestor::setup_attestor_server,
     };
-    use std::net::SocketAddr;
-    use tokio::net::TcpListener;
-    use tokio_stream;
-    use tonic::transport::Server;
     use url::Url;
-
-    // Helper to spin up a mock attestor server on a random available port.
-    // Returns the address it's listening on.
-    async fn setup_attestor_server(
-        should_fail: bool, 
-        delay_ms: u64,
-    ) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let attestor = MockAttestor::new(should_fail, delay_ms);
-        let pubkey = attestor.get_pubkey();
-
-        tokio::spawn(async move {
-            Server::builder()
-                .add_service(AttestorServer::new(attestor))
-                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
-                .await
-        });
-
-        Ok((addr, pubkey))
-    }
 
     #[tokio::test]
     async fn get_aggregate_attestation_quorum_met() {

@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-use std::time::Duration;
-use tokio::time::sleep;
+use std::{collections::BTreeMap, time::Duration, net::SocketAddr};
+use tokio::{time::sleep, net::TcpListener};
 use tonic::{transport::Server, Request, Response, Status};
 use rand::Rng;
-
 use crate::rpc::{
     attestor_server::{Attestor, AttestorServer},
     Attestation, AttestationsResponse, QueryRequest,
@@ -113,4 +111,25 @@ pub async fn run_attestor_server(
         .await?;
 
     Ok(())
+}
+
+// Helper to spin up a mock attestor server on a random available port.
+// Returns the address it's listening on.
+pub async fn setup_attestor_server(
+    should_fail: bool, 
+    delay_ms: u64,
+) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
+    let attestor = MockAttestor::new(should_fail, delay_ms);
+    let pubkey = attestor.get_pubkey();
+
+    tokio::spawn(async move {
+        Server::builder()
+            .add_service(AttestorServer::new(attestor))
+            .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+            .await
+    });
+
+    Ok((addr, pubkey))
 }
