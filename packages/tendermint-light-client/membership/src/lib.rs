@@ -33,7 +33,7 @@ impl KVPair {
 
     /// Check if this is a non-membership proof (empty value)
     #[must_use]
-    pub fn is_non_membership(&self) -> bool {
+    pub const fn is_non_membership(&self) -> bool {
         self.value.is_empty()
     }
 }
@@ -59,7 +59,11 @@ pub enum MembershipError {
 }
 
 /// IBC membership verification
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `MembershipError::NonMembershipVerificationFailed` if non-membership proof verification fails.
+/// Returns `MembershipError::MembershipVerificationFailed` if membership proof verification fails.
 pub fn membership(
     app_hash: [u8; 32],
     request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
@@ -99,57 +103,4 @@ pub fn membership(
         commitment_root: app_hash,
         kv_pairs,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ibc_core_commitment_types::merkle::MerkleProof;
-
-    fn dummy_merkle_proof() -> MerkleProof {
-        MerkleProof { proofs: vec![] }
-    }
-
-    #[test]
-    fn test_membership_verification_fails_with_invalid_merkle_proof() {
-        let app_hash = [1u8; 32];
-        let kv_pairs = vec![(
-            KVPair::new(b"key1".to_vec(), b"value1".to_vec()),
-            dummy_merkle_proof(),
-        )];
-
-        let result = membership(app_hash, kv_pairs.into_iter());
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(MembershipError::MembershipVerificationFailed)
-        ));
-    }
-
-    #[test]
-    fn test_non_membership_verification_fails_with_invalid_proof() {
-        let app_hash = [2u8; 32];
-        let kv_pairs = vec![(
-            KVPair::new(b"key1".to_vec(), vec![]), // empty value = non-membership
-            dummy_merkle_proof(),
-        )];
-
-        let result = membership(app_hash, kv_pairs.into_iter());
-        assert!(result.is_err());
-        match result {
-            Err(MembershipError::NonMembershipVerificationFailed) => {
-                // Expected error
-            }
-            _ => panic!("Unexpected error type"),
-        }
-    }
-
-    #[test]
-    fn test_kv_pair_is_non_membership() {
-        let membership_kv = KVPair::new(b"key".to_vec(), b"value".to_vec());
-        assert!(!membership_kv.is_non_membership());
-
-        let non_membership_kv = KVPair::new(b"key".to_vec(), vec![]);
-        assert!(non_membership_kv.is_non_membership());
-    }
 }

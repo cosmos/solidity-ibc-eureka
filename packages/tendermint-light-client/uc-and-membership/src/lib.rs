@@ -7,6 +7,9 @@
     unused_crate_dependencies
 )]
 
+#[cfg(test)]
+use ibc_core_client_types as _;
+
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
 use tendermint_light_client_membership::{KVPair, MembershipOutput};
@@ -36,7 +39,12 @@ pub enum UcAndMembershipError {
 }
 
 /// IBC light client combined update of client and membership verification
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `UcAndMembershipError::InvalidAppHash` if the app hash is not 32 bytes.
+/// Returns `UcAndMembershipError::UpdateClient` if update client verification fails.
+/// Returns `UcAndMembershipError::Membership` if membership verification fails.
 pub fn update_client_and_membership(
     client_state: ClientState,
     trusted_consensus_state: &ConsensusState,

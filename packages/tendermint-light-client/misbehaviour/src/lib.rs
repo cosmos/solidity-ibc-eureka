@@ -81,7 +81,15 @@ pub enum MisbehaviourError {
 }
 
 /// IBC light client misbehaviour check
-#[must_use]
+///
+/// # Errors
+///
+/// Returns `MisbehaviourError::InvalidClientId` if client ID creation fails.
+/// Returns `MisbehaviourError::InvalidChainId` if chain ID is invalid.
+/// Returns `MisbehaviourError::ChainIdMismatch` if chain ID doesn't match between client state and misbehaviour header.
+/// Returns `MisbehaviourError::MisbehaviourVerificationFailed` if misbehaviour verification fails.
+/// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
+/// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
 pub fn check_for_misbehaviour(
     client_state: ClientState,
     misbehaviour: &Misbehaviour,
