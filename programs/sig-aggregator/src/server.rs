@@ -1,4 +1,3 @@
-use anyhow::Ok;
 use crate::{aggregator::AggregatorService, config::Config};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use crate::rpc::{aggregator_server::AggregatorServer, FILE_DESCRIPTOR_SET};
