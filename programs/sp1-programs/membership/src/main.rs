@@ -12,7 +12,9 @@ sp1_zkvm::entrypoint!(main);
 use alloy_sol_types::SolValue;
 use ibc_proto::Protobuf;
 
-use ibc_eureka_solidity_types::msgs::IMembershipMsgs::{KVPair as SolKVPair, MembershipOutput as SolMembershipOutput};
+use ibc_eureka_solidity_types::msgs::IMembershipMsgs::{
+    KVPair as SolKVPair, MembershipOutput as SolMembershipOutput,
+};
 use tendermint_light_client_membership::{membership, KVPair};
 
 use ibc_core_commitment_types::merkle::MerkleProof;
@@ -34,7 +36,8 @@ pub fn main() {
         // loop_encoded_1 is the key-value pair we want to verify the membership of
         let loop_encoded_1 = sp1_zkvm::io::read_vec();
         let sol_kv_pair = SolKVPair::abi_decode(&loop_encoded_1).unwrap();
-        let kv_pair = KVPair::new(sol_kv_pair.path.to_vec(), sol_kv_pair.value.to_vec());
+        let path_bytes: Vec<u8> = sol_kv_pair.path.into_iter().flat_map(|b| b.to_vec()).collect();
+        let kv_pair = KVPair::new(path_bytes, sol_kv_pair.value.to_vec());
 
         // loop_encoded_2 is the Merkle proof of the key-value pair
         let loop_encoded_2 = sp1_zkvm::io::read_vec();
@@ -48,9 +51,11 @@ pub fn main() {
     // Convert output to Solidity format
     let sol_output = SolMembershipOutput {
         commitmentRoot: output.commitment_root.into(),
-        kvPairs: output.kv_pairs.into_iter()
+        kvPairs: output
+            .kv_pairs
+            .into_iter()
             .map(|kv| SolKVPair {
-                path: kv.path.into(),
+                path: vec![kv.path.into()],  // Single bytes element
                 value: kv.value.into(),
             })
             .collect(),
@@ -58,3 +63,4 @@ pub fn main() {
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
 }
+

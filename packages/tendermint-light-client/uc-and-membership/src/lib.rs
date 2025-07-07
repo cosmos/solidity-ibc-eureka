@@ -71,4 +71,3 @@ pub fn update_client_and_membership(
         membership_output: mem_output,
     })
 }
-

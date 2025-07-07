@@ -63,7 +63,7 @@ pub struct ClientState {
     /// Max clock drift in seconds
     pub max_clock_drift_seconds: u64,
     /// Frozen height (None if not frozen)
-    pub frozen_height: Option<Height>,
+    pub is_frozen: bool,
     /// Latest height
     pub latest_height: Height,
 }
@@ -164,7 +164,7 @@ mod tests {
             trusting_period_seconds: 3600,
             unbonding_period_seconds: 7200,
             max_clock_drift_seconds: 60,
-            frozen_height: None,
+            is_frozen: false,
             latest_height: Height::new(1, 100).unwrap(),
         }
     }
@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(client_state.trusting_period_seconds, 3600);
         assert_eq!(client_state.unbonding_period_seconds, 7200);
         assert_eq!(client_state.max_clock_drift_seconds, 60);
-        assert!(client_state.frozen_height.is_none());
+        assert!(!client_state.is_frozen);
         assert_eq!(client_state.latest_height.revision_number(), 1);
         assert_eq!(client_state.latest_height.revision_height(), 100);
     }

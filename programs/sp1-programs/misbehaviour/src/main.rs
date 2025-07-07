@@ -10,45 +10,14 @@
 sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
-use ibc_client_tendermint::types::{ConsensusState, Misbehaviour};
+use ibc_client_tendermint::types::Misbehaviour;
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
     IMisbehaviourMsgs::MisbehaviourOutput as SolMisbehaviourOutput,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
-use tendermint_light_client_misbehaviour::{check_for_misbehaviour, ClientState};
-use tendermint_light_client_update_client::TrustThreshold;
-use ibc_core_client_types::{Height, timestamp::Timestamp};
-
-/// Convert from Solidity ClientState to core ClientState
-fn from_sol_client_state(cs: SolClientState) -> ClientState {
-    ClientState {
-        chain_id: cs.chainId,
-        trust_level: TrustThreshold::new(
-            cs.trustLevel.numerator.into(),
-            cs.trustLevel.denominator.into(),
-        ),
-        trusting_period_seconds: cs.trustingPeriod.into(),
-        unbonding_period_seconds: cs.unbondingPeriod.into(),
-        max_clock_drift_seconds: cs.maxClockDrift.into(),
-        frozen_height: if cs.frozenHeight.revisionHeight > 0 {
-            Some(Height::new(cs.frozenHeight.revisionNumber, cs.frozenHeight.revisionHeight).expect("valid frozen height"))
-        } else {
-            None
-        },
-        latest_height: Height::new(cs.latestHeight.revisionNumber, cs.latestHeight.revisionHeight).expect("valid latest height"),
-    }
-}
-
-/// Convert from Solidity ConsensusState to tendermint ConsensusState
-fn from_sol_consensus_state(cs: SolConsensusState) -> ConsensusState {
-    ConsensusState {
-        root: cs.root.to_vec().try_into().expect("valid app hash"),
-        next_validators_hash: cs.nextValidatorsHash.into(),
-        timestamp: Timestamp::from_nanoseconds(cs.timestamp.try_into().unwrap())
-            .expect("timestamp must be valid nanoseconds"),
-    }
-}
+use sp1_ics07_utils::{from_sol_client_state, from_sol_consensus_state, to_sol_height};
+use tendermint_light_client_misbehaviour::check_for_misbehaviour;
 
 /// The main function of the program.
 ///
@@ -86,10 +55,10 @@ pub fn main() {
     // Convert output to Solidity format
     let sol_output = SolMisbehaviourOutput {
         clientState: sol_client_state,
-        trustedHeight1: output.trusted_height_1.into(),
-        trustedHeight2: output.trusted_height_2.into(),
-        trustedConsensusState1: sol_trusted_consensus_state_1.into(),
-        trustedConsensusState2: sol_trusted_consensus_state_2.into(),
+        trustedHeight1: to_sol_height(output.trusted_height_1),
+        trustedHeight2: to_sol_height(output.trusted_height_2),
+        trustedConsensusState1: sol_trusted_consensus_state_1,
+        trustedConsensusState2: sol_trusted_consensus_state_2,
         time,
     };
 

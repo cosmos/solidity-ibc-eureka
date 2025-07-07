@@ -16,29 +16,10 @@ use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
 use std::time::Duration;
 use tendermint_light_client_update_client::types::validation::ClientValidationCtx;
-pub use tendermint_light_client_update_client::TrustThreshold;
+pub use tendermint_light_client_update_client::{ClientState, TrustThreshold};
 use tendermint_light_client_verifier::{
     options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier,
 };
-
-/// Client state for misbehaviour detection
-#[derive(Clone, Debug)]
-pub struct ClientState {
-    /// Chain ID
-    pub chain_id: String,
-    /// Trust level
-    pub trust_level: TrustThreshold,
-    /// Trusting period in seconds
-    pub trusting_period_seconds: u64,
-    /// Unbonding period in seconds
-    pub unbonding_period_seconds: u64,
-    /// Max clock drift in seconds
-    pub max_clock_drift_seconds: u64,
-    /// Frozen height (None if not frozen)
-    pub frozen_height: Option<Height>,
-    /// Latest height
-    pub latest_height: Height,
-}
 
 /// Output from misbehaviour verification
 #[derive(Clone, Debug)]
