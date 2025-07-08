@@ -15,5 +15,3 @@ sha2                                  = { workspace = true }
 tendermint-light-client-update-client = { workspace = true }
 thiserror                             = { workspace = true }
 
-[features]
-default = []

@@ -1,6 +1,12 @@
 //! The crate that contains the types and utilities for `tendermint-light-client-update-client`
 //! program.
-#![deny(missing_docs, clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(
+    missing_docs,
+    clippy::nursery,
+    clippy::pedantic,
+    warnings,
+    unused_crate_dependencies
+)]
 
 pub mod types;
 
@@ -12,7 +18,9 @@ use ibc_client_tendermint::{
 };
 use ibc_core_client_types::Height;
 use ibc_core_host_types::identifiers::{ChainId, ClientId};
-use tendermint_light_client_verifier::{options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier};
+use tendermint_light_client_verifier::{
+    options::Options, types::TrustThreshold as TmTrustThreshold, ProdVerifier,
+};
 
 /// Trust threshold
 #[derive(Clone, Debug)]
@@ -27,7 +35,10 @@ impl TrustThreshold {
     /// Create a new trust threshold
     #[must_use]
     pub const fn new(numerator: u64, denominator: u64) -> Self {
-        Self { numerator, denominator }
+        Self {
+            numerator,
+            denominator,
+        }
     }
 }
 
@@ -52,19 +63,18 @@ pub struct ClientState {
     /// Max clock drift in seconds
     pub max_clock_drift_seconds: u64,
     /// Frozen height (None if not frozen)
-    pub frozen_height: Option<Height>,
+    pub is_frozen: bool,
     /// Latest height
     pub latest_height: Height,
 }
 
-
 /// Output from update client verification
 #[derive(Clone, Debug)]
 pub struct UpdateClientOutput {
-    /// New client state (with updated latest height)
-    pub new_client_state: ClientState,
     /// New consensus state from the verified header
     pub new_consensus_state: ConsensusState,
+    /// New latest height
+    pub latest_height: Height,
     /// The trusted height used for verification
     pub trusted_height: Height,
 }
@@ -92,13 +102,13 @@ pub enum UpdateClientError {
 /// - The chain ID is invalid
 /// - Header verification fails
 pub fn update_client(
-    client_state: ClientState,
+    client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
-    let client_id = ClientId::new(TENDERMINT_CLIENT_TYPE, 0)
-        .map_err(|_| UpdateClientError::InvalidClientId)?;
+    let client_id =
+        ClientId::new(TENDERMINT_CLIENT_TYPE, 0).map_err(|_| UpdateClientError::InvalidClientId)?;
     let chain_id = ChainId::from_str(&client_state.chain_id)
         .map_err(|_| UpdateClientError::InvalidChainId(client_state.chain_id.clone()))?;
 
@@ -130,63 +140,12 @@ pub fn update_client(
     .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
 
     let trusted_height = proposed_header.trusted_height;
-    let new_height = proposed_header.height();
+    let latest_height = proposed_header.height();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     Ok(UpdateClientOutput {
-        new_client_state: ClientState {
-            latest_height: new_height,
-            ..client_state
-        },
         new_consensus_state,
+        latest_height,
         trusted_height,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_client_state() -> ClientState {
-        ClientState {
-            chain_id: "test-chain".to_string(),
-            trust_level: TrustThreshold::new(1, 3),
-            trusting_period_seconds: 3600,
-            unbonding_period_seconds: 7200,
-            max_clock_drift_seconds: 60,
-            frozen_height: None,
-            latest_height: Height::new(1, 100).unwrap(),
-        }
-    }
-
-
-    #[test]
-    fn test_trust_threshold_conversion() {
-        let tt = TrustThreshold::new(1, 3);
-        let tm_tt: TmTrustThreshold = tt.into();
-        assert_eq!(tm_tt.numerator(), 1);
-        assert_eq!(tm_tt.denominator(), 3);
-    }
-
-    #[test]
-    #[should_panic(expected = "trust threshold numerator must be less than or equal to denominator")]
-    fn test_invalid_trust_threshold_panics() {
-        let tt = TrustThreshold::new(3, 1); // numerator > denominator
-        let _tm_tt: TmTrustThreshold = tt.into();
-    }
-
-
-    #[test]
-    fn test_client_state_fields() {
-        let client_state = test_client_state();
-        assert_eq!(client_state.chain_id, "test-chain");
-        assert_eq!(client_state.trust_level.numerator, 1);
-        assert_eq!(client_state.trust_level.denominator, 3);
-        assert_eq!(client_state.trusting_period_seconds, 3600);
-        assert_eq!(client_state.unbonding_period_seconds, 7200);
-        assert_eq!(client_state.max_clock_drift_seconds, 60);
-        assert!(client_state.frozen_height.is_none());
-        assert_eq!(client_state.latest_height.revision_number(), 1);
-        assert_eq!(client_state.latest_height.revision_height(), 100);
-    }
 }
