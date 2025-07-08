@@ -38,6 +38,3 @@ time = { workspace = true, default-features = false, features = ["macros"] }
 # Serialization
 borsh = "1.5"
 
-[patch.crates-io]
-# Use getrandom with custom feature to avoid wasm issues?
-getrandom = { version = "0.2", features = ["custom"] }

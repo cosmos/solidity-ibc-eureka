@@ -10534,6 +10534,7 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.9",
+ "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-misbehaviour",
  "tendermint-light-client-verifier",
@@ -10585,11 +10586,13 @@ name = "sp1-ics07-tendermint-uc-and-membership"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types 1.1.0",
- "ibc-client-tendermint-types",
+ "ibc-client-tendermint",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-ics07-utils",
  "sp1-zkvm",
+ "tendermint-light-client-membership",
  "tendermint-light-client-uc-and-membership",
 ]
 
@@ -10600,12 +10603,27 @@ dependencies = [
  "alloy-sol-types 1.1.0",
  "ibc-client-tendermint",
  "ibc-core-client",
+ "ibc-core-client-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.9",
+ "sp1-ics07-utils",
  "sp1-zkvm",
+ "tendermint-light-client-update-client",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-ics07-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 1.1.0",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "ibc-eureka-solidity-types 0.1.0",
+ "tendermint",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
 ]

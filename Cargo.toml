@@ -21,6 +21,7 @@ members = [
     "programs/sp1-programs/membership",
     "programs/sp1-programs/misbehaviour",
     "programs/sp1-programs/uc-and-membership",
+    "programs/sp1-programs/utils",
     "programs/solana/programs/ics07-tendermint",
     "programs/solana/tests",
 ]
@@ -39,6 +40,7 @@ ibc-eureka-solidity-types          = { path = "packages/solidity", default-featu
 ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
 ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
 sp1-ics07-tendermint-prover        = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
+sp1-ics07-utils                    = { path = "programs/sp1-programs/utils", default-features = false }
 sp1-ics07-tendermint-update-client = { path = "programs/sp1-programs/update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "programs/sp1-programs/membership", default-features = false }
 ethereum-trie-db                   = { path = "packages/ethereum/trie-db", default-features = false }
@@ -153,3 +155,4 @@ codegen-units = 1
 opt-level = 3
 incremental = false
 codegen-units = 1
+
