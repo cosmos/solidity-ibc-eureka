@@ -5,14 +5,12 @@ use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
-mod config;
 
 use crate::adapter_client::{Adapter, AdapterError, Signable};
 use crate::cli::SolanaClientConfig;
 
 pub use account_state::AccountState;
 
-///
 /// Relevant chain peek options. For their Solana
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
 enum PeekKind {
