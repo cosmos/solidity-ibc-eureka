@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
@@ -79,8 +80,8 @@ impl Adapter for SolanaClient {
 
         Ok(account_state)
     }
-    #[inline]
-    fn block_time_ms(&self) -> u64 {
-        400
+
+    fn block_time(&self) -> Duration {
+        Duration::from_millis(400)
     }
 }

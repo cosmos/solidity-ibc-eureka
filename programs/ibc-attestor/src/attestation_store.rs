@@ -1,6 +1,10 @@
 //! An in-memory implementation of a [Attestation]
 //! store.
+use std::cell::LazyCell;
 use std::collections::VecDeque;
+use std::time::Duration;
+
+use crate::adapter_client::Adapter;
 
 #[derive(Clone)]
 pub struct Attestation {
@@ -13,14 +17,14 @@ pub struct AttestationStore {
     max_entries: usize,
 }
 
-const NINTEY_SECS: u64 = 90_000;
+const NINTEY_SECS: LazyCell<Duration> = LazyCell::new(|| Duration::from_secs(90));
 
 impl AttestationStore {
     /// Create a new store with a dynamic capacity
     /// that is determined by how many blocks can
     /// be created within 90 seconds.
-    pub fn new(block_time_ms: u64) -> Self {
-        let max_entries = NINTEY_SECS / block_time_ms;
+    pub fn new(adapter: &impl Adapter) -> Self {
+        let max_entries = NINTEY_SECS.as_millis() / adapter.block_time().as_millis();
 
         Self {
             store: VecDeque::with_capacity(max_entries as usize),
@@ -53,23 +57,61 @@ impl AttestationStore {
 }
 
 #[cfg(test)]
+pub(self) mod mock_adapter_client {
+    use std::time::Duration;
+
+    use crate::{
+        adapter_client::{Adapter, AdapterError},
+        AccountState,
+    };
+
+    pub struct MockClient;
+
+    impl Adapter for MockClient {
+        fn block_time(&self) -> Duration {
+            Duration::from_secs(9)
+        }
+        async fn get_latest_finalized_block(
+            &self,
+        ) -> Result<impl crate::adapter_client::Signable, crate::adapter_client::AdapterError>
+        {
+            Err::<AccountState, AdapterError>(AdapterError::FinalizedBlockError("mock".into()))
+        }
+        async fn get_latest_unfinalized_block(
+            &self,
+        ) -> Result<impl crate::adapter_client::Signable, crate::adapter_client::AdapterError>
+        {
+            Err::<AccountState, AdapterError>(AdapterError::FinalizedBlockError("mock".into()))
+        }
+    }
+
+    pub fn client() -> MockClient {
+        MockClient
+    }
+}
+
+#[cfg(test)]
 mod constructor {
+    use crate::attestation_store::mock_adapter_client::client;
+
     use super::*;
 
     #[test]
     fn calcs_max_entries_correctly() {
-        let store = AttestationStore::new(9_000);
+        let store = AttestationStore::new(&client());
         assert_eq!(store.max_entries, 10);
     }
 }
 
 #[cfg(test)]
 mod push {
+    use crate::attestation_store::mock_adapter_client::client;
+
     use super::*;
 
     #[test]
     fn does_not_add_duplicate_heights_but_adds_new_height() {
-        let mut store = AttestationStore::new(9_000);
+        let mut store = AttestationStore::new(&client());
 
         for i in 1..=10 {
             let att = Attestation {
@@ -112,11 +154,13 @@ mod push {
 
 #[cfg(test)]
 mod range_from {
+    use crate::attestation_store::mock_adapter_client::client;
+
     use super::*;
 
     #[test]
     fn returns_all_heights() {
-        let mut store = AttestationStore::new(9_000);
+        let mut store = AttestationStore::new(&client());
 
         for i in 1..=10 {
             let att = Attestation {
@@ -132,7 +176,7 @@ mod range_from {
 
     #[test]
     fn returns_half_of_all_heights() {
-        let mut store = AttestationStore::new(9_000);
+        let mut store = AttestationStore::new(&client());
 
         for i in 1..=10 {
             let att = Attestation {
@@ -148,7 +192,7 @@ mod range_from {
 
     #[test]
     fn returns_latest_height() {
-        let mut store = AttestationStore::new(9_000);
+        let mut store = AttestationStore::new(&client());
 
         for i in 1..=10 {
             let att = Attestation {
@@ -164,7 +208,7 @@ mod range_from {
 
     #[test]
     fn no_heights() {
-        let mut store = AttestationStore::new(9_000);
+        let mut store = AttestationStore::new(&client());
 
         for i in 1..=10 {
             let att = Attestation {

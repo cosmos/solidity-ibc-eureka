@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future};
+use std::{fmt::Debug, future::Future, time::Duration};
 use thiserror::Error;
 
 pub trait Signable: Sync + Send + borsh::BorshSerialize + borsh::BorshDeserialize + Debug {
@@ -19,7 +19,7 @@ pub trait Adapter: Sync + Send + 'static {
         &self,
     ) -> impl Future<Output = Result<impl Signable, AdapterError>> + Send;
 
-    fn block_time_ms(&self) -> u64;
+    fn block_time(&self) -> Duration;
 }
 
 #[derive(Debug, Error)]
