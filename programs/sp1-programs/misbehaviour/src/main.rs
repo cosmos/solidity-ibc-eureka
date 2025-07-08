@@ -11,10 +11,12 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
 use ibc_client_tendermint::types::Misbehaviour;
-use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, ConsensusState as SolConsensusState,
+use ibc_eureka_solidity_types::msgs::{
+    IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
+    IMisbehaviourMsgs::MisbehaviourOutput as SolMisbehaviourOutput,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
+use sp1_ics07_utils::{to_sol_height, to_tendermint_client_state, to_tendermint_consensus_state};
 use tendermint_light_client_misbehaviour::check_for_misbehaviour;
 
 /// The main function of the program.
@@ -29,23 +31,39 @@ pub fn main() {
     let encoded_5 = sp1_zkvm::io::read_vec();
 
     // input 1: client state
-    let client_state = SolClientState::abi_decode(&encoded_1).unwrap();
+    let sol_client_state = SolClientState::abi_decode(&encoded_1).unwrap();
+    let client_state = to_tendermint_client_state(&sol_client_state);
     // input 2: the misbehaviour evidence
     let misbehaviour = <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(&encoded_2).unwrap();
-    // input 3: header 1 trusted consensus state
-    let trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3).unwrap().into();
+    // input 3: header 1 trusted consensus statE
+    let sol_trusted_consensus_state_1 = SolConsensusState::abi_decode(&encoded_3).unwrap();
+    let trusted_consensus_state_1 = to_tendermint_consensus_state(&sol_trusted_consensus_state_1);
     // input 4: header 2 trusted consensus state
-    let trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4).unwrap().into();
+    let sol_trusted_consensus_state_2 = SolConsensusState::abi_decode(&encoded_4).unwrap();
+    let trusted_consensus_state_2 = to_tendermint_consensus_state(&sol_trusted_consensus_state_2);
     // input 5: time
     let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 
-    let output = check_for_misbehaviour(
-        client_state,
+    let output = match check_for_misbehaviour(
+        &client_state,
         &misbehaviour,
         trusted_consensus_state_1,
         trusted_consensus_state_2,
         time,
-    );
+    ) {
+        Ok(output) => output,
+        Err(e) => panic!("{}", e),
+    };
 
-    sp1_zkvm::io::commit_slice(&output.abi_encode());
+    // Convert output to Solidity format
+    let sol_output = SolMisbehaviourOutput {
+        clientState: sol_client_state,
+        trustedHeight1: to_sol_height(output.trusted_height_1),
+        trustedHeight2: to_sol_height(output.trusted_height_2),
+        trustedConsensusState1: sol_trusted_consensus_state_1,
+        trustedConsensusState2: sol_trusted_consensus_state_2,
+        time,
+    };
+
+    sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
 }

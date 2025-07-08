@@ -8,4 +8,6 @@ license     = { workspace = true }
 
 [dependencies]
 ibc-core-commitment-types     = { workspace = true }
-ibc-eureka-solidity-types     = { workspace = true }
+ibc-core-host-types           = { workspace = true }
+thiserror                     = { workspace = true }
+
