@@ -54,8 +54,8 @@ pub enum MisbehaviourError {
     /// Check for misbehaviour failed
     #[error("check for misbehaviour failed")]
     CheckForMisbehaviourFailed,
-    /// Misbehaviour not detected
-    #[error("misbehaviour not detected")]
+    /// Misbehaviour is not detected
+    #[error("misbehaviour is not detected")]
     MisbehaviourNotDetected,
 }
 
