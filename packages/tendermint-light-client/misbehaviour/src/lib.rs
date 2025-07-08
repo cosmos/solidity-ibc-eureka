@@ -24,8 +24,6 @@ use tendermint_light_client_verifier::{
 /// Output from misbehaviour verification
 #[derive(Clone, Debug)]
 pub struct MisbehaviourOutput {
-    /// The client state that was used to verify the misbehaviour
-    pub client_state: ClientState,
     /// The trusted height of header 1
     pub trusted_height_1: Height,
     /// The trusted height of header 2
@@ -72,7 +70,7 @@ pub enum MisbehaviourError {
 /// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
 /// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
 pub fn check_for_misbehaviour(
-    client_state: ClientState,
+    client_state: &ClientState,
     misbehaviour: &Misbehaviour,
     trusted_consensus_state_1: ConsensusState,
     trusted_consensus_state_2: ConsensusState,
@@ -144,7 +142,6 @@ pub fn check_for_misbehaviour(
     // Thus, the verifier must ensure that the trusted headers that were used in the proof are trusted consensus
     // states stored in its own internal state before it can accept the misbehaviour proof as valid.
     Ok(MisbehaviourOutput {
-        client_state,
         trusted_height_1: misbehaviour.header1().trusted_height,
         trusted_height_2: misbehaviour.header2().trusted_height,
         trusted_consensus_state_1,

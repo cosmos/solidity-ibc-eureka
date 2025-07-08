@@ -46,7 +46,7 @@ pub enum UcAndMembershipError {
 /// Returns `UcAndMembershipError::UpdateClient` if update client verification fails.
 /// Returns `UcAndMembershipError::Membership` if membership verification fails.
 pub fn update_client_and_membership(
-    client_state: ClientState,
+    client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,

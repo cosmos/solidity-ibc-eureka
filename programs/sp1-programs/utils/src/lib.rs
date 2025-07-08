@@ -15,7 +15,7 @@ use alloy_sol_types as _;
 use ibc_client_tendermint::types::ConsensusState;
 use ibc_core_client_types::Height;
 use ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::{
-    ClientState as SolClientState, ConsensusState as SolConsensusState, SupportedZkAlgorithm,
+    ClientState as SolClientState, ConsensusState as SolConsensusState,
 };
 use tendermint::Hash;
 use tendermint_light_client_update_client::{ClientState, TrustThreshold};
@@ -28,9 +28,9 @@ pub const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
 /// # Panics
 /// Panics if the heights are invalid (should not happen with validated Solidity input)
 #[must_use]
-pub fn to_tendermint_client_state(cs: SolClientState) -> ClientState {
+pub fn to_tendermint_client_state(cs: &SolClientState) -> ClientState {
     ClientState {
-        chain_id: cs.chainId,
+        chain_id: cs.chainId.clone(),
         trust_level: TrustThreshold::new(
             cs.trustLevel.numerator.into(),
             cs.trustLevel.denominator.into(),
@@ -102,38 +102,5 @@ pub fn to_sol_consensus_state(cs: ConsensusState) -> SolConsensusState {
             .as_bytes()
             .try_into()
             .expect("next validators hash must be 32 bytes"),
-    }
-}
-
-/// Convert a tendermint `ClientState` to Solidity `ClientState` format
-#[must_use]
-/// # Panics
-/// Panics if the numerator/denominator don't fit in u8
-pub fn to_sol_client_state(cs: ClientState, zk_algo: SupportedZkAlgorithm) -> SolClientState {
-    SolClientState {
-        chainId: cs.chain_id,
-        trustLevel: ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::TrustThreshold {
-            numerator: cs
-                .trust_level
-                .numerator
-                .try_into()
-                .expect("numerator fits in u8"),
-            denominator: cs
-                .trust_level
-                .denominator
-                .try_into()
-                .expect("denominator fits in u8"),
-        },
-        trustingPeriod: cs
-            .trusting_period_seconds
-            .try_into()
-            .expect("trusting period fits in u32"),
-        unbondingPeriod: cs
-            .unbonding_period_seconds
-            .try_into()
-            .expect("unbonding period fits in u32"),
-        latestHeight: to_sol_height(cs.latest_height),
-        isFrozen: cs.is_frozen,
-        zkAlgorithm: zk_algo,
     }
 }

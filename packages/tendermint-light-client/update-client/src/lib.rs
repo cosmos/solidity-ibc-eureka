@@ -71,10 +71,10 @@ pub struct ClientState {
 /// Output from update client verification
 #[derive(Clone, Debug)]
 pub struct UpdateClientOutput {
-    /// New client state (with updated latest height)
-    pub new_client_state: ClientState,
     /// New consensus state from the verified header
     pub new_consensus_state: ConsensusState,
+    /// New latest height
+    pub latest_height: Height,
     /// The trusted height used for verification
     pub trusted_height: Height,
 }
@@ -102,7 +102,7 @@ pub enum UpdateClientError {
 /// - The chain ID is invalid
 /// - Header verification fails
 pub fn update_client(
-    client_state: ClientState,
+    client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
@@ -144,10 +144,7 @@ pub fn update_client(
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     Ok(UpdateClientOutput {
-        new_client_state: ClientState {
-            latest_height: new_height,
-            ..client_state
-        },
+        latest_height: new_height,
         new_consensus_state,
         trusted_height,
     })

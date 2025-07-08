@@ -16,7 +16,7 @@ use ibc_eureka_solidity_types::msgs::{
     IMisbehaviourMsgs::MisbehaviourOutput as SolMisbehaviourOutput,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour, Protobuf};
-use sp1_ics07_utils::{to_sol_client_state, to_sol_height, to_tendermint_client_state, to_tendermint_consensus_state};
+use sp1_ics07_utils::{to_sol_height, to_tendermint_client_state, to_tendermint_consensus_state};
 use tendermint_light_client_misbehaviour::check_for_misbehaviour;
 
 /// The main function of the program.
@@ -32,7 +32,7 @@ pub fn main() {
 
     // input 1: client state
     let sol_client_state = SolClientState::abi_decode(&encoded_1).unwrap();
-    let client_state = to_tendermint_client_state(sol_client_state.clone());
+    let client_state = to_tendermint_client_state(&sol_client_state);
     // input 2: the misbehaviour evidence
     let misbehaviour = <Misbehaviour as Protobuf<RawMisbehaviour>>::decode_vec(&encoded_2).unwrap();
     // input 3: header 1 trusted consensus statE
@@ -45,7 +45,7 @@ pub fn main() {
     let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 
     let output = check_for_misbehaviour(
-        client_state,
+        &client_state,
         &misbehaviour,
         trusted_consensus_state_1,
         trusted_consensus_state_2,
@@ -53,11 +53,9 @@ pub fn main() {
     )
     .unwrap();
 
-    let new_sol_client_state = to_sol_client_state(output.client_state, sol_client_state.zkAlgorithm);
-
     // Convert output to Solidity format
     let sol_output = SolMisbehaviourOutput {
-        clientState: new_sol_client_state,
+        clientState: sol_client_state,
         trustedHeight1: to_sol_height(output.trusted_height_1),
         trustedHeight2: to_sol_height(output.trusted_height_2),
         trustedConsensusState1: sol_trusted_consensus_state_1,
@@ -67,4 +65,3 @@ pub fn main() {
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
 }
-
