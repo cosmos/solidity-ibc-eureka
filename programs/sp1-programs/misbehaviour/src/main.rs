@@ -44,14 +44,16 @@ pub fn main() {
     // input 5: time
     let time = u128::from_le_bytes(encoded_5.try_into().unwrap());
 
-    let output = check_for_misbehaviour(
+    let output = match check_for_misbehaviour(
         &client_state,
         &misbehaviour,
         trusted_consensus_state_1,
         trusted_consensus_state_2,
         time,
-    )
-    .unwrap();
+    ) {
+        Ok(output) => output,
+        Err(e) => panic!("{}", e),
+    };
 
     // Convert output to Solidity format
     let sol_output = SolMisbehaviourOutput {
