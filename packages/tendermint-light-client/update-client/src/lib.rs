@@ -140,11 +140,11 @@ pub fn update_client(
     .map_err(|_| UpdateClientError::HeaderVerificationFailed)?;
 
     let trusted_height = proposed_header.trusted_height;
-    let new_height = proposed_header.height();
+    let latest_height = proposed_header.height();
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     Ok(UpdateClientOutput {
-        latest_height: new_height,
+        latest_height,
         new_consensus_state,
         trusted_height,
     })
