@@ -144,8 +144,8 @@ pub fn update_client(
     let new_consensus_state = ConsensusState::from(proposed_header);
 
     Ok(UpdateClientOutput {
-        latest_height,
         new_consensus_state,
+        latest_height,
         trusted_height,
     })
 }
