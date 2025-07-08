@@ -215,8 +215,15 @@ pub struct ConsensusStateStore {
 }
 
 #[derive(Accounts)]
+#[instruction(chain_id: String)]
 pub struct Initialize<'info> {
-    #[account(init, payer = payer, space = 8 + 1000)]
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 1000,
+        seeds = [b"client", chain_id.as_bytes()],
+        bump
+    )]
     pub client_data: Account<'info, ClientData>,
     #[account(
         init,
@@ -228,6 +235,7 @@ pub struct Initialize<'info> {
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
     #[account(mut)]
     pub payer: Signer<'info>,
+
     pub system_program: Program<'info, System>,
 }
 

@@ -11650,6 +11650,7 @@ dependencies = [
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics07-tendermint",
  "prost",
+ "solana-system-interface",
  "tendermint",
 ]
 

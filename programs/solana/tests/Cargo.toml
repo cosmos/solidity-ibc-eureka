@@ -13,3 +13,4 @@ ibc-core-client-types = { workspace = true }
 ibc-client-tendermint = { workspace = true }
 tendermint = { workspace = true, default-features = false }
 prost = { workspace = true, default-features = false }
+solana-system-interface = "1.0.0"
