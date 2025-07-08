@@ -55,7 +55,6 @@ impl From<ClientState> for UpdateClientState {
     }
 }
 
-
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct ConsensusState {
     pub timestamp: u64,
