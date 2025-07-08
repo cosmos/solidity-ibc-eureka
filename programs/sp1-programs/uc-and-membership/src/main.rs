@@ -52,30 +52,31 @@ pub fn main() {
     // input 4: time
     let time = u128::from_le_bytes(encoded_4.try_into().unwrap());
 
-    let request_iter = (0..request_len).map(|_| {
-        // loop_encoded_1 is the key-value pair we want to verify the membership of
-        let loop_encoded_1 = sp1_zkvm::io::read_vec();
-        let sol_kv_pair = SolKVPair::abi_decode(&loop_encoded_1).unwrap();
-        let path_bytes: Vec<u8> = sol_kv_pair
-            .path
-            .into_iter()
-            .flat_map(|b| b.to_vec())
-            .collect();
-        let kv_pair = KVPair::new(path_bytes, sol_kv_pair.value.to_vec());
+    // Collect KVPairs and proofs separately
+    let (sol_kv_pairs, kv_pairs): (Vec<_>, Vec<_>) = (0..request_len)
+        .map(|_| {
+            // loop_encoded_1 is the key-value pair we want to verify the membership of
+            let loop_encoded_1 = sp1_zkvm::io::read_vec();
+            let sol_kv_pair = SolKVPair::abi_decode(&loop_encoded_1).unwrap();
+            let kv_pair = KVPair::new(
+                sol_kv_pair.path.iter().map(|b| b.to_vec()).collect(),
+                sol_kv_pair.value.to_vec(),
+            );
 
-        // loop_encoded_2 is the Merkle proof of the key-value pair
-        let loop_encoded_2 = sp1_zkvm::io::read_vec();
-        let merkle_proof = MerkleProof::decode_vec(&loop_encoded_2).unwrap();
+            // loop_encoded_2 is the Merkle proof of the key-value pair
+            let loop_encoded_2 = sp1_zkvm::io::read_vec();
+            let merkle_proof = MerkleProof::decode_vec(&loop_encoded_2).unwrap();
 
-        (kv_pair, merkle_proof)
-    });
+            (sol_kv_pair, (kv_pair, merkle_proof))
+        })
+        .unzip();
 
     let output = update_client_and_membership(
         &client_state,
         &trusted_consensus_state,
         proposed_header,
         time,
-        request_iter,
+        &kv_pairs,
     )
     .unwrap();
 
@@ -92,15 +93,7 @@ pub fn main() {
 
     let sol_output = SolUcAndMembershipOutput {
         updateClientOutput: sol_update_output,
-        kvPairs: output
-            .membership_output
-            .kv_pairs
-            .into_iter()
-            .map(|kv| SolKVPair {
-                path: vec![kv.path.into()], // Single bytes element
-                value: kv.value.into(),
-            })
-            .collect(),
+        kvPairs: sol_kv_pairs,
     };
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());

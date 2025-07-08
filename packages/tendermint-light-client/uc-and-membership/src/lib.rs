@@ -12,7 +12,7 @@ use ibc_core_client_types as _;
 
 use ibc_client_tendermint::types::{ConsensusState, Header};
 use ibc_core_commitment_types::merkle::MerkleProof;
-use tendermint_light_client_membership::{KVPair, MembershipOutput};
+use tendermint_light_client_membership::KVPair;
 use tendermint_light_client_update_client::{ClientState, UpdateClientOutput};
 
 /// Output from combined update client and membership verification
@@ -20,8 +20,6 @@ use tendermint_light_client_update_client::{ClientState, UpdateClientOutput};
 pub struct UcAndMembershipOutput {
     /// Output from update client verification
     pub update_output: UpdateClientOutput,
-    /// Output from membership verification
-    pub membership_output: MembershipOutput,
 }
 
 /// Error type for combined update client and membership
@@ -50,7 +48,7 @@ pub fn update_client_and_membership(
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
     time: u128,
-    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
+    request: &[(KVPair, MerkleProof)],
 ) -> Result<UcAndMembershipOutput, UcAndMembershipError> {
     let app_hash_bytes = proposed_header.signed_header.header().app_hash.as_bytes();
     let app_hash: [u8; 32] = app_hash_bytes
@@ -64,10 +62,9 @@ pub fn update_client_and_membership(
         time,
     )?;
 
-    let mem_output = tendermint_light_client_membership::membership(app_hash, request_iter)?;
+    tendermint_light_client_membership::membership(app_hash, request)?;
 
     Ok(UcAndMembershipOutput {
         update_output: uc_output,
-        membership_output: mem_output,
     })
 }

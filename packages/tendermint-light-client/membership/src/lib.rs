@@ -18,8 +18,8 @@ use ibc_core_host_types::path::PathBytes;
 /// Key-value pair for membership/non-membership proofs
 #[derive(Clone, Debug)]
 pub struct KVPair {
-    /// Storage path as raw bytes
-    pub path: Vec<u8>,
+    /// Storage path segments
+    pub path: Vec<Vec<u8>>,
     /// Value (empty for non-membership proofs)
     pub value: Vec<u8>,
 }
@@ -27,7 +27,7 @@ pub struct KVPair {
 impl KVPair {
     /// Create a new key-value pair
     #[must_use]
-    pub const fn new(path: Vec<u8>, value: Vec<u8>) -> Self {
+    pub const fn new(path: Vec<Vec<u8>>, value: Vec<u8>) -> Self {
         Self { path, value }
     }
 
@@ -35,6 +35,18 @@ impl KVPair {
     #[must_use]
     pub const fn is_non_membership(&self) -> bool {
         self.value.is_empty()
+    }
+
+    /// Create a `MerklePath` from this `KVPair` path segments
+    #[must_use]
+    pub fn to_merkle_path(&self) -> MerklePath {
+        MerklePath::new(
+            self.path
+                .clone()
+                .iter()
+                .map(PathBytes::from_bytes)
+                .collect(),
+        )
     }
 }
 
@@ -66,41 +78,32 @@ pub enum MembershipError {
 /// Returns `MembershipError::MembershipVerificationFailed` if membership proof verification fails.
 pub fn membership(
     app_hash: [u8; 32],
-    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
-) -> Result<MembershipOutput, MembershipError> {
+    request: &[(KVPair, MerkleProof)],
+) -> Result<(), MembershipError> {
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
+    for (kv_pair, merkle_proof) in request {
+        let value = kv_pair.value.clone();
+        let merkle_path = kv_pair.to_merkle_path();
 
-    let kv_pairs = request_iter
-        .map(|(kv_pair, merkle_proof)| {
-            let path = PathBytes::from_bytes(kv_pair.path.clone());
-            let merkle_path = MerklePath::new(vec![path]);
-
-            if kv_pair.is_non_membership() {
-                merkle_proof
-                    .verify_non_membership::<HostFunctionsManager>(
-                        &ProofSpecs::cosmos(),
-                        commitment_root.clone().into(),
-                        merkle_path,
-                    )
-                    .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
-            } else {
-                merkle_proof
-                    .verify_membership::<HostFunctionsManager>(
-                        &ProofSpecs::cosmos(),
-                        commitment_root.clone().into(),
-                        merkle_path,
-                        kv_pair.value.clone(),
-                        0,
-                    )
-                    .map_err(|_| MembershipError::MembershipVerificationFailed)?;
-            }
-
-            Ok(kv_pair)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(MembershipOutput {
-        commitment_root: app_hash,
-        kv_pairs,
-    })
+        if kv_pair.is_non_membership() {
+            merkle_proof
+                .verify_non_membership::<HostFunctionsManager>(
+                    &ProofSpecs::cosmos(),
+                    commitment_root.clone().into(),
+                    merkle_path,
+                )
+                .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
+        } else {
+            merkle_proof
+                .verify_membership::<HostFunctionsManager>(
+                    &ProofSpecs::cosmos(),
+                    commitment_root.clone().into(),
+                    merkle_path,
+                    value,
+                    0,
+                )
+                .map_err(|_| MembershipError::MembershipVerificationFailed)?;
+        }
+    }
+    Ok(())
 }
