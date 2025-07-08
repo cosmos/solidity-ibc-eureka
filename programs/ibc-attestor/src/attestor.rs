@@ -43,6 +43,8 @@ pub struct AttestorService<A: Adapter> {
     // Interior mutability to allow Arc
     // of service
     store: Arc<Mutex<AttestationStore>>,
+    /// How often the `store` should be updated
+    update_frequency: Duration,
 }
 
 pub trait Attestor: Send + Sync + 'static {
@@ -57,11 +59,17 @@ impl<A> AttestorService<A>
 where
     A: Adapter,
 {
-    pub fn new(adapter: A, signer: Signer, store: AttestationStore) -> Self {
+    pub fn new(
+        adapter: A,
+        signer: Signer,
+        store: AttestationStore,
+        update_frequency: Duration,
+    ) -> Self {
         Self {
             adapter,
             signer,
             store: Arc::new(Mutex::new(store)),
+            update_frequency,
         }
     }
 
@@ -83,7 +91,7 @@ where
     A: Adapter,
 {
     fn update_frequency(&self) -> Duration {
-        Duration::from_millis(10)
+        self.update_frequency
     }
 
     async fn update_attestation_store(&self) {

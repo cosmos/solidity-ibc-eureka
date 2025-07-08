@@ -1,8 +1,8 @@
 use std::fs;
+use std::time::Duration;
 
 use clap::Parser;
 use ibc_attestor::{
-    adapter_client::Adapter,
     attestation_store::AttestationStore,
     attestor::AttestorService,
     cli::{
@@ -29,8 +29,10 @@ async fn main() -> Result<(), anyhow::Error> {
                     let signer = Signer::from_config(config.signer.unwrap_or_default())?;
 
                     let adapter = SolanaClient::from_config(config.solana);
-                    let att_store = AttestationStore::new(adapter.block_time_ms());
-                    let attestor = AttestorService::new(adapter, signer, att_store);
+                    let att_store = AttestationStore::new(&adapter);
+                    let solana_update_frequeny = Duration::from_millis(100);
+                    let attestor =
+                        AttestorService::new(adapter, signer, att_store, solana_update_frequeny);
 
                     let server = Server::new(&config.server);
                     let _ = server.start(attestor, config.server).await;

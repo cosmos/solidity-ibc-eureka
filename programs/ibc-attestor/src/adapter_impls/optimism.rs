@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use alloy_rpc_client::{ClientBuilder, ReqwestClient};
 
@@ -9,7 +10,7 @@ pub use config::OpConsensusClientConfig;
 
 use super::header::Header;
 use crate::{
-    adapter_client::{Adapter, AdapterError},
+    adapter_client::{Adapter, AdapterError, Signable},
     adapter_impls::optimism::header::SyncHeader,
 };
 
@@ -39,7 +40,7 @@ impl OpConsensusClient {
 }
 
 impl Adapter for OpConsensusClient {
-    async fn get_latest_finalized_block(&self) -> Result<Header, AdapterError> {
+    async fn get_latest_finalized_block(&self) -> Result<impl Signable, AdapterError> {
         let state = self.get_sync_state().await?;
 
         state
@@ -52,7 +53,7 @@ impl Adapter for OpConsensusClient {
                 "response received but no finalized L2 found in response".into(),
             ))
     }
-    async fn get_latest_unfinalized_block(&self) -> Result<Header, AdapterError> {
+    async fn get_latest_unfinalized_block(&self) -> Result<impl Signable, AdapterError> {
         let state = self.get_sync_state().await?;
 
         state
@@ -65,7 +66,7 @@ impl Adapter for OpConsensusClient {
                 "response received but no unfinalized L2 found in response".into(),
             ))
     }
-    fn block_time_ms(&self) -> u64 {
-        15_000
+    fn block_time(&self) -> Duration {
+        Duration::from_secs(15)
     }
 }

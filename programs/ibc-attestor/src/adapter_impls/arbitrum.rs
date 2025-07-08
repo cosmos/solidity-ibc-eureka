@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use alloy::{consensus::Header as EthHeader, eips::BlockNumberOrTag};
 use alloy_network::Ethereum;
 use alloy_provider::{Provider, RootProvider};
@@ -70,7 +72,7 @@ impl Adapter for ArbitrumClient {
             header.timestamp,
         ))
     }
-    fn block_time_ms(&self) -> u64 {
-        15_000
+    fn block_time(&self) -> Duration {
+        Duration::from_secs(15)
     }
 }

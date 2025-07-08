@@ -1,18 +1,17 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
 mod account_state;
-mod config;
 
 use crate::adapter_client::{Adapter, AdapterError, Signable};
 use crate::cli::SolanaClientConfig;
 
 pub use account_state::AccountState;
 
-///
 /// Relevant chain peek options. For their Solana
 /// interpretation see [these docs](https://docs.arbitrum.io/for-devs/troubleshooting-building#how-many-block-numbers-must-we-wait-for-in-arbitrum-before-we-can-confidently-state-that-the-transaction-has-reached-finality)
 enum PeekKind {
@@ -81,8 +80,8 @@ impl Adapter for SolanaClient {
 
         Ok(account_state)
     }
-    #[inline]
-    fn block_time_ms(&self) -> u64 {
-        400
+
+    fn block_time(&self) -> Duration {
+        Duration::from_millis(400)
     }
 }
