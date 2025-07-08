@@ -35,32 +35,6 @@ fn test_initialize_with_pda() {
         .account::<ics07_tendermint::ClientData>(contract.client_data_pda)
         .expect("Failed to fetch client_data account");
 
-    // // Calculate the consensus state store PDA for initial height 1
-    // let (consensus_state_store, _bump) = Pubkey::find_program_address(
-    //     &[
-    //         b"consensus_state",
-    //         client_data.pubkey().as_ref(),
-    //         &1u64.to_le_bytes(), // Initial height is 1 in our test client state
-    //     ],
-    //     &program_id,
-    // );
-
-    // println!("🚀 Testing initialize function");
-    // let init_result = program
-    //     .request()
-    //     .accounts(ics07_tendermint::accounts::Initialize {
-    //         client_data: client_data.pubkey(),
-    //         consensus_state_store,
-    //         payer: payer.pubkey(),
-    //         system_program: system_program::id(),
-    //     })
-    //     .args(ics07_tendermint::instruction::Initialize {
-    //         client_state: client_state.clone(),
-    //         consensus_state: consensus_state.clone(),
-    //     })
-    //     .signer(&client_data)
-    //     .send()
-    //     .expect("Initialize transaction should succeed");
     assert_eq!(
         account.client_state.chain_id,
         contract.client_state.chain_id
