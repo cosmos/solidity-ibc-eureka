@@ -7804,6 +7804,7 @@ name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-core-commitment-types",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",

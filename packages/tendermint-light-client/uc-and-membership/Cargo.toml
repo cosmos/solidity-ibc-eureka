@@ -13,3 +13,5 @@ tendermint-light-client-update-client = { workspace = true }
 tendermint-light-client-membership    = { workspace = true }
 thiserror                             = { workspace = true }
 
+[dev-dependencies]
+ibc-core-client-types = { workspace = true }
