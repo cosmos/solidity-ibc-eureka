@@ -16,3 +16,6 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "bash -c 'cd tests && cargo test --release'"
+
+[test]
+startup_wait = 5000
