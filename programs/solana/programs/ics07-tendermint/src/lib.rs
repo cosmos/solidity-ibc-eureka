@@ -19,7 +19,6 @@ use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviou
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use tendermint::Time;
 use tendermint_light_client_membership::KVPair;
-use tendermint_light_client_misbehaviour;
 use tendermint_light_client_misbehaviour::ClientState as TmClientState;
 use tendermint_light_client_update_client::{ClientState as UpdateClientState, TrustThreshold};
 use time::OffsetDateTime;
@@ -64,19 +63,15 @@ pub struct ConsensusState {
 
 impl From<ConsensusState> for IbcConsensusState {
     fn from(cs: ConsensusState) -> Self {
-        let time = OffsetDateTime::from_unix_timestamp_nanos(
-            cs.timestamp.try_into().expect("timestamp overflow"),
-        )
-        .expect("invalid timestamp");
+        let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
+            .expect("invalid timestamp");
         let seconds = time.unix_timestamp();
         let nanos = time.nanosecond();
 
         IbcConsensusState {
             timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
             root: CommitmentRoot::from_bytes(&cs.root),
-            next_validators_hash: tendermint::Hash::Sha256(
-                cs.next_validators_hash.try_into().expect("invalid hash"),
-            ),
+            next_validators_hash: tendermint::Hash::Sha256(cs.next_validators_hash),
         }
     }
 }
