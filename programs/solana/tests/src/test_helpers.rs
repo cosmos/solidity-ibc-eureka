@@ -1,5 +1,5 @@
-use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use prost::Message;
 
@@ -15,20 +15,20 @@ pub fn create_test_header_bytes() -> Vec<u8> {
         }),
         trusted_validators: Some(Default::default()),
     };
-    
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
-    raw_header.encode(&mut buf).expect("encoding should succeed");
+    raw_header
+        .encode(&mut buf)
+        .expect("encoding should succeed");
     buf
 }
 
 /// Creates a minimal valid protobuf-encoded MerkleProof for testing
 pub fn create_test_merkle_proof_bytes() -> Vec<u8> {
     // Create a minimal RawMerkleProof
-    let raw_proof = RawMerkleProof {
-        proofs: vec![],
-    };
-    
+    let raw_proof = RawMerkleProof { proofs: vec![] };
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
     raw_proof.encode(&mut buf).expect("encoding should succeed");
@@ -43,9 +43,11 @@ pub fn create_test_misbehaviour_bytes() -> Vec<u8> {
         header_1: Some(Default::default()),
         header_2: Some(Default::default()),
     };
-    
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
-    raw_misbehaviour.encode(&mut buf).expect("encoding should succeed");
+    raw_misbehaviour
+        .encode(&mut buf)
+        .expect("encoding should succeed");
     buf
 }

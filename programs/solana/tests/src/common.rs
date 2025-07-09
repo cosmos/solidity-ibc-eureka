@@ -1,6 +1,6 @@
 use anchor_client::{
     solana_sdk::{
-        commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program,
+        commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer,
     },
     Client, Cluster, Program,
 };
@@ -101,7 +101,8 @@ where
     // Fund the payer account with SOL for transaction fees
     let rpc_url = "http://localhost:8899";
     let rpc_client = anchor_client::solana_client::rpc_client::RpcClient::new(rpc_url);
-    rpc_client.request_airdrop(&payer.pubkey(), 10_000_000_000) // 10 SOL
+    rpc_client
+        .request_airdrop(&payer.pubkey(), 10_000_000_000) // 10 SOL
         .and_then(|sig| rpc_client.confirm_transaction(&sig))
         .unwrap_or_else(|e| panic!("Failed to fund payer for {} test: {}", test_name, e));
     println!("💰 Airdropped 10 SOL to payer");
@@ -112,10 +113,12 @@ where
     let signature = initialize_test_client(&program, &client_data, &payer)
         .unwrap_or_else(|e| panic!("Failed to initialize client for {} test: {}", test_name, e));
 
-    println!("✅ Initialize successful: {}, now testing {}", signature, test_name);
+    println!(
+        "✅ Initialize successful: {}, now testing {}",
+        signature, test_name
+    );
 
-    test_fn(&program, &client_data)
-        .unwrap_or_else(|e| panic!("{} test failed: {}", test_name, e));
+    test_fn(&program, &client_data).unwrap_or_else(|e| panic!("{} test failed: {}", test_name, e));
 
     println!("✅ {} test successful", test_name);
     println!("🎯 {} test completed!", test_name);

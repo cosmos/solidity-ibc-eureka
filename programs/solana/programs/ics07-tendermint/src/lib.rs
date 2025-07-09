@@ -343,14 +343,12 @@ pub mod ics07_tendermint {
         let kv_pair = KVPair::new(vec![msg.path.clone()], msg.value);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        tendermint_light_client_membership::membership(
-            app_hash,
-            &[(kv_pair, proof)],
-        )
-        .map_err(|e| {
-            msg!("Membership verification failed: {:?}", e);
-            error!(ErrorCode::MembershipVerificationFailed)
-        })?;
+        tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(
+            |e| {
+                msg!("Membership verification failed: {:?}", e);
+                error!(ErrorCode::MembershipVerificationFailed)
+            },
+        )?;
 
         Ok(())
     }
@@ -371,14 +369,12 @@ pub mod ics07_tendermint {
         let kv_pair = KVPair::new(vec![msg.path.clone()], vec![]);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        tendermint_light_client_membership::membership(
-            app_hash,
-            &[(kv_pair, proof)],
-        )
-        .map_err(|e| {
-            msg!("Non-membership verification failed: {:?}", e);
-            error!(ErrorCode::NonMembershipVerificationFailed)
-        })?;
+        tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(
+            |e| {
+                msg!("Non-membership verification failed: {:?}", e);
+                error!(ErrorCode::NonMembershipVerificationFailed)
+            },
+        )?;
 
         Ok(())
     }
