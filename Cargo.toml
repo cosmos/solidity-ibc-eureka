@@ -130,6 +130,9 @@ alloy-rlp              = { version = "0.3", default-features = false }
 alloy-provider         = { version = "1.0", default-features = false }
 alloy-transport        = { version = "1.0", default-features = false }
 alloy-rpc-types-eth    = { version = "1.0", default-features = false }
+# TODO: This lock exists for solana cargo that does not support edition2024 added in new version
+# Remove once solana platform tools are updated to new cargo
+alloy-chains           = { version = "=0.2.4", default-features = false }
 
 sp1-sdk    = { version = "5.0", default-features = false }
 sp1-prover = { version = "5.0", default-features = false }
@@ -173,3 +176,4 @@ codegen-units = 1
 opt-level = 3
 incremental = false
 codegen-units = 1
+
