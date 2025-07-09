@@ -12,8 +12,8 @@ members = [
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
-    "programs/ibc-attestor",
-    "programs/sig-aggregator",
+    "programs/ibc-attestor" ,
+    "packages/key-utils"
 ]
 resolver = "2"
 
@@ -25,6 +25,7 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
+key-utils                          = { path = "packages/key-utils", default-features = false }
 ibc-eureka-solidity-types          = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib             = { path = "packages/relayer-lib", default-features = false }
 ibc-eureka-utils                   = { path = "packages/utils", default-features = false }
@@ -37,31 +38,32 @@ ethereum-types                     = { path = "packages/ethereum/types", default
 ethereum-apis                      = { path = "packages/ethereum/apis", default-features = false }
 tree_hash                          = { path = "packages/ethereum/tree_hash", default-features = false }
 
-borsh              = { version = "1.5.7", default-features = false }
-serde              = { version = "1.0", default-features = false }
-serde_json         = { version = "1.0", default-features = false }
-serde_cbor         = { version = "0.11", default-features = false }
-serde_with         = { version = "3.14", default-features = false }
-toml               = { version = "0.8.23", default-features = false }
-hex                = { version = "0.4", default-features = false }
-base64             = { version = "0.22", default-features = false }
-prost              = { version = "0.13", default-features = false }
-subtle-encoding    = { version = "0.5", default-features = false }
-schemars           = { version = "0.8", default-features = false }
+serde           = { version = "1.0", default-features = false }
+serde_json      = { version = "1.0", default-features = false }
+serde_cbor      = { version = "0.11", default-features = false }
+serde_with      = { version = "3.11", default-features = false }
+toml            = { version = "0.8.23", default-features = false }
+hex             = { version = "0.4", default-features = false }
+base64          = { version = "0.22", default-features = false }
+prost           = { version = "0.13", default-features = false }
+subtle-encoding = { version = "0.5", default-features = false }
+schemars        = { version = "0.8", default-features = false }
+borsh           = { version = "1.5.7", default-features = false }
 
-secp256k1          = { version = "0.31.0", default-features = false }
-sha2               = { version = "0.10", default-features = false }
-sha3               = { version = "0.10", default-features = false }
+sha2      = { version = "0.10", default-features = false }
+sha3      = { version = "0.10", default-features = false }
+secp256k1 = { version = "0.31.1", default-features = false }
+rand      = { version = "0.9", default-features = false }
+pem       = { version = "3.0.5", default-features = false }
+pkcs8     = { version = "0.10.2", default-features = false }
+sec1      = { version = "0.7.3", default-features = false }
 
-url                = { version = "2", default-features = false}
-rand               = { version = "0.9", default-features = false }
-
-tokio              = { version = "1.0", default-features = false }
-tower-http         = { version = "0.6.6", default-features = false }
-tonic              = { version = "0.13", default-features = false }
-tonic-build        = { version = "0.13", default-features = false }
-tonic-reflection   = { version = "0.13", default-features = false }
-warp               = { version = "0.3", default-features = false }
+tokio            = { version = "1.0", default-features = false }
+tower-http       = { version = "0.6.6", default-features = false }
+tonic            = { version = "0.13", default-features = false }
+tonic-build      = { version = "0.13", default-features = false }
+tonic-reflection = { version = "0.13", default-features = false }
+warp             = { version = "0.3", default-features = false }
 
 prometheus         = { version = "0.14", default-features = false }
 tracing            = { version = "0.1", default-features = false }
