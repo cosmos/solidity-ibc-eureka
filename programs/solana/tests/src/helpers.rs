@@ -122,12 +122,12 @@ pub fn initialize_contract(
     );
     log(&env, &format!("📍 Client data PDA: {}", client_data_pda));
 
-    // Calculate the consensus state store PDA for the initial height (1)
+    // Calculate the consensus state store PDA for the initial height (0)
     let (consensus_state_store, _bump) = Pubkey::find_program_address(
         &[
             b"consensus_state",
             client_data_pda.as_ref(),
-            &1u64.to_le_bytes(), // Initial height is 1 in our test client state
+            &0u64.to_le_bytes(), // Initial height is 0 in our test client state
         ],
         &env.program.id(),
     );
