@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package aggregator;
+
+// The Aggregator service definition.
+service Aggregator {
+  // Queries the aggregator for an aggregated attestation.
+  rpc GetAggregateAttestation(AggregateRequest) returns (AggregateResponse);
+}
+
+// AggregateRequest is a request to the aggregator.
+message AggregateRequest {
+  // The minimum height for the aggregated attestation.
+  uint64 min_height = 1;
+}
+
+// SigPubkeyPair is a pair of a signature and a public key.
+message SigPubkeyPair {
+  // The signature.
+  bytes sig = 1;
+  // The public key.
+  bytes pubkey = 2; // 65 bytes
+}
+
+// AggregateResponse is a response from the aggregator.
+message AggregateResponse {
+  // A list of signature and public key pairs.
+  repeated SigPubkeyPair sig_pubkey_pairs = 1;
+  // The aggregated state.
+  bytes state = 2; // 32 bytes
+  // The height of the aggregated state.
+  uint64 height = 3;
+}
