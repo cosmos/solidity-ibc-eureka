@@ -50,7 +50,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `relayer/`: Contains the relayer implementation.
-    - `operator/`: Contains the operator for the SP1 light client.
+    - `operator/`: Contains the fixture generator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.

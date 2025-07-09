@@ -1523,10 +1523,6 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 			s.Require().Equal(resp.Address, ics26Address.String())
 
 			timeoutRelayTx = resp.Tx
-
-			s.wasmFixtureGenerator.AddFixtureStep("timeout_packets", ethereumtypes.RelayerMessages{
-				RelayerTxBody: hex.EncodeToString(timeoutRelayTx),
-			})
 		}))
 
 		s.Require().True(s.Run("Submit relay tx", func() {
@@ -1882,6 +1878,10 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
+
+			s.wasmFixtureGenerator.AddFixtureStep("timeout_packets", ethereumtypes.RelayerMessages{
+				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
+			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos chain", func() {
@@ -2238,10 +2238,6 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 			s.Require().Empty(resp.Address)
 
 			relayTxBodyBz = resp.Tx
-
-			s.wasmFixtureGenerator.AddFixtureStep("receive_packets", ethereumtypes.RelayerMessages{
-				RelayerTxBody: hex.EncodeToString(relayTxBodyBz),
-			})
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx", func() {
