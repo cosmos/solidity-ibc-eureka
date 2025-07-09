@@ -56,12 +56,12 @@ sha3               = { version = "0.10", default-features = false }
 url                = { version = "2", default-features = false}
 rand               = { version = "0.9", default-features = false }
 
-tokio              = { version = "1.0", default-features = false }
-tower-http         = { version = "0.6.6", default-features = false }
-tonic              = { version = "0.13", default-features = false }
-tonic-build        = { version = "0.13", default-features = false }
-tonic-reflection   = { version = "0.13", default-features = false }
-warp               = { version = "0.3", default-features = false }
+tokio            = { version = "1.0", default-features = false }
+tower-http       = { version = "0.6.6", default-features = false }
+tonic            = { version = "0.13", default-features = false }
+tonic-build      = { version = "0.13", default-features = false }
+tonic-reflection = { version = "0.13", default-features = false }
+warp             = { version = "0.3", default-features = false }
 
 prometheus         = { version = "0.14", default-features = false }
 tracing            = { version = "0.1", default-features = false }

@@ -9,9 +9,13 @@ license = { workspace = true }
 [dependencies]
 tokio-stream = "0.1"
 
-url   = { workspace = true, features = ["serde"] }
 toml  = { workspace = true, default-features = true }
-tonic = { workspace = true, default-features = true }
+
+url              = { workspace = true, features = ["serde"] }
+tower-http       = { workspace = true, features = ["trace"] }
+tonic            = { workspace = true, default-features = true }
+tonic-reflection = { workspace = true, default-features = true }
+
 tokio = { workspace = true, features = ["full"] }
 prost = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = ["derive"] }
