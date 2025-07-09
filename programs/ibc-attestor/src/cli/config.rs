@@ -11,7 +11,7 @@ use tracing::Level;
 
 pub const IBC_ATTESTOR_DIR: LazyCell<PathBuf> = LazyCell::new(|| {
     env::home_dir()
-        .map(|home| home.join(".ibc-attestor/ibc-attestor.pem"))
+        .map(|home| home.join(".ibc-attestor"))
         .unwrap()
 });
 
