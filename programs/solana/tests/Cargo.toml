@@ -8,9 +8,9 @@ edition = "2021"
 anchor-client = "0.31.1"
 ics07-tendermint = { version = "0.1.0", path = "../programs/ics07-tendermint" }
 hex = { workspace = true }
-ibc-proto = { workspace = true, default-features = false }
+ibc-proto = { workspace = true }
 ibc-core-client-types = { workspace = true }
 ibc-client-tendermint = { workspace = true }
-tendermint = { workspace = true, default-features = false }
-prost = { workspace = true, default-features = false }
+tendermint = { workspace = true }
+prost = { workspace = true }
 solana-system-interface = "1.0.0"
