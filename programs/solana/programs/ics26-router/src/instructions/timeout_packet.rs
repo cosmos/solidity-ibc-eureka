@@ -2,6 +2,7 @@ use crate::errors::IbcRouterError;
 use crate::state::*;
 use crate::utils::ics24_host;
 use anchor_lang::prelude::*;
+use crate::instructions::recv_packet::NoopEvent;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]

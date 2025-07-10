@@ -2,7 +2,6 @@
 #![allow(deprecated)]
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::keccak::hash as keccak256;
 
 pub mod errors;
 pub mod instructions;
@@ -10,6 +9,7 @@ pub mod state;
 pub mod utils;
 
 use instructions::*;
+use state::{MsgSendPacket, MsgRecvPacket, MsgAckPacket, MsgTimeoutPacket};
 
 declare_id!("HsCyuYgKgoN9wUPiJyNZvvWg2N1uyZhDjvJfKJFu3jvU");
 
