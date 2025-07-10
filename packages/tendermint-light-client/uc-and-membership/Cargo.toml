@@ -15,6 +15,3 @@ thiserror                             = { workspace = true }
 
 [dev-dependencies]
 ibc-core-client-types = { workspace = true }
-
-[features]
-default = []

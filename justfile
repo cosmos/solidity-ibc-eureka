@@ -24,10 +24,16 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
+# Build the Solana Anchor program (without nix)
+[group('build')]
+build-solana:
+  @echo "Building Solana Anchor program..."
+  cd programs/solana && anchor build
+
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
 build-cw-ics08-wasm-eth:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1 ./programs/cw-ics08-wasm-eth
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
 	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
@@ -117,7 +123,7 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	@echo "Generating native SdkCoin recvPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_ICS20TransferNativeCosmosCoinsToEthereumAndBack$' -timeout 60m
 	@echo "Generating timeoutPacket groth16 fixtures..."
-	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_TimeoutPacketFromEth$' -timeout 60m
+	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_TimeoutPacketFromCosmos$' -timeout 60m
 	@echo "Generating multi-period client update fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
 
@@ -249,7 +255,12 @@ test-e2e-multichain testname:
 test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
-	
+  
+# Run the Solana Anchor tests (without nix)
+[group('test')]
+test-solana:
+	@echo "Running Solana Anchor tests..."
+	cd programs/solana && anchor test
 
 # Clean up the foundry cache and out directories
 [group('clean')]

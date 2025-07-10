@@ -19,7 +19,6 @@ use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviou
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
 use tendermint::Time;
 use tendermint_light_client_membership::KVPair;
-use tendermint_light_client_misbehaviour;
 use tendermint_light_client_misbehaviour::ClientState as TmClientState;
 use tendermint_light_client_update_client::{ClientState as UpdateClientState, TrustThreshold};
 use time::OffsetDateTime;
@@ -49,32 +48,7 @@ impl From<ClientState> for UpdateClientState {
             trusting_period_seconds: cs.trusting_period,
             unbonding_period_seconds: cs.unbonding_period,
             max_clock_drift_seconds: cs.max_clock_drift,
-            frozen_height: if cs.frozen_height > 0 {
-                Some(Height::new(0, cs.frozen_height).unwrap())
-            } else {
-                None
-            },
-            latest_height: Height::new(0, cs.latest_height).unwrap(),
-        }
-    }
-}
-
-impl From<ClientState> for TmClientState {
-    fn from(cs: ClientState) -> Self {
-        TmClientState {
-            chain_id: cs.chain_id,
-            trust_level: tendermint_light_client_misbehaviour::TrustThreshold {
-                numerator: cs.trust_level_numerator,
-                denominator: cs.trust_level_denominator,
-            },
-            trusting_period_seconds: cs.trusting_period,
-            unbonding_period_seconds: cs.unbonding_period,
-            max_clock_drift_seconds: cs.max_clock_drift,
-            frozen_height: if cs.frozen_height > 0 {
-                Some(Height::new(0, cs.frozen_height).unwrap())
-            } else {
-                None
-            },
+            is_frozen: cs.frozen_height > 0,
             latest_height: Height::new(0, cs.latest_height).unwrap(),
         }
     }
@@ -89,19 +63,15 @@ pub struct ConsensusState {
 
 impl From<ConsensusState> for IbcConsensusState {
     fn from(cs: ConsensusState) -> Self {
-        let time = OffsetDateTime::from_unix_timestamp_nanos(
-            cs.timestamp.try_into().expect("timestamp overflow"),
-        )
-        .expect("invalid timestamp");
+        let time = OffsetDateTime::from_unix_timestamp_nanos(cs.timestamp.into())
+            .expect("invalid timestamp");
         let seconds = time.unix_timestamp();
         let nanos = time.nanosecond();
 
         IbcConsensusState {
             timestamp: Time::from_unix_timestamp(seconds, nanos).expect("invalid time"),
             root: CommitmentRoot::from_bytes(&cs.root),
-            next_validators_hash: tendermint::Hash::Sha256(
-                cs.next_validators_hash.try_into().expect("invalid hash"),
-            ),
+            next_validators_hash: tendermint::Hash::Sha256(cs.next_validators_hash),
         }
     }
 }
@@ -345,7 +315,7 @@ pub mod ics07_tendermint {
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
         let output = tendermint_light_client_update_client::update_client(
-            client_state,
+            &client_state,
             &trusted_consensus_state,
             header,
             current_time,
@@ -355,13 +325,12 @@ pub mod ics07_tendermint {
             error!(ErrorCode::UpdateClientFailed)
         })?;
 
-        client_data.client_state.latest_height =
-            output.new_client_state.latest_height.revision_height();
+        client_data.client_state.latest_height = output.latest_height.revision_height();
         let new_consensus_state: ConsensusState = output.new_consensus_state.clone().into();
         client_data.consensus_state = new_consensus_state.clone();
 
         let consensus_state_store = &mut ctx.accounts.consensus_state_store;
-        consensus_state_store.height = output.new_client_state.latest_height.revision_height();
+        consensus_state_store.height = output.latest_height.revision_height();
         consensus_state_store.consensus_state = new_consensus_state;
 
         Ok(())
@@ -374,17 +343,15 @@ pub mod ics07_tendermint {
         validate_proof_params(client_data, consensus_state_store, &msg)?;
 
         let proof = deserialize_merkle_proof(&msg.proof)?;
-        let kv_pair = KVPair::new(msg.path, msg.value);
+        let kv_pair = KVPair::new(vec![msg.path.clone()], msg.value);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        tendermint_light_client_membership::membership(
-            app_hash,
-            vec![(kv_pair, proof)].into_iter(),
-        )
-        .map_err(|e| {
-            msg!("Membership verification failed: {:?}", e);
-            error!(ErrorCode::MembershipVerificationFailed)
-        })?;
+        tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(
+            |e| {
+                msg!("Membership verification failed: {:?}", e);
+                error!(ErrorCode::MembershipVerificationFailed)
+            },
+        )?;
 
         Ok(())
     }
@@ -402,17 +369,15 @@ pub mod ics07_tendermint {
         require!(msg.value.is_empty(), ErrorCode::InvalidValue);
 
         let proof = deserialize_merkle_proof(&msg.proof)?;
-        let kv_pair = KVPair::new(msg.path, vec![]);
+        let kv_pair = KVPair::new(vec![msg.path.clone()], vec![]);
         let app_hash = consensus_state_store.consensus_state.root;
 
-        tendermint_light_client_membership::membership(
-            app_hash,
-            vec![(kv_pair, proof)].into_iter(),
-        )
-        .map_err(|e| {
-            msg!("Non-membership verification failed: {:?}", e);
-            error!(ErrorCode::NonMembershipVerificationFailed)
-        })?;
+        tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)]).map_err(
+            |e| {
+                msg!("Non-membership verification failed: {:?}", e);
+                error!(ErrorCode::NonMembershipVerificationFailed)
+            },
+        )?;
 
         Ok(())
     }
@@ -444,7 +409,7 @@ pub mod ics07_tendermint {
         let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
         let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
-            client_state,
+            &client_state,
             &misbehaviour,
             trusted_consensus_state_1,
             trusted_consensus_state_2,

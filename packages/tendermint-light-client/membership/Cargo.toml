@@ -11,5 +11,3 @@ ibc-core-commitment-types     = { workspace = true }
 ibc-core-host-types           = { workspace = true }
 thiserror                     = { workspace = true }
 
-[features]
-default = []

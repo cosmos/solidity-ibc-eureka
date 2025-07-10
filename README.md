@@ -15,13 +15,14 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
 ## Overview
 
 `solidity-ibc-eureka` is an implementation of IBC in Solidity.
-
 - [IBC in Solidity      ](#ibc-in-solidity------)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
     - [Contracts](#contracts)
     - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
   - [Build Requirements](#build-requirements)
+    - [Ethereum Requirements](#ethereum-requirements)
+    - [Solana Requirements](#solana-requirements)
   - [Unit Testing](#unit-testing)
   - [End to End Testing](#end-to-end-testing)
     - [Requirements](#requirements)
@@ -50,7 +51,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `relayer/`: Contains the relayer implementation.
-    - `operator/`: Contains the operator for the SP1 light client.
+    - `operator/`: Contains the fixture generator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
 - `packages/`: Contains the Rust packages for the project.
@@ -77,6 +78,8 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 
 ## Build Requirements
 
+### Ethereum Requirements
+
 - [Rust](https://rustup.rs/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Bun](https://bun.sh/)
@@ -99,9 +102,48 @@ just install-relayer
 
 > [!TIP]
 > Nix users can enter a development shell with all the necessary dependencies by running:
-> 
+>
 > ```sh
 > nix develop
+> ```
+
+### Solana Requirements
+
+- [Rust](https://rustup.rs/)
+- [Anchor](https://www.anchor-lang.com/docs/installation)
+- [Agave](https://www.anchor-lang.com/docs/installation)
+- [Just](https://just.systems/man/en/)
+
+If you have Anchor installed locally, you can use the standard commands:
+
+```sh
+just build-solana
+just test-solana
+```
+
+Or directly:
+
+```sh
+cd programs/solana
+anchor build
+anchor test
+anchor deploy
+```
+
+> [!TIP]
+> Nix users can enter a solana development shell with all the necessary dependencies by running:
+>
+> ```sh
+> nix develop .#solana
+> ```
+>
+> Then navigate to the Solana programs directory and use anchor-nix commands:
+> 
+> ```sh
+> cd programs/solana
+> anchor-nix build
+> anchor-nix test
+> anchor-nix deploy
 > ```
 
 ## Unit Testing
