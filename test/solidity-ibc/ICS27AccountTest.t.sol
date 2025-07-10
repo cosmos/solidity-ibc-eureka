@@ -167,11 +167,7 @@ contract ICS27AccountTest is Test {
         IICS27AccountMsgs.Call[] memory calls = new IICS27AccountMsgs.Call[](numCalls);
         uint256 valuePerCall = totalValue / numCalls;
         for (uint256 i = 0; i < numCalls; i++) {
-            calls[i] = IICS27AccountMsgs.Call({
-                target: target,
-                data: data,
-                value: valuePerCall
-            });
+            calls[i] = IICS27AccountMsgs.Call({ target: target, data: data, value: valuePerCall });
 
             expResp[i] = abi.encode("mockedResponse");
         }
@@ -184,7 +180,11 @@ contract ICS27AccountTest is Test {
         assertEq(results, expResp, "Results should match expected responses");
 
         // Assert final balance
-        assertEq(address(ics27Account).balance, totalValue % numCalls, "ICS27Account balance should be zero after executeBatch");
+        assertEq(
+            address(ics27Account).balance,
+            totalValue % numCalls,
+            "ICS27Account balance should be zero after executeBatch"
+        );
         assertEq(target.balance, valuePerCall * numCalls, "Target balance should match totalValue after executeBatch");
     }
 
@@ -198,11 +198,7 @@ contract ICS27AccountTest is Test {
 
         IICS27AccountMsgs.Call[] memory calls = new IICS27AccountMsgs.Call[](numCalls);
         for (uint256 i = 0; i < numCalls; i++) {
-            calls[i] = IICS27AccountMsgs.Call({
-                target: target,
-                data: data,
-                value: totalValue / numCalls
-            });
+            calls[i] = IICS27AccountMsgs.Call({ target: target, data: data, value: totalValue / numCalls });
         }
 
         // Unauthorized call
