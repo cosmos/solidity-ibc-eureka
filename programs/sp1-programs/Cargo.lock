@@ -1562,6 +1562,7 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
+ "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-misbehaviour",
  "tendermint-light-client-verifier",
@@ -1572,11 +1573,13 @@ name = "sp1-ics07-tendermint-uc-and-membership"
 version = "1.2.0"
 dependencies = [
  "alloy-sol-types",
- "ibc-client-tendermint-types",
+ "ibc-client-tendermint",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-ics07-utils",
  "sp1-zkvm",
+ "tendermint-light-client-membership",
  "tendermint-light-client-uc-and-membership",
 ]
 
@@ -1587,12 +1590,27 @@ dependencies = [
  "alloy-sol-types",
  "ibc-client-tendermint",
  "ibc-core-client",
+ "ibc-core-client-types",
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.8",
+ "sp1-ics07-utils",
  "sp1-zkvm",
+ "tendermint-light-client-update-client",
+ "tendermint-light-client-verifier",
+]
+
+[[package]]
+name = "sp1-ics07-utils"
+version = "1.2.0"
+dependencies = [
+ "alloy-sol-types",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "ibc-eureka-solidity-types",
+ "tendermint",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
 ]
@@ -1732,7 +1750,8 @@ name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types",
+ "ibc-core-host-types",
+ "thiserror",
 ]
 
 [[package]]
@@ -1740,22 +1759,23 @@ name = "tendermint-light-client-misbehaviour"
 version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
+ "ibc-core-client-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types",
  "sha2 0.10.8",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
+ "thiserror",
 ]
 
 [[package]]
 name = "tendermint-light-client-uc-and-membership"
 version = "0.1.0"
 dependencies = [
- "ibc-client-tendermint-types",
+ "ibc-client-tendermint",
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types",
  "tendermint-light-client-membership",
  "tendermint-light-client-update-client",
+ "thiserror",
 ]
 
 [[package]]
@@ -1764,11 +1784,12 @@ version = "0.1.0"
 dependencies = [
  "ibc-client-tendermint",
  "ibc-core-client",
+ "ibc-core-client-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types",
  "ibc-primitives",
  "sha2 0.10.8",
  "tendermint-light-client-verifier",
+ "thiserror",
 ]
 
 [[package]]
