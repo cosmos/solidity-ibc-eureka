@@ -3,22 +3,22 @@
 # Simple script to run anchor test from root directory
 # This automatically copies .so files to the correct location and deploys
 
-cd programs/solana
+# Directory for the Solana Anchor program
+SOLANA_DIR="programs/solana"
 
-# Copy .so file if it exists in root workspace
-if [ -f "../../target/deploy/ics07_tendermint.so" ]; then
-    mkdir -p target/deploy
-    cp "../../target/deploy/ics07_tendermint.so" "target/deploy/"
-    echo "✅ Copied ics07_tendermint.so to target/deploy/"
-fi
-
-# Copy keypair if it exists in root workspace  
-if [ -f "../../target/deploy/ics07_tendermint-keypair.json" ]; then
-    mkdir -p target/deploy
-    cp "../../target/deploy/ics07_tendermint-keypair.json" "target/deploy/"
-    echo "✅ Copied ics07_tendermint-keypair.json to target/deploy/"
+# Copy all files from target/deploy to programs/solana/target/deploy if any exist
+if compgen -G "target/deploy/*" > /dev/null; then
+    mkdir -p "$SOLANA_DIR/target/deploy"
+    cp -f target/deploy/* "$SOLANA_DIR/target/deploy/"
+    echo "✅ Copied all files from target/deploy to $SOLANA_DIR/target/deploy/ (overwriting if needed)"
 fi
 
 # Run anchor test with all arguments passed through
-# Note: anchor test automatically starts validator and deploys programs
-anchor test "$@"
+# Prefer anchor-nix if available, otherwise fallback to anchor
+if command -v anchor-nix >/dev/null 2>&1; then
+    echo "🦀 Using anchor-nix"
+    (cd "$SOLANA_DIR" && anchor-nix test "$@")
+else
+    echo "🦀 Using anchor"
+    (cd "$SOLANA_DIR" && anchor test "$@")
+fi
