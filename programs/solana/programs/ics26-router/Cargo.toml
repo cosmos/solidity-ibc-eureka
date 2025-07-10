@@ -1,0 +1,25 @@
+[package]
+name = "ics26-router"
+version = "0.1.0"
+description = "ICS26 Router program for Solana"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ics26_router"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31" }
+anchor-spl = { version = "0.31" }
+solana-program = "1.18"
+sha2 = "0.10"
+
+[dev-dependencies]
