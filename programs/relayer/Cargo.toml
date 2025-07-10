@@ -1,38 +1,23 @@
 [package]
-name       = "solidity-ibc-eureka-relayer"
+name       = "ibc-eureka-relayer"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-relayer-lib      = { workspace = true, default-features = true }
-sp1-ics07-tendermint-prover = { workspace = true }
+ibc-eureka-relayer-core                 = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-cosmos        = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-eth        = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-cosmos     = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features = false }
 
-tokio            = { workspace = true, default-features = true }
-tonic            = { workspace = true, default-features = true }
-tonic-reflection = { workspace = true, default-features = true }
-
+tokio              = { workspace = true, default-features = true }
 prometheus         = { workspace = true, default-features = true }
 warp               = { workspace = true, default-features = true }
 tracing            = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }
 clap               = { workspace = true, default-features = true }
 anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
-futures            = { workspace = true, default-features = true }
 
-serde      = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-prost      = { workspace = true, default-features = true }
-
-alloy = { workspace = true, features = ["full", "node-bindings"] }
-
-tendermint       = { workspace = true }
-tendermint-rpc   = { workspace = true }
-ibc-eureka-utils = { workspace = true }
-
-sp1-sdk    = { workspace = true, default-features = true }
-sp1-prover = { workspace = true }
-
-[build-dependencies]
-tonic-build = { workspace = true, default-features = true }
