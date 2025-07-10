@@ -1,4 +1,4 @@
-// use crate::common::with_initialized_client;
+// use crate::helpers::with_initialized_client;
 // use crate::test_helpers::create_test_header_bytes;
 // use anchor_client::solana_sdk::{signer::Signer, pubkey::Pubkey, system_program};
 // use ics07_tendermint::UpdateClientMsg;

@@ -1,5 +1,5 @@
 // use anchor_client::solana_sdk::{signer::Signer, system_program, pubkey::Pubkey};
-// use crate::common::{setup_test_environment, create_client, load_program_or_fail, create_test_client_state, create_test_consensus_state};
+// use crate::helpers::{setup_test_environment, create_client, load_program_or_fail, create_test_client_state, create_test_consensus_state};
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use ics07_tendermint::{ClientState, ConsensusState};
 use std::str::FromStr;

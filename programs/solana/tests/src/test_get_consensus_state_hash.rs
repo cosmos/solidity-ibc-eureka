@@ -1,4 +1,4 @@
-// use crate::common::with_initialized_client;
+// use crate::helpers::with_initialized_client;
 // use anchor_client::solana_sdk::{signer::Signer, pubkey::Pubkey};
 
 // #[test]
