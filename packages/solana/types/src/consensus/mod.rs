@@ -10,10 +10,7 @@ pub mod fork {
     #[derive(
         Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, schemars::JsonSchema,
     )]
-    pub struct ForkParameters {
-        /// Placeholder for future fork handling
-        pub _placeholder: (),
-    }
+    pub struct ForkParameters;
 }
 
 /// Light client header types
@@ -22,8 +19,5 @@ pub mod light_client_header {
 
     /// Minimal light client update structure
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-    pub struct LightClientUpdate {
-        /// Placeholder for future light client update data
-        pub _placeholder: (),
-    }
+    pub struct LightClientUpdate;
 }

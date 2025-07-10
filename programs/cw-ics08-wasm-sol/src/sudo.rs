@@ -1,84 +1,20 @@
 //! This module contains the sudo message handlers
 
-use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut};
-use solana_light_client::update::update_consensus_state;
+use cosmwasm_std::{to_json_binary, Binary, DepsMut};
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::ConsensusState as WasmConsensusState,
 };
+use solana_light_client::update::update_consensus_state;
 
 use crate::{
-    msg::{
-        Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult,
-        VerifyMembershipMsg, VerifyNonMembershipMsg,
-    },
+    msg::{Height, UpdateStateMsg, UpdateStateOnMisbehaviourMsg, UpdateStateResult},
     state::{
         get_sol_client_state, get_sol_consensus_state, get_wasm_client_state, store_client_state,
         store_consensus_state,
     },
     ContractError,
 };
-
-/// Verify the membership of a value at a given height
-/// # Errors
-/// Returns an error if the membership proof verification fails
-/// # Returns
-/// An empty response
-pub fn verify_membership(
-    deps: Deps,
-    verify_membership_msg: VerifyMembershipMsg,
-) -> Result<Binary, ContractError> {
-    let sol_client_state = get_sol_client_state(deps.storage)?;
-    let sol_consensus_state =
-        get_sol_consensus_state(deps.storage, verify_membership_msg.height.revision_height)?;
-
-    solana_light_client::membership::verify_membership(
-        sol_consensus_state,
-        sol_client_state,
-        verify_membership_msg.proof.into(),
-        verify_membership_msg
-            .merkle_path
-            .key_path
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-        verify_membership_msg.value.into(),
-    )
-    .map_err(ContractError::VerifyMembershipFailed)?;
-
-    Ok(Binary::default())
-}
-
-/// Verify the non-membership of a value at a given height
-/// # Errors
-/// Returns an error if the non-membership proof verification fails
-/// # Returns
-/// An empty response
-pub fn verify_non_membership(
-    deps: Deps,
-    verify_non_membership_msg: VerifyNonMembershipMsg,
-) -> Result<Binary, ContractError> {
-    let sol_client_state = get_sol_client_state(deps.storage)?;
-    let sol_consensus_state = get_sol_consensus_state(
-        deps.storage,
-        verify_non_membership_msg.height.revision_height,
-    )?;
-
-    solana_light_client::membership::verify_non_membership(
-        sol_consensus_state,
-        sol_client_state,
-        verify_non_membership_msg.proof.into(),
-        verify_non_membership_msg
-            .merkle_path
-            .key_path
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-    )
-    .map_err(ContractError::VerifyNonMembershipFailed)?;
-
-    Ok(Binary::default())
-}
 
 /// Update the state of the light client
 /// This function is always called after the verify client message, so

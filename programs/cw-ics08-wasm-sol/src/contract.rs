@@ -37,18 +37,8 @@ pub fn instantiate(
 /// Will return an error if the handler returns an error.
 #[entry_point]
 #[allow(clippy::needless_pass_by_value)]
-pub fn sudo(
-    deps: DepsMut,
-    _env: Env,
-    msg: SudoMsg,
-) -> Result<Response, ContractError> {
+pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     let result = match msg {
-        SudoMsg::VerifyMembership(verify_membership_msg) => {
-            sudo::verify_membership(deps.as_ref(), verify_membership_msg)?
-        }
-        SudoMsg::VerifyNonMembership(verify_non_membership_msg) => {
-            sudo::verify_non_membership(deps.as_ref(), verify_non_membership_msg)?
-        }
         SudoMsg::UpdateState(update_state_msg) => sudo::update_state(deps, update_state_msg)?,
         SudoMsg::UpdateStateOnMisbehaviour(misbehaviour_msg) => {
             sudo::misbehaviour(deps, misbehaviour_msg)?
@@ -77,11 +67,7 @@ pub fn execute(
 /// # Errors
 /// Will return an error if the handler returns an error.
 #[entry_point]
-pub fn query(
-    deps: Deps,
-    env: Env,
-    msg: QueryMsg,
-) -> Result<Binary, ContractError> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::VerifyClientMessage(verify_client_message_msg) => {
             query::verify_client_message(deps, env, verify_client_message_msg)
@@ -101,11 +87,7 @@ pub fn query(
 /// Will return an errror if the state version is not newer than the current one.
 #[entry_point]
 #[allow(clippy::needless_pass_by_value)]
-pub fn migrate(
-    deps: DepsMut,
-    _env: Env,
-    msg: MigrateMsg,
-) -> Result<Response, ContractError> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     // Check if the state version is older than the current one and update it
     cw2::ensure_from_older_version(deps.storage, CONTRACT_NAME, STATE_VERSION)?;
 

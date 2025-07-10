@@ -1,15 +1,15 @@
 //! This module contains the instantiate helper functions
 
 use cosmwasm_std::{ensure, Storage};
-use solana_light_client::{
-    client_state::ClientState as SolClientState,
-    consensus_state::ConsensusState as SolConsensusState,
-};
 use ibc_proto::ibc::{
     core::client::v1::Height as IbcProtoHeight,
     lightclients::wasm::v1::{
         ClientState as WasmClientState, ConsensusState as WasmConsensusState,
     },
+};
+use solana_light_client::{
+    client_state::ClientState as SolClientState,
+    consensus_state::ConsensusState as SolConsensusState,
 };
 
 use crate::{
@@ -53,12 +53,6 @@ pub fn client(storage: &mut dyn Storage, msg: InstantiateMsg) -> Result<(), Cont
         client_state.latest_slot == consensus_state.slot,
         ContractError::ClientAndConsensusStateMismatch
     );
-
-    client_state
-        .verify_supported_fork_at_epoch(
-            client_state.compute_epoch_at_slot(client_state.latest_slot),
-        )
-        .map_err(ContractError::UnsupportedForkVersion)?;
 
     store_client_state(storage, &wasm_client_state)?;
     store_consensus_state(storage, &wasm_consensus_state, consensus_state.slot)?;

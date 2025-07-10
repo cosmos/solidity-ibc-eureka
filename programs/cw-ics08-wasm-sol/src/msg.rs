@@ -25,10 +25,6 @@ pub enum ExecuteMsg {}
 /// The sudo messages called by `ibc-go`
 #[cw_serde]
 pub enum SudoMsg {
-    /// The message to verify membership
-    VerifyMembership(VerifyMembershipMsg),
-    /// The message to verify non-membership
-    VerifyNonMembership(VerifyNonMembershipMsg),
     /// The message to update the client state
     UpdateState(UpdateStateMsg),
     /// The message to update the client state on misbehaviour
@@ -77,38 +73,6 @@ pub enum Migration {
     Reinstantiate(InstantiateMsg),
     /// Migrate the contract code and update fork parameters
     UpdateForkParameters(ForkParameters),
-}
-
-/// Verify membership message
-#[cw_serde]
-pub struct VerifyMembershipMsg {
-    /// The proof height
-    pub height: Height,
-    /// The delay time period (unused)
-    pub delay_time_period: u64,
-    /// The delay block period (unused)
-    pub delay_block_period: u64,
-    /// The proof bytes
-    pub proof: Binary,
-    /// The path to the value
-    pub merkle_path: MerklePath,
-    /// The value to verify
-    pub value: Binary,
-}
-
-/// Verify non-membership message
-#[cw_serde]
-pub struct VerifyNonMembershipMsg {
-    /// The proof height
-    pub height: Height,
-    /// The delay time period (unused)
-    pub delay_time_period: u64,
-    /// The delay block period (unused)
-    pub delay_block_period: u64,
-    /// The proof bytes
-    pub proof: Binary,
-    /// The path to the empty value
-    pub merkle_path: MerklePath,
 }
 
 /// Update state message
