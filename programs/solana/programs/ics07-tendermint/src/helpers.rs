@@ -29,7 +29,6 @@ pub fn validate_proof_params(
 ) -> Result<()> {
     require!(!client_data.frozen, ErrorCode::ClientFrozen);
 
-    // Verify that the consensus state is for the requested height
     require!(
         consensus_state_store.height == msg.height,
         ErrorCode::InvalidHeight
@@ -40,7 +39,6 @@ pub fn validate_proof_params(
         ErrorCode::InvalidHeight
     );
 
-    // Check delay period if specified
     if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
         let current_timestamp = Clock::get()?.unix_timestamp as u64;
         let current_height = client_data.client_state.latest_height;
