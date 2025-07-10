@@ -34,7 +34,7 @@ build-solana:
 [group('build')]
 build-cw-ics08-wasm-eth:
 	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-eth
-	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm 
+	cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the relayer docker image
@@ -255,12 +255,24 @@ test-e2e-multichain testname:
 test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
-  
-# Run the Solana Anchor tests (without nix)
+
+# Run the Solana Anchor tests (nix preferred)
 [group('test')]
-test-solana:
-	@echo "Running Solana Anchor tests..."
-	cd programs/solana && anchor test
+test-solana *ARGS:
+	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
+	if [ -n "$(ls -A target/deploy 2>/dev/null)" ]; then \
+		mkdir -p programs/solana/target/deploy; \
+		cp -f target/deploy/* programs/solana/target/deploy/; \
+		echo "✅ Copied all files from target/deploy to programs/solana/target/deploy/ (overwriting if needed)"; \
+	fi
+	@echo "Running Solana Anchor tests (anchor-nix preferred) ..."
+	if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor test {{ARGS}}); \
+	fi
 
 # Clean up the foundry cache and out directories
 [group('clean')]

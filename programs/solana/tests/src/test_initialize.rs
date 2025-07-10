@@ -1,80 +1,45 @@
-use crate::common::{
-    create_client, create_test_client_state, create_test_consensus_state, load_program_or_fail,
-    setup_test_environment,
-};
-use anchor_client::solana_sdk::{pubkey::Pubkey, signer::Signer, system_program};
+use anchor_client::solana_sdk::pubkey::Pubkey;
+use ics07_tendermint::{ClientState, ConsensusState};
+use std::str::FromStr;
 
-// FIXME: make it work
-#[ignore]
+use crate::helpers::{generate_unique_chain_id, initialize_contract, log, setup_test_env};
+
 #[test]
-fn test_initialize() {
-    println!("🧪 Testing ICS07 Tendermint client initialize function");
+fn test_initialize_with_pda() {
+    let program_id = Pubkey::from_str("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV").unwrap();
 
-    let (program_id, payer, client_data) = setup_test_environment();
-    let client = create_client(&payer);
+    let client_state = ClientState {
+        chain_id: generate_unique_chain_id(),
+        trust_level_numerator: 1,
+        trust_level_denominator: 3,
+        trusting_period: 1000,
+        unbonding_period: 2000,
+        max_clock_drift: 5,
+        frozen_height: 0,
+        latest_height: 42,
+    };
 
-    // Fund the payer account with SOL for transaction fees
-    let rpc_client =
-        anchor_client::solana_client::rpc_client::RpcClient::new("http://localhost:8899");
-    let signature = rpc_client
-        .request_airdrop(&payer.pubkey(), 10_000_000_000)
-        .expect("Failed to airdrop SOL");
-    rpc_client
-        .confirm_transaction(&signature)
-        .expect("Failed to confirm airdrop");
-    println!("💰 Airdropped 10 SOL to payer");
+    let consensus_state = ConsensusState {
+        timestamp: 123456789,
+        root: [0u8; 32],
+        next_validators_hash: [1u8; 32],
+    };
 
-    let program = load_program_or_fail(&client, program_id)
-        .expect("Failed to load program for initialize test");
+    let env = setup_test_env(program_id);
+    let contract = initialize_contract(&env, program_id, client_state, consensus_state);
 
-    let client_state = create_test_client_state();
-    let consensus_state = create_test_consensus_state();
+    let account = env
+        .program
+        .account::<ics07_tendermint::ClientData>(contract.client_data_pda)
+        .expect("Failed to fetch client_data account");
 
-    // Calculate the consensus state store PDA for initial height 1
-    let (consensus_state_store, _bump) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_data.pubkey().as_ref(),
-            &1u64.to_le_bytes(), // Initial height is 1 in our test client state
-        ],
-        &program_id,
+    assert_eq!(
+        account.client_state.chain_id,
+        contract.client_state.chain_id
     );
+    assert_eq!(account.client_state.latest_height, 42);
+    assert_eq!(account.consensus_state.timestamp, 123456789);
+    assert_eq!(account.frozen, false);
 
-    println!("🚀 Testing initialize function");
-    let init_result = program
-        .request()
-        .accounts(ics07_tendermint::accounts::Initialize {
-            client_data: client_data.pubkey(),
-            consensus_state_store,
-            payer: payer.pubkey(),
-            system_program: system_program::id(),
-        })
-        .args(ics07_tendermint::instruction::Initialize {
-            client_state: client_state.clone(),
-            consensus_state: consensus_state.clone(),
-        })
-        .signer(&client_data)
-        .send()
-        .expect("Initialize transaction should succeed");
-
-    println!("✅ Initialize successful: {}", init_result);
-
-    // Verify the state was set correctly
-    match program.account::<ics07_tendermint::ClientData>(client_data.pubkey()) {
-        Ok(account_data) => {
-            assert_eq!(account_data.client_state.chain_id, "test-chain");
-            assert_eq!(account_data.client_state.trust_level_numerator, 1);
-            assert_eq!(account_data.consensus_state.timestamp, 1234567890);
-            assert_eq!(account_data.frozen, false);
-            println!("✅ Initialize validation passed!");
-        }
-        Err(e) => {
-            println!("⚠️  Failed to fetch account data: {}", e);
-            // Still validate input data structures
-            assert_eq!(client_state.chain_id, "test-chain");
-            println!("✅ Data structures validated");
-        }
-    }
-
-    println!("🎯 Initialize test completed!");
+    log(&env, "✅ Test passed - contract initialized successfully");
 }

@@ -1,9 +1,4 @@
-#[cfg(test)]
-mod common;
-
-#[cfg(test)]
-mod test_helpers;
-
+pub mod helpers;
 #[cfg(test)]
 mod test_initialize;
 
