@@ -288,16 +288,16 @@ Ideally, the Security Council should mirror the validators of the counterparty C
 
 ### Security Council and Governance Admin
 
-Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`IBCAdmin.sol`](./contracts/utils/IBCAdmin.sol). This contract maintains:
+Although **`govAdmin`** is not yet implemented, the contract tracking both admins is [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol). We require that the both admins are granted the admin role on `AccessManager.sol`:
 
 - **`timelockedAdmin`** (Security Council)
 - **`govAdmin`** (Governance Admin)
 
-Other IBC contracts that require access control or upgradability should reference [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) which is owned by `IBCAdmin.sol`.
+Other IBC contracts that require access control or upgradability should reference [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol).
 
 #### Admin Powers and Restrictions
 
-Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `IBCAdmin.sol` contract, both admins will eventually have **equal authority**, including the ability to:
+Until **govAdmin** is implemented, the **Security Council** remains the sole administrator. Under the `AccessManager` contract, all admins have **equal authority**, including the ability to:
 
 - Assign or modify the other admin.
 - Manage roles on IBC contracts.
