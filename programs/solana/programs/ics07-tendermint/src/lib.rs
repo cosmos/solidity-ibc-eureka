@@ -15,10 +15,7 @@ use crate::state::{ClientData, ConsensusStateStore};
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
-// Re-export types for external use
 pub use types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg};
-
-// Define all Context structs before the #[program] macro for anchor-nix compatibility
 
 #[derive(Accounts)]
 #[instruction(chain_id: String)]
@@ -66,14 +63,12 @@ pub struct UpdateClient<'info> {
 #[derive(Accounts)]
 pub struct VerifyMembership<'info> {
     pub client_data: Account<'info, ClientData>,
-    /// Consensus state at the proof height
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
 pub struct VerifyNonMembership<'info> {
     pub client_data: Account<'info, ClientData>,
-    /// Consensus state at the proof height
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
@@ -82,9 +77,7 @@ pub struct VerifyNonMembership<'info> {
 pub struct SubmitMisbehaviour<'info> {
     #[account(mut)]
     pub client_data: Account<'info, ClientData>,
-    /// Consensus state at the trusted height of header 1
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
-    /// Consensus state at the trusted height of header 2
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
@@ -105,20 +98,20 @@ pub mod ics07_tendermint {
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> Result<()> {
-        // Note: chain_id is used in the #[instruction] attribute for account validation
+        // NOTE: chain_id is used in the #[instruction] attribute for account validation
         // but the actual handler doesn't need it as it's embedded in client_state
         instructions::initialize::initialize(ctx, client_state, consensus_state)
     }
 
     pub fn update_client(
-        ctx: Context<UpdateClient>, 
+        ctx: Context<UpdateClient>,
         msg: UpdateClientMsg
     ) -> Result<()> {
         instructions::update_client::update_client(ctx, msg)
     }
 
     pub fn verify_membership(
-        ctx: Context<VerifyMembership>, 
+        ctx: Context<VerifyMembership>,
         msg: MembershipMsg
     ) -> Result<()> {
         instructions::verify_membership::verify_membership(ctx, msg)
