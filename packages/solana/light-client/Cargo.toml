@@ -1,0 +1,26 @@
+[package]
+name = "solana-light-client"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[features]
+default = []
+test-utils = ["dep:prost", "dep:ibc-proto-eureka"]
+
+[dependencies]
+solana-types = { workspace = true }
+solana-sdk = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+schemars = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+
+# Only used for test-utils feature
+prost = { workspace = true, optional = true }
+ibc-proto-eureka = { workspace = true, optional = true }
+
+[dev-dependencies]
+solana-types = { workspace = true, features = ["test-utils"] }
