@@ -2472,6 +2472,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-ics08-wasm-sol"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw2",
+ "hex",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "serde",
+ "serde_json",
+ "solana-light-client",
+ "solana-sdk",
+ "solana-types",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "cw-storage-plus"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8075,6 +8093,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-light-client"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "prost",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-sdk",
+ "solana-types",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "solana-loader-v2-interface"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9196,6 +9230,17 @@ dependencies = [
  "solana-transaction-context",
  "solana-transaction-error",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "solana-types"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "solana-sdk",
 ]
 
 [[package]]
