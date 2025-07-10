@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+// solhint-disable custom-errors,max-line-length,no-inline-assembly
+
+import { Test } from "forge-std/Test.sol";
+
+import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
+import { IICS27AccountMsgs } from "../../contracts/msgs/IICS27AccountMsgs.sol";
+import { IICS27Errors } from "../../contracts/errors/IICS27Errors.sol";
+
+import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
+
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
+import { Errors } from "@openzeppelin-contracts/utils/Errors.sol";
+import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
+import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { TestHelper } from "./utils/TestHelper.sol";
+import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
+import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+
+contract ICS27GMPTest is Test {
+    ICS27GMP public ics27Gmp;
+    AccessManager public accessManager;
+
+    TestHelper public th = new TestHelper();
+    IntegrationEnv public integrationEnv = new IntegrationEnv();
+
+    address public mockIcs26 = makeAddr("mockIcs26");
+
+    function setUp() public {
+        address ics27AccountLogic = address(new ICS27Account());
+        address ics27GmpLogic = address(new ICS27GMP());
+
+        accessManager = new AccessManager(address(this));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            ics27GmpLogic, abi.encodeCall(ICS27GMP.initialize, (mockIcs26, ics27AccountLogic, address(accessManager)))
+        );
+        ics27Gmp = ICS27GMP(address(proxy));
+
+        assertEq(address(ics27Gmp.ics26()), mockIcs26, "ICS26 address mismatch");
+        address accountBeacon = ics27Gmp.getAccountBeacon();
+
+        address implementation = UpgradeableBeacon(accountBeacon).implementation();
+        assertEq(implementation, ics27AccountLogic, "Account beacon implementation mismatch");
+    }
+
+    function testFuzz_success_sendCall(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
+        vm.assume(seq > 0);
+
+        address sender = makeAddr("sender");
+        bytes memory salt = vm.randomBytes(saltLen);
+        string memory receiver = th.randomString();
+        string memory memo = th.randomString();
+        bytes memory payload = vm.randomBytes(payloadLen);
+
+        bytes memory expCall = abi.encodeCall(
+            IICS26Router.sendPacket,
+            (
+                IICS26RouterMsgs.MsgSendPacket({
+                    sourceClient: th.FIRST_CLIENT_ID(),
+                    timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                        destPort: ICS27Lib.DEFAULT_PORT_ID,
+                        version: ICS27Lib.ICS27_VERSION,
+                        encoding: ICS27Lib.ICS27_ENCODING,
+                        value: abi.encode(
+                            IICS27GMPMsgs.GMPPacketData({
+                                sender: Strings.toHexString(sender),
+                                receiver: receiver,
+                                salt: salt,
+                                payload: payload,
+                                memo: memo
+                            })
+                        )
+                    })
+                })
+            )
+        );
+
+        vm.mockCall(mockIcs26, expCall, abi.encode(seq));
+        vm.expectCall(mockIcs26, expCall);
+
+        vm.startPrank(sender);
+        uint64 sequence = ics27Gmp.sendCall(
+            IICS27GMPMsgs.SendCallMsg({
+                receiver: receiver,
+                payload: payload,
+                salt: salt,
+                memo: memo,
+                timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
+                sourceClient: th.FIRST_CLIENT_ID()
+            })
+        );
+        vm.stopPrank();
+
+        assertEq(sequence, seq, "Sequence mismatch");
+    }
+}
