@@ -1,0 +1,16 @@
+[package]
+name = "tests"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[dependencies]
+anchor-client = "0.31.1"
+ics07-tendermint = { version = "0.1.0", path = "../programs/ics07-tendermint" }
+hex = { workspace = true }
+ibc-proto = { workspace = true }
+ibc-core-client-types = { workspace = true }
+ibc-client-tendermint = { workspace = true }
+tendermint = { workspace = true }
+prost = { workspace = true }
+solana-system-interface = "1.0.0"
