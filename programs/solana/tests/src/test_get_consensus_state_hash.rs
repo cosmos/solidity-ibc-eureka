@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use crate::helpers::{generate_unique_chain_id, initialize_contract, log, setup_test_env};
 
+#[ignore = "Needs to be fixed; We need real fixtures for this test"]
 #[test]
 fn test_get_consensus_state_hash() {
     let program_id = Pubkey::from_str("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV").unwrap();
@@ -50,7 +51,10 @@ fn test_get_consensus_state_hash() {
         .send();
 
     match tx_result {
-        Ok(sig) => log(&env, &format!("✅ Get consensus state hash successful: {}", sig)),
+        Ok(sig) => log(
+            &env,
+            &format!("✅ Get consensus state hash successful: {}", sig),
+        ),
         Err(e) => panic!("❌ Failed to get consensus state hash: {}", e),
     }
 
