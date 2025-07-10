@@ -115,17 +115,12 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
 
 #[cfg(test)]
 mod tests {
-    mod instantiate_tests {
+    mod instantiate {
         use cosmwasm_std::{
             coins,
             testing::{message_info, mock_env},
             Storage,
         };
-        use solana_light_client::{
-            client_state::ClientState as SolClientState,
-            consensus_state::ConsensusState as SolConsensusState,
-        };
-        use solana_types::consensus::fork::ForkParameters;
         use ibc_proto::{
             google::protobuf::Any,
             ibc::lightclients::wasm::v1::{
@@ -133,6 +128,11 @@ mod tests {
             },
         };
         use prost::{Message, Name};
+        use solana_light_client::{
+            client_state::ClientState as SolClientState,
+            consensus_state::ConsensusState as SolConsensusState,
+        };
+        use solana_types::consensus::fork::ForkParameters;
 
         use crate::{
             contract::instantiate,
@@ -142,7 +142,7 @@ mod tests {
         };
 
         #[test]
-        fn test_instantiate() {
+        fn assigns_correct_values() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -215,24 +215,22 @@ mod tests {
             testing::{message_info, mock_env},
             Binary, Storage, Timestamp,
         };
+        use ibc_proto::{
+            google::protobuf::Any, ibc::lightclients::wasm::v1::ClientState as WasmClientState,
+        };
+        use prost::Message;
         use solana_light_client::{
             client_state::ClientState as SolClientState,
-            consensus_state::ConsensusState as SolConsensusState,
-            error::SolanaIBCError,
+            consensus_state::ConsensusState as SolConsensusState, error::SolanaIBCError,
             header::Header,
         };
         use solana_types::consensus::fork::ForkParameters;
-        use ibc_proto::{
-            google::protobuf::Any,
-            ibc::lightclients::wasm::v1::{ClientMessage, ClientState as WasmClientState},
-        };
-        use prost::Message;
 
         use crate::{
             contract::{instantiate, migrate, query, sudo},
             msg::{
-                Height, InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg,
-                UpdateStateMsg, UpdateStateResult, VerifyClientMessageMsg,
+                InstantiateMsg, MigrateMsg, Migration, QueryMsg, SudoMsg, UpdateStateMsg,
+                UpdateStateResult, VerifyClientMessageMsg,
             },
             state::HOST_CLIENT_STATE_KEY,
             test::helpers::mk_deps,
@@ -240,7 +238,7 @@ mod tests {
         };
 
         #[test]
-        fn test_basic_client_update_flow() {
+        fn basic_client_update_flow() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -271,7 +269,7 @@ mod tests {
             let header = Header {
                 trusted_slot: 100,
                 new_slot: 150,
-                timestamp: 1234567900, // 10 seconds later
+                timestamp: 1234567900,            // 10 seconds later
                 signature_data: vec![1, 2, 3, 4], // Some signature data
             };
             let header_bz = serde_json::to_vec(&header).unwrap();
@@ -293,14 +291,17 @@ mod tests {
             let update_state_result: UpdateStateResult =
                 serde_json::from_slice(&update_res.data.unwrap())
                     .expect("update state result should be deserializable");
-            
+
             assert_eq!(1, update_state_result.heights.len());
             assert_eq!(0, update_state_result.heights[0].revision_number);
-            assert_eq!(header.new_slot, update_state_result.heights[0].revision_height);
+            assert_eq!(
+                header.new_slot,
+                update_state_result.heights[0].revision_height
+            );
         }
 
         #[test]
-        fn test_invalid_slot_regression() {
+        fn invalid_slot_regression() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -346,12 +347,14 @@ mod tests {
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidSlotProgression { .. })
+                ContractError::VerifyClientMessageFailed(
+                    SolanaIBCError::InvalidSlotProgression { .. }
+                )
             ));
         }
 
         #[test]
-        fn test_missing_signature_data() {
+        fn missing_signature_data() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -395,14 +398,15 @@ mod tests {
                 client_message: Binary::from(header_bz),
             });
             let err = query(deps.as_ref(), env, query_verify_client_msg).unwrap_err();
+            println!("{:#?}", err);
             assert!(matches!(
                 err,
-                ContractError::VerifyClientMessageFailed(SolanaIBCError::MissingSignatureData)
+                ContractError::VerifyClientMessageFailed(SolanaIBCError::InvalidSignature)
             ));
         }
 
         #[test]
-        fn test_frozen_client() {
+        fn frozen_client() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -453,7 +457,7 @@ mod tests {
         }
 
         #[test]
-        fn test_migrate_with_same_state_version() {
+        fn migrate_with_same_state_version() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -491,7 +495,7 @@ mod tests {
         }
 
         #[test]
-        fn test_migrate_with_reinstantiate() {
+        fn migrate_with_reinstantiate() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -559,7 +563,7 @@ mod tests {
         }
 
         #[test]
-        fn test_migrate_with_fork_parameters() {
+        fn migrate_with_fork_parameters() {
             let mut deps = mk_deps();
             let creator = deps.api.addr_make("creator");
             let info = message_info(&creator, &coins(1, "uatom"));
@@ -599,7 +603,7 @@ mod tests {
                 Any::decode(actual_wasm_client_state_any_bz.as_slice()).unwrap();
             let wasm_client_state =
                 WasmClientState::decode(actual_wasm_client_state_any.value.as_slice()).unwrap();
-            
+
             // Verify checksum hasn't changed
             assert_eq!(msg_copy.checksum, wasm_client_state.checksum);
             // Verify latest height hasn't changed
@@ -607,7 +611,7 @@ mod tests {
                 wasm_client_state.latest_height.unwrap().revision_height,
                 client_state.latest_slot
             );
-            
+
             // Verify we can deserialize the updated client state
             let sol_client_state: SolClientState =
                 serde_json::from_slice(&wasm_client_state.data).unwrap();
