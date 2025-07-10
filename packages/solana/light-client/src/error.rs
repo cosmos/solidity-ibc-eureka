@@ -39,4 +39,8 @@ pub enum SolanaIBCError {
     /// Slot computation failed
     #[error("Slot computation failed")]
     SlotComputationFailed,
+
+    /// Signature Data is missing
+    #[error("Missing signature data")]
+    MissingSignatureData,
 }
