@@ -136,11 +136,13 @@ pub fn initialize_contract(
         &env.program.id(),
     );
 
+    let chain_id = client_state.chain_id.clone();
     // Build and send the initialize instruction
     let instruction = env
         .program
         .request()
         .args(ics07_tendermint::instruction::Initialize {
+            _chain_id: chain_id,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
         })
@@ -185,7 +187,7 @@ pub fn create_test_header_bytes() -> Vec<u8> {
         }),
         trusted_validators: Some(Default::default()),
     };
-    
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
     raw_header.encode(&mut buf).expect("encoding should succeed");
@@ -198,7 +200,7 @@ pub fn create_test_merkle_proof_bytes() -> Vec<u8> {
     let raw_proof = RawMerkleProof {
         proofs: vec![],
     };
-    
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
     raw_proof.encode(&mut buf).expect("encoding should succeed");
@@ -213,7 +215,7 @@ pub fn create_test_misbehaviour_bytes() -> Vec<u8> {
         header_1: Some(Default::default()),
         header_2: Some(Default::default()),
     };
-    
+
     // Encode to protobuf bytes
     let mut buf = Vec::new();
     raw_misbehaviour.encode(&mut buf).expect("encoding should succeed");

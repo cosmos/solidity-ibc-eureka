@@ -26,7 +26,7 @@ fn test_initialize_with_pda() {
     };
 
     let env = setup_test_env(program_id);
-    let contract = initialize_contract(&env, program_id, client_state, consensus_state);
+    let contract = initialize_contract(&env, program_id, client_state.chain_id, client_state, consensus_state);
 
     let account = env
         .program
@@ -40,6 +40,4 @@ fn test_initialize_with_pda() {
     assert_eq!(account.client_state.latest_height, 42);
     assert_eq!(account.consensus_state.timestamp, 123456789);
     assert_eq!(account.frozen, false);
-
-    log(&env, "✅ Test passed - contract initialized successfully");
 }
