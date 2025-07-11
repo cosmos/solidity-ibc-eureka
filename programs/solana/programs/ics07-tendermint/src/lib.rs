@@ -79,12 +79,6 @@ pub struct SubmitMisbehaviour<'info> {
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }
 
-#[derive(Accounts)]
-pub struct GetConsensusStateHash<'info> {
-    pub client_data: Account<'info, ClientData>,
-    pub consensus_state_store: Account<'info, ConsensusStateStore>,
-}
-
 #[program]
 pub mod ics07_tendermint {
     use super::*;
