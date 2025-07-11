@@ -147,7 +147,7 @@ pub fn initialize_contract(
             consensus_state: consensus_state.clone(),
         })
         .accounts(ics07_tendermint::accounts::Initialize {
-            client_data: client_data_pda,
+            client_state: client_data_pda,
             consensus_state_store,
             payer: env.payer.pubkey(),
             system_program: system_program::ID,

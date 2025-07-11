@@ -44,7 +44,7 @@ fn test_get_consensus_state_hash() {
         .program
         .request()
         .accounts(ics07_tendermint::accounts::GetConsensusStateHash {
-            client_data: contract.client_data_pda,
+            client_state: contract.client_data_pda,
             consensus_state_store,
         })
         .args(ics07_tendermint::instruction::GetConsensusStateHash { revision_height: 1 })

@@ -59,7 +59,7 @@ fn test_submit_misbehaviour() {
         .program
         .request()
         .accounts(ics07_tendermint::accounts::SubmitMisbehaviour {
-            client_data: contract.client_data_pda,
+            client_state: contract.client_data_pda,
             trusted_consensus_state_1,
             trusted_consensus_state_2,
         })

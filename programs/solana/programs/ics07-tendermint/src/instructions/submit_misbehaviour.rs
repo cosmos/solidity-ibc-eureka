@@ -10,12 +10,12 @@ pub fn submit_misbehaviour(
     ctx: Context<SubmitMisbehaviour>,
     msg: MisbehaviourMsg,
 ) -> Result<()> {
-    let client_data = &mut ctx.accounts.client_data;
+    let client_state = &mut ctx.accounts.client_state;
 
-    require!(!client_data.frozen, ErrorCode::ClientAlreadyFrozen);
+    require!(!client_state.is_frozen(), ErrorCode::ClientAlreadyFrozen);
 
     let misbehaviour = deserialize_misbehaviour(&msg.misbehaviour)?;
-    let client_state: TmClientState = client_data.client_state.clone().into();
+    let tm_client_state: TmClientState = client_state.clone().into_inner().into();
 
     let trusted_consensus_state_1: IbcConsensusState = ctx
         .accounts
@@ -33,7 +33,7 @@ pub fn submit_misbehaviour(
     let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
 
     let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
-        &client_state,
+        &tm_client_state,
         &misbehaviour,
         trusted_consensus_state_1,
         trusted_consensus_state_2,
@@ -57,8 +57,7 @@ pub fn submit_misbehaviour(
 
     // If we reach here, misbehaviour was detected
     // Freeze the client at the current height
-    client_data.frozen = true;
-    client_data.client_state.frozen_height = client_data.client_state.latest_height;
+    client_state.freeze();
 
     msg!(
         "Misbehaviour detected at heights {:?} and {:?}",

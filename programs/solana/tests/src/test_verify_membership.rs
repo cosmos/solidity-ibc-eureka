@@ -56,7 +56,7 @@ fn test_verify_membership() {
         .program
         .request()
         .accounts(ics07_tendermint::accounts::VerifyMembership {
-            client_data: contract.client_data_pda,
+            client_state: contract.client_data_pda,
             consensus_state_at_height,
         })
         .args(ics07_tendermint::instruction::VerifyMembership {

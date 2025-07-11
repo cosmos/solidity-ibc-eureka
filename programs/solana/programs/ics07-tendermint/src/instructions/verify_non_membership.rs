@@ -6,10 +6,10 @@ use anchor_lang::prelude::*;
 use tendermint_light_client_membership::KVPair;
 
 pub fn verify_non_membership(ctx: Context<VerifyNonMembership>, msg: MembershipMsg) -> Result<()> {
-    let client_data = &ctx.accounts.client_data;
+    let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
-    validate_proof_params(client_data, consensus_state_store, &msg)?;
+    validate_proof_params(client_state, consensus_state_store, &msg)?;
 
     // For non-membership, the value must be empty
     require!(msg.value.is_empty(), ErrorCode::InvalidValue);

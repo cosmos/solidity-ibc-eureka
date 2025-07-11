@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
-use crate::state::{ClientData, ConsensusStateStore};
+use crate::state::ConsensusStateStore;
 use crate::types::{ClientState, ConsensusState, UpdateClientMsg, UpdateResult};
 use crate::UpdateClient;
 use anchor_lang::prelude::*;
@@ -12,9 +12,9 @@ use std::io::Write;
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
-    let client_data = &mut ctx.accounts.client_data;
+    let client_state = &mut ctx.accounts.client_state;
 
-    require!(!client_data.frozen, ErrorCode::ClientFrozen);
+    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     // Extract trusted height from header
     let header = deserialize_header(&msg.client_message)?;
@@ -23,13 +23,13 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
     // Validate and load the trusted consensus state
     let trusted_consensus_state = validate_and_load_trusted_state(
         &ctx.accounts.trusted_consensus_state,
-        client_data.key(),
+        client_state.key(),
         trusted_height.revision_height(),
         ctx.program_id,
     )?;
 
     let (new_height, new_consensus_state) = verify_header_and_get_state(
-        &client_data.client_state,
+        client_state.as_ref(),
         &trusted_consensus_state.consensus_state,
         &msg.client_message,
     )?;
@@ -37,12 +37,12 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
     check_timestamp_misbehaviour(
         &new_consensus_state,
         &trusted_consensus_state.consensus_state,
-        client_data,
+        client_state,
     )?;
 
     verify_consensus_state_pda(
         &ctx.accounts.new_consensus_state_store,
-        client_data.key(),
+        client_state.key(),
         new_height.revision_height(),
         ctx.program_id,
     )?;
@@ -54,11 +54,11 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         ctx.program_id,
         new_height.revision_height(),
         &new_consensus_state,
-        client_data,
+        client_state,
     )?;
 
     if let UpdateResult::Update = update_result {
-        client_data.client_state.latest_height = new_height.into();
+        client_state.latest_height = new_height.into();
     }
 
     Ok(update_result)
@@ -96,14 +96,14 @@ fn validate_and_load_trusted_state<'info>(
 fn check_timestamp_misbehaviour(
     new_consensus_state: &ConsensusState,
     trusted_consensus_state: &ConsensusState,
-    client_data: &mut ClientData,
+    client_state: &mut ClientState,
 ) -> Result<()> {
     let trusted_timestamp = Into::<IbcConsensusState>::into(trusted_consensus_state.clone())
         .timestamp
         .unix_timestamp_nanos() as u64;
 
     if new_consensus_state.timestamp <= trusted_timestamp {
-        client_data.frozen = true;
+        client_state.freeze();
         msg!("Misbehaviour detected: non-increasing timestamp");
         return err!(ErrorCode::MisbehaviourNonIncreasingTime);
     }
@@ -165,7 +165,7 @@ fn handle_consensus_state_storage<'info>(
     program_id: &Pubkey,
     revision_height: u64,
     new_consensus_state: &ConsensusState,
-    client_data: &mut ClientData,
+    client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     if !new_consensus_state_store.data_is_empty() {
         // Consensus state already exists at this height - check for misbehaviour
@@ -173,7 +173,7 @@ fn handle_consensus_state_storage<'info>(
             new_consensus_state_store,
             new_consensus_state,
             revision_height,
-            client_data,
+            client_state,
         )
     } else {
         // Create new consensus state account
@@ -193,7 +193,7 @@ fn check_existing_consensus_state(
     new_consensus_state_store: &UncheckedAccount,
     new_consensus_state: &ConsensusState,
     revision_height: u64,
-    client_data: &mut ClientData,
+    client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
     let existing_store: ConsensusStateStore =
@@ -204,7 +204,7 @@ fn check_existing_consensus_state(
         || existing_store.consensus_state.next_validators_hash
             != new_consensus_state.next_validators_hash
     {
-        client_data.frozen = true;
+        client_state.freeze();
         msg!(
             "Misbehaviour detected: conflicting consensus state at height {}",
             revision_height

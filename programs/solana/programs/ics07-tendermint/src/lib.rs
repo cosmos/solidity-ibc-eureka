@@ -11,7 +11,7 @@ pub mod instructions;
 pub mod state;
 pub mod types;
 
-use crate::state::{ClientData, ConsensusStateStore};
+use crate::state::ConsensusStateStore;
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
@@ -25,16 +25,16 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + ClientData::INIT_SPACE,
+        space = 8 + ClientState::INIT_SPACE,
         seeds = [b"client", chain_id.as_bytes()],
         bump
     )]
-    pub client_data: Account<'info, ClientData>,
+    pub client_state: Account<'info, ClientState>,
     #[account(
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [b"consensus_state", client_data.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
+        seeds = [b"consensus_state", client_state.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -47,7 +47,7 @@ pub struct Initialize<'info> {
 #[derive(Accounts)]
 pub struct UpdateClient<'info> {
     #[account(mut)]
-    pub client_data: Account<'info, ClientData>,
+    pub client_state: Account<'info, ClientState>,
     /// Trusted consensus state at the height specified in the header
     /// We use UncheckedAccount here because the trusted height is extracted from the header,
     /// which can only be deserialized inside the instruction handler. Since Anchor's account
@@ -70,13 +70,13 @@ pub struct UpdateClient<'info> {
 
 #[derive(Accounts)]
 pub struct VerifyMembership<'info> {
-    pub client_data: Account<'info, ClientData>,
+    pub client_state: Account<'info, ClientState>,
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
 #[derive(Accounts)]
 pub struct VerifyNonMembership<'info> {
-    pub client_data: Account<'info, ClientData>,
+    pub client_state: Account<'info, ClientState>,
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
 
@@ -84,7 +84,7 @@ pub struct VerifyNonMembership<'info> {
 #[instruction(msg: MisbehaviourMsg)]
 pub struct SubmitMisbehaviour<'info> {
     #[account(mut)]
-    pub client_data: Account<'info, ClientData>,
+    pub client_state: Account<'info, ClientState>,
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 }

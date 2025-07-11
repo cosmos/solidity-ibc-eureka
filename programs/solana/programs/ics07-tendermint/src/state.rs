@@ -1,12 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::types::{ClientState, ConsensusState};
-
-#[account]
-#[derive(InitSpace)]
-pub struct ClientData {
-    pub client_state: ClientState,
-    pub frozen: bool,
-}
+use crate::types::ConsensusState;
 
 #[account]
 #[derive(InitSpace)]

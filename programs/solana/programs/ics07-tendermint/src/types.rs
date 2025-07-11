@@ -13,7 +13,8 @@ pub enum UpdateResult {
     NoOp,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+#[account]
+#[derive(InitSpace)]
 pub struct ClientState {
     #[max_len(64)]
     pub chain_id: String,
@@ -24,6 +25,16 @@ pub struct ClientState {
     pub max_clock_drift: u64,
     pub frozen_height: IbcHeight,
     pub latest_height: IbcHeight,
+}
+
+impl ClientState {
+    pub fn is_frozen(&self) -> bool {
+        self.frozen_height.revision_height > 0
+    }
+
+    pub fn freeze(&mut self) {
+        self.frozen_height = self.latest_height;
+    }
 }
 
 #[derive(

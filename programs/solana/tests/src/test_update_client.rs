@@ -57,7 +57,7 @@ fn test_update_client() {
         .program
         .request()
         .accounts(ics07_tendermint::accounts::UpdateClient {
-            client_data: contract.client_data_pda,
+            client_state: contract.client_data_pda,
             consensus_state_store,
             payer: env.payer.pubkey(),
             system_program: solana_system_interface::program::ID,
