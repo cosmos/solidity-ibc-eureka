@@ -58,7 +58,7 @@ fn request_airdrop(
     rpc: &RpcClient,
     amount: u64,
 ) -> anchor_client::solana_sdk::signature::Signature {
-    log(&env, &format!("💰 Requesting Airdrop - amount: {}", amount));
+    log(env, &format!("💰 Requesting Airdrop - amount: {}", amount));
 
     let signature = rpc
         .request_airdrop(&env.payer.pubkey(), amount)
