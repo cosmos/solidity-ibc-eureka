@@ -1,14 +1,14 @@
-use anchor_lang::prelude::*;
-use anchor_lang::system_program;
-use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
-use ibc_core_client_types::Height;
-use tendermint_light_client_update_client::ClientState as UpdateClientState;
-use std::io::Write;
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
 use crate::state::{ClientData, ConsensusStateStore};
 use crate::types::{ClientState, ConsensusState, UpdateClientMsg, UpdateResult};
 use crate::UpdateClient;
+use anchor_lang::prelude::*;
+use anchor_lang::system_program;
+use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
+use ibc_core_client_types::Height;
+use std::io::Write;
+use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
 pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
     let client_data = &mut ctx.accounts.client_data;
@@ -21,12 +21,14 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         &msg.client_message,
     )?;
 
-    if let Err(_) = check_misbehaviour_timestamp(
-        &new_consensus_state,
-        &client_data.consensus_state.clone().into(),
-        client_data,
-    ) {
-        return Ok(UpdateResult::Misbehaviour);
+    if new_consensus_state.timestamp
+        <= std::convert::Into::<IbcConsensusState>::into(client_data.consensus_state.clone())
+            .timestamp
+            .unix_timestamp_nanos() as u64
+    {
+        client_data.frozen = true;
+        msg!("Misbehaviour detected: non-increasing timestamp");
+        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
     }
 
     verify_consensus_state_pda(
@@ -50,7 +52,6 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         client_data.client_state.latest_height = new_height.into();
         client_data.consensus_state = new_consensus_state;
     }
-
 
     Ok(update_result)
 }
@@ -77,19 +78,6 @@ fn verify_header_and_get_state(
     })?;
 
     Ok((output.latest_height, output.new_consensus_state.into()))
-}
-
-fn check_misbehaviour_timestamp(
-    new_consensus_state: &ConsensusState,
-    trusted_consensus_state: &IbcConsensusState,
-    client_data: &mut ClientData,
-) -> Result<()> {
-    if new_consensus_state.timestamp <= trusted_consensus_state.timestamp.unix_timestamp_nanos() as u64 {
-        client_data.frozen = true;
-        msg!("Misbehaviour detected: non-increasing timestamp");
-        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
-    }
-    Ok(())
 }
 
 fn verify_consensus_state_pda(
@@ -151,18 +139,27 @@ fn check_existing_consensus_state(
     client_data: &mut ClientData,
 ) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
-    let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[8..])?;
+    let existing_store: ConsensusStateStore =
+        ConsensusStateStore::try_deserialize(&mut &data[8..])?;
 
     if existing_store.consensus_state.timestamp != new_consensus_state.timestamp
         || existing_store.consensus_state.root != new_consensus_state.root
-        || existing_store.consensus_state.next_validators_hash != new_consensus_state.next_validators_hash
+        || existing_store.consensus_state.next_validators_hash
+            != new_consensus_state.next_validators_hash
     {
         client_data.frozen = true;
-        msg!("Misbehaviour detected: conflicting consensus state at height {}", revision_height);
-        return Ok(UpdateResult::Misbehaviour);
+        msg!(
+            "Misbehaviour detected: conflicting consensus state at height {}",
+            revision_height
+        );
+
+        return err!(ErrorCode::MisbehaviourConflictingConsensusState);
     }
 
-    msg!("Consensus state already exists at height {}", revision_height);
+    msg!(
+        "Consensus state already exists at height {}",
+        revision_height
+    );
     Ok(UpdateResult::NoOp)
 }
 

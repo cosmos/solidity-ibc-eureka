@@ -2,15 +2,14 @@ use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
 use ibc_core_commitment_types::commitment::CommitmentRoot;
+use std::fmt::Debug;
 use tendermint::Time;
 use tendermint_light_client_update_client::{ClientState as UpdateClientState, TrustThreshold};
 use time::OffsetDateTime;
-use std::fmt::Debug;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UpdateResult {
     Update,
-    Misbehaviour,
     NoOp,
 }
 
@@ -27,7 +26,18 @@ pub struct ClientState {
     pub latest_height: IbcHeight,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, InitSpace)]
+#[derive(
+    AnchorSerialize,
+    AnchorDeserialize,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    InitSpace,
+)]
 pub struct IbcHeight {
     pub revision_number: u64,
     pub revision_height: u64,
@@ -64,7 +74,6 @@ impl From<ClientState> for UpdateClientState {
         }
     }
 }
-
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct ConsensusState {
