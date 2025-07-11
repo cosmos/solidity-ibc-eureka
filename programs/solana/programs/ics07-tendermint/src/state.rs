@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::types::ConsensusState;
+use anchor_lang::prelude::*;
 
 #[account]
 #[derive(InitSpace)]

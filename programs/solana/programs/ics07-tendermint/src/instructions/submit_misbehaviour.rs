@@ -1,15 +1,12 @@
-use anchor_lang::prelude::*;
-use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
-use tendermint_light_client_update_client::ClientState as TmClientState;
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_misbehaviour;
 use crate::types::MisbehaviourMsg;
 use crate::SubmitMisbehaviour;
+use anchor_lang::prelude::*;
+use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
+use tendermint_light_client_update_client::ClientState as TmClientState;
 
-pub fn submit_misbehaviour(
-    ctx: Context<SubmitMisbehaviour>,
-    msg: MisbehaviourMsg,
-) -> Result<()> {
+pub fn submit_misbehaviour(ctx: Context<SubmitMisbehaviour>, msg: MisbehaviourMsg) -> Result<()> {
     let client_state = &mut ctx.accounts.client_state;
 
     require!(!client_state.is_frozen(), ErrorCode::ClientAlreadyFrozen);
@@ -45,13 +42,11 @@ pub fn submit_misbehaviour(
     })?;
 
     require!(
-        ctx.accounts.trusted_consensus_state_1.height
-            == output.trusted_height_1.revision_height(),
+        ctx.accounts.trusted_consensus_state_1.height == output.trusted_height_1.revision_height(),
         ErrorCode::HeightMismatch
     );
     require!(
-        ctx.accounts.trusted_consensus_state_2.height
-            == output.trusted_height_2.revision_height(),
+        ctx.accounts.trusted_consensus_state_2.height == output.trusted_height_2.revision_height(),
         ErrorCode::HeightMismatch
     );
 

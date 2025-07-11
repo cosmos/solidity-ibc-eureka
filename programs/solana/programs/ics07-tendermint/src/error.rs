@@ -42,7 +42,7 @@ pub enum ErrorCode {
 
     // Misbehaviour errors
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
-    MisbehaviourConflictingConsensusState,
+    MisbehaviourConflictingState,
     #[msg("Misbehaviour detected: non-increasing timestamp")]
     MisbehaviourNonIncreasingTime,
     #[msg("Misbehaviour check failed: invalid misbehaviour proof")]

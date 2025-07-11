@@ -16,11 +16,9 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
     require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
-    // Extract trusted height from header
     let header = deserialize_header(&msg.client_message)?;
     let trusted_height = header.trusted_height;
 
-    // Validate and load the trusted consensus state
     let trusted_consensus_state = validate_and_load_trusted_state(
         &ctx.accounts.trusted_consensus_state,
         client_state.key(),
@@ -91,6 +89,7 @@ fn validate_and_load_trusted_state<'info>(
 
     // Deserialize the consensus state (skip 8-byte discriminator)
     ConsensusStateStore::try_deserialize(&mut &account_data[8..])
+        .map_err(|_| error!(ErrorCode::SerializationError))
 }
 
 fn check_timestamp_misbehaviour(
@@ -196,8 +195,8 @@ fn check_existing_consensus_state(
     client_state: &mut ClientState,
 ) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
-    let existing_store: ConsensusStateStore =
-        ConsensusStateStore::try_deserialize(&mut &data[8..])?;
+    let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[8..])
+        .map_err(|_| error!(ErrorCode::SerializationError))?;
 
     if existing_store.consensus_state.timestamp != new_consensus_state.timestamp
         || existing_store.consensus_state.root != new_consensus_state.root
@@ -210,7 +209,7 @@ fn check_existing_consensus_state(
             revision_height
         );
 
-        return err!(ErrorCode::MisbehaviourConflictingConsensusState);
+        return err!(ErrorCode::MisbehaviourConflictingState);
     }
 
     msg!(

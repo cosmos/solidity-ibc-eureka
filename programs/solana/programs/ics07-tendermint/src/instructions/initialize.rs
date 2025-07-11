@@ -1,7 +1,7 @@
-use anchor_lang::prelude::*;
 use crate::error::ErrorCode;
 use crate::types::{ClientState, ConsensusState};
 use crate::Initialize;
+use anchor_lang::prelude::*;
 
 pub fn initialize(
     ctx: Context<Initialize>,
@@ -29,7 +29,10 @@ pub fn initialize(
         ErrorCode::InvalidMaxClockDrift
     );
 
-    require!(client_state.latest_height.revision_height > 0, ErrorCode::InvalidHeight);
+    require!(
+        client_state.latest_height.revision_height > 0,
+        ErrorCode::InvalidHeight
+    );
 
     let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
