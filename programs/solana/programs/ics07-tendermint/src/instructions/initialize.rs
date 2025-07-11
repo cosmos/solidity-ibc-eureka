@@ -29,7 +29,7 @@ pub fn initialize(
         ErrorCode::InvalidMaxClockDrift
     );
 
-    require!(client_state.latest_height > 0, ErrorCode::InvalidHeight);
+    require!(client_state.latest_height.revision_height > 0, ErrorCode::InvalidHeight);
 
     let client_data = &mut ctx.accounts.client_data;
     client_data.client_state = client_state.clone();
@@ -37,7 +37,7 @@ pub fn initialize(
     client_data.frozen = false;
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
-    consensus_state_store.height = client_state.latest_height;
+    consensus_state_store.height = client_state.latest_height.revision_height;
     consensus_state_store.consensus_state = consensus_state;
 
     Ok(())

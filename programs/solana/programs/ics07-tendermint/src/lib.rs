@@ -18,12 +18,12 @@ declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 pub use types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg};
 
 #[derive(Accounts)]
-#[instruction(chain_id: String)]
+#[instruction(chain_id: String, client_state: ClientState)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 1000,
+        space = 8 + 1016, // adjusted for IbcHeight (adds 16 bytes)
         seeds = [b"client", chain_id.as_bytes()],
         bump
     )]
@@ -32,7 +32,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + 8 + 8 + 32 + 32, // discriminator + height + timestamp + root + next_validators_hash
-        seeds = [b"consensus_state", client_data.key().as_ref(), &0u64.to_le_bytes()],
+        seeds = [b"consensus_state", client_data.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -43,18 +43,16 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {
     #[account(mut)]
     pub client_data: Account<'info, ClientData>,
-    #[account(
-        init_if_needed,
-        payer = payer,
-        space = 8 + 8 + 8 + 32 + 32,
-        seeds = [b"consensus_state", client_data.key().as_ref(), &client_data.client_state.latest_height.to_le_bytes()],
-        bump
-    )]
-    pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    /// Consensus state store for the new height
+    /// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
+    /// NOTE: We can't use the instruction parameter here because we don't know the new height
+    /// until after processing the update. This account must be derived by the client
+    /// based on the expected new height from the header.
+    /// CHECK: This account is validated in the instruction handler
+    pub new_consensus_state_store: UncheckedAccount<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,

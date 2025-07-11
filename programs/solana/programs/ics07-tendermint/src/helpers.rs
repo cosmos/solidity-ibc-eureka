@@ -35,13 +35,13 @@ pub fn validate_proof_params(
     );
 
     require!(
-        msg.height <= client_data.client_state.latest_height,
+        msg.height <= client_data.client_state.latest_height.revision_height,
         ErrorCode::InvalidHeight
     );
 
     if msg.delay_time_period > 0 || msg.delay_block_period > 0 {
         let current_timestamp = Clock::get()?.unix_timestamp as u64;
-        let current_height = client_data.client_state.latest_height;
+        let current_height = client_data.client_state.latest_height.revision_height;
 
         let proof_timestamp = consensus_state_store.consensus_state.timestamp / 1_000_000_000; // Convert nanos to seconds
         let time_elapsed = current_timestamp.saturating_sub(proof_timestamp);

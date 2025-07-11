@@ -2,40 +2,77 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum ErrorCode {
+    // Client state errors
     #[msg("Client is frozen")]
     ClientFrozen,
     #[msg("Client is already frozen")]
     ClientAlreadyFrozen,
-    #[msg("Invalid header")]
-    InvalidHeader,
-    #[msg("Invalid height")]
-    InvalidHeight,
-    #[msg("Invalid proof")]
-    InvalidProof,
-    #[msg("Update client failed")]
-    UpdateClientFailed,
-    #[msg("Misbehaviour check failed")]
-    MisbehaviourFailed,
-    #[msg("Verification failed")]
-    VerificationFailed,
-    #[msg("Membership verification failed")]
-    MembershipVerificationFailed,
-    #[msg("Non-membership verification failed")]
-    NonMembershipVerificationFailed,
-    #[msg("Insufficient time delay")]
-    InsufficientTimeDelay,
-    #[msg("Insufficient block delay")]
-    InsufficientBlockDelay,
-    #[msg("Invalid value for non-membership proof")]
-    InvalidValue,
-    #[msg("Invalid chain ID")]
+    #[msg("Invalid chain ID: cannot be empty")]
     InvalidChainId,
-    #[msg("Invalid trust level")]
+    #[msg("Invalid trust level: numerator must be > 0 and <= denominator")]
     InvalidTrustLevel,
     #[msg("Invalid periods: trusting period must be positive and less than unbonding period")]
     InvalidPeriods,
-    #[msg("Invalid max clock drift")]
+    #[msg("Invalid max clock drift: must be positive")]
     InvalidMaxClockDrift,
-    #[msg("Serialization error")]
+
+    // Height errors
+    #[msg("Invalid height: height cannot be zero")]
+    InvalidHeight,
+    #[msg("Invalid revision number: revision number mismatch")]
+    InvalidRevisionNumber,
+    #[msg("Height mismatch: expected height does not match provided height")]
+    HeightMismatch,
+
+    // Header and proof errors
+    #[msg("Invalid header: failed to deserialize or validate header")]
+    InvalidHeader,
+    #[msg("Invalid proof: proof validation failed")]
+    InvalidProof,
+    #[msg("Proof height not found: no consensus state at the specified height")]
+    ProofHeightNotFound,
+
+    // Update errors
+    #[msg("Update client failed: header verification failed")]
+    UpdateClientFailed,
+    #[msg("Update client failed: header is from the future")]
+    HeaderFromFuture,
+    #[msg("Update client failed: header is too old (beyond trusting period)")]
+    HeaderTooOld,
+
+    // Misbehaviour errors
+    #[msg("Misbehaviour detected: conflicting consensus state at same height")]
+    MisbehaviourConflictingState,
+    #[msg("Misbehaviour detected: non-increasing timestamp")]
+    MisbehaviourNonIncreasingTime,
+    #[msg("Misbehaviour check failed: invalid misbehaviour proof")]
+    MisbehaviourCheckFailed,
+
+    // Verification errors
+    #[msg("Verification failed: general verification error")]
+    VerificationFailed,
+    #[msg("Membership verification failed: proof does not match commitment")]
+    MembershipVerificationFailed,
+    #[msg("Non-membership verification failed: key exists when it should not")]
+    NonMembershipVerificationFailed,
+    #[msg("Invalid value: non-membership proof must have empty value")]
+    InvalidValue,
+
+    // Delay errors
+    #[msg("Insufficient time delay: packet timestamp has not elapsed")]
+    InsufficientTimeDelay,
+    #[msg("Insufficient block delay: required block delay has not passed")]
+    InsufficientBlockDelay,
+
+    // Consensus state errors
+    #[msg("Consensus state not found at the specified height")]
+    ConsensusStateNotFound,
+    #[msg("Consensus state already exists at height")]
+    ConsensusStateExists,
+
+    // Other errors
+    #[msg("Serialization error: failed to serialize/deserialize data")]
     SerializationError,
+    #[msg("Account validation failed: invalid account or PDA")]
+    AccountValidationFailed,
 }

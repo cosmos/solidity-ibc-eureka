@@ -41,18 +41,18 @@ pub fn submit_misbehaviour(
     )
     .map_err(|e| {
         msg!("Misbehaviour check failed: {:?}", e);
-        error!(ErrorCode::MisbehaviourFailed)
+        error!(ErrorCode::MisbehaviourCheckFailed)
     })?;
 
     require!(
         ctx.accounts.trusted_consensus_state_1.height
             == output.trusted_height_1.revision_height(),
-        ErrorCode::InvalidHeight
+        ErrorCode::HeightMismatch
     );
     require!(
         ctx.accounts.trusted_consensus_state_2.height
             == output.trusted_height_2.revision_height(),
-        ErrorCode::InvalidHeight
+        ErrorCode::HeightMismatch
     );
 
     // If we reach here, misbehaviour was detected

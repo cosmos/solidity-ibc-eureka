@@ -14,8 +14,29 @@ pub struct ClientState {
     pub trusting_period: u64,
     pub unbonding_period: u64,
     pub max_clock_drift: u64,
-    pub frozen_height: u64,
-    pub latest_height: u64,
+    pub frozen_height: IbcHeight,
+    pub latest_height: IbcHeight,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IbcHeight {
+    pub revision_number: u64,
+    pub revision_height: u64,
+}
+
+impl From<IbcHeight> for Height {
+    fn from(h: IbcHeight) -> Self {
+        Height::new(h.revision_number, h.revision_height).expect("valid height")
+    }
+}
+
+impl From<Height> for IbcHeight {
+    fn from(h: Height) -> Self {
+        IbcHeight {
+            revision_number: h.revision_number(),
+            revision_height: h.revision_height(),
+        }
+    }
 }
 
 impl From<ClientState> for UpdateClientState {
@@ -29,8 +50,8 @@ impl From<ClientState> for UpdateClientState {
             trusting_period_seconds: cs.trusting_period,
             unbonding_period_seconds: cs.unbonding_period,
             max_clock_drift_seconds: cs.max_clock_drift,
-            is_frozen: cs.frozen_height > 0,
-            latest_height: Height::new(0, cs.latest_height).unwrap(),
+            is_frozen: cs.frozen_height.revision_height > 0,
+            latest_height: cs.latest_height.into(),
         }
     }
 }

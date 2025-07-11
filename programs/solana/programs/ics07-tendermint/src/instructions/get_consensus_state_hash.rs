@@ -11,7 +11,7 @@ pub fn get_consensus_state_hash(
 
     require!(
         consensus_state_store.height == revision_height,
-        ErrorCode::InvalidHeight
+        ErrorCode::HeightMismatch
     );
 
     let mut data = [0u8; 72];
