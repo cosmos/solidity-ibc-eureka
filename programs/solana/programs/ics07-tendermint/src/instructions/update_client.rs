@@ -7,10 +7,10 @@ use std::io::Write;
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
 use crate::state::{ClientData, ConsensusStateStore};
-use crate::types::{ClientState, ConsensusState, UpdateClientMsg};
+use crate::types::{ClientState, ConsensusState, UpdateClientMsg, UpdateResult};
 use crate::UpdateClient;
 
-pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<()> {
+pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
     let client_data = &mut ctx.accounts.client_data;
 
     require!(!client_data.frozen, ErrorCode::ClientFrozen);
@@ -21,11 +21,13 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         &msg.client_message,
     )?;
 
-    check_misbehaviour_timestamp(
+    if let Err(_) = check_misbehaviour_timestamp(
         &new_consensus_state,
         &client_data.consensus_state.clone().into(),
         client_data,
-    )?;
+    ) {
+        return Ok(UpdateResult::Misbehaviour);
+    }
 
     verify_consensus_state_pda(
         &ctx.accounts.new_consensus_state_store,
@@ -34,7 +36,7 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         ctx.program_id,
     )?;
 
-    handle_consensus_state_storage(
+    let update_result = handle_consensus_state_storage(
         &ctx.accounts.new_consensus_state_store,
         &ctx.accounts.payer,
         &ctx.accounts.system_program,
@@ -44,10 +46,13 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
         client_data,
     )?;
 
-    client_data.client_state.latest_height = new_height.into();
-    client_data.consensus_state = new_consensus_state;
+    if let UpdateResult::Update = update_result {
+        client_data.client_state.latest_height = new_height.into();
+        client_data.consensus_state = new_consensus_state;
+    }
 
-    Ok(())
+
+    Ok(update_result)
 }
 
 fn verify_header_and_get_state(
@@ -118,14 +123,14 @@ fn handle_consensus_state_storage<'info>(
     revision_height: u64,
     new_consensus_state: &ConsensusState,
     client_data: &mut ClientData,
-) -> Result<()> {
+) -> Result<UpdateResult> {
     if !new_consensus_state_store.data_is_empty() {
         check_existing_consensus_state(
             new_consensus_state_store,
             new_consensus_state,
             revision_height,
             client_data,
-        )?;
+        )
     } else {
         create_consensus_state_account(
             new_consensus_state_store,
@@ -135,8 +140,8 @@ fn handle_consensus_state_storage<'info>(
             revision_height,
             new_consensus_state,
         )?;
+        Ok(UpdateResult::Update)
     }
-    Ok(())
 }
 
 fn check_existing_consensus_state(
@@ -144,7 +149,7 @@ fn check_existing_consensus_state(
     new_consensus_state: &ConsensusState,
     revision_height: u64,
     client_data: &mut ClientData,
-) -> Result<()> {
+) -> Result<UpdateResult> {
     let data = new_consensus_state_store.try_borrow_data()?;
     let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[8..])?;
 
@@ -154,11 +159,11 @@ fn check_existing_consensus_state(
     {
         client_data.frozen = true;
         msg!("Misbehaviour detected: conflicting consensus state at height {}", revision_height);
-        return err!(ErrorCode::MisbehaviourConflictingState);
+        return Ok(UpdateResult::Misbehaviour);
     }
 
     msg!("Consensus state already exists at height {}", revision_height);
-    Ok(())
+    Ok(UpdateResult::NoOp)
 }
 
 fn create_consensus_state_account<'info>(

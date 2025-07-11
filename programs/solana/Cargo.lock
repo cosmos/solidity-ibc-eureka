@@ -2151,7 +2151,6 @@ name = "ics07-tendermint"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "borsh 1.5.7",
  "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-commitment-types",

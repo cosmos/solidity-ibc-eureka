@@ -5,9 +5,18 @@ use ibc_core_commitment_types::commitment::CommitmentRoot;
 use tendermint::Time;
 use tendermint_light_client_update_client::{ClientState as UpdateClientState, TrustThreshold};
 use time::OffsetDateTime;
+use std::fmt::Debug;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UpdateResult {
+    Update,
+    Misbehaviour,
+    NoOp,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct ClientState {
+    #[max_len(64)]
     pub chain_id: String,
     pub trust_level_numerator: u64,
     pub trust_level_denominator: u64,
@@ -18,7 +27,7 @@ pub struct ClientState {
     pub latest_height: IbcHeight,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, InitSpace)]
 pub struct IbcHeight {
     pub revision_number: u64,
     pub revision_height: u64,
@@ -57,7 +66,7 @@ impl From<ClientState> for UpdateClientState {
 }
 
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct ConsensusState {
     pub timestamp: u64,
     pub root: [u8; 32],

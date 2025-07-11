@@ -15,7 +15,7 @@ use crate::state::{ClientData, ConsensusStateStore};
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
-pub use types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg};
+pub use types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg, UpdateResult};
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, client_state: ClientState)]
@@ -23,7 +23,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 1016, // adjusted for IbcHeight (adds 16 bytes)
+        space = 8 + ClientData::INIT_SPACE,
         seeds = [b"client", chain_id.as_bytes()],
         bump
     )]
@@ -31,7 +31,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 8 + 8 + 32 + 32, // discriminator + height + timestamp + root + next_validators_hash
+        space = 8 + ConsensusStateStore::INIT_SPACE,
         seeds = [b"consensus_state", client_data.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
@@ -104,7 +104,7 @@ pub mod ics07_tendermint {
     pub fn update_client(
         ctx: Context<UpdateClient>,
         msg: UpdateClientMsg
-    ) -> Result<()> {
+    ) -> Result<UpdateResult> {
         instructions::update_client::update_client(ctx, msg)
     }
 
@@ -127,12 +127,5 @@ pub mod ics07_tendermint {
         msg: MisbehaviourMsg,
     ) -> Result<()> {
         instructions::submit_misbehaviour::submit_misbehaviour(ctx, msg)
-    }
-
-    pub fn get_consensus_state_hash(
-        ctx: Context<GetConsensusStateHash>,
-        revision_height: u64,
-    ) -> Result<[u8; 32]> {
-        instructions::get_consensus_state_hash::get_consensus_state_hash(ctx, revision_height)
     }
 }
