@@ -15,7 +15,9 @@ use crate::state::{ClientData, ConsensusStateStore};
 
 declare_id!("8wQAC7oWLTxExhR49jYAzXZB39mu7WVVvkWJGgAMMjpV");
 
-pub use types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg, UpdateResult};
+pub use types::{
+    ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg, UpdateResult,
+};
 
 #[derive(Accounts)]
 #[instruction(chain_id: String, client_state: ClientState)]
@@ -46,6 +48,14 @@ pub struct Initialize<'info> {
 pub struct UpdateClient<'info> {
     #[account(mut)]
     pub client_data: Account<'info, ClientData>,
+    /// Trusted consensus state at the height specified in the header
+    /// We use UncheckedAccount here because the trusted height is extracted from the header,
+    /// which can only be deserialized inside the instruction handler. Since Anchor's account
+    /// validation happens before the instruction code runs, we cannot use the standard
+    /// #[account(seeds = ...)] constraint. Instead, we manually validate the PDA derivation
+    /// inside the instruction handler after extracting the trusted height from the header.
+    /// CHECK: This account is validated in the instruction handler based on the trusted height from the header
+    pub trusted_consensus_state: UncheckedAccount<'info>,
     /// Consensus state store for the new height
     /// Will be created if it doesn't exist, or validated if it does (for misbehaviour detection)
     /// NOTE: We can't use the instruction parameter here because we don't know the new height
@@ -82,7 +92,9 @@ pub struct SubmitMisbehaviour<'info> {
 #[program]
 pub mod ics07_tendermint {
     use super::*;
-    use crate::types::{ClientState, ConsensusState, UpdateClientMsg, MembershipMsg, MisbehaviourMsg};
+    use crate::types::{
+        ClientState, ConsensusState, MembershipMsg, MisbehaviourMsg, UpdateClientMsg,
+    };
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -95,17 +107,11 @@ pub mod ics07_tendermint {
         instructions::initialize::initialize(ctx, client_state, consensus_state)
     }
 
-    pub fn update_client(
-        ctx: Context<UpdateClient>,
-        msg: UpdateClientMsg
-    ) -> Result<UpdateResult> {
+    pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result<UpdateResult> {
         instructions::update_client::update_client(ctx, msg)
     }
 
-    pub fn verify_membership(
-        ctx: Context<VerifyMembership>,
-        msg: MembershipMsg
-    ) -> Result<()> {
+    pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
         instructions::verify_membership::verify_membership(ctx, msg)
     }
 

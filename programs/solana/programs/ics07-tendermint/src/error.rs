@@ -53,6 +53,8 @@ pub enum ErrorCode {
     VerificationFailed,
     #[msg("Membership verification failed: proof does not match commitment")]
     MembershipVerificationFailed,
+    #[msg("Membership verification failed: value cannot be empty")]
+    MembershipEmptyValue,
     #[msg("Non-membership verification failed: key exists when it should not")]
     NonMembershipVerificationFailed,
     #[msg("Invalid value: non-membership proof must have empty value")]

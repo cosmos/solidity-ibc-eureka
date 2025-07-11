@@ -4,6 +4,7 @@ use crate::state::{ClientData, ConsensusStateStore};
 use crate::types::{ClientState, ConsensusState, UpdateClientMsg, UpdateResult};
 use crate::UpdateClient;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::pubkey::Pubkey;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
@@ -15,21 +16,29 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
     require!(!client_data.frozen, ErrorCode::ClientFrozen);
 
+    // Extract trusted height from header
+    let header = deserialize_header(&msg.client_message)?;
+    let trusted_height = header.trusted_height;
+
+    // Validate and load the trusted consensus state
+    let trusted_consensus_state = validate_and_load_trusted_state(
+        &ctx.accounts.trusted_consensus_state,
+        client_data.key(),
+        trusted_height.revision_height(),
+        ctx.program_id,
+    )?;
+
     let (new_height, new_consensus_state) = verify_header_and_get_state(
         &client_data.client_state,
-        &client_data.consensus_state,
+        &trusted_consensus_state.consensus_state,
         &msg.client_message,
     )?;
 
-    if new_consensus_state.timestamp
-        <= std::convert::Into::<IbcConsensusState>::into(client_data.consensus_state.clone())
-            .timestamp
-            .unix_timestamp_nanos() as u64
-    {
-        client_data.frozen = true;
-        msg!("Misbehaviour detected: non-increasing timestamp");
-        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
-    }
+    check_timestamp_misbehaviour(
+        &new_consensus_state,
+        &trusted_consensus_state.consensus_state,
+        client_data,
+    )?;
 
     verify_consensus_state_pda(
         &ctx.accounts.new_consensus_state_store,
@@ -50,10 +59,56 @@ pub fn update_client(ctx: Context<UpdateClient>, msg: UpdateClientMsg) -> Result
 
     if let UpdateResult::Update = update_result {
         client_data.client_state.latest_height = new_height.into();
-        client_data.consensus_state = new_consensus_state;
     }
 
     Ok(update_result)
+}
+
+fn validate_and_load_trusted_state<'info>(
+    trusted_consensus_state_account: &UncheckedAccount<'info>,
+    client_key: Pubkey,
+    trusted_height: u64,
+    program_id: &Pubkey,
+) -> Result<ConsensusStateStore> {
+    // Validate the PDA
+    let (expected_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_key.as_ref(),
+            &trusted_height.to_le_bytes(),
+        ],
+        program_id,
+    );
+
+    require!(
+        expected_pda == trusted_consensus_state_account.key(),
+        ErrorCode::AccountValidationFailed
+    );
+
+    // Load and verify the account exists
+    let account_data = trusted_consensus_state_account.try_borrow_data()?;
+    require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
+
+    // Deserialize the consensus state (skip 8-byte discriminator)
+    ConsensusStateStore::try_deserialize(&mut &account_data[8..])
+}
+
+fn check_timestamp_misbehaviour(
+    new_consensus_state: &ConsensusState,
+    trusted_consensus_state: &ConsensusState,
+    client_data: &mut ClientData,
+) -> Result<()> {
+    let trusted_timestamp = Into::<IbcConsensusState>::into(trusted_consensus_state.clone())
+        .timestamp
+        .unix_timestamp_nanos() as u64;
+
+    if new_consensus_state.timestamp <= trusted_timestamp {
+        client_data.frozen = true;
+        msg!("Misbehaviour detected: non-increasing timestamp");
+        return err!(ErrorCode::MisbehaviourNonIncreasingTime);
+    }
+
+    Ok(())
 }
 
 fn verify_header_and_get_state(
@@ -113,6 +168,7 @@ fn handle_consensus_state_storage<'info>(
     client_data: &mut ClientData,
 ) -> Result<UpdateResult> {
     if !new_consensus_state_store.data_is_empty() {
+        // Consensus state already exists at this height - check for misbehaviour
         check_existing_consensus_state(
             new_consensus_state_store,
             new_consensus_state,
@@ -120,6 +176,7 @@ fn handle_consensus_state_storage<'info>(
             client_data,
         )
     } else {
+        // Create new consensus state account
         create_consensus_state_account(
             new_consensus_state_store,
             payer,

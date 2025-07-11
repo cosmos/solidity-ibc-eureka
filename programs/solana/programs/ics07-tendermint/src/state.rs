@@ -5,7 +5,6 @@ use crate::types::{ClientState, ConsensusState};
 #[derive(InitSpace)]
 pub struct ClientData {
     pub client_state: ClientState,
-    pub consensus_state: ConsensusState,
     pub frozen: bool,
 }
 

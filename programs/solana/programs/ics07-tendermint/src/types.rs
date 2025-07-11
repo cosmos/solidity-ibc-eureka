@@ -126,7 +126,7 @@ pub struct MembershipMsg {
     pub delay_time_period: u64,
     pub delay_block_period: u64,
     pub proof: Vec<u8>,
-    pub path: Vec<u8>,
+    pub path: Vec<Vec<u8>>,
     pub value: Vec<u8>,
 }
 

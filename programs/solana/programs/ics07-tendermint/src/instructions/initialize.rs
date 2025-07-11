@@ -33,7 +33,6 @@ pub fn initialize(
 
     let client_data = &mut ctx.accounts.client_data;
     client_data.client_state = client_state.clone();
-    client_data.consensus_state = consensus_state.clone();
     client_data.frozen = false;
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
