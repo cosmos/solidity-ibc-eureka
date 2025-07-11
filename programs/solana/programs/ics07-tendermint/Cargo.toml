@@ -35,6 +35,5 @@ ibc-proto = { workspace = true }
 tendermint = { workspace = true }
 time = { workspace = true, features = ["macros"] }
 
-# Serialization
 borsh = "1.5"
 
