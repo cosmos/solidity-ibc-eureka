@@ -19,8 +19,6 @@ pub enum ErrorCode {
     // Height errors
     #[msg("Invalid height: height cannot be zero")]
     InvalidHeight,
-    #[msg("Invalid revision number: revision number mismatch")]
-    InvalidRevisionNumber,
     #[msg("Height mismatch: expected height does not match provided height")]
     HeightMismatch,
 
@@ -35,10 +33,6 @@ pub enum ErrorCode {
     // Update errors
     #[msg("Update client failed: header verification failed")]
     UpdateClientFailed,
-    #[msg("Update client failed: header is from the future")]
-    HeaderFromFuture,
-    #[msg("Update client failed: header is too old (beyond trusting period)")]
-    HeaderTooOld,
 
     // Misbehaviour errors
     #[msg("Misbehaviour detected: conflicting consensus state at same height")]
@@ -49,8 +43,6 @@ pub enum ErrorCode {
     MisbehaviourCheckFailed,
 
     // Verification errors
-    #[msg("Verification failed: general verification error")]
-    VerificationFailed,
     #[msg("Membership verification failed: proof does not match commitment")]
     MembershipVerificationFailed,
     #[msg("Membership verification failed: value cannot be empty")]
@@ -69,8 +61,6 @@ pub enum ErrorCode {
     // Consensus state errors
     #[msg("Consensus state not found at the specified height")]
     ConsensusStateNotFound,
-    #[msg("Consensus state already exists at height")]
-    ConsensusStateExists,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

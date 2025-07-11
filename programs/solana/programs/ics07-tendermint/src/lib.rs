@@ -1,8 +1,7 @@
 #![allow(unexpected_cfgs)]
-#![allow(deprecated)]
 #![warn(clippy::all)]
 #![allow(clippy::result_large_err)]
-
+#[allow(deprecated, reason = "anchor #[program] uses deprecated functionality")]
 use anchor_lang::prelude::*;
 
 pub mod error;

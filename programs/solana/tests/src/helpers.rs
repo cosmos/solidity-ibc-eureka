@@ -6,14 +6,14 @@ use anchor_client::solana_sdk::{
     signature::{Keypair, Signer},
 };
 use anchor_client::{Client, Cluster, Program};
+use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use ics07_tendermint::{ClientState, ConsensusState};
+use prost::Message;
 use solana_system_interface::program as system_program;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
-use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
-use prost::Message;
 
 pub struct TestEnv {
     pub payer: Rc<Keypair>,
@@ -64,7 +64,7 @@ fn request_airdrop(
         .request_airdrop(&env.payer.pubkey(), amount)
         .expect("Failed to request airdrop");
 
-    log(&env, &format!("💰 Airdrop requested - sig: {}", signature));
+    log(env, &format!("💰 Airdrop requested - sig: {}", signature));
 
     signature
 }
@@ -118,13 +118,13 @@ pub fn initialize_contract(
         Pubkey::find_program_address(&[b"client", client_state.chain_id.as_bytes()], &program_id);
 
     log(
-        &env,
+        env,
         &format!(
             "🚀 Initializing contract with chain_id: {}",
             client_state.chain_id
         ),
     );
-    log(&env, &format!("📍 Client data PDA: {}", client_data_pda));
+    log(env, &format!("📍 Client data PDA: {}", client_data_pda));
 
     // Calculate the consensus state store PDA for the initial height (0)
     let (consensus_state_store, _bump) = Pubkey::find_program_address(
@@ -163,10 +163,7 @@ pub fn initialize_contract(
         .send()
         .expect("Failed to initialize contract");
 
-    log(
-        &env,
-        &format!("✅ Contract initialized - tx: {}", signature),
-    );
+    log(env, &format!("✅ Contract initialized - tx: {}", signature));
 
     InitializedContract {
         client_data_pda,
@@ -190,16 +187,16 @@ pub fn create_test_header_bytes() -> Vec<u8> {
 
     // Encode to protobuf bytes
     let mut buf = Vec::new();
-    raw_header.encode(&mut buf).expect("encoding should succeed");
+    raw_header
+        .encode(&mut buf)
+        .expect("encoding should succeed");
     buf
 }
 
 /// Creates a minimal valid protobuf-encoded MerkleProof for testing
 pub fn create_test_merkle_proof_bytes() -> Vec<u8> {
     // Create a minimal RawMerkleProof
-    let raw_proof = RawMerkleProof {
-        proofs: vec![],
-    };
+    let raw_proof = RawMerkleProof { proofs: vec![] };
 
     // Encode to protobuf bytes
     let mut buf = Vec::new();
@@ -218,6 +215,8 @@ pub fn create_test_misbehaviour_bytes() -> Vec<u8> {
 
     // Encode to protobuf bytes
     let mut buf = Vec::new();
-    raw_misbehaviour.encode(&mut buf).expect("encoding should succeed");
+    raw_misbehaviour
+        .encode(&mut buf)
+        .expect("encoding should succeed");
     buf
 }
