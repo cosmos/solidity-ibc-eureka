@@ -24,11 +24,17 @@ build-sp1-programs:
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
   cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
-# Build the Solana Anchor program (without nix)
+# Build the Solana Anchor program
 [group('build')]
 build-solana:
   @echo "Building Solana Anchor program..."
-  cd programs/solana && anchor build
+  if command -v anchor-nix >/dev/null 2>&1; then \
+    echo "🦀 Using anchor-nix"; \
+    (cd programs/solana && anchor-nix build); \
+  else \
+    echo "🦀 Using anchor"; \
+    (cd programs/solana && anchor build); \
+  fi
 
 # Build and optimize the eth wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
 [group('build')]
@@ -256,7 +262,7 @@ test-e2e-solana testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaTestSuite/{{testname}}
 
-# Run the Solana Anchor tests (nix preferred)
+# Run the Solana Anchor tests
 [group('test')]
 test-solana *ARGS:
 	@echo "Copying all files from target/deploy to programs/solana/target/deploy (overwriting if needed)"
