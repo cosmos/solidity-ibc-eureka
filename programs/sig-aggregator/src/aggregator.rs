@@ -3,9 +3,11 @@ use crate::{
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, AggregateResponse, QueryRequest
-    }
+        aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient, 
+        AggregateRequest, AggregateResponse, AttestationsFromHeightRequest
+    },
 };
+
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::sync::Arc;
 use tokio::{
@@ -18,7 +20,7 @@ use tonic::{transport::Channel, Request, Response, Status};
 #[derive(Debug)]
 pub struct AggregatorService {
     config: Config,
-    attestor_clients: Vec<Arc<Mutex<AttestorClient<Channel>>>>,
+    attestor_clients: Vec<Arc<Mutex<AttestationServiceClient<Channel>>>>,
     cached_height: Arc<RwLock<AggregateResponse>>,
 }
 
@@ -26,7 +28,7 @@ impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
         for endpoint in &config.attestor.attestor_endpoints {
-            let client = AttestorClient::connect(endpoint.to_string())
+            let client = AttestationServiceClient::connect(endpoint.to_string())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
             attestor_clients.push(Arc::new(Mutex::new(client)));
@@ -58,16 +60,15 @@ impl Aggregator for AggregatorService {
                 return Ok(Response::new(cached_height.clone()));
             }
         }
-        tracing::debug!("Querying attestors for height >= {}", min_height);
         let mut futs = FuturesUnordered::new();
         let timeout_ms = Duration::from_millis(self.config.attestor.attestor_query_timeout_ms);
 
         // Spin up one future per client, each with its own timeout
         for client in self.attestor_clients.iter() {
             let mut client = client.lock().await;
-            let req = Request::new(QueryRequest { min_height });
+            let req = Request::new(AttestationsFromHeightRequest { height: min_height });
             futs.push(async move {
-                match timeout(timeout_ms, client.query_attestations(req)).await {
+                match timeout(timeout_ms, client.get_attestations_from_height(req)).await {
                     Ok(Ok(resp)) => Ok(resp.into_inner()),
                     Ok(Err(status)) => Err(status),
                     Err(_) => Err(Status::deadline_exceeded("attestor RPC timed out")),
@@ -110,14 +111,14 @@ mod e2e_tests {
         mock_attestor::setup_attestor_server,
     };
 
-    fn default_config(attestor_endpoints: Vec<String>) -> Config {
+    fn default_config(timeout: u64, attestor_endpoints: Vec<String>) -> Config {
         Config {
             server: ServerConfig {
                 listner_addr: "127.0.0.1:50060".parse().unwrap(),
                 log_level: "INFO".to_string(),
             },
             attestor: AttestorConfig {
-                attestor_query_timeout_ms: 5000,
+                attestor_query_timeout_ms: timeout,
                 quorum_threshold: 3,
                 attestor_endpoints,
             },
@@ -135,7 +136,7 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
         
         // 2. Setup: Create AggregatorService
-        let config = default_config(vec![
+        let config = default_config(5000, vec![
             format!("http://{addr_1}"),
             format!("http://{addr_2}"),
             format!("http://{addr_3}"),
@@ -173,7 +174,7 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
         
         // 2. Setup: Create AggregatorService
-        let config = default_config(vec![
+        let config = default_config(100, vec![
             format!("http://{addr_1}"),
             format!("http://{addr_2}"),
             format!("http://{addr_3}"),
@@ -199,7 +200,7 @@ mod e2e_tests {
 mod tests {
     use super::*;
     use crate::attestor_data::{PUBKEY_BYTE_LENGTH, STATE_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH};
-    use crate::rpc::{Attestation, AttestationsResponse};
+    use crate::rpc::{AttestationEntry, AttestationsFromHeightResponse};
 
     // Helper to build a FixedBytes-N vector filled with `b`
     fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
@@ -211,13 +212,14 @@ mod tests {
         // We have a height 100 but only 1 signature < quorum 2
         let mut attestator_data = AttestatorData::new();
 
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
-            attestations: vec![Attestation {
-                height: 100,
-                state: fill_bytes::<STATE_BYTE_LENGTH>(1),
-                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
-            }],
+            attestations: vec![
+                AttestationEntry {
+                    height: 100,
+                    data: fill_bytes::<STATE_BYTE_LENGTH>(1),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
+                },],
         });
 
         let latest = attestator_data.get_latest(2); // Quprum 2
@@ -228,24 +230,26 @@ mod tests {
     fn picks_single_height_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
         let state = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 123,
-                    state: state.clone(),
+                    data: state.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
                 },
             ],
         });
         
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
-            attestations: vec![Attestation {
-                height: 123,
-                state: state.clone(),
-                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-            }],
+            attestations: vec![
+                AttestationEntry {
+                    height: 123,
+                    data: state.clone(),
+                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+                },
+            ],
         });
 
         let latest = attestator_data.get_latest(2); // Quorum 2
@@ -271,64 +275,64 @@ mod tests {
         let pk_b = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xB);
         let pk_c = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xC);
 
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_a.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(1),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(3),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
                 },
             ],
         });
         
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_b.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(2),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(4),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(6),
                 },
             ],
         });
         
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_c.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(10),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(15),
                 },
             ],

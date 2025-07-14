@@ -1,6 +1,6 @@
 use crate::{aggregator::AggregatorService, config::Config};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use crate::rpc::{aggregator_server::AggregatorServer, FILE_DESCRIPTOR_SET};
+use crate::rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR};
 
 /// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
 /// and periodically updates attestation state.
@@ -21,7 +21,7 @@ impl Server {
         tokio::spawn(async move {
             let socket_addr = config.server.listner_addr;
             let reflection_service = tonic_reflection::server::Builder::configure()
-                .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+                .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
                 .build_v1()
                 .unwrap();
 

@@ -25,8 +25,15 @@ async fn main() -> Result<()> {
             let aggregator_service = AggregatorService::from_config(config.clone()).await?;
 
             let server = Server;
-            server.start(aggregator_service, config).await?;
+            let server_res = server.start(aggregator_service, config);
+
             tokio::select! {
+                result = server_res => {
+                    if let Err(e) = result {
+                        tracing::error!("Server exited with an error: {}", e);
+                        return Err(e);
+                    }
+                },
                 _ = tokio::signal::ctrl_c() => {
                     tracing::info!("Received Ctrl+C, shutting down server.");
                 }

@@ -3,8 +3,8 @@ use tokio::{time::sleep, net::TcpListener};
 use tonic::{transport::Server, Request, Response, Status};
 use rand::Rng;
 use crate::rpc::{
-    attestor_server::{Attestor, AttestorServer},
-    Attestation, AttestationsResponse, QueryRequest,
+    attestation_service_server::{AttestationService, AttestationServiceServer},
+    AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
 };
 
 // A mock signature is just a height repeated 4 times inside a 32-byte array.
@@ -57,11 +57,11 @@ impl MockAttestor {
 }
 
 #[tonic::async_trait]
-impl Attestor for MockAttestor {
-    async fn query_attestations(
+impl AttestationService for MockAttestor {
+    async fn get_attestations_from_height(
         &self,
-        request: Request<QueryRequest>,
-    ) -> Result<Response<AttestationsResponse>, Status> {
+        request: Request<AttestationsFromHeightRequest>,
+    ) -> Result<Response<AttestationsFromHeightResponse>, Status> {
         if self.delay_ms > 0 {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
@@ -70,19 +70,19 @@ impl Attestor for MockAttestor {
             return Err(Status::internal("Simulated attestor failure"));
         }
 
-        let min_height = request.into_inner().min_height;
+        let min_height = request.into_inner().height;
         let store = self.store.clone();
 
         let attestations = store
             .range(min_height..)
-            .map(|(&height, (state, signature))| Attestation {
+            .map(|(&height, (state, signature))| AttestationEntry {
                 height,
-                state: state.clone(),
+                data: state.clone(),
                 signature: signature.clone(),
             })
             .collect();
 
-        Ok(Response::new(AttestationsResponse {
+        Ok(Response::new(AttestationsFromHeightResponse {
             pubkey: self.pub_key.clone(),
             attestations,
         }))
@@ -106,7 +106,7 @@ pub async fn run_attestor_server(
     tracing::info!("Attestor listening on {}", addr);
 
     Server::builder()
-        .add_service(AttestorServer::new(attestor))
+        .add_service(AttestationServiceServer::new(attestor))
         .serve(addr)
         .await?;
 
@@ -126,7 +126,7 @@ pub async fn setup_attestor_server(
 
     tokio::spawn(async move {
         Server::builder()
-            .add_service(AttestorServer::new(attestor))
+            .add_service(AttestationServiceServer::new(attestor))
             .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
             .await
     });

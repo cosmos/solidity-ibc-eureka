@@ -1,6 +1,6 @@
 use crate::{
     rpc::{
-        AggregateResponse, AttestationsResponse, SigPubkeyPair,
+        AggregateResponse, AttestationsFromHeightResponse, SigPubkeyPair,
     },
 };
 use alloy_primitives::FixedBytes;
@@ -39,11 +39,11 @@ impl AttestatorData {
         Self(HashMap::new())
     }
 
-    pub fn insert(&mut self, att_resp: AttestationsResponse) {
+    pub fn insert(&mut self, att_resp: AttestationsFromHeightResponse) {
         for attestations in att_resp.attestations {
             let state_map = self.0.entry(attestations.height).or_default();
             state_map
-                .entry(State::from_slice(&attestations.state))
+                .entry(State::from_slice(&attestations.data))
                 .or_default()
                 .push((
                     Signature::from_slice(&attestations.signature), 
