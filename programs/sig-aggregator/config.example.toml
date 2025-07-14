@@ -1,10 +1,13 @@
-listen_addr = "127.0.0.1:50060"
+[server]
+listner_addr = "127.0.0.1:50060"
+
+[attestor]
 attestor_query_timeout_ms = 5000
-quorum_threshold = 3
+quorum_threshold = 1
 attestor_endpoints = [
-    "http://127.0.0.1:50051",
-    "http://127.0.0.1:50052",
-    "http://127.0.0.1:50053",
-    "http://127.0.0.1:50054",
-    "http://127.0.0.1:50055",
+    "http://127.0.0.1:8080",
+    # "http://127.0.0.1:50052",
+    # "http://127.0.0.1:50053",
+    # "http://127.0.0.1:50054",
+    # "http://127.0.0.1:50055",
 ]

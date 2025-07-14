@@ -20,11 +20,17 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Server { config } => {
-            let config = Config::load(config)?;
+            let config = Config::from_file(config)?;
+            tracing::info!("Starting server with config: {:?}", config);
             let aggregator_service = AggregatorService::from_config(config.clone()).await?;
 
             let server = Server;
             server.start(aggregator_service, config).await?;
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    tracing::info!("Received Ctrl+C, shutting down server.");
+                }
+            }
         }
     }
 

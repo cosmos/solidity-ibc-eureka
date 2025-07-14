@@ -17,8 +17,9 @@ impl Server {
         service: AggregatorService,
         config: Config,
     ) -> Result<(), anyhow::Error> {
+        tracing::info!("Starting Server: {:?}", service);
         tokio::spawn(async move {
-            let socket_addr = config.listen_addr;
+            let socket_addr = config.server.listner_addr;
             let reflection_service = tonic_reflection::server::Builder::configure()
                 .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
                 .build_v1()
@@ -53,27 +54,30 @@ mod tests {
     use tokio::time::{sleep, Duration};
     use tonic::Request;
     use crate::{
-        config::Config, 
+        config::{Config, ServerConfig, AttestorConfig},
         mock_attestor::setup_attestor_server,
         rpc::{aggregator_client::AggregatorClient, AggregateRequest}
     };
-    use std::net::SocketAddr;
-    use url::Url;
 
     #[tokio::test]
     async fn server_accepts_and_responds_to_rpc() {
         let (addr_1, pk_1) = setup_attestor_server(false, 0).await.unwrap();
         let (addr_2, pk_2) = setup_attestor_server(false, 0).await.unwrap();
         
-        let listen_addr: SocketAddr = "127.0.0.1:50051".parse().unwrap();
+        let listener_addr: String = "127.0.0.1:50051".to_string();
         let config = Config {
-            attestor_endpoints: vec![
-                Url::parse(&format!("http://{addr_1}")).unwrap(),
-                Url::parse(&format!("http://{addr_2}")).unwrap(),
-            ],
-            quorum_threshold: 2,
-            listen_addr,
-            attestor_query_timeout_ms: 500,
+            server: ServerConfig {
+                listner_addr: listener_addr.parse().unwrap(),
+                log_level: "INFO".to_string(),
+            },
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: 500,
+                quorum_threshold: 2,
+                attestor_endpoints: vec![
+                    format!("http://{addr_1}"),
+                    format!("http://{addr_2}"),
+                ],
+            },
         };
 
         let service = AggregatorService::from_config(config.clone())
@@ -87,7 +91,7 @@ mod tests {
 
         sleep(Duration::from_millis(100)).await;
 
-        let endpoint = format!("http://{listen_addr}");
+        let endpoint = format!("http://{listener_addr}");
         let mut client = AggregatorClient::connect(endpoint)
             .await
             .expect("client connect failed");

@@ -25,7 +25,7 @@ pub struct AggregatorService {
 impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
-        for endpoint in &config.attestor_endpoints {
+        for endpoint in &config.attestor.attestor_endpoints {
             let client = AttestorClient::connect(endpoint.to_string())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
@@ -58,9 +58,9 @@ impl Aggregator for AggregatorService {
                 return Ok(Response::new(cached_height.clone()));
             }
         }
-
+        tracing::debug!("Querying attestors for height >= {}", min_height);
         let mut futs = FuturesUnordered::new();
-        let timeout_ms = Duration::from_millis(self.config.attestor_query_timeout_ms);
+        let timeout_ms = Duration::from_millis(self.config.attestor.attestor_query_timeout_ms);
 
         // Spin up one future per client, each with its own timeout
         for client in self.attestor_clients.iter() {
@@ -83,7 +83,7 @@ impl Aggregator for AggregatorService {
             }
         }
     
-        if let Some(agg_resp) = attestator_data.get_latest(self.config.quorum_threshold) {
+        if let Some(agg_resp) = attestator_data.get_latest(self.config.attestor.quorum_threshold) {
             let mut cached_height = self.cached_height.write().await;
             if cached_height.height < agg_resp.height {
                 *cached_height = agg_resp;
@@ -106,10 +106,23 @@ impl Aggregator for AggregatorService {
 mod e2e_tests {
     use super::*;
     use crate::{
-        config::Config, 
+        config::{AttestorConfig, Config, ServerConfig},
         mock_attestor::setup_attestor_server,
     };
-    use url::Url;
+
+    fn default_config(attestor_endpoints: Vec<String>) -> Config {
+        Config {
+            server: ServerConfig {
+                listner_addr: "127.0.0.1:50060".parse().unwrap(),
+                log_level: "INFO".to_string(),
+            },
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: 5000,
+                quorum_threshold: 3,
+                attestor_endpoints,
+            },
+        }
+    }
 
     #[tokio::test]
     async fn get_aggregate_attestation_quorum_met() {
@@ -122,17 +135,12 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
         
         // 2. Setup: Create AggregatorService
-        let config = Config {
-            attestor_endpoints: vec![
-                Url::parse(&format!("http://{addr_1}")).unwrap(),
-                Url::parse(&format!("http://{addr_2}")).unwrap(),
-                Url::parse(&format!("http://{addr_3}")).unwrap(),
-                Url::parse(&format!("http://{addr_4}")).unwrap(),
-            ],
-            quorum_threshold: 3,
-            listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
-            attestor_query_timeout_ms: 5000,
-        };
+        let config = default_config(vec![
+            format!("http://{addr_1}"),
+            format!("http://{addr_2}"),
+            format!("http://{addr_3}"),
+            format!("http://{addr_4}"),
+        ]);
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
 
@@ -165,17 +173,12 @@ mod e2e_tests {
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
         
         // 2. Setup: Create AggregatorService
-        let config = Config {
-            attestor_endpoints: vec![
-                Url::parse(&format!("http://{addr_1}")).unwrap(),
-                Url::parse(&format!("http://{addr_2}")).unwrap(),
-                Url::parse(&format!("http://{addr_3}")).unwrap(),
-                Url::parse(&format!("http://{addr_4}")).unwrap(),
-            ],
-            quorum_threshold: 3,
-            listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
-            attestor_query_timeout_ms: 500,
-        };
+        let config = default_config(vec![
+            format!("http://{addr_1}"),
+            format!("http://{addr_2}"),
+            format!("http://{addr_3}"),
+            format!("http://{addr_4}"),
+        ]);
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
 
