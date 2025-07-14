@@ -37,7 +37,6 @@ indexmap			= { workspace = true, default-features = false }
 
 clap				= { workspace = true, default-features = false, features = ["derive"] }
 
-
 tokio				= { workspace = true, features = ["rt-multi-thread", "macros"] }
 tower-http			= { workspace = true, features = ["trace"] }
 tonic            		= { workspace = true, default-features = true }
@@ -46,6 +45,8 @@ prost      			= { workspace = true, default-features = true }
 
 tracing				= { workspace = true }
 tracing-subscriber		= { workspace = true, default-features = true }
+
+key-utils			= { workspace = true, default-features = false }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

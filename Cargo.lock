@@ -4089,6 +4089,7 @@ dependencies = [
  "borsh",
  "clap",
  "indexmap 2.10.0",
+ "key-utils",
  "prost",
  "secp256k1 0.31.1",
  "serde",
@@ -4715,6 +4716,17 @@ checksum = "505d1856a39b200489082f90d897c3f07c455563880bc5952e38eabf731c83b6"
 dependencies = [
  "digest 0.10.7",
  "sha3-asm",
+]
+
+[[package]]
+name = "key-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "pem 3.0.5",
+ "pkcs8",
+ "sec1",
+ "secp256k1 0.31.1",
 ]
 
 [[package]]
@@ -5785,6 +5797,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8835c273a76a90455d7344889b0964598e3316e2a79ede8e36f16bdcf2228b8"
 dependencies = [
  "base64 0.13.1",
+]
+
+[[package]]
+name = "pem"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38af38e8470ac9dee3ce1bae1af9c1671fffc44ddfd8bd1d0a3445bf349a8ef3"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
 ]
 
 [[package]]
@@ -7460,29 +7482,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "sig-aggregator"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives 1.1.0",
- "anyhow",
- "clap",
- "futures",
- "hex",
- "prost",
- "rand 0.9.1",
- "serde",
- "thiserror 2.0.12",
- "tokio",
- "tokio-stream",
- "toml",
- "tonic 0.13.1",
- "tonic-build",
- "tracing",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8926,7 +8925,7 @@ dependencies = [
  "libc",
  "log",
  "nix",
- "pem",
+ "pem 1.1.1",
  "percentage",
  "quinn",
  "quinn-proto",
@@ -10938,7 +10937,6 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
- "serde",
 ]
 
 [[package]]

@@ -43,7 +43,10 @@ where
         }
     }
 
-    pub fn new() -> Self {
+    pub fn new(server_config: &ServerConfig) -> Self {
+        tracing_subscriber::fmt::fmt()
+            .with_max_level(server_config.log_level())
+            .init();
         Self { _data: PhantomData }
     }
 }
