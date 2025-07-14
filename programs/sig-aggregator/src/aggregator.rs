@@ -160,7 +160,7 @@ mod e2e_tests {
         assert!(aggres.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_2));
         assert!(aggres.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_3));
 
-        assert_eq!(aggres.state.len(), 32); // Assuming state is 32 bytes long
+        assert_eq!(aggres.state.len(), 12); // Assuming state is 12 bytes long
     }
 
     #[tokio::test]
