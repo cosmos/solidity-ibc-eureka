@@ -2,50 +2,34 @@ use crate::{aggregator::AggregatorService, config::Config};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use crate::rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR};
 
-/// Simple server that accepts inbound RPC calls for [AttestationServiceServer]
-/// and periodically updates attestation state.
-pub struct Server;
 
-impl Server {
-    pub fn new() -> Self {
-        Self { }
-    }
+/// Starts the [AggregatorService] RPC server with the provided configuration.
+pub async fn start(
+    service: AggregatorService,
+    config: Config,
+) -> Result<(), anyhow::Error> {
+    tracing::info!("Starting Server: {:?}", service);
+    tokio::spawn(async move {
+        let socket_addr = config.server.listner_addr;
+        let reflection_service = tonic_reflection::server::Builder::configure()
+            .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
+            .build_v1()
+            .unwrap();
 
-    /// Starts the [AggregatorService] RPC server with the provided configuration.
-    pub async fn start(
-        &self,
-        service: AggregatorService,
-        config: Config,
-    ) -> Result<(), anyhow::Error> {
-        tracing::info!("Starting Server: {:?}", service);
-        tokio::spawn(async move {
-            let socket_addr = config.server.listner_addr;
-            let reflection_service = tonic_reflection::server::Builder::configure()
-                .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
-                .build_v1()
-                .unwrap();
-
-            tracing::info!("Started gRPC server on {}", socket_addr);
-            tonic::transport::Server::builder()
-                .layer(
-                    TraceLayer::new_for_grpc()
-                        .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                        .on_response(DefaultOnResponse::new().level(tracing::Level::INFO)),
-                )
-                .add_service(AggregatorServer::new(service))
-                .add_service(reflection_service)
-                .serve(socket_addr)
-                .await
-                .unwrap();
-        });
-        Ok(())
-    }
-}
-
-impl Default for Server {
-    fn default() -> Self {
-        Self::new()
-    }
+        tracing::info!("Started gRPC server on {}", socket_addr);
+        tonic::transport::Server::builder()
+            .layer(
+                TraceLayer::new_for_grpc()
+                    .make_span_with(DefaultMakeSpan::new().include_headers(true))
+                    .on_response(DefaultOnResponse::new().level(tracing::Level::INFO)),
+            )
+            .add_service(AggregatorServer::new(service))
+            .add_service(reflection_service)
+            .serve(socket_addr)
+            .await
+            .unwrap();
+    });
+    Ok(())
 }
 
 #[cfg(test)]
@@ -84,8 +68,7 @@ mod tests {
             .await
             .expect("failed to build AggregatorService");
 
-        let server = Server::new();
-        server.start(service, config.clone())
+        start(service, config.clone())
             .await
             .expect("server start failed");
 

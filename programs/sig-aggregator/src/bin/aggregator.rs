@@ -4,7 +4,7 @@ use sig_aggregator::{
     aggregator::AggregatorService,
     cli::{Cli, Commands},
     config::Config,
-    server::Server,
+    server::start as start_server,
 };
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -24,8 +24,7 @@ async fn main() -> Result<()> {
             tracing::info!("Starting server with config: {:?}", config);
             let aggregator_service = AggregatorService::from_config(config.clone()).await?;
 
-            let server = Server;
-            server.start(aggregator_service, config).await?;
+            start_server(aggregator_service, config).await?;
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
