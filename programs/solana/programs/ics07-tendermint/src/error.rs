@@ -53,10 +53,8 @@ pub enum ErrorCode {
     InvalidValue,
 
     // Delay errors
-    #[msg("Insufficient time delay: packet timestamp has not elapsed")]
-    InsufficientTimeDelay,
-    #[msg("Insufficient block delay: required block delay has not passed")]
-    InsufficientBlockDelay,
+    #[msg("Time and block delay must be zero")]
+    NonZeroDelay,
 
     // Consensus state errors
     #[msg("Consensus state not found at the specified height")]
