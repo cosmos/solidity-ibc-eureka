@@ -21,10 +21,9 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Server { config } => {
             let config = Config::from_file(config)?;
-            tracing::info!("Starting server with config: {:?}", config);
             let aggregator_service = AggregatorService::from_config(config.clone()).await?;
 
-            start_server(aggregator_service, config).await?;
+            start_server(aggregator_service, config.server).await?;
 
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {

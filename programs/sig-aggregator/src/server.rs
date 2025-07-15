@@ -1,4 +1,4 @@
-use crate::{aggregator::AggregatorService, config::Config};
+use crate::{aggregator::AggregatorService, config::ServerConfig};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use crate::rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR};
 
@@ -6,11 +6,11 @@ use crate::rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR};
 /// Starts the [AggregatorService] RPC server with the provided configuration.
 pub async fn start(
     service: AggregatorService,
-    config: Config,
+    config: ServerConfig,
 ) -> Result<(), anyhow::Error> {
-    tracing::info!("Starting Server: {:?}", service);
+    tracing::info!("Starting Server With Config: {:?}", config);
     tokio::spawn(async move {
-        let socket_addr = config.server.listner_addr;
+        let socket_addr = config.listner_addr;
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
             .build_v1()
@@ -21,7 +21,7 @@ pub async fn start(
             .layer(
                 TraceLayer::new_for_grpc()
                     .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                    .on_response(DefaultOnResponse::new().level(tracing::Level::INFO)),
+                    .on_response(DefaultOnResponse::new().level(config.log_level())),
             )
             .add_service(AggregatorServer::new(service))
             .add_service(reflection_service)
@@ -68,7 +68,7 @@ mod tests {
             .await
             .expect("failed to build AggregatorService");
 
-        start(service, config.clone())
+        start(service, config.server)
             .await
             .expect("server start failed");
 
@@ -85,7 +85,7 @@ mod tests {
             .expect("RPC failed")
             .into_inner();
 
-        assert_eq!(resp.height, 110, "default height should be 0");
+        assert_eq!(resp.height, 110);
         assert_eq!(resp.sig_pubkey_pairs.len(), 2);
         assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_1));
         assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_2));
