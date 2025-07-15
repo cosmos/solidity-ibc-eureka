@@ -66,9 +66,11 @@ mod tests {
             .await
             .expect("failed to build AggregatorService");
 
-        start(service, config.server)
-            .await
-            .expect("server start failed");
+        let server_handle = tokio::spawn({async move {
+            start(service, config.server)
+                .await
+                .expect("server start failed");
+        }});
 
         sleep(Duration::from_millis(100)).await;
 
@@ -87,6 +89,6 @@ mod tests {
         assert_eq!(resp.sig_pubkey_pairs.len(), 2);
         assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_1));
         assert!(resp.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_2));
-        
+        server_handle.abort();
     }
 }
