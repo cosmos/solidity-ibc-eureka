@@ -227,7 +227,7 @@ fn create_consensus_state_account<'info>(
     revision_height: u64,
     new_consensus_state: &ConsensusState,
 ) -> Result<()> {
-    let space = 8 + 8 + 8 + 32 + 32;
+    let space = 8 + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
 
     system_program::create_account(
