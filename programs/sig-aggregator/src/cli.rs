@@ -13,5 +13,5 @@ pub enum Commands {
     Server {
         #[clap(long, default_value = "config.toml")]
         config: String,
-    }
+    },
 }

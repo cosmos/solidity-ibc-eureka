@@ -1,7 +1,3 @@
-use std::{collections::BTreeMap, time::Duration, net::SocketAddr};
-use tokio::{time::sleep, net::TcpListener};
-use tonic::{transport::Server, Request, Response, Status};
-use rand::Rng;
 use crate::{
     attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
     rpc::{
@@ -9,6 +5,10 @@ use crate::{
         AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
     },
 };
+use rand::Rng;
+use tokio::{time::sleep, net::TcpListener};
+use tonic::{transport::Server, Request, Response, Status};
+use std::{collections::BTreeMap, time::Duration, net::SocketAddr};
 
 #[derive(Debug, Default)]
 pub struct MockAttestor {
@@ -29,11 +29,23 @@ impl MockAttestor {
             // Let's create some forks/disagreements.
             // Attestors that don't fail will agree on height 100, but disagree on 105.
             let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(height, (vec![height as u8; STATE_BYTE_LENGTH], vec![height as u8; SIGNATURE_BYTE_LENGTH]));
+            store.insert(
+                height,
+                (
+                    vec![height as u8; STATE_BYTE_LENGTH], 
+                    vec![height as u8; SIGNATURE_BYTE_LENGTH],
+                ),
+            );
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110, (vec![110; STATE_BYTE_LENGTH], vec![110; SIGNATURE_BYTE_LENGTH]));
+            store.insert(
+                110,
+                (
+                    vec![110; STATE_BYTE_LENGTH], 
+                    vec![110; SIGNATURE_BYTE_LENGTH],
+                ),
+            );
         }
 
         let mut pub_key = [0u8; PUBKEY_BYTE_LENGTH];
@@ -108,7 +120,7 @@ pub async fn run_attestor_server(
 // Helper to spin up a mock attestor server on a random available port.
 // Returns the address it's listening on.
 pub async fn setup_attestor_server(
-    should_fail: bool, 
+    should_fail: bool,
     delay_ms: u64,
 ) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;

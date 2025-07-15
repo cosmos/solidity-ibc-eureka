@@ -7,10 +7,10 @@ pub mod rpc {
 }
 
 pub mod aggregator;
+pub mod attestor_data;
+pub mod cli;
 pub mod config;
 pub mod error;
-pub mod cli;
-pub mod attestor_data;
 pub mod server;
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use anyhow::Result;
-use thiserror::Error;
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::{fs, net::SocketAddr, path::Path, str::FromStr};
+use thiserror::Error;
 use tracing::Level;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -54,4 +54,3 @@ impl ServerConfig {
         Level::from_str(&self.log_level).unwrap_or(Level::INFO)
     }
 }
-
