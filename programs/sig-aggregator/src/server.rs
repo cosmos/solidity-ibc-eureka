@@ -6,7 +6,7 @@ use crate::{
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
-pub async fn start( service: AggregatorService, config: ServerConfig) -> Result<(), anyhow::Error> {
+pub async fn start(service: AggregatorService, config: ServerConfig) -> Result<(), anyhow::Error> {
     tracing::info!("Starting Server With Config: {:?}", config);
     let socket_addr = config.listner_addr;
     let reflection_service = tonic_reflection::server::Builder::configure()

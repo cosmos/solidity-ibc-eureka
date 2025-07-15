@@ -10,10 +10,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .compile_protos(
             &[
-                "../../proto/aggregator/aggregator.proto", 
+                "../../proto/aggregator/aggregator.proto",
                 "../../proto/ibc-attestor/ibc-attestor.proto",
-            ], 
-            &["../../proto"]
+            ],
+            &["../../proto"],
         )?;
     Ok(())
 }

@@ -6,9 +6,9 @@ use crate::{
     },
 };
 use rand::Rng;
-use tokio::{time::sleep, net::TcpListener};
+use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
+use tokio::{net::TcpListener, time::sleep};
 use tonic::{transport::Server, Request, Response, Status};
-use std::{collections::BTreeMap, time::Duration, net::SocketAddr};
 
 #[derive(Debug, Default)]
 pub struct MockAttestor {
@@ -32,7 +32,7 @@ impl MockAttestor {
             store.insert(
                 height,
                 (
-                    vec![height as u8; STATE_BYTE_LENGTH], 
+                    vec![height as u8; STATE_BYTE_LENGTH],
                     vec![height as u8; SIGNATURE_BYTE_LENGTH],
                 ),
             );
@@ -42,7 +42,7 @@ impl MockAttestor {
             store.insert(
                 110,
                 (
-                    vec![110; STATE_BYTE_LENGTH], 
+                    vec![110; STATE_BYTE_LENGTH],
                     vec![110; SIGNATURE_BYTE_LENGTH],
                 ),
             );

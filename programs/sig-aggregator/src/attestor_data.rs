@@ -1,8 +1,4 @@
-use crate::{
-    rpc::{
-        AggregateResponse, AttestationsFromHeightResponse, SigPubkeyPair,
-    },
-};
+use crate::rpc::{AggregateResponse, AttestationsFromHeightResponse, SigPubkeyPair};
 use alloy_primitives::FixedBytes;
 use std::collections::HashMap;
 

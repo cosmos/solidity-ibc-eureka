@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient, 
+        aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
         AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
     },
 };
@@ -11,8 +11,8 @@ use crate::{
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::sync::Arc;
 use tokio::{
-    sync::{RwLock, Mutex},
-    time::{timeout, Duration}, 
+    sync::{Mutex, RwLock},
+    time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
 
@@ -190,8 +190,8 @@ mod e2e_tests {
                 format!("http://{addr_2}"),
                 format!("http://{addr_3}"),
                 format!("http://{addr_4}"),
-                ],
-            );
+            ],
+        );
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
 
@@ -204,7 +204,7 @@ mod e2e_tests {
         let status = response.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
         assert_eq!(
-            status.message(), 
+            status.message(),
             "No valid attestation found for height >= 100"
         );
     }
