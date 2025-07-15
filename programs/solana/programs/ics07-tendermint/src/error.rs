@@ -59,6 +59,8 @@ pub enum ErrorCode {
     // Consensus state errors
     #[msg("Consensus state not found at the specified height")]
     ConsensusStateNotFound,
+    #[msg("Invalid length: state root or next validators hash is not 32 bytes long")]
+    InvalidRootLength,
 
     // Other errors
     #[msg("Serialization error: failed to serialize/deserialize data")]

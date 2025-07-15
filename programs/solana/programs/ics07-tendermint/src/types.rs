@@ -108,21 +108,15 @@ impl From<ConsensusState> for IbcConsensusState {
     }
 }
 
-impl From<IbcConsensusState> for ConsensusState {
-    fn from(cs: IbcConsensusState) -> Self {
-        ConsensusState {
+impl TryFrom<IbcConsensusState> for ConsensusState {
+    type Error = <[u8; 32] as TryFrom<Vec<u8>>>::Error;
+
+    fn try_from(cs: IbcConsensusState) -> std::result::Result<Self, Self::Error> {
+        Ok(ConsensusState {
             timestamp: cs.timestamp.unix_timestamp_nanos() as u64,
-            root: cs
-                .root
-                .into_vec()
-                .try_into()
-                .expect("root must be 32 bytes"),
-            next_validators_hash: cs
-                .next_validators_hash
-                .as_bytes()
-                .try_into()
-                .expect("hash must be 32 bytes"),
-        }
+            root: cs.root.into_vec().try_into()?,
+            next_validators_hash: cs.next_validators_hash.as_bytes().to_vec().try_into()?,
+        })
     }
 }
 

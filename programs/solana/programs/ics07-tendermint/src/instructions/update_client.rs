@@ -131,7 +131,13 @@ fn verify_header_and_get_state(
         error!(ErrorCode::UpdateClientFailed)
     })?;
 
-    Ok((output.latest_height, output.new_consensus_state.into()))
+    Ok((
+        output.latest_height,
+        output
+            .new_consensus_state
+            .try_into()
+            .map_err(|_| error!(ErrorCode::InvalidRootLength))?,
+    ))
 }
 
 fn verify_consensus_state_pda(
