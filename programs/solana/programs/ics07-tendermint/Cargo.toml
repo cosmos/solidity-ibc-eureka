@@ -1,0 +1,37 @@
+[package]
+name = "ics07-tendermint"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ics07_tendermint"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+
+tendermint-light-client-update-client.workspace = true
+tendermint-light-client-membership.workspace = true
+tendermint-light-client-misbehaviour.workspace = true
+tendermint-light-client-uc-and-membership.workspace = true
+
+# TODO:cleanup
+ibc-client-tendermint.workspace = true
+ibc-core-client-types.workspace = true
+ibc-core-host-types.workspace = true
+ibc-core-commitment-types.workspace = true
+ibc-primitives.workspace = true
+ibc-proto.workspace = true
+tendermint.workspace = true
+time = { workspace = true, features = ["macros"] }
+

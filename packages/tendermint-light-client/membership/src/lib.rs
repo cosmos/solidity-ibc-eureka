@@ -32,8 +32,9 @@ impl KVPair {
     }
 
     /// Check if this is a non-membership proof (empty value)
+    #[allow(clippy::missing_const_for_fn, reason = "not stable in every target")]
     #[must_use]
-    pub const fn is_non_membership(&self) -> bool {
+    pub fn is_non_membership(&self) -> bool {
         self.value.is_empty()
     }
 

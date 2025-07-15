@@ -74,6 +74,7 @@
               pkg-config
               solana-agave
               protobuf
+              just
             ];
             shellHook = ''
               # Add Solana tools to PATH
