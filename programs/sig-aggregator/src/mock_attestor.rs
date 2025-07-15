@@ -1,24 +1,14 @@
-use std::collections::BTreeMap;
-use std::time::Duration;
-use tokio::time::sleep;
-use tonic::{transport::Server, Request, Response, Status};
-use rand::Rng;
-
-use crate::rpc::{
-    attestor_server::{Attestor, AttestorServer},
-    Attestation, AttestationsResponse, QueryRequest,
+use crate::{
+    attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
+    rpc::{
+        attestation_service_server::{AttestationService, AttestationServiceServer},
+        AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+    },
 };
-
-// A mock signature is just a height repeated 4 times inside a 32-byte array.
-// Which represent a digest, i.e. serialized chain header.
-fn mock_bytes(height: u64, size: usize) -> Vec<u8> {
-    let mut sig = vec![0u8; size];
-    let height_bytes = height.to_be_bytes();
-    for i in 0..4 {
-        sig[i * 8..(i + 1) * 8].copy_from_slice(&height_bytes);
-    }
-    sig
-}
+use rand::Rng;
+use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
+use tokio::{net::TcpListener, time::sleep};
+use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Debug, Default)]
 pub struct MockAttestor {
@@ -39,14 +29,26 @@ impl MockAttestor {
             // Let's create some forks/disagreements.
             // Attestors that don't fail will agree on height 100, but disagree on 105.
             let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(height, (mock_bytes(height, 32), mock_bytes(height, 64)));
+            store.insert(
+                height,
+                (
+                    vec![height as u8; STATE_BYTE_LENGTH],
+                    vec![height as u8; SIGNATURE_BYTE_LENGTH],
+                ),
+            );
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110, (mock_bytes(110, 32), mock_bytes(110, 64)));
+            store.insert(
+                110,
+                (
+                    vec![110; STATE_BYTE_LENGTH],
+                    vec![110; SIGNATURE_BYTE_LENGTH],
+                ),
+            );
         }
 
-        let mut pub_key = [0u8; 33];
+        let mut pub_key = [0u8; PUBKEY_BYTE_LENGTH];
         rand::rng().fill(&mut pub_key[..]);
 
         Self {
@@ -59,11 +61,11 @@ impl MockAttestor {
 }
 
 #[tonic::async_trait]
-impl Attestor for MockAttestor {
-    async fn query_attestations(
+impl AttestationService for MockAttestor {
+    async fn get_attestations_from_height(
         &self,
-        request: Request<QueryRequest>,
-    ) -> Result<Response<AttestationsResponse>, Status> {
+        request: Request<AttestationsFromHeightRequest>,
+    ) -> Result<Response<AttestationsFromHeightResponse>, Status> {
         if self.delay_ms > 0 {
             sleep(Duration::from_millis(self.delay_ms)).await;
         }
@@ -72,19 +74,19 @@ impl Attestor for MockAttestor {
             return Err(Status::internal("Simulated attestor failure"));
         }
 
-        let min_height = request.into_inner().min_height;
+        let min_height = request.into_inner().height;
         let store = self.store.clone();
 
         let attestations = store
             .range(min_height..)
-            .map(|(&height, (state, signature))| Attestation {
+            .map(|(&height, (state, signature))| AttestationEntry {
                 height,
-                state: state.clone(),
+                data: state.clone(),
                 signature: signature.clone(),
             })
             .collect();
 
-        Ok(Response::new(AttestationsResponse {
+        Ok(Response::new(AttestationsFromHeightResponse {
             pubkey: self.pub_key.clone(),
             attestations,
         }))
@@ -108,9 +110,30 @@ pub async fn run_attestor_server(
     tracing::info!("Attestor listening on {}", addr);
 
     Server::builder()
-        .add_service(AttestorServer::new(attestor))
+        .add_service(AttestationServiceServer::new(attestor))
         .serve(addr)
         .await?;
 
     Ok(())
+}
+
+// Helper to spin up a mock attestor server on a random available port.
+// Returns the address it's listening on.
+pub async fn setup_attestor_server(
+    should_fail: bool,
+    delay_ms: u64,
+) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
+    let attestor = MockAttestor::new(should_fail, delay_ms);
+    let pubkey = attestor.get_pubkey();
+
+    tokio::spawn(async move {
+        Server::builder()
+            .add_service(AttestationServiceServer::new(attestor))
+            .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+            .await
+    });
+
+    Ok((addr, pubkey))
 }

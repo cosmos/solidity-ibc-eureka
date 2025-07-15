@@ -3,30 +3,31 @@ use crate::{
     config::Config,
     error::AggregatorError,
     rpc::{
-        aggregator_server::Aggregator, attestor_client::AttestorClient, AggregateRequest, AggregateResponse, QueryRequest
+        aggregator_server::Aggregator, attestation_service_client::AttestationServiceClient,
+        AggregateRequest, AggregateResponse, AttestationsFromHeightRequest,
     },
 };
+
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::sync::Arc;
 use tokio::{
-    time::{timeout, Duration}, 
-    sync::{RwLock, Mutex},
+    sync::{Mutex, RwLock},
+    time::{timeout, Duration},
 };
 use tonic::{transport::Channel, Request, Response, Status};
-
 
 #[derive(Debug)]
 pub struct AggregatorService {
     config: Config,
-    attestor_clients: Vec<Arc<Mutex<AttestorClient<Channel>>>>,
+    attestor_clients: Vec<Arc<Mutex<AttestationServiceClient<Channel>>>>,
     cached_height: Arc<RwLock<AggregateResponse>>,
 }
 
 impl AggregatorService {
     pub async fn from_config(config: Config) -> Result<Self, AggregatorError> {
         let mut attestor_clients = Vec::new();
-        for endpoint in &config.attestor_endpoints {
-            let client = AttestorClient::connect(endpoint.to_string())
+        for endpoint in &config.attestor.attestor_endpoints {
+            let client = AttestationServiceClient::connect(endpoint.to_string())
                 .await
                 .map_err(|e| AggregatorError::Config(e.to_string()))?;
             attestor_clients.push(Arc::new(Mutex::new(client)));
@@ -43,7 +44,6 @@ impl AggregatorService {
     }
 }
 
-
 #[tonic::async_trait]
 impl Aggregator for AggregatorService {
     #[tracing::instrument(skip_all, fields(min_height = request.get_ref().min_height))]
@@ -58,16 +58,15 @@ impl Aggregator for AggregatorService {
                 return Ok(Response::new(cached_height.clone()));
             }
         }
-
         let mut futs = FuturesUnordered::new();
-        let timeout_ms = Duration::from_millis(self.config.attestor_query_timeout_ms);
+        let timeout_ms = Duration::from_millis(self.config.attestor.attestor_query_timeout_ms);
 
         // Spin up one future per client, each with its own timeout
         for client in self.attestor_clients.iter() {
             let mut client = client.lock().await;
-            let req = Request::new(QueryRequest { min_height });
+            let req = Request::new(AttestationsFromHeightRequest { height: min_height });
             futs.push(async move {
-                match timeout(timeout_ms, client.query_attestations(req)).await {
+                match timeout(timeout_ms, client.get_attestations_from_height(req)).await {
                     Ok(Ok(resp)) => Ok(resp.into_inner()),
                     Ok(Err(status)) => Err(status),
                     Err(_) => Err(Status::deadline_exceeded("attestor RPC timed out")),
@@ -82,14 +81,14 @@ impl Aggregator for AggregatorService {
                 Err(e) => tracing::error!("An attestor query failed: {}", e),
             }
         }
-    
-        if let Some(agg_resp) = attestator_data.get_latest(self.config.quorum_threshold) {
+
+        if let Some(agg_resp) = attestator_data.get_latest(self.config.attestor.quorum_threshold) {
             let mut cached_height = self.cached_height.write().await;
             if cached_height.height < agg_resp.height {
                 *cached_height = agg_resp;
             }
         }
-        
+
         let cached_height = self.cached_height.read().await;
         if cached_height.height < min_height {
             return Err(Status::not_found(format!(
@@ -101,38 +100,26 @@ impl Aggregator for AggregatorService {
     }
 }
 
-
 #[cfg(test)]
 mod e2e_tests {
     use super::*;
     use crate::{
-        config::Config, mock_attestor::MockAttestor, rpc::attestor_server::{AttestorServer},
+        config::{AttestorConfig, Config, ServerConfig},
+        mock_attestor::setup_attestor_server,
     };
-    use std::net::SocketAddr;
-    use tokio::net::TcpListener;
-    use tokio_stream;
-    use tonic::transport::Server;
-    use url::Url;
 
-    // Helper to spin up a mock attestor server on a random available port.
-    // Returns the address it's listening on.
-    async fn setup_attestor_server(
-        should_fail: bool, 
-        delay_ms: u64,
-    ) -> anyhow::Result<(SocketAddr, Vec<u8>)> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let attestor = MockAttestor::new(should_fail, delay_ms);
-        let pubkey = attestor.get_pubkey();
-
-        tokio::spawn(async move {
-            Server::builder()
-                .add_service(AttestorServer::new(attestor))
-                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
-                .await
-        });
-
-        Ok((addr, pubkey))
+    fn default_config(timeout: u64, attestor_endpoints: Vec<String>) -> Config {
+        Config {
+            server: ServerConfig {
+                listner_addr: "127.0.0.1:50060".parse().unwrap(),
+                log_level: "INFO".to_string(),
+            },
+            attestor: AttestorConfig {
+                attestor_query_timeout_ms: timeout,
+                quorum_threshold: 3,
+                attestor_endpoints,
+            },
+        }
     }
 
     #[tokio::test]
@@ -144,19 +131,17 @@ mod e2e_tests {
         let (addr_2, pk_2) = setup_attestor_server(false, 0).await.unwrap();
         let (addr_3, pk_3) = setup_attestor_server(false, 0).await.unwrap();
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
-        
+
         // 2. Setup: Create AggregatorService
-        let config = Config {
-            attestor_endpoints: vec![
-                Url::parse(&format!("http://{addr_1}")).unwrap(),
-                Url::parse(&format!("http://{addr_2}")).unwrap(),
-                Url::parse(&format!("http://{addr_3}")).unwrap(),
-                Url::parse(&format!("http://{addr_4}")).unwrap(),
+        let config = default_config(
+            5000,
+            vec![
+                format!("http://{addr_1}"),
+                format!("http://{addr_2}"),
+                format!("http://{addr_3}"),
+                format!("http://{addr_4}"),
             ],
-            quorum_threshold: 3,
-            listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
-            attestor_query_timeout_ms: 5000,
-        };
+        );
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
 
@@ -171,11 +156,20 @@ mod e2e_tests {
         let aggres = response.into_inner();
         assert_eq!(aggres.height, 110);
         assert_eq!(aggres.sig_pubkey_pairs.len(), 3);
-        assert!(aggres.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_1));
-        assert!(aggres.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_2));
-        assert!(aggres.sig_pubkey_pairs.iter().any(|pair| pair.pubkey == pk_3));
+        assert!(aggres
+            .sig_pubkey_pairs
+            .iter()
+            .any(|pair| pair.pubkey == pk_1));
+        assert!(aggres
+            .sig_pubkey_pairs
+            .iter()
+            .any(|pair| pair.pubkey == pk_2));
+        assert!(aggres
+            .sig_pubkey_pairs
+            .iter()
+            .any(|pair| pair.pubkey == pk_3));
 
-        assert_eq!(aggres.state.len(), 32); // Assuming state is 32 bytes long
+        assert_eq!(aggres.state.len(), 12); // Assuming state is 12 bytes long
     }
 
     #[tokio::test]
@@ -187,40 +181,40 @@ mod e2e_tests {
         let (addr_2, _) = setup_attestor_server(false, 1000).await.unwrap();
         let (addr_3, _) = setup_attestor_server(false, 1000).await.unwrap();
         let (addr_4, _) = setup_attestor_server(true, 0).await.unwrap(); // This one will fail
-        
+
         // 2. Setup: Create AggregatorService
-        let config = Config {
-            attestor_endpoints: vec![
-                Url::parse(&format!("http://{addr_1}")).unwrap(),
-                Url::parse(&format!("http://{addr_2}")).unwrap(),
-                Url::parse(&format!("http://{addr_3}")).unwrap(),
-                Url::parse(&format!("http://{addr_4}")).unwrap(),
+        let config = default_config(
+            100,
+            vec![
+                format!("http://{addr_1}"),
+                format!("http://{addr_2}"),
+                format!("http://{addr_3}"),
+                format!("http://{addr_4}"),
             ],
-            quorum_threshold: 3,
-            listen_addr: "127.0.0.1:50060".parse().unwrap(), // Not used in this test
-            attestor_query_timeout_ms: 500,
-        };
+        );
 
         let aggregator_service = AggregatorService::from_config(config).await.unwrap();
 
         // 3. Execute: Query for an aggregated attestation
         let request = Request::new(AggregateRequest { min_height: 100 });
-        let response = aggregator_service
-            .get_aggregate_attestation(request)
-            .await;
+        let response = aggregator_service.get_aggregate_attestation(request).await;
 
         // 4. Assert: Can not reach quorum due to timeouts
         assert!(response.is_err());
         let status = response.unwrap_err();
         assert_eq!(status.code(), tonic::Code::NotFound);
-        assert_eq!(status.message(), "No valid attestation found for height >= 100");
+        assert_eq!(
+            status.message(),
+            "No valid attestation found for height >= 100"
+        );
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::attestor_data::{PUBKEY_BYTE_LENGTH, STATE_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH};
-    use crate::rpc::{Attestation, AttestationsResponse};
+    use crate::attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH};
+    use crate::rpc::{AttestationEntry, AttestationsFromHeightResponse};
 
     // Helper to build a FixedBytes-N vector filled with `b`
     fn fill_bytes<const N: usize>(b: u8) -> Vec<u8> {
@@ -232,11 +226,11 @@ mod tests {
         // We have a height 100 but only 1 signature < quorum 2
         let mut attestator_data = AttestatorData::new();
 
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x03),
-            attestations: vec![Attestation {
+            attestations: vec![AttestationEntry {
                 height: 100,
-                state: fill_bytes::<STATE_BYTE_LENGTH>(1),
+                data: fill_bytes::<STATE_BYTE_LENGTH>(1),
                 signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x04),
             }],
         });
@@ -249,22 +243,20 @@ mod tests {
     fn picks_single_height_meeting_quorum() {
         let mut attestator_data = AttestatorData::new();
         let state = fill_bytes::<STATE_BYTE_LENGTH>(0xAA);
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21),
-            attestations: vec![
-                Attestation {
-                    height: 123,
-                    state: state.clone(),
-                    signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
-                },
-            ],
-        });
-        
-        attestator_data.insert(AttestationsResponse {
-            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
-            attestations: vec![Attestation {
+            attestations: vec![AttestationEntry {
                 height: 123,
-                state: state.clone(),
+                data: state.clone(),
+                signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
+            }],
+        });
+
+        attestator_data.insert(AttestationsFromHeightResponse {
+            pubkey: fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22),
+            attestations: vec![AttestationEntry {
+                height: 123,
+                data: state.clone(),
                 signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(0x11),
             }],
         });
@@ -277,7 +269,11 @@ mod tests {
         // Should have two SigPubkeyPair entries
         assert_eq!(latest.sig_pubkey_pairs.len(), 2);
         // Check that the pairs contain the pubkeys we inserted
-        let pubs: Vec<_> = latest.sig_pubkey_pairs.into_iter().map(|p| p.pubkey).collect();
+        let pubs: Vec<_> = latest
+            .sig_pubkey_pairs
+            .into_iter()
+            .map(|p| p.pubkey)
+            .collect();
         assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x21)));
         assert!(pubs.contains(&fill_bytes::<PUBKEY_BYTE_LENGTH>(0x22)));
     }
@@ -292,64 +288,64 @@ mod tests {
         let pk_b = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xB);
         let pk_c = fill_bytes::<PUBKEY_BYTE_LENGTH>(0xC);
 
-        attestator_data.insert(AttestationsResponse {
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_a.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(1),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(3),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
                 },
             ],
         });
-        
-        attestator_data.insert(AttestationsResponse {
+
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_b.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(2),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(4),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(6),
                 },
             ],
         });
-        
-        attestator_data.insert(AttestationsResponse {
+
+        attestator_data.insert(AttestationsFromHeightResponse {
             pubkey: pk_c.clone(),
             attestations: vec![
-                Attestation {
+                AttestationEntry {
                     height: 120,
-                    state: state120.clone(),
+                    data: state120.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(5),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 150,
-                    state: state150.clone(),
+                    data: state150.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(10),
                 },
-                Attestation {
+                AttestationEntry {
                     height: 200,
-                    state: state200.clone(),
+                    data: state200.clone(),
                     signature: fill_bytes::<SIGNATURE_BYTE_LENGTH>(15),
                 },
             ],
@@ -363,7 +359,11 @@ mod tests {
         // Should have three SigPubkeyPair entries
         assert_eq!(latest.sig_pubkey_pairs.len(), 3);
         // Check that the pairs contain the pubkeys we inserted
-        let pks: Vec<_> = latest.sig_pubkey_pairs.into_iter().map(|p| p.pubkey).collect();
+        let pks: Vec<_> = latest
+            .sig_pubkey_pairs
+            .into_iter()
+            .map(|p| p.pubkey)
+            .collect();
         assert!(pks.contains(pk_a.as_ref()));
         assert!(pks.contains(pk_b.as_ref()));
         assert!(pks.contains(pk_c.as_ref()));
