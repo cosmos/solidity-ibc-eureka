@@ -2,9 +2,12 @@ use std::{collections::BTreeMap, time::Duration, net::SocketAddr};
 use tokio::{time::sleep, net::TcpListener};
 use tonic::{transport::Server, Request, Response, Status};
 use rand::Rng;
-use crate::rpc::{
-    attestation_service_server::{AttestationService, AttestationServiceServer},
-    AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+use crate::{
+    attestor_data::{PUBKEY_BYTE_LENGTH, SIGNATURE_BYTE_LENGTH, STATE_BYTE_LENGTH},
+    rpc::{
+        attestation_service_server::{AttestationService, AttestationServiceServer},
+        AttestationEntry, AttestationsFromHeightRequest, AttestationsFromHeightResponse,
+    },
 };
 
 #[derive(Debug, Default)]
@@ -26,14 +29,14 @@ impl MockAttestor {
             // Let's create some forks/disagreements.
             // Attestors that don't fail will agree on height 100, but disagree on 105.
             let height = if i == 105 && !should_fail { 104 } else { i };
-            store.insert(height, (vec![height as u8; 12], vec![height as u8; 64]));
+            store.insert(height, (vec![height as u8; STATE_BYTE_LENGTH], vec![height as u8; SIGNATURE_BYTE_LENGTH]));
         }
         // A higher block that only some attestors will have quorum for.
         if !should_fail {
-            store.insert(110, (vec![110; 12], vec![110; 64]));
+            store.insert(110, (vec![110; STATE_BYTE_LENGTH], vec![110; SIGNATURE_BYTE_LENGTH]));
         }
 
-        let mut pub_key = [0u8; 58];
+        let mut pub_key = [0u8; PUBKEY_BYTE_LENGTH];
         rand::rng().fill(&mut pub_key[..]);
 
         Self {

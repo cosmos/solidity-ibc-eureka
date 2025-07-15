@@ -134,9 +134,10 @@ where
                 signature: att.signature.to_vec(),
             })
             .collect();
-
+        
+        let pubkey = self.signer.get_pubkey();
         let message = AttestationsFromHeightResponse {
-            pubkey: [0; 58].to_vec(),
+            pubkey,
             attestations: as_messages,
         };
 

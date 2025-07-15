@@ -17,7 +17,7 @@ type Signature = FixedBytes<SIGNATURE_BYTE_LENGTH>;
 
 // Compressed public key length
 // https://docs.rs/secp256k1/latest/secp256k1/struct.PublicKey.html#method.serialize
-pub const PUBKEY_BYTE_LENGTH: usize = 58;
+pub const PUBKEY_BYTE_LENGTH: usize = 33; 
 type Pubkey = FixedBytes<PUBKEY_BYTE_LENGTH>;
 
 //  HashMap<height, HashMap<State, Vec[(Signatures, pub_key)]>>
