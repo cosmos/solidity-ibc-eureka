@@ -1,7 +1,7 @@
 use key_utils::read_private_pem_to_secret;
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;
-use secp256k1::{SECP256K1, SecretKey};
+use secp256k1::{SecretKey, SECP256K1};
 use thiserror::Error;
 
 use crate::cli::SignerConfig;
