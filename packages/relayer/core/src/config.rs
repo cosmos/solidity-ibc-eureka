@@ -59,3 +59,33 @@ impl ServerConfig {
         Level::from_str(&self.log_level).unwrap_or(Level::INFO)
     }
 }
+
+/// Parse a module configuration value into the target struct while producing
+/// detailed path-aware error messages.
+///
+/// This helper is placed in `relayer_core` so that every relayer module can
+/// reuse it without code duplication. It leverages `serde_path_to_error` to
+/// include the exact JSON path of the failure (e.g. `sp1_programs.update_client`).
+///
+/// # Errors
+/// Returns an [`anyhow::Error`] with the precise path and the original serde
+/// error message.
+pub fn parse_config<T>(value: serde_json::Value) -> anyhow::Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    // Convert the value back to a string so that the JSON deserializer can
+    // provide line/column information. This conversion is cheap compared to
+    // the benefit of detailed error messages and we only do it once at startup.
+    let json_string = value.to_string();
+
+    let mut deserializer = serde_json::Deserializer::from_str(&json_string);
+    match serde_path_to_error::deserialize::<_, T>(&mut deserializer) {
+        Ok(v) => Ok(v),
+        Err(e) => Err(anyhow::anyhow!(format!(
+            "config error at {}: {}",
+            e.path(),
+            e
+        ))),
+    }
+}

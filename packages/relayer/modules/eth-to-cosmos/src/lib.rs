@@ -258,8 +258,7 @@ impl RelayerModule for EthToCosmosRelayerModule {
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<EthToCosmosConfig>(config)
-            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+        let config = ibc_eureka_relayer_core::config::parse_config::<EthToCosmosConfig>(config)?;
 
         tracing::info!("Starting Ethereum to Cosmos relayer server.");
         Ok(Box::new(EthToCosmosRelayerModuleService::new(config).await))

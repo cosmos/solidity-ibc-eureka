@@ -227,8 +227,7 @@ impl RelayerModule for CosmosToCosmosRelayerModule {
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
-            .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
+        let config = ibc_eureka_relayer_core::config::parse_config::<CosmosToCosmosConfig>(config)?;
 
         tracing::info!("Starting Cosmos to Cosmos relayer server.");
         Ok(Box::new(CosmosToCosmosRelayerModuleService::new(config)))
