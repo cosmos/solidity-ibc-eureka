@@ -64,19 +64,14 @@ impl ServerConfig {
 /// detailed path-aware error messages.
 ///
 /// This helper is placed in `relayer_core` so that every relayer module can
-/// reuse it without code duplication. It leverages `serde_path_to_error` to
+/// reuse it without code duplication. It uses `serde_path_to_error` to
 /// include the exact JSON path of the failure (e.g. `sp1_programs.update_client`).
-///
-/// # Errors
-/// Returns an [`anyhow::Error`] with the precise path and the original serde
-/// error message.
 pub fn parse_config<T>(value: serde_json::Value) -> anyhow::Result<T>
 where
     T: serde::de::DeserializeOwned,
 {
     // Convert the value back to a string so that the JSON deserializer can
-    // provide line/column information. This conversion is cheap compared to
-    // the benefit of detailed error messages and we only do it once at startup.
+    // provide line/column information.
     let json_string = value.to_string();
 
     let mut deserializer = serde_json::Deserializer::from_str(&json_string);
