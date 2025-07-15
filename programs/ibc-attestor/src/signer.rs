@@ -1,7 +1,7 @@
 use key_utils::read_private_pem_to_secret;
 use secp256k1::hashes::{sha256, Hash};
 use secp256k1::Message;
-use secp256k1::{Secp256k1, SecretKey, PublicKey};
+use secp256k1::{SECP256K1, SecretKey};
 use thiserror::Error;
 
 use crate::cli::SignerConfig;
@@ -34,8 +34,7 @@ impl Signer {
     }
 
     pub fn get_pubkey(&self) -> Vec<u8> {
-        let pubkey = PublicKey::from_secret_key(&Secp256k1::new(), &self.skey);
-        pubkey.serialize().to_vec()
+        self.skey.public_key(SECP256K1).serialize().to_vec()
     }
 }
 
