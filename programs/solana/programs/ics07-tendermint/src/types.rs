@@ -86,7 +86,7 @@ impl From<ClientState> for UpdateClientState {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Eq, PartialEq)]
 pub struct ConsensusState {
     pub timestamp: u64,
     pub root: [u8; 32],

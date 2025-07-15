@@ -198,11 +198,7 @@ fn check_existing_consensus_state(
     let existing_store: ConsensusStateStore = ConsensusStateStore::try_deserialize(&mut &data[8..])
         .map_err(|_| error!(ErrorCode::SerializationError))?;
 
-    if existing_store.consensus_state.timestamp != new_consensus_state.timestamp
-        || existing_store.consensus_state.root != new_consensus_state.root
-        || existing_store.consensus_state.next_validators_hash
-            != new_consensus_state.next_validators_hash
-    {
+    if &existing_store.consensus_state != new_consensus_state {
         client_state.freeze();
         msg!(
             "Misbehaviour detected: conflicting consensus state at height {}",
