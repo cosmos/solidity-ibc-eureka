@@ -24,12 +24,6 @@ async fn main() -> Result<()> {
             let aggregator_service = AggregatorService::from_config(config.clone()).await?;
 
             start_server(aggregator_service, config.server).await?;
-
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => {
-                    tracing::info!("Received Ctrl+C, shutting down server.");
-                }
-            }
         }
     }
 

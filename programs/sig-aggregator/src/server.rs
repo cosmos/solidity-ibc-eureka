@@ -1,7 +1,9 @@
-use crate::{aggregator::AggregatorService, config::ServerConfig};
+use crate::{
+    aggregator::AggregatorService, 
+    config::ServerConfig,
+    rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR},
+};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use crate::rpc::{aggregator_server::AggregatorServer, AGG_FILE_DESCRIPTOR};
-
 
 /// Starts the [AggregatorService] RPC server with the provided configuration.
 pub async fn start(
@@ -9,27 +11,23 @@ pub async fn start(
     config: ServerConfig,
 ) -> Result<(), anyhow::Error> {
     tracing::info!("Starting Server With Config: {:?}", config);
-    tokio::spawn(async move {
-        let socket_addr = config.listner_addr;
-        let reflection_service = tonic_reflection::server::Builder::configure()
-            .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
-            .build_v1()
-            .unwrap();
+    let socket_addr = config.listner_addr;
+    let reflection_service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(AGG_FILE_DESCRIPTOR)
+        .build_v1()
+        .unwrap();
 
-        tracing::info!("Started gRPC server on {}", socket_addr);
-        tonic::transport::Server::builder()
-            .layer(
-                TraceLayer::new_for_grpc()
-                    .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                    .on_response(DefaultOnResponse::new().level(config.log_level())),
-            )
-            .add_service(AggregatorServer::new(service))
-            .add_service(reflection_service)
-            .serve(socket_addr)
-            .await
-            .unwrap();
-    });
-    Ok(())
+    tonic::transport::Server::builder()
+        .layer(
+            TraceLayer::new_for_grpc()
+                .make_span_with(DefaultMakeSpan::new().include_headers(true))
+                .on_response(DefaultOnResponse::new().level(config.log_level())),
+        )
+        .add_service(AggregatorServer::new(service))
+        .add_service(reflection_service)
+        .serve(socket_addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to start server: {}", e))
 }
 
 #[cfg(test)]
