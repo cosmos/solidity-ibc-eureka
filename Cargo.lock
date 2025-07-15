@@ -3867,6 +3867,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "tonic 0.13.1",
  "tonic-build",
  "tonic-reflection",

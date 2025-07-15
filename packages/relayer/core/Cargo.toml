@@ -14,6 +14,7 @@ tracing            = { workspace = true, default-features = true }
 anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
 
 serde      = { workspace = true, default-features = true }
+serde_path_to_error = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 prost      = { workspace = true, default-features = true }
 
